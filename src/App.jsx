@@ -216,8 +216,8 @@ export default function App() {
       }
   };
 
-  const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 3, 'Crítico': 4 };
-  const mapProbabilidadNum = { 'Rara': 1, 'Posible': 2, 'Frecuente': 3 };
+  const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
+  const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 
   const getYearFromDate = (dateStr) => {
     if (!dateStr) return 'N/A';
@@ -288,6 +288,11 @@ export default function App() {
             }
             nuevosRiesgos[existeIdx].historialCambios = [...(nuevosRiesgos[existeIdx].historialCambios || []), { fecha: timestamp, accion: `Control adicional sincronizado desde Excel` }];
           } else {
+            const pInh = normalizarProbabilidad(row['Probabilidad Inherente']);
+            const iInh = normalizarImpacto(row['Impacto Inherente']);
+            const pRes = normalizarProbabilidad(row['Probabilidad Residual Final']);
+            const iRes = normalizarImpacto(row['Impacto Residual Final']);
+
             const riesgoObj = {
               id: currentRiskId,
               categoria: row['Categoría'] || 'Operativo',
@@ -297,10 +302,10 @@ export default function App() {
               causaInmediata: row['Causa Inmediata'] || 'N/A',
               causaRaiz: row['Causa Raíz'] || 'N/A',
               descripcion: row['Descripción del riesgo'] || 'Sin descripción',
-              probabilidadInherente: normalizarProbabilidad(row['Probabilidad Inherente']),
-              impactoInherente: normalizarImpacto(row['Impacto Inherente']),
-              probabilidadResidual: normalizarProbabilidad(row['Probabilidad Residual Final']),
-              impactoResidual: normalizarImpacto(row['Impacto Residual Final']),
+              probabilidadInherente: pInh,
+              impactoInherente: iInh,
+              probabilidadResidual: pRes,
+              impactoResidual: iRes,
               noControl: nuevoNumControl || `C-${currentRiskId}`,
               descripcionControl: nuevoControl || 'No especificado',
               responsable: row['Responsable'] || 'No Asignado',
@@ -393,7 +398,7 @@ export default function App() {
       showNotification("El enlace de Drive no puede estar vacío.", "error"); return;
     }
 
-    showNotification("Conectando con Google Drive y descargando datos...", "success");
+    showNotification("Conectando con Google Drive and descargar datos...", "success");
     try {
       const response = await fetch(urlToFetch);
       if (!response.ok) throw new Error(`Error de red: ${response.status}`);
@@ -406,13 +411,48 @@ export default function App() {
     }
   };
 
-  // --- FORMULARIOS CRUD (CREAR Y ACTUALIZAR) ---
+  // --- 1. SECCIÓN DE FUNCIONES DE MEJORA: APETITO, MATRIZ Y ACCIÓN AUTOMÁTICA ---
+  const calcularMatriz5x5 = (probabilidad, impacto) => {
+    const pVal = mapProbabilidadNum[probabilidad] || 3;
+    const iVal = mapImpactoNum[impacto] || 2;
+    const score = pVal * iVal;
+
+    let apetito = "Dentro de Apetito";
+    let accion = "Aceptar / Monitorear";
+    let color = "bg-emerald-500 text-white";
+    let borderSemaforo = "border-emerald-200";
+
+    if (score <= 4) {
+      color = "bg-emerald-500 text-white";
+      borderSemaforo = "border-emerald-600";
+    } else if (score <= 9) {
+      color = "bg-yellow-400 text-slate-900";
+      borderSemaforo = "border-yellow-600";
+      accion = "Monitorear periódicamente";
+    } else if (score <= 16) {
+      color = "bg-orange-500 text-white";
+      borderSemaforo = "border-orange-600";
+      apetito = "Fuera de Apetito";
+      accion = "Mitigar / Ajustar Controles";
+    } else {
+      color = "bg-red-600 text-white";
+      borderSemaforo = "border-red-700";
+      apetito = "Fuera de Apetito";
+      accion = "Evitar / Suspender Proceso / Transferir";
+    }
+
+    return { score, apetito, accion, color, borderSemaforo };
+  };
+
+  // --- 2. REEMPLAZO MEJORADO DE HANDLERIESGOSUBMIT ---
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault();
     if (!isAdmin) return;
     const formData = new FormData(e.target);
     const probInh = formData.get('probInh');
     const impInh = formData.get('impInh');
+    const probRes = formData.get('probRes') || probInh;
+    const impRes = formData.get('impRes') || impInh;
     const timestamp = new Date().toLocaleString();
 
     let updatedList;
@@ -426,6 +466,8 @@ export default function App() {
         descripcion: formData.get('descripcion'),
         probabilidadInherente: probInh,
         impactoInherente: impInh,
+        probabilidadResidual: probRes,
+        impactoResidual: impRes,
         historialCambios: [...(editRiesgo.historialCambios || []), { fecha: timestamp, accion: 'Registro modificado por Auditor' }]
       };
       updatedList = safeRiesgos.map(r => r.id === editRiesgo.id ? modificado : r);
@@ -437,7 +479,7 @@ export default function App() {
         proceso: formData.get('proceso'), categoria: formData.get('categoria'), responsable: formData.get('responsable'),
         noControl: 'C-' + Math.floor(Math.random() * 100 + 100), descripcionControl: formData.get('control'),
         descripcion: formData.get('descripcion'), probabilidadInherente: probInh, impactoInherente: impInh,
-        probabilidadResidual: probInh, impactoResidual: impInh,
+        probabilidadResidual: probRes, impactoResidual: impRes,
         historialCambios: [{ fecha: timestamp, accion: 'Riesgo creado en matriz manualmente' }]
       };
       updatedList = [...safeRiesgos, nuevo];
@@ -488,7 +530,7 @@ export default function App() {
         let nuevaProb = (calif === 100) ? 'Rara' : r.probabilidadInherente;
         return {
           ...r, probabilidadResidual: nuevaProb,
-          historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: `Test arrojó efectividad del ${calif}%. Riesgo residual recalculado.` }]
+          historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: `Test arrojó efectividad del ${calif}%. Riesgo residual e indicadores de apetito recalculados.` }]
         };
       }
       return r;
@@ -597,7 +639,6 @@ export default function App() {
       showNotification("Incidente reportado. Dashboard actualizado.");
     }
 
-    // Trazabilidad automatica al Riesgo
     const nuevosRiesgos = safeRiesgos.map(r => r.id === idRiesgo ? {
       ...r,
       historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: editIncidente ? `Incidente ID #${editIncidente.id} fue editado` : `Incidente reportado: "${titulo}" (Pérdida est: $${costo})` }]
@@ -608,7 +649,6 @@ export default function App() {
     await saveToCloud({ incidentes: updatedList, riesgos: nuevosRiesgos });
     e.target.reset();
   };
-
 
   // --- FUNCIONES ELIMINAR ---
   const handleDeleteItem = async (listType, id) => {
@@ -641,7 +681,6 @@ export default function App() {
     await saveToCloud({ planes: updated });
     showNotification("Plan finalizado.");
   };
-
 
   // ==================== RENDERS DE VISTAS ====================
 
@@ -769,9 +808,22 @@ export default function App() {
     );
   };
 
+  // --- 5. REEMPLAZO FORMAL CON LOS NUEVOS KPIS REQUERIDOS ---
   const renderDashboardRiesgos = () => {
     const total = safeRiesgos.length;
     const esRes = tipoMatriz === 'residual';
+
+    // --- CÁLCULOS DINÁMICOS DE KPIs ---
+    const totalRiesgos = safeRiesgos.length;
+    const riesgosCriticos = safeRiesgos.filter(r => {
+      const { score } = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
+      return score > 16;
+    }).length;
+    const riesgosFueraApetito = safeRiesgos.filter(r => {
+      const { apetito } = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
+      return apetito === "Fuera de Apetito";
+    }).length;
+    const totalPerdidas = safeIncidentes.reduce((acc, i) => acc + (i.costo || 0), 0);
 
     const calcularScorePromedio = (esResid) => {
       if (total === 0) return 0;
@@ -786,7 +838,6 @@ export default function App() {
     const scoreInherente = parseFloat(calcularScorePromedio(false));
     const scoreResidual = parseFloat(calcularScorePromedio(true));
     const reduccionPorcentaje = scoreInherente > 0 ? Math.round(((scoreInherente - scoreResidual) / scoreInherente) * 100) : 0;
-    const totalPerdidas = safeIncidentes.reduce((acc, i) => acc + (i.costo || 0), 0);
 
     const impactos = ['Crítico', 'Alto', 'Medio', 'Bajo'];
     const probabilidades = ['Rara', 'Posible', 'Frecuente'];
@@ -798,7 +849,7 @@ export default function App() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo del universo corporativo.</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito basado en matrices ISO 31000.</p>
           </div>
           <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
             <button onClick={() => setTipoMatriz('inherente')} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
@@ -806,22 +857,26 @@ export default function App() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 shadow-lg border border-slate-700">
-            <p className="text-slate-400 text-[10px] font-extrabold uppercase tracking-widest">Universo Mapeado</p>
-            <div className="mt-3 flex items-end space-x-2"><span className="text-4xl font-black text-white">{total}</span><span className="text-xs text-slate-400 mb-1">Riesgos</span></div>
+        {/* Muestra tarjetas KPI solicitadas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500">
+            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Total Riesgos</p>
+            <p className="text-3xl font-black mt-2 text-slate-800">{totalRiesgos}</p>
           </div>
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
-            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Score Residual Prom.</p>
-            <div className="mt-3 flex items-end space-x-2"><span className="text-4xl font-black text-emerald-600">{scoreResidual}</span><span className="text-xs text-slate-400 mb-1">/ 12 pts</span></div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-red-600">
+            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Fuera de Apetito</p>
+            <p className="text-3xl font-black mt-2 text-red-600 flex items-center space-x-2">
+              <span>{riesgosFueraApetito}</span>
+              {riesgosFueraApetito > 0 && <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded font-black animate-pulse">ALERTA</span>}
+            </p>
           </div>
-          <div className="bg-gradient-to-br from-red-50 to-rose-50 rounded-2xl p-5 shadow-sm border border-red-100">
-            <p className="text-red-800 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Materializadas</p>
-            <div className="mt-3 flex items-end space-x-1"><span className="text-2xl font-black text-red-700">${totalPerdidas.toLocaleString('es-CO')}</span><span className="text-[9px] text-red-600 font-bold mb-0.5">COP</span></div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-orange-500">
+            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Riesgos Críticos</p>
+            <p className="text-3xl font-black mt-2 text-orange-600">{riesgosCriticos}</p>
           </div>
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 shadow-sm border border-blue-100">
-            <p className="text-blue-800 text-[10px] font-extrabold uppercase tracking-widest">Mitigación Efectiva</p>
-            <div className="mt-3 flex items-end space-x-2"><span className="text-4xl font-black text-blue-700">↓ {reduccionPorcentaje}%</span></div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-purple-600">
+            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Registradas</p>
+            <p className="text-xl font-black mt-3 text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</p>
           </div>
         </div>
 
@@ -840,14 +895,11 @@ export default function App() {
                   <div className="flex items-center justify-end pr-3 py-4 text-slate-600 font-bold uppercase text-[9px] bg-slate-50 rounded-l-lg text-right">{imp}</div>
                   {probabilidades.map(prob => {
                     const count = contarCelda(imp, prob);
-                    const score = (mapImpactoNum[imp] || 1) * (mapProbabilidadNum[prob] || 1);
-                    let cellColor = 'bg-emerald-50 text-emerald-800 border-emerald-100 hover:bg-emerald-100';
-                    if (score > 3 && score <= 6) cellColor = 'bg-amber-50 text-amber-800 border-amber-100 hover:bg-amber-100';
-                    else if (score > 6) cellColor = 'bg-rose-50 text-rose-800 border-rose-100 hover:bg-rose-100';
+                    const { score, color } = calcularMatriz5x5(prob, imp);
                     return (
-                      <div key={prob} className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow cursor-pointer ${cellColor}`}>
-                        <span className="absolute top-1 right-2 text-[8px] opacity-40 font-mono font-bold">P:{score}</span>
-                        <span className={`text-2xl font-black ${count > 0 ? '' : 'opacity-25'}`}>{count}</span>
+                      <div key={prob} className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow cursor-pointer ${color} bg-opacity-20`}>
+                        <span className="absolute top-1 right-2 text-[8px] font-mono font-bold opacity-60 text-slate-700">S:{score}</span>
+                        <span className={`text-2xl font-black ${count > 0 ? 'text-slate-900' : 'text-slate-300'}`}>{count}</span>
                       </div>
                     );
                   })}
@@ -860,6 +912,7 @@ export default function App() {
     );
   };
 
+  // --- 3. REEMPLAZO DEL FORMULARIO DE RIESGOS CON MATRIZ COMPLETA ---
   const renderRiesgos = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4">
@@ -869,42 +922,69 @@ export default function App() {
         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Cuenta en Modo "Solo Lectura". Requiere rol de Auditor.</div>
       ) : (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo Corporativo'}</h3>
           <form key={editRiesgo ? editRiesgo.id : 'new'} onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
             <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
             <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
             <div><label className="font-bold text-gray-600">Control Clave</label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
-            <div className="md:col-span-2"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
-            <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Rara</option><option>Posible</option><option>Frecuente</option></select></div>
-            <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
+            <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
+            
+            {/* Campos de Análisis de Escenarios en Matriz 5x5 */}
+            <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
+            <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
+            <div><label className="font-bold text-gray-600">Prob. Residual</label><select name="probRes" defaultValue={editRiesgo?.probabilidadResidual||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
+            <div><label className="font-bold text-gray-600">Imp. Residual</label><select name="impRes" defaultValue={editRiesgo?.impactoResidual||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
+            
             <div className="md:col-span-4 flex justify-end space-x-2">
               {editRiesgo && <button type="button" onClick={()=>setEditRiesgo(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow">Cancelar</button>}
-              <button type="submit" className={`${editRiesgo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editRiesgo ? 'Actualizar Cambios' : 'Guardar en Nube'}</button>
+              <button type="submit" className={`${editRiesgo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editRiesgo ? 'Actualizar Cambios' : 'Guardar y Calcular de Inmediato'}</button>
             </div>
           </form>
         </div>
       )}
+
+      {/* 4. REEMPLAZO DE TABLA CON APETITO Y SEMÁFOROS VISUALES */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Matriz de Riesgos</h4><span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-mono font-bold">{safeRiesgos.length} Registros</span></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Proceso</th><th className="p-3">Descripción</th><th className="p-3">Prob/Imp Inh</th><th className="p-3">Prob/Imp Res</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Proceso</th><th className="p-3">Descripción / Control</th><th className="p-3 text-center">Score Inh</th><th className="p-3 text-center">Score Res</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {safeRiesgos.map(r => (
-                <tr key={r.id} className="hover:bg-slate-50">
-                  <td className="p-3 font-bold text-slate-400">#{r.id}</td><td className="p-3 font-bold">{r.proceso}</td><td className="p-3 truncate max-w-xs">{r.descripcion}</td>
-                  <td className="p-3">{r.probabilidadInherente} / {r.impactoInherente}</td><td className="p-3 font-semibold text-emerald-600">{r.probabilidadResidual} / {r.impactoResidual}</td>
-                  <td className="p-3 text-center whitespace-nowrap space-x-1">
-                    <button onClick={() => setViewHistory({tipo: 'Riesgo', item: r})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️ Historial</button>
-                    {isAdmin && (
-                      <>
-                        <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
-                        <button onClick={() => handleDeleteItem('riesgos', r.id)} className="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {safeRiesgos.map(r => {
+                const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
+                const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
+                return (
+                  <tr key={r.id} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold text-slate-400">#{r.id}</td>
+                    <td className="p-3 font-bold">{r.proceso}<br/><span className="text-[9px] font-bold tracking-wider text-indigo-500 uppercase font-mono">{r.categoria}</span></td>
+                    <td className="p-3 max-w-xs">
+                      <div className="truncate font-semibold text-slate-700">{r.descripcion}</div>
+                      <div className="text-[10px] text-slate-400 truncate mt-0.5">⚙️ Control: {r.descripcionControl || 'Ninguno'}</div>
+                    </td>
+                    <td className="p-3 text-center font-mono text-slate-500">{inh.score} pts</td>
+                    <td className="p-3 text-center font-mono font-black text-slate-800">{res.score} pts</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${res.apetito === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800 animate-pulse'}`}>
+                        {res.apetito}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black shadow-sm border ${res.color} ${res.borderSemaforo}`}>
+                        {res.accion}
+                      </span>
+                    </td>
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      <button onClick={() => setViewHistory({tipo: 'Riesgo', item: r})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️ Historial</button>
+                      {isAdmin && (
+                        <>
+                          <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                          <button onClick={() => handleDeleteItem('riesgos', r.id)} className="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -989,7 +1069,7 @@ export default function App() {
               {safeHallazgos.map(h => (
                 <tr key={h.id} className="hover:bg-slate-50">
                   <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td><td className="p-3 font-bold">{h.proceso}</td><td className="p-3">{h.titulo}</td>
-                  <td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[10px] uppercase bg-slate-100">{h.estado}</span></td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[10px] uppercase bg-slate-100">{h.state || h.estado}</span></td>
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
                     <button onClick={() => setViewHistory({tipo: 'Hallazgo', item: h})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
                     {isAdmin && (
@@ -1105,7 +1185,7 @@ export default function App() {
     let logs = [];
     safeRiesgos.forEach(r => { (r.historialCambios||[]).forEach(h => logs.push({...h, tipo: 'Riesgo', id: r.id})); });
     safeHallazgos.forEach(h => { (h.historialCambios||[]).forEach(x => logs.push({...x, tipo: 'Hallazgo', id: h.id})); });
-    logs.sort((a, b) => new Date(b.fecha) - new Date(a.fecha)); // Orden descendente
+    logs.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
@@ -1154,7 +1234,6 @@ export default function App() {
       </div>
     );
   };
-
 
   // --- RENDER DE LOGIN ---
   if (!user) {
