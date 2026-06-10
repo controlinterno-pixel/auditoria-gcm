@@ -1,0 +1,337 @@
+import React, { useState } from 'react';
+import './index.css';
+import { Shield, LayoutDashboard, AlertTriangle, FileText, CheckSquare, PlusCircle } from 'lucide-react';
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('tablero');
+
+  const [riesgos, setRiesgos] = useState([
+    { id: 1, proceso: 'Compras y Cuentas por Pagar', descripcion: 'Aprobación de facturas de proveedores ficticios o sin prestación real del servicio.', impacto: 'Alto', probabilidad: 'Posible' },
+    { id: 2, proceso: 'TI / Sistemas', descripcion: 'Accesos no revocados a ex-empleados en sistemas financieros.', impacto: 'Crítico', probabilidad: 'Frecuente' }
+  ]);
+
+  const [hallazgos, setHallazgos] = useState([
+    { id: 1, ref: 'AUD-FIN-2023-04', titulo: 'Ausencia de segregación de funciones en alta de proveedores.', severidad: 'Crítico', idRiesgo: 1 }
+  ]);
+
+  const [planes, setPlanes] = useState([
+    { id: 1, idHallazgo: 1, accion: 'Bloquear permisos en ERP para usuarios genéricos.', responsable: 'J. Pérez (TI)', fecha: '2026-06-15', estado: 'Pendiente' },
+    { id: 2, idHallazgo: 1, accion: 'Actualizar política de cuentas por pagar.', responsable: 'M. Gómez (CFO)', fecha: '2026-05-30', estado: 'Cerrado' },
+    { id: 3, idHallazgo: 1, accion: 'Realizar auditoría forense de proveedores creados en el Q1.', responsable: 'C. Díaz (Auditoría)', fecha: '2026-07-01', estado: 'En Proceso' }
+  ]);
+
+  const handleAddRiesgo = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const nuevoRiesgo = {
+      id: riesgos.length ? Math.max(...riesgos.map(r => r.id)) + 1 : 1,
+      proceso: formData.get('proceso'),
+      descripcion: formData.get('descripcion'),
+      impacto: formData.get('impacto'),
+      probabilidad: formData.get('probabilidad')
+    };
+    setRiesgos([...riesgos, nuevoRiesgo]);
+    e.target.reset();
+  };
+
+  const handleAddHallazgo = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const nuevoHallazgo = {
+      id: hallazgos.length ? Math.max(...hallazgos.map(h => h.id)) + 1 : 1,
+      ref: formData.get('ref'),
+      titulo: formData.get('titulo'),
+      severidad: formData.get('severidad'),
+      idRiesgo: parseInt(formData.get('idRiesgo'))
+    };
+    setHallazgos([...hallazgos, nuevoHallazgo]);
+    e.target.reset();
+  };
+
+  const handleAddPlan = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const nuevoPlan = {
+      id: planes.length ? Math.max(...planes.map(p => p.id)) + 1 : 1,
+      idHallazgo: parseInt(formData.get('idHallazgo')),
+      accion: formData.get('accion'),
+      responsable: formData.get('responsable'),
+      fecha: formData.get('fecha'),
+      estado: 'Pendiente'
+    };
+    setPlanes([...planes, nuevoPlan]);
+    e.target.reset();
+  };
+
+  const handleUpdateEstadoPlan = (id, nuevoEstado) => {
+    setPlanes(planes.map(p => p.id === id ? { ...p, estado: nuevoEstado } : p));
+  };
+
+  const renderTablero = () => {
+    const total = planes.length;
+    const pendientes = planes.filter(p => p.estado === 'Pendiente').length;
+    const enProceso = planes.filter(p => p.estado === 'En Proceso').length;
+    const cerrados = planes.filter(p => p.estado === 'Cerrado').length;
+
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">Estado General del Sistema (KPIs)</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
+            <p className="text-sm text-gray-500 uppercase font-semibold">Total Planes</p>
+            <p className="text-3xl font-bold text-gray-800">{total}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow border-l-4 border-red-500">
+            <p className="text-sm text-gray-500 uppercase font-semibold">Pendientes</p>
+            <p className="text-3xl font-bold text-red-600">{pendientes}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow border-l-4 border-yellow-500">
+            <p className="text-sm text-gray-500 uppercase font-semibold">En Proceso</p>
+            <p className="text-3xl font-bold text-yellow-600">{enProceso}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
+            <p className="text-sm text-gray-500 uppercase font-semibold">Cerrados</p>
+            <p className="text-3xl font-bold text-green-600">{cerrados}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderRiesgos = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">Registro de Riesgos Operativos</h2>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-4 flex items-center"><PlusCircle className="mr-2 h-5 w-5 text-blue-600"/> Documentar Nuevo Riesgo</h3>
+        <form onSubmit={handleAddRiesgo} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Nombre del Proceso</label>
+              <input name="proceso" type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ej. Compras, Nómina..."/>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Impacto</label>
+              <select name="impacto" className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white">
+                <option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Descripción del Riesgo</label>
+              <textarea name="descripcion" required rows="2" className="mt-1 block w-full border border-gray-300 rounded-md p-2"></textarea>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Probabilidad</label>
+              <select name="probabilidad" className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white">
+                <option>Rara</option><option>Posible</option><option>Frecuente</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 font-medium">Registrar Riesgo</button>
+        </form>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow overflow-x-auto">
+        <h3 className="text-lg font-semibold mb-4">Matriz de Riesgos Actual</h3>
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">ID</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Proceso</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Descripción</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Impacto</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Probabilidad</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {riesgos.map(r => (
+              <tr key={r.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-medium text-gray-900">{r.id}</td>
+                <td className="px-4 py-3">{r.proceso}</td>
+                <td className="px-4 py-3">{r.descripcion}</td>
+                <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-semibold ${r.impacto === 'Crítico' ? 'bg-red-100 text-red-800' : r.impacto === 'Alto' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}`}>{r.impacto}</span></td>
+                <td className="px-4 py-3">{r.probabilidad}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderHallazgos = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">Carga de Hallazgos de Auditoría</h2>
+      <div className="bg-white p-6 rounded-lg shadow">
+        <form onSubmit={handleAddHallazgo} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Ref. del Informe</label>
+              <input name="ref" type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2" placeholder="Ej. AUD-2023-01"/>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Severidad</label>
+              <select name="severidad" className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white">
+                <option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Título del Hallazgo</label>
+              <input name="titulo" type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"/>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Vincular a Riesgo Mapeado</label>
+              <select name="idRiesgo" required className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white">
+                {riesgos.map(r => (
+                  <option key={r.id} value={r.id}>[ID: {r.id}] {r.proceso} - {r.descripcion.substring(0, 50)}...</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button type="submit" className="bg-red-600 text-white px-4 py-2 rounded shadow hover:bg-red-700 font-medium">Guardar Hallazgo</button>
+        </form>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow overflow-x-auto">
+        <h3 className="text-lg font-semibold mb-4">Registro de Desviaciones (Hallazgos)</h3>
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">ID</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Informe Ref.</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Título</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Severidad</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">ID Riesgo</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {hallazgos.map(h => (
+              <tr key={h.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-medium text-gray-900">{h.id}</td>
+                <td className="px-4 py-3">{h.ref}</td>
+                <td className="px-4 py-3">{h.titulo}</td>
+                <td className="px-4 py-3"><span className={`px-2 py-1 rounded text-xs font-semibold ${h.severidad === 'Crítico' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{h.severidad}</span></td>
+                <td className="px-4 py-3 text-blue-600 font-bold">#{h.idRiesgo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderPlanes = () => (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800 border-b pb-2">Seguimiento de Planes de Acción</h2>
+      <div className="bg-white p-6 rounded-lg shadow border-l-4 border-gray-800">
+        <h3 className="text-lg font-semibold mb-4">Asignar Nuevo Plan</h3>
+        <form onSubmit={handleAddPlan} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700">Hallazgo Asociado</label>
+              <select name="idHallazgo" required className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-white">
+                {hallazgos.map(h => (
+                  <option key={h.id} value={h.id}>[{h.ref}] {h.titulo}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700">Acción Correctiva / Preventiva</label>
+              <input name="accion" type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"/>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Responsable</label>
+              <input name="responsable" type="text" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"/>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Fecha Compromiso</label>
+              <input name="fecha" type="date" required className="mt-1 block w-full border border-gray-300 rounded-md p-2"/>
+            </div>
+          </div>
+          <button type="submit" className="bg-gray-800 text-white px-4 py-2 rounded shadow hover:bg-gray-900 font-medium">Crear Plan</button>
+        </form>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow overflow-x-auto">
+        <h3 className="text-lg font-semibold mb-4">Listado de Seguimiento y Actualización</h3>
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">ID</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Hallazgo</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Acción</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Responsable</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Estado</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500 uppercase">Actualizar</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {planes.map(p => (
+              <tr key={p.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3 font-medium text-gray-900">{p.id}</td>
+                <td className="px-4 py-3 text-red-600 font-bold">#{p.idHallazgo}</td>
+                <td className="px-4 py-3">{p.accion}</td>
+                <td className="px-4 py-3">{p.responsable}</td>
+                <td className="px-4 py-3">
+                  <span className={`px-2 py-1 rounded text-xs font-semibold 
+                    ${p.estado === 'Cerrado' ? 'bg-green-100 text-green-800' : 
+                      p.estado === 'En Proceso' ? 'bg-yellow-100 text-yellow-800' : 
+                      'bg-red-100 text-red-800'}`}>
+                    {p.estado}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <select 
+                    value={p.estado}
+                    onChange={(e) => handleUpdateEstadoPlan(p.id, e.target.value)}
+                    className="border border-gray-300 text-xs rounded p-1"
+                  >
+                    <option value="Pendiente">Pendiente</option>
+                    <option value="En Proceso">En Proceso</option>
+                    <option value="Cerrado">Cerrado</option>
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-screen bg-gray-100 font-sans">
+      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-10">
+        <div className="p-6 flex items-center space-x-3 border-b border-slate-700">
+          <Shield className="h-8 w-8 text-blue-400" />
+          <h1 className="text-xl font-bold tracking-tight">GCM Auditor</h1>
+        </div>
+        <nav className="flex-1 px-4 py-6 space-y-2">
+          <button onClick={() => setActiveTab('tablero')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'tablero' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+            <LayoutDashboard className="h-5 w-5" />
+            <span>Tablero de Control</span>
+          </button>
+          <button onClick={() => setActiveTab('riesgos')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'riesgos' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+            <AlertTriangle className="h-5 w-5" />
+            <span>Riesgos</span>
+          </button>
+          <button onClick={() => setActiveTab('hallazgos')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'hallazgos' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+            <FileText className="h-5 w-5" />
+            <span>Hallazgos</span>
+          </button>
+          <button onClick={() => setActiveTab('planes')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'planes' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+            <CheckSquare className="h-5 w-5" />
+            <span>Planes de Acción</span>
+          </button>
+        </nav>
+      </div>
+      <div className="flex-1 overflow-auto p-8">
+        <div className="max-w-6xl mx-auto">
+          {activeTab === 'tablero' && renderTablero()}
+          {activeTab === 'riesgos' && renderRiesgos()}
+          {activeTab === 'hallazgos' && renderHallazgos()}
+          {activeTab === 'planes' && renderPlanes()}
+        </div>
+      </div>
+    </div>
+  );
+}
