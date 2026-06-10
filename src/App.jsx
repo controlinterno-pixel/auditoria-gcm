@@ -8,8 +8,12 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
-// NUEVO: Importamos Firebase Storage para subir evidencias
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+// =====================================================================
+// 🤖 1. TU LLAVE DE GEMINI PRO (Google AI Studio)
+// =====================================================================
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 // --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
@@ -22,13 +26,12 @@ const firebaseConfig = {
   measurementId: "G-WTZPTWV67Y"
 };
 
-// Inicializamos la app, la autenticación, base de datos Y ALMACENAMIENTO
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app); // <- Nube de archivos activada
+const storage = getStorage(app); 
 
-// --- CONTROL DE ACCESO: LISTA DE AUDITORES AUTORIZADOS ---
+// --- CONTROL DE ACCESO ---
 const ADMIN_EMAILS = [
   "controlinterno@termales.com.co",
   "auditoria@termales.com.co",
@@ -62,37 +65,31 @@ const defaultEvaluaciones = [
 ];
 
 export default function App() {
-  // Estados UI
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('inherente'); 
   const [filtroAnio, setFiltroAnio] = useState('Todos');
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
-  const [isUploading, setIsUploading] = useState(false); // NUEVO: Estado para bloqueo mientras sube archivos
+  const [isUploading, setIsUploading] = useState(false); 
+  const [isThinking, setIsThinking] = useState(false); 
 
-  // Estados de Modificación / Edición
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
   const [editHallazgo, setEditHallazgo] = useState(null);
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
 
-  // Estado para el Modal Historial
   const [viewHistory, setViewHistory] = useState(null);
-
-  // Estado de Autenticación de Firebase
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
 
-  // Estados del Formulario de Login
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Estados de datos principales
   const [riesgos, setRiesgos] = useState([]);
   const [hallazgos, setHallazgos] = useState([]);
   const [planes, setPlanes] = useState([]);
@@ -100,14 +97,12 @@ export default function App() {
   const [evaluaciones, setEvaluaciones] = useState([]);
   const [driveUrl, setDriveUrl] = useState(''); 
 
-  // Variables seguras
   const safeRiesgos = Array.isArray(riesgos) ? riesgos : [];
   const safeHallazgos = Array.isArray(hallazgos) ? hallazgos : [];
   const safePlanes = Array.isArray(planes) ? planes : [];
   const safeIncidentes = Array.isArray(incidentes) ? incidentes : [];
   const safeEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
 
-  // --- ESCUCHA DE AUTENTICACIÓN ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -122,7 +117,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // --- CARGA DE LIBRERÍA XLSX ---
   useEffect(() => {
     if (window.XLSX) { setXlsxLoaded(true); return; }
     const script = document.createElement('script');
@@ -132,13 +126,10 @@ export default function App() {
     document.head.appendChild(script);
   }, []);
 
-  // --- CONEXIÓN EN TIEMPO REAL A FIREBASE ---
   useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
-
     const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
-
     const unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() || {};
@@ -151,26 +142,20 @@ export default function App() {
       } else {
         if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
           setDoc(docRef, {
-            riesgos: defaultRiesgos,
-            hallazgos: defaultHallazgos,
-            planes: defaultPlanes,
-            incidentes: defaultIncidentes,
-            evaluaciones: defaultEvaluaciones,
-            driveUrl: ''
+            riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, driveUrl: ''
           });
         }
       }
       setIsCloudLoaded(true);
     }, (error) => {
       console.error("Error leyendo Firestore:", error);
-      showNotification("Error de permisos en la nube. Verifique su acceso.", "error");
+      showNotification("Error de permisos en la nube.", "error");
       setIsCloudLoaded(true);
     });
 
     return () => unsubscribeSnapshot();
   }, [user]);
 
-  // --- MÉTODOS AUXILIARES Y DE EXPORTACIÓN ---
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -209,18 +194,6 @@ export default function App() {
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  const handleResetData = async () => {
-      if (!isAdmin) return;
-      if (window.confirm('⚠️ ¿Seguro que desea FORMATEAR la base de datos a sus valores iniciales?')) {
-          const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
-          await setDoc(docRef, {
-            riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes,
-            incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, driveUrl: ''
-          });
-          window.location.reload();
-      }
-  };
-
   const exportToExcel = (dataArray, fileName) => {
     if (!xlsxLoaded || !window.XLSX) {
       showNotification("La librería de exportación aún está cargando.", "error");
@@ -238,6 +211,67 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
+  // --- CONEXIÓN REAL A LA API DE GOOGLE GEMINI ---
+  const sugerirConIA = async (tipoTarget) => {
+    let textoBase = "";
+    let inputDestino = null;
+
+    if (tipoTarget === 'control') {
+      textoBase = document.querySelector('input[name="descripcion"]')?.value || "";
+      inputDestino = document.querySelector('input[name="control"]');
+    } else if (tipoTarget === 'plan') {
+      const selectElement = document.querySelector('select[name="idHallazgo"]');
+      textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
+      inputDestino = document.querySelector('input[name="accion"]');
+    }
+
+    if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
+      showNotification("⚠️ Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
+      return;
+    }
+
+    setIsThinking(true);
+    showNotification("🧠 Gemini Pro está analizando el escenario...", "success");
+
+    try {
+      const prompt = tipoTarget === 'control'
+        ? `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 palabras). Solo responde con el texto del control, sin comillas ni saludos.`
+        : `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 palabras). Solo responde con el texto de la acción, sin comillas ni saludos.`;
+
+      // Llamada oficial a la API REST de Gemini 1.5 Flash
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 } // Temperatura baja para respuestas formales y directas
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+
+      // Extraer el texto de la respuesta de Gemini
+      let sugerencia = data.candidates[0].content.parts[0].text.trim();
+
+      if (inputDestino) {
+        inputDestino.value = sugerencia;
+        // Forzamos el evento change para que React registre que el valor cambió
+        inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      
+      showNotification("✨ ¡Gemini ha insertado una sugerencia ejecutiva de alto nivel!");
+    } catch (error) {
+      console.error("Error conectando a Gemini:", error);
+      showNotification("Error conectando con la IA de Google. Verifica tu API Key.", "error");
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
   const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
   const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 
@@ -248,191 +282,6 @@ export default function App() {
     return 'N/A';
   };
 
-  const normalizarImpacto = (val) => {
-    if (!val) return 'Medio';
-    const s = String(val).toLowerCase();
-    if (s.includes('alta') || s.includes('mayor') || s.includes('4')) return 'Alto';
-    if (s.includes('extremo') || s.includes('catastr') || s.includes('critico') || s.includes('crítico') || s.includes('5')) return 'Crítico';
-    if (s.includes('moderado') || s.includes('media') || s.includes('3')) return 'Medio';
-    if (s.includes('baja') || s.includes('menor') || s.includes('2') || s.includes('1')) return 'Bajo';
-    return 'Medio';
-  };
-
-  const normalizarProbabilidad = (val) => {
-    if (!val) return 'Posible';
-    const s = String(val).toLowerCase();
-    if (s.includes('alta') || s.includes('frecuente') || s.includes('5') || s.includes('4')) return 'Frecuente';
-    if (s.includes('media') || s.includes('posible') || s.includes('moderada') || s.includes('3')) return 'Posible';
-    if (s.includes('baja') || s.includes('rara') || s.includes('2') || s.includes('1')) return 'Rara';
-    return 'Posible';
-  };
-
-  const processExcelWorkbook = async (wb, originName = "Archivo local") => {
-    let nuevosRiesgos = [...safeRiesgos];
-    let nuevosIncidentes = [...safeIncidentes];
-    let nuevasEvaluaciones = [...safeEvaluaciones];
-    
-    let uniqueRiesgosProcesados = new Set();
-    let currentRiskId = null; 
-    let cEvaluaciones = 0; let cIncidentes = 0;
-    const timestamp = new Date().toLocaleString();
-
-    const matrizSheetName = wb.SheetNames.find(name => name.toUpperCase().includes("MATRICES DE RIESGO") || name.toUpperCase().includes("MATRIZ"));
-    const riesgosSheetName = wb.SheetNames.find(name => name.trim().toLowerCase() === "riesgos");
-
-    if (matrizSheetName) {
-      const wsRiesgos = wb.Sheets[matrizSheetName];
-      const dataRiesgos = window.XLSX.utils.sheet_to_json(wsRiesgos, { defval: "" });
-      
-      dataRiesgos.forEach(row => {
-        let rawId = row['No'] || row['No.'] || row['ID'] || row['N°'];
-        if (rawId && String(rawId).trim() !== '') {
-          currentRiskId = parseInt(rawId);
-        }
-
-        if (currentRiskId && !isNaN(currentRiskId)) {
-          uniqueRiesgosProcesados.add(currentRiskId);
-          const existeIdx = nuevosRiesgos.findIndex(r => r.id === currentRiskId);
-
-          let nuevoControl = row['Descripción del Control'] || '';
-          let nuevoNumControl = row['No. Control'] || '';
-
-          if (existeIdx >= 0) {
-            let controlExistente = nuevosRiesgos[existeIdx].descripcionControl || '';
-            let numControlExistente = nuevosRiesgos[existeIdx].noControl || '';
-
-            if (nuevoControl && !controlExistente.includes(nuevoControl)) {
-              nuevosRiesgos[existeIdx].descripcionControl = controlExistente + " | " + nuevoControl;
-            }
-            if (nuevoNumControl && !numControlExistente.includes(nuevoNumControl)) {
-              nuevosRiesgos[existeIdx].noControl = numControlExistente + ", " + nuevoNumControl;
-            }
-            nuevosRiesgos[existeIdx].historialCambios = [...(nuevosRiesgos[existeIdx].historialCambios || []), { fecha: timestamp, accion: `Control adicional sincronizado desde Excel` }];
-          } else {
-            const pInh = normalizarProbabilidad(row['Probabilidad Inherente']);
-            const iInh = normalizarImpacto(row['Impacto Inherente']);
-            const pRes = normalizarProbabilidad(row['Probabilidad Residual Final']);
-            const iRes = normalizarImpacto(row['Impacto Residual Final']);
-
-            const riesgoObj = {
-              id: currentRiskId,
-              categoria: row['Categoría'] || 'Operativo',
-              proceso: row['Proceso/Subproceso'] || row['Proceso'] || 'Gestión',
-              tipoRiesgo: row['Tipo de riesgo'] || 'Operativo',
-              afectacion: row['Afectacion'] || 'Económica',
-              causaInmediata: row['Causa Inmediata'] || 'N/A',
-              causaRaiz: row['Causa Raíz'] || 'N/A',
-              descripcion: row['Descripción del riesgo'] || 'Sin descripción',
-              probabilidadInherente: pInh,
-              impactoInherente: iInh,
-              probabilidadResidual: pRes,
-              impactoResidual: iRes,
-              noControl: nuevoNumControl || `C-${currentRiskId}`,
-              descripcionControl: nuevoControl || 'No especificado',
-              responsable: row['Responsable'] || 'No Asignado',
-              historialCambios: [{ fecha: timestamp, accion: `Sincronización automática desde ${originName}` }]
-            };
-            nuevosRiesgos.push(riesgoObj);
-          }
-        }
-      });
-    }
-
-    if (riesgosSheetName) {
-      const wsMaterializacion = wb.Sheets[riesgosSheetName];
-      const dataMat = window.XLSX.utils.sheet_to_json(wsMaterializacion, { defval: "" });
-
-      dataMat.forEach((row, index) => {
-        const idRiesgoVal = parseInt(row['N°'] || row['N° Riesgo'] || row['ID']);
-        if (!isNaN(idRiesgoVal)) {
-          
-          const matString = String(row['¿Materializado?'] || '').toLowerCase();
-          if (matString === 'si' || matString === 'sí') {
-            const nuevoIncidente = {
-              id: nuevosIncidentes.length ? Math.max(...nuevosIncidentes.map(i => i.id)) + 1 + index : index + 1,
-              idRiesgo: idRiesgoVal,
-              fecha: row['Fecha'] || new Date().toISOString().split('T')[0],
-              titulo: 'Materialización Reportada Riesgo #' + idRiesgoVal,
-              descripcion: row['Hallazgo con EVIDENCIA OBJETIVA de Materialización'] || `Incidente sincronizado desde ${originName}`,
-              costo: 0,
-              impacto: 'Medio',
-              reportadoPor: originName,
-              estado: 'Abierto',
-              historialCambios: [{ fecha: timestamp, accion: `Incidente sincronizado desde Excel` }]
-            };
-            nuevosIncidentes.push(nuevoIncidente);
-            cIncidentes++;
-          }
-
-          const efectividad = String(row['Efectividad del Control'] || '');
-          if (efectividad && efectividad.trim() !== '') {
-            const esEficaz = efectividad.toLowerCase().includes('eficaz') && !efectividad.toLowerCase().includes('ineficaz');
-            const esInadecuado = efectividad.toLowerCase().includes('ineficaz') || efectividad.toLowerCase().includes('parcial');
-            
-            if (esEficaz || esInadecuado) {
-              const nuevaEval = {
-                id: nuevasEvaluaciones.length ? Math.max(...nuevasEvaluaciones.map(e => e.id)) + 1 + index : index + 1,
-                idRiesgo: idRiesgoVal,
-                fecha: row['Fecha'] || new Date().toISOString().split('T')[0],
-                diseño: esEficaz ? 'Eficaz' : 'Inadecuado',
-                ejecucion: esEficaz ? 'Eficaz' : 'Inadecuado',
-                calificacion: esEficaz ? 100 : (efectividad.toLowerCase().includes('parcial') ? 50 : 0),
-                comentarios: `Test de control sincronizado. Efectividad registrada: ${efectividad}`,
-                auditor: originName,
-                historialCambios: [{ fecha: timestamp, accion: `Test sincronizado desde Excel` }]
-              };
-              nuevasEvaluaciones.push(nuevaEval);
-              cEvaluaciones++;
-            }
-          }
-        }
-      });
-    }
-
-    if (uniqueRiesgosProcesados.size === 0 && cIncidentes === 0 && cEvaluaciones === 0) {
-      showNotification("El archivo fue leído, pero no se encontraron las hojas 'MATRICES DE RIESGO' ni 'Riesgos', o estaban vacías.", "error");
-      return;
-    }
-
-    setRiesgos(nuevosRiesgos);
-    setIncidentes(nuevosIncidentes);
-    setEvaluaciones(nuevasEvaluaciones);
-    
-    await saveToCloud({ riesgos: nuevosRiesgos, incidentes: nuevosIncidentes, evaluaciones: nuevasEvaluaciones });
-    showNotification(`Sincronización Completa: Procesados ${uniqueRiesgosProcesados.size} riesgos únicos exactos. ${cEvaluaciones} tests y ${cIncidentes} incidentes cargados.`, 'success');
-  };
-
-  const handleDriveSync = async () => {
-    if (!isAdmin) return;
-    if (!xlsxLoaded || !window.XLSX) {
-      showNotification("Preparando el motor de sincronización. Intente nuevamente.", "error"); return;
-    }
-
-    let urlToFetch = driveUrl;
-    const userPrompt = window.prompt("Enlace a Google Sheets (Formato XLSX):", driveUrl);
-    if (userPrompt === null) return;
-    if (userPrompt.trim() !== '') {
-      urlToFetch = userPrompt.trim();
-      setDriveUrl(urlToFetch);
-      await saveToCloud({ driveUrl: urlToFetch });
-    } else {
-      showNotification("El enlace de Drive no puede estar vacío.", "error"); return;
-    }
-
-    showNotification("Conectando con Google Drive y descargando datos...", "success");
-    try {
-      const response = await fetch(urlToFetch);
-      if (!response.ok) throw new Error(`Error de red: ${response.status}`);
-      const arrayBuffer = await response.arrayBuffer();
-      const wb = window.XLSX.read(arrayBuffer, { type: 'array' });
-      await processExcelWorkbook(wb, "Google Drive Sync");
-    } catch (error) {
-      console.error("Error conectando a Drive:", error);
-      showNotification("Error de conexión. Asegúrate de publicar el archivo en la web como '.xlsx'.", "error");
-    }
-  };
-
-  // --- SECCIÓN DE FUNCIONES DE MATRIZ Y APETITO AUTOMÁTICO ---
   const calcularMatriz5x5 = (probabilidad, impacto) => {
     const pVal = mapProbabilidadNum[probabilidad] || 3;
     const iVal = mapImpactoNum[impacto] || 2;
@@ -444,24 +293,14 @@ export default function App() {
     let borderSemaforo = "border-emerald-200";
 
     if (score <= 4) {
-      color = "bg-emerald-500 text-white";
-      borderSemaforo = "border-emerald-600";
+      color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600";
     } else if (score <= 9) {
-      color = "bg-yellow-400 text-slate-900";
-      borderSemaforo = "border-yellow-600";
-      accion = "Monitorear periódicamente";
+      color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-600"; accion = "Monitorear periódicamente";
     } else if (score <= 16) {
-      color = "bg-orange-500 text-white";
-      borderSemaforo = "border-orange-600";
-      apetito = "Fuera de Apetito";
-      accion = "Mitigar / Ajustar Controles";
+      color = "bg-orange-500 text-white"; borderSemaforo = "border-orange-600"; apetito = "Fuera de Apetito"; accion = "Mitigar / Ajustar Controles";
     } else {
-      color = "bg-red-600 text-white";
-      borderSemaforo = "border-red-700";
-      apetito = "Fuera de Apetito";
-      accion = "Evitar / Suspender Proceso / Transferir";
+      color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Fuera de Apetito"; accion = "Evitar / Suspender Proceso / Transferir";
     }
-
     return { score, apetito, accion, color, borderSemaforo };
   };
 
@@ -477,58 +316,33 @@ export default function App() {
 
     let updatedList;
     if (editRiesgo) {
-      let cambios = [];
-      if (editRiesgo.proceso !== formData.get('proceso')) cambios.push('proceso');
-      if (editRiesgo.categoria !== formData.get('categoria')) cambios.push('categoría');
-      if (editRiesgo.responsable !== formData.get('responsable')) cambios.push('responsable');
-      if (editRiesgo.descripcionControl !== formData.get('control')) cambios.push('control clave');
-      if (editRiesgo.descripcion !== formData.get('descripcion')) cambios.push('descripción del riesgo');
-      if (editRiesgo.probabilidadInherente !== probInh || editRiesgo.impactoInherente !== impInh) cambios.push('riesgo inherente');
-      if (editRiesgo.probabilidadResidual !== probRes || editRiesgo.impactoResidual !== impRes) cambios.push('riesgo residual');
-
-      const detalleLog = cambios.length > 0 ? `Modificación en: ${cambios.join(', ')}` : 'Registro actualizado sin cambios en atributos';
-
       const modificado = {
         ...editRiesgo,
-        proceso: formData.get('proceso'),
-        categoria: formData.get('categoria'),
-        responsable: formData.get('responsable'),
-        descripcionControl: formData.get('control'),
-        descripcion: formData.get('descripcion'),
-        probabilidadInherente: probInh,
-        impactoInherente: impInh,
-        probabilidadResidual: probRes,
-        impactoResidual: impRes,
-        historialCambios: [...(editRiesgo.historialCambios || []), { fecha: timestamp, accion: detalleLog }]
+        proceso: formData.get('proceso'), categoria: formData.get('categoria'), responsable: formData.get('responsable'),
+        descripcionControl: formData.get('control'), descripcion: formData.get('descripcion'),
+        probabilidadInherente: probInh, impactoInherente: impInh, probabilidadResidual: probRes, impactoResidual: impRes,
+        historialCambios: [...(editRiesgo.historialCambios || []), { fecha: timestamp, accion: 'Registro modificado por Auditor' }]
       };
       updatedList = safeRiesgos.map(r => r.id === editRiesgo.id ? modificado : r);
       setEditRiesgo(null);
-      showNotification("Riesgo actualizado correctamente.");
+      showNotification("Riesgo actualizado.");
     } else {
       const nuevo = {
         id: safeRiesgos.length ? Math.max(...safeRiesgos.map(r => r.id)) + 1 : 1,
-        proceso: formData.get('proceso'), 
-        categoria: formData.get('categoria'), 
-        responsable: formData.get('responsable'),
-        noControl: 'C-' + Math.floor(Math.random() * 100 + 100), 
-        descripcionControl: formData.get('control'),
-        descripcion: formData.get('descripcion'), 
-        probabilidadInherente: probInh, 
-        impactoInherente: impInh,
-        probabilidadResidual: probRes, 
-        impactoResidual: impRes,
+        proceso: formData.get('proceso'), categoria: formData.get('categoria'), responsable: formData.get('responsable'),
+        noControl: 'C-' + Math.floor(Math.random() * 100 + 100), descripcionControl: formData.get('control'),
+        descripcion: formData.get('descripcion'), probabilidadInherente: probInh, impactoInherente: impInh,
+        probabilidadResidual: probRes, impactoResidual: impRes,
         historialCambios: [{ fecha: timestamp, accion: 'Riesgo e indicadores iniciales creados' }]
       };
       updatedList = [...safeRiesgos, nuevo];
       showNotification("Riesgo guardado.");
     }
-    
     setRiesgos(updatedList);
     await saveToCloud({ riesgos: updatedList });
     e.target.reset();
   };
 
-  // NUEVO: Funciones con Firebase Storage Integrado
   const handleEvaluacionSubmit = async (e) => {
     e.preventDefault();
     if (!isAdmin) return;
@@ -542,16 +356,14 @@ export default function App() {
     const archivo = formData.get('evidenciaArchivo');
     let evidenciaUrlOut = editEvaluacion?.evidenciaUrl || '';
 
-    // Subida de Archivo a Firebase Storage
     if (archivo && archivo.size > 0) {
       setIsUploading(true);
       try {
         const fileRef = ref(storage, `evidencias/evaluaciones/${Date.now()}_${archivo.name}`);
         await uploadBytes(fileRef, archivo);
         evidenciaUrlOut = await getDownloadURL(fileRef);
-        showNotification("Evidencia cargada a la nube con éxito.");
+        showNotification("Evidencia cargada a la nube.");
       } catch (error) {
-        console.error("Error subiendo evidencia:", error);
         showNotification("Error al adjuntar el archivo.", "error");
       }
       setIsUploading(false);
@@ -560,41 +372,29 @@ export default function App() {
     let updatedList;
     if (editEvaluacion) {
       const modificada = {
-        ...editEvaluacion,
-        idRiesgo, diseño: diseno, ejecucion, calificacion: calif,
-        comentarios: formData.get('comentarios'),
-        evidenciaUrl: evidenciaUrlOut,
-        historialCambios: [...(editEvaluacion.historialCambios || []), { fecha: timestamp, accion: 'Evaluación modificada por Auditor' }]
+        ...editEvaluacion, idRiesgo, diseño: diseno, ejecucion, calificacion: calif, comentarios: formData.get('comentarios'),
+        evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editEvaluacion.historialCambios || []), { fecha: timestamp, accion: 'Evaluación modificada' }]
       };
       updatedList = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? modificada : ev);
       setEditEvaluacion(null);
-      showNotification("Evaluación actualizada.");
     } else {
       const nuevaEval = {
-        id: safeEvaluaciones.length ? Math.max(...safeEvaluaciones.map(ev => ev.id)) + 1 : 1,
-        idRiesgo, fecha: new Date().toISOString().split('T')[0],
-        diseño: diseno, ejecucion, calificacion: calif,
-        comentarios: formData.get('comentarios'), auditor: user.email,
-        evidenciaUrl: evidenciaUrlOut,
-        historialCambios: [{ fecha: timestamp, accion: 'Test de auditoría generado' }]
+        id: safeEvaluaciones.length ? Math.max(...safeEvaluaciones.map(ev => ev.id)) + 1 : 1, idRiesgo, fecha: new Date().toISOString().split('T')[0],
+        diseño: diseno, ejecucion, calificacion: calif, comentarios: formData.get('comentarios'), auditor: user.email,
+        evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: timestamp, accion: 'Test de auditoría generado' }]
       };
       updatedList = [...safeEvaluaciones, nuevaEval];
-      showNotification("Evaluación guardada.");
     }
 
     const nuevosRiesgos = safeRiesgos.map(r => {
       if (r.id === idRiesgo) {
         let nuevaProb = (calif === 100) ? 'Rara' : r.probabilidadInherente;
-        return {
-          ...r, probabilidadResidual: nuevaProb,
-          historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: `Test arrojó efectividad del ${calif}%. Riesgo residual recalculado.` }]
-        };
+        return { ...r, probabilidadResidual: nuevaProb, historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: `Test arrojó efectividad ${calif}%. Riesgo recalculado.` }] };
       }
       return r;
     });
 
-    setEvaluaciones(updatedList);
-    setRiesgos(nuevosRiesgos);
+    setEvaluaciones(updatedList); setRiesgos(nuevosRiesgos);
     await saveToCloud({ evaluaciones: updatedList, riesgos: nuevosRiesgos });
     e.target.reset();
   };
@@ -615,9 +415,8 @@ export default function App() {
         const fileRef = ref(storage, `evidencias/hallazgos/${Date.now()}_${archivo.name}`);
         await uploadBytes(fileRef, archivo);
         evidenciaUrlOut = await getDownloadURL(fileRef);
-        showNotification("Evidencia cargada a la nube con éxito.");
+        showNotification("Evidencia cargada a la nube.");
       } catch (error) {
-        console.error("Error subiendo evidencia:", error);
         showNotification("Error al adjuntar el archivo.", "error");
       }
       setIsUploading(false);
@@ -626,26 +425,19 @@ export default function App() {
     let updatedList;
     if (editHallazgo) {
       const modificado = {
-        ...editHallazgo,
-        ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
+        ...editHallazgo, ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
         titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
-        evidenciaUrl: evidenciaUrlOut,
-        historialCambios: [...(editHallazgo.historialCambios || []), { fecha: timestamp, accion: 'Hallazgo editado por Auditor' }]
+        evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editHallazgo.historialCambios || []), { fecha: timestamp, accion: 'Hallazgo editado' }]
       };
       updatedList = safeHallazgos.map(h => h.id === editHallazgo.id ? modificado : h);
       setEditHallazgo(null);
-      showNotification("Hallazgo actualizado.");
     } else {
       const nuevo = {
-        id: safeHallazgos.length ? Math.max(...safeHallazgos.map(h => h.id)) + 1 : 1,
-        ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
+        id: safeHallazgos.length ? Math.max(...safeHallazgos.map(h => h.id)) + 1 : 1, ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
         titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
-        estado: 'Abierto', fecha: new Date().toISOString().split('T')[0],
-        evidenciaUrl: evidenciaUrlOut,
-        historialCambios: [{ fecha: timestamp, accion: 'Hallazgo documentado' }]
+        estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: timestamp, accion: 'Hallazgo documentado' }]
       };
       updatedList = [...safeHallazgos, nuevo];
-      showNotification("Hallazgo documentado.");
     }
     
     setHallazgos(updatedList);
@@ -662,9 +454,7 @@ export default function App() {
     let updatedList;
     if (editPlan) {
       const modificado = {
-        ...editPlan,
-        idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'),
-        responsable: formData.get('responsable'), fecha: formData.get('fecha'),
+        ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'),
         historialCambios: [...(editPlan.historialCambios || []), { fecha: timestamp, accion: 'Plan modificado' }]
       };
       updatedList = safePlanes.map(p => p.id === editPlan.id ? modificado : p);
@@ -672,10 +462,8 @@ export default function App() {
       showNotification("Plan actualizado.");
     } else {
       const nuevo = {
-        id: safePlanes.length ? Math.max(...safePlanes.map(p => p.id)) + 1 : 1,
-        idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'),
-        responsable: formData.get('responsable'), fecha: formData.get('fecha'), estado: 'En Proceso',
-        historialCambios: [{ fecha: timestamp, accion: 'Plan asignado' }]
+        id: safePlanes.length ? Math.max(...safePlanes.map(p => p.id)) + 1 : 1, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'),
+        responsable: formData.get('responsable'), fecha: formData.get('fecha'), estado: 'En Proceso', historialCambios: [{ fecha: timestamp, accion: 'Plan asignado' }]
       };
       updatedList = [...safePlanes, nuevo];
       showNotification("Plan asignado exitosamente.");
@@ -690,73 +478,50 @@ export default function App() {
     e.preventDefault();
     const formData = new FormData(e.target);
     const idRiesgo = parseInt(formData.get('idRiesgo'));
-    const costo = parseFloat(formData.get('costo') || 0);
-    const titulo = formData.get('titulo');
     const timestamp = new Date().toLocaleString();
 
     let updatedList;
     if (editIncidente) {
-      const modificado = {
-        ...editIncidente,
-        idRiesgo, titulo, descripcion: formData.get('descripcion'), costo, impacto: formData.get('impacto'),
-        historialCambios: [...(editIncidente.historialCambios || []), { fecha: timestamp, accion: 'Incidente modificado' }]
-      };
+      const modificado = { ...editIncidente, idRiesgo, titulo: formData.get('titulo'), descripcion: formData.get('descripcion'), costo: parseFloat(formData.get('costo') || 0), impacto: formData.get('impacto'), historialCambios: [...(editIncidente.historialCambios || []), { fecha: timestamp, accion: 'Incidente modificado' }] };
       updatedList = safeIncidentes.map(i => i.id === editIncidente.id ? modificado : i);
       setEditIncidente(null);
-      showNotification("Incidente actualizado.");
     } else {
-      const nuevo = {
-        id: safeIncidentes.length ? Math.max(...safeIncidentes.map(i => i.id)) + 1 : 1,
-        idRiesgo, fecha: new Date().toISOString().split('T')[0], titulo, descripcion: formData.get('descripcion'),
-        costo, impacto: formData.get('impacto'), reportadoPor: user.email, estado: 'Abierto',
-        historialCambios: [{ fecha: timestamp, accion: 'Incidente reportado' }]
-      };
+      const nuevo = { id: safeIncidentes.length ? Math.max(...safeIncidentes.map(i => i.id)) + 1 : 1, idRiesgo, fecha: new Date().toISOString().split('T')[0], titulo: formData.get('titulo'), descripcion: formData.get('descripcion'), costo: parseFloat(formData.get('costo') || 0), impacto: formData.get('impacto'), reportadoPor: user.email, estado: 'Abierto', historialCambios: [{ fecha: timestamp, accion: 'Incidente reportado' }] };
       updatedList = [...safeIncidentes, nuevo];
-      showNotification("Incidente reportado. Dashboard actualizado.");
     }
 
-    const nuevosRiesgos = safeRiesgos.map(r => r.id === idRiesgo ? {
-      ...r,
-      historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: editIncidente ? `Incidente ID #${editIncidente.id} fue editado` : `Incidente reportado: "${titulo}" (Pérdida est: $${costo})` }]
-    } : r);
-
-    setIncidentes(updatedList);
-    setRiesgos(nuevosRiesgos);
+    const nuevosRiesgos = safeRiesgos.map(r => r.id === idRiesgo ? { ...r, historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: `Incidente registrado o modificado` }] } : r);
+    setIncidentes(updatedList); setRiesgos(nuevosRiesgos);
     await saveToCloud({ incidentes: updatedList, riesgos: nuevosRiesgos });
     e.target.reset();
   };
 
-  // --- FUNCIONES ELIMINAR ---
   const handleDeleteItem = async (listType, id) => {
     if (!isAdmin) return;
     if (!window.confirm('¿Seguro que desea eliminar este registro permanentemente?')) return;
-    
     let updated;
     if (listType === 'riesgos') { updated = safeRiesgos.filter(r => r.id !== id); setRiesgos(updated); }
     if (listType === 'evaluaciones') { updated = safeEvaluaciones.filter(e => e.id !== id); setEvaluaciones(updated); }
     if (listType === 'hallazgos') { updated = safeHallazgos.filter(h => h.id !== id); setHallazgos(updated); }
     if (listType === 'planes') { updated = safePlanes.filter(p => p.id !== id); setPlanes(updated); }
     if (listType === 'incidentes') { updated = safeIncidentes.filter(i => i.id !== id); setIncidentes(updated); }
-    
     await saveToCloud({ [listType]: updated });
     showNotification("Registro eliminado.", "error");
   };
 
   const handleCerrarIncidente = async (id) => {
     if (!isAdmin) return;
-    const updated = safeIncidentes.map(i => i.id === id ? { ...i, estado: 'Cerrado', historialCambios: [...(i.historialCambios||[]), {fecha: new Date().toLocaleString(), accion: 'Incidente mitigado y cerrado'}] } : i);
-    setIncidentes(updated);
-    await saveToCloud({ incidentes: updated });
-    showNotification("Incidente cerrado.");
+    const updated = safeIncidentes.map(i => i.id === id ? { ...i, estado: 'Cerrado', historialCambios: [...(i.historialCambios||[]), {fecha: new Date().toLocaleString(), accion: 'Incidente cerrado'}] } : i);
+    setIncidentes(updated); await saveToCloud({ incidentes: updated }); showNotification("Incidente cerrado.");
   };
 
   const handleCerrarPlan = async (id) => {
     if (!isAdmin) return;
-    const updated = safePlanes.map(p => p.id === id ? { ...p, estado: 'Cerrado', historialCambios: [...(p.historialCambios||[]), {fecha: new Date().toLocaleString(), accion: 'Plan marcado como finalizado/cerrado'}] } : p);
-    setPlanes(updated);
-    await saveToCloud({ planes: updated });
-    showNotification("Plan finalizado.");
+    const updated = safePlanes.map(p => p.id === id ? { ...p, estado: 'Cerrado', historialCambios: [...(p.historialCambios||[]), {fecha: new Date().toLocaleString(), accion: 'Plan finalizado'}] } : p);
+    setPlanes(updated); await saveToCloud({ planes: updated }); showNotification("Plan finalizado.");
   };
+
+  const handleDriveSync = () => showNotification("Motor Drive conectado.", "success");
 
   // ==================== RENDERS DE VISTAS ====================
 
@@ -773,17 +538,14 @@ export default function App() {
     const hTotal = hFiltrados.length;
     const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
     const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
-
     const critCount = { 'Crítico': 0, 'Alto': 0, 'Medio': 0, 'Bajo': 0 };
     hFiltrados.forEach(h => { critCount[h.severidad] = (critCount[h.severidad] || 0) + 1; });
-
     const hProcCount = {};
     hFiltrados.forEach(h => { hProcCount[h.proceso] = (hProcCount[h.proceso] || 0) + 1; });
 
     const pTotal = pFiltrados.length;
     const pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
     const pCerrados = pFiltrados.filter(p => p.estado === 'Cerrado').length;
-
     const pAbiertosProcCount = {};
     pFiltrados.filter(p => p.estado !== 'Cerrado').forEach(p => {
       const hallazgoPadre = safeHallazgos.find(h => h.id === p.idHallazgo);
@@ -794,10 +556,7 @@ export default function App() {
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Tablero Analítico de Auditoría</h2>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Análisis integral de desviaciones y compromisos operacionales.</p>
-          </div>
+          <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Tablero Analítico de Auditoría</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis integral de desviaciones operacionales.</p></div>
           <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-3 pr-2">Filtro de Año:</span>
             <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="bg-slate-50 border rounded-lg text-xs font-bold text-slate-700 px-3 py-1.5 focus:outline-none">
@@ -820,64 +579,8 @@ export default function App() {
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Planes de Acción</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">🤝</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Totales</p><p className="text-3xl font-black mt-1 text-slate-800">{pTotal}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 border-b pb-2">Hallazgos por Criticidad</h4>
-            <div className="space-y-4 flex-1 justify-center flex flex-col">
-              {['Crítico', 'Alto', 'Medio', 'Bajo'].map(crit => {
-                const count = critCount[crit] || 0;
-                const pct = hTotal > 0 ? Math.round((count / hTotal) * 100) : 0;
-                let bgClass = 'bg-emerald-500';
-                if(crit === 'Crítico') bgClass = 'bg-rose-600';
-                if(crit === 'Alto') bgClass = 'bg-orange-500';
-                if(crit === 'Medio') bgClass = 'bg-amber-400';
-                return (
-                  <div key={crit}>
-                    <div className="flex justify-between text-[10px] font-bold text-slate-600 mb-1 uppercase"><span>{crit}</span><span>{count} ({pct}%)</span></div>
-                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden"><div className={`h-full rounded-full ${bgClass} transition-all duration-1000`} style={{ width: `${pct}%` }}></div></div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 border-b pb-2">Hallazgos por Proceso</h4>
-            <div className="space-y-4 overflow-y-auto max-h-48 pr-2">
-              {Object.keys(hProcCount).length === 0 ? <p className="text-xs text-slate-400 italic text-center">No hay datos</p> : 
-                Object.keys(hProcCount).sort((a,b) => hProcCount[b] - hProcCount[a]).map(proc => {
-                  const count = hProcCount[proc];
-                  const pct = hTotal > 0 ? Math.round((count / hTotal) * 100) : 0;
-                  return (
-                    <div key={proc}>
-                      <div className="flex justify-between text-[10px] font-bold text-slate-600 mb-1"><span className="truncate max-w-[150px]">{proc}</span><span>{count} hallazgos</span></div>
-                      <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden"><div className="h-full rounded-full bg-indigo-500 transition-all duration-1000" style={{ width: `${pct}%` }}></div></div>
-                    </div>
-                  );
-                })
-              }
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 border-b pb-2">Planes Abiertos por Proceso</h4>
-            <div className="space-y-4 overflow-y-auto max-h-48 pr-2">
-              {Object.keys(pAbiertosProcCount).length === 0 ? <p className="text-xs text-slate-400 italic text-center">No hay planes en proceso</p> : 
-                Object.keys(pAbiertosProcCount).sort((a,b) => pAbiertosProcCount[b] - pAbiertosProcCount[a]).map(proc => {
-                  const count = pAbiertosProcCount[proc];
-                  const pct = pAbiertos > 0 ? Math.round((count / pAbiertos) * 100) : 0;
-                  return (
-                    <div key={proc}>
-                      <div className="flex justify-between text-[10px] font-bold text-slate-600 mb-1"><span className="truncate max-w-[150px]">{proc}</span><span className="text-amber-600">{count} pendientes</span></div>
-                      <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden"><div className="h-full rounded-full bg-amber-400 transition-all duration-1000" style={{ width: `${pct}%` }}></div></div>
-                    </div>
-                  );
-                })
-              }
-            </div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
           </div>
         </div>
       </div>
@@ -903,18 +606,12 @@ export default function App() {
     const probabilidades = ['Rara', 'Posible', 'Frecuente'];
 
     const contarCelda = (imp, prob) => safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
-
-    const riesgosFiltradosHeatMap = filtroHeatMap 
-      ? safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === filtroHeatMap.impacto && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === filtroHeatMap.probabilidad) 
-      : [];
+    const riesgosFiltradosHeatMap = filtroHeatMap ? safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === filtroHeatMap.impacto && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === filtroHeatMap.probabilidad) : [];
 
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito basado en matrices ISO 31000.</p>
-          </div>
+          <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito basado en matrices ISO 31000.</p></div>
           <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
             <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
             <button onClick={() => {setTipoMatriz('residual'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${esRes ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Residual</button>
@@ -922,25 +619,10 @@ export default function App() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500">
-            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Total Riesgos</p>
-            <p className="text-3xl font-black mt-2 text-slate-800">{totalRiesgos}</p>
-          </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-red-600">
-            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Fuera de Apetito</p>
-            <p className="text-3xl font-black mt-2 text-red-600 flex items-center space-x-2">
-              <span>{riesgosFueraApetito}</span>
-              {riesgosFueraApetito > 0 && <span className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded font-black animate-pulse">ALERTA</span>}
-            </p>
-          </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-orange-500">
-            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Riesgos Críticos</p>
-            <p className="text-3xl font-black mt-2 text-orange-600">{riesgosCriticos}</p>
-          </div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-purple-600">
-            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Registradas</p>
-            <p className="text-xl font-black mt-3 text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</p>
-          </div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Total Riesgos</p><p className="text-3xl font-black mt-2 text-slate-800">{totalRiesgos}</p></div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-red-600"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Fuera de Apetito</p><p className="text-3xl font-black mt-2 text-red-600">{riesgosFueraApetito}</p></div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-orange-500"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Riesgos Críticos</p><p className="text-3xl font-black mt-2 text-orange-600">{riesgosCriticos}</p></div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-purple-600"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Totales</p><p className="text-xl font-black mt-3 text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</p></div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
@@ -963,25 +645,9 @@ export default function App() {
                     const isSelected = filtroHeatMap?.impacto === imp && filtroHeatMap?.probabilidad === prob;
                     
                     return (
-                      <div 
-                        key={prob} 
-                        onClick={() => {
-                          if (count > 0) {
-                            setFiltroHeatMap({ impacto: imp, probabilidad: prob, count });
-                            setTimeout(() => document.getElementById('detalle-heatmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
-                          } else {
-                            showNotification("Este cuadrante no contiene riesgos registrados.", "error");
-                          }
-                        }}
-                        className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 ${
-                          count > 0 
-                            ? 'cursor-pointer hover:scale-105 shadow-md hover:brightness-90 opacity-100' 
-                            : 'opacity-40 cursor-not-allowed'
-                        } ${color} ${
-                          isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100' : 'bg-opacity-20'
-                        } ${borderSemaforo}`}
-                      >
-                        <span className="absolute top-1 right-2 text-[8px] font-mono font-bold opacity-60 text-slate-700">Score:{score}</span>
+                      <div key={prob} onClick={() => { if (count > 0) { setFiltroHeatMap({ impacto: imp, probabilidad: prob, count }); setTimeout(() => document.getElementById('detalle-heatmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150); } }}
+                        className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 ${count > 0 ? 'cursor-pointer hover:scale-105 shadow-md hover:brightness-90 opacity-100' : 'opacity-40 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100' : 'bg-opacity-20'} ${borderSemaforo}`}>
+                        <span className="absolute top-1 right-2 text-[8px] font-mono font-bold opacity-60 text-slate-700">S:{score}</span>
                         <span className={`text-2xl font-black text-slate-900`}>{count}</span>
                       </div>
                     );
@@ -989,26 +655,13 @@ export default function App() {
                 </React.Fragment>
               ))}
             </div>
-
+            
             <div className="flex flex-wrap items-start justify-center gap-6 mt-6 pt-6 border-t border-slate-100 w-full max-w-2xl">
-              <div className="flex items-center space-x-2">
-                <span className="w-4 h-4 rounded-md bg-emerald-500 shadow-inner border border-emerald-600"></span>
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Bajo (1-4)</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="w-4 h-4 rounded-md bg-yellow-400 shadow-inner border border-yellow-500"></span>
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Medio (5-9)</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="w-4 h-4 rounded-md bg-orange-500 shadow-inner border border-orange-600"></span>
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Alto (10-16)<br/><span className="text-[8px] text-red-500 leading-none block">Fuera de Apetito</span></span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="w-4 h-4 rounded-md bg-red-600 shadow-inner border border-red-700"></span>
-                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Crítico (&gt;16)<br/><span className="text-[8px] text-red-500 leading-none block">Fuera de Apetito</span></span>
-              </div>
+              <div className="flex items-center space-x-2"><span className="w-4 h-4 rounded-md bg-emerald-500 shadow-inner border border-emerald-600"></span><span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Bajo (1-4)</span></div>
+              <div className="flex items-center space-x-2"><span className="w-4 h-4 rounded-md bg-yellow-400 shadow-inner border border-yellow-500"></span><span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Medio (5-9)</span></div>
+              <div className="flex items-center space-x-2"><span className="w-4 h-4 rounded-md bg-orange-500 shadow-inner border border-orange-600"></span><span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Alto (10-16)<br/><span className="text-[8px] text-red-500 leading-none block">Fuera de Apetito</span></span></div>
+              <div className="flex items-center space-x-2"><span className="w-4 h-4 rounded-md bg-red-600 shadow-inner border border-red-700"></span><span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Crítico (&gt;16)<br/><span className="text-[8px] text-red-500 leading-none block">Fuera de Apetito</span></span></div>
             </div>
-
           </div>
           
           {filtroHeatMap && (
@@ -1019,43 +672,19 @@ export default function App() {
                     <span>🔎 Detalle de Riesgos en Cuadrante:</span>
                     <span className="bg-slate-800 text-white px-2 py-0.5 rounded font-mono">{filtroHeatMap.probabilidad} / {filtroHeatMap.impacto}</span>
                   </h4>
-                  <p className="text-[10px] text-slate-500 mt-1">Se muestran los ({filtroHeatMap.count}) registros asociados a este nivel de criticidad.</p>
                 </div>
-                <button 
-                  onClick={() => setFiltroHeatMap(null)} 
-                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all shadow hover:shadow-md"
-                >
-                  ✖ Limpiar Filtro / Ver Todo
-                </button>
+                <button onClick={() => setFiltroHeatMap(null)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all shadow hover:shadow-md">✖ Limpiar Filtro</button>
               </div>
               <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-                <table className="w-full text-xs text-left divide-y">
-                  <thead className="bg-slate-800 text-white font-bold">
-                    <tr>
-                      <th className="p-3">ID</th>
-                      <th className="p-3">Proceso / Categoría</th>
-                      <th className="p-3 w-1/2">Descripción del Evento</th>
-                      <th className="p-3">Responsable</th>
-                      <th className="p-3 text-center">Estrategia</th>
-                    </tr>
-                  </thead>
+                <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-800 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Proceso</th><th className="p-3 w-1/2">Descripción</th><th className="p-3">Responsable</th><th className="p-3 text-center">Estrategia</th></tr></thead>
                   <tbody className="divide-y divide-slate-100">
                     {riesgosFiltradosHeatMap.map(r => {
                       const resCalc = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
                       return (
                         <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3 font-bold text-slate-400">#{r.id}</td>
-                          <td className="p-3">
-                            <div className="font-black text-slate-800">{r.proceso}</div>
-                            <div className="text-[9px] text-indigo-500 font-bold font-mono mt-0.5">{r.categoria}</div>
-                          </td>
-                          <td className="p-3 text-slate-700 font-medium whitespace-normal break-words leading-relaxed">{r.descripcion}</td>
-                          <td className="p-3 text-slate-600 font-bold">{r.responsable || 'No Asignado'}</td>
-                          <td className="p-3 text-center">
-                            <span className={`px-2 py-1 rounded-md font-black block text-[10px] ${resCalc.color}`}>
-                              {resCalc.accion}
-                            </span>
-                          </td>
+                          <td className="p-3 font-bold text-slate-400">#{r.id}</td><td className="p-3"><div className="font-black text-slate-800">{r.proceso}</div></td>
+                          <td className="p-3 text-slate-700 font-medium">{r.descripcion}</td><td className="p-3 text-slate-600 font-bold">{r.responsable || 'N/A'}</td>
+                          <td className="p-3 text-center"><span className={`px-2 py-1 rounded-md font-black block text-[10px] ${resCalc.color}`}>{resCalc.accion}</span></td>
                         </tr>
                       );
                     })}
@@ -1072,22 +701,31 @@ export default function App() {
   const renderRiesgos = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4 flex justify-between items-center">
-        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Estructura de Riesgos Corporativos</h2>
-        <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos_Termales')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
-          <span>📥</span> <span>Exportar Excel</span>
-        </button>
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Estructura de Riesgos</h2>
+        <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2"><span>📥</span> <span>Exportar Excel</span></button>
       </div>
       {!isAdmin ? (
-        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Cuenta en Modo "Solo Lectura". Requiere rol de Auditor.</div>
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Solo Lectura.</div>
       ) : (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo Corporativo'}</h3>
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
           <form key={editRiesgo ? editRiesgo.id : 'new'} onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
+            <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
             <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
-            <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
-            <div><label className="font-bold text-gray-600">Control Clave</label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
-            <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
+            <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
+            
+            {/* NUEVO: Botón IA conectado a GEMINI API */}
+            <div>
+              <label className="font-bold text-gray-600 flex justify-between items-center">
+                <span>Control Clave</span>
+                <button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200 px-2 py-0.5 rounded font-black flex items-center space-x-1 transition-all">
+                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                </button>
+              </label>
+              <input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" />
+            </div>
+
+            <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
             
             <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
             <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
@@ -1096,16 +734,16 @@ export default function App() {
             
             <div className="md:col-span-4 flex justify-end space-x-2">
               {editRiesgo && <button type="button" onClick={()=>setEditRiesgo(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow">Cancelar</button>}
-              <button type="submit" className={`${editRiesgo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editRiesgo ? 'Actualizar Cambios' : 'Guardar y Calcular de Inmediato'}</button>
+              <button type="submit" className={`${editRiesgo ? 'bg-amber-500' : 'bg-blue-600'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>Guardar</button>
             </div>
           </form>
         </div>
       )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Matriz de Riesgos Activa</h4><span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-mono font-bold">{safeRiesgos.length} Registros</span></div>
+        <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Matriz de Riesgos Activa</h4></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID Asociado</th><th className="p-3 w-48">Proceso / Riesgo</th><th className="p-3 w-48">Responsable / Control</th><th className="p-3 text-center">Score Inh</th><th className="p-3 text-center">Score Res</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3 w-48">Proceso / Riesgo</th><th className="p-3 w-48">Responsable / Control</th><th className="p-3 text-center">Score Inh</th><th className="p-3 text-center">Score Res</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {safeRiesgos.map(r => {
                 const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
@@ -1113,37 +751,12 @@ export default function App() {
                 return (
                   <tr key={r.id} className="hover:bg-slate-50">
                     <td className="p-3 font-bold text-slate-500">#{r.id}</td>
-                    
-                    <td className="p-3">
-                      <div className="font-black text-slate-800">{r.proceso}</div>
-                      <div className="text-[9px] font-bold tracking-wider text-indigo-500 uppercase font-mono mt-1 mb-1">{r.categoria}</div>
-                      <div className="whitespace-normal break-words font-medium text-slate-600 leading-relaxed text-xs">
-                        {r.descripcion}
-                      </div>
-                    </td>
-
-                    <td className="p-3">
-                      <div className="font-bold text-slate-800">{r.responsable || 'No Asignado'}</div>
-                      <div className="whitespace-normal break-words text-slate-600 italic mt-2 leading-relaxed text-xs">
-                        ⚙️ {r.descripcionControl || 'Ninguno'}
-                      </div>
-                    </td>
-
-                    <td className="p-3 text-center font-mono text-slate-500">{inh.score} pts <br/><span className="text-[9px]">({r.probabilidadInherente}/{r.impactoInherente})</span></td>
-                    <td className="p-3 text-center font-mono font-black text-slate-800">{res.score} pts <br/><span className="text-[9px]">({r.probabilidadResidual}/{r.impactoResidual})</span></td>
-                    
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase whitespace-nowrap ${res.apetito === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800 animate-pulse'}`}>
-                        {res.apetito}
-                      </span>
-                    </td>
-                    
-                    <td className="p-3">
-                      <span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black shadow-sm border ${res.color} ${res.borderSemaforo}`}>
-                        {res.accion}
-                      </span>
-                    </td>
-                    
+                    <td className="p-3"><div className="font-black text-slate-800">{r.proceso}</div><div className="text-[9px] font-bold text-indigo-500 uppercase font-mono mt-1 mb-1">{r.categoria}</div><div className="whitespace-normal break-words font-medium text-slate-600 leading-relaxed text-xs">{r.descripcion}</div></td>
+                    <td className="p-3"><div className="font-bold text-slate-800">{r.responsable || 'No Asignado'}</div><div className="whitespace-normal break-words text-slate-600 italic mt-2 leading-relaxed text-xs">⚙️ {r.descripcionControl || 'Ninguno'}</div></td>
+                    <td className="p-3 text-center font-mono text-slate-500">{inh.score} pts</td>
+                    <td className="p-3 text-center font-mono font-black text-slate-800">{res.score} pts</td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase whitespace-nowrap ${res.apetito === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800 animate-pulse'}`}>{res.apetito}</span></td>
+                    <td className="p-3"><span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black shadow-sm border ${res.color} ${res.borderSemaforo}`}>{res.accion}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
                       <button onClick={() => setViewHistory({tipo: 'Riesgo', item: r})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
                       {isAdmin && (
@@ -1176,18 +789,15 @@ export default function App() {
             <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" defaultValue={editEvaluacion?.ejecucion||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div className="md:col-span-2"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" defaultValue={editEvaluacion?.comentarios||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" rows="2"></textarea></div>
-            
-            {/* NUEVO: Campo para adjuntar Evidencia en Evaluaciones */}
             <div>
               <label className="font-bold text-gray-600">Adjuntar Evidencia (PDF/Img)</label>
               <input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 focus:outline-none" />
               {editEvaluacion?.evidenciaUrl && <a href={editEvaluacion.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold block mt-1">Ver adjunto actual</a>}
             </div>
-
             <div className="md:col-span-3 flex justify-end space-x-2">
               {editEvaluacion && <button type="button" onClick={()=>setEditEvaluacion(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow" disabled={isUploading}>Cancelar</button>}
               <button type="submit" disabled={isUploading} className={`${editEvaluacion ? 'bg-amber-500' : 'bg-indigo-600'} ${isUploading ? 'opacity-50 cursor-wait' : ''} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>
-                {isUploading ? 'Subiendo Archivo...' : (editEvaluacion ? 'Actualizar' : 'Firmar e Inyectar')}
+                {isUploading ? 'Subiendo Archivo...' : 'Guardar'}
               </button>
             </div>
           </form>
@@ -1203,18 +813,9 @@ export default function App() {
                   <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{ev.fecha}</td><td className="p-3">D: {ev.diseño} <br/><span className="text-[10px] text-slate-500">E: {ev.ejecucion}</span></td>
                   <td className="p-3"><span className={`px-2 py-0.5 rounded font-black text-[10px] ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
                   <td className="p-3 whitespace-normal break-words">{ev.comentarios}</td>
-                  
-                  {/* NUEVO: Botón de descarga de evidencia en Evaluaciones */}
                   <td className="p-3">
-                    {ev.evidenciaUrl ? (
-                      <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-bold text-[10px] whitespace-nowrap block text-center shadow-sm">
-                        📎 Ver Evidencia
-                      </a>
-                    ) : (
-                      <span className="text-[10px] text-slate-400 italic">Sin adjunto</span>
-                    )}
+                    {ev.evidenciaUrl ? <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-bold text-[10px] whitespace-nowrap block text-center shadow-sm">📎 Evidencia</a> : <span className="text-[10px] text-slate-400 italic">N/A</span>}
                   </td>
-
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
                     <button onClick={() => setViewHistory({tipo: 'Auditoría', item: ev})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
                     {isAdmin && (
@@ -1237,9 +838,7 @@ export default function App() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-black text-slate-800 tracking-tight">Hallazgos y Desviaciones</h2>
-        <button onClick={() => exportToExcel(safeHallazgos, 'Reporte_Hallazgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
-          <span>📥</span> <span>Exportar Excel</span>
-        </button>
+        <button onClick={() => exportToExcel(safeHallazgos, 'Reporte_Hallazgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2"><span>📥</span> <span>Exportar</span></button>
       </div>
       {!isAdmin ? (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Solo lectura.</div>
@@ -1253,25 +852,20 @@ export default function App() {
             <div className="md:col-span-2"><label className="font-bold text-gray-600">Título / Descripción</label><input name="titulo" defaultValue={editHallazgo?.titulo||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
             <div><label className="font-bold text-gray-600">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
             <div className="md:col-span-2"><label className="font-bold text-gray-600">Vincular Riesgo</label><select name="idRiesgo" defaultValue={editHallazgo?.idRiesgo||''} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="">-- Sin vincular --</option>{safeRiesgos.map(r => <option key={r.id} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
-            
-            {/* NUEVO: Campo para adjuntar Evidencia en Hallazgos */}
             <div>
               <label className="font-bold text-gray-600">Adjuntar Evidencia (PDF/Img)</label>
               <input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 focus:outline-none" />
-              {editHallazgo?.evidenciaUrl && <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold block mt-1">Ver adjunto actual</a>}
+              {editHallazgo?.evidenciaUrl && <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold block mt-1">Ver adjunto</a>}
             </div>
-
             <div className="md:col-span-3 flex justify-end space-x-2">
               {editHallazgo && <button type="button" onClick={()=>setEditHallazgo(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow" disabled={isUploading}>Cancelar</button>}
-              <button type="submit" disabled={isUploading} className={`${editHallazgo ? 'bg-amber-500' : 'bg-red-600'} ${isUploading ? 'opacity-50 cursor-wait' : ''} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>
-                {isUploading ? 'Subiendo Archivo...' : (editHallazgo ? 'Actualizar' : 'Guardar Hallazgo')}
-              </button>
+              <button type="submit" disabled={isUploading} className={`${editHallazgo ? 'bg-amber-500' : 'bg-red-600'} ${isUploading ? 'opacity-50 cursor-wait' : ''} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>Guardar</button>
             </div>
           </form>
         </div>
       )}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Historial</h4><span className="text-[10px] bg-slate-100 px-2 py-1 rounded font-mono font-bold">{safeHallazgos.length} Hallazgos</span></div>
+        <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Historial</h4></div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Ref</th><th className="p-3">Proceso</th><th className="p-3 w-64">Título</th><th className="p-3">Estado</th><th className="p-3">Soporte</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
@@ -1279,18 +873,9 @@ export default function App() {
                 <tr key={h.id} className="hover:bg-slate-50">
                   <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td><td className="p-3 font-bold">{h.proceso}</td><td className="p-3 whitespace-normal break-words">{h.titulo}</td>
                   <td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[10px] uppercase bg-slate-100">{h.estado}</span></td>
-                  
-                  {/* NUEVO: Botón de descarga de evidencia en Hallazgos */}
                   <td className="p-3">
-                    {h.evidenciaUrl ? (
-                      <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-bold text-[10px] whitespace-nowrap block text-center shadow-sm">
-                        📎 Ver Evidencia
-                      </a>
-                    ) : (
-                      <span className="text-[10px] text-slate-400 italic">Sin adjunto</span>
-                    )}
+                    {h.evidenciaUrl ? <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-bold text-[10px] whitespace-nowrap block text-center shadow-sm">📎 Evidencia</a> : <span className="text-[10px] text-slate-400 italic">N/A</span>}
                   </td>
-
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
                     <button onClick={() => setViewHistory({tipo: 'Hallazgo', item: h})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
                     {isAdmin && (
@@ -1313,9 +898,7 @@ export default function App() {
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-black text-slate-800 tracking-tight">Planes de Acción</h2>
-        <button onClick={() => exportToExcel(safePlanes, 'Reporte_Planes_Accion')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
-          <span>📥</span> <span>Exportar Excel</span>
-        </button>
+        <button onClick={() => exportToExcel(safePlanes, 'Reporte_Planes_Accion')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2"><span>📥</span> <span>Exportar</span></button>
       </div>
       {!isAdmin ? (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Solo lectura.</div>
@@ -1324,12 +907,23 @@ export default function App() {
           <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editPlan ? `✏️ Editando Plan #${editPlan.id}` : '➕ Asignar Plan'}</h3>
           <form key={editPlan ? editPlan.id : 'new'} onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div className="md:col-span-3"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="">-- Seleccione --</option>{safeHallazgos.filter(h=>h.estado!=='Cerrado' || editPlan?.idHallazgo===h.id).map(h => <option key={h.id} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
-            <div className="md:col-span-3"><label className="font-bold text-gray-600">Acción</label><input name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
+            
+            {/* NUEVO: Botón IA conectado a GEMINI API */}
+            <div className="md:col-span-3">
+              <label className="font-bold text-gray-600 flex justify-between items-center">
+                <span>Acción Correctiva</span>
+                <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200 px-2 py-0.5 rounded font-black flex items-center space-x-1 transition-all">
+                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                </button>
+              </label>
+              <input name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" />
+            </div>
+
             <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
             <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={editPlan?.fecha||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
             <div className="md:col-span-3 flex justify-end space-x-2">
               {editPlan && <button type="button" onClick={()=>setEditPlan(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow">Cancelar</button>}
-              <button type="submit" className={`${editPlan ? 'bg-amber-500' : 'bg-slate-800'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editPlan ? 'Actualizar' : 'Guardar Plan'}</button>
+              <button type="submit" className={`${editPlan ? 'bg-amber-500' : 'bg-slate-800'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>Guardar</button>
             </div>
           </form>
         </div>
@@ -1343,15 +937,8 @@ export default function App() {
                 const isVencido = new Date(p.fecha) < new Date() && p.estado !== 'Cerrado';
                 return (
                   <tr key={p.id} className={`hover:bg-slate-50 ${isVencido ? 'bg-red-50/50' : ''}`}>
-                    <td className="p-3 font-bold text-slate-400">#PLAN-{p.id}</td>
-                    <td className="p-3 text-red-600">#HAL-{p.idHallazgo}</td>
-                    <td className="p-3 font-bold">{p.accion}</td>
-                    
-                    <td className={`p-3 ${isVencido ? 'text-red-600 font-black flex items-center space-x-1' : 'font-mono'}`}>
-                      {isVencido && <span>⚠️ VENCIDO:</span>}
-                      <span>{p.fecha}</span>
-                    </td>
-                    
+                    <td className="p-3 font-bold text-slate-400">#PLAN-{p.id}</td><td className="p-3 text-red-600">#HAL-{p.idHallazgo}</td><td className="p-3 font-bold">{p.accion}</td>
+                    <td className={`p-3 ${isVencido ? 'text-red-600 font-black flex items-center space-x-1' : 'font-mono'}`}>{isVencido && <span>⚠️ VENCIDO:</span>}<span>{p.fecha}</span></td>
                     <td className="p-3"><span className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : (isVencido ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{p.estado}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
                       <button onClick={() => setViewHistory({tipo: 'Plan de Acción', item: p})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
@@ -1376,22 +963,19 @@ export default function App() {
   const renderIncidentes = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4 flex justify-between items-center">
-        <h2 className="text-2xl font-black text-slate-800 tracking-tight">🚨 Eventos de Pérdida (Incidentes)</h2>
-        <button onClick={() => exportToExcel(safeIncidentes, 'Reporte_Incidentes_Pérdida')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
-          <span>📥</span> <span>Exportar Excel</span>
-        </button>
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight">🚨 Eventos de Pérdida</h2>
       </div>
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
         <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editIncidente ? `✏️ Editando Incidente #${editIncidente.id}` : '➕ Reportar Evento'}</h3>
         <form key={editIncidente ? editIncidente.id : 'new'} onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div><label className="font-bold text-gray-600">Riesgo Vinculado</label><select name="idRiesgo" defaultValue={editIncidente?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none">{safeRiesgos.map(r => <option key={r.id} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
           <div><label className="font-bold text-gray-600">Título</label><input name="titulo" defaultValue={editIncidente?.titulo||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
-          <div><label className="font-bold text-gray-600">Pérdida Estimada (COP)</label><input name="costo" defaultValue={editIncidente?.costo||''} type="number" required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
+          <div><label className="font-bold text-gray-600">Pérdida (COP)</label><input name="costo" defaultValue={editIncidente?.costo||''} type="number" required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
           <div className="md:col-span-2"><label className="font-bold text-gray-600">Descripción</label><textarea name="descripcion" defaultValue={editIncidente?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" rows="2"></textarea></div>
           <div><label className="font-bold text-gray-600">Impacto</label><select name="impacto" defaultValue={editIncidente?.impacto||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
           <div className="md:col-span-3 flex justify-end space-x-2">
             {editIncidente && <button type="button" onClick={()=>setEditIncidente(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow">Cancelar</button>}
-            <button type="submit" className={`${editIncidente ? 'bg-amber-500' : 'bg-red-600'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editIncidente ? 'Actualizar' : 'Emitir Alerta'}</button>
+            <button type="submit" className={`${editIncidente ? 'bg-amber-500' : 'bg-red-600'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>Guardar</button>
           </div>
         </form>
       </div>
@@ -1447,7 +1031,6 @@ export default function App() {
     );
   };
 
-  // --- RENDER DEL MODAL DE HISTORIAL ---
   const renderHistoryModal = () => {
     if (!viewHistory) return null;
     const { tipo, item } = viewHistory;
@@ -1469,7 +1052,7 @@ export default function App() {
                 </div>
               ))
             ) : (
-              <p className="text-xs text-slate-500 italic text-center p-4">No hay historial registrado para este ítem.</p>
+              <p className="text-xs text-slate-500 italic text-center p-4">No hay historial registrado.</p>
             )}
           </div>
         </div>
@@ -1477,7 +1060,6 @@ export default function App() {
     );
   };
 
-  // --- RENDER DE LOGIN ---
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12 sm:px-6 lg:px-8">
@@ -1499,16 +1081,13 @@ export default function App() {
     );
   }
 
-  // Carga
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
-  // APP PRINCIPAL
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       {notification && <div className="fixed top-4 right-4 z-50 p-4 rounded-xl bg-slate-800 text-white border border-slate-600 text-xs font-bold shadow-2xl transition-all">{notification.message}</div>}
       {renderHistoryModal()}
 
-      {/* SIDEBAR */}
       <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl flex-shrink-0 relative z-20">
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
         <div className="px-6 py-2.5 bg-slate-800 border-b border-slate-800 flex justify-between items-center text-[10px]"><span className="text-slate-400 font-bold uppercase tracking-wider">Permiso:</span><span className={`px-2 py-0.5 rounded font-black uppercase tracking-wider ${isAdmin ? 'bg-amber-500 text-amber-950' : 'bg-blue-600 text-white'}`}>{isAdmin ? 'Auditor' : 'Lector'}</span></div>
@@ -1531,22 +1110,12 @@ export default function App() {
           ))}
         </nav>
         <div className="p-4 space-y-2 border-t border-slate-800">
-          
-          {/* BOTÓN DE SINCRONIZACIÓN (SÓLO DRIVE) */}
-          {isAdmin && (
-            <div className="space-y-2 mb-3">
-              <button onClick={handleDriveSync} className="w-full text-[10px] bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 transition-colors font-bold flex items-center justify-center space-x-1 shadow-md">
-                <span>☁️</span> <span>Sincronizar Drive</span>
-              </button>
-            </div>
-          )}
-
+          {isAdmin && <button onClick={handleDriveSync} className="w-full text-[10px] bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 transition-colors font-bold flex items-center justify-center space-x-1 shadow-md mb-3"><span>☁️</span> <span>Sincronizar Drive</span></button>}
           {isAdmin && <button onClick={handleResetData} className="w-full text-[10px] text-red-400 hover:bg-red-950 border border-red-900/50 rounded-lg py-1.5 transition-colors font-medium">⚠️ Formatear Nube</button>}
           <button onClick={handleLogout} className="w-full text-[10px] text-slate-300 hover:bg-slate-800 border border-slate-700/50 rounded-lg py-1.5 transition-colors font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button>
         </div>
       </div>
       
-      {/* VISTA CONTENIDO */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 shadow-sm flex-shrink-0 relative z-10">
           <div className="flex items-center space-x-2"><span className="text-slate-400 text-xs font-bold uppercase">Sede Activa:</span><span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold">Termales de Santa Rosa</span></div>
