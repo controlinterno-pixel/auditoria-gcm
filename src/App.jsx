@@ -628,9 +628,19 @@ export default function App() {
                     const { score, color, borderSemaforo } = calcularMatriz5x5(prob, imp);
                     const isSelected = filtroHeatMap?.impacto === imp && filtroHeatMap?.probabilidad === prob;
                     
-                    return (
-                      <div key={prob} onClick={() => { if (count > 0) setFiltroHeatMap({ impacto: imp, probabilidad: prob, count }); }}
-                        className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 ${count > 0 ? 'cursor-pointer hover:scale-105 shadow-md opacity-100' : 'opacity-40 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100' : 'bg-opacity-20'} ${borderSemaforo}`}>
+                    
+return (
+  <div key={prob} onClick={() => { 
+    if (count > 0) { 
+      setFiltroHeatMap({ impacto: imp, probabilidad: prob, count }); 
+      setTimeout(() => {
+        document.getElementById('detalle-heatmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+    } 
+  }}
+    className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 ${count > 0 ? 'cursor-pointer hover:scale-105 shadow-md opacity-100' : 'opacity-40 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100' : 'bg-opacity-20'} ${borderSemaforo}`}>
+
+shadow-md opacity-100' : 'opacity-40 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100' : 'bg-opacity-20'} ${borderSemaforo}`}>
                         <span className="absolute top-1 right-2 text-[8px] font-mono font-bold opacity-60 text-slate-700">S:{score}</span>
                         <span className={`text-2xl font-black text-slate-900`}>{count}</span>
                       </div>
