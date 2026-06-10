@@ -65,7 +65,7 @@ export default function App() {
   const [tipoMatriz, setTipoMatriz] = useState('inherente'); 
   const [filtroAnio, setFiltroAnio] = useState('Todos');
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
-  const [filtroHeatMap, setFiltroHeatMap] = useState(null); // Filtro activo del mapa de calor
+  const [filtroHeatMap, setFiltroHeatMap] = useState(null);
 
   // Estados de Modificación / Edición
   const [editRiesgo, setEditRiesgo] = useState(null);
@@ -263,7 +263,6 @@ export default function App() {
     return 'Posible';
   };
 
-  // --- LÓGICA CENTRAL DE PROCESAMIENTO DE EXCEL (Sincronización) ---
   const processExcelWorkbook = async (wb, originName = "Archivo local") => {
     let nuevosRiesgos = [...safeRiesgos];
     let nuevosIncidentes = [...safeIncidentes];
@@ -429,7 +428,6 @@ export default function App() {
     }
   };
 
-  // --- SECCIÓN DE FUNCIONES DE MATRIZ Y APETITO AUTOMÁTICO ---
   const calcularMatriz5x5 = (probabilidad, impacto) => {
     const pVal = mapProbabilidadNum[probabilidad] || 3;
     const iVal = mapImpactoNum[impacto] || 2;
@@ -683,7 +681,6 @@ export default function App() {
     e.target.reset();
   };
 
-  // --- FUNCIONES ELIMINAR ---
   const handleDeleteItem = async (listType, id) => {
     if (!isAdmin) return;
     if (!window.confirm('¿Seguro que desea eliminar este registro permanentemente?')) return;
@@ -841,12 +838,10 @@ export default function App() {
     );
   };
 
-  // --- REEMPLAZO 100% CORREGIDO Y CLICKEABLE DEL HEATMAP ---
   const renderDashboardRiesgos = () => {
     const total = safeRiesgos.length;
     const esRes = tipoMatriz === 'residual';
 
-    // --- CÁLCULOS DINÁMICOS DE KPIs ---
     const totalRiesgos = safeRiesgos.length;
     const riesgosCriticos = safeRiesgos.filter(r => {
       const { score } = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
@@ -863,7 +858,6 @@ export default function App() {
 
     const contarCelda = (imp, prob) => safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
 
-    // Obtener los riesgos específicos del cuadrante clickeado
     const riesgosFiltradosHeatMap = filtroHeatMap 
       ? safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === filtroHeatMap.impacto && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === filtroHeatMap.probabilidad) 
       : [];
@@ -873,7 +867,7 @@ export default function App() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Análisis de Apetito y Tratamientos según ISO 31000.</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito basado en matrices ISO 31000.</p>
           </div>
           <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
             <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
@@ -898,19 +892,19 @@ export default function App() {
             <p className="text-3xl font-black mt-2 text-orange-600">{riesgosCriticos}</p>
           </div>
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-purple-600">
-            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Totales</p>
-            <p className="text-2xl font-black mt-2 text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</p>
+            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Registradas</p>
+            <p className="text-xl font-black mt-3 text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</p>
           </div>
         </div>
 
-        {/* MAPA DE CALOR INTERACTIVO CON CLIC DE VERDAD */}
+        {/* MAPA DE CALOR INTERACTIVO CON LEYENDA */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-6 flex items-center space-x-2">
             <span>🎚️ Mapa de Calor Empresarial (Haz clic en un cuadrante con números)</span>
             <span className="px-2.5 py-0.5 text-[8px] rounded-full text-white font-extrabold bg-slate-800 uppercase tracking-widest font-mono">{tipoMatriz}</span>
           </h3>
-          <div className="flex items-center justify-center">
-            <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 w-full max-w-2xl relative pb-6">
+          <div className="flex flex-col items-center justify-center">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 w-full max-w-2xl relative pb-4">
               <div className="absolute -left-12 top-1/2 -translate-y-1/2 -rotate-90 text-[8px] font-bold text-slate-400 uppercase tracking-widest">Impacto</div>
               <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-bold text-slate-400 uppercase tracking-widest">Probabilidad</div>
               <div></div>
@@ -929,6 +923,7 @@ export default function App() {
                         onClick={() => {
                           if (count > 0) {
                             setFiltroHeatMap({ impacto: imp, probabilidad: prob, count });
+                            setTimeout(() => document.getElementById('detalle-heatmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
                           } else {
                             showNotification("Este cuadrante no contiene riesgos registrados.", "error");
                           }
@@ -949,11 +944,32 @@ export default function App() {
                 </React.Fragment>
               ))}
             </div>
+
+            {/* LEYENDA DEL MAPA DE CALOR */}
+            <div className="flex flex-wrap items-start justify-center gap-6 mt-6 pt-6 border-t border-slate-100 w-full max-w-2xl">
+              <div className="flex items-center space-x-2">
+                <span className="w-4 h-4 rounded-md bg-emerald-500 shadow-inner border border-emerald-600"></span>
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Bajo (1-4)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-4 h-4 rounded-md bg-yellow-400 shadow-inner border border-yellow-500"></span>
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Medio (5-9)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-4 h-4 rounded-md bg-orange-500 shadow-inner border border-orange-600"></span>
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Alto (10-16)<br/><span className="text-[8px] text-red-500 leading-none block">Fuera de Apetito</span></span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-4 h-4 rounded-md bg-red-600 shadow-inner border border-red-700"></span>
+                <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Crítico (&gt;16)<br/><span className="text-[8px] text-red-500 leading-none block">Fuera de Apetito</span></span>
+              </div>
+            </div>
+
           </div>
           
           {/* TABLA DINÁMICA DE DETALLE INFERIOR */}
           {filtroHeatMap && (
-            <div className="mt-8 bg-slate-50 p-6 rounded-xl border border-slate-200 animate-in fade-in duration-300">
+            <div id="detalle-heatmap" className="mt-8 bg-slate-50 p-6 rounded-xl border border-slate-200 animate-in fade-in duration-300">
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center space-x-2">
@@ -1013,7 +1029,7 @@ export default function App() {
   const renderRiesgos = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4 flex justify-between items-center">
-        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Estructura de Riesgos</h2>
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Estructura de Riesgos Corporativos</h2>
         <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos_Termales')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
           <span>📥</span> <span>Exportar Excel</span>
         </button>
@@ -1037,16 +1053,16 @@ export default function App() {
             
             <div className="md:col-span-4 flex justify-end space-x-2">
               {editRiesgo && <button type="button" onClick={()=>setEditRiesgo(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow">Cancelar</button>}
-              <button type="submit" className={`${editRiesgo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editRiesgo ? 'Actualizar Cambios' : 'Guardar y Calcular'}</button>
+              <button type="submit" className={`${editRiesgo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editRiesgo ? 'Actualizar Cambios' : 'Guardar y Calcular de Inmediato'}</button>
             </div>
           </form>
         </div>
       )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Matriz de Riesgos</h4><span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-mono font-bold">{safeRiesgos.length} Registros</span></div>
+        <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Matriz de Riesgos Activa</h4><span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-mono font-bold">{safeRiesgos.length} Registros</span></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">Número de Riesgo</th><th className="p-3 w-48">Proceso / Riesgo</th><th className="p-3 w-48">Responsable / Control</th><th className="p-3 text-center">Riesgo Inherente</th><th className="p-3 text-center">Riesgo Residual</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID Asociado</th><th className="p-3 w-48">Proceso / Riesgo</th><th className="p-3 w-48">Responsable / Control</th><th className="p-3 text-center">Score Inh</th><th className="p-3 text-center">Score Res</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {safeRiesgos.map(r => {
                 const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
@@ -1086,10 +1102,10 @@ export default function App() {
                     </td>
                     
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
-                      <button onClick={() => setViewHistory({tipo: 'Riesgo', item: r})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️ Historial</button>
+                      <button onClick={() => setViewHistory({tipo: 'Riesgo', item: r})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
                       {isAdmin && (
                         <>
-                          <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                          <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️</button>
                           <button onClick={() => handleDeleteItem('riesgos', r.id)} className="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
                         </>
                       )}
@@ -1278,7 +1294,7 @@ export default function App() {
         </button>
       </div>
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editIncidente ? `✏️ Editando Incidentes #${editIncidente.id}` : '➕ Reportar Evento'}</h3>
+        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editIncidente ? `✏️ Editando Incidente #${editIncidente.id}` : '➕ Reportar Evento'}</h3>
         <form key={editIncidente ? editIncidente.id : 'new'} onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div><label className="font-bold text-gray-600">Riesgo Vinculado</label><select name="idRiesgo" defaultValue={editIncidente?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none">{safeRiesgos.map(r => <option key={r.id} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
           <div><label className="font-bold text-gray-600">Título</label><input name="titulo" defaultValue={editIncidente?.titulo||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
