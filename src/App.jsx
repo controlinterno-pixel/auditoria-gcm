@@ -8,6 +8,8 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+// NUEVO: Importamos Firebase Storage para subir evidencias
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
@@ -20,10 +22,11 @@ const firebaseConfig = {
   measurementId: "G-WTZPTWV67Y"
 };
 
-// Inicializamos la app, la autenticación y la base de datos
+// Inicializamos la app, la autenticación, base de datos Y ALMACENAMIENTO
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); // <- Nube de archivos activada
 
 // --- CONTROL DE ACCESO: LISTA DE AUDITORES AUTORIZADOS ---
 const ADMIN_EMAILS = [
@@ -66,6 +69,7 @@ export default function App() {
   const [filtroAnio, setFiltroAnio] = useState('Todos');
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
+  const [isUploading, setIsUploading] = useState(false); // NUEVO: Estado para bloqueo mientras sube archivos
 
   // Estados de Modificación / Edición
   const [editRiesgo, setEditRiesgo] = useState(null);
@@ -428,6 +432,7 @@ export default function App() {
     }
   };
 
+  // --- SECCIÓN DE FUNCIONES DE MATRIZ Y APETITO AUTOMÁTICO ---
   const calcularMatriz5x5 = (probabilidad, impacto) => {
     const pVal = mapProbabilidadNum[probabilidad] || 3;
     const iVal = mapImpactoNum[impacto] || 2;
@@ -523,6 +528,7 @@ export default function App() {
     e.target.reset();
   };
 
+  // NUEVO: Funciones con Firebase Storage Integrado
   const handleEvaluacionSubmit = async (e) => {
     e.preventDefault();
     if (!isAdmin) return;
@@ -532,6 +538,24 @@ export default function App() {
     const ejecucion = formData.get('ejecucion');
     const calif = (diseno === 'Eficaz' && ejecucion === 'Eficaz') ? 100 : 0;
     const timestamp = new Date().toLocaleString();
+    
+    const archivo = formData.get('evidenciaArchivo');
+    let evidenciaUrlOut = editEvaluacion?.evidenciaUrl || '';
+
+    // Subida de Archivo a Firebase Storage
+    if (archivo && archivo.size > 0) {
+      setIsUploading(true);
+      try {
+        const fileRef = ref(storage, `evidencias/evaluaciones/${Date.now()}_${archivo.name}`);
+        await uploadBytes(fileRef, archivo);
+        evidenciaUrlOut = await getDownloadURL(fileRef);
+        showNotification("Evidencia cargada a la nube con éxito.");
+      } catch (error) {
+        console.error("Error subiendo evidencia:", error);
+        showNotification("Error al adjuntar el archivo.", "error");
+      }
+      setIsUploading(false);
+    }
 
     let updatedList;
     if (editEvaluacion) {
@@ -539,6 +563,7 @@ export default function App() {
         ...editEvaluacion,
         idRiesgo, diseño: diseno, ejecucion, calificacion: calif,
         comentarios: formData.get('comentarios'),
+        evidenciaUrl: evidenciaUrlOut,
         historialCambios: [...(editEvaluacion.historialCambios || []), { fecha: timestamp, accion: 'Evaluación modificada por Auditor' }]
       };
       updatedList = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? modificada : ev);
@@ -550,6 +575,7 @@ export default function App() {
         idRiesgo, fecha: new Date().toISOString().split('T')[0],
         diseño: diseno, ejecucion, calificacion: calif,
         comentarios: formData.get('comentarios'), auditor: user.email,
+        evidenciaUrl: evidenciaUrlOut,
         historialCambios: [{ fecha: timestamp, accion: 'Test de auditoría generado' }]
       };
       updatedList = [...safeEvaluaciones, nuevaEval];
@@ -580,12 +606,30 @@ export default function App() {
     const idRiesgo = formData.get('idRiesgo');
     const timestamp = new Date().toLocaleString();
 
+    const archivo = formData.get('evidenciaArchivo');
+    let evidenciaUrlOut = editHallazgo?.evidenciaUrl || '';
+
+    if (archivo && archivo.size > 0) {
+      setIsUploading(true);
+      try {
+        const fileRef = ref(storage, `evidencias/hallazgos/${Date.now()}_${archivo.name}`);
+        await uploadBytes(fileRef, archivo);
+        evidenciaUrlOut = await getDownloadURL(fileRef);
+        showNotification("Evidencia cargada a la nube con éxito.");
+      } catch (error) {
+        console.error("Error subiendo evidencia:", error);
+        showNotification("Error al adjuntar el archivo.", "error");
+      }
+      setIsUploading(false);
+    }
+
     let updatedList;
     if (editHallazgo) {
       const modificado = {
         ...editHallazgo,
         ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
         titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
+        evidenciaUrl: evidenciaUrlOut,
         historialCambios: [...(editHallazgo.historialCambios || []), { fecha: timestamp, accion: 'Hallazgo editado por Auditor' }]
       };
       updatedList = safeHallazgos.map(h => h.id === editHallazgo.id ? modificado : h);
@@ -597,6 +641,7 @@ export default function App() {
         ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
         titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
         estado: 'Abierto', fecha: new Date().toISOString().split('T')[0],
+        evidenciaUrl: evidenciaUrlOut,
         historialCambios: [{ fecha: timestamp, accion: 'Hallazgo documentado' }]
       };
       updatedList = [...safeHallazgos, nuevo];
@@ -681,6 +726,7 @@ export default function App() {
     e.target.reset();
   };
 
+  // --- FUNCIONES ELIMINAR ---
   const handleDeleteItem = async (listType, id) => {
     if (!isAdmin) return;
     if (!window.confirm('¿Seguro que desea eliminar este registro permanentemente?')) return;
@@ -897,7 +943,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* MAPA DE CALOR INTERACTIVO CON LEYENDA */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-6 flex items-center space-x-2">
             <span>🎚️ Mapa de Calor Empresarial (Haz clic en un cuadrante con números)</span>
@@ -945,7 +990,6 @@ export default function App() {
               ))}
             </div>
 
-            {/* LEYENDA DEL MAPA DE CALOR */}
             <div className="flex flex-wrap items-start justify-center gap-6 mt-6 pt-6 border-t border-slate-100 w-full max-w-2xl">
               <div className="flex items-center space-x-2">
                 <span className="w-4 h-4 rounded-md bg-emerald-500 shadow-inner border border-emerald-600"></span>
@@ -967,7 +1011,6 @@ export default function App() {
 
           </div>
           
-          {/* TABLA DINÁMICA DE DETALLE INFERIOR */}
           {filtroHeatMap && (
             <div id="detalle-heatmap" className="mt-8 bg-slate-50 p-6 rounded-xl border border-slate-200 animate-in fade-in duration-300">
               <div className="flex justify-between items-center mb-4">
@@ -1132,10 +1175,20 @@ export default function App() {
             <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" defaultValue={editEvaluacion?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none">{safeRiesgos.map(r => <option key={r.id} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
             <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" defaultValue={editEvaluacion?.ejecucion||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div className="md:col-span-3"><label className="font-bold text-gray-600">Evidencias</label><textarea name="comentarios" defaultValue={editEvaluacion?.comentarios||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" rows="2"></textarea></div>
+            <div className="md:col-span-2"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" defaultValue={editEvaluacion?.comentarios||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" rows="2"></textarea></div>
+            
+            {/* NUEVO: Campo para adjuntar Evidencia en Evaluaciones */}
+            <div>
+              <label className="font-bold text-gray-600">Adjuntar Evidencia (PDF/Img)</label>
+              <input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 focus:outline-none" />
+              {editEvaluacion?.evidenciaUrl && <a href={editEvaluacion.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold block mt-1">Ver adjunto actual</a>}
+            </div>
+
             <div className="md:col-span-3 flex justify-end space-x-2">
-              {editEvaluacion && <button type="button" onClick={()=>setEditEvaluacion(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow">Cancelar</button>}
-              <button type="submit" className={`${editEvaluacion ? 'bg-amber-500' : 'bg-indigo-600'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editEvaluacion ? 'Actualizar' : 'Firmar e Inyectar'}</button>
+              {editEvaluacion && <button type="button" onClick={()=>setEditEvaluacion(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow" disabled={isUploading}>Cancelar</button>}
+              <button type="submit" disabled={isUploading} className={`${editEvaluacion ? 'bg-amber-500' : 'bg-indigo-600'} ${isUploading ? 'opacity-50 cursor-wait' : ''} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>
+                {isUploading ? 'Subiendo Archivo...' : (editEvaluacion ? 'Actualizar' : 'Firmar e Inyectar')}
+              </button>
             </div>
           </form>
         </div>
@@ -1143,12 +1196,25 @@ export default function App() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Historial</h4><span className="text-[10px] bg-slate-100 px-2 py-1 rounded font-mono font-bold">{safeEvaluaciones.length} Tests</span></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID Test</th><th className="p-3">Fecha</th><th className="p-3">Diseño/Operación</th><th className="p-3">Eficacia</th><th className="p-3">Comentarios</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID Test</th><th className="p-3">Fecha</th><th className="p-3">Diseño/Operación</th><th className="p-3">Eficacia</th><th className="p-3 w-64">Comentarios</th><th className="p-3">Evidencia</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {safeEvaluaciones.map(ev => (
                 <tr key={ev.id} className="hover:bg-slate-50">
                   <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{ev.fecha}</td><td className="p-3">D: {ev.diseño} <br/><span className="text-[10px] text-slate-500">E: {ev.ejecucion}</span></td>
-                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black text-[10px] ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td><td className="p-3">{ev.comentarios}</td>
+                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black text-[10px] ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
+                  <td className="p-3 whitespace-normal break-words">{ev.comentarios}</td>
+                  
+                  {/* NUEVO: Botón de descarga de evidencia en Evaluaciones */}
+                  <td className="p-3">
+                    {ev.evidenciaUrl ? (
+                      <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-bold text-[10px] whitespace-nowrap block text-center shadow-sm">
+                        📎 Ver Evidencia
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Sin adjunto</span>
+                    )}
+                  </td>
+
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
                     <button onClick={() => setViewHistory({tipo: 'Auditoría', item: ev})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
                     {isAdmin && (
@@ -1184,12 +1250,22 @@ export default function App() {
             <div><label className="font-bold text-gray-600">Referencia</label><input name="ref" defaultValue={editHallazgo?.ref||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
             <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
             <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
-            <div className="md:col-span-2"><label className="font-bold text-gray-600">Título</label><input name="titulo" defaultValue={editHallazgo?.titulo||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
+            <div className="md:col-span-2"><label className="font-bold text-gray-600">Título / Descripción</label><input name="titulo" defaultValue={editHallazgo?.titulo||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
             <div><label className="font-bold text-gray-600">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-            <div className="md:col-span-3"><label className="font-bold text-gray-600">Vincular Riesgo</label><select name="idRiesgo" defaultValue={editHallazgo?.idRiesgo||''} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="">-- Sin vincular --</option>{safeRiesgos.map(r => <option key={r.id} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
+            <div className="md:col-span-2"><label className="font-bold text-gray-600">Vincular Riesgo</label><select name="idRiesgo" defaultValue={editHallazgo?.idRiesgo||''} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="">-- Sin vincular --</option>{safeRiesgos.map(r => <option key={r.id} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
+            
+            {/* NUEVO: Campo para adjuntar Evidencia en Hallazgos */}
+            <div>
+              <label className="font-bold text-gray-600">Adjuntar Evidencia (PDF/Img)</label>
+              <input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 focus:outline-none" />
+              {editHallazgo?.evidenciaUrl && <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold block mt-1">Ver adjunto actual</a>}
+            </div>
+
             <div className="md:col-span-3 flex justify-end space-x-2">
-              {editHallazgo && <button type="button" onClick={()=>setEditHallazgo(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow">Cancelar</button>}
-              <button type="submit" className={`${editHallazgo ? 'bg-amber-500' : 'bg-red-600'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editHallazgo ? 'Actualizar' : 'Guardar Hallazgo'}</button>
+              {editHallazgo && <button type="button" onClick={()=>setEditHallazgo(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow" disabled={isUploading}>Cancelar</button>}
+              <button type="submit" disabled={isUploading} className={`${editHallazgo ? 'bg-amber-500' : 'bg-red-600'} ${isUploading ? 'opacity-50 cursor-wait' : ''} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>
+                {isUploading ? 'Subiendo Archivo...' : (editHallazgo ? 'Actualizar' : 'Guardar Hallazgo')}
+              </button>
             </div>
           </form>
         </div>
@@ -1197,12 +1273,24 @@ export default function App() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Historial</h4><span className="text-[10px] bg-slate-100 px-2 py-1 rounded font-mono font-bold">{safeHallazgos.length} Hallazgos</span></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Ref</th><th className="p-3">Proceso</th><th className="p-3">Título</th><th className="p-3">Estado</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Ref</th><th className="p-3">Proceso</th><th className="p-3 w-64">Título</th><th className="p-3">Estado</th><th className="p-3">Soporte</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {safeHallazgos.map(h => (
                 <tr key={h.id} className="hover:bg-slate-50">
-                  <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td><td className="p-3 font-bold">{h.proceso}</td><td className="p-3">{h.titulo}</td>
+                  <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td><td className="p-3 font-bold">{h.proceso}</td><td className="p-3 whitespace-normal break-words">{h.titulo}</td>
                   <td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[10px] uppercase bg-slate-100">{h.estado}</span></td>
+                  
+                  {/* NUEVO: Botón de descarga de evidencia en Hallazgos */}
+                  <td className="p-3">
+                    {h.evidenciaUrl ? (
+                      <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg font-bold text-[10px] whitespace-nowrap block text-center shadow-sm">
+                        📎 Ver Evidencia
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Sin adjunto</span>
+                    )}
+                  </td>
+
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
                     <button onClick={() => setViewHistory({tipo: 'Hallazgo', item: h})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
                     {isAdmin && (
