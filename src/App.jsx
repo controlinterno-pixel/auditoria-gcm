@@ -65,6 +65,7 @@ export default function App() {
   const [tipoMatriz, setTipoMatriz] = useState('inherente'); 
   const [filtroAnio, setFiltroAnio] = useState('Todos');
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
+  const [filtroHeatMap, setFiltroHeatMap] = useState(null); // Filtro activo del mapa de calor
 
   // Estados de Modificación / Edición
   const [editRiesgo, setEditRiesgo] = useState(null);
@@ -165,7 +166,7 @@ export default function App() {
     return () => unsubscribeSnapshot();
   }, [user]);
 
-  // --- MÉTODOS AUXILIARES Y DE AUTENTICACIÓN ---
+  // --- MÉTODOS AUXILIARES Y DE EXPORTACIÓN ---
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -216,6 +217,23 @@ export default function App() {
       }
   };
 
+  const exportToExcel = (dataArray, fileName) => {
+    if (!xlsxLoaded || !window.XLSX) {
+      showNotification("La librería de exportación aún está cargando.", "error");
+      return;
+    }
+    const cleanData = dataArray.map(item => {
+      const { historialCambios, ...rest } = item;
+      return rest;
+    });
+    
+    const ws = window.XLSX.utils.json_to_sheet(cleanData);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+    window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showNotification(`Archivo ${fileName} exportado con éxito.`);
+  };
+
   const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
   const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 
@@ -245,7 +263,7 @@ export default function App() {
     return 'Posible';
   };
 
-  // --- LÓGICA CENTRAL DE PROCESAMIENTO DE EXCEL ---
+  // --- LÓGICA CENTRAL DE PROCESAMIENTO DE EXCEL (Sincronización) ---
   const processExcelWorkbook = async (wb, originName = "Archivo local") => {
     let nuevosRiesgos = [...safeRiesgos];
     let nuevosIncidentes = [...safeIncidentes];
@@ -309,7 +327,7 @@ export default function App() {
               noControl: nuevoNumControl || `C-${currentRiskId}`,
               descripcionControl: nuevoControl || 'No especificado',
               responsable: row['Responsable'] || 'No Asignado',
-              historialCambios: [{ fecha: timestamp, accion: `Sincronización automática desde ${originName} (Hoja: ${matrizSheetName})` }]
+              historialCambios: [{ fecha: timestamp, accion: `Sincronización automática desde ${originName}` }]
             };
             nuevosRiesgos.push(riesgoObj);
           }
@@ -407,7 +425,7 @@ export default function App() {
       await processExcelWorkbook(wb, "Google Drive Sync");
     } catch (error) {
       console.error("Error conectando a Drive:", error);
-      showNotification("Error de conexión (CORS o link inválido). Asegúrate de publicar el archivo en la web como '.xlsx'.", "error");
+      showNotification("Error de conexión. Asegúrate de publicar el archivo en la web como '.xlsx'.", "error");
     }
   };
 
@@ -444,7 +462,6 @@ export default function App() {
     return { score, apetito, accion, color, borderSemaforo };
   };
 
-  // --- REEMPLAZO MEJORADO DE HANDLERIESGOSUBMIT CON LOGS DETALLADOS POR ATRIBUTO ---
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault();
     if (!isAdmin) return;
@@ -457,7 +474,6 @@ export default function App() {
 
     let updatedList;
     if (editRiesgo) {
-      // Identificar qué atributos específicos cambiaron para armar el log detallado
       let cambios = [];
       if (editRiesgo.proceso !== formData.get('proceso')) cambios.push('proceso');
       if (editRiesgo.categoria !== formData.get('categoria')) cambios.push('categoría');
@@ -498,7 +514,7 @@ export default function App() {
         impactoInherente: impInh,
         probabilidadResidual: probRes, 
         impactoResidual: impRes,
-        historialCambios: [{ fecha: timestamp, accion: 'Riesgo e indicadores iniciales creados en la matriz' }]
+        historialCambios: [{ fecha: timestamp, accion: 'Riesgo e indicadores iniciales creados' }]
       };
       updatedList = [...safeRiesgos, nuevo];
       showNotification("Riesgo guardado.");
@@ -547,7 +563,7 @@ export default function App() {
         let nuevaProb = (calif === 100) ? 'Rara' : r.probabilidadInherente;
         return {
           ...r, probabilidadResidual: nuevaProb,
-          historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: `Test arrojó efectividad del ${calif}%. Riesgo residual e indicadores de apetito recalculados.` }]
+          historialCambios: [...(r.historialCambios||[]), { fecha: timestamp, accion: `Test arrojó efectividad del ${calif}%. Riesgo residual recalculado.` }]
         };
       }
       return r;
@@ -701,7 +717,6 @@ export default function App() {
 
   // ==================== RENDERS DE VISTAS ====================
 
-  // --- 1. REEMPLAZO MEJORADO DEL TABLERO ANALÍTICO CON TUS NUEVOS NOMBRES ---
   const renderTablero = () => {
     const anioActual = filtroAnio;
     const hFiltrados = safeHallazgos.filter(h => anioActual === 'Todos' || getYearFromDate(h.fecha) === anioActual);
@@ -769,7 +784,7 @@ export default function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col">
-            <h4 className="text-xs font-bold text-slate-880 uppercase tracking-wider mb-4 border-b pb-2">Hallazgos por Criticidad</h4>
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 border-b pb-2">Hallazgos por Criticidad</h4>
             <div className="space-y-4 flex-1 justify-center flex flex-col">
               {['Crítico', 'Alto', 'Medio', 'Bajo'].map(crit => {
                 const count = critCount[crit] || 0;
@@ -826,10 +841,12 @@ export default function App() {
     );
   };
 
+  // --- REEMPLAZO 100% CORREGIDO Y CLICKEABLE DEL HEATMAP ---
   const renderDashboardRiesgos = () => {
     const total = safeRiesgos.length;
     const esRes = tipoMatriz === 'residual';
 
+    // --- CÁLCULOS DINÁMICOS DE KPIs ---
     const totalRiesgos = safeRiesgos.length;
     const riesgosCriticos = safeRiesgos.filter(r => {
       const { score } = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
@@ -841,22 +858,15 @@ export default function App() {
     }).length;
     const totalPerdidas = safeIncidentes.reduce((acc, i) => acc + (i.costo || 0), 0);
 
-    const calcularScorePromedio = (esResid) => {
-      if (total === 0) return 0;
-      const sum = safeRiesgos.reduce((acc, r) => {
-        const imp = esResid ? r.impactoResidual : r.impactoInherente;
-        const prob = esResid ? r.probabilidadResidual : r.probabilidadInherente;
-        return acc + (mapImpactoNum[imp] || 1) * (mapProbabilidadNum[prob] || 1);
-      }, 0);
-      return (sum / total).toFixed(1);
-    };
-
-    const scoreInherente = parseFloat(calcularScorePromedio(false));
-    const scoreResidual = parseFloat(calcularScorePromedio(true));
     const impactos = ['Crítico', 'Alto', 'Medio', 'Bajo'];
     const probabilidades = ['Rara', 'Posible', 'Frecuente'];
 
     const contarCelda = (imp, prob) => safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
+
+    // Obtener los riesgos específicos del cuadrante clickeado
+    const riesgosFiltradosHeatMap = filtroHeatMap 
+      ? safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === filtroHeatMap.impacto && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === filtroHeatMap.probabilidad) 
+      : [];
 
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
@@ -866,8 +876,8 @@ export default function App() {
             <p className="text-xs text-slate-500 mt-1 font-medium">Análisis de Apetito y Tratamientos según ISO 31000.</p>
           </div>
           <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
-            <button onClick={() => setTipoMatriz('inherente')} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
-            <button onClick={() => setTipoMatriz('residual')} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${esRes ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Residual</button>
+            <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
+            <button onClick={() => {setTipoMatriz('residual'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${esRes ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Residual</button>
           </div>
         </div>
 
@@ -893,9 +903,11 @@ export default function App() {
           </div>
         </div>
 
+        {/* MAPA DE CALOR INTERACTIVO CON CLIC DE VERDAD */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
           <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-6 flex items-center space-x-2">
-            <span>🎚️ Mapa de Calor Empresarial</span><span className="px-2.5 py-0.5 text-[8px] rounded-full text-white font-extrabold bg-slate-800 uppercase tracking-widest font-mono">{tipoMatriz}</span>
+            <span>🎚️ Mapa de Calor Empresarial (Haz clic en un cuadrante con números)</span>
+            <span className="px-2.5 py-0.5 text-[8px] rounded-full text-white font-extrabold bg-slate-800 uppercase tracking-widest font-mono">{tipoMatriz}</span>
           </h3>
           <div className="flex items-center justify-center">
             <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 w-full max-w-2xl relative pb-6">
@@ -908,11 +920,29 @@ export default function App() {
                   <div className="flex items-center justify-end pr-3 py-4 text-slate-600 font-bold uppercase text-[9px] bg-slate-50 rounded-l-lg text-right">{imp}</div>
                   {probabilidades.map(prob => {
                     const count = contarCelda(imp, prob);
-                    const { score, color } = calcularMatriz5x5(prob, imp);
+                    const { score, color, borderSemaforo } = calcularMatriz5x5(prob, imp);
+                    const isSelected = filtroHeatMap?.impacto === imp && filtroHeatMap?.probabilidad === prob;
+                    
                     return (
-                      <div key={prob} className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 hover:scale-105 hover:shadow cursor-pointer ${color} bg-opacity-20`}>
-                        <span className="absolute top-1 right-2 text-[8px] font-mono font-bold opacity-60 text-slate-700">S:{score}</span>
-                        <span className={`text-2xl font-black ${count > 0 ? 'text-slate-900' : 'text-slate-300'}`}>{count}</span>
+                      <div 
+                        key={prob} 
+                        onClick={() => {
+                          if (count > 0) {
+                            setFiltroHeatMap({ impacto: imp, probabilidad: prob, count });
+                          } else {
+                            showNotification("Este cuadrante no contiene riesgos registrados.", "error");
+                          }
+                        }}
+                        className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 ${
+                          count > 0 
+                            ? 'cursor-pointer hover:scale-105 shadow-md hover:brightness-90 opacity-100' 
+                            : 'opacity-40 cursor-not-allowed'
+                        } ${color} ${
+                          isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100' : 'bg-opacity-20'
+                        } ${borderSemaforo}`}
+                      >
+                        <span className="absolute top-1 right-2 text-[8px] font-mono font-bold opacity-60 text-slate-700">Score:{score}</span>
+                        <span className={`text-2xl font-black text-slate-900`}>{count}</span>
                       </div>
                     );
                   })}
@@ -920,6 +950,61 @@ export default function App() {
               ))}
             </div>
           </div>
+          
+          {/* TABLA DINÁMICA DE DETALLE INFERIOR */}
+          {filtroHeatMap && (
+            <div className="mt-8 bg-slate-50 p-6 rounded-xl border border-slate-200 animate-in fade-in duration-300">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center space-x-2">
+                    <span>🔎 Detalle de Riesgos en Cuadrante:</span>
+                    <span className="bg-slate-800 text-white px-2 py-0.5 rounded font-mono">{filtroHeatMap.probabilidad} / {filtroHeatMap.impacto}</span>
+                  </h4>
+                  <p className="text-[10px] text-slate-500 mt-1">Se muestran los ({filtroHeatMap.count}) registros asociados a este nivel de criticidad.</p>
+                </div>
+                <button 
+                  onClick={() => setFiltroHeatMap(null)} 
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all shadow hover:shadow-md"
+                >
+                  ✖ Limpiar Filtro / Ver Todo
+                </button>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                <table className="w-full text-xs text-left divide-y">
+                  <thead className="bg-slate-800 text-white font-bold">
+                    <tr>
+                      <th className="p-3">ID</th>
+                      <th className="p-3">Proceso / Categoría</th>
+                      <th className="p-3 w-1/2">Descripción del Evento</th>
+                      <th className="p-3">Responsable</th>
+                      <th className="p-3 text-center">Estrategia</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {riesgosFiltradosHeatMap.map(r => {
+                      const resCalc = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-bold text-slate-400">#{r.id}</td>
+                          <td className="p-3">
+                            <div className="font-black text-slate-800">{r.proceso}</div>
+                            <div className="text-[9px] text-indigo-500 font-bold font-mono mt-0.5">{r.categoria}</div>
+                          </td>
+                          <td className="p-3 text-slate-700 font-medium whitespace-normal break-words leading-relaxed">{r.descripcion}</td>
+                          <td className="p-3 text-slate-600 font-bold">{r.responsable || 'No Asignado'}</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-1 rounded-md font-black block text-[10px] ${resCalc.color}`}>
+                              {resCalc.accion}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -927,14 +1012,17 @@ export default function App() {
 
   const renderRiesgos = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="border-b pb-4">
+      <div className="border-b pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-black text-slate-800 tracking-tight">Estructura de Riesgos</h2>
+        <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos_Termales')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
+          <span>📥</span> <span>Exportar Excel</span>
+        </button>
       </div>
       {!isAdmin ? (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Cuenta en Modo "Solo Lectura". Requiere rol de Auditor.</div>
       ) : (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo Corporativo'}</h3>
           <form key={editRiesgo ? editRiesgo.id : 'new'} onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
             <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
@@ -955,11 +1043,10 @@ export default function App() {
         </div>
       )}
 
-      {/* 4. REEMPLAZO MEJORADO DE LA TABLA DE RIESGOS TOTALMENTE DESPLEGADA */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Matriz de Riesgos</h4><span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-mono font-bold">{safeRiesgos.length} Registros</span></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">Número de Riesgo</th><th className="p-3">Proceso</th><th className="p-3">Descripción</th><th className="p-3">Responsable</th><th className="p-3">Control</th><th className="p-3 text-center">Riesgo Inherente</th><th className="p-3 text-center">Riesgo Residual</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">Número de Riesgo</th><th className="p-3 w-48">Proceso / Riesgo</th><th className="p-3 w-48">Responsable / Control</th><th className="p-3 text-center">Riesgo Inherente</th><th className="p-3 text-center">Riesgo Residual</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {safeRiesgos.map(r => {
                 const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
@@ -967,22 +1054,37 @@ export default function App() {
                 return (
                   <tr key={r.id} className="hover:bg-slate-50">
                     <td className="p-3 font-bold text-slate-500">#{r.id}</td>
-                    <td className="p-3 font-bold">{r.proceso}<br/><span className="text-[9px] font-bold tracking-wider text-indigo-500 uppercase font-mono">{r.categoria}</span></td>
-                    <td className="p-3 whitespace-normal break-words font-medium text-slate-800">{r.descripcion}</td>
-                    <td className="p-3 font-medium text-slate-600 whitespace-nowrap">{r.responsable || 'No Asignado'}</td>
-                    <td className="p-3 whitespace-normal break-words text-slate-600 italic">⚙️ {r.descripcionControl || 'Ninguno'}</td>
-                    <td className="p-3 text-center font-mono font-bold text-slate-500">{inh.score} pts ({r.probabilidadInherente}/{r.impactoInherente})</td>
-                    <td className="p-3 text-center font-mono font-black text-slate-800">{res.score} pts ({r.probabilidadResidual}/{r.impactoResidual})</td>
+                    
                     <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${res.apetito === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800 animate-pulse'}`}>
+                      <div className="font-black text-slate-800">{r.proceso}</div>
+                      <div className="text-[9px] font-bold tracking-wider text-indigo-500 uppercase font-mono mt-1 mb-1">{r.categoria}</div>
+                      <div className="whitespace-normal break-words font-medium text-slate-600 leading-relaxed text-xs">
+                        {r.descripcion}
+                      </div>
+                    </td>
+
+                    <td className="p-3">
+                      <div className="font-bold text-slate-800">{r.responsable || 'No Asignado'}</div>
+                      <div className="whitespace-normal break-words text-slate-600 italic mt-2 leading-relaxed text-xs">
+                        ⚙️ {r.descripcionControl || 'Ninguno'}
+                      </div>
+                    </td>
+
+                    <td className="p-3 text-center font-mono text-slate-500">{inh.score} pts <br/><span className="text-[9px]">({r.probabilidadInherente}/{r.impactoInherente})</span></td>
+                    <td className="p-3 text-center font-mono font-black text-slate-800">{res.score} pts <br/><span className="text-[9px]">({r.probabilidadResidual}/{r.impactoResidual})</span></td>
+                    
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase whitespace-nowrap ${res.apetito === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800 animate-pulse'}`}>
                         {res.apetito}
                       </span>
                     </td>
+                    
                     <td className="p-3">
                       <span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black shadow-sm border ${res.color} ${res.borderSemaforo}`}>
                         {res.accion}
                       </span>
                     </td>
+                    
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
                       <button onClick={() => setViewHistory({tipo: 'Riesgo', item: r})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️ Historial</button>
                       {isAdmin && (
@@ -1051,7 +1153,12 @@ export default function App() {
 
   const renderHallazgos = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800 tracking-tight">Hallazgos y Desviaciones</h2></div>
+      <div className="border-b pb-4 flex justify-between items-center">
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Hallazgos y Desviaciones</h2>
+        <button onClick={() => exportToExcel(safeHallazgos, 'Reporte_Hallazgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
+          <span>📥</span> <span>Exportar Excel</span>
+        </button>
+      </div>
       {!isAdmin ? (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Solo lectura.</div>
       ) : (
@@ -1100,7 +1207,12 @@ export default function App() {
 
   const renderPlanes = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800 tracking-tight">Planes de Acción</h2></div>
+      <div className="border-b pb-4 flex justify-between items-center">
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Planes de Acción</h2>
+        <button onClick={() => exportToExcel(safePlanes, 'Reporte_Planes_Accion')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
+          <span>📥</span> <span>Exportar Excel</span>
+        </button>
+      </div>
       {!isAdmin ? (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Solo lectura.</div>
       ) : (
@@ -1123,22 +1235,33 @@ export default function App() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Hallazgo</th><th className="p-3">Acción</th><th className="p-3">Compromiso</th><th className="p-3">Estado</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
-              {safePlanes.map(p => (
-                <tr key={p.id} className="hover:bg-slate-50">
-                  <td className="p-3 font-bold text-slate-400">#PLAN-{p.id}</td><td className="p-3 text-red-600">#HAL-{p.idHallazgo}</td><td className="p-3 font-bold">{p.accion}</td><td className="p-3 font-mono">{p.fecha}</td>
-                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
-                  <td className="p-3 text-center whitespace-nowrap space-x-1">
-                    <button onClick={() => setViewHistory({tipo: 'Plan de Acción', item: p})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
-                    {isAdmin && (
-                      <>
-                        <button onClick={() => handleCerrarPlan(p.id)} className="bg-green-100 hover:bg-green-200 text-green-800 font-bold px-2 py-1 rounded text-[10px]">✅</button>
-                        <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️</button>
-                        <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {safePlanes.map(p => {
+                const isVencido = new Date(p.fecha) < new Date() && p.estado !== 'Cerrado';
+                return (
+                  <tr key={p.id} className={`hover:bg-slate-50 ${isVencido ? 'bg-red-50/50' : ''}`}>
+                    <td className="p-3 font-bold text-slate-400">#PLAN-{p.id}</td>
+                    <td className="p-3 text-red-600">#HAL-{p.idHallazgo}</td>
+                    <td className="p-3 font-bold">{p.accion}</td>
+                    
+                    <td className={`p-3 ${isVencido ? 'text-red-600 font-black flex items-center space-x-1' : 'font-mono'}`}>
+                      {isVencido && <span>⚠️ VENCIDO:</span>}
+                      <span>{p.fecha}</span>
+                    </td>
+                    
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded font-black text-[10px] uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : (isVencido ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')}`}>{p.estado}</span></td>
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      <button onClick={() => setViewHistory({tipo: 'Plan de Acción', item: p})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
+                      {isAdmin && (
+                        <>
+                          {p.estado !== 'Cerrado' && <button onClick={() => handleCerrarPlan(p.id)} className="bg-green-100 hover:bg-green-200 text-green-800 font-bold px-2 py-1 rounded text-[10px]">✅</button>}
+                          <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️</button>
+                          <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 hover:bg-red-100 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -1148,9 +1271,14 @@ export default function App() {
 
   const renderIncidentes = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800 tracking-tight">🚨 Eventos de Pérdida (Incidentes)</h2></div>
+      <div className="border-b pb-4 flex justify-between items-center">
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight">🚨 Eventos de Pérdida (Incidentes)</h2>
+        <button onClick={() => exportToExcel(safeIncidentes, 'Reporte_Incidentes_Pérdida')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-all flex items-center space-x-2">
+          <span>📥</span> <span>Exportar Excel</span>
+        </button>
+      </div>
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editIncidente ? `✏️ Editando Incidente #${editIncidente.id}` : '➕ Reportar Evento'}</h3>
+        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editIncidente ? `✏️ Editando Incidentes #${editIncidente.id}` : '➕ Reportar Evento'}</h3>
         <form key={editIncidente ? editIncidente.id : 'new'} onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div><label className="font-bold text-gray-600">Riesgo Vinculado</label><select name="idRiesgo" defaultValue={editIncidente?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none">{safeRiesgos.map(r => <option key={r.id} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
           <div><label className="font-bold text-gray-600">Título</label><input name="titulo" defaultValue={editIncidente?.titulo||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none" /></div>
@@ -1199,10 +1327,10 @@ export default function App() {
 
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
-        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800 tracking-tight">📜 Trawabilidad</h2></div>
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800 tracking-tight">📜 Trazabilidad General</h2></div>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">Fecha</th><th className="p-3">Módulo</th><th className="p-3">Acción</th></tr></thead>
+            <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">Fecha</th><th className="p-3">Módulo</th><th className="p-3">Acción Registrada</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {logs.length === 0 ? <tr><td colSpan="3" className="p-4 text-center text-slate-400 italic">No hay logs.</td></tr> : logs.map((log, idx) => (
                   <tr key={idx} className="hover:bg-slate-50"><td className="p-3 font-mono text-slate-500">{log.fecha}</td><td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[9px] uppercase bg-slate-100">{log.tipo} #{log.id}</span></td><td className="p-3 font-semibold">{log.accion}</td></tr>
@@ -1292,7 +1420,7 @@ export default function App() {
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
           ].map(tab => (
             <button key={tab.id} onClick={() => {
-              setActiveTab(tab.id); setEditRiesgo(null); setEditEvaluacion(null); setEditHallazgo(null); setEditPlan(null); setEditIncidente(null);
+              setActiveTab(tab.id); setEditRiesgo(null); setEditEvaluacion(null); setEditHallazgo(null); setEditPlan(null); setEditIncidente(null); setFiltroHeatMap(null);
             }} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 transition-all ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
