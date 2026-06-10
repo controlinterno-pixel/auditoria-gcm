@@ -398,7 +398,7 @@ export default function App() {
       showNotification("El enlace de Drive no puede estar vacío.", "error"); return;
     }
 
-    showNotification("Conectando con Google Drive and descargar datos...", "success");
+    showNotification("Conectando con Google Drive y descargando datos...", "success");
     try {
       const response = await fetch(urlToFetch);
       if (!response.ok) throw new Error(`Error de red: ${response.status}`);
@@ -411,7 +411,7 @@ export default function App() {
     }
   };
 
-  // --- 1. SECCIÓN DE FUNCIONES DE MEJORA: APETITO, MATRIZ Y ACCIÓN AUTOMÁTICA ---
+  // --- SECCIÓN DE FUNCIONES DE MATRIZ Y APETITO AUTOMÁTICO ---
   const calcularMatriz5x5 = (probabilidad, impacto) => {
     const pVal = mapProbabilidadNum[probabilidad] || 3;
     const iVal = mapImpactoNum[impacto] || 2;
@@ -444,7 +444,7 @@ export default function App() {
     return { score, apetito, accion, color, borderSemaforo };
   };
 
-  // --- 2. REEMPLAZO MEJORADO DE HANDLERIESGOSUBMIT ---
+  // --- REEMPLAZO MEJORADO DE HANDLERIESGOSUBMIT CON LOGS DETALLADOS POR ATRIBUTO ---
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault();
     if (!isAdmin) return;
@@ -457,6 +457,18 @@ export default function App() {
 
     let updatedList;
     if (editRiesgo) {
+      // Identificar qué atributos específicos cambiaron para armar el log detallado
+      let cambios = [];
+      if (editRiesgo.proceso !== formData.get('proceso')) cambios.push('proceso');
+      if (editRiesgo.categoria !== formData.get('categoria')) cambios.push('categoría');
+      if (editRiesgo.responsable !== formData.get('responsable')) cambios.push('responsable');
+      if (editRiesgo.descripcionControl !== formData.get('control')) cambios.push('control clave');
+      if (editRiesgo.descripcion !== formData.get('descripcion')) cambios.push('descripción del riesgo');
+      if (editRiesgo.probabilidadInherente !== probInh || editRiesgo.impactoInherente !== impInh) cambios.push('riesgo inherente');
+      if (editRiesgo.probabilidadResidual !== probRes || editRiesgo.impactoResidual !== impRes) cambios.push('riesgo residual');
+
+      const detalleLog = cambios.length > 0 ? `Modificación en: ${cambios.join(', ')}` : 'Registro actualizado sin cambios en atributos';
+
       const modificado = {
         ...editRiesgo,
         proceso: formData.get('proceso'),
@@ -468,7 +480,7 @@ export default function App() {
         impactoInherente: impInh,
         probabilidadResidual: probRes,
         impactoResidual: impRes,
-        historialCambios: [...(editRiesgo.historialCambios || []), { fecha: timestamp, accion: 'Registro modificado por Auditor' }]
+        historialCambios: [...(editRiesgo.historialCambios || []), { fecha: timestamp, accion: detalleLog }]
       };
       updatedList = safeRiesgos.map(r => r.id === editRiesgo.id ? modificado : r);
       setEditRiesgo(null);
@@ -476,11 +488,17 @@ export default function App() {
     } else {
       const nuevo = {
         id: safeRiesgos.length ? Math.max(...safeRiesgos.map(r => r.id)) + 1 : 1,
-        proceso: formData.get('proceso'), categoria: formData.get('categoria'), responsable: formData.get('responsable'),
-        noControl: 'C-' + Math.floor(Math.random() * 100 + 100), descripcionControl: formData.get('control'),
-        descripcion: formData.get('descripcion'), probabilidadInherente: probInh, impactoInherente: impInh,
-        probabilidadResidual: probRes, impactoResidual: impRes,
-        historialCambios: [{ fecha: timestamp, accion: 'Riesgo creado en matriz manualmente' }]
+        proceso: formData.get('proceso'), 
+        categoria: formData.get('categoria'), 
+        responsable: formData.get('responsable'),
+        noControl: 'C-' + Math.floor(Math.random() * 100 + 100), 
+        descripcionControl: formData.get('control'),
+        descripcion: formData.get('descripcion'), 
+        probabilidadInherente: probInh, 
+        impactoInherente: impInh,
+        probabilidadResidual: probRes, 
+        impactoResidual: impRes,
+        historialCambios: [{ fecha: timestamp, accion: 'Riesgo e indicadores iniciales creados en la matriz' }]
       };
       updatedList = [...safeRiesgos, nuevo];
       showNotification("Riesgo guardado.");
@@ -524,7 +542,6 @@ export default function App() {
       showNotification("Evaluación guardada.");
     }
 
-    // Recalcular matriz para el riesgo afectado
     const nuevosRiesgos = safeRiesgos.map(r => {
       if (r.id === idRiesgo) {
         let nuevaProb = (calif === 100) ? 'Rara' : r.probabilidadInherente;
@@ -684,6 +701,7 @@ export default function App() {
 
   // ==================== RENDERS DE VISTAS ====================
 
+  // --- 1. REEMPLAZO MEJORADO DEL TABLERO ANALÍTICO CON TUS NUEVOS NOMBRES ---
   const renderTablero = () => {
     const anioActual = filtroAnio;
     const hFiltrados = safeHallazgos.filter(h => anioActual === 'Todos' || getYearFromDate(h.fecha) === anioActual);
@@ -743,15 +761,15 @@ export default function App() {
         <div>
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Planes de Acción</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">🤝</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Total Compromisos</p><p className="text-3xl font-black mt-1 text-slate-800">{pTotal}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">🤝</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Totales</p><p className="text-3xl font-black mt-1 text-slate-800">{pTotal}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-4 border-b pb-2">Hallazgos por Criticidad</h4>
+            <h4 className="text-xs font-bold text-slate-880 uppercase tracking-wider mb-4 border-b pb-2">Hallazgos por Criticidad</h4>
             <div className="space-y-4 flex-1 justify-center flex flex-col">
               {['Crítico', 'Alto', 'Medio', 'Bajo'].map(crit => {
                 const count = critCount[crit] || 0;
@@ -808,12 +826,10 @@ export default function App() {
     );
   };
 
-  // --- 5. REEMPLAZO FORMAL CON LOS NUEVOS KPIS REQUERIDOS ---
   const renderDashboardRiesgos = () => {
     const total = safeRiesgos.length;
     const esRes = tipoMatriz === 'residual';
 
-    // --- CÁLCULOS DINÁMICOS DE KPIs ---
     const totalRiesgos = safeRiesgos.length;
     const riesgosCriticos = safeRiesgos.filter(r => {
       const { score } = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
@@ -837,8 +853,6 @@ export default function App() {
 
     const scoreInherente = parseFloat(calcularScorePromedio(false));
     const scoreResidual = parseFloat(calcularScorePromedio(true));
-    const reduccionPorcentaje = scoreInherente > 0 ? Math.round(((scoreInherente - scoreResidual) / scoreInherente) * 100) : 0;
-
     const impactos = ['Crítico', 'Alto', 'Medio', 'Bajo'];
     const probabilidades = ['Rara', 'Posible', 'Frecuente'];
 
@@ -849,7 +863,7 @@ export default function App() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
           <div>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito basado en matrices ISO 31000.</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium">Análisis de Apetito y Tratamientos según ISO 31000.</p>
           </div>
           <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
             <button onClick={() => setTipoMatriz('inherente')} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
@@ -857,7 +871,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Muestra tarjetas KPI solicitadas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500">
             <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Total Riesgos</p>
@@ -875,8 +888,8 @@ export default function App() {
             <p className="text-3xl font-black mt-2 text-orange-600">{riesgosCriticos}</p>
           </div>
           <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-purple-600">
-            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Registradas</p>
-            <p className="text-xl font-black mt-3 text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</p>
+            <p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Totales</p>
+            <p className="text-2xl font-black mt-2 text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</p>
           </div>
         </div>
 
@@ -912,7 +925,6 @@ export default function App() {
     );
   };
 
-  // --- 3. REEMPLAZO DEL FORMULARIO DE RIESGOS CON MATRIZ COMPLETA ---
   const renderRiesgos = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4">
@@ -922,7 +934,7 @@ export default function App() {
         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl text-xs font-semibold">ℹ️ Cuenta en Modo "Solo Lectura". Requiere rol de Auditor.</div>
       ) : (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo Corporativo'}</h3>
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-widest">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
           <form key={editRiesgo ? editRiesgo.id : 'new'} onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
             <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
@@ -930,7 +942,6 @@ export default function App() {
             <div><label className="font-bold text-gray-600">Control Clave</label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
             <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1 focus:outline-none focus:border-blue-500" /></div>
             
-            {/* Campos de Análisis de Escenarios en Matriz 5x5 */}
             <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
             <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
             <div><label className="font-bold text-gray-600">Prob. Residual</label><select name="probRes" defaultValue={editRiesgo?.probabilidadResidual||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white focus:outline-none"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
@@ -938,31 +949,30 @@ export default function App() {
             
             <div className="md:col-span-4 flex justify-end space-x-2">
               {editRiesgo && <button type="button" onClick={()=>setEditRiesgo(null)} className="bg-slate-300 text-slate-800 font-bold px-4 py-2 rounded-lg text-xs shadow">Cancelar</button>}
-              <button type="submit" className={`${editRiesgo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editRiesgo ? 'Actualizar Cambios' : 'Guardar y Calcular de Inmediato'}</button>
+              <button type="submit" className={`${editRiesgo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold px-6 py-2 rounded-lg text-xs shadow-md`}>{editRiesgo ? 'Actualizar Cambios' : 'Guardar y Calcular'}</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* 4. REEMPLAZO DE TABLA CON APETITO Y SEMÁFOROS VISUALES */}
+      {/* 4. REEMPLAZO MEJORADO DE LA TABLA DE RIESGOS TOTALMENTE DESPLEGADA */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between"><h4 className="text-xs font-bold text-slate-700 uppercase">Matriz de Riesgos</h4><span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-1 rounded font-mono font-bold">{safeRiesgos.length} Registros</span></div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Proceso</th><th className="p-3">Descripción / Control</th><th className="p-3 text-center">Score Inh</th><th className="p-3 text-center">Score Res</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">Número de Riesgo</th><th className="p-3">Proceso</th><th className="p-3">Descripción</th><th className="p-3">Responsable</th><th className="p-3">Control</th><th className="p-3 text-center">Riesgo Inherente</th><th className="p-3 text-center">Riesgo Residual</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y divide-slate-100">
               {safeRiesgos.map(r => {
                 const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
                 const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
                 return (
                   <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="p-3 font-bold text-slate-400">#{r.id}</td>
+                    <td className="p-3 font-bold text-slate-500">#{r.id}</td>
                     <td className="p-3 font-bold">{r.proceso}<br/><span className="text-[9px] font-bold tracking-wider text-indigo-500 uppercase font-mono">{r.categoria}</span></td>
-                    <td className="p-3 max-w-xs">
-                      <div className="truncate font-semibold text-slate-700">{r.descripcion}</div>
-                      <div className="text-[10px] text-slate-400 truncate mt-0.5">⚙️ Control: {r.descripcionControl || 'Ninguno'}</div>
-                    </td>
-                    <td className="p-3 text-center font-mono text-slate-500">{inh.score} pts</td>
-                    <td className="p-3 text-center font-mono font-black text-slate-800">{res.score} pts</td>
+                    <td className="p-3 whitespace-normal break-words font-medium text-slate-800">{r.descripcion}</td>
+                    <td className="p-3 font-medium text-slate-600 whitespace-nowrap">{r.responsable || 'No Asignado'}</td>
+                    <td className="p-3 whitespace-normal break-words text-slate-600 italic">⚙️ {r.descripcionControl || 'Ninguno'}</td>
+                    <td className="p-3 text-center font-mono font-bold text-slate-500">{inh.score} pts ({r.probabilidadInherente}/{r.impactoInherente})</td>
+                    <td className="p-3 text-center font-mono font-black text-slate-800">{res.score} pts ({r.probabilidadResidual}/{r.impactoResidual})</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${res.apetito === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800 animate-pulse'}`}>
                         {res.apetito}
@@ -1069,7 +1079,7 @@ export default function App() {
               {safeHallazgos.map(h => (
                 <tr key={h.id} className="hover:bg-slate-50">
                   <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td><td className="p-3 font-bold">{h.proceso}</td><td className="p-3">{h.titulo}</td>
-                  <td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[10px] uppercase bg-slate-100">{h.state || h.estado}</span></td>
+                  <td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[10px] uppercase bg-slate-100">{h.estado}</span></td>
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
                     <button onClick={() => setViewHistory({tipo: 'Hallazgo', item: h})} className="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold px-2 py-1 rounded text-[10px]">⏱️</button>
                     {isAdmin && (
@@ -1189,7 +1199,7 @@ export default function App() {
 
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
-        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800 tracking-tight">📜 Trazabilidad</h2></div>
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800 tracking-tight">📜 Trawabilidad</h2></div>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left divide-y"><thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">Fecha</th><th className="p-3">Módulo</th><th className="p-3">Acción</th></tr></thead>
