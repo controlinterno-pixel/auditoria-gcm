@@ -46,7 +46,7 @@ const ADMIN_EMAILS = [
   "analista.controlinterno@termales.com.co"
 ];
 
-// --- DATOS POR DEFECTO (Con el nuevo campo 'Sede' integrado) ---
+// --- DATOS POR DEFECTO ---
 const defaultRiesgos = [
   { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene de alimentos por uso de insumos cárnicos de baja calidad.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', historialCambios: [] },
   { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Sanciones o pérdidas financieras por errores en la declaración de impuestos hoteleros.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', historialCambios: [] },
@@ -54,8 +54,8 @@ const defaultRiesgos = [
 ];
 
 const defaultHallazgos = [
-  { id: 1, sede: 'Ecoparque', ref: 'Aud. Interna TI-2026', titulo: 'Acceso de usuarios genéricos a la base de datos de taquilla.', proceso: 'Sistemas', responsable: 'Jefe de TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', historialCambios: [] },
-  { id: 2, sede: 'Hotel', ref: 'Aud. Op-2025', titulo: 'Ausencia de actas de capacitación en higiene de alimentos.', proceso: 'Alimentos y bebidas', responsable: 'Jefe de A&B', severidad: 'Medio', idRiesgo: 98, estado: 'Cerrado', fecha: '2025-11-15', historialCambios: [] }
+  { id: 1, sede: 'Ecoparque', ref: 'HAL-2026-001', titulo: 'Acceso de usuarios genéricos a la base de datos de taquilla.', proceso: 'Sistemas', responsable: 'Jefe de TI', auditor: 'Auditoría TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', historialCambios: [] },
+  { id: 2, sede: 'Hotel', ref: 'HAL-2025-089', titulo: 'Ausencia de actas de capacitación en higiene de alimentos.', proceso: 'Alimentos y bebidas', responsable: 'Jefe de A&B', auditor: 'Control Interno', severidad: 'Medio', idRiesgo: 98, estado: 'Cerrado', fecha: '2025-11-15', historialCambios: [] }
 ];
 
 const defaultPlanes = [
@@ -116,6 +116,67 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
   </div>
 );
 
+// MEJORA 3: Componente de Gráficos de Tendencias (SVG Nativo y Ligero)
+const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
+  const maxVal = Math.max(...data.map(d => d.valor), 1);
+  const height = 100;
+  const width = 600;
+  const paddingY = 20;
+  const paddingX = 15;
+
+  const points = data.map((d, i) => {
+    const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
+    const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
+    return `${x},${y}`;
+  }).join(' ');
+
+  const fillPoints = `${paddingX},${height - paddingY} ${points} ${width - paddingX},${height - paddingY}`;
+
+  return (
+    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
+       <div className="flex justify-between items-center mb-4">
+         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4>
+         <span className="text-lg">{isCurrency ? '📉' : '📊'}</span>
+       </div>
+       <div className="relative w-full">
+         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-sm overflow-visible" preserveAspectRatio="none">
+           <polygon points={fillPoints} fill={fillColor} opacity="0.4" />
+           <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+           {data.map((d, i) => {
+              const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
+              const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
+              return (
+                <g key={i} className="group cursor-pointer">
+                    <circle cx={x} cy={y} r="4" fill="white" stroke={color} strokeWidth="2" className="transition-all duration-200 group-hover:r-[7px]" />
+                    <rect x={x - 30} y={y - 28} width="60" height="18" rx="4" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
+                    <text x={x} y={y - 15} fontSize="9" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">
+                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : d.valor}
+                    </text>
+                </g>
+              );
+           })}
+         </svg>
+         <div className="flex justify-between mt-3 text-[8px] font-bold text-slate-400 uppercase px-1 border-t border-slate-100 pt-2">
+            {data.map(d => <span key={d.mes}>{d.mes}</span>)}
+         </div>
+       </div>
+    </div>
+  );
+}
+
+// Helper robusto para formatear fechas provenientes de Firebase (String o Timestamp)
+const formatSafeDate = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (val.toDate && typeof val.toDate === 'function') {
+    return val.toDate().toISOString().split('T')[0];
+  }
+  if (val instanceof Date) {
+    return val.toISOString().split('T')[0];
+  }
+  return String(val);
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
@@ -126,6 +187,9 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false); 
   const [isThinking, setIsThinking] = useState(false); 
   const [detalleUniverso, setDetalleUniverso] = useState(null); 
+  
+  // MEJORA 1: Estado para el panel lateral de Alertas
+  const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
 
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
@@ -154,6 +218,43 @@ export default function App() {
   const safePlanes = Array.isArray(planes) ? planes : [];
   const safeIncidentes = Array.isArray(incidentes) ? incidentes : [];
   const safeEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
+
+  // --- MOTOR PREDICTIVO DE ALERTAS ---
+  const checkAlertasInteligentes = () => {
+    let alertas = [];
+    const hoyStr = new Date().toISOString().split('T')[0];
+
+    // 1. Monitoreo de Planes de Acción Vencidos
+    safePlanes.forEach(p => {
+      const fechaPlan = formatSafeDate(p.fecha);
+      if (fechaPlan && fechaPlan < hoyStr && p.estado !== 'Cerrado') {
+        alertas.push({ id: `alert-p-${p.id}`, tipo: 'vencido', titulo: `Plan de Acción Vencido`, desc: `El plan #${p.id} de ${p.responsable} tenía fecha límite ${fechaPlan}.`, icono: '⏰', color: 'bg-red-50 text-red-700 border-red-200' });
+      }
+    });
+
+    // 2. Monitoreo de Controles Deficientes Recientes
+    safeEvaluaciones.forEach(e => {
+      if (e.calificacion < 100) {
+        alertas.push({ id: `alert-e-${e.id}`, tipo: 'control', titulo: `Falla Crítica de Control`, desc: `Test #${e.id} falló en auditoría. Riesgo asociado requiere atención.`, icono: '🛡️', color: 'bg-orange-50 text-orange-700 border-orange-200' });
+      }
+    });
+
+    // 3. Monitoreo de Ruptura de Apetito COSO ERM
+    safeRiesgos.forEach(r => {
+      if (r.capacidadRiesgo) {
+        const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (i.costo || 0), 0);
+        if (costoTotal > r.capacidadRiesgo) {
+          alertas.push({ id: `alert-r-${r.id}`, tipo: 'apetito', titulo: `¡Ruptura de Capacidad!`, desc: `El riesgo "${r.proceso}" excedió las pérdidas permitidas por la gerencia.`, icono: '💥', color: 'bg-rose-100 text-rose-800 border-rose-300 shadow-md' });
+        } else if (r.toleranciaFinanciera && costoTotal > r.toleranciaFinanciera) {
+          alertas.push({ id: `alert-r-tol-${r.id}`, tipo: 'apetito', titulo: `Alerta de Tolerancia`, desc: `El riesgo "${r.proceso}" entró en zona naranja de pérdidas.`, icono: '⚠️', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' });
+        }
+      }
+    });
+
+    return alertas;
+  };
+
+  const alertasActivas = checkAlertasInteligentes();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -328,7 +429,8 @@ export default function App() {
   const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
   const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 
-  const getYearFromDate = (dateStr) => {
+  const getYearFromDate = (dateVal) => {
+    const dateStr = formatSafeDate(dateVal);
     if (!dateStr) return 'N/A';
     if (dateStr.includes('-')) return dateStr.split('-')[0];
     if (dateStr.includes('/')) return dateStr.split('/')[2].substring(0,4);
@@ -489,21 +591,37 @@ export default function App() {
       const modificado = {
         ...editHallazgo, 
         sede: formData.get('sede'), 
-        ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
-        titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
-        evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editHallazgo.historialCambios || []), { fecha: timestamp, accion: 'Hallazgo editado' }]
+        ref: formData.get('ref'), 
+        proceso: formData.get('proceso'), 
+        responsable: formData.get('responsable'),
+        auditor: formData.get('auditor'), 
+        titulo: formData.get('titulo'), 
+        severidad: formData.get('severidad'), 
+        idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
+        evidenciaUrl: evidenciaUrlOut, 
+        historialCambios: [...(editHallazgo.historialCambios || []), { fecha: timestamp, accion: 'Hallazgo editado' }]
       };
       updatedList = safeHallazgos.map(h => h.id === editHallazgo.id ? modificado : h);
       setEditHallazgo(null);
+      showNotification("Hallazgo actualizado exitosamente.");
     } else {
       const nuevo = {
         id: safeHallazgos.length ? Math.max(...safeHallazgos.map(h => h.id)) + 1 : 1, 
         sede: formData.get('sede'), 
-        ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
-        titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
-        estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: timestamp, accion: 'Hallazgo documentado' }]
+        ref: formData.get('ref'), 
+        proceso: formData.get('proceso'), 
+        responsable: formData.get('responsable'),
+        auditor: formData.get('auditor'),
+        titulo: formData.get('titulo'), 
+        severidad: formData.get('severidad'), 
+        idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
+        estado: 'Abierto', 
+        fecha: new Date().toISOString().split('T')[0], 
+        evidenciaUrl: evidenciaUrlOut, 
+        historialCambios: [{ fecha: timestamp, accion: 'Hallazgo documentado' }]
       };
       updatedList = [...safeHallazgos, nuevo];
+      showNotification("Hallazgo creado exitosamente.");
     }
     
     setHallazgos(updatedList);
@@ -628,18 +746,22 @@ export default function App() {
     scrollToTop();
   };
 
-  const handleDriveSync = () => showNotification("Motor Drive conectado.", "success");
-
   // ==================== RENDERS DE VISTAS ====================
 
   const renderTablero = () => {
     const anioActual = filtroAnio;
-    const hFiltrados = safeHallazgos.filter(h => anioActual === 'Todos' || getYearFromDate(h.fecha) === anioActual);
-    const pFiltrados = safePlanes.filter(p => anioActual === 'Todos' || getYearFromDate(p.fecha) === anioActual);
+    const hFiltrados = safeHallazgos.filter(h => {
+      const fechaStr = formatSafeDate(h.fecha);
+      return anioActual === 'Todos' || getYearFromDate(fechaStr) === anioActual;
+    });
+    const pFiltrados = safePlanes.filter(p => {
+      const fechaStr = formatSafeDate(p.fecha);
+      return anioActual === 'Todos' || getYearFromDate(fechaStr) === anioActual;
+    });
 
     const añosSet = new Set();
-    safeHallazgos.forEach(h => { if(h.fecha) añosSet.add(getYearFromDate(h.fecha)); });
-    safePlanes.forEach(p => { if(p.fecha) añosSet.add(getYearFromDate(p.fecha)); });
+    safeHallazgos.forEach(h => { const str = formatSafeDate(h.fecha); if(str) añosSet.add(getYearFromDate(str)); });
+    safePlanes.forEach(p => { const str = formatSafeDate(p.fecha); if(str) añosSet.add(getYearFromDate(str)); });
     const availableYears = Array.from(añosSet).sort().reverse();
 
     const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
@@ -810,7 +932,7 @@ export default function App() {
     const totalRiesgos = safeRiesgos.length;
     const riesgosCriticos = safeRiesgos.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
     const riesgosFueraApetito = safeRiesgos.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).apetito === "Fuera de Apetito").length;
-    const totalPerdidas = safeIncidentes.reduce((acc, i) => acc + (i.costo || 0), 0);
+    const totalPerdidas = safeIncidentes.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
 
     const impactos = ['Crítico', 'Alto', 'Medio', 'Bajo'];
     const probabilidades = ['Rara', 'Posible', 'Frecuente'];
@@ -818,14 +940,66 @@ export default function App() {
     const contarCelda = (imp, prob) => safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
     const riesgosFiltradosHeatMap = filtroHeatMap ? safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === filtroHeatMap.impacto && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === filtroHeatMap.probabilidad) : [];
 
+    // MEJORA 3: Lógica de Analítica de Tendencias Históricas con Formateo Seguro
+    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const anioTendencia = filtroAnio !== 'Todos' ? String(filtroAnio) : new Date().getFullYear().toString();
+
+    const incidentesPorMes = Array(12).fill(0);
+    safeIncidentes.forEach(i => {
+      const fechaStr = formatSafeDate(i.fecha);
+      if (fechaStr && fechaStr.startsWith(anioTendencia)) {
+        const month = parseInt(fechaStr.split('-')[1], 10) - 1;
+        if (month >= 0 && month <= 11) {
+          incidentesPorMes[month] += (Number(i.costo) || 0);
+        }
+      }
+    });
+    const dataIncidentes = meses.map((m, i) => ({ mes: m, valor: incidentesPorMes[i] }));
+
+    const hallazgosPorMes = Array(12).fill(0);
+    safeHallazgos.forEach(h => {
+      const fechaStr = formatSafeDate(h.fecha);
+      if (fechaStr && fechaStr.startsWith(anioTendencia)) {
+        const month = parseInt(fechaStr.split('-')[1], 10) - 1;
+        if (month >= 0 && month <= 11) {
+          hallazgosPorMes[month] += 1;
+        }
+      }
+    });
+    const dataHallazgos = meses.map((m, i) => ({ mes: m, valor: hallazgosPorMes[i] }));
+
+    // Años disponibles para los filtros (Dinámico según base de datos)
+    const añosSet = new Set();
+    safeHallazgos.forEach(h => { const s = formatSafeDate(h.fecha); if(s) añosSet.add(getYearFromDate(s)); });
+    safeIncidentes.forEach(i => { const s = formatSafeDate(i.fecha); if(s) añosSet.add(getYearFromDate(s)); });
+    const availableYears = Array.from(añosSet).sort().reverse();
+
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
-          <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito basado en matrices ISO 31000.</p></div>
-          <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
-            <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
-            <button onClick={() => {setTipoMatriz('residual'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${esRes ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Residual</button>
+          <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito ISO 31000 y Evolución de KRI.</p></div>
+          <div className="mt-4 md:mt-0 flex flex-col md:flex-row items-center gap-3">
+            
+            {/* Nuevo selector de Año sincronizado para las gráficas */}
+            <div className="bg-white p-1 rounded-xl border flex items-center shadow-sm">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-3 pr-2">Tendencias:</span>
+              <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="bg-slate-50 border rounded-lg text-xs font-bold text-slate-700 px-3 py-1.5 focus:outline-none">
+                <option value="Todos">Año Actual</option>
+                {availableYears.map((a, index) => <option key={`year-${a}-${index}`} value={a}>{a}</option>)}
+              </select>
+            </div>
+
+            <div className="bg-white p-1 rounded-xl border flex items-center shadow-sm">
+              <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
+              <button onClick={() => {setTipoMatriz('residual'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${esRes ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Residual</button>
+            </div>
           </div>
+        </div>
+
+        {/* MEJORA 3: Inyección de las gráficas evolutivas en el UI */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <TrendChart data={dataIncidentes} title={`Evolución de Impacto Financiero (${anioTendencia})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
+          <TrendChart data={dataHallazgos} title={`Volumen de Desviaciones (${anioTendencia})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -905,12 +1079,12 @@ export default function App() {
     
     // Cálculos de métricas globales de COSO
     const enTolerancia = safeRiesgos.filter(r => {
-      const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (i.costo || 0), 0);
+      const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
       return r.capacidadRiesgo && costoTotal > r.apetitoFinanciero && costoTotal <= r.toleranciaFinanciera;
     }).length;
 
     const capacidadExcedida = safeRiesgos.filter(r => {
-      const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (i.costo || 0), 0);
+      const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
       return r.capacidadRiesgo && costoTotal > r.capacidadRiesgo;
     }).length;
 
@@ -1014,7 +1188,7 @@ export default function App() {
                   const excedidoScore = limiteScore && resScore > limiteScore;
 
                   // --- CÁLCULOS FINANCIEROS COSO ---
-                  const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (i.costo || 0), 0);
+                  const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
                   const estaConfigurado = r.posturaEstrategica && r.capacidadRiesgo;
                   
                   let zona = "Sin parametrizar";
@@ -1186,7 +1360,7 @@ export default function App() {
           <tbody className="divide-y">
             {safeEvaluaciones.map((ev, index) => (
               <tr key={`eval-row-${ev.id}-${index}`}>
-                <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{ev.fecha}</td><td>D: {ev.diseño} / E: {ev.ejecucion}</td>
+                <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{formatSafeDate(ev.fecha)}</td><td>D: {ev.diseño} / E: {ev.ejecucion}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
                 <td className="p-3">
                   <div>{ev.comentarios}</div>
@@ -1201,46 +1375,100 @@ export default function App() {
   );
 
   const renderHallazgos = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Hallazgos y Desviaciones</h2></div>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="border-b pb-4 flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800">📄 Hallazgos y Desviaciones</h2>
+          <p className="text-xs text-slate-500 font-bold mt-1">Gestión de auditorías y no conformidades encontradas.</p>
+        </div>
+      </div>
+
       {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Documentar Desviación</h3>
-          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
+          <div className="flex justify-between items-center border-b pb-3">
+            <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editHallazgo ? `✏️ Editando Hallazgo: ${editHallazgo.ref}` : '➕ Documentar Nueva Desviación'}</h3>
+            {editHallazgo && <button onClick={() => setEditHallazgo(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">✖ Cancelar Edición</button>}
+          </div>
+
+          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+            <div><label className="font-bold text-gray-600 block mb-1">ID / Código (Manual)</label><input name="ref" defaultValue={editHallazgo?.ref||''} required placeholder="Ej: HAL-2026-01" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
             
-            <div><label className="font-bold text-gray-600">Referencia</label><input name="ref" defaultValue={editHallazgo?.ref||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label><input name="auditor" defaultValue={editHallazgo?.auditor||''} required placeholder="Quien levantó el hallazgo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Dueño del Proceso</label><input name="responsable" defaultValue={editHallazgo?.responsable||''} required placeholder="Responsable a cargo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label><input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" /></div>
             
-            <div className="md:col-span-2"><label className="font-bold text-gray-600">Título / Descripción</label><input name="titulo" defaultValue={editHallazgo?.titulo||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-            <div><label className="font-bold text-gray-600">Informe / Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+            <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Informe / Evidencia (Opcional)</label><input type="file" name="evidenciaArchivo" className="w-full border border-slate-300 rounded-lg p-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
             
-            <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo Archivo...' : 'Guardar Hallazgo'}</button></div>
+            <div className="md:col-span-2 flex justify-end items-end">
+              <button type="submit" disabled={isUploading} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-md transition-all disabled:opacity-50 w-full md:w-auto">
+                {isUploading ? 'Subiendo Archivo...' : (editHallazgo ? '💾 Guardar Cambios' : '➕ Registrar Hallazgo')}
+              </button>
+            </div>
           </form>
         </div>
       )}
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Ref</th><th className="p-3">Proceso</th><th className="p-3 w-1/2">Título e Informes</th><th className="p-3">Estado</th></tr></thead>
-          <tbody className="divide-y">
-            {safeHallazgos.map((h, index) => (
-              <tr key={`hallazgo-row-${h.id}-${index}`}>
-                <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td>
-                <td className="p-3"><div className="font-bold">{h.proceso}</div><div className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{h.sede || 'Hotel'}</div></td>
-                <td className="p-3">
-                  <div>{h.titulo}</div>
-                  {h.evidenciaUrl && <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Descargar Informe</span></a>}
-                </td>
-                <td className="p-3">
-                  <span className="px-2 py-0.5 rounded font-black bg-slate-100">{h.estado}</span>
-                  {isAdmin && <button onClick={() => {setEditHallazgo(h); scrollToTop();}} className="ml-2 bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[9px] uppercase">Editar</button>}
-                </td>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left divide-y divide-slate-100">
+            <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+              <tr>
+                <th className="p-4">ID / Ref</th>
+                <th className="p-4">Proceso</th>
+                <th className="p-4 w-1/3">Título e Informes</th>
+                <th className="p-4">Responsables</th>
+                <th className="p-4 text-center">Estado / Gestión</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {safeHallazgos.map((h, index) => (
+                <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4">
+                    <div className="font-black text-slate-800 text-sm">{h.ref}</div>
+                    <div className="text-[9px] text-slate-400 font-mono mt-0.5">INT-#{h.id}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-bold text-slate-700">{h.proceso}</div>
+                    <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-0.5">{h.sede || 'Hotel'}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
+                    {h.evidenciaUrl && (
+                      <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center space-x-1 mt-2 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-[10px] font-bold hover:bg-blue-100 transition-colors">
+                        <span>📎</span><span>Descargar Evidencia</span>
+                      </a>
+                    )}
+                  </td>
+                  <td className="p-4">
+                    <div className="text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <div className="mb-1"><span className="font-bold text-slate-400 uppercase">Auditor:</span> <span className="font-black text-slate-700">{h.auditor || 'N/A'}</span></div>
+                      <div><span className="font-bold text-slate-400 uppercase">Dueño:</span> <span className="font-black text-slate-700">{h.responsable}</span></div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className={`px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest block mx-auto w-max mb-3 ${h.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {h.estado}
+                    </span>
+                    {isAdmin && (
+                      <div className="flex justify-center items-center space-x-2 border-t border-slate-100 pt-3">
+                        <button onClick={() => {setEditHallazgo(h); scrollToTop();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
+                          <i className="fa-solid fa-pen-to-square text-sm"></i> Editar
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button onClick={() => handleDeleteItem('hallazgos', h.id)} className="text-slate-500 hover:text-red-600 transition-colors" title="Eliminar">
+                          <i className="fa-solid fa-trash text-sm"></i> Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1266,7 +1494,7 @@ export default function App() {
             </div>
 
             <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={editPlan?.fecha||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={formatSafeDate(editPlan?.fecha)||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
             <div><label className="font-bold text-blue-600">% de Avance Físico</label><input type="number" min="0" max="100" name="progreso" defaultValue={editPlan?.progreso||0} required className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg p-2 mt-1" /></div>
             <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
             
@@ -1288,7 +1516,7 @@ export default function App() {
                     <div className="font-bold">{p.accion}</div>
                     {p.evidenciaUrl && <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Soporte</span></a>}
                   </td>
-                  <td className="p-3 font-mono">{p.fecha}</td>
+                  <td className="p-3 font-mono">{formatSafeDate(p.fecha)}</td>
                   <td className="p-3"><ProgressBar progress={p.progreso || 0} /></td>
                   <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
@@ -1352,8 +1580,8 @@ export default function App() {
       });
 
       return allLogs.sort((a, b) => {
-        const dateA = new Date(a.fecha).getTime() || 0;
-        const dateB = new Date(b.fecha).getTime() || 0;
+        const dateA = new Date(formatSafeDate(a.fecha)).getTime() || 0;
+        const dateB = new Date(formatSafeDate(b.fecha)).getTime() || 0;
         return dateB - dateA;
       });
     };
@@ -1394,7 +1622,7 @@ export default function App() {
                 )}
                 {logsOrdenados.map((log, index) => (
                   <tr key={`log-${index}`} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-mono font-medium text-slate-600">{log.fecha}</td>
+                    <td className="p-4 font-mono font-medium text-slate-600">{formatSafeDate(log.fecha)}</td>
                     <td className="p-4">
                       <span className={`flex items-center space-x-1.5 w-max px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${log.color}`}>
                         <span>{log.icon}</span>
@@ -1441,7 +1669,15 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl">
+      
+      {/* NOTIFICACIONES EMERGENTES */}
+      {notification && (
+        <div className={`fixed bottom-4 right-4 p-4 rounded-xl shadow-2xl font-bold text-xs z-50 animate-in fade-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>
+          {notification.type === 'error' ? '⚠️ ' : '✅ '} {notification.message}
+        </div>
+      )}
+
+      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20">
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
         <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
@@ -1464,8 +1700,46 @@ export default function App() {
       </div>
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm"><span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold">Termales de Santa Rosa</span></header>
-        <main className="flex-grow overflow-y-auto p-8">
+        <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm z-10">
+          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold">Termales de Santa Rosa</span>
+          
+          <button onClick={() => setIsAlertPanelOpen(!isAlertPanelOpen)} className="relative p-2 text-slate-500 hover:text-slate-800 transition-colors focus:outline-none">
+            <span className="text-xl">🔔</span>
+            {alertasActivas.length > 0 && <span className="absolute top-0 right-0 bg-red-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white animate-pulse">{alertasActivas.length}</span>}
+          </button>
+        </header>
+
+        {isAlertPanelOpen && (
+          <div className="absolute top-16 right-0 bottom-0 w-80 bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right-8 duration-300">
+            <div className="p-4 border-b bg-slate-900 text-white flex justify-between items-center">
+              <h3 className="font-black text-sm uppercase tracking-widest flex items-center space-x-2"><span>🤖</span> <span>Centro de Alertas</span></h3>
+              <button onClick={() => setIsAlertPanelOpen(false)} className="text-slate-400 hover:text-white font-bold">✖</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+              {alertasActivas.length === 0 ? (
+                <div className="text-center p-6 text-slate-400">
+                  <div className="text-4xl mb-2">✅</div>
+                  <p className="text-xs font-bold uppercase tracking-widest">Todo bajo control</p>
+                  <p className="text-[10px] mt-1">El sistema no detecta anomalías urgentes.</p>
+                </div>
+              ) : (
+                alertasActivas.map(alerta => (
+                  <div key={alerta.id} className={`p-3 rounded-xl border ${alerta.color} shadow-sm`}>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-lg">{alerta.icono}</span>
+                      <div>
+                        <h4 className="font-black text-[11px] uppercase tracking-wider">{alerta.titulo}</h4>
+                        <p className="text-[10px] mt-1 font-medium opacity-90 leading-tight">{alerta.desc}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        <main className="flex-grow overflow-y-auto p-8 relative">
           <div className="max-w-7xl mx-auto">
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
