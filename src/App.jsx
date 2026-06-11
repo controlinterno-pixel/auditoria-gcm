@@ -72,6 +72,22 @@ const defaultEvaluaciones = [
   { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', historialCambios: [] }
 ];
 
+// FASE 6: Base de datos por defecto para el Plan Anual (Cronograma)
+const defaultCronograma = [
+  { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque (Rentabilidad AyB), Inventarios, Auditoria Locativa e Infraestructura, Calidad, Taquilla, Manillas, Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
+  { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
+  { id: 3, codigo: '03', periodo: 'Marzo - Abril', proceso: 'Cartera (Notas Crédito y Descuentos)', enfoque: 'Verificación del comportamiento de NC en los procesos que generan estos documentos en la operación, análisis de cumplimiento de procedimientos y trazabilidad.', cumplimiento: 100, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
+  { id: 4, codigo: '04', periodo: 'Enero - Abril', proceso: 'Cumplimiento de controles de matriz', enfoque: 'Verificación del cumplimiento de los controles de cada riesgo cubierto por cada proceso, evidencias y actualización de los mismo con el líder.', cumplimiento: 50, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero', 'Marzo', 'Abril'] }
+];
+
+const defaultMonitoreo = [
+  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117 },
+  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16 },
+  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4 },
+  { id: 4, indicador: 'FACT. ELECTRÓNICA', valor: 4 },
+  { id: 5, indicador: 'FOLIOS - SALDOS', valor: 4 }
+];
+
 // --- COMPONENTES VISUALES ---
 const InfoTooltip = ({ text }) => (
   <div className="relative group inline-block ml-2 align-middle z-50">
@@ -198,6 +214,10 @@ export default function App() {
   const [editIncidente, setEditIncidente] = useState(null);
   const [editApetito, setEditApetito] = useState(null); 
 
+  // FASE 6: Estados para el Plan Anual
+  const [editCronograma, setEditCronograma] = useState(null);
+  const [editMonitoreo, setEditMonitoreo] = useState(null);
+
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
@@ -212,19 +232,24 @@ export default function App() {
   const [planes, setPlanes] = useState([]);
   const [incidentes, setIncidentes] = useState([]);
   const [evaluaciones, setEvaluaciones] = useState([]);
+  
+  // FASE 6: Estados DB Plan Anual
+  const [cronograma, setCronograma] = useState([]);
+  const [monitoreo, setMonitoreo] = useState([]);
 
   const safeRiesgos = Array.isArray(riesgos) ? riesgos : [];
   const safeHallazgos = Array.isArray(hallazgos) ? hallazgos : [];
   const safePlanes = Array.isArray(planes) ? planes : [];
   const safeIncidentes = Array.isArray(incidentes) ? incidentes : [];
   const safeEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
+  const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
+  const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
   // --- MOTOR PREDICTIVO DE ALERTAS ---
   const checkAlertasInteligentes = () => {
     let alertas = [];
     const hoyStr = new Date().toISOString().split('T')[0];
 
-    // 1. Monitoreo de Planes de Acción Vencidos
     safePlanes.forEach(p => {
       const fechaPlan = formatSafeDate(p.fecha);
       if (fechaPlan && fechaPlan < hoyStr && p.estado !== 'Cerrado') {
@@ -232,17 +257,15 @@ export default function App() {
       }
     });
 
-    // 2. Monitoreo de Controles Deficientes Recientes
     safeEvaluaciones.forEach(e => {
       if (e.calificacion < 100) {
         alertas.push({ id: `alert-e-${e.id}`, tipo: 'control', titulo: `Falla Crítica de Control`, desc: `Test #${e.id} falló en auditoría. Riesgo asociado requiere atención.`, icono: '🛡️', color: 'bg-orange-50 text-orange-700 border-orange-200' });
       }
     });
 
-    // 3. Monitoreo de Ruptura de Apetito COSO ERM
     safeRiesgos.forEach(r => {
       if (r.capacidadRiesgo) {
-        const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (i.costo || 0), 0);
+        const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
         if (costoTotal > r.capacidadRiesgo) {
           alertas.push({ id: `alert-r-${r.id}`, tipo: 'apetito', titulo: `¡Ruptura de Capacidad!`, desc: `El riesgo "${r.proceso}" excedió las pérdidas permitidas por la gerencia.`, icono: '💥', color: 'bg-rose-100 text-rose-800 border-rose-300 shadow-md' });
         } else if (r.toleranciaFinanciera && costoTotal > r.toleranciaFinanciera) {
@@ -291,10 +314,14 @@ export default function App() {
         setPlanes(Array.isArray(data.planes) ? data.planes : defaultPlanes);
         setIncidentes(Array.isArray(data.incidentes) ? data.incidentes : defaultIncidentes);
         setEvaluaciones(Array.isArray(data.evaluaciones) ? data.evaluaciones : defaultEvaluaciones);
+        // Carga de Cronograma Anual
+        setCronograma(Array.isArray(data.cronograma) ? data.cronograma : defaultCronograma);
+        setMonitoreo(Array.isArray(data.monitoreo) ? data.monitoreo : defaultMonitoreo);
       } else {
         if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
           setDoc(docRef, {
-            riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones
+            riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones,
+            cronograma: defaultCronograma, monitoreo: defaultMonitoreo
           });
         }
       }
@@ -326,7 +353,7 @@ export default function App() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    setRiesgos([]); setHallazgos([]); setPlanes([]); setIncidentes([]); setEvaluaciones([]);
+    setRiesgos([]); setHallazgos([]); setPlanes([]); setIncidentes([]); setEvaluaciones([]); setCronograma([]); setMonitoreo([]);
     showNotification("Sesión cerrada.");
   };
 
@@ -709,6 +736,8 @@ export default function App() {
     if (listType === 'hallazgos') { updated = safeHallazgos.filter(h => h.id !== id); setHallazgos(updated); }
     if (listType === 'planes') { updated = safePlanes.filter(p => p.id !== id); setPlanes(updated); }
     if (listType === 'incidentes') { updated = safeIncidentes.filter(i => i.id !== id); setIncidentes(updated); }
+    if (listType === 'cronograma') { updated = safeCronograma.filter(c => c.id !== id); setCronograma(updated); }
+    if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
     await saveToCloud({ [listType]: updated });
     showNotification("Registro eliminado.", "error");
   };
@@ -746,7 +775,282 @@ export default function App() {
     scrollToTop();
   };
 
+  // --- NUEVOS HANDLERS PARA FASE 6 (PLAN ANUAL) ---
+  const handleCronogramaSubmit = async (e) => {
+    e.preventDefault();
+    if (!isAdmin) return;
+    const formData = new FormData(e.target);
+    
+    // Capturar todos los meses seleccionados de los checkboxes
+    const mesesSeleccionados = [];
+    ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].forEach(mes => {
+      if (formData.get(`mes_${mes}`)) mesesSeleccionados.push(mes);
+    });
+
+    let updatedList;
+    if (editCronograma) {
+      const modificado = {
+        ...editCronograma,
+        codigo: formData.get('codigo'),
+        proceso: formData.get('proceso'),
+        responsable: formData.get('responsable'),
+        apoyo: formData.get('apoyo'),
+        periodo: formData.get('periodo'),
+        enfoque: formData.get('enfoque'),
+        cumplimiento: parseInt(formData.get('cumplimiento') || 0),
+        meses: mesesSeleccionados
+      };
+      updatedList = safeCronograma.map(c => c.id === editCronograma.id ? modificado : c);
+      setEditCronograma(null);
+      showNotification("Proceso del plan actualizado.");
+    } else {
+      const nuevo = {
+        id: safeCronograma.length ? Math.max(...safeCronograma.map(c => c.id)) + 1 : 1,
+        codigo: formData.get('codigo'),
+        proceso: formData.get('proceso'),
+        responsable: formData.get('responsable'),
+        apoyo: formData.get('apoyo'),
+        periodo: formData.get('periodo'),
+        enfoque: formData.get('enfoque'),
+        cumplimiento: parseInt(formData.get('cumplimiento') || 0),
+        meses: mesesSeleccionados
+      };
+      updatedList = [...safeCronograma, nuevo];
+      showNotification("Proceso agregado al Plan Anual.");
+    }
+
+    setCronograma(updatedList);
+    await saveToCloud({ cronograma: updatedList });
+    e.target.reset();
+  };
+
+  const handleMonitoreoSubmit = async (e) => {
+    e.preventDefault();
+    if (!isAdmin) return;
+    const formData = new FormData(e.target);
+    
+    let updatedList;
+    // Evaluamos si existe un id para saber si es actualización o creación nueva
+    if (editMonitoreo && editMonitoreo.id) {
+      const modificado = {
+        ...editMonitoreo,
+        indicador: formData.get('indicador').toUpperCase(),
+        valor: parseInt(formData.get('valor') || 0)
+      };
+      updatedList = safeMonitoreo.map(m => m.id === editMonitoreo.id ? modificado : m);
+      setEditMonitoreo(null);
+      showNotification("Indicador actualizado exitosamente.");
+    } else {
+      const nuevo = {
+        id: safeMonitoreo.length ? Math.max(...safeMonitoreo.map(m => m.id)) + 1 : 1,
+        indicador: formData.get('indicador').toUpperCase(),
+        valor: parseInt(formData.get('valor') || 0)
+      };
+      updatedList = [...safeMonitoreo, nuevo];
+      setEditMonitoreo(null);
+      showNotification("Nuevo indicador agregado.");
+    }
+    setMonitoreo(updatedList);
+    await saveToCloud({ monitoreo: updatedList });
+    e.target.reset();
+  };
+
+
   // ==================== RENDERS DE VISTAS ====================
+
+  // FASE 6: Renderizado del Plan Anual
+  const renderPlanAnual = () => {
+    const avgCumplimiento = safeCronograma.length > 0 
+      ? Math.round(safeCronograma.reduce((acc, c) => acc + (c.cumplimiento || 0), 0) / safeCronograma.length) 
+      : 0;
+
+    const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    return (
+      <div className="space-y-8 animate-in fade-in duration-300">
+        
+        {/* Cabecera Corporativa estilo Dashboard */}
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-[#004d40] text-white p-6 flex flex-col md:flex-row justify-between items-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.4) 0%, transparent 20%)', backgroundSize: '100px 100px' }}></div>
+            <div className="relative z-10 flex items-center space-x-4">
+               <div className="bg-white text-[#004d40] h-12 w-12 rounded-full flex items-center justify-center font-black text-xl shadow-lg">T</div>
+               <h2 className="text-2xl font-black tracking-widest uppercase">Dashboard de Control Interno 2026</h2>
+            </div>
+            <div className="relative z-10 mt-4 md:mt-0 bg-[#00695c] px-6 py-2 rounded-full border border-[#00897b] flex items-center space-x-3 shadow-inner">
+               <span className="text-2xl">🎖️</span>
+               <div>
+                  <div className="text-xl font-black">{avgCumplimiento}%</div>
+                  <div className="text-[9px] uppercase tracking-widest font-bold opacity-80">Cumplimiento Global</div>
+               </div>
+            </div>
+          </div>
+
+          <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+             {/* Columna Izquierda: KPIs */}
+             <div className="md:col-span-1 space-y-6">
+                <div className="border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
+                   <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Índice General de Cumplimiento</h3>
+                   <div className="text-6xl font-black text-[#004d40] leading-none mb-2">{avgCumplimiento}%</div>
+                   <div className="text-xs font-bold text-emerald-600 flex items-center justify-center space-x-1"><span>▲</span><span>Meta Alcanzada</span></div>
+                   <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium">Evaluación integral de procesos administrativos, operativos y de soporte sin desviaciones materiales detectadas.</p>
+                </div>
+
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                   <div className="bg-[#004d40] text-white p-3 flex justify-between items-center">
+                     <span className="text-[10px] font-black uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Monitoreo Continuo</span></span>
+                     {isAdmin && <button onClick={() => setEditMonitoreo({})} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
+                   </div>
+                   <div className="divide-y divide-slate-100 p-2">
+                     {/* Formulario rápido para añadir/editar monitoreo */}
+                     {editMonitoreo && isAdmin && (
+                       <form onSubmit={handleMonitoreoSubmit} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
+                         <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Indicador..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         <input name="valor" type="number" defaultValue={editMonitoreo.valor||''} placeholder="Valor..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         <div className="flex justify-between items-center mt-1">
+                           <button type="button" onClick={() => setEditMonitoreo(null)} className="text-[10px] text-red-500 hover:text-red-700 font-bold px-2">Cancelar</button>
+                           <button type="submit" className="text-[10px] bg-[#004d40] text-white px-3 py-1.5 rounded shadow-sm hover:bg-[#00695c] font-bold">{editMonitoreo.id ? 'Actualizar' : 'Guardar'}</button>
+                         </div>
+                       </form>
+                     )}
+                     
+                     {safeMonitoreo.map(m => (
+                       <div key={m.id} className="flex justify-between items-center p-3 hover:bg-slate-50 transition-colors group rounded-lg border border-transparent hover:border-slate-200">
+                          <span className="text-[10px] font-bold text-slate-600 uppercase truncate pr-2">{m.indicador}</span>
+                          <div className="flex items-center space-x-3">
+                            <span className="text-sm font-black text-slate-800">{m.valor}</span>
+                            {isAdmin && (
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5">
+                                <button onClick={() => setEditMonitoreo(m)} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
+                                <button onClick={() => handleDeleteItem('monitoreo', m.id)} className="text-red-500 hover:text-red-700 text-xs transition-colors" title="Eliminar">✖</button>
+                              </div>
+                            )}
+                          </div>
+                       </div>
+                     ))}
+                   </div>
+                </div>
+             </div>
+
+             {/* Columna Derecha: Cronograma Técnico */}
+             <div className="md:col-span-3">
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm h-full flex flex-col">
+                   <div className="bg-[#1e293b] text-white p-4 flex justify-between items-center">
+                     <span className="text-xs font-black uppercase tracking-widest flex items-center space-x-2"><span>📋</span> <span>Cronograma Técnico de Auditoría</span></span>
+                     <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400 px-2 py-1 rounded-full uppercase">⚙️ {avgCumplimiento}% Auditado</span>
+                   </div>
+                   <div className="overflow-x-auto flex-1">
+                     <table className="w-full text-xs text-left divide-y divide-slate-100">
+                       <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
+                         <tr>
+                           <th className="p-3">ID</th>
+                           <th className="p-3 w-24">Periodo</th>
+                           <th className="p-3 w-48">Área / Proceso</th>
+                           <th className="p-3">Enfoque Técnico y Alcance</th>
+                           <th className="p-3 text-center">Cumpl.</th>
+                           {isAdmin && <th className="p-3 text-center">Acción</th>}
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-100">
+                         {safeCronograma.map(c => (
+                           <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                             <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
+                             <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
+                             <td className="p-3 font-black text-slate-800">{c.proceso}</td>
+                             <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
+                             <td className="p-3 text-center font-black text-sm" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
+                             {isAdmin && (
+                               <td className="p-3 text-center whitespace-nowrap">
+                                 <button onClick={() => {setEditCronograma(c); scrollToTop();}} className="text-blue-500 hover:text-blue-700 mx-1">✏️</button>
+                                 <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-red-500 hover:text-red-700 mx-1">🗑️</button>
+                               </td>
+                             )}
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        {/* Sección de Edición / Creación de Plan */}
+        {isAdmin && (
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editCronograma ? '✏️ Editando Proceso del Plan' : '➕ Agregar Proceso al Cronograma'}</h3>
+              {editCronograma && <button onClick={() => setEditCronograma(null)} className="text-xs text-red-500 font-bold">✖ Cancelar</button>}
+            </div>
+            <form onSubmit={handleCronogramaSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              <div><label className="font-bold text-gray-600 block mb-1">Código ID</label><input name="codigo" defaultValue={editCronograma?.codigo||''} required placeholder="Ej: 05" className="w-full border rounded-lg p-2" /></div>
+              <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required placeholder="Ej: Enero - Abril" className="w-full border rounded-lg p-2" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" defaultValue={editCronograma?.proceso||''} required className="w-full border rounded-lg p-2" /></div>
+              
+              <div><label className="font-bold text-gray-600 block mb-1">Responsable</label><input name="responsable" defaultValue={editCronograma?.responsable||''} required className="w-full border rounded-lg p-2" /></div>
+              <div><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" defaultValue={editCronograma?.apoyo||''} className="w-full border rounded-lg p-2" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% de Cumplimiento (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={editCronograma?.cumplimiento||0} required className="w-full border rounded-lg p-2" /></div>
+              
+              <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" defaultValue={editCronograma?.enfoque||''} required rows="2" className="w-full border rounded-lg p-2"></textarea></div>
+              
+              <div className="md:col-span-4">
+                <label className="font-bold text-gray-600 block mb-2">Meses Planeados (Para gráfico de Gantt)</label>
+                <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  {allMonths.map(mes => (
+                    <label key={mes} className="flex items-center space-x-2 cursor-pointer">
+                      <input type="checkbox" name={`mes_${mes}`} defaultChecked={editCronograma?.meses?.includes(mes)} className="rounded text-[#004d40] focus:ring-[#004d40]" />
+                      <span className="text-[10px] font-bold uppercase">{mes.substring(0,3)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-4 flex justify-end mt-2"><button type="submit" className="bg-[#004d40] hover:bg-[#00695c] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-colors">{editCronograma ? 'Actualizar Plan' : 'Guardar en Plan'}</button></div>
+            </form>
+          </div>
+        )}
+
+        {/* Gráfico de Gantt (Cronograma Visual) */}
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+           <div className="bg-slate-100 border-b border-slate-200 p-4">
+             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center">CRONOGRAMA DE CONTROL INTERNO</h3>
+           </div>
+           <div className="overflow-x-auto p-4">
+             <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
+               <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
+                 <tr>
+                   <th className="border border-slate-300 p-2 w-10 text-center">Cód</th>
+                   <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
+                   <th className="border border-slate-300 p-2 w-32">Responsable</th>
+                   <th className="border border-slate-300 p-2 w-32">Apoyo</th>
+                   {allMonths.map(m => <th key={m} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
+                 </tr>
+               </thead>
+               <tbody>
+                 {safeCronograma.map(c => (
+                   <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                     <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
+                     <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
+                     <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
+                     <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.apoyo}</td>
+                     {allMonths.map(mes => {
+                       const isPlanned = c.meses?.includes(mes);
+                       return (
+                         <td key={mes} className={`border border-slate-300 text-center p-0`}>
+                           {isPlanned && <div className="bg-[#00695c] text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner">Planeado</div>}
+                         </td>
+                       );
+                     })}
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+        </div>
+
+      </div>
+    );
+  };
 
   const renderTablero = () => {
     const anioActual = filtroAnio;
@@ -789,6 +1093,22 @@ export default function App() {
       return { hallazgosAbiertos, avancePlanes, saludControles };
     };
 
+    const hTotal = hFiltrados.length;
+    const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
+    const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
+
+    const pTotal = pFiltrados.length;
+    const pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
+    const pCerrados = pFiltrados.filter(p => p.estado === 'Cerrado').length;
+
+    const avanceGlobal = safePlanes.length > 0 
+      ? safePlanes.reduce((acc, p) => acc + (p.progreso || 0), 0) / safePlanes.length 
+      : 0;
+      
+    const efectividadControles = safeEvaluaciones.length > 0 
+      ? (safeEvaluaciones.filter(e => e.calificacion === 100).length / safeEvaluaciones.length) * 100 
+      : 0;
+
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
@@ -803,7 +1123,20 @@ export default function App() {
         </div>
 
         <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Desempeño por Unidad de Negocio</h3>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Indicadores KRI en Tiempo Real</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Gauge value={avanceGlobal} label="Mitigación Global" sublabel="Promedio Planes de Acción" colorClass="text-blue-500" />
+            <Gauge value={efectividadControles} label="Salud Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+            <div className="bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-800 flex flex-col justify-center text-white text-center h-full">
+              <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest">Alerta Crítica</h4>
+              <span className="text-4xl font-black mt-2">{hAbiertos}</span>
+              <p className="text-xs font-bold mt-2 opacity-80">Hallazgos Pendientes de Cierre</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 mt-8">Desempeño por Unidad de Negocio</h3>
           <p className="text-[10px] text-blue-500 font-bold mb-4">👆 Haz clic en cualquier tarjeta o velocímetro para ver su universo de datos detallado.</p>
           <div className="space-y-6">
             {sedes.map((sede) => {
@@ -923,6 +1256,23 @@ export default function App() {
           </div>
         )}
 
+        <div>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Hallazgos</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">📄</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Total Hallazgos</p><p className="text-3xl font-black mt-1 text-slate-800">{hTotal}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-red-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xl">⚠️</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Abiertos</p><p className="text-3xl font-black mt-1 text-red-600">{hAbiertos}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{hCerrados}</p></div></div>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Planes de Acción</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">🤝</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Totales</p><p className="text-3xl font-black mt-1 text-slate-800">{pTotal}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -1683,6 +2033,8 @@ export default function App() {
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
+            // FASE 6: Nuevo Menú del Plan Anual
+            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
             { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
             { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
@@ -1691,7 +2043,7 @@ export default function App() {
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
           ].map((tab, index) => (
-            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
           ))}
@@ -1701,7 +2053,7 @@ export default function App() {
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm z-10">
-          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold">Termales de Santa Rosa</span>
+          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold">Termales de Santa Rosa de Cabal</span>
           
           <button onClick={() => setIsAlertPanelOpen(!isAlertPanelOpen)} className="relative p-2 text-slate-500 hover:text-slate-800 transition-colors focus:outline-none">
             <span className="text-xl">🔔</span>
@@ -1743,6 +2095,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto">
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
+            {activeTab === 'plan_anual' && renderPlanAnual()}
             {activeTab === 'riesgos' && renderRiesgos()}
             {activeTab === 'apetito' && renderApetito()}
             {activeTab === 'evaluaciones' && renderEvaluaciones()}
