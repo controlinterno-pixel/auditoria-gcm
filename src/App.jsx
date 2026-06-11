@@ -531,8 +531,6 @@ export default function App() {
     showNotification("Registro eliminado.", "error");
   };
 
-  const handleDriveSync = () => showNotification("Motor Drive conectado.", "success");
-
   // ==================== RENDERS DE VISTAS ====================
 
   const renderTablero = () => {
@@ -955,3 +953,4 @@ export default function App() {
       </div>
     </div>
   );
+}
