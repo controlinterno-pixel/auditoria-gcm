@@ -73,6 +73,16 @@ const defaultEvaluaciones = [
 ];
 
 // --- COMPONENTES VISUALES ---
+const InfoTooltip = ({ text }) => (
+  <div className="relative group inline-block ml-2 align-middle z-50">
+    <span className="bg-blue-100 text-blue-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] cursor-help font-black shadow-sm border border-blue-200 hover:bg-blue-200 transition-colors">?</span>
+    <div className="absolute z-[100] left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-64 bg-slate-900 text-white text-[11px] p-3 rounded-xl shadow-2xl pointer-events-none font-medium leading-relaxed text-left">
+      {text}
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+    </div>
+  </div>
+);
+
 const ProgressBar = ({ progress }) => {
   let color = "bg-red-500";
   if (progress >= 40) color = "bg-amber-500";
@@ -115,13 +125,14 @@ export default function App() {
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
   const [isUploading, setIsUploading] = useState(false); 
   const [isThinking, setIsThinking] = useState(false); 
-  const [detalleUniverso, setDetalleUniverso] = useState(null); // NUEVO: Controla qué universo de datos se está viendo
+  const [detalleUniverso, setDetalleUniverso] = useState(null); 
 
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
   const [editHallazgo, setEditHallazgo] = useState(null);
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
+  const [editApetito, setEditApetito] = useState(null); 
 
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -360,7 +371,7 @@ export default function App() {
     if (editRiesgo) {
       const modificado = {
         ...editRiesgo,
-        sede: formData.get('sede'), // FASE 5: Se incluye Sede
+        sede: formData.get('sede'), 
         proceso: formData.get('proceso'), 
         categoria: formData.get('categoria'), 
         responsable: formData.get('responsable'),
@@ -375,7 +386,7 @@ export default function App() {
     } else {
       const nuevo = {
         id: safeRiesgos.length ? Math.max(...safeRiesgos.map(r => r.id)) + 1 : 1,
-        sede: formData.get('sede'), // FASE 5: Se incluye Sede
+        sede: formData.get('sede'), 
         proceso: formData.get('proceso'), 
         categoria: formData.get('categoria'), 
         responsable: formData.get('responsable'),
@@ -477,7 +488,7 @@ export default function App() {
     if (editHallazgo) {
       const modificado = {
         ...editHallazgo, 
-        sede: formData.get('sede'), // FASE 5: Se incluye Sede
+        sede: formData.get('sede'), 
         ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
         titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
         evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editHallazgo.historialCambios || []), { fecha: timestamp, accion: 'Hallazgo editado' }]
@@ -487,7 +498,7 @@ export default function App() {
     } else {
       const nuevo = {
         id: safeHallazgos.length ? Math.max(...safeHallazgos.map(h => h.id)) + 1 : 1, 
-        sede: formData.get('sede'), // FASE 5: Se incluye Sede
+        sede: formData.get('sede'), 
         ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
         titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
         estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: timestamp, accion: 'Hallazgo documentado' }]
@@ -508,10 +519,27 @@ export default function App() {
     const progresoVal = parseInt(formData.get('progreso') || 0);
     const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
     
+    const archivo = formData.get('evidenciaArchivo');
+    let evidenciaUrlOut = editPlan?.evidenciaUrl || '';
+
+    if (archivo && archivo.size > 0) {
+      setIsUploading(true);
+      try {
+        const fileRef = ref(storage, `evidencias/planes/${Date.now()}_${archivo.name}`);
+        await uploadBytes(fileRef, archivo);
+        evidenciaUrlOut = await getDownloadURL(fileRef);
+        showNotification("Soporte de avance cargado a la nube.");
+      } catch (error) {
+        showNotification("Error al adjuntar el archivo.", "error");
+      }
+      setIsUploading(false);
+    }
+
     let updatedList;
     if (editPlan) {
       const modificado = {
         ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal,
+        evidenciaUrl: evidenciaUrlOut,
         historialCambios: [...(editPlan.historialCambios || []), { fecha: timestamp, accion: 'Plan modificado' }]
       };
       updatedList = safePlanes.map(p => p.id === editPlan.id ? modificado : p);
@@ -520,7 +548,8 @@ export default function App() {
     } else {
       const nuevo = {
         id: safePlanes.length ? Math.max(...safePlanes.map(p => p.id)) + 1 : 1, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'),
-        responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, historialCambios: [{ fecha: timestamp, accion: 'Plan asignado' }]
+        responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, 
+        evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: timestamp, accion: 'Plan asignado' }]
       };
       updatedList = [...safePlanes, nuevo];
       showNotification("Plan asignado exitosamente.");
@@ -566,6 +595,42 @@ export default function App() {
     showNotification("Registro eliminado.", "error");
   };
 
+  const handleApetitoSubmit = async (e) => {
+    e.preventDefault();
+    if (!isAdmin || !editApetito) return;
+    const formData = new FormData(e.target);
+    const timestamp = new Date().toLocaleString();
+
+    // Validar que la jerarquía financiera tenga sentido (Apetito <= Tolerancia <= Capacidad)
+    const apetito = parseFloat(formData.get('apetitoFinanciero') || 0);
+    const tolerancia = parseFloat(formData.get('toleranciaFinanciera') || 0);
+    const capacidad = parseFloat(formData.get('capacidadRiesgo') || 0);
+
+    if (apetito > tolerancia || tolerancia > capacidad) {
+      showNotification("Error: La jerarquía debe ser: Apetito ≤ Tolerancia ≤ Capacidad.", "error");
+      return;
+    }
+
+    const modificado = {
+      ...editApetito,
+      posturaEstrategica: formData.get('posturaEstrategica'),
+      kriScore: parseInt(formData.get('kriScore')),
+      apetitoFinanciero: apetito,
+      toleranciaFinanciera: tolerancia,
+      capacidadRiesgo: capacidad,
+      historialCambios: [...(editApetito.historialCambios || []), { fecha: timestamp, accion: 'Arquitectura de apetito COSO ERM / ISO 31000 parametrizada' }]
+    };
+
+    const updatedList = safeRiesgos.map(r => r.id === editApetito.id ? modificado : r);
+    setRiesgos(updatedList);
+    setEditApetito(null);
+    await saveToCloud({ riesgos: updatedList });
+    showNotification("Perfil COSO de Apetito guardado exitosamente.");
+    scrollToTop();
+  };
+
+  const handleDriveSync = () => showNotification("Motor Drive conectado.", "success");
+
   // ==================== RENDERS DE VISTAS ====================
 
   const renderTablero = () => {
@@ -580,7 +645,6 @@ export default function App() {
 
     const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
 
-    // FASE 5: Función para calcular métricas por Unidad de Negocio (Sede)
     const obtenerMetricasSede = (sede) => {
       const hallazgosSede = hFiltrados.filter(h => h.sede === sede);
       const hallazgosAbiertos = hallazgosSede.filter(h => h.estado === 'Abierto').length;
@@ -617,7 +681,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* FASE 5: Tarjetas de Velocímetros Separadas por Unidad de Negocio */}
         <div>
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Desempeño por Unidad de Negocio</h3>
           <p className="text-[10px] text-blue-500 font-bold mb-4">👆 Haz clic en cualquier tarjeta o velocímetro para ver su universo de datos detallado.</p>
@@ -629,7 +692,6 @@ export default function App() {
                   <h4 className="text-lg font-black text-slate-800 mb-4 tracking-tight border-b pb-2">{sede}</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     
-                    {/* Tarjeta Clickable: Universo de Hallazgos */}
                     <div 
                       onClick={() => { setDetalleUniverso({ sede, tipo: 'hallazgos' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
                       className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center items-center text-center h-full hover:shadow-lg hover:ring-4 hover:ring-blue-100 transition-all cursor-pointer relative group">
@@ -639,7 +701,6 @@ export default function App() {
                       <p className="text-[10px] font-bold mt-3 opacity-60 text-slate-500">Pendientes de Cierre</p>
                     </div>
 
-                    {/* Tarjeta Clickable: Universo de Controles */}
                     <div 
                       onClick={() => { setDetalleUniverso({ sede, tipo: 'evaluaciones' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
                       className="hover:shadow-lg hover:ring-4 hover:ring-emerald-100 transition-all cursor-pointer rounded-2xl relative group">
@@ -647,7 +708,6 @@ export default function App() {
                       <Gauge value={metricas.saludControles} label="Salud de Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
                     </div>
 
-                    {/* Tarjeta Clickable: Universo de Planes */}
                     <div 
                       onClick={() => { setDetalleUniverso({ sede, tipo: 'planes' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
                       className="hover:shadow-lg hover:ring-4 hover:ring-blue-100 transition-all cursor-pointer rounded-2xl relative group">
@@ -662,7 +722,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* --- NUEVO MÓDULO: DETALLE DEL UNIVERSO AL HACER CLIC --- */}
         {detalleUniverso && (
           <div id="detalle-universo" className="mt-12 bg-white p-8 rounded-3xl border border-slate-200 shadow-2xl animate-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
@@ -675,7 +734,6 @@ export default function App() {
               <button onClick={() => setDetalleUniverso(null)} className="text-xs bg-slate-100 text-slate-600 hover:bg-red-100 hover:text-red-700 px-4 py-2 rounded-xl font-bold transition-colors">✖ Cerrar Universo</button>
             </div>
 
-            {/* Renderizado condicional de métricas del universo según el tipo */}
             {(() => {
               let universoData = [];
               let cards = [];
@@ -720,7 +778,6 @@ export default function App() {
                     ))}
                   </div>
                   
-                  {/* Pequeña tabla resumen de lo que hay adentro */}
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                     <p className="text-xs font-bold text-slate-500 uppercase mb-2">Desglose de Registros</p>
                     <div className="max-h-48 overflow-y-auto">
@@ -844,6 +901,205 @@ export default function App() {
     );
   };
 
+  const renderApetito = () => {
+    const configurados = safeRiesgos.filter(r => r.capacidadRiesgo).length;
+    
+    // Cálculos de métricas globales de COSO
+    const enTolerancia = safeRiesgos.filter(r => {
+      const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (i.costo || 0), 0);
+      return r.capacidadRiesgo && costoTotal > r.apetitoFinanciero && costoTotal <= r.toleranciaFinanciera;
+    }).length;
+
+    const capacidadExcedida = safeRiesgos.filter(r => {
+      const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (i.costo || 0), 0);
+      return r.capacidadRiesgo && costoTotal > r.capacidadRiesgo;
+    }).length;
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="border-b pb-4">
+          <h2 className="text-2xl font-black text-slate-800">⚖️ Apetito y Perfil de Riesgo (COSO ERM)</h2>
+          <p className="text-xs text-slate-500 font-bold mt-1">Parametrización multinivel: Apetito, Tolerancia y Capacidad Financiera Máxima.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Modelos Parametrizados</p><p className="text-3xl font-black mt-2 text-slate-800">{configurados} / {safeRiesgos.length}</p></div>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-yellow-500"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">En Zona de Alerta (Tolerancia)</p><p className="text-3xl font-black mt-2 text-yellow-600">{enTolerancia}</p></div>
+          <div className="bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-800 border-l-4 border-l-red-600"><p className="text-slate-400 text-[10px] font-extrabold uppercase tracking-widest">Capacidad Excedida (Ruptura)</p><p className="text-3xl font-black mt-2 text-red-500">{capacidadExcedida}</p></div>
+        </div>
+
+        {editApetito && (
+          <div className="bg-white p-6 rounded-3xl shadow-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white animate-in fade-in slide-in-from-top-4 space-y-6 relative z-10">
+            <div className="flex justify-between items-center border-b border-blue-100 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">⚙️ Arquitectura COSO ERM</h3>
+                <p className="text-xs font-bold text-slate-500 mt-1">Riesgo: [{editApetito.sede}] {editApetito.proceso}</p>
+              </div>
+              <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
+            </div>
+            
+            <form onSubmit={handleApetitoSubmit} className="space-y-6 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                  <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
+                  
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
+                    Postura Estratégica
+                    <InfoTooltip text="Actitud general de la gerencia hacia este riesgo. Define si la empresa prefiere evitarlo por completo (Averso), buscar un balance (Flexible) o tomar riesgos para innovar (Buscador)." />
+                  </label>
+                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm">
+                    <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
+                    <option value="Cauto">Cauto (Preferencia por soluciones seguras)</option>
+                    <option value="Flexible">Flexible (Equilibrio riesgo/recompensa)</option>
+                    <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
+                  </select>
+
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
+                    KRI: Puntaje Residual Máximo Permitido
+                    <InfoTooltip text="Límite máximo aceptable en la Matriz 5x5 (Probabilidad x Impacto). Si el puntaje residual supera este número (Ej: 9), la plataforma disparará alertas pidiendo planes de acción." />
+                  </label>
+                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
+                </div>
+
+                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                  <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
+                  
+                  <label className="font-bold text-blue-900 mb-1 flex items-center w-max">
+                    <span>🎯 Apetito de Riesgo (Deseado)</span>
+                    <InfoTooltip text="Nivel de pérdida financiera que la empresa está dispuesta a asumir en su operación normal. Es tu 'Zona Verde' o escenario ideal." />
+                  </label>
+                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+
+                  <label className="font-bold text-amber-700 mb-1 flex items-center w-max">
+                    <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span>
+                    <InfoTooltip text="Desviación máxima aceptable respecto al Apetito. Es el colchón de seguridad. Superar este monto pone a la sede en alerta amarilla/naranja." />
+                  </label>
+                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+
+                  <label className="font-bold text-red-700 mb-1 flex items-center w-max">
+                    <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span>
+                    <InfoTooltip text="Monto máximo absoluto de pérdida que la empresa puede soportar antes de entrar en crisis. Si se supera, la viabilidad del negocio peligra gravemente." />
+                  </label>
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-slate-100">
+                <button type="submit" className="bg-slate-900 text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors transform hover:scale-105 duration-200">💾 Aplicar Arquitectura COSO</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-5 bg-slate-900 flex justify-between items-center border-b border-slate-800">
+            <h3 className="text-white font-black text-xs uppercase tracking-widest">Monitor de Brechas Financieras e Impacto</h3>
+            <span className="text-[9px] bg-slate-800 text-slate-400 px-3 py-1 rounded-full font-bold border border-slate-700">Analítica en Tiempo Real</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left divide-y divide-slate-100">
+              <thead className="bg-slate-50 text-slate-500 font-black uppercase tracking-wider text-[9px]">
+                <tr>
+                  <th className="p-4 w-1/3">Proceso / Riesgo / Postura</th>
+                  <th className="p-4 text-center">Score (KRI)</th>
+                  <th className="p-4 w-1/3">Consumo de Capacidad Financiera (Eventos)</th>
+                  <th className="p-4 text-center">Diagnóstico COSO</th>
+                  <th className="p-4 text-center">Gestión</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {safeRiesgos.map((r, index) => {
+                  // --- CÁLCULOS MATRIZ ---
+                  const resScore = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score;
+                  const limiteScore = r.kriScore;
+                  const excedidoScore = limiteScore && resScore > limiteScore;
+
+                  // --- CÁLCULOS FINANCIEROS COSO ---
+                  const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (i.costo || 0), 0);
+                  const estaConfigurado = r.posturaEstrategica && r.capacidadRiesgo;
+                  
+                  let zona = "Sin parametrizar";
+                  let zonaColor = "bg-slate-100 text-slate-500 border-slate-200";
+                  let consumoPorcentaje = 0;
+
+                  if (estaConfigurado) {
+                    consumoPorcentaje = Math.min((costoTotal / r.capacidadRiesgo) * 100, 100);
+                    if (costoTotal <= r.apetitoFinanciero) { 
+                      zona = "Confort (Apetito)"; 
+                      zonaColor = "bg-emerald-50 text-emerald-700 border-emerald-200"; 
+                    } else if (costoTotal <= r.toleranciaFinanciera) { 
+                      zona = "Alerta (Tolerancia)"; 
+                      zonaColor = "bg-yellow-50 text-yellow-700 border-yellow-300"; 
+                    } else if (costoTotal <= r.capacidadRiesgo) { 
+                      zona = "Peligro (Brecha)"; 
+                      zonaColor = "bg-orange-50 text-orange-700 border-orange-300"; 
+                    } else { 
+                      zona = "Crítico (Cap. Excedida)"; 
+                      zonaColor = "bg-red-50 text-red-700 border-red-300"; 
+                    }
+                  }
+
+                  return (
+                    <tr key={`apetito-row-${r.id}-${index}`} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2 mb-1.5">
+                          <span className="px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded font-bold uppercase">{r.sede || 'Hotel'}</span>
+                          <span className="font-bold text-slate-400 text-[10px] font-mono">#{r.id}</span>
+                          <span className="font-black text-slate-800 text-sm tracking-tight">{r.proceso}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-600 font-medium pr-4 line-clamp-2" title={r.descripcion}>{r.descripcion}</div>
+                        {r.posturaEstrategica && <div className="mt-2 text-[9px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 inline-block px-2 py-0.5 rounded border border-indigo-100">Postura: {r.posturaEstrategica}</div>}
+                      </td>
+                      
+                      <td className="p-4 text-center">
+                        {limiteScore ? (
+                          <div className="flex flex-col items-center justify-center bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Límite: {limiteScore} pts</span>
+                            <span className={`px-2 py-1 rounded-lg font-black font-mono text-xs ${excedidoScore ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{resScore} pts</span>
+                          </div>
+                        ) : <span className="text-slate-300 font-medium italic">-</span>}
+                      </td>
+
+                      <td className="p-4">
+                        {estaConfigurado ? (
+                          <div className="w-full">
+                            <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1">
+                              <span className="text-slate-500">Consumo vs Capacidad Total</span>
+                              <span className={consumoPorcentaje > 80 ? 'text-red-600' : 'text-slate-800'}>{consumoPorcentaje.toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-2.5 mb-2 overflow-hidden shadow-inner">
+                              <div className={`h-full rounded-full transition-all duration-1000 ${consumoPorcentaje <= (r.apetitoFinanciero/r.capacidadRiesgo)*100 ? 'bg-emerald-500' : consumoPorcentaje <= (r.toleranciaFinanciera/r.capacidadRiesgo)*100 ? 'bg-yellow-400' : consumoPorcentaje < 100 ? 'bg-orange-500' : 'bg-red-600'}`} style={{ width: `${consumoPorcentaje}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-[9px] font-mono font-bold text-slate-400">
+                              <span>Perdido: ${(costoTotal).toLocaleString('es-CO')}</span>
+                              <span>Tope: ${(r.capacidadRiesgo).toLocaleString('es-CO')}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest border border-dashed border-slate-200 rounded-lg p-2 bg-slate-50/50">Requiere Parametrización</div>
+                        )}
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <span className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest border ${zonaColor} shadow-sm block w-full truncate`} title={zona}>
+                          {zona}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        {isAdmin && <button onClick={() => {setEditApetito(r); scrollToTop();}} className="bg-white border border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full"><span>⚙️</span> <span>Ajustar</span></button>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderRiesgos = () => (
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
@@ -855,7 +1111,6 @@ export default function App() {
           <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
           <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             
-            {/* FASE 5: Selector de Sede en Riesgos */}
             <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
             
             <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
@@ -887,7 +1142,6 @@ export default function App() {
                 return (
                   <tr key={`riesgo-row-${r.id}-${index}`} className="hover:bg-slate-50">
                     <td className="p-3 font-bold">#{r.id}</td>
-                    {/* FASE 5: Se muestra la sede en la tabla */}
                     <td className="p-3">
                       <div className="flex items-center space-x-2 mb-1"><span className="px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded font-bold uppercase">{r.sede || 'Hotel'}</span><span className="font-black">{r.proceso}</span></div>
                       <div className="text-[9px] font-bold text-indigo-500 uppercase font-mono">{r.categoria}</div><div>{r.descripcion}</div>
@@ -921,20 +1175,24 @@ export default function App() {
             <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.sede || 'Hotel'}] {r.proceso}</option>)}</select></div>
             <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div className="md:col-span-3"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
-            <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar Test</button></div>
+            <div className="md:col-span-2"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+            <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+            <div className="md:col-span-3 flex justify-end"><button type="submit" disabled={isUploading} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo...' : 'Guardar Test'}</button></div>
           </form>
         </div>
       )}
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
         <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID Test</th><th className="p-3">Fecha</th><th className="p-3">Diseño/Operación</th><th className="p-3">Eficacia</th><th className="p-3">Comentarios</th></tr></thead>
+          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID Test</th><th className="p-3">Fecha</th><th className="p-3">Diseño/Operación</th><th className="p-3">Eficacia</th><th className="p-3">Comentarios / Anexos</th></tr></thead>
           <tbody className="divide-y">
             {safeEvaluaciones.map((ev, index) => (
               <tr key={`eval-row-${ev.id}-${index}`}>
                 <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{ev.fecha}</td><td>D: {ev.diseño} / E: {ev.ejecucion}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
-                <td className="p-3">{ev.comentarios}</td>
+                <td className="p-3">
+                  <div>{ev.comentarios}</div>
+                  {ev.evidenciaUrl && <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Evidencia</span></a>}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -950,30 +1208,36 @@ export default function App() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Documentar Desviación</h3>
           <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            {/* FASE 5: Selector de Sede en Hallazgos */}
             <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
             
-            <div><label className="font-bold text-gray-600">Referencia</label><input name="ref" required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div><label className="font-bold text-gray-600">Referencia</label><input name="ref" defaultValue={editHallazgo?.ref||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
             
-            <div className="md:col-span-3"><label className="font-bold text-gray-600">Título / Descripción</label><input name="titulo" required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Severidad</label><select name="severidad" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar Hallazgo</button></div>
+            <div className="md:col-span-2"><label className="font-bold text-gray-600">Título / Descripción</label><input name="titulo" defaultValue={editHallazgo?.titulo||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div><label className="font-bold text-gray-600">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
+            <div><label className="font-bold text-gray-600">Informe / Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+            
+            <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo Archivo...' : 'Guardar Hallazgo'}</button></div>
           </form>
         </div>
       )}
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
         <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Ref</th><th className="p-3">Proceso</th><th className="p-3 w-1/2">Título</th><th className="p-3">Estado</th></tr></thead>
+          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Ref</th><th className="p-3">Proceso</th><th className="p-3 w-1/2">Título e Informes</th><th className="p-3">Estado</th></tr></thead>
           <tbody className="divide-y">
             {safeHallazgos.map((h, index) => (
               <tr key={`hallazgo-row-${h.id}-${index}`}>
                 <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td>
-                {/* FASE 5: Mostrar Sede en Hallazgos */}
                 <td className="p-3"><div className="font-bold">{h.proceso}</div><div className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{h.sede || 'Hotel'}</div></td>
-                <td className="p-3">{h.titulo}</td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded font-black bg-slate-100">{h.estado}</span></td>
+                <td className="p-3">
+                  <div>{h.titulo}</div>
+                  {h.evidenciaUrl && <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Descargar Informe</span></a>}
+                </td>
+                <td className="p-3">
+                  <span className="px-2 py-0.5 rounded font-black bg-slate-100">{h.estado}</span>
+                  {isAdmin && <button onClick={() => {setEditHallazgo(h); scrollToTop();}} className="ml-2 bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded text-[9px] uppercase">Editar</button>}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -989,10 +1253,10 @@ export default function App() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
           
-          <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="md:col-span-3"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[{h.sede || 'Hotel'}] {h.titulo}</option>)}</select></div>
+          <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[{h.sede || 'Hotel'}] {h.titulo}</option>)}</select></div>
             
-            <div className="md:col-span-3">
+            <div className="md:col-span-4">
               <label className="font-bold text-gray-600 flex justify-between items-center">
                 <span>Acción Correctiva</span>
                 <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
@@ -1005,23 +1269,27 @@ export default function App() {
             <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
             <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={editPlan?.fecha||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
             <div><label className="font-bold text-blue-600">% de Avance Físico</label><input type="number" min="0" max="100" name="progreso" defaultValue={editPlan?.progreso||0} required className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg p-2 mt-1" /></div>
+            <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
             
-            <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-slate-800 text-white font-bold px-6 py-2 rounded-lg shadow-md">{editPlan ? 'Actualizar Progreso' : 'Asignar Plan'}</button></div>
+            <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-slate-800 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo Archivo...' : (editPlan ? 'Actualizar Progreso' : 'Asignar Plan')}</button></div>
           </form>
         </div>
       )}
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
         <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Hallazgo</th><th className="p-3">Acción</th><th className="p-3">Compromiso</th><th className="p-3 w-40">Avance</th><th className="p-3">Estado</th><th className="p-3 text-center">Gestión</th></tr></thead>
+          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Hallazgo</th><th className="p-3">Acción y Evidencias</th><th className="p-3">Compromiso</th><th className="p-3 w-40">Avance</th><th className="p-3">Estado</th><th className="p-3 text-center">Gestión</th></tr></thead>
           <tbody className="divide-y">
             {safePlanes.map((p, index) => {
               const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
               return (
                 <tr key={`plan-row-${p.id}-${index}`}>
                   <td className="p-3 font-bold">#PLAN-{p.id}</td>
-                  {/* FASE 5: Se muestra la sede del hallazgo al que pertenece el plan */}
                   <td className="p-3"><span className="text-red-600 font-bold block">#HAL-{p.idHallazgo}</span><span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
-                  <td className="p-3 font-bold">{p.accion}</td><td className="p-3 font-mono">{p.fecha}</td>
+                  <td className="p-3">
+                    <div className="font-bold">{p.accion}</div>
+                    {p.evidenciaUrl && <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Soporte</span></a>}
+                  </td>
+                  <td className="p-3 font-mono">{p.fecha}</td>
                   <td className="p-3"><ProgressBar progress={p.progreso || 0} /></td>
                   <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
@@ -1054,12 +1322,100 @@ export default function App() {
     </div>
   );
 
-  const renderInforme = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">📜 Logs del Sistema</h2></div>
-      <p className="text-xs text-slate-500">Módulo de trazabilidad activo de base de datos.</p>
-    </div>
-  );
+  const renderInforme = () => {
+    const getAllLogs = () => {
+      let allLogs = [];
+      
+      safeRiesgos.forEach(r => {
+        (r.historialCambios || []).forEach(log => {
+          allLogs.push({ ...log, modulo: 'Riesgos', idRef: `RIESGO-${r.id}`, desc: r.proceso, icon: '⚠️', color: 'bg-amber-100 text-amber-700' });
+        });
+      });
+      safeEvaluaciones.forEach(e => {
+        (e.historialCambios || []).forEach(log => {
+          allLogs.push({ ...log, modulo: 'Test Auditoría', idRef: `TEST-${e.id}`, desc: `Test a Riesgo #${e.idRiesgo}`, icon: '🔬', color: 'bg-purple-100 text-purple-700' });
+        });
+      });
+      safeHallazgos.forEach(h => {
+        (h.historialCambios || []).forEach(log => {
+          allLogs.push({ ...log, modulo: 'Hallazgos', idRef: `HAL-${h.id}`, desc: h.titulo, icon: '📄', color: 'bg-red-100 text-red-700' });
+        });
+      });
+      safePlanes.forEach(p => {
+        (p.historialCambios || []).forEach(log => {
+          allLogs.push({ ...log, modulo: 'Planes Acción', idRef: `PLAN-${p.id}`, desc: p.accion, icon: '✅', color: 'bg-blue-100 text-blue-700' });
+        });
+      });
+      safeIncidentes.forEach(i => {
+        (i.historialCambios || []).forEach(log => {
+          allLogs.push({ ...log, modulo: 'Incidentes', idRef: `INC-${i.id}`, desc: i.titulo, icon: '🚨', color: 'bg-rose-100 text-rose-700' });
+        });
+      });
+
+      return allLogs.sort((a, b) => {
+        const dateA = new Date(a.fecha).getTime() || 0;
+        const dateB = new Date(b.fecha).getTime() || 0;
+        return dateB - dateA;
+      });
+    };
+
+    const logsOrdenados = getAllLogs();
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="border-b pb-4 flex justify-between items-end">
+          <div>
+            <h2 className="text-2xl font-black text-slate-800">📜 Logs del Sistema</h2>
+            <p className="text-xs text-slate-500 font-bold mt-1">Módulo de trazabilidad y rastro de auditoría.</p>
+          </div>
+          <div className="bg-slate-100 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-500 uppercase tracking-widest border border-slate-200">
+            Total Registros: {logsOrdenados.length}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+            <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Línea de Tiempo de Cambios</h3>
+            <button onClick={() => exportToExcel(logsOrdenados, 'Trazabilidad_GRC')} className="bg-slate-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-700 transition-colors">📥 Exportar Logs</button>
+          </div>
+          
+          <div className="p-0">
+            <table className="w-full text-xs text-left divide-y">
+              <thead className="bg-white text-slate-400 font-bold text-[10px] uppercase tracking-widest">
+                <tr>
+                  <th className="p-4 w-40">Fecha y Hora</th>
+                  <th className="p-4 w-32">Módulo</th>
+                  <th className="p-4">Acción Realizada</th>
+                  <th className="p-4 w-64">Referencia</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {logsOrdenados.length === 0 && (
+                  <tr><td colSpan="4" className="p-8 text-center text-slate-400 font-medium italic">No se encontraron movimientos registrados en la base de datos.</td></tr>
+                )}
+                {logsOrdenados.map((log, index) => (
+                  <tr key={`log-${index}`} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 font-mono font-medium text-slate-600">{log.fecha}</td>
+                    <td className="p-4">
+                      <span className={`flex items-center space-x-1.5 w-max px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${log.color}`}>
+                        <span>{log.icon}</span>
+                        <span>{log.modulo}</span>
+                      </span>
+                    </td>
+                    <td className="p-4 font-bold text-slate-800">{log.accion}</td>
+                    <td className="p-4">
+                      <div className="font-black text-slate-700 text-[10px] uppercase">{log.idRef}</div>
+                      <div className="truncate w-56 text-slate-500 font-medium" title={log.desc}>{log.desc}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (!user) {
     return (
@@ -1093,6 +1449,7 @@ export default function App() {
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
+            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
             { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
             { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
@@ -1114,6 +1471,7 @@ export default function App() {
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
             {activeTab === 'riesgos' && renderRiesgos()}
+            {activeTab === 'apetito' && renderApetito()}
             {activeTab === 'evaluaciones' && renderEvaluaciones()}
             {activeTab === 'hallazgos' && renderHallazgos()}
             {activeTab === 'planes' && renderPlanes()}
