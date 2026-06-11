@@ -46,19 +46,18 @@ const ADMIN_EMAILS = [
   "analista.controlinterno@termales.com.co"
 ];
 
-// --- DATOS POR DEFECTO ---
+// --- DATOS POR DEFECTO (Con el nuevo campo 'Sede' integrado) ---
 const defaultRiesgos = [
-  { id: 98, categoria: 'Operativo', proceso: 'Alimentos y bebidas', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene de alimentos por uso de insumos cárnicos de baja calidad.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', historialCambios: [] },
-  { id: 186, categoria: 'Estratégico', proceso: 'Gestión Estratégica', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Sanciones o pérdidas financieras por errores en la declaración de impuestos hoteleros.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', historialCambios: [] },
-  { id: 201, categoria: 'Tecnológico', proceso: 'Infraestructura TI', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Intrusión de ransomware que paralice el sistema hotelero de reservas.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', historialCambios: [] }
+  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene de alimentos por uso de insumos cárnicos de baja calidad.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', historialCambios: [] },
+  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Sanciones o pérdidas financieras por errores en la declaración de impuestos hoteleros.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', historialCambios: [] },
+  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Intrusión de ransomware que paralice el sistema de taquillas.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', historialCambios: [] }
 ];
 
 const defaultHallazgos = [
-  { id: 1, ref: 'Aud. Interna TI-2026', titulo: 'Acceso de usuarios genéricos a la base de datos del ERP.', proceso: 'Sistemas', responsable: 'Jefe de TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', historialCambios: [] },
-  { id: 2, ref: 'Aud. Op-2025', titulo: 'Ausencia de actas de capacitación en higiene de alimentos.', proceso: 'Alimentos y bebidas', responsable: 'Jefe de A&B', severidad: 'Medio', idRiesgo: 98, estado: 'Cerrado', fecha: '2025-11-15', historialCambios: [] }
+  { id: 1, sede: 'Ecoparque', ref: 'Aud. Interna TI-2026', titulo: 'Acceso de usuarios genéricos a la base de datos de taquilla.', proceso: 'Sistemas', responsable: 'Jefe de TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', historialCambios: [] },
+  { id: 2, sede: 'Hotel', ref: 'Aud. Op-2025', titulo: 'Ausencia de actas de capacitación en higiene de alimentos.', proceso: 'Alimentos y bebidas', responsable: 'Jefe de A&B', severidad: 'Medio', idRiesgo: 98, estado: 'Cerrado', fecha: '2025-11-15', historialCambios: [] }
 ];
 
-// FASE 5: Se incluye el campo 'progreso' por defecto en los planes
 const defaultPlanes = [
   { id: 1, idHallazgo: 1, accion: 'Desactivar credenciales comunes y parametrizar roles individuales en base de datos.', responsable: 'Jefe de TI', fecha: '2026-07-15', estado: 'En Proceso', progreso: 30, historialCambios: [] },
   { id: 2, idHallazgo: 2, accion: 'Realizar capacitación certificada con entidad de salud y documentar firmas.', responsable: 'Jefe de A&B', fecha: '2025-12-10', estado: 'Cerrado', progreso: 100, historialCambios: [] }
@@ -69,7 +68,8 @@ const defaultIncidentes = [
 ];
 
 const defaultEvaluaciones = [
-  { id: 1, idRiesgo: 201, fecha: '2026-06-01', diseño: 'Eficaz', ejecucion: 'Eficaz', calificacion: 100, comentarios: 'Prueba de penetración simulada arrojó contención del cortafuegos de manera instantánea.', auditor: 'controlinterno@termales.com.co', historialCambios: [] }
+  { id: 1, idRiesgo: 201, fecha: '2026-06-01', diseño: 'Eficaz', ejecucion: 'Eficaz', calificacion: 100, comentarios: 'Prueba de penetración simulada arrojó contención del cortafuegos de manera instantánea.', auditor: 'controlinterno@termales.com.co', historialCambios: [] },
+  { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', historialCambios: [] }
 ];
 
 // --- COMPONENTES VISUALES ---
@@ -90,6 +90,22 @@ const ProgressBar = ({ progress }) => {
   );
 };
 
+const Gauge = ({ value, label, sublabel, colorClass }) => (
+  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
+    <div className="relative w-24 h-24 flex items-center justify-center">
+      <svg className="w-full h-full transform -rotate-90">
+        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
+        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" 
+          strokeDasharray={251} strokeDashoffset={251 - (251 * (value || 0)) / 100}
+          className={`${colorClass} transition-all duration-1000`} />
+      </svg>
+      <span className="absolute text-xl font-black text-slate-800">{Math.round(value || 0)}%</span>
+    </div>
+    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">{label}</p>
+    <p className="text-[10px] font-bold text-slate-500">{sublabel}</p>
+  </div>
+);
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
@@ -99,6 +115,7 @@ export default function App() {
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
   const [isUploading, setIsUploading] = useState(false); 
   const [isThinking, setIsThinking] = useState(false); 
+  const [detalleUniverso, setDetalleUniverso] = useState(null); // NUEVO: Controla qué universo de datos se está viendo
 
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
@@ -253,6 +270,11 @@ export default function App() {
       return;
     }
 
+    if (!GEMINI_API_KEY) {
+      showNotification("⚠️ La clave de API de Gemini no se ha cargado correctamente.", "error");
+      return;
+    }
+
     setIsThinking(true);
     showNotification("🧠 Gemini Pro está analizando el escenario...", "success");
 
@@ -338,8 +360,12 @@ export default function App() {
     if (editRiesgo) {
       const modificado = {
         ...editRiesgo,
-        proceso: formData.get('proceso'), categoria: formData.get('categoria'), responsable: formData.get('responsable'),
-        descripcionControl: formData.get('control'), descripcion: formData.get('descripcion'),
+        sede: formData.get('sede'), // FASE 5: Se incluye Sede
+        proceso: formData.get('proceso'), 
+        categoria: formData.get('categoria'), 
+        responsable: formData.get('responsable'),
+        descripcionControl: formData.get('control'), 
+        descripcion: formData.get('descripcion'),
         probabilidadInherente: probInh, impactoInherente: impInh, probabilidadResidual: probRes, impactoResidual: impRes,
         historialCambios: [...(editRiesgo.historialCambios || []), { fecha: timestamp, accion: 'Registro modificado por Auditor' }]
       };
@@ -349,9 +375,14 @@ export default function App() {
     } else {
       const nuevo = {
         id: safeRiesgos.length ? Math.max(...safeRiesgos.map(r => r.id)) + 1 : 1,
-        proceso: formData.get('proceso'), categoria: formData.get('categoria'), responsable: formData.get('responsable'),
-        noControl: 'C-' + Math.floor(Math.random() * 100 + 100), descripcionControl: formData.get('control'),
-        descripcion: formData.get('descripcion'), probabilidadInherente: probInh, impactoInherente: impInh,
+        sede: formData.get('sede'), // FASE 5: Se incluye Sede
+        proceso: formData.get('proceso'), 
+        categoria: formData.get('categoria'), 
+        responsable: formData.get('responsable'),
+        noControl: 'C-' + Math.floor(Math.random() * 100 + 100), 
+        descripcionControl: formData.get('control'),
+        descripcion: formData.get('descripcion'), 
+        probabilidadInherente: probInh, impactoInherente: impInh,
         probabilidadResidual: probRes, impactoResidual: impRes,
         historialCambios: [{ fecha: timestamp, accion: 'Riesgo e indicadores iniciales creados' }]
       };
@@ -445,7 +476,9 @@ export default function App() {
     let updatedList;
     if (editHallazgo) {
       const modificado = {
-        ...editHallazgo, ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
+        ...editHallazgo, 
+        sede: formData.get('sede'), // FASE 5: Se incluye Sede
+        ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
         titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
         evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editHallazgo.historialCambios || []), { fecha: timestamp, accion: 'Hallazgo editado' }]
       };
@@ -453,7 +486,9 @@ export default function App() {
       setEditHallazgo(null);
     } else {
       const nuevo = {
-        id: safeHallazgos.length ? Math.max(...safeHallazgos.map(h => h.id)) + 1 : 1, ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
+        id: safeHallazgos.length ? Math.max(...safeHallazgos.map(h => h.id)) + 1 : 1, 
+        sede: formData.get('sede'), // FASE 5: Se incluye Sede
+        ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'),
         titulo: formData.get('titulo'), severidad: formData.get('severidad'), idRiesgo: idRiesgo ? parseInt(idRiesgo) : null,
         estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: timestamp, accion: 'Hallazgo documentado' }]
       };
@@ -543,16 +578,34 @@ export default function App() {
     safePlanes.forEach(p => { if(p.fecha) añosSet.add(getYearFromDate(p.fecha)); });
     const availableYears = Array.from(añosSet).sort().reverse();
 
-    const hTotal = hFiltrados.length;
-    const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
-    const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
+    const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
 
-    const pTotal = pFiltrados.length;
-    const pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
-    const pCerrados = pFiltrados.filter(p => p.estado === 'Cerrado').length;
+    // FASE 5: Función para calcular métricas por Unidad de Negocio (Sede)
+    const obtenerMetricasSede = (sede) => {
+      const hallazgosSede = hFiltrados.filter(h => h.sede === sede);
+      const hallazgosAbiertos = hallazgosSede.filter(h => h.estado === 'Abierto').length;
+
+      const planesSede = pFiltrados.filter(p => {
+        const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
+        return hallazgoAsociado && hallazgoAsociado.sede === sede;
+      });
+      const avancePlanes = planesSede.length > 0 
+        ? planesSede.reduce((acc, p) => acc + (p.progreso || 0), 0) / planesSede.length 
+        : 0;
+
+      const evaluacionesSede = safeEvaluaciones.filter(e => {
+        const riesgoAsociado = safeRiesgos.find(r => r.id === e.idRiesgo);
+        return riesgoAsociado && riesgoAsociado.sede === sede;
+      });
+      const saludControles = evaluacionesSede.length > 0 
+        ? (evaluacionesSede.filter(e => e.calificacion === 100).length / evaluacionesSede.length) * 100 
+        : 0;
+
+      return { hallazgosAbiertos, avancePlanes, saludControles };
+    };
 
     return (
-      <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="space-y-8 animate-in fade-in duration-300">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
           <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Tablero Analítico de Auditoría</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis integral de desviaciones operacionales.</p></div>
           <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
@@ -564,23 +617,134 @@ export default function App() {
           </div>
         </div>
 
+        {/* FASE 5: Tarjetas de Velocímetros Separadas por Unidad de Negocio */}
         <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Métricas de Hallazgos</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">📄</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Total Hallazgos</p><p className="text-3xl font-black mt-1 text-slate-800">{hTotal}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-red-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xl">⚠️</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Abiertos</p><p className="text-3xl font-black mt-1 text-red-600">{hAbiertos}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{hCerrados}</p></div></div>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Desempeño por Unidad de Negocio</h3>
+          <p className="text-[10px] text-blue-500 font-bold mb-4">👆 Haz clic en cualquier tarjeta o velocímetro para ver su universo de datos detallado.</p>
+          <div className="space-y-6">
+            {sedes.map((sede) => {
+              const metricas = obtenerMetricasSede(sede);
+              return (
+                <div key={`metrics-${sede}`} className="bg-slate-100/50 border border-slate-200 p-6 rounded-3xl shadow-sm">
+                  <h4 className="text-lg font-black text-slate-800 mb-4 tracking-tight border-b pb-2">{sede}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    {/* Tarjeta Clickable: Universo de Hallazgos */}
+                    <div 
+                      onClick={() => { setDetalleUniverso({ sede, tipo: 'hallazgos' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
+                      className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center items-center text-center h-full hover:shadow-lg hover:ring-4 hover:ring-blue-100 transition-all cursor-pointer relative group">
+                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 text-blue-600 text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-widest">Ver Universo ↗</div>
+                      <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest">Hallazgos Abiertos</h4>
+                      <span className="text-5xl font-black mt-3 text-slate-800">{metricas.hallazgosAbiertos}</span>
+                      <p className="text-[10px] font-bold mt-3 opacity-60 text-slate-500">Pendientes de Cierre</p>
+                    </div>
+
+                    {/* Tarjeta Clickable: Universo de Controles */}
+                    <div 
+                      onClick={() => { setDetalleUniverso({ sede, tipo: 'evaluaciones' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
+                      className="hover:shadow-lg hover:ring-4 hover:ring-emerald-100 transition-all cursor-pointer rounded-2xl relative group">
+                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-50 text-emerald-600 text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-widest z-10">Ver Universo ↗</div>
+                      <Gauge value={metricas.saludControles} label="Salud de Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+                    </div>
+
+                    {/* Tarjeta Clickable: Universo de Planes */}
+                    <div 
+                      onClick={() => { setDetalleUniverso({ sede, tipo: 'planes' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
+                      className="hover:shadow-lg hover:ring-4 hover:ring-blue-100 transition-all cursor-pointer rounded-2xl relative group">
+                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 text-blue-600 text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-widest z-10">Ver Universo ↗</div>
+                      <Gauge value={metricas.avancePlanes} label="Planes de Acción" sublabel="Promedio de Avance Físico" colorClass="text-blue-500" />
+                    </div>
+
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Planes de Acción</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">🤝</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Totales</p><p className="text-3xl font-black mt-1 text-slate-800">{pTotal}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
+        {/* --- NUEVO MÓDULO: DETALLE DEL UNIVERSO AL HACER CLIC --- */}
+        {detalleUniverso && (
+          <div id="detalle-universo" className="mt-12 bg-white p-8 rounded-3xl border border-slate-200 shadow-2xl animate-in slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <div>
+                <h4 className="text-2xl font-black text-slate-800 tracking-tight">
+                  Universo de {detalleUniverso.tipo === 'hallazgos' ? 'Hallazgos' : detalleUniverso.tipo === 'planes' ? 'Planes de Acción' : 'Controles Auditados'}
+                </h4>
+                <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">Sede: {detalleUniverso.sede}</p>
+              </div>
+              <button onClick={() => setDetalleUniverso(null)} className="text-xs bg-slate-100 text-slate-600 hover:bg-red-100 hover:text-red-700 px-4 py-2 rounded-xl font-bold transition-colors">✖ Cerrar Universo</button>
+            </div>
+
+            {/* Renderizado condicional de métricas del universo según el tipo */}
+            {(() => {
+              let universoData = [];
+              let cards = [];
+              
+              if (detalleUniverso.tipo === 'hallazgos') {
+                universoData = hFiltrados.filter(h => h.sede === detalleUniverso.sede);
+                cards = [
+                  { label: 'Total Histórico', val: universoData.length, textCol: 'text-slate-800', bgCol: 'bg-slate-100' },
+                  { label: 'Abiertos', val: universoData.filter(h => h.estado === 'Abierto').length, textCol: 'text-red-600', bgCol: 'bg-red-50' },
+                  { label: 'Cerrados', val: universoData.filter(h => h.estado === 'Cerrado').length, textCol: 'text-emerald-600', bgCol: 'bg-emerald-50' }
+                ];
+              } else if (detalleUniverso.tipo === 'planes') {
+                universoData = pFiltrados.filter(p => {
+                  const hAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
+                  return hAsociado && hAsociado.sede === detalleUniverso.sede;
+                });
+                cards = [
+                  { label: 'Total Asignados', val: universoData.length, textCol: 'text-slate-800', bgCol: 'bg-slate-100' },
+                  { label: 'En Proceso', val: universoData.filter(p => p.estado !== 'Cerrado').length, textCol: 'text-amber-600', bgCol: 'bg-amber-50' },
+                  { label: 'Cerrados (100%)', val: universoData.filter(p => p.estado === 'Cerrado').length, textCol: 'text-emerald-600', bgCol: 'bg-emerald-50' }
+                ];
+              } else if (detalleUniverso.tipo === 'evaluaciones') {
+                universoData = safeEvaluaciones.filter(e => {
+                  const rAsociado = safeRiesgos.find(r => r.id === e.idRiesgo);
+                  return rAsociado && rAsociado.sede === detalleUniverso.sede;
+                });
+                cards = [
+                  { label: 'Total Tests', val: universoData.length, textCol: 'text-slate-800', bgCol: 'bg-slate-100' },
+                  { label: 'Eficaces (100%)', val: universoData.filter(e => e.calificacion === 100).length, textCol: 'text-emerald-600', bgCol: 'bg-emerald-50' },
+                  { label: 'Con Deficiencias', val: universoData.filter(e => e.calificacion < 100).length, textCol: 'text-red-600', bgCol: 'bg-red-50' }
+                ];
+              }
+
+              return (
+                <div>
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    {cards.map((c, i) => (
+                      <div key={i} className={`${c.bgCol} p-4 rounded-2xl flex items-center justify-between`}>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{c.label}</span>
+                        <span className={`text-2xl font-black ${c.textCol}`}>{c.val}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Pequeña tabla resumen de lo que hay adentro */}
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Desglose de Registros</p>
+                    <div className="max-h-48 overflow-y-auto">
+                      <ul className="space-y-2">
+                        {universoData.length === 0 && <li className="text-xs text-slate-400 italic">No hay registros para esta categoría.</li>}
+                        {universoData.map((item, idx) => (
+                          <li key={idx} className="text-xs bg-white p-2 rounded border border-slate-100 flex justify-between items-center shadow-sm">
+                            <span className="font-medium text-slate-700 truncate pr-4">
+                              {item.titulo || item.accion || `Test ID: ${item.id} - Efectividad: ${item.calificacion}%`}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${item.estado === 'Cerrado' || item.calificacion === 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                              {item.estado || (item.calificacion === 100 ? 'Eficaz' : 'Deficiente')}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
-        </div>
+        )}
+
       </div>
     );
   };
@@ -690,21 +854,15 @@ export default function App() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
           <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            
+            {/* FASE 5: Selector de Sede en Riesgos */}
+            <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+            
             <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
             <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
             <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
             
-            {/* BOTÓN REAL IA GEMINI */}
-            <div>
-              <label className="font-bold text-gray-600 flex justify-between items-center">
-                <span>Control Clave</span>
-                <button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                </button>
-              </label>
-              <input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" />
-            </div>
-
+            <div className="md:col-span-4"><label className="font-bold text-gray-600 flex justify-between items-center"><span>Control Clave</span><button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1"><span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span></button></label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
             <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
             
             <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
@@ -729,7 +887,11 @@ export default function App() {
                 return (
                   <tr key={`riesgo-row-${r.id}-${index}`} className="hover:bg-slate-50">
                     <td className="p-3 font-bold">#{r.id}</td>
-                    <td className="p-3"><div className="font-black">{r.proceso}</div><div className="text-[9px] font-bold text-indigo-500 uppercase font-mono">{r.categoria}</div><div>{r.descripcion}</div></td>
+                    {/* FASE 5: Se muestra la sede en la tabla */}
+                    <td className="p-3">
+                      <div className="flex items-center space-x-2 mb-1"><span className="px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded font-bold uppercase">{r.sede || 'Hotel'}</span><span className="font-black">{r.proceso}</span></div>
+                      <div className="text-[9px] font-bold text-indigo-500 uppercase font-mono">{r.categoria}</div><div>{r.descripcion}</div>
+                    </td>
                     <td className="p-3"><div className="font-bold">{r.responsable}</div><div className="italic mt-1">⚙️ {r.descripcionControl}</div></td>
                     <td className="p-3 text-center font-mono">{calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente).score} pts</td>
                     <td className="p-3 text-center font-mono font-black">{res.score} pts</td>
@@ -756,7 +918,7 @@ export default function App() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
           <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
+            <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.sede || 'Hotel'}] {r.proceso}</option>)}</select></div>
             <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div className="md:col-span-3"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
@@ -787,13 +949,17 @@ export default function App() {
       {isAdmin && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Documentar Desviación</h3>
-          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            {/* FASE 5: Selector de Sede en Hallazgos */}
+            <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+            
             <div><label className="font-bold text-gray-600">Referencia</label><input name="ref" required className="w-full border rounded-lg p-2 mt-1" /></div>
             <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" required className="w-full border rounded-lg p-2 mt-1" /></div>
             <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div className="md:col-span-2"><label className="font-bold text-gray-600">Título / Descripción</label><input name="titulo" required className="w-full border rounded-lg p-2 mt-1" /></div>
+            
+            <div className="md:col-span-3"><label className="font-bold text-gray-600">Título / Descripción</label><input name="titulo" required className="w-full border rounded-lg p-2 mt-1" /></div>
             <div><label className="font-bold text-gray-600">Severidad</label><select name="severidad" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-            <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar Hallazgo</button></div>
+            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar Hallazgo</button></div>
           </form>
         </div>
       )}
@@ -803,7 +969,10 @@ export default function App() {
           <tbody className="divide-y">
             {safeHallazgos.map((h, index) => (
               <tr key={`hallazgo-row-${h.id}-${index}`}>
-                <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td><td className="p-3 font-bold">{h.proceso}</td><td className="p-3">{h.titulo}</td>
+                <td className="p-3 font-bold text-slate-400">#HAL-{h.id}</td><td className="p-3 font-mono">{h.ref}</td>
+                {/* FASE 5: Mostrar Sede en Hallazgos */}
+                <td className="p-3"><div className="font-bold">{h.proceso}</div><div className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{h.sede || 'Hotel'}</div></td>
+                <td className="p-3">{h.titulo}</td>
                 <td className="p-3"><span className="px-2 py-0.5 rounded font-black bg-slate-100">{h.estado}</span></td>
               </tr>
             ))}
@@ -820,9 +989,8 @@ export default function App() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
           
-          {/* FASE 5: Formulario de planes modificado para incluir porcentaje de avance */}
           <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div className="md:col-span-3"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
+            <div className="md:col-span-3"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[{h.sede || 'Hotel'}] {h.titulo}</option>)}</select></div>
             
             <div className="md:col-span-3">
               <label className="font-bold text-gray-600 flex justify-between items-center">
@@ -846,20 +1014,23 @@ export default function App() {
         <table className="w-full text-xs text-left divide-y">
           <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Hallazgo</th><th className="p-3">Acción</th><th className="p-3">Compromiso</th><th className="p-3 w-40">Avance</th><th className="p-3">Estado</th><th className="p-3 text-center">Gestión</th></tr></thead>
           <tbody className="divide-y">
-            {safePlanes.map((p, index) => (
-              <tr key={`plan-row-${p.id}-${index}`}>
-                <td className="p-3 font-bold">#PLAN-{p.id}</td><td className="p-3 text-red-600">#HAL-{p.idHallazgo}</td><td className="p-3 font-bold">{p.accion}</td><td className="p-3 font-mono">{p.fecha}</td>
-                
-                {/* FASE 5: Componente de Barra de Progreso Inyectado */}
-                <td className="p-3"><ProgressBar progress={p.progreso || 0} /></td>
-
-                <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
-                <td className="p-3 text-center whitespace-nowrap space-x-1">
-                  {isAdmin && <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
-                  {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
-                </td>
-              </tr>
-            ))}
+            {safePlanes.map((p, index) => {
+              const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
+              return (
+                <tr key={`plan-row-${p.id}-${index}`}>
+                  <td className="p-3 font-bold">#PLAN-{p.id}</td>
+                  {/* FASE 5: Se muestra la sede del hallazgo al que pertenece el plan */}
+                  <td className="p-3"><span className="text-red-600 font-bold block">#HAL-{p.idHallazgo}</span><span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
+                  <td className="p-3 font-bold">{p.accion}</td><td className="p-3 font-mono">{p.fecha}</td>
+                  <td className="p-3"><ProgressBar progress={p.progreso || 0} /></td>
+                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
+                  <td className="p-3 text-center whitespace-nowrap space-x-1">
+                    {isAdmin && <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
+                    {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -917,14 +1088,14 @@ export default function App() {
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl">
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-<nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
             { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
             { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
-            { id: 'planes', icon: '✅', label: 'Planes de Acción' }, // <-- AQUÍ
+            { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
           ].map((tab, index) => (
