@@ -601,7 +601,6 @@ export default function App() {
     const formData = new FormData(e.target);
     const timestamp = new Date().toLocaleString();
 
-    // Validar que la jerarquía financiera tenga sentido (Apetito <= Tolerancia <= Capacidad)
     const apetito = parseFloat(formData.get('apetitoFinanciero') || 0);
     const tolerancia = parseFloat(formData.get('toleranciaFinanciera') || 0);
     const capacidad = parseFloat(formData.get('capacidadRiesgo') || 0);
