@@ -917,15 +917,15 @@ export default function App() {
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl">
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+<nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
-            { id: 'dashboard_riesgos', icon: '📈', label: 'Intelligence Dash' },
+            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
-            { id: 'evaluaciones', icon: '🔬', label: 'Audit Controles' },
+            { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
             { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
-            { id: 'planes', icon: '✅', label: 'Planes Acción' },
-            { id: 'incidentes', icon: '🚨', label: 'Eventos Pérdida' },
+            { id: 'planes', icon: '✅', label: 'Planes de Acción' }, // <-- AQUÍ
+            { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
           ].map((tab, index) => (
             <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
