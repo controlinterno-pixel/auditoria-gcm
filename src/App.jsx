@@ -11,7 +11,7 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // =====================================================================
-// 🤖 CONEXIÓN SEGURA A GEMINI PRO (Inyectada desde Vercel / .env)
+// 🤖 MOTOR DUAL: GEMINI 1.5 PRO (PRODUCCIÓN) / FLASH (PRUEBAS)
 // =====================================================================
 let GEMINI_API_KEY = "";
 try {
@@ -19,8 +19,10 @@ try {
     GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   }
 } catch (error) {
-  console.warn("Entorno simulado: variables de Vercel no detectadas.");
+  console.warn("Entorno simulado: variables detectadas.");
 }
+
+const canvasApiKey = ""; // Llave inyectada por el entorno de Canvas para pruebas
 
 // --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
@@ -436,26 +438,36 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // FASE 7: Lógica Inteligente de Gemini para analizar Evidencias
+  // FASE 7: Lógica Inteligente de Gemini con MOTOR DUAL (1.5 PRO)
   const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
-    if (!GEMINI_API_KEY) {
-        showNotification("⚠️ La clave de API de Gemini no se ha cargado.", "error");
+    setIsThinking(true);
+    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
+
+    // Selección automática del motor IA
+    let finalApiKey = canvasApiKey;
+    let modelName = "gemini-2.5-flash-preview-09-2025"; 
+    
+    if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
+      finalApiKey = GEMINI_API_KEY;
+      modelName = "gemini-1.5-pro"; // 🚀 MODO PRO ACTIVADO EN PRODUCCIÓN
+    }
+
+    if (!finalApiKey) {
+        showNotification("⚠️ No se detectó ninguna clave API válida.", "error");
+        setIsThinking(false);
         return;
     }
-    setIsThinking(true);
-    showNotification("🤖 Extrayendo documento y enviando a Gemini Pro...", "success");
 
     try {
       const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
       Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
       Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { temperature: 0.2 }
+              contents: [{ parts: [{ text: prompt }] }]
           })
       });
 
@@ -463,7 +475,7 @@ export default function App() {
       if (data.error) throw new Error(data.error.message);
       
       const analisis = data.candidates[0].content.parts[0].text.trim();
-      setAiModal({ titulo: `📋 Checklist de IA: Auditoría de Evidencia`, contenido: analisis, url: evidenciaUrl });
+      setAiModal({ titulo: `📋 Checklist IA (${modelName})`, contenido: analisis, url: evidenciaUrl });
 
     } catch (error) {
         console.error(error);
@@ -491,25 +503,34 @@ export default function App() {
       return;
     }
 
-    if (!GEMINI_API_KEY) {
-      showNotification("⚠️ La clave de API de Gemini no se ha cargado correctamente.", "error");
-      return;
+    setIsThinking(true);
+    showNotification("🧠 Gemini está analizando el escenario...", "success");
+
+    // Selección automática del motor IA
+    let finalApiKey = canvasApiKey;
+    let modelName = "gemini-2.5-flash-preview-09-2025"; 
+    
+    if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
+      finalApiKey = GEMINI_API_KEY;
+      modelName = "gemini-1.5-pro"; // 🚀 MODO PRO ACTIVADO EN PRODUCCIÓN
     }
 
-    setIsThinking(true);
-    showNotification("🧠 Gemini Pro está analizando el escenario...", "success");
+    if (!finalApiKey) {
+        showNotification("⚠️ No se detectó ninguna clave API válida.", "error");
+        setIsThinking(false);
+        return;
+    }
 
     try {
       const prompt = tipoTarget === 'control'
         ? `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`
         : `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2 }
+          contents: [{ parts: [{ text: prompt }] }]
         })
       });
 
@@ -526,7 +547,7 @@ export default function App() {
         inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
       }
       
-      showNotification("✨ ¡Gemini ha insertado una sugerencia ejecutiva de alto nivel!");
+      showNotification(`✨ ¡Sugerencia ejecutiva insertada por ${modelName}!`);
     } catch (error) {
       console.error("Error conectando a Gemini:", error);
       showNotification("Error conectando con la IA de Google. Verifica los ajustes.", "error");
