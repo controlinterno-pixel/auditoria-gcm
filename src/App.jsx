@@ -72,7 +72,6 @@ const defaultEvaluaciones = [
   { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', historialCambios: [] }
 ];
 
-// FASE 6: Base de datos por defecto para el Plan Anual (Cronograma)
 const defaultCronograma = [
   { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque (Rentabilidad AyB), Inventarios, Auditoria Locativa e Infraestructura, Calidad, Taquilla, Manillas, Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
   { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
@@ -132,7 +131,6 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
   </div>
 );
 
-// MEJORA 3: Componente de Gráficos de Tendencias (SVG Nativo y Ligero)
 const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   const maxVal = Math.max(...data.map(d => d.valor), 1);
   const height = 100;
@@ -180,7 +178,6 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 }
 
-// Helper robusto para formatear fechas provenientes de Firebase (String o Timestamp)
 const formatSafeDate = (val) => {
   if (!val) return '';
   if (typeof val === 'string') return val;
@@ -191,6 +188,17 @@ const formatSafeDate = (val) => {
     return val.toISOString().split('T')[0];
   }
   return String(val);
+};
+
+// UTILIDAD PARA BUSCADOR: Filtra cualquier array de objetos buscando coincidencias en sus valores
+const filterData = (dataArray, term) => {
+  if (!term) return dataArray;
+  const lowerTerm = term.toLowerCase();
+  return dataArray.filter(item => {
+    return Object.values(item).some(val => 
+      val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm)
+    );
+  });
 };
 
 export default function App() {
@@ -204,8 +212,10 @@ export default function App() {
   const [isThinking, setIsThinking] = useState(false); 
   const [detalleUniverso, setDetalleUniverso] = useState(null); 
   
-  // MEJORA 1: Estado para el panel lateral de Alertas
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
+  
+  // NUEVO: Estado Global del Buscador
+  const [searchTerm, setSearchTerm] = useState('');
 
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
@@ -213,8 +223,6 @@ export default function App() {
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
   const [editApetito, setEditApetito] = useState(null); 
-
-  // FASE 6: Estados para el Plan Anual
   const [editCronograma, setEditCronograma] = useState(null);
   const [editMonitoreo, setEditMonitoreo] = useState(null);
 
@@ -232,8 +240,6 @@ export default function App() {
   const [planes, setPlanes] = useState([]);
   const [incidentes, setIncidentes] = useState([]);
   const [evaluaciones, setEvaluaciones] = useState([]);
-  
-  // FASE 6: Estados DB Plan Anual
   const [cronograma, setCronograma] = useState([]);
   const [monitoreo, setMonitoreo] = useState([]);
 
@@ -245,7 +251,11 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
-  // --- MOTOR PREDICTIVO DE ALERTAS ---
+  // Resetear el buscador cada vez que cambie de pestaña
+  useEffect(() => {
+    setSearchTerm('');
+  }, [activeTab]);
+
   const checkAlertasInteligentes = () => {
     let alertas = [];
     const hoyStr = new Date().toISOString().split('T')[0];
@@ -314,7 +324,6 @@ export default function App() {
         setPlanes(Array.isArray(data.planes) ? data.planes : defaultPlanes);
         setIncidentes(Array.isArray(data.incidentes) ? data.incidentes : defaultIncidentes);
         setEvaluaciones(Array.isArray(data.evaluaciones) ? data.evaluaciones : defaultEvaluaciones);
-        // Carga de Cronograma Anual
         setCronograma(Array.isArray(data.cronograma) ? data.cronograma : defaultCronograma);
         setMonitoreo(Array.isArray(data.monitoreo) ? data.monitoreo : defaultMonitoreo);
       } else {
@@ -390,7 +399,6 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // --- CONEXIÓN REAL A LA API DE GOOGLE GEMINI ---
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
@@ -775,13 +783,11 @@ export default function App() {
     scrollToTop();
   };
 
-  // --- NUEVOS HANDLERS PARA FASE 6 (PLAN ANUAL) ---
   const handleCronogramaSubmit = async (e) => {
     e.preventDefault();
     if (!isAdmin) return;
     const formData = new FormData(e.target);
     
-    // Capturar todos los meses seleccionados de los checkboxes
     const mesesSeleccionados = [];
     ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].forEach(mes => {
       if (formData.get(`mes_${mes}`)) mesesSeleccionados.push(mes);
@@ -830,7 +836,6 @@ export default function App() {
     const formData = new FormData(e.target);
     
     let updatedList;
-    // Evaluamos si existe un id para saber si es actualización o creación nueva
     if (editMonitoreo && editMonitoreo.id) {
       const modificado = {
         ...editMonitoreo,
@@ -855,10 +860,8 @@ export default function App() {
     e.target.reset();
   };
 
-
   // ==================== RENDERS DE VISTAS ====================
 
-  // FASE 6: Renderizado del Plan Anual
   const renderPlanAnual = () => {
     const avgCumplimiento = safeCronograma.length > 0 
       ? Math.round(safeCronograma.reduce((acc, c) => acc + (c.cumplimiento || 0), 0) / safeCronograma.length) 
@@ -868,8 +871,6 @@ export default function App() {
 
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
-        
-        {/* Cabecera Corporativa estilo Dashboard */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="bg-[#004d40] text-white p-6 flex flex-col md:flex-row justify-between items-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.4) 0%, transparent 20%)', backgroundSize: '100px 100px' }}></div>
@@ -887,7 +888,6 @@ export default function App() {
           </div>
 
           <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
-             {/* Columna Izquierda: KPIs */}
              <div className="md:col-span-1 space-y-6">
                 <div className="border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
                    <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Índice General de Cumplimiento</h3>
@@ -902,7 +902,6 @@ export default function App() {
                      {isAdmin && <button onClick={() => setEditMonitoreo({})} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
                    </div>
                    <div className="divide-y divide-slate-100 p-2">
-                     {/* Formulario rápido para añadir/editar monitoreo */}
                      {editMonitoreo && isAdmin && (
                        <form onSubmit={handleMonitoreoSubmit} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
                          <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Indicador..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
@@ -932,7 +931,6 @@ export default function App() {
                 </div>
              </div>
 
-             {/* Columna Derecha: Cronograma Técnico */}
              <div className="md:col-span-3">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm h-full flex flex-col">
                    <div className="bg-[#1e293b] text-white p-4 flex justify-between items-center">
@@ -975,7 +973,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Sección de Edición / Creación de Plan */}
         {isAdmin && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
@@ -1010,10 +1007,13 @@ export default function App() {
           </div>
         )}
 
-        {/* Gráfico de Gantt (Cronograma Visual) */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-           <div className="bg-slate-100 border-b border-slate-200 p-4">
-             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center">CRONOGRAMA DE CONTROL INTERNO</h3>
+           <div className="bg-slate-100 border-b border-slate-200 p-4 flex justify-between items-center">
+             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">CRONOGRAMA DE CONTROL INTERNO</h3>
+             <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Buscar en plan..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
+             </div>
            </div>
            <div className="overflow-x-auto p-4">
              <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
@@ -1027,7 +1027,7 @@ export default function App() {
                  </tr>
                </thead>
                <tbody>
-                 {safeCronograma.map(c => (
+                 {filterData(safeCronograma, searchTerm).map(c => (
                    <tr key={c.id} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
@@ -1256,23 +1256,6 @@ export default function App() {
           </div>
         )}
 
-        <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Hallazgos</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">📄</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Total Hallazgos</p><p className="text-3xl font-black mt-1 text-slate-800">{hTotal}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-red-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xl">⚠️</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Abiertos</p><p className="text-3xl font-black mt-1 text-red-600">{hAbiertos}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{hCerrados}</p></div></div>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Planes de Acción</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">🤝</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Totales</p><p className="text-3xl font-black mt-1 text-slate-800">{pTotal}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
-          </div>
-        </div>
       </div>
     );
   };
@@ -1330,7 +1313,6 @@ export default function App() {
           <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito ISO 31000 y Evolución de KRI.</p></div>
           <div className="mt-4 md:mt-0 flex flex-col md:flex-row items-center gap-3">
             
-            {/* Nuevo selector de Año sincronizado para las gráficas */}
             <div className="bg-white p-1 rounded-xl border flex items-center shadow-sm">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-3 pr-2">Tendencias:</span>
               <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="bg-slate-50 border rounded-lg text-xs font-bold text-slate-700 px-3 py-1.5 focus:outline-none">
@@ -1346,7 +1328,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* MEJORA 3: Inyección de las gráficas evolutivas en el UI */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <TrendChart data={dataIncidentes} title={`Evolución de Impacto Financiero (${anioTendencia})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
           <TrendChart data={dataHallazgos} title={`Volumen de Desviaciones (${anioTendencia})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
@@ -1516,8 +1497,14 @@ export default function App() {
 
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-5 bg-slate-900 flex justify-between items-center border-b border-slate-800">
-            <h3 className="text-white font-black text-xs uppercase tracking-widest">Monitor de Brechas Financieras e Impacto</h3>
-            <span className="text-[9px] bg-slate-800 text-slate-400 px-3 py-1 rounded-full font-bold border border-slate-700">Analítica en Tiempo Real</span>
+            <div className="flex items-center space-x-3">
+              <h3 className="text-white font-black text-xs uppercase tracking-widest">Monitor de Brechas Financieras</h3>
+              <span className="text-[9px] bg-slate-800 text-slate-400 px-3 py-1 rounded-full font-bold border border-slate-700">Analítica</span>
+            </div>
+            <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Buscar riesgo o proceso..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-700 bg-slate-800 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-sm placeholder-slate-500" />
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left divide-y divide-slate-100">
@@ -1531,7 +1518,7 @@ export default function App() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {safeRiesgos.map((r, index) => {
+                {filterData(safeRiesgos, searchTerm).map((r, index) => {
                   // --- CÁLCULOS MATRIZ ---
                   const resScore = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score;
                   const limiteScore = r.kriScore;
@@ -1627,7 +1614,13 @@ export default function App() {
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-black text-slate-800">Estructura de Riesgos</h2>
-        <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md">📥 Exportar Excel</button>
+        <div className="flex space-x-3">
+          <div className="relative">
+             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+             <input type="text" placeholder="Buscar riesgo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
+          </div>
+          <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-colors">📥 Exportar Excel</button>
+        </div>
       </div>
       {isAdmin && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
@@ -1660,7 +1653,7 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3 w-48">Proceso / Riesgo</th><th className="p-3 w-48">Responsable / Control</th><th className="p-3 text-center">Score Inh</th><th className="p-3 text-center">Score Res</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
             <tbody className="divide-y">
-              {safeRiesgos.map((r, index) => {
+              {filterData(safeRiesgos, searchTerm).map((r, index) => {
                 const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
                 return (
                   <tr key={`riesgo-row-${r.id}-${index}`} className="hover:bg-slate-50">
@@ -1705,11 +1698,18 @@ export default function App() {
         </div>
       )}
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Registros de Auditoría</h3>
+           <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Buscar test..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 shadow-sm" />
+           </div>
+        </div>
         <table className="w-full text-xs text-left divide-y">
           <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID Test</th><th className="p-3">Fecha</th><th className="p-3">Diseño/Operación</th><th className="p-3">Eficacia</th><th className="p-3">Comentarios / Anexos</th></tr></thead>
           <tbody className="divide-y">
-            {safeEvaluaciones.map((ev, index) => (
-              <tr key={`eval-row-${ev.id}-${index}`}>
+            {filterData(safeEvaluaciones, searchTerm).map((ev, index) => (
+              <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
                 <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{formatSafeDate(ev.fecha)}</td><td>D: {ev.diseño} / E: {ev.ejecucion}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
                 <td className="p-3">
@@ -1762,6 +1762,13 @@ export default function App() {
       )}
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Desviaciones Encontradas</h3>
+           <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Buscar hallazgo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
+           </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left divide-y divide-slate-100">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
@@ -1774,7 +1781,7 @@ export default function App() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {safeHallazgos.map((h, index) => (
+              {filterData(safeHallazgos, searchTerm).map((h, index) => (
                 <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <div className="font-black text-slate-800 text-sm">{h.ref}</div>
@@ -1853,10 +1860,17 @@ export default function App() {
         </div>
       )}
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes</h3>
+           <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Buscar plan o responsable..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+           </div>
+        </div>
         <table className="w-full text-xs text-left divide-y">
           <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Hallazgo</th><th className="p-3">Acción y Evidencias</th><th className="p-3">Compromiso</th><th className="p-3 w-40">Avance</th><th className="p-3">Estado</th><th className="p-3 text-center">Gestión</th></tr></thead>
           <tbody className="divide-y">
-            {safePlanes.map((p, index) => {
+            {filterData(safePlanes, searchTerm).map((p, index) => {
               const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
               return (
                 <tr key={`plan-row-${p.id}-${index}`}>
@@ -1886,15 +1900,46 @@ export default function App() {
     <div className="space-y-6">
       <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Eventos de Pérdida</h2></div>
       <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-        <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Reportar Evento</h3>
+        <h3 className="text-xs font-bold text-slate-700 uppercase">{editIncidente ? '✏️ Editar Evento' : '➕ Reportar Evento'}</h3>
         <form onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div><label className="font-bold text-gray-600">Riesgo Vinculado</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-incidente-${r.id}-${index}`} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
-          <div><label className="font-bold text-gray-600">Título</label><input name="titulo" required className="w-full border rounded-lg p-2 mt-1" /></div>
-          <div><label className="font-bold text-gray-600">Pérdida (COP)</label><input name="costo" type="number" required className="w-full border rounded-lg p-2 mt-1" /></div>
-          <div className="md:col-span-2"><label className="font-bold text-gray-600">Descripción</label><textarea name="descripcion" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
-          <div><label className="font-bold text-gray-600">Impacto</label><select name="impacto" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-          <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar Evento</button></div>
+          <div><label className="font-bold text-gray-600">Riesgo Vinculado</label><select name="idRiesgo" defaultValue={editIncidente?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeRiesgos.map((r, index) => <option key={`opt-incidente-${r.id}-${index}`} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
+          <div><label className="font-bold text-gray-600">Título</label><input name="titulo" defaultValue={editIncidente?.titulo||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+          <div><label className="font-bold text-gray-600">Pérdida (COP)</label><input name="costo" type="number" defaultValue={editIncidente?.costo||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+          <div className="md:col-span-2"><label className="font-bold text-gray-600">Descripción</label><textarea name="descripcion" defaultValue={editIncidente?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+          <div><label className="font-bold text-gray-600">Impacto</label><select name="impacto" defaultValue={editIncidente?.impacto||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
+          <div className="md:col-span-3 flex justify-end space-x-2">
+            {editIncidente && <button type="button" onClick={() => setEditIncidente(null)} className="bg-slate-200 text-slate-700 font-bold px-6 py-2 rounded-lg shadow-md">Cancelar</button>}
+            <button type="submit" className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">{editIncidente ? 'Guardar Cambios' : 'Guardar Evento'}</button>
+          </div>
         </form>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden mt-6">
+        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Historial de Incidentes</h3>
+           <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Buscar incidente..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
+           </div>
+        </div>
+        <table className="w-full text-xs text-left divide-y">
+          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Riesgo</th><th className="p-3 w-1/3">Título / Desc</th><th className="p-3">Impacto</th><th className="p-3 text-right">Pérdida (COP)</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <tbody className="divide-y">
+            {filterData(safeIncidentes, searchTerm).map((inc, index) => (
+              <tr key={`inc-${inc.id}-${index}`} className="hover:bg-slate-50">
+                <td className="p-3 font-bold text-slate-400">#INC-{inc.id}</td>
+                <td className="p-3"><span className="text-[10px] bg-slate-200 px-2 py-1 rounded font-mono">#{inc.idRiesgo}</span></td>
+                <td className="p-3"><div className="font-bold">{inc.titulo}</div><div className="text-[10px] text-slate-500 mt-1 leading-relaxed">{inc.descripcion}</div></td>
+                <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${inc.impacto === 'Crítico' ? 'bg-red-200 text-red-800' : 'bg-slate-100 text-slate-700'}`}>{inc.impacto}</span></td>
+                <td className="p-3 text-right font-mono font-bold text-red-600">${Number(inc.costo)?.toLocaleString('es-CO')}</td>
+                <td className="p-3 text-center whitespace-nowrap space-x-1">
+                  {isAdmin && <button onClick={() => {setEditIncidente(inc); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
+                  {isAdmin && <button onClick={() => handleDeleteItem('incidentes', inc.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️ Eliminar</button>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1953,7 +1998,13 @@ export default function App() {
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Línea de Tiempo de Cambios</h3>
-            <button onClick={() => exportToExcel(logsOrdenados, 'Trazabilidad_GRC')} className="bg-slate-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-700 transition-colors">📥 Exportar Logs</button>
+            <div className="flex space-x-3 items-center">
+              <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                  <input type="text" placeholder="Buscar en logs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+              </div>
+              <button onClick={() => exportToExcel(logsOrdenados, 'Trazabilidad_GRC')} className="bg-slate-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-700 transition-colors">📥 Exportar Logs</button>
+            </div>
           </div>
           
           <div className="p-0">
@@ -1970,7 +2021,7 @@ export default function App() {
                 {logsOrdenados.length === 0 && (
                   <tr><td colSpan="4" className="p-8 text-center text-slate-400 font-medium italic">No se encontraron movimientos registrados en la base de datos.</td></tr>
                 )}
-                {logsOrdenados.map((log, index) => (
+                {filterData(logsOrdenados, searchTerm).map((log, index) => (
                   <tr key={`log-${index}`} className="hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-mono font-medium text-slate-600">{formatSafeDate(log.fecha)}</td>
                     <td className="p-4">
@@ -2033,7 +2084,6 @@ export default function App() {
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
-            // FASE 6: Nuevo Menú del Plan Anual
             { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
             { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
