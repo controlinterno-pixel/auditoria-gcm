@@ -22,7 +22,7 @@ try {
   console.warn("Entorno simulado: variables detectadas.");
 }
 
-const canvasApiKey = ""; // Llave inyectada por el entorno de Canvas para pruebas
+const apiKey = ""; // Llave inyectada por el entorno de Canvas para pruebas
 
 // --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
@@ -444,18 +444,12 @@ export default function App() {
     showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
 
     // Selección automática del motor IA
-    let finalApiKey = canvasApiKey;
+    let finalApiKey = apiKey;
     let modelName = "gemini-2.5-flash-preview-09-2025"; 
     
     if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
       finalApiKey = GEMINI_API_KEY;
       modelName = "gemini-1.5-pro"; // 🚀 MODO PRO ACTIVADO EN PRODUCCIÓN
-    }
-
-    if (!finalApiKey) {
-        showNotification("⚠️ No se detectó ninguna clave API válida.", "error");
-        setIsThinking(false);
-        return;
     }
 
     try {
@@ -496,10 +490,13 @@ export default function App() {
       const selectElement = document.querySelector('select[name="idHallazgo"]');
       textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
       inputDestino = document.querySelector('input[name="accion"]');
+    } else if (tipoTarget === 'hallazgo') {
+      textoBase = document.querySelector('input[name="proceso"]')?.value || "";
+      inputDestino = document.querySelector('input[name="titulo"]');
     }
 
     if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
-      showNotification("⚠️ Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
+      showNotification("⚠️ Llena la información previa primero (Descripción o Proceso) para que la IA la analice.", "error");
       return;
     }
 
@@ -507,7 +504,7 @@ export default function App() {
     showNotification("🧠 Gemini está analizando el escenario...", "success");
 
     // Selección automática del motor IA
-    let finalApiKey = canvasApiKey;
+    let finalApiKey = apiKey;
     let modelName = "gemini-2.5-flash-preview-09-2025"; 
     
     if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
@@ -515,16 +512,15 @@ export default function App() {
       modelName = "gemini-1.5-pro"; // 🚀 MODO PRO ACTIVADO EN PRODUCCIÓN
     }
 
-    if (!finalApiKey) {
-        showNotification("⚠️ No se detectó ninguna clave API válida.", "error");
-        setIsThinking(false);
-        return;
-    }
-
     try {
-      const prompt = tipoTarget === 'control'
-        ? `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`
-        : `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
+      let prompt = "";
+      if (tipoTarget === 'control') {
+        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`;
+      } else if (tipoTarget === 'plan') {
+        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
+      } else if (tipoTarget === 'hallazgo') {
+        prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
+      }
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`, {
         method: 'POST',
@@ -1982,7 +1978,16 @@ export default function App() {
             
             <div><label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label><input name="auditor" defaultValue={editHallazgo?.auditor||''} required placeholder="Quien levantó el hallazgo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
             <div><label className="font-bold text-gray-600 block mb-1">Dueño del Proceso</label><input name="responsable" defaultValue={editHallazgo?.responsable||''} required placeholder="Responsable a cargo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
-            <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label><input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            
+            <div className="md:col-span-2">
+              <label className="font-bold text-gray-600 flex justify-between items-center mb-1">
+                <span>Título / Descripción de la Falla</span>
+                <button type="button" onClick={() => sugerirConIA('hallazgo')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                </button>
+              </label>
+              <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
+            </div>
             
             <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Informe / Evidencia (Opcional)</label><input type="file" name="evidenciaArchivo" className="w-full border border-slate-300 rounded-lg p-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
             
