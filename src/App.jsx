@@ -38,7 +38,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app); 
 
-// --- CONTROL DE ACCESO ---
+// --- CONTROL DE ACCESO (ROLES) ---
 const ADMIN_EMAILS = [
   "controlinterno@termales.com.co",
   "auditoria@termales.com.co",
@@ -48,9 +48,9 @@ const ADMIN_EMAILS = [
 
 // --- DATOS POR DEFECTO ---
 const defaultRiesgos = [
-  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene de alimentos por uso de insumos cárnicos de baja calidad.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', historialCambios: [] },
-  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Sanciones o pérdidas financieras por errores en la declaración de impuestos hoteleros.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', historialCambios: [] },
-  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Intrusión de ransomware que paralice el sistema de taquillas.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', historialCambios: [] }
+  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene de alimentos por uso de insumos cárnicos de baja calidad.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', historialCambios: [] },
+  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Sanciones o pérdidas financieras por errores en la declaración de impuestos hoteleros.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', historialCambios: [] },
+  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Intrusión de ransomware que paralice el sistema de taquillas.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', historialCambios: [] }
 ];
 
 const defaultHallazgos = [
@@ -75,16 +75,13 @@ const defaultEvaluaciones = [
 const defaultCronograma = [
   { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque (Rentabilidad AyB), Inventarios, Auditoria Locativa e Infraestructura, Calidad, Taquilla, Manillas, Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
   { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
-  { id: 3, codigo: '03', periodo: 'Marzo - Abril', proceso: 'Cartera (Notas Crédito y Descuentos)', enfoque: 'Verificación del comportamiento de NC en los procesos que generan estos documentos en la operación, análisis de cumplimiento de procedimientos y trazabilidad.', cumplimiento: 100, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
-  { id: 4, codigo: '04', periodo: 'Enero - Abril', proceso: 'Cumplimiento de controles de matriz', enfoque: 'Verificación del cumplimiento de los controles de cada riesgo cubierto por cada proceso, evidencias y actualización de los mismo con el líder.', cumplimiento: 50, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero', 'Marzo', 'Abril'] }
+  { id: 3, codigo: '03', periodo: 'Marzo - Abril', proceso: 'Cartera (Notas Crédito y Descuentos)', enfoque: 'Verificación del comportamiento de NC en los procesos que generan estos documentos en la operación, análisis de cumplimiento de procedimientos y trazabilidad.', cumplimiento: 100, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] }
 ];
 
 const defaultMonitoreo = [
   { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117 },
   { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16 },
-  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4 },
-  { id: 4, indicador: 'FACT. ELECTRÓNICA', valor: 4 },
-  { id: 5, indicador: 'FOLIOS - SALDOS', valor: 4 }
+  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4 }
 ];
 
 // --- COMPONENTES VISUALES ---
@@ -178,7 +175,6 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 }
 
-// Helper robusto para formatear fechas
 const formatSafeDate = (val) => {
   if (!val) return '';
   if (typeof val === 'string') return val;
@@ -191,19 +187,14 @@ const formatSafeDate = (val) => {
   return String(val);
 };
 
-// ==================== UTILIDAD AVANZADA PARA BUSCADOR Y FILTROS POR COLUMNA ====================
 const applyFilters = (dataArray, globalTerm, colFilters) => {
   let result = dataArray;
-  
-  // 1. Aplicar Buscador Global
   if (globalTerm) {
     const lowerTerm = globalTerm.toLowerCase();
     result = result.filter(item => 
       Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
     );
   }
-  
-  // 2. Aplicar Filtros Específicos por Columna
   if (colFilters && Object.keys(colFilters).length > 0) {
     Object.entries(colFilters).forEach(([key, filterValue]) => {
       if (filterValue) {
@@ -215,10 +206,8 @@ const applyFilters = (dataArray, globalTerm, colFilters) => {
       }
     });
   }
-  
   return result;
 };
-
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
@@ -232,10 +221,11 @@ export default function App() {
   const [detalleUniverso, setDetalleUniverso] = useState(null); 
   
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
-  
-  // Estados Globales del Buscador y Filtros por Columna
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
+
+  // FASE 7: Modal IA
+  const [aiModal, setAiModal] = useState(null);
 
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
@@ -271,7 +261,6 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
-  // Limpiar buscadores y filtros al cambiar de pestaña para no arrastrar filtros cruzados
   useEffect(() => {
     setSearchTerm('');
     setColumnFilters({});
@@ -281,7 +270,6 @@ export default function App() {
     setColumnFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  // Componente Reutilizable de Input para Filtro de Columna
   const FilterInput = ({ colKey, placeholder, dark }) => (
     <input 
       type="text" 
@@ -321,6 +309,14 @@ export default function App() {
           alertas.push({ id: `alert-r-${r.id}`, tipo: 'apetito', titulo: `¡Ruptura de Capacidad!`, desc: `El riesgo "${r.proceso}" excedió las pérdidas permitidas por la gerencia.`, icono: '💥', color: 'bg-rose-100 text-rose-800 border-rose-300 shadow-md' });
         } else if (r.toleranciaFinanciera && costoTotal > r.toleranciaFinanciera) {
           alertas.push({ id: `alert-r-tol-${r.id}`, tipo: 'apetito', titulo: `Alerta de Tolerancia`, desc: `El riesgo "${r.proceso}" entró en zona naranja de pérdidas.`, icono: '⚠️', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' });
+        }
+      }
+
+      // FASE 7: Módulo de Compliance
+      if (r.normativa && r.normativa !== 'Ninguna' && r.normativa !== '') {
+        const evalsAsociadas = safeEvaluaciones.filter(e => e.idRiesgo === r.id && e.calificacion < 100);
+        if (evalsAsociadas.length > 0) {
+           alertas.push({ id: `alert-comp-${r.id}`, tipo: 'legal', titulo: `Riesgo de Incumplimiento Legal`, desc: `Controles ineficaces detectados. Posible violación a: ${r.normativa}.`, icono: '⚖️', color: 'bg-purple-100 text-purple-800 border-purple-300 shadow-md' });
         }
       }
     });
@@ -440,6 +436,43 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
+  // FASE 7: Lógica Inteligente de Gemini para analizar Evidencias
+  const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
+    if (!GEMINI_API_KEY) {
+        showNotification("⚠️ La clave de API de Gemini no se ha cargado.", "error");
+        return;
+    }
+    setIsThinking(true);
+    showNotification("🤖 Extrayendo documento y enviando a Gemini Pro...", "success");
+
+    try {
+      const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
+      Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
+      Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { temperature: 0.2 }
+          })
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      const analisis = data.candidates[0].content.parts[0].text.trim();
+      setAiModal({ titulo: `📋 Checklist de IA: Auditoría de Evidencia`, contenido: analisis, url: evidenciaUrl });
+
+    } catch (error) {
+        console.error(error);
+        showNotification("Error conectando con la IA de Google.", "error");
+    } finally {
+        setIsThinking(false);
+    }
+  };
+
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
@@ -552,6 +585,7 @@ export default function App() {
         sede: formData.get('sede'), 
         proceso: formData.get('proceso'), 
         categoria: formData.get('categoria'), 
+        normativa: formData.get('normativa'), 
         responsable: formData.get('responsable'),
         descripcionControl: formData.get('control'), 
         descripcion: formData.get('descripcion'),
@@ -567,6 +601,7 @@ export default function App() {
         sede: formData.get('sede'), 
         proceso: formData.get('proceso'), 
         categoria: formData.get('categoria'), 
+        normativa: formData.get('normativa'), 
         responsable: formData.get('responsable'),
         noControl: 'C-' + Math.floor(Math.random() * 100 + 100), 
         descripcionControl: formData.get('control'),
@@ -585,7 +620,6 @@ export default function App() {
 
   const handleEvaluacionSubmit = async (e) => {
     e.preventDefault();
-    if (!isAdmin) return;
     const formData = new FormData(e.target);
     const idRiesgo = parseInt(formData.get('idRiesgo'));
     const diseno = formData.get('diseno');
@@ -620,7 +654,8 @@ export default function App() {
     } else {
       const nuevaEval = {
         id: safeEvaluaciones.length ? Math.max(...safeEvaluaciones.map(ev => ev.id)) + 1 : 1, idRiesgo, fecha: new Date().toISOString().split('T')[0],
-        diseño: diseno, ejecucion, calificacion: calif, comentarios: formData.get('comentarios'), auditor: user.email,
+        diseño: diseno, ejecucion, calificacion: calif, comentarios: formData.get('comentarios'), 
+        auditor: isAdmin ? user.email : `Autoevaluación (${user.email})`, 
         evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: timestamp, accion: 'Test de auditoría generado' }]
       };
       updatedList = [...safeEvaluaciones, nuevaEval];
@@ -637,6 +672,7 @@ export default function App() {
     setEvaluaciones(updatedList); setRiesgos(nuevosRiesgos);
     await saveToCloud({ evaluaciones: updatedList, riesgos: nuevosRiesgos });
     e.target.reset();
+    if(!isAdmin) showNotification("Autoevaluación enviada exitosamente al equipo de Control Interno.");
   };
 
   const handleHallazgoSubmit = async (e) => {
@@ -707,7 +743,6 @@ export default function App() {
 
   const handlePlanSubmit = async (e) => {
     e.preventDefault();
-    if (!isAdmin) return;
     const formData = new FormData(e.target);
     const timestamp = new Date().toLocaleString();
     const progresoVal = parseInt(formData.get('progreso') || 0);
@@ -732,14 +767,20 @@ export default function App() {
     let updatedList;
     if (editPlan) {
       const modificado = {
-        ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal,
+        ...editPlan, 
+        idHallazgo: formData.get('idHallazgo') ? parseInt(formData.get('idHallazgo')) : editPlan.idHallazgo, 
+        accion: formData.get('accion') || editPlan.accion, 
+        responsable: formData.get('responsable') || editPlan.responsable, 
+        fecha: formData.get('fecha') || editPlan.fecha, 
+        progreso: progresoVal, estado: estadoVal,
         evidenciaUrl: evidenciaUrlOut,
-        historialCambios: [...(editPlan.historialCambios || []), { fecha: timestamp, accion: 'Plan modificado' }]
+        historialCambios: [...(editPlan.historialCambios || []), { fecha: timestamp, accion: isAdmin ? 'Plan modificado' : 'Avance actualizado por dueño de proceso' }]
       };
       updatedList = safePlanes.map(p => p.id === editPlan.id ? modificado : p);
       setEditPlan(null);
       showNotification("Plan actualizado.");
     } else {
+      if(!isAdmin) return; 
       const nuevo = {
         id: safePlanes.length ? Math.max(...safePlanes.map(p => p.id)) + 1 : 1, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'),
         responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, 
@@ -751,7 +792,7 @@ export default function App() {
 
     setPlanes(updatedList);
     await saveToCloud({ planes: updatedList });
-    e.target.reset();
+    if(e.target) e.target.reset();
   };
 
   const handleIncidenteSubmit = async (e) => {
@@ -901,7 +942,7 @@ export default function App() {
     e.target.reset();
   };
 
-  // ==================== RENDERS DE VISTAS ====================
+  // ==================== RENDERS DE VISTAS (ADMIN) ====================
 
   const renderPlanAnual = () => {
     const avgCumplimiento = safeCronograma.length > 0 
@@ -1321,6 +1362,23 @@ export default function App() {
           </div>
         )}
 
+        <div>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Hallazgos</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">📄</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Total Hallazgos</p><p className="text-3xl font-black mt-1 text-slate-800">{hTotal}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-red-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xl">⚠️</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Abiertos</p><p className="text-3xl font-black mt-1 text-red-600">{hAbiertos}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{hCerrados}</p></div></div>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Planes de Acción</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">🤝</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Totales</p><p className="text-3xl font-black mt-1 text-slate-800">{pTotal}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -1717,7 +1775,12 @@ export default function App() {
               <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
               <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
               
-              <div className="md:col-span-4"><label className="font-bold text-gray-600 flex justify-between items-center"><span>Control Clave</span><button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1"><span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span></button></label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 flex justify-between items-center"><span>Control Clave</span><button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1"><span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span></button></label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div className="md:col-span-2">
+                <label className="font-bold text-purple-700">Normativa / Ley Aplicable (Compliance)</label>
+                <input name="normativa" defaultValue={editRiesgo?.normativa||'Ninguna'} placeholder="Ej: Ley 1581, ISO 27001..." required className="w-full border border-purple-300 bg-purple-50 rounded-lg p-2 mt-1" />
+              </div>
+
               <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
               
               <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
@@ -1742,7 +1805,7 @@ export default function App() {
                     <FilterInput colKey="id" placeholder="ID..." dark />
                   </th>
                   <th className="p-3 w-48">
-                    <div>Proceso / Riesgo</div>
+                    <div>Proceso / Riesgo / Normativa</div>
                     <FilterInput colKey="proceso" dark />
                   </th>
                   <th className="p-3 w-48">
@@ -1771,7 +1834,9 @@ export default function App() {
                     <td className="p-3 font-bold">#{r.id}</td>
                     <td className="p-3">
                       <div className="flex items-center space-x-2 mb-1"><span className="px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded font-bold uppercase">{r.sede || 'Hotel'}</span><span className="font-black">{r.proceso}</span></div>
-                      <div className="text-[9px] font-bold text-indigo-500 uppercase font-mono">{r.categoria}</div><div>{r.descripcion}</div>
+                      <div className="text-[9px] font-bold text-indigo-500 uppercase font-mono">{r.categoria}</div>
+                      <div>{r.descripcion}</div>
+                      {r.normativa && r.normativa !== 'Ninguna' && <div className="mt-1 inline-block bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border border-purple-200">⚖️ {r.normativa}</div>}
                     </td>
                     <td className="p-3"><div className="font-bold">{r.responsable}</div><div className="italic mt-1">⚙️ {r.descripcionControl}</div></td>
                     <td className="p-3 text-center font-mono">{r.scoreInhVal} pts</td>
@@ -1827,8 +1892,8 @@ export default function App() {
                   <FilterInput colKey="id" placeholder="ID..." dark />
                 </th>
                 <th className="p-3">
-                  <div>Fecha</div>
-                  <FilterInput colKey="fechaVal" dark />
+                  <div>Fecha / Autor</div>
+                  <FilterInput colKey="auditor" placeholder="Autor..." dark />
                 </th>
                 <th className="p-3">
                   <div>Diseño/Operación</div>
@@ -1847,11 +1912,21 @@ export default function App() {
             <tbody className="divide-y">
               {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
                 <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
-                  <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{ev.fechaVal}</td><td>D: {ev.diseño} / E: {ev.ejecucion}</td>
+                  <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
+                  <td className="p-3">
+                    <div className="font-bold">{ev.fechaVal}</div>
+                    <div className="text-[9px] text-slate-500 mt-1 uppercase truncate w-32" title={ev.auditor}>{ev.auditor}</div>
+                  </td>
+                  <td>D: {ev.diseño} / E: {ev.ejecucion}</td>
                   <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
                   <td className="p-3">
                     <div>{ev.comentarios}</div>
-                    {ev.evidenciaUrl && <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Evidencia</span></a>}
+                    {ev.evidenciaUrl && (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver</span></a>
+                        {isAdmin && <button onClick={() => analizarEvidenciaIA(ev.evidenciaUrl, ev.comentarios, 'Test de Auditoría')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1947,9 +2022,10 @@ export default function App() {
                   <td className="p-4">
                     <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
                     {h.evidenciaUrl && (
-                      <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center space-x-1 mt-2 bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-[10px] font-bold hover:bg-blue-100 transition-colors">
-                        <span>📎</span><span>Descargar Evidencia</span>
-                      </a>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Informe</span></a>
+                        {isAdmin && <button onClick={() => analizarEvidenciaIA(h.evidenciaUrl, h.titulo, 'Hallazgo')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
+                      </div>
                     )}
                   </td>
                   <td className="p-4">
@@ -2059,7 +2135,12 @@ export default function App() {
                     <td className="p-3"><span className="text-red-600 font-bold block">#HAL-{p.idHallazgo}</span><span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
                     <td className="p-3">
                       <div className="font-bold">{p.accion}</div>
-                      {p.evidenciaUrl && <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Soporte</span></a>}
+                      {p.evidenciaUrl && (
+                        <div className="flex items-center space-x-2 mt-2">
+                          <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Soporte</span></a>
+                          {isAdmin && <button onClick={() => analizarEvidenciaIA(p.evidenciaUrl, p.accion, 'Plan de Acción')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 font-mono">{p.fechaVal}</td>
                     <td className="p-3"><ProgressBar progress={p.progreso || 0} /></td>
@@ -2260,6 +2341,106 @@ export default function App() {
     );
   };
 
+  // FASE 7: RENDERIZADO DEL PORTAL RCSA (AUTOEVALUACIÓN LITE) PARA USUARIOS NO ADMINISTRADORES
+  const renderRCSAPortal = () => {
+    return (
+      <div className="min-h-screen bg-slate-100 font-sans">
+        <header className="bg-[#004d40] text-white p-6 shadow-md flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-black tracking-widest uppercase">Termales Santa Rosa de Cabal</h1>
+            <p className="text-xs text-[#deff9a] font-bold mt-1">Portal de Autoevaluación de Procesos (1ra Línea)</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span className="text-xs font-mono bg-[#00695c] px-3 py-1 rounded-full border border-[#00897b]">👤 {user.email}</span>
+            <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-xs font-bold transition-colors">Cerrar Sesión</button>
+          </div>
+        </header>
+
+        <main className="max-w-6xl mx-auto p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h2 className="text-lg font-black text-slate-800 mb-2">¡Bienvenido a su Panel de Control!</h2>
+            <p className="text-sm text-slate-600">Como dueño de proceso, usted es responsable de certificar que los controles operan correctamente y de mantener actualizados sus planes de acción.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Módulo de Autoevaluación RCSA */}
+            <div className="bg-white rounded-3xl shadow-sm border border-emerald-100 overflow-hidden flex flex-col h-full">
+              <div className="bg-emerald-50 p-5 border-b border-emerald-100">
+                <h3 className="font-black text-emerald-800 text-sm uppercase tracking-widest flex items-center space-x-2"><span>🛡️</span> <span>Evaluar Mis Controles</span></h3>
+              </div>
+              <div className="p-6 flex-1 bg-white">
+                <form onSubmit={handleEvaluacionSubmit} className="space-y-4 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Seleccione el Riesgo / Control a certificar:</label>
+                    <select name="idRiesgo" required className="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-emerald-500 focus:border-emerald-500">
+                      <option value="">-- Seleccione un Riesgo --</option>
+                      {safeRiesgos.map(r => <option key={`rcsa-r-${r.id}`} value={r.id}>[ID:{r.id}] {r.proceso} - {r.descripcionControl}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">El control está diseñado de forma:</label>
+                      <select name="diseno" className="w-full border border-slate-300 rounded-lg p-2.5"><option>Eficaz</option><option>Inadecuado</option></select>
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-700 block mb-1">En la operación, el control es:</label>
+                      <select name="ejecucion" className="w-full border border-slate-300 rounded-lg p-2.5"><option>Eficaz</option><option>Inadecuado</option></select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Comentarios / Novedades del mes:</label>
+                    <textarea name="comentarios" required rows="3" className="w-full border border-slate-300 rounded-lg p-2.5" placeholder="Escriba aquí sus observaciones..."></textarea>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Adjuntar Evidencia (PDF, Imagen OBLIGATORIO):</label>
+                    <input type="file" name="evidenciaArchivo" required className="w-full border border-slate-300 rounded-lg p-2 bg-slate-50" accept=".pdf,.jpg,.png" />
+                  </div>
+                  <button type="submit" disabled={isUploading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest p-3 rounded-xl shadow-md transition-colors mt-2">
+                    {isUploading ? 'Subiendo...' : 'Certificar Control'}
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Módulo de Actualización de Planes */}
+            <div className="bg-white rounded-3xl shadow-sm border border-blue-100 overflow-hidden flex flex-col h-full">
+              <div className="bg-blue-50 p-5 border-b border-blue-100">
+                <h3 className="font-black text-blue-800 text-sm uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Actualizar Mis Planes de Acción</span></h3>
+              </div>
+              <div className="p-6 flex-1 bg-white">
+                <form onSubmit={handlePlanSubmit} className="space-y-4 text-xs">
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Seleccione el Plan en curso:</label>
+                    <select name="idHallazgo" required className="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-blue-500 focus:border-blue-500">
+                      <option value="">-- Seleccione un Plan --</option>
+                      {safePlanes.map(p => {
+                         const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo);
+                         return <option key={`rcsa-p-${p.id}`} value={p.idHallazgo}>Plan #{p.id}: {p.accion.substring(0, 50)}...</option>
+                      })}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">¿Qué porcentaje de avance real tiene hoy?</label>
+                    <input type="number" name="progreso" min="0" max="100" required placeholder="Ej: 50" className="w-full border border-slate-300 rounded-lg p-2.5 text-lg font-black text-blue-600" />
+                  </div>
+                  <div>
+                    <label className="font-bold text-slate-700 block mb-1">Adjuntar Soporte de Avance:</label>
+                    <input type="file" name="evidenciaArchivo" className="w-full border border-slate-300 rounded-lg p-2 bg-slate-50" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" />
+                  </div>
+                  <div className="pt-4 mt-auto">
+                    <button type="submit" disabled={isUploading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest p-3 rounded-xl shadow-md transition-colors">
+                      {isUploading ? 'Actualizando...' : 'Reportar Avance'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  };
+
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
@@ -2283,6 +2464,11 @@ export default function App() {
 
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
+  // SI NO ES ADMINISTRADOR, RENDERIZA EL PORTAL RCSA (FASE 7)
+  if (!isAdmin) {
+    return renderRCSAPortal();
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       
@@ -2290,6 +2476,32 @@ export default function App() {
       {notification && (
         <div className={`fixed bottom-4 right-4 p-4 rounded-xl shadow-2xl font-bold text-xs z-50 animate-in fade-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>
           {notification.type === 'error' ? '⚠️ ' : '✅ '} {notification.message}
+        </div>
+      )}
+
+      {/* FASE 7: MODAL DE INTELIGENCIA ARTIFICIAL VISIÓN / CONTEXTO */}
+      {aiModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
+           <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl">
+              <div className="bg-purple-900 text-white p-5 flex justify-between items-center border-b border-purple-800">
+                 <h3 className="font-black text-sm uppercase tracking-widest">{aiModal.titulo}</h3>
+                 <button onClick={() => setAiModal(null)} className="text-purple-300 hover:text-white font-black text-xl">✖</button>
+              </div>
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-6 flex space-x-4 items-start">
+                    <span className="text-3xl">🧠</span>
+                    <p className="text-xs text-purple-900 font-medium leading-relaxed">
+                      El modelo de IA ha generado el siguiente pre-diagnóstico. Por favor, abre el archivo adjunto y utiliza esta guía para validar la evidencia de forma estricta.
+                    </p>
+                 </div>
+                 <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
+                    {aiModal.contenido}
+                 </div>
+              </div>
+              <div className="bg-slate-50 p-5 border-t border-slate-200 flex justify-end space-x-3">
+                 <a href={aiModal.url} target="_blank" rel="noreferrer" className="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-md hover:bg-slate-700 transition-colors flex items-center space-x-2"><span>📎</span><span>Abrir Archivo Manualmente</span></a>
+              </div>
+           </div>
         </div>
       )}
 
