@@ -11,18 +11,18 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // =====================================================================
-// 🤖 MOTOR DUAL: GEMINI 1.5 PRO (PRODUCCIÓN) / FLASH (PRUEBAS)
+// 🤖 MOTOR IA GEMINI INTEGRADO (Dual: Flash en pruebas / 1.5 Pro en Producción)
 // =====================================================================
+const apiKey = ""; // Llave inyectada automáticamente por el entorno de Canvas
+
 let GEMINI_API_KEY = "";
 try {
   if (typeof import.meta !== 'undefined' && import.meta.env) {
     GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   }
 } catch (error) {
-  console.warn("Entorno simulado: variables detectadas.");
+  console.warn("Entorno simulado detectado.");
 }
-
-const apiKey = ""; // Llave inyectada por el entorno de Canvas para pruebas
 
 // --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
@@ -81,22 +81,14 @@ const defaultCronograma = [
 ];
 
 const defaultMonitoreo = [
-  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117 },
-  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16 },
-  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4 }
+  { id: 1, indicador: 'Intentos de acceso fallidos', proceso: 'TI', valor: 180, limite: 100, tendencia: 'up' },
+  { id: 2, indicador: 'Usuarios con privilegios altos', proceso: 'TI', valor: 45, limite: 60, tendencia: 'down' },
+  { id: 3, indicador: 'Transacciones inusuales', proceso: 'Finanzas', valor: 78, limite: 80, tendencia: 'flat' },
+  { id: 4, indicador: 'Días sin backup', proceso: 'TI', valor: 3, limite: 2, tendencia: 'up' },
+  { id: 5, indicador: 'Cambios no autorizados', proceso: 'Operaciones', valor: 5, limite: 10, tendencia: 'down' }
 ];
 
 // --- COMPONENTES VISUALES ---
-const InfoTooltip = ({ text }) => (
-  <div className="relative group inline-block ml-2 align-middle z-50">
-    <span className="bg-blue-100 text-blue-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] cursor-help font-black shadow-sm border border-blue-200 hover:bg-blue-200 transition-colors">?</span>
-    <div className="absolute z-[100] left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-64 bg-slate-900 text-white text-[11px] p-3 rounded-xl shadow-2xl pointer-events-none font-medium leading-relaxed text-left">
-      {text}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
-    </div>
-  </div>
-);
-
 const ProgressBar = ({ progress }) => {
   let color = "bg-red-500";
   if (progress >= 40) color = "bg-amber-500";
@@ -114,69 +106,6 @@ const ProgressBar = ({ progress }) => {
   );
 };
 
-const Gauge = ({ value, label, sublabel, colorClass }) => (
-  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
-    <div className="relative w-24 h-24 flex items-center justify-center">
-      <svg className="w-full h-full transform -rotate-90">
-        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
-        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" 
-          strokeDasharray={251} strokeDashoffset={251 - (251 * (value || 0)) / 100}
-          className={`${colorClass} transition-all duration-1000`} />
-      </svg>
-      <span className="absolute text-xl font-black text-slate-800">{Math.round(value || 0)}%</span>
-    </div>
-    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">{label}</p>
-    <p className="text-[10px] font-bold text-slate-500">{sublabel}</p>
-  </div>
-);
-
-const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
-  const maxVal = Math.max(...data.map(d => d.valor), 1);
-  const height = 100;
-  const width = 600;
-  const paddingY = 20;
-  const paddingX = 15;
-
-  const points = data.map((d, i) => {
-    const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
-    const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
-    return `${x},${y}`;
-  }).join(' ');
-
-  const fillPoints = `${paddingX},${height - paddingY} ${points} ${width - paddingX},${height - paddingY}`;
-
-  return (
-    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
-       <div className="flex justify-between items-center mb-4">
-         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4>
-         <span className="text-lg">{isCurrency ? '📉' : '📊'}</span>
-       </div>
-       <div className="relative w-full">
-         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-sm overflow-visible" preserveAspectRatio="none">
-           <polygon points={fillPoints} fill={fillColor} opacity="0.4" />
-           <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-           {data.map((d, i) => {
-              const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
-              const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
-              return (
-                <g key={i} className="group cursor-pointer">
-                    <circle cx={x} cy={y} r="4" fill="white" stroke={color} strokeWidth="2" className="transition-all duration-200 group-hover:r-[7px]" />
-                    <rect x={x - 30} y={y - 28} width="60" height="18" rx="4" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
-                    <text x={x} y={y - 15} fontSize="9" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">
-                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : d.valor}
-                    </text>
-                </g>
-              );
-           })}
-         </svg>
-         <div className="flex justify-between mt-3 text-[8px] font-bold text-slate-400 uppercase px-1 border-t border-slate-100 pt-2">
-            {data.map(d => <span key={d.mes}>{d.mes}</span>)}
-         </div>
-       </div>
-    </div>
-  );
-}
-
 const formatSafeDate = (val) => {
   if (!val) return '';
   if (typeof val === 'string') return val;
@@ -189,6 +118,7 @@ const formatSafeDate = (val) => {
   return String(val);
 };
 
+// BUSCADOR Y FILTROS POR COLUMNA
 const applyFilters = (dataArray, globalTerm, colFilters) => {
   let result = dataArray;
   if (globalTerm) {
@@ -211,10 +141,118 @@ const applyFilters = (dataArray, globalTerm, colFilters) => {
   return result;
 };
 
+// ================= COMPONENTES GRÁFICOS PERSONALIZADOS (ESTILO EJECUTIVO) =================
+
+const ExecutiveKpiCard = ({ icon, title, value, trend, isCurrency, bgClass, iconColorClass }) => (
+  <div className="bg-white rounded-xl border border-slate-200 p-5 flex items-center space-x-4 shadow-sm relative overflow-hidden">
+    {/* Fondo decorativo sutil */}
+    <div className={`absolute top-0 right-0 w-24 h-24 rounded-bl-full opacity-10 ${bgClass.replace('bg-', 'bg-').replace('-50', '-500')}`}></div>
+    
+    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl flex-shrink-0 z-10 ${bgClass} ${iconColorClass}`}>
+      {icon}
+    </div>
+    <div className="z-10 flex-1">
+      <h3 className="text-xs font-bold text-slate-500">{title}</h3>
+      <p className="text-2xl font-black text-slate-800 tracking-tight mt-0.5">
+        {isCurrency ? `$ ${value.toLocaleString('es-CO')}M` : value}
+      </p>
+      {trend && (
+        <div className={`flex items-center space-x-1 text-[10px] font-bold mt-1 ${trend.includes('+') || trend.includes('↑') ? (trend.includes('Críticos')||trend.includes('Pérdidas')||trend.includes('Fuera') ? 'text-red-600' : 'text-emerald-600') : 'text-slate-400'}`}>
+          <span>{trend}</span>
+          <span className="text-slate-400 font-medium">vs. mes anterior</span>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+const CustomDonutChart = ({ data, total }) => {
+  let currentOffset = 0;
+  return (
+    <div className="relative w-48 h-48">
+      <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full drop-shadow-sm">
+        {data.map((item, index) => {
+          const percentage = (item.value / total) * 100;
+          const strokeDasharray = `${percentage} ${100 - percentage}`;
+          const offset = currentOffset;
+          currentOffset -= percentage;
+          
+          if (item.value === 0) return null;
+          
+          return (
+            <circle
+              key={index}
+              cx="50" cy="50" r="40"
+              fill="transparent"
+              stroke={item.color}
+              strokeWidth="20"
+              strokeDasharray={strokeDasharray}
+              strokeDashoffset={offset}
+              className="transition-all duration-1000 ease-out cursor-pointer hover:opacity-80"
+              strokeLinejoin="round"
+            />
+          );
+        })}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <span className="text-2xl font-black text-slate-800 leading-none">{total}</span>
+        <span className="text-[10px] font-bold text-slate-500 uppercase">Total</span>
+      </div>
+    </div>
+  );
+};
+
+const SimpleSparkline = ({ trend, color }) => {
+  const points = trend === 'up' ? "0,20 10,15 20,25 30,10 40,5" : trend === 'down' ? "0,5 10,10 20,5 30,15 40,20" : "0,15 10,10 20,15 30,10 40,15";
+  return (
+    <svg width="40" height="25" viewBox="0 0 40 25" className="overflow-visible">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
+const SemiCircleGauge = ({ percentage, label, subtext }) => {
+  const radius = 80;
+  const circumference = radius * Math.PI;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className="relative w-48 h-24 overflow-hidden mb-2">
+        <svg viewBox="0 0 200 100" className="w-full h-full drop-shadow-sm">
+          {/* Fondo gris */}
+          <path d="M 20 90 A 80 80 0 0 1 180 90" fill="none" stroke="#e2e8f0" strokeWidth="20" strokeLinecap="round" />
+          {/* Relleno verde */}
+          <path 
+            d="M 20 90 A 80 80 0 0 1 180 90" 
+            fill="none" 
+            stroke="#84cc16" 
+            strokeWidth="20" 
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            className="transition-all duration-1500 ease-out"
+          />
+        </svg>
+        <div className="absolute bottom-0 inset-x-0 flex flex-col items-center justify-end pb-1">
+          <span className="text-3xl font-black text-slate-800 leading-none">{Math.round(percentage)}%</span>
+          <span className="text-sm font-bold text-emerald-600 mt-1">{label}</span>
+        </div>
+      </div>
+      <p className="text-xs text-slate-500 font-medium px-4 mt-4">{subtext}</p>
+    </div>
+  );
+};
+
+
+// =====================================================================
+// APLICACIÓN PRINCIPAL
+// =====================================================================
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('tablero');
+  const [activeTab, setActiveTab] = useState('dashboard_ejecutivo');
   const [notification, setNotification] = useState(null);
-  const [tipoMatriz, setTipoMatriz] = useState('inherente'); 
+  const [tipoMatriz, setTipoMatriz] = useState('residual'); 
   const [filtroAnio, setFiltroAnio] = useState('Todos');
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
@@ -226,7 +264,6 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
 
-  // FASE 7: Modal IA
   const [aiModal, setAiModal] = useState(null);
 
   const [editRiesgo, setEditRiesgo] = useState(null);
@@ -279,7 +316,7 @@ export default function App() {
       className={`mt-1.5 w-full text-[9px] px-1.5 py-1 font-normal rounded border focus:outline-none focus:ring-1 ${
         dark 
           ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
-          : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
+          : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-[#2563eb]'
       }`}
       value={columnFilters[colKey] || ''}
       onChange={(e) => handleColFilterChange(colKey, e.target.value)}
@@ -314,7 +351,6 @@ export default function App() {
         }
       }
 
-      // FASE 7: Módulo de Compliance
       if (r.normativa && r.normativa !== 'Ninguna' && r.normativa !== '') {
         const evalsAsociadas = safeEvaluaciones.filter(e => e.idRiesgo === r.id && e.calificacion < 100);
         if (evalsAsociadas.length > 0) {
@@ -438,18 +474,17 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // FASE 7: Lógica Inteligente de Gemini con MOTOR DUAL (1.5 PRO)
+  // --- IA: ANÁLISIS DE EVIDENCIAS (MODAL) ---
   const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
     setIsThinking(true);
     showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
 
-    // Selección automática del motor IA
     let finalApiKey = apiKey;
     let modelName = "gemini-2.5-flash-preview-09-2025"; 
     
     if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
       finalApiKey = GEMINI_API_KEY;
-      modelName = "gemini-1.5-pro"; // 🚀 MODO PRO ACTIVADO EN PRODUCCIÓN
+      modelName = "gemini-1.5-pro";
     }
 
     try {
@@ -479,37 +514,38 @@ export default function App() {
     }
   };
 
+  // --- IA: RELLENAR FORMULARIOS ---
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
 
+    // Conexión estricta a los IDs del DOM para que siempre encuentre el campo
     if (tipoTarget === 'control') {
-      textoBase = document.querySelector('input[name="descripcion"]')?.value || "";
-      inputDestino = document.querySelector('input[name="control"]');
+      textoBase = document.getElementById('input-descripcion-riesgo')?.value || document.getElementById('input-proceso-riesgo')?.value || "";
+      inputDestino = document.getElementById('input-control-riesgo');
     } else if (tipoTarget === 'plan') {
-      const selectElement = document.querySelector('select[name="idHallazgo"]');
+      const selectElement = document.getElementById('select-hallazgo-plan');
       textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
-      inputDestino = document.querySelector('input[name="accion"]');
+      inputDestino = document.getElementById('input-accion-plan');
     } else if (tipoTarget === 'hallazgo') {
-      textoBase = document.querySelector('input[name="proceso"]')?.value || "";
-      inputDestino = document.querySelector('input[name="titulo"]');
+      textoBase = document.getElementById('input-proceso-hallazgo')?.value || "";
+      inputDestino = document.getElementById('input-titulo-hallazgo');
     }
 
     if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
-      showNotification("⚠️ Llena la información previa primero (Descripción o Proceso) para que la IA la analice.", "error");
+      showNotification("⚠️ Escribe primero el Proceso o Descripción para que la IA tenga contexto.", "error");
       return;
     }
 
     setIsThinking(true);
-    showNotification("🧠 Gemini está analizando el escenario...", "success");
+    showNotification("🧠 Inteligencia Artificial analizando el escenario...", "success");
 
-    // Selección automática del motor IA
     let finalApiKey = apiKey;
     let modelName = "gemini-2.5-flash-preview-09-2025"; 
     
     if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
       finalApiKey = GEMINI_API_KEY;
-      modelName = "gemini-1.5-pro"; // 🚀 MODO PRO ACTIVADO EN PRODUCCIÓN
+      modelName = "gemini-1.5-pro";
     }
 
     try {
@@ -522,31 +558,41 @@ export default function App() {
         prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`;
+      const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
-      const data = await response.json();
+      let delays = [1000, 2000, 4000, 8000, 16000];
+      let responseData = null;
       
-      if (data.error) {
-        throw new Error(data.error.message);
+      for (let i = 0; i < 6; i++) {
+        try {
+          const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.message);
+          responseData = data;
+          break;
+        } catch (err) {
+          if (i === 5) throw err;
+          await new Promise(r => setTimeout(r, delays[i]));
+        }
       }
 
-      let sugerencia = data.candidates[0].content.parts[0].text.trim();
+      if (!responseData) throw new Error("Fallo de red al conectar con IA.");
+
+      let sugerencia = responseData.candidates[0].content.parts[0].text.trim();
 
       if (inputDestino) {
         inputDestino.value = sugerencia;
+        // Lanzamos eventos para que React registre el cambio
+        inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
         inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
+        showNotification(`✨ ¡Sugerencia insertada correctamente!`);
+      } else {
+        showNotification("Error: No se encontró el campo de destino.", "error");
       }
-      
-      showNotification(`✨ ¡Sugerencia ejecutiva insertada por ${modelName}!`);
     } catch (error) {
-      console.error("Error conectando a Gemini:", error);
-      showNotification("Error conectando con la IA de Google. Verifica los ajustes.", "error");
+      console.error("Error:", error);
+      showNotification("Error conectando con la IA de Google. Inténtalo de nuevo.", "error");
     } finally {
       setIsThinking(false);
     }
@@ -568,19 +614,19 @@ export default function App() {
     const iVal = mapImpactoNum[impacto] || 2;
     const score = pVal * iVal;
 
-    let apetito = "Dentro de Apetito";
+    let apetito = "Aceptable";
     let accion = "Aceptar / Monitorear";
-    let color = "bg-emerald-500 text-white";
-    let borderSemaforo = "border-emerald-200";
+    let color = "bg-green-500 text-white";
+    let borderSemaforo = "border-green-600";
 
     if (score <= 4) {
-      color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600";
+      color = "bg-green-500 text-white"; borderSemaforo = "border-green-600";
     } else if (score <= 9) {
-      color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-600"; accion = "Monitorear periódicamente";
+      color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-500"; accion = "Monitorear periódicamente"; apetito = "Monitoreo";
     } else if (score <= 16) {
       color = "bg-orange-500 text-white"; borderSemaforo = "border-orange-600"; apetito = "Fuera de Apetito"; accion = "Mitigar / Ajustar Controles";
     } else {
-      color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Fuera de Apetito"; accion = "Evitar / Suspender Proceso / Transferir";
+      color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Crítico"; accion = "Evitar / Escalar";
     }
     return { score, apetito, accion, color, borderSemaforo };
   };
@@ -938,21 +984,27 @@ export default function App() {
     if (editMonitoreo && editMonitoreo.id) {
       const modificado = {
         ...editMonitoreo,
-        indicador: formData.get('indicador').toUpperCase(),
-        valor: parseInt(formData.get('valor') || 0)
+        indicador: formData.get('indicador'),
+        proceso: formData.get('proceso'),
+        valor: parseInt(formData.get('valor') || 0),
+        limite: parseInt(formData.get('limite') || 0),
+        tendencia: formData.get('tendencia')
       };
       updatedList = safeMonitoreo.map(m => m.id === editMonitoreo.id ? modificado : m);
       setEditMonitoreo(null);
-      showNotification("Indicador actualizado exitosamente.");
+      showNotification("KRI actualizado exitosamente.");
     } else {
       const nuevo = {
         id: safeMonitoreo.length ? Math.max(...safeMonitoreo.map(m => m.id)) + 1 : 1,
-        indicador: formData.get('indicador').toUpperCase(),
-        valor: parseInt(formData.get('valor') || 0)
+        indicador: formData.get('indicador'),
+        proceso: formData.get('proceso'),
+        valor: parseInt(formData.get('valor') || 0),
+        limite: parseInt(formData.get('limite') || 0),
+        tendencia: formData.get('tendencia')
       };
       updatedList = [...safeMonitoreo, nuevo];
       setEditMonitoreo(null);
-      showNotification("Nuevo indicador agregado.");
+      showNotification("Nuevo KRI agregado.");
     }
     setMonitoreo(updatedList);
     await saveToCloud({ monitoreo: updatedList });
@@ -960,6 +1012,266 @@ export default function App() {
   };
 
   // ==================== RENDERS DE VISTAS (ADMIN) ====================
+
+  // NUEVO: DASHBOARD EJECUTIVO (ESTILO SERVICENOW/ARCHER)
+  const renderDashboardEjecutivo = () => {
+    // 1. Cálculos de KPIs
+    const totalRiesgos = safeRiesgos.length;
+    const riesgosFueraApetitoList = safeRiesgos.filter(r => {
+      const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
+      return res.score > 9; // Fuera de Apetito o Crítico
+    });
+    const riesgosFueraApetitoCount = riesgosFueraApetitoList.length;
+    const perdidasTotales = safeIncidentes.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
+    const hallazgosCriticos = safeHallazgos.filter(h => h.severidad === 'Crítico' || h.severidad === 'Alto').length;
+    const planesVencidos = safePlanes.filter(p => {
+      const hoy = new Date().toISOString().split('T')[0];
+      const fechaPlan = formatSafeDate(p.fecha);
+      return fechaPlan && fechaPlan < hoy && p.estado !== 'Cerrado';
+    }).length;
+    const controlesIneficaces = safeEvaluaciones.filter(e => e.calificacion < 100).length;
+
+    // 2. Datos para Gráfico de Dona
+    const donutDataMap = { Aceptable: 0, Monitoreo: 0, 'Fuera de Apetito': 0, Crítico: 0 };
+    safeRiesgos.forEach(r => {
+      const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
+      if (res.score <= 4) donutDataMap.Aceptable++;
+      else if (res.score <= 9) donutDataMap.Monitoreo++;
+      else if (res.score <= 16) donutDataMap['Fuera de Apetito']++;
+      else donutDataMap.Crítico++;
+    });
+    const donutData = [
+      { label: 'Aceptable', value: donutDataMap.Aceptable, color: '#22c55e' },
+      { label: 'Monitoreo', value: donutDataMap.Monitoreo, color: '#eab308' },
+      { label: 'Fuera de Apetito', value: donutDataMap['Fuera de Apetito'], color: '#f97316' },
+      { label: 'Crítico', value: donutDataMap.Crítico, color: '#ef4444' },
+    ];
+
+    // 3. Cálculos Nivel de Madurez (Gauge)
+    // Ejemplo de cálculo: Peso 40% a controles eficaces, 40% a planes cerrados, 20% a riesgos en apetito
+    const pctControles = safeEvaluaciones.length ? (safeEvaluaciones.filter(e => e.calificacion === 100).length / safeEvaluaciones.length) * 100 : 100;
+    const pctPlanes = safePlanes.length ? (safePlanes.filter(p => p.estado === 'Cerrado').length / safePlanes.length) * 100 : 100;
+    const pctApetito = safeRiesgos.length ? ((totalRiesgos - riesgosFueraApetitoCount) / totalRiesgos) * 100 : 100;
+    const nivelMadurez = (pctControles * 0.4) + (pctPlanes * 0.4) + (pctApetito * 0.2);
+    const etiquetaMadurez = nivelMadurez >= 80 ? 'Gestionado' : nivelMadurez >= 60 ? 'En Desarrollo' : 'Deficiente';
+
+    // 4. Mapa de Calor Data
+    const impactos = ['Crítico', 'Alto', 'Medio', 'Bajo'];
+    const probabilidades = ['Rara', 'Posible', 'Frecuente'];
+    const contarCelda = (imp, prob) => safeRiesgos.filter(r => r.impactoResidual === imp && r.probabilidadResidual === prob).length;
+
+    // 5. Próximas Actividades (Mock/Calculadas)
+    const actividades = safePlanes.filter(p => p.estado !== 'Cerrado').sort((a,b) => new Date(formatSafeDate(a.fecha)) - new Date(formatSafeDate(b.fecha))).slice(0,4);
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500 bg-[#f8fafc] p-2 min-h-full">
+        
+        {/* HEADER DASHBOARD */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-2">
+          <div>
+            <h2 className="text-3xl font-black text-slate-800 tracking-tight">Dashboard Ejecutivo</h2>
+            <p className="text-sm text-slate-500 font-medium mt-1">Visión general del estado de riesgos de la organización</p>
+          </div>
+          <div className="mt-4 md:mt-0 flex items-center space-x-4">
+            <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 flex items-center space-x-2 shadow-sm">
+              <span>Periodo:</span>
+              <select className="bg-transparent border-none outline-none font-black text-slate-800 cursor-pointer">
+                <option>Mayo 2026</option>
+                <option>Abril 2026</option>
+                <option>Histórico</option>
+              </select>
+              <span>📅</span>
+            </div>
+          </div>
+        </div>
+
+        {/* TOP KPIs GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <ExecutiveKpiCard icon="🛡️" title="Riesgos Totales" value={totalRiesgos} trend="↑ 2 vs. mes anterior" bgClass="bg-blue-50 text-blue-600" />
+          <ExecutiveKpiCard icon="⚠️" title="Fuera de Apetito" value={riesgosFueraApetitoCount} trend="↑ 1 vs. mes anterior" bgClass="bg-red-50 text-red-600" />
+          <ExecutiveKpiCard icon="💰" title="Pérdidas Materializadas" value={perdidasTotales} isCurrency trend="↑ 5% vs. mes anterior" bgClass="bg-amber-50 text-amber-600" />
+          <ExecutiveKpiCard icon="🚩" title="Hallazgos Críticos" value={hallazgosCriticos} trend="→ Sin cambios" bgClass="bg-purple-50 text-purple-600" />
+          <ExecutiveKpiCard icon="⏳" title="Planes Vencidos" value={planesVencidos} trend="↓ 1 vs. mes anterior" bgClass="bg-teal-50 text-teal-600" />
+          <ExecutiveKpiCard icon="❌" title="Controles Ineficaces" value={controlesIneficaces} trend="↑ 2 vs. mes anterior" bgClass="bg-rose-50 text-rose-600" />
+        </div>
+
+        {/* MIDDLE SECTION (Donut, Heatmap, List) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Dona de Apetito */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[380px]">
+            <h3 className="font-bold text-slate-800 mb-6">Riesgos por Nivel de Apetito</h3>
+            <div className="flex-1 flex items-center justify-center space-x-8">
+              <CustomDonutChart data={donutData} total={totalRiesgos} />
+              <div className="space-y-4">
+                {donutData.map((d, i) => (
+                  <div key={i} className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }}></div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-700">{d.label}</div>
+                      <div className="text-[10px] text-slate-500">{d.value} ({totalRiesgos ? Math.round((d.value/totalRiesgos)*100) : 0}%)</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Mapa de Calor Clásico */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[380px]">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-slate-800">Mapa de Calor de Riesgos (Residual)</h3>
+              <select value={tipoMatriz} onChange={(e) => setTipoMatriz(e.target.value)} className="text-[10px] bg-slate-50 border rounded px-2 py-1 font-bold">
+                <option value="inherente">Inherente</option>
+                <option value="residual">Residual</option>
+              </select>
+            </div>
+            
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-1 w-full max-w-[280px] relative">
+                <div className="absolute -left-6 top-1/2 -translate-y-1/2 -rotate-90 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Impacto</div>
+                <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-slate-500 uppercase tracking-widest">Probabilidad</div>
+                
+                <div></div>
+                {probabilidades.map((p, index) => <div key={`th-${index}`} className="text-center pb-1 text-slate-500 font-bold text-[8px] uppercase">{p}</div>)}
+                
+                {impactos.map((imp, impIndex) => (
+                  <React.Fragment key={`tr-${impIndex}`}>
+                    <div className="flex items-center justify-end pr-2 text-slate-500 font-bold text-[8px] uppercase">{imp}</div>
+                    {probabilidades.map((prob, probIndex) => {
+                      const count = tipoMatriz === 'residual' ? contarCelda(imp, prob) : safeRiesgos.filter(r => r.impactoInherente === imp && r.probabilidadInherente === prob).length;
+                      const { color } = calcularMatriz5x5(prob, imp);
+                      // Traducir colores a opacidades sólidas para el heatmap clásico
+                      let solidColor = '#22c55e'; // default green
+                      if (color.includes('yellow')) solidColor = '#facc15';
+                      if (color.includes('orange')) solidColor = '#f97316';
+                      if (color.includes('red')) solidColor = '#ef4444';
+
+                      return (
+                        <div key={`td-${impIndex}-${probIndex}`} 
+                             className="h-14 flex items-center justify-center text-white font-black text-sm transition-transform hover:scale-105 cursor-pointer shadow-sm"
+                             style={{ backgroundColor: solidColor }}>
+                          {count > 0 ? count : ''}
+                        </div>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Lista Top Riesgos */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[380px]">
+            <h3 className="font-bold text-slate-800 mb-4">Top Riesgos Fuera de Apetito</h3>
+            <div className="flex-1 overflow-y-auto pr-2">
+              <table className="w-full text-xs text-left">
+                <thead className="text-[9px] text-slate-400 uppercase tracking-widest border-b">
+                  <tr><th className="pb-2 font-medium">Proceso / Riesgo</th><th className="pb-2 text-center font-medium">Score</th><th className="pb-2 font-medium">Acción</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {riesgosFueraApetitoList.sort((a,b) => calcularMatriz5x5(b.probabilidadResidual, b.impactoResidual).score - calcularMatriz5x5(a.probabilidadResidual, a.impactoResidual).score).slice(0,5).map(r => {
+                    const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50">
+                        <td className="py-3">
+                          <div className="font-bold text-slate-800 truncate w-32" title={r.descripcion}>{r.proceso}</div>
+                          <div className="text-[9px] text-slate-500">{r.categoria}</div>
+                        </td>
+                        <td className="py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded font-black text-white ${res.color.split(' ')[0]}`}>{res.score}</span>
+                        </td>
+                        <td className="py-3">
+                          <span className="text-[9px] font-bold text-red-600 uppercase">Mitigar</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {riesgosFueraApetitoList.length === 0 && <tr><td colSpan="3" className="py-4 text-center text-slate-400 italic">No hay riesgos fuera de apetito.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        {/* BOTTOM SECTION (KRIs, Madurez, Actividades) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pb-8">
+          
+          {/* Tabla de KRIs */}
+          <div className="lg:col-span-1 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[350px]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-slate-800">KRIs - Indicadores Clave</h3>
+              {isAdmin && <button onClick={() => {setActiveTab('plan_anual'); setTimeout(() => document.getElementById('seccion-monitoreo')?.scrollIntoView(), 100)}} className="text-xs text-blue-600 font-bold">Gestionar &rarr;</button>}
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="text-[9px] text-slate-400 uppercase tracking-widest border-b">
+                  <tr><th className="pb-2 font-medium">Indicador</th><th className="pb-2 text-center font-medium">Valor</th><th className="pb-2 text-center font-medium">Estado</th><th className="pb-2 text-center font-medium">Tendencia</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {safeMonitoreo.map(m => {
+                    const excedido = m.valor > m.limite;
+                    const alerta = m.valor === m.limite || m.valor === m.limite - 1;
+                    let estadoObj = excedido ? { text: 'Excedido', color: 'bg-red-100 text-red-700' } : alerta ? { text: 'Alerta', color: 'bg-amber-100 text-amber-700' } : { text: 'Normal', color: 'bg-emerald-100 text-emerald-700' };
+                    let trendColor = m.tendencia === 'up' && m.limite ? (excedido ? '#ef4444' : '#f59e0b') : m.tendencia === 'down' ? '#10b981' : '#94a3b8';
+                    
+                    return (
+                      <tr key={m.id} className="hover:bg-slate-50">
+                        <td className="py-3">
+                          <div className="font-bold text-slate-700 truncate w-32" title={m.indicador}>{m.indicador}</div>
+                          <div className="text-[9px] text-slate-400">{m.proceso}</div>
+                        </td>
+                        <td className="py-3 text-center font-mono font-black text-slate-800">{m.valor}</td>
+                        <td className="py-3 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${estadoObj.color}`}>{estadoObj.text}</span>
+                        </td>
+                        <td className="py-3 flex justify-center">
+                          <SimpleSparkline trend={m.tendencia} color={trendColor} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Nivel de Madurez Gauge */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center h-[350px]">
+            <h3 className="font-bold text-slate-800 mb-6 w-full text-left">Nivel de Madurez (SGR)</h3>
+            <SemiCircleGauge percentage={nivelMadurez} label={etiquetaMadurez} subtext="La gestión de riesgos está integrada en los procesos y se monitorea continuamente. Refleja eficacia de controles y avance de planes." />
+          </div>
+
+          {/* Próximas Actividades */}
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col h-[350px]">
+            <h3 className="font-bold text-slate-800 mb-4">Actividades Próximas (Planes)</h3>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+              {actividades.length === 0 ? (
+                 <p className="text-sm text-slate-400 italic text-center mt-10">No hay planes de acción pendientes.</p>
+              ) : (
+                actividades.map((p, i) => (
+                  <div key={i} className="flex items-start space-x-3">
+                    <div className="mt-1 text-slate-400"><i className="fa-regular fa-calendar-check"></i></div>
+                    <div className="flex-1">
+                      <div className="text-xs font-bold text-slate-700 line-clamp-2" title={p.accion}>{p.accion}</div>
+                      <div className="text-[10px] text-slate-500 flex justify-between mt-1">
+                        <span>Resp: {p.responsable.split(' ')[0]}</span>
+                        <span className={`font-black ${new Date(formatSafeDate(p.fecha)) < new Date() ? 'text-red-500' : 'text-blue-600'}`}>{formatSafeDate(p.fecha)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            {isAdmin && <button onClick={() => setActiveTab('planes')} className="text-xs text-blue-600 font-bold mt-4 w-full text-left border-t pt-3">Ver calendario completo &rarr;</button>}
+          </div>
+
+        </div>
+
+      </div>
+    );
+  };
 
   const renderPlanAnual = () => {
     const avgCumplimiento = safeCronograma.length > 0 
@@ -975,7 +1287,7 @@ export default function App() {
             <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.4) 0%, transparent 20%)', backgroundSize: '100px 100px' }}></div>
             <div className="relative z-10 flex items-center space-x-4">
                <div className="bg-white text-[#004d40] h-12 w-12 rounded-full flex items-center justify-center font-black text-xl shadow-lg">T</div>
-               <h2 className="text-2xl font-black tracking-widest uppercase">Dashboard de Control Interno 2026</h2>
+               <h2 className="text-2xl font-black tracking-widest uppercase">Plan Anual de Auditoría 2026</h2>
             </div>
             <div className="relative z-10 mt-4 md:mt-0 bg-[#00695c] px-6 py-2 rounded-full border border-[#00897b] flex items-center space-x-3 shadow-inner">
                <span className="text-2xl">🎖️</span>
@@ -989,22 +1301,31 @@ export default function App() {
           <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
              <div className="md:col-span-1 space-y-6">
                 <div className="border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
-                   <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Índice General de Cumplimiento</h3>
+                   <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Índice General</h3>
                    <div className="text-6xl font-black text-[#004d40] leading-none mb-2">{avgCumplimiento}%</div>
                    <div className="text-xs font-bold text-emerald-600 flex items-center justify-center space-x-1"><span>▲</span><span>Meta Alcanzada</span></div>
-                   <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium">Evaluación integral de procesos administrativos, operativos y de soporte sin desviaciones materiales detectadas.</p>
+                   <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium">Evaluación integral de procesos administrativos, operativos y de soporte.</p>
                 </div>
 
-                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div id="seccion-monitoreo" className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                    <div className="bg-[#004d40] text-white p-3 flex justify-between items-center">
-                     <span className="text-[10px] font-black uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Monitoreo Continuo</span></span>
+                     <span className="text-[10px] font-black uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Gestor de KRIs</span></span>
                      {isAdmin && <button onClick={() => setEditMonitoreo({})} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
                    </div>
                    <div className="divide-y divide-slate-100 p-2">
                      {editMonitoreo && isAdmin && (
                        <form onSubmit={handleMonitoreoSubmit} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
-                         <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Indicador..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
-                         <input name="valor" type="number" defaultValue={editMonitoreo.valor||''} placeholder="Valor..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Nombre KRI..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         <input name="proceso" defaultValue={editMonitoreo.proceso||''} placeholder="Proceso..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         <div className="flex space-x-2 mb-2">
+                           <input name="valor" type="number" defaultValue={editMonitoreo.valor||''} placeholder="Valor actual" required className="w-1/2 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                           <input name="limite" type="number" defaultValue={editMonitoreo.limite||''} placeholder="Límite rojo" required className="w-1/2 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         </div>
+                         <select name="tendencia" defaultValue={editMonitoreo.tendencia||'flat'} className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none">
+                           <option value="up">Tendencia al Alza</option>
+                           <option value="down">Tendencia a la Baja</option>
+                           <option value="flat">Estable</option>
+                         </select>
                          <div className="flex justify-between items-center mt-1">
                            <button type="button" onClick={() => setEditMonitoreo(null)} className="text-[10px] text-red-500 hover:text-red-700 font-bold px-2">Cancelar</button>
                            <button type="submit" className="text-[10px] bg-[#004d40] text-white px-3 py-1.5 rounded shadow-sm hover:bg-[#00695c] font-bold">{editMonitoreo.id ? 'Actualizar' : 'Guardar'}</button>
@@ -1013,16 +1334,19 @@ export default function App() {
                      )}
                      
                      {safeMonitoreo.map(m => (
-                       <div key={m.id} className="flex justify-between items-center p-3 hover:bg-slate-50 transition-colors group rounded-lg border border-transparent hover:border-slate-200">
-                          <span className="text-[10px] font-bold text-slate-600 uppercase truncate pr-2">{m.indicador}</span>
-                          <div className="flex items-center space-x-3">
-                            <span className="text-sm font-black text-slate-800">{m.valor}</span>
+                       <div key={m.id} className="flex flex-col p-3 hover:bg-slate-50 transition-colors group rounded-lg border border-transparent hover:border-slate-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>{m.indicador}</span>
                             {isAdmin && (
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5">
                                 <button onClick={() => setEditMonitoreo(m)} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
                                 <button onClick={() => handleDeleteItem('monitoreo', m.id)} className="text-red-500 hover:text-red-700 text-xs transition-colors" title="Eliminar">✖</button>
                               </div>
                             )}
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-[9px] text-slate-400">{m.proceso}</span>
+                            <span className={`text-xs font-black ${m.valor > m.limite ? 'text-red-600' : 'text-emerald-600'}`}>{m.valor} <span className="text-[8px] text-slate-400 font-medium">/ {m.limite}</span></span>
                           </div>
                        </div>
                      ))}
@@ -1033,7 +1357,7 @@ export default function App() {
              <div className="md:col-span-3">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm h-full flex flex-col">
                    <div className="bg-[#1e293b] text-white p-4 flex justify-between items-center">
-                     <span className="text-xs font-black uppercase tracking-widest flex items-center space-x-2"><span>📋</span> <span>Cronograma Técnico de Auditoría</span></span>
+                     <span className="text-xs font-black uppercase tracking-widest flex items-center space-x-2"><span>📋</span> <span>Cronograma Técnico</span></span>
                      <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400 px-2 py-1 rounded-full uppercase">⚙️ {avgCumplimiento}% Auditado</span>
                    </div>
                    <div className="overflow-x-auto flex-1">
@@ -1120,7 +1444,7 @@ export default function App() {
 
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
            <div className="bg-slate-100 border-b border-slate-200 p-4 flex justify-between items-center">
-             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">CRONOGRAMA DE CONTROL INTERNO</h3>
+             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">GANTT CONTROL INTERNO</h3>
              <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
                 <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
@@ -1175,380 +1499,9 @@ export default function App() {
     );
   };
 
-  const renderTablero = () => {
-    const anioActual = filtroAnio;
-    const hFiltrados = safeHallazgos.filter(h => {
-      const fechaStr = formatSafeDate(h.fecha);
-      return anioActual === 'Todos' || getYearFromDate(fechaStr) === anioActual;
-    });
-    const pFiltrados = safePlanes.filter(p => {
-      const fechaStr = formatSafeDate(p.fecha);
-      return anioActual === 'Todos' || getYearFromDate(fechaStr) === anioActual;
-    });
-
-    const añosSet = new Set();
-    safeHallazgos.forEach(h => { const str = formatSafeDate(h.fecha); if(str) añosSet.add(getYearFromDate(str)); });
-    safePlanes.forEach(p => { const str = formatSafeDate(p.fecha); if(str) añosSet.add(getYearFromDate(str)); });
-    const availableYears = Array.from(añosSet).sort().reverse();
-
-    const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
-
-    const obtenerMetricasSede = (sede) => {
-      const hallazgosSede = hFiltrados.filter(h => h.sede === sede);
-      const hallazgosAbiertos = hallazgosSede.filter(h => h.estado === 'Abierto').length;
-
-      const planesSede = pFiltrados.filter(p => {
-        const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
-        return hallazgoAsociado && hallazgoAsociado.sede === sede;
-      });
-      const avancePlanes = planesSede.length > 0 
-        ? planesSede.reduce((acc, p) => acc + (p.progreso || 0), 0) / planesSede.length 
-        : 0;
-
-      const evaluacionesSede = safeEvaluaciones.filter(e => {
-        const riesgoAsociado = safeRiesgos.find(r => r.id === e.idRiesgo);
-        return riesgoAsociado && riesgoAsociado.sede === sede;
-      });
-      const saludControles = evaluacionesSede.length > 0 
-        ? (evaluacionesSede.filter(e => e.calificacion === 100).length / evaluacionesSede.length) * 100 
-        : 0;
-
-      return { hallazgosAbiertos, avancePlanes, saludControles };
-    };
-
-    const hTotal = hFiltrados.length;
-    const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
-    const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
-
-    const pTotal = pFiltrados.length;
-    const pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
-    const pCerrados = pFiltrados.filter(p => p.estado === 'Cerrado').length;
-
-    const avanceGlobal = safePlanes.length > 0 
-      ? safePlanes.reduce((acc, p) => acc + (p.progreso || 0), 0) / safePlanes.length 
-      : 0;
-      
-    const efectividadControles = safeEvaluaciones.length > 0 
-      ? (safeEvaluaciones.filter(e => e.calificacion === 100).length / safeEvaluaciones.length) * 100 
-      : 0;
-
-    return (
-      <div className="space-y-8 animate-in fade-in duration-300">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
-          <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Tablero Analítico de Auditoría</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis integral de desviaciones operacionales.</p></div>
-          <div className="mt-4 md:mt-0 bg-white p-1 rounded-xl border flex items-center shadow-sm">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-3 pr-2">Filtro de Año:</span>
-            <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="bg-slate-50 border rounded-lg text-xs font-bold text-slate-700 px-3 py-1.5 focus:outline-none">
-              <option value="Todos">Histórico Global</option>
-              {availableYears.map((a, index) => <option key={`year-${a}-${index}`} value={a}>{a}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Indicadores KRI en Tiempo Real</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Gauge value={avanceGlobal} label="Mitigación Global" sublabel="Promedio Planes de Acción" colorClass="text-blue-500" />
-            <Gauge value={efectividadControles} label="Salud Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-            <div className="bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-800 flex flex-col justify-center text-white text-center h-full">
-              <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest">Alerta Crítica</h4>
-              <span className="text-4xl font-black mt-2">{hAbiertos}</span>
-              <p className="text-xs font-bold mt-2 opacity-80">Hallazgos Pendientes de Cierre</p>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 mt-8">Desempeño por Unidad de Negocio</h3>
-          <p className="text-[10px] text-blue-500 font-bold mb-4">👆 Haz clic en cualquier tarjeta o velocímetro para ver su universo de datos detallado.</p>
-          <div className="space-y-6">
-            {sedes.map((sede) => {
-              const metricas = obtenerMetricasSede(sede);
-              return (
-                <div key={`metrics-${sede}`} className="bg-slate-100/50 border border-slate-200 p-6 rounded-3xl shadow-sm">
-                  <h4 className="text-lg font-black text-slate-800 mb-4 tracking-tight border-b pb-2">{sede}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    
-                    <div 
-                      onClick={() => { setDetalleUniverso({ sede, tipo: 'hallazgos' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
-                      className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-center items-center text-center h-full hover:shadow-lg hover:ring-4 hover:ring-blue-100 transition-all cursor-pointer relative group">
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 text-blue-600 text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-widest">Ver Universo ↗</div>
-                      <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest">Hallazgos Abiertos</h4>
-                      <span className="text-5xl font-black mt-3 text-slate-800">{metricas.hallazgosAbiertos}</span>
-                      <p className="text-[10px] font-bold mt-3 opacity-60 text-slate-500">Pendientes de Cierre</p>
-                    </div>
-
-                    <div 
-                      onClick={() => { setDetalleUniverso({ sede, tipo: 'evaluaciones' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
-                      className="hover:shadow-lg hover:ring-4 hover:ring-emerald-100 transition-all cursor-pointer rounded-2xl relative group">
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-50 text-emerald-600 text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-widest z-10">Ver Universo ↗</div>
-                      <Gauge value={metricas.saludControles} label="Salud de Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-                    </div>
-
-                    <div 
-                      onClick={() => { setDetalleUniverso({ sede, tipo: 'planes' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
-                      className="hover:shadow-lg hover:ring-4 hover:ring-blue-100 transition-all cursor-pointer rounded-2xl relative group">
-                      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 text-blue-600 text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-widest z-10">Ver Universo ↗</div>
-                      <Gauge value={metricas.avancePlanes} label="Planes de Acción" sublabel="Promedio de Avance Físico" colorClass="text-blue-500" />
-                    </div>
-
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {detalleUniverso && (
-          <div id="detalle-universo" className="mt-12 bg-white p-8 rounded-3xl border border-slate-200 shadow-2xl animate-in slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <div>
-                <h4 className="text-2xl font-black text-slate-800 tracking-tight">
-                  Universo de {detalleUniverso.tipo === 'hallazgos' ? 'Hallazgos' : detalleUniverso.tipo === 'planes' ? 'Planes de Acción' : 'Controles Auditados'}
-                </h4>
-                <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-1">Sede: {detalleUniverso.sede}</p>
-              </div>
-              <button onClick={() => setDetalleUniverso(null)} className="text-xs bg-slate-100 text-slate-600 hover:bg-red-100 hover:text-red-700 px-4 py-2 rounded-xl font-bold transition-colors">✖ Cerrar Universo</button>
-            </div>
-
-            {(() => {
-              let universoData = [];
-              let cards = [];
-              
-              if (detalleUniverso.tipo === 'hallazgos') {
-                universoData = hFiltrados.filter(h => h.sede === detalleUniverso.sede);
-                cards = [
-                  { label: 'Total Histórico', val: universoData.length, textCol: 'text-slate-800', bgCol: 'bg-slate-100' },
-                  { label: 'Abiertos', val: universoData.filter(h => h.estado === 'Abierto').length, textCol: 'text-red-600', bgCol: 'bg-red-50' },
-                  { label: 'Cerrados', val: universoData.filter(h => h.estado === 'Cerrado').length, textCol: 'text-emerald-600', bgCol: 'bg-emerald-50' }
-                ];
-              } else if (detalleUniverso.tipo === 'planes') {
-                universoData = pFiltrados.filter(p => {
-                  const hAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
-                  return hAsociado && hAsociado.sede === detalleUniverso.sede;
-                });
-                cards = [
-                  { label: 'Total Asignados', val: universoData.length, textCol: 'text-slate-800', bgCol: 'bg-slate-100' },
-                  { label: 'En Proceso', val: universoData.filter(p => p.estado !== 'Cerrado').length, textCol: 'text-amber-600', bgCol: 'bg-amber-50' },
-                  { label: 'Cerrados (100%)', val: universoData.filter(p => p.estado === 'Cerrado').length, textCol: 'text-emerald-600', bgCol: 'bg-emerald-50' }
-                ];
-              } else if (detalleUniverso.tipo === 'evaluaciones') {
-                universoData = safeEvaluaciones.filter(e => {
-                  const rAsociado = safeRiesgos.find(r => r.id === e.idRiesgo);
-                  return rAsociado && rAsociado.sede === detalleUniverso.sede;
-                });
-                cards = [
-                  { label: 'Total Tests', val: universoData.length, textCol: 'text-slate-800', bgCol: 'bg-slate-100' },
-                  { label: 'Eficaces (100%)', val: universoData.filter(e => e.calificacion === 100).length, textCol: 'text-emerald-600', bgCol: 'bg-emerald-50' },
-                  { label: 'Con Deficiencias', val: universoData.filter(e => e.calificacion < 100).length, textCol: 'text-red-600', bgCol: 'bg-red-50' }
-                ];
-              }
-
-              return (
-                <div>
-                  <div className="grid grid-cols-3 gap-4 mb-6">
-                    {cards.map((c, i) => (
-                      <div key={i} className={`${c.bgCol} p-4 rounded-2xl flex items-center justify-between`}>
-                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{c.label}</span>
-                        <span className={`text-2xl font-black ${c.textCol}`}>{c.val}</span>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Desglose de Registros</p>
-                    <div className="max-h-48 overflow-y-auto">
-                      <ul className="space-y-2">
-                        {universoData.length === 0 && <li className="text-xs text-slate-400 italic">No hay registros para esta categoría.</li>}
-                        {universoData.map((item, idx) => (
-                          <li key={idx} className="text-xs bg-white p-2 rounded border border-slate-100 flex justify-between items-center shadow-sm">
-                            <span className="font-medium text-slate-700 truncate pr-4">
-                              {item.titulo || item.accion || `Test ID: ${item.id} - Efectividad: ${item.calificacion}%`}
-                            </span>
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${item.estado === 'Cerrado' || item.calificacion === 100 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {item.estado || (item.calificacion === 100 ? 'Eficaz' : 'Deficiente')}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-
-        <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Hallazgos</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">📄</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Total Hallazgos</p><p className="text-3xl font-black mt-1 text-slate-800">{hTotal}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-red-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-red-50 text-red-500 flex items-center justify-center text-xl">⚠️</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Abiertos</p><p className="text-3xl font-black mt-1 text-red-600">{hAbiertos}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Hallazgos Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{hCerrados}</p></div></div>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 mt-8">Métricas de Planes de Acción</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-xl">🤝</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Totales</p><p className="text-3xl font-black mt-1 text-slate-800">{pTotal}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-amber-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-xl">⏳</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes Pendientes</p><p className="text-3xl font-black mt-1 text-amber-600">{pAbiertos}</p></div></div>
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-r-4 border-emerald-500 flex items-center justify-between"><div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center text-xl">✅</div><div className="text-right"><p className="text-[10px] uppercase text-slate-500 font-extrabold tracking-widest">Planes de Acción Cerrados</p><p className="text-3xl font-black mt-1 text-emerald-600">{pCerrados}</p></div></div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderDashboardRiesgos = () => {
-    const esRes = tipoMatriz === 'residual';
-    const totalRiesgos = safeRiesgos.length;
-    const riesgosCriticos = safeRiesgos.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
-    const riesgosFueraApetito = safeRiesgos.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).apetito === "Fuera de Apetito").length;
-    const totalPerdidas = safeIncidentes.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
-
-    const impactos = ['Crítico', 'Alto', 'Medio', 'Bajo'];
-    const probabilidades = ['Rara', 'Posible', 'Frecuente'];
-
-    const contarCelda = (imp, prob) => safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
-    const riesgosFiltradosHeatMap = filtroHeatMap ? safeRiesgos.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === filtroHeatMap.impacto && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === filtroHeatMap.probabilidad) : [];
-
-    // MEJORA 3: Lógica de Analítica de Tendencias Históricas con Formateo Seguro
-    const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const anioTendencia = filtroAnio !== 'Todos' ? String(filtroAnio) : new Date().getFullYear().toString();
-
-    const incidentesPorMes = Array(12).fill(0);
-    safeIncidentes.forEach(i => {
-      const fechaStr = formatSafeDate(i.fecha);
-      if (fechaStr && fechaStr.startsWith(anioTendencia)) {
-        const month = parseInt(fechaStr.split('-')[1], 10) - 1;
-        if (month >= 0 && month <= 11) {
-          incidentesPorMes[month] += (Number(i.costo) || 0);
-        }
-      }
-    });
-    const dataIncidentes = meses.map((m, i) => ({ mes: m, valor: incidentesPorMes[i] }));
-
-    const hallazgosPorMes = Array(12).fill(0);
-    safeHallazgos.forEach(h => {
-      const fechaStr = formatSafeDate(h.fecha);
-      if (fechaStr && fechaStr.startsWith(anioTendencia)) {
-        const month = parseInt(fechaStr.split('-')[1], 10) - 1;
-        if (month >= 0 && month <= 11) {
-          hallazgosPorMes[month] += 1;
-        }
-      }
-    });
-    const dataHallazgos = meses.map((m, i) => ({ mes: m, valor: hallazgosPorMes[i] }));
-
-    // Años disponibles para los filtros (Dinámico según base de datos)
-    const añosSet = new Set();
-    safeHallazgos.forEach(h => { const s = formatSafeDate(h.fecha); if(s) añosSet.add(getYearFromDate(s)); });
-    safeIncidentes.forEach(i => { const s = formatSafeDate(i.fecha); if(s) añosSet.add(getYearFromDate(s)); });
-    const availableYears = Array.from(añosSet).sort().reverse();
-
-    return (
-      <div className="space-y-8 animate-in fade-in duration-300">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4">
-          <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito ISO 31000 y Evolución de KRI.</p></div>
-          <div className="mt-4 md:mt-0 flex flex-col md:flex-row items-center gap-3">
-            
-            <div className="bg-white p-1 rounded-xl border flex items-center shadow-sm">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-3 pr-2">Tendencias:</span>
-              <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="bg-slate-50 border rounded-lg text-xs font-bold text-slate-700 px-3 py-1.5 focus:outline-none">
-                <option value="Todos">Año Actual</option>
-                {availableYears.map((a, index) => <option key={`year-${a}-${index}`} value={a}>{a}</option>)}
-              </select>
-            </div>
-
-            <div className="bg-white p-1 rounded-xl border flex items-center shadow-sm">
-              <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${!esRes ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Inherente</button>
-              <button onClick={() => {setTipoMatriz('residual'); setFiltroHeatMap(null);}} className={`px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase transition-all ${esRes ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}>Residual</button>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TrendChart data={dataIncidentes} title={`Evolución de Impacto Financiero (${anioTendencia})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
-          <TrendChart data={dataHallazgos} title={`Volumen de Desviaciones (${anioTendencia})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Total Riesgos</p><p className="text-3xl font-black mt-2 text-slate-800">{totalRiesgos}</p></div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-red-600"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Fuera de Apetito</p><p className="text-3xl font-black mt-2 text-red-600">{riesgosFueraApetito}</p></div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-orange-500"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Riesgos Críticos</p><p className="text-3xl font-black mt-2 text-orange-600">{riesgosCriticos}</p></div>
-          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-purple-600"><p className="text-slate-500 text-[10px] font-extrabold uppercase tracking-widest">Pérdidas Totales</p><p className="text-xl font-black mt-3 text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</p></div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-6 flex items-center space-x-2">
-            <span>🎚️ Mapa de Calor Empresarial (Haz clic en un cuadrante con números)</span>
-            <span className="px-2.5 py-0.5 text-[8px] rounded-full text-white font-extrabold bg-slate-800 uppercase tracking-widest font-mono">{tipoMatriz}</span>
-          </h3>
-          <div className="flex flex-col items-center justify-center">
-            <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 w-full max-w-2xl relative pb-4">
-              <div className="absolute -left-12 top-1/2 -translate-y-1/2 -rotate-90 text-[8px] font-bold text-slate-400 uppercase tracking-widest">Impacto</div>
-              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[8px] font-bold text-slate-400 uppercase tracking-widest">Probabilidad</div>
-              <div></div>
-              {probabilidades.map((p, index) => <div key={`header-${p}-${index}`} className="text-center py-2 text-slate-600 font-bold uppercase text-[9px] bg-slate-50 rounded-t-lg border-b border-slate-200">{p}</div>)}
-              {impactos.map((imp, impIndex) => (
-                <React.Fragment key={`row-${imp}-${impIndex}`}>
-                  <div className="flex items-center justify-end pr-3 py-4 text-slate-600 font-bold uppercase text-[9px] bg-slate-50 rounded-l-lg text-right">{imp}</div>
-                  {probabilidades.map((prob, probIndex) => {
-                    const count = contarCelda(imp, prob);
-                    const { score, color, borderSemaforo } = calcularMatriz5x5(prob, imp);
-                    const isSelected = filtroHeatMap?.impacto === imp && filtroHeatMap?.probabilidad === prob;
-                    
-                    return (
-                      <div key={`cell-${imp}-${prob}-${probIndex}`} onClick={() => { 
-                        if (count > 0) {
-                          setFiltroHeatMap({ impacto: imp, probabilidad: prob, count }); 
-                          setTimeout(() => {
-                            document.getElementById('detalle-heatmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          }, 150);
-                        }
-                      }}
-                        className={`relative border p-4 flex flex-col justify-center items-center h-20 rounded-xl transition-all duration-200 ${count > 0 ? 'cursor-pointer hover:scale-105 shadow-md opacity-100' : 'opacity-40 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100' : 'bg-opacity-20'} ${borderSemaforo}`}>
-                        <span className="absolute top-1 right-2 text-[8px] font-mono font-bold opacity-60 text-slate-700">S:{score}</span>
-                        <span className={`text-2xl font-black text-slate-900`}>{count}</span>
-                      </div>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </div>
-          </div>
-          
-          {filtroHeatMap && (
-            <div id="detalle-heatmap" className="mt-8 bg-slate-50 p-6 rounded-xl border border-slate-200 animate-in fade-in duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider">🔎 Detalle de Riesgos en Cuadrante: {filtroHeatMap.probabilidad} / {filtroHeatMap.impacto}</h4>
-                <button onClick={() => setFiltroHeatMap(null)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg">✖ Limpiar Filtro</button>
-              </div>
-              <div className="overflow-x-auto rounded-xl border bg-white">
-                <table className="w-full text-xs text-left divide-y">
-                  <thead className="bg-slate-800 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Proceso</th><th className="p-3 w-1/2">Descripción</th><th className="p-3">Responsable</th><th className="p-3 text-center">Estrategia</th></tr></thead>
-                  <tbody className="divide-y">
-                    {riesgosFiltradosHeatMap.map((r, index) => (
-                      <tr key={`filtered-${r.id}-${index}`}>
-                        <td className="p-3 font-bold">#{r.id}</td><td className="p-3 font-bold">{r.proceso}</td><td className="p-3">{r.descripcion}</td><td className="p-3">{r.responsable}</td>
-                        <td className="p-3 text-center"><span className={`px-2 py-1 rounded block text-[10px] ${calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).color}`}>{calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).accion}</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const renderApetito = () => {
     const configurados = safeRiesgos.filter(r => r.capacidadRiesgo).length;
     
-    // Cálculos de métricas globales de COSO
     const enTolerancia = safeRiesgos.filter(r => {
       const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
       return r.capacidadRiesgo && costoTotal > r.apetitoFinanciero && costoTotal <= r.toleranciaFinanciera;
@@ -1559,7 +1512,6 @@ export default function App() {
       return r.capacidadRiesgo && costoTotal > r.capacidadRiesgo;
     }).length;
 
-    // Pre-calcular valores para que el filtro por columnas funcione sobre ellos
     const apetitoData = safeRiesgos.map(r => {
       const resScore = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score;
       const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
@@ -1788,17 +1740,28 @@ export default function App() {
               
               <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
               
-              <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-gray-600">Proceso</label><input id="input-proceso-riesgo" name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
               <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
               <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
               
-              <div className="md:col-span-2"><label className="font-bold text-gray-600 flex justify-between items-center"><span>Control Clave</span><button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1"><span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span></button></label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div className="md:col-span-2">
+                <label className="font-bold text-gray-600 flex justify-between items-center">
+                  <span>Control Clave</span>
+                  <button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                  </button>
+                </label>
+                <input id="input-control-riesgo" name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" />
+              </div>
               <div className="md:col-span-2">
                 <label className="font-bold text-purple-700">Normativa / Ley Aplicable (Compliance)</label>
                 <input name="normativa" defaultValue={editRiesgo?.normativa||'Ninguna'} placeholder="Ej: Ley 1581, ISO 27001..." required className="w-full border border-purple-300 bg-purple-50 rounded-lg p-2 mt-1" />
               </div>
 
-              <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div className="md:col-span-4">
+                <label className="font-bold text-gray-600">Descripción Evento</label>
+                <input id="input-descripcion-riesgo" name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" />
+              </div>
               
               <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
               <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
@@ -1858,7 +1821,7 @@ export default function App() {
                     <td className="p-3"><div className="font-bold">{r.responsable}</div><div className="italic mt-1">⚙️ {r.descripcionControl}</div></td>
                     <td className="p-3 text-center font-mono">{r.scoreInhVal} pts</td>
                     <td className="p-3 text-center font-mono font-black">{r.scoreResVal} pts</td>
-                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.apetitoVal === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.apetitoVal}</span></td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.apetitoVal === "Aceptable" ? 'bg-green-100 text-green-800' : r.apetitoVal === "Monitoreo" ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>{r.apetitoVal}</span></td>
                     <td className="p-3"><span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black ${r.colorVal}`}>{r.accionVal}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
                       {isAdmin && <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️</button>}
@@ -1973,7 +1936,7 @@ export default function App() {
           <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             <div><label className="font-bold text-gray-600 block mb-1">ID / Código (Manual)</label><input name="ref" defaultValue={editHallazgo?.ref||''} required placeholder="Ej: HAL-2026-01" className="w-full border border-slate-300 rounded-lg p-2" /></div>
             <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
-            <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input id="input-proceso-hallazgo" name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
             <div><label className="font-bold text-gray-600 block mb-1">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
             
             <div><label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label><input name="auditor" defaultValue={editHallazgo?.auditor||''} required placeholder="Quien levantó el hallazgo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
@@ -1986,7 +1949,7 @@ export default function App() {
                   <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
                 </button>
               </label>
-              <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
+              <input id="input-titulo-hallazgo" name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
             </div>
             
             <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Informe / Evidencia (Opcional)</label><input type="file" name="evidenciaArchivo" className="w-full border border-slate-300 rounded-lg p-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
@@ -2096,7 +2059,7 @@ export default function App() {
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
             
             <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-              <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[{h.sede || 'Hotel'}] {h.titulo}</option>)}</select></div>
+              <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select id="select-hallazgo-plan" name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[{h.sede || 'Hotel'}] {h.titulo}</option>)}</select></div>
               
               <div className="md:col-span-4">
                 <label className="font-bold text-gray-600 flex justify-between items-center">
@@ -2105,7 +2068,7 @@ export default function App() {
                     <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
                   </button>
                 </label>
-                <input name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1" />
+                <input id="input-accion-plan" name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1" />
               </div>
 
               <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
@@ -2371,13 +2334,13 @@ export default function App() {
   const renderRCSAPortal = () => {
     return (
       <div className="min-h-screen bg-slate-100 font-sans">
-        <header className="bg-[#004d40] text-white p-6 shadow-md flex justify-between items-center">
+        <header className="bg-[#0f172a] text-white p-6 shadow-md flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-black tracking-widest uppercase">Termales Santa Rosa de Cabal</h1>
-            <p className="text-xs text-[#deff9a] font-bold mt-1">Portal de Autoevaluación de Procesos (1ra Línea)</p>
+            <h1 className="text-xl font-black tracking-widest uppercase flex items-center space-x-2"><span>🛡️</span> <span>Termales GRC</span></h1>
+            <p className="text-xs text-blue-400 font-bold mt-1">Portal de Autoevaluación de Procesos (1ra Línea)</p>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-xs font-mono bg-[#00695c] px-3 py-1 rounded-full border border-[#00897b]">👤 {user.email}</span>
+            <span className="text-xs font-mono bg-slate-800 px-3 py-1 rounded-full border border-slate-700">👤 {user.email}</span>
             <button onClick={handleLogout} className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg text-xs font-bold transition-colors">Cerrar Sesión</button>
           </div>
         </header>
@@ -2495,8 +2458,13 @@ export default function App() {
     return renderRCSAPortal();
   }
 
+  // CÁLCULO GAUGE SIDEBAR
+  const pctControlesSidebar = safeEvaluaciones.length ? (safeEvaluaciones.filter(e => e.calificacion === 100).length / safeEvaluaciones.length) * 100 : 100;
+  const pctPlanesSidebar = safePlanes.length ? (safePlanes.filter(p => p.estado === 'Cerrado').length / safePlanes.length) * 100 : 100;
+  const madurezSidebar = (pctControlesSidebar * 0.5) + (pctPlanesSidebar * 0.5);
+
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#f8fafc] font-sans overflow-hidden">
       
       {/* NOTIFICACIONES EMERGENTES */}
       {notification && (
@@ -2531,71 +2499,75 @@ export default function App() {
         </div>
       )}
 
-      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20">
-        <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+      {/* SIDEBAR ESTILO EJECUTIVO */}
+      <div className="w-64 bg-[#0f172a] text-slate-300 flex flex-col shadow-2xl z-20 transition-all duration-300">
+        <div className="p-6 flex items-center space-x-3 border-b border-slate-800/50">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+            <span className="text-lg font-black">🛡️</span>
+          </div>
+          <div>
+            <h1 className="text-sm font-black tracking-wide text-white">SGR Termales</h1>
+            <p className="text-[9px] text-slate-400 uppercase tracking-widest mt-0.5">Gestión de Riesgos</p>
+          </div>
+        </div>
+        
+        <div className="px-6 py-4 border-b border-slate-800/50 flex items-center space-x-3 cursor-pointer hover:bg-slate-800/30 transition-colors">
+          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white uppercase">{user.email.substring(0,2)}</div>
+          <div className="overflow-hidden">
+            <div className="text-xs font-bold text-white truncate">{user.email.split('@')[0]}</div>
+            <div className="text-[9px] text-slate-400">Auditor Administrador</div>
+          </div>
+        </div>
+
+        <nav className="flex-1 px-3 py-4 space-y-1 text-[11px] font-bold overflow-y-auto custom-scrollbar">
           {[
-            { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
-            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
-            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
+            { id: 'dashboard_ejecutivo', icon: '🏠', label: 'Dashboard Ejecutivo' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
-            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
-            { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
-            { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
+            { id: 'plan_anual', icon: '🗓️', label: 'Plan de Auditoría' },
+            { id: 'evaluaciones', icon: '🔬', label: 'Eval. Controles' },
+            { id: 'hallazgos', icon: '🚩', label: 'Hallazgos' },
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
-            { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
+            { id: 'incidentes', icon: '💰', label: 'Pérdidas Reales' },
+            { id: 'apetito', icon: '⚖️', label: 'Config. COSO' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
           ].map((tab, index) => (
-            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-              <span>{tab.icon}</span><span>{tab.label}</span>
+            <button 
+              key={`nav-${tab.id}-${index}`} 
+              onClick={() => setActiveTab(tab.id)} 
+              className={`w-full text-left px-4 py-2.5 rounded-lg flex items-center space-x-3 transition-all ${activeTab === tab.id ? 'bg-blue-600/10 text-blue-400 font-black' : 'hover:bg-slate-800/50 hover:text-white'}`}
+            >
+              <span className={`text-sm ${activeTab === tab.id ? '' : 'opacity-70'}`}>{tab.icon}</span>
+              <span>{tab.label}</span>
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
+
+        {/* WIDGET MADUREZ SIDEBAR */}
+        <div className="mx-4 mb-4 bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+           <div className="text-[9px] text-slate-400 uppercase tracking-widest font-bold mb-2">Nivel de Madurez</div>
+           <div className="flex items-end justify-between">
+              <div>
+                 <div className={`text-xl font-black ${madurezSidebar >= 80 ? 'text-emerald-400' : madurezSidebar >= 60 ? 'text-amber-400' : 'text-red-400'}`}>{Math.round(madurezSidebar)}%</div>
+                 <div className="text-[10px] text-slate-300 mt-0.5">{madurezSidebar >= 80 ? 'Gestionado' : 'En Desarrollo'}</div>
+              </div>
+              <button onClick={() => setActiveTab('dashboard_ejecutivo')} className="text-[10px] text-blue-400 hover:text-blue-300">Ver &rarr;</button>
+           </div>
+           <div className="w-full bg-slate-700 h-1 mt-3 rounded-full overflow-hidden">
+              <div className={`h-full ${madurezSidebar >= 80 ? 'bg-emerald-400' : madurezSidebar >= 60 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${madurezSidebar}%`}}></div>
+           </div>
+        </div>
+
+        <div className="p-4 border-t border-slate-800/50">
+          <button onClick={handleLogout} className="w-full text-[10px] text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg py-2 font-bold flex items-center justify-center space-x-2 transition-colors">
+            <span>🚪</span> <span>Cerrar Sesión</span>
+          </button>
+        </div>
       </div>
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm z-10">
-          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold">Termales de Santa Rosa de Cabal</span>
-          
-          <button onClick={() => setIsAlertPanelOpen(!isAlertPanelOpen)} className="relative p-2 text-slate-500 hover:text-slate-800 transition-colors focus:outline-none">
-            <span className="text-xl">🔔</span>
-            {alertasActivas.length > 0 && <span className="absolute top-0 right-0 bg-red-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white animate-pulse">{alertasActivas.length}</span>}
-          </button>
-        </header>
-
-        {isAlertPanelOpen && (
-          <div className="absolute top-16 right-0 bottom-0 w-80 bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right-8 duration-300">
-            <div className="p-4 border-b bg-slate-900 text-white flex justify-between items-center">
-              <h3 className="font-black text-sm uppercase tracking-widest flex items-center space-x-2"><span>🤖</span> <span>Centro de Alertas</span></h3>
-              <button onClick={() => setIsAlertPanelOpen(false)} className="text-slate-400 hover:text-white font-bold">✖</button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-              {alertasActivas.length === 0 ? (
-                <div className="text-center p-6 text-slate-400">
-                  <div className="text-4xl mb-2">✅</div>
-                  <p className="text-xs font-bold uppercase tracking-widest">Todo bajo control</p>
-                  <p className="text-[10px] mt-1">El sistema no detecta anomalías urgentes.</p>
-                </div>
-              ) : (
-                alertasActivas.map(alerta => (
-                  <div key={alerta.id} className={`p-3 rounded-xl border ${alerta.color} shadow-sm`}>
-                    <div className="flex items-start space-x-2">
-                      <span className="text-lg">{alerta.icono}</span>
-                      <div>
-                        <h4 className="font-black text-[11px] uppercase tracking-wider">{alerta.titulo}</h4>
-                        <p className="text-[10px] mt-1 font-medium opacity-90 leading-tight">{alerta.desc}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
         <main className="flex-grow overflow-y-auto p-8 relative">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-[1400px] mx-auto">
+            {activeTab === 'dashboard_ejecutivo' && renderDashboardEjecutivo()}
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
             {activeTab === 'plan_anual' && renderPlanAnual()}
