@@ -178,6 +178,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 }
 
+// Helper robusto para formatear fechas
 const formatSafeDate = (val) => {
   if (!val) return '';
   if (typeof val === 'string') return val;
@@ -190,16 +191,34 @@ const formatSafeDate = (val) => {
   return String(val);
 };
 
-// UTILIDAD PARA BUSCADOR: Filtra cualquier array de objetos buscando coincidencias en sus valores
-const filterData = (dataArray, term) => {
-  if (!term) return dataArray;
-  const lowerTerm = term.toLowerCase();
-  return dataArray.filter(item => {
-    return Object.values(item).some(val => 
-      val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm)
+// ==================== UTILIDAD AVANZADA PARA BUSCADOR Y FILTROS POR COLUMNA ====================
+const applyFilters = (dataArray, globalTerm, colFilters) => {
+  let result = dataArray;
+  
+  // 1. Aplicar Buscador Global
+  if (globalTerm) {
+    const lowerTerm = globalTerm.toLowerCase();
+    result = result.filter(item => 
+      Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
     );
-  });
+  }
+  
+  // 2. Aplicar Filtros Específicos por Columna
+  if (colFilters && Object.keys(colFilters).length > 0) {
+    Object.entries(colFilters).forEach(([key, filterValue]) => {
+      if (filterValue) {
+        const lowerFilter = filterValue.toLowerCase();
+        result = result.filter(item => {
+          const val = item[key];
+          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerFilter);
+        });
+      }
+    });
+  }
+  
+  return result;
 };
+
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
@@ -214,8 +233,9 @@ export default function App() {
   
   const [isAlertPanelOpen, setIsAlertPanelOpen] = useState(false);
   
-  // NUEVO: Estado Global del Buscador
+  // Estados Globales del Buscador y Filtros por Columna
   const [searchTerm, setSearchTerm] = useState('');
+  const [columnFilters, setColumnFilters] = useState({});
 
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
@@ -251,10 +271,31 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
-  // Resetear el buscador cada vez que cambie de pestaña
+  // Limpiar buscadores y filtros al cambiar de pestaña para no arrastrar filtros cruzados
   useEffect(() => {
     setSearchTerm('');
+    setColumnFilters({});
   }, [activeTab]);
+
+  const handleColFilterChange = (key, value) => {
+    setColumnFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Componente Reutilizable de Input para Filtro de Columna
+  const FilterInput = ({ colKey, placeholder, dark }) => (
+    <input 
+      type="text" 
+      placeholder={placeholder || "Filtrar..."}
+      className={`mt-1.5 w-full text-[9px] px-1.5 py-1 font-normal rounded border focus:outline-none focus:ring-1 ${
+        dark 
+          ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
+          : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
+      }`}
+      value={columnFilters[colKey] || ''}
+      onChange={(e) => handleColFilterChange(colKey, e.target.value)}
+      onClick={(e) => e.stopPropagation()} 
+    />
+  );
 
   const checkAlertasInteligentes = () => {
     let alertas = [];
@@ -941,16 +982,28 @@ export default function App() {
                      <table className="w-full text-xs text-left divide-y divide-slate-100">
                        <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                          <tr>
-                           <th className="p-3">ID</th>
-                           <th className="p-3 w-24">Periodo</th>
-                           <th className="p-3 w-48">Área / Proceso</th>
-                           <th className="p-3">Enfoque Técnico y Alcance</th>
+                           <th className="p-3">
+                             <div>ID</div>
+                             <FilterInput colKey="codigo" placeholder="ID..." />
+                           </th>
+                           <th className="p-3 w-24">
+                             <div>Periodo</div>
+                             <FilterInput colKey="periodo" />
+                           </th>
+                           <th className="p-3 w-48">
+                             <div>Área / Proceso</div>
+                             <FilterInput colKey="proceso" />
+                           </th>
+                           <th className="p-3">
+                             <div>Enfoque Técnico y Alcance</div>
+                             <FilterInput colKey="enfoque" />
+                           </th>
                            <th className="p-3 text-center">Cumpl.</th>
                            {isAdmin && <th className="p-3 text-center">Acción</th>}
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {safeCronograma.map(c => (
+                         {applyFilters(safeCronograma, searchTerm, columnFilters).map(c => (
                            <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
                              <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
@@ -1012,22 +1065,34 @@ export default function App() {
              <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">CRONOGRAMA DE CONTROL INTERNO</h3>
              <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-                <input type="text" placeholder="Buscar en plan..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
              </div>
            </div>
            <div className="overflow-x-auto p-4">
              <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
                <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
                  <tr>
-                   <th className="border border-slate-300 p-2 w-10 text-center">Cód</th>
-                   <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
-                   <th className="border border-slate-300 p-2 w-32">Responsable</th>
-                   <th className="border border-slate-300 p-2 w-32">Apoyo</th>
+                   <th className="border border-slate-300 p-2 w-10 text-center">
+                     <div>Cód</div>
+                     <FilterInput colKey="codigo" placeholder="ID..." />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-48">
+                     <div>Proceso Auditable</div>
+                     <FilterInput colKey="proceso" />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Responsable</div>
+                     <FilterInput colKey="responsable" />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Apoyo</div>
+                     <FilterInput colKey="apoyo" />
+                   </th>
                    {allMonths.map(m => <th key={m} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
-                 {filterData(safeCronograma, searchTerm).map(c => (
+                 {applyFilters(safeCronograma, searchTerm, columnFilters).map(c => (
                    <tr key={c.id} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
@@ -1419,6 +1484,36 @@ export default function App() {
       return r.capacidadRiesgo && costoTotal > r.capacidadRiesgo;
     }).length;
 
+    // Pre-calcular valores para que el filtro por columnas funcione sobre ellos
+    const apetitoData = safeRiesgos.map(r => {
+      const resScore = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score;
+      const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
+      const estaConfigurado = r.posturaEstrategica && r.capacidadRiesgo;
+      
+      let zona = "Sin parametrizar";
+      let zonaColor = "bg-slate-100 text-slate-500 border-slate-200";
+      let consumoPorcentaje = 0;
+
+      if (estaConfigurado) {
+        consumoPorcentaje = Math.min((costoTotal / r.capacidadRiesgo) * 100, 100);
+        if (costoTotal <= r.apetitoFinanciero) { 
+          zona = "Confort (Apetito)"; 
+          zonaColor = "bg-emerald-50 text-emerald-700 border-emerald-200"; 
+        } else if (costoTotal <= r.toleranciaFinanciera) { 
+          zona = "Alerta (Tolerancia)"; 
+          zonaColor = "bg-yellow-50 text-yellow-700 border-yellow-300"; 
+        } else if (costoTotal <= r.capacidadRiesgo) { 
+          zona = "Peligro (Brecha)"; 
+          zonaColor = "bg-orange-50 text-orange-700 border-orange-300"; 
+        } else { 
+          zona = "Crítico (Cap. Excedida)"; 
+          zonaColor = "bg-red-50 text-red-700 border-red-300"; 
+        }
+      }
+
+      return { ...r, resScoreVal: resScore, costoTotalVal: costoTotal, estaConfiguradoVal: estaConfigurado, zonaVal: zona, zonaColorVal: zonaColor, consumoPorcentajeVal: consumoPorcentaje };
+    });
+
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         <div className="border-b pb-4">
@@ -1503,51 +1598,32 @@ export default function App() {
             </div>
             <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-                <input type="text" placeholder="Buscar riesgo o proceso..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-700 bg-slate-800 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-sm placeholder-slate-500" />
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-700 bg-slate-800 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-sm placeholder-slate-500" />
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left divide-y divide-slate-100">
               <thead className="bg-slate-50 text-slate-500 font-black uppercase tracking-wider text-[9px]">
                 <tr>
-                  <th className="p-4 w-1/3">Proceso / Riesgo / Postura</th>
-                  <th className="p-4 text-center">Score (KRI)</th>
+                  <th className="p-4 w-1/3">
+                    <div>Proceso / Riesgo / Postura</div>
+                    <FilterInput colKey="proceso" />
+                  </th>
+                  <th className="p-4 text-center">
+                    <div>Score (KRI)</div>
+                    <FilterInput colKey="kriScore" placeholder="Score..." />
+                  </th>
                   <th className="p-4 w-1/3">Consumo de Capacidad Financiera (Eventos)</th>
-                  <th className="p-4 text-center">Diagnóstico COSO</th>
+                  <th className="p-4 text-center">
+                    <div>Diagnóstico COSO</div>
+                    <FilterInput colKey="zonaVal" placeholder="Estado..." />
+                  </th>
                   <th className="p-4 text-center">Gestión</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filterData(safeRiesgos, searchTerm).map((r, index) => {
-                  // --- CÁLCULOS MATRIZ ---
-                  const resScore = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score;
-                  const limiteScore = r.kriScore;
-                  const excedidoScore = limiteScore && resScore > limiteScore;
-
-                  // --- CÁLCULOS FINANCIEROS COSO ---
-                  const costoTotal = safeIncidentes.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
-                  const estaConfigurado = r.posturaEstrategica && r.capacidadRiesgo;
-                  
-                  let zona = "Sin parametrizar";
-                  let zonaColor = "bg-slate-100 text-slate-500 border-slate-200";
-                  let consumoPorcentaje = 0;
-
-                  if (estaConfigurado) {
-                    consumoPorcentaje = Math.min((costoTotal / r.capacidadRiesgo) * 100, 100);
-                    if (costoTotal <= r.apetitoFinanciero) { 
-                      zona = "Confort (Apetito)"; 
-                      zonaColor = "bg-emerald-50 text-emerald-700 border-emerald-200"; 
-                    } else if (costoTotal <= r.toleranciaFinanciera) { 
-                      zona = "Alerta (Tolerancia)"; 
-                      zonaColor = "bg-yellow-50 text-yellow-700 border-yellow-300"; 
-                    } else if (costoTotal <= r.capacidadRiesgo) { 
-                      zona = "Peligro (Brecha)"; 
-                      zonaColor = "bg-orange-50 text-orange-700 border-orange-300"; 
-                    } else { 
-                      zona = "Crítico (Cap. Excedida)"; 
-                      zonaColor = "bg-red-50 text-red-700 border-red-300"; 
-                    }
-                  }
+                {applyFilters(apetitoData, searchTerm, columnFilters).map((r, index) => {
+                  const excedidoScore = r.kriScore && r.resScoreVal > r.kriScore;
 
                   return (
                     <tr key={`apetito-row-${r.id}-${index}`} className="hover:bg-slate-50/80 transition-colors">
@@ -1562,26 +1638,26 @@ export default function App() {
                       </td>
                       
                       <td className="p-4 text-center">
-                        {limiteScore ? (
+                        {r.kriScore ? (
                           <div className="flex flex-col items-center justify-center bg-slate-50 p-2 rounded-xl border border-slate-100">
-                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Límite: {limiteScore} pts</span>
-                            <span className={`px-2 py-1 rounded-lg font-black font-mono text-xs ${excedidoScore ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{resScore} pts</span>
+                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Límite: {r.kriScore} pts</span>
+                            <span className={`px-2 py-1 rounded-lg font-black font-mono text-xs ${excedidoScore ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{r.resScoreVal} pts</span>
                           </div>
                         ) : <span className="text-slate-300 font-medium italic">-</span>}
                       </td>
 
                       <td className="p-4">
-                        {estaConfigurado ? (
+                        {r.estaConfiguradoVal ? (
                           <div className="w-full">
                             <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1">
                               <span className="text-slate-500">Consumo vs Capacidad Total</span>
-                              <span className={consumoPorcentaje > 80 ? 'text-red-600' : 'text-slate-800'}>{consumoPorcentaje.toFixed(1)}%</span>
+                              <span className={r.consumoPorcentajeVal > 80 ? 'text-red-600' : 'text-slate-800'}>{r.consumoPorcentajeVal.toFixed(1)}%</span>
                             </div>
                             <div className="w-full bg-slate-200 rounded-full h-2.5 mb-2 overflow-hidden shadow-inner">
-                              <div className={`h-full rounded-full transition-all duration-1000 ${consumoPorcentaje <= (r.apetitoFinanciero/r.capacidadRiesgo)*100 ? 'bg-emerald-500' : consumoPorcentaje <= (r.toleranciaFinanciera/r.capacidadRiesgo)*100 ? 'bg-yellow-400' : consumoPorcentaje < 100 ? 'bg-orange-500' : 'bg-red-600'}`} style={{ width: `${consumoPorcentaje}%` }}></div>
+                              <div className={`h-full rounded-full transition-all duration-1000 ${r.consumoPorcentajeVal <= (r.apetitoFinanciero/r.capacidadRiesgo)*100 ? 'bg-emerald-500' : r.consumoPorcentajeVal <= (r.toleranciaFinanciera/r.capacidadRiesgo)*100 ? 'bg-yellow-400' : r.consumoPorcentajeVal < 100 ? 'bg-orange-500' : 'bg-red-600'}`} style={{ width: `${r.consumoPorcentajeVal}%` }}></div>
                             </div>
                             <div className="flex justify-between text-[9px] font-mono font-bold text-slate-400">
-                              <span>Perdido: ${(costoTotal).toLocaleString('es-CO')}</span>
+                              <span>Perdido: ${(r.costoTotalVal).toLocaleString('es-CO')}</span>
                               <span>Tope: ${(r.capacidadRiesgo).toLocaleString('es-CO')}</span>
                             </div>
                           </div>
@@ -1591,8 +1667,8 @@ export default function App() {
                       </td>
 
                       <td className="p-4 text-center">
-                        <span className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest border ${zonaColor} shadow-sm block w-full truncate`} title={zona}>
-                          {zona}
+                        <span className={`px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest border ${r.zonaColorVal} shadow-sm block w-full truncate`} title={r.zonaVal}>
+                          {r.zonaVal}
                         </span>
                       </td>
 
@@ -1610,52 +1686,87 @@ export default function App() {
     );
   };
 
-  const renderRiesgos = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-4 flex justify-between items-center">
-        <h2 className="text-2xl font-black text-slate-800">Estructura de Riesgos</h2>
-        <div className="flex space-x-3">
-          <div className="relative">
-             <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-             <input type="text" placeholder="Buscar riesgo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
-          </div>
-          <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-colors">📥 Exportar Excel</button>
-        </div>
-      </div>
-      {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
-          <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            
-            <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
-            
-            <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
-            <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            
-            <div className="md:col-span-4"><label className="font-bold text-gray-600 flex justify-between items-center"><span>Control Clave</span><button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1"><span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span></button></label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            
-            <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
-            <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
-            <div><label className="font-bold text-gray-600">Prob. Residual</label><select name="probRes" defaultValue={editRiesgo?.probabilidadResidual||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
-            <div><label className="font-bold text-gray-600">Imp. Residual</label><select name="impRes" defaultValue={editRiesgo?.impactoResidual||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
-            
-            <div className="md:col-span-4 flex justify-end space-x-2">
-              <button type="submit" className="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar</button>
-            </div>
-          </form>
-        </div>
-      )}
+  const renderRiesgos = () => {
+    // Pre-calcular valores para que el filtro funcione
+    const riesgosData = safeRiesgos.map(r => {
+      const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
+      const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
+      return { ...r, scoreInhVal: inh.score, scoreResVal: res.score, apetitoVal: res.apetito, accionVal: res.accion, colorVal: res.color };
+    });
 
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y">
-            <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3 w-48">Proceso / Riesgo</th><th className="p-3 w-48">Responsable / Control</th><th className="p-3 text-center">Score Inh</th><th className="p-3 text-center">Score Res</th><th className="p-3">Apetito</th><th className="p-3">Acción Recomendada</th><th className="p-3 text-center">Acciones</th></tr></thead>
-            <tbody className="divide-y">
-              {filterData(safeRiesgos, searchTerm).map((r, index) => {
-                const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
-                return (
+    return (
+      <div className="space-y-6">
+        <div className="border-b pb-4 flex justify-between items-center">
+          <h2 className="text-2xl font-black text-slate-800">Estructura de Riesgos</h2>
+          <div className="flex space-x-3">
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
+            </div>
+            <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-colors">📥 Exportar Excel</button>
+          </div>
+        </div>
+        {isAdmin && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
+            <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              
+              <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+              
+              <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
+              <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              
+              <div className="md:col-span-4"><label className="font-bold text-gray-600 flex justify-between items-center"><span>Control Clave</span><button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1"><span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span></button></label><input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div className="md:col-span-4"><label className="font-bold text-gray-600">Descripción Evento</label><input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              
+              <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
+              <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
+              <div><label className="font-bold text-gray-600">Prob. Residual</label><select name="probRes" defaultValue={editRiesgo?.probabilidadResidual||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
+              <div><label className="font-bold text-gray-600">Imp. Residual</label><select name="impRes" defaultValue={editRiesgo?.impactoResidual||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
+              
+              <div className="md:col-span-4 flex justify-end space-x-2">
+                <button type="submit" className="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left divide-y">
+              <thead className="bg-slate-900 text-white font-bold">
+                <tr>
+                  <th className="p-3">
+                    <div>ID</div>
+                    <FilterInput colKey="id" placeholder="ID..." dark />
+                  </th>
+                  <th className="p-3 w-48">
+                    <div>Proceso / Riesgo</div>
+                    <FilterInput colKey="proceso" dark />
+                  </th>
+                  <th className="p-3 w-48">
+                    <div>Responsable / Control</div>
+                    <FilterInput colKey="responsable" dark />
+                  </th>
+                  <th className="p-3 text-center">
+                    <div>Score Inh</div>
+                    <FilterInput colKey="scoreInhVal" placeholder="Puntos..." dark />
+                  </th>
+                  <th className="p-3 text-center">
+                    <div>Score Res</div>
+                    <FilterInput colKey="scoreResVal" placeholder="Puntos..." dark />
+                  </th>
+                  <th className="p-3">
+                    <div>Apetito</div>
+                    <FilterInput colKey="apetitoVal" placeholder="Estado..." dark />
+                  </th>
+                  <th className="p-3">Acción Recomendada</th>
+                  <th className="p-3 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {applyFilters(riesgosData, searchTerm, columnFilters).map((r, index) => (
                   <tr key={`riesgo-row-${r.id}-${index}`} className="hover:bg-slate-50">
                     <td className="p-3 font-bold">#{r.id}</td>
                     <td className="p-3">
@@ -1663,66 +1774,93 @@ export default function App() {
                       <div className="text-[9px] font-bold text-indigo-500 uppercase font-mono">{r.categoria}</div><div>{r.descripcion}</div>
                     </td>
                     <td className="p-3"><div className="font-bold">{r.responsable}</div><div className="italic mt-1">⚙️ {r.descripcionControl}</div></td>
-                    <td className="p-3 text-center font-mono">{calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente).score} pts</td>
-                    <td className="p-3 text-center font-mono font-black">{res.score} pts</td>
-                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${res.apetito === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{res.apetito}</span></td>
-                    <td className="p-3"><span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black ${res.color}`}>{res.accion}</span></td>
+                    <td className="p-3 text-center font-mono">{r.scoreInhVal} pts</td>
+                    <td className="p-3 text-center font-mono font-black">{r.scoreResVal} pts</td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.apetitoVal === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.apetitoVal}</span></td>
+                    <td className="p-3"><span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black ${r.colorVal}`}>{r.accionVal}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
                       {isAdmin && <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️</button>}
                       {isAdmin && <button onClick={() => handleDeleteItem('riesgos', r.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
                     </td>
                   </tr>
-                );
-              })}
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEvaluaciones = () => {
+    const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
+
+    return (
+      <div className="space-y-6">
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Auditoría de Controles</h2></div>
+        {isAdmin && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
+            <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.sede || 'Hotel'}] {r.proceso}</option>)}</select></div>
+              <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+              <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+              <div className="md:col-span-3 flex justify-end"><button type="submit" disabled={isUploading} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo...' : 'Guardar Test'}</button></div>
+            </form>
+          </div>
+        )}
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+             <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Registros de Auditoría</h3>
+             <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 shadow-sm" />
+             </div>
+          </div>
+          <table className="w-full text-xs text-left divide-y">
+            <thead className="bg-slate-900 text-white font-bold">
+              <tr>
+                <th className="p-3">
+                  <div>ID Test</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark />
+                </th>
+                <th className="p-3">
+                  <div>Fecha</div>
+                  <FilterInput colKey="fechaVal" dark />
+                </th>
+                <th className="p-3">
+                  <div>Diseño/Operación</div>
+                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark />
+                </th>
+                <th className="p-3">
+                  <div>Eficacia</div>
+                  <FilterInput colKey="calificacion" placeholder="%" dark />
+                </th>
+                <th className="p-3">
+                  <div>Comentarios / Anexos</div>
+                  <FilterInput colKey="comentarios" dark />
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
+                <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
+                  <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{ev.fechaVal}</td><td>D: {ev.diseño} / E: {ev.ejecucion}</td>
+                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
+                  <td className="p-3">
+                    <div>{ev.comentarios}</div>
+                    {ev.evidenciaUrl && <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Evidencia</span></a>}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
-    </div>
-  );
-
-  const renderEvaluaciones = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Auditoría de Controles</h2></div>
-      {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
-          <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.sede || 'Hotel'}] {r.proceso}</option>)}</select></div>
-            <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div className="md:col-span-2"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
-            <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
-            <div className="md:col-span-3 flex justify-end"><button type="submit" disabled={isUploading} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo...' : 'Guardar Test'}</button></div>
-          </form>
-        </div>
-      )}
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Registros de Auditoría</h3>
-           <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-              <input type="text" placeholder="Buscar test..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 shadow-sm" />
-           </div>
-        </div>
-        <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID Test</th><th className="p-3">Fecha</th><th className="p-3">Diseño/Operación</th><th className="p-3">Eficacia</th><th className="p-3">Comentarios / Anexos</th></tr></thead>
-          <tbody className="divide-y">
-            {filterData(safeEvaluaciones, searchTerm).map((ev, index) => (
-              <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
-                <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td><td className="p-3">{formatSafeDate(ev.fecha)}</td><td>D: {ev.diseño} / E: {ev.ejecucion}</td>
-                <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
-                <td className="p-3">
-                  <div>{ev.comentarios}</div>
-                  {ev.evidenciaUrl && <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Evidencia</span></a>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const renderHallazgos = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1766,22 +1904,37 @@ export default function App() {
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Desviaciones Encontradas</h3>
            <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-              <input type="text" placeholder="Buscar hallazgo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
+              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
            </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left divide-y divide-slate-100">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
               <tr>
-                <th className="p-4">ID / Ref</th>
-                <th className="p-4">Proceso</th>
-                <th className="p-4 w-1/3">Título e Informes</th>
-                <th className="p-4">Responsables</th>
-                <th className="p-4 text-center">Estado / Gestión</th>
+                <th className="p-4">
+                  <div>ID / Ref</div>
+                  <FilterInput colKey="ref" placeholder="ID..." />
+                </th>
+                <th className="p-4">
+                  <div>Proceso</div>
+                  <FilterInput colKey="proceso" />
+                </th>
+                <th className="p-4 w-1/3">
+                  <div>Título e Informes</div>
+                  <FilterInput colKey="titulo" />
+                </th>
+                <th className="p-4">
+                  <div>Responsables</div>
+                  <FilterInput colKey="responsable" placeholder="Responsable..." />
+                </th>
+                <th className="p-4 text-center">
+                  <div>Estado / Gestión</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filterData(safeHallazgos, searchTerm).map((h, index) => (
+              {applyFilters(safeHallazgos, searchTerm, columnFilters).map((h, index) => (
                 <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <div className="font-black text-slate-800 text-sm">{h.ref}</div>
@@ -1830,71 +1983,100 @@ export default function App() {
     </div>
   );
 
-  const renderPlanes = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Planes de Acción</h2></div>
-      {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
-          
-          <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-            <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[{h.sede || 'Hotel'}] {h.titulo}</option>)}</select></div>
-            
-            <div className="md:col-span-4">
-              <label className="font-bold text-gray-600 flex justify-between items-center">
-                <span>Acción Correctiva</span>
-                <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                </button>
-              </label>
-              <input name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1" />
-            </div>
+  const renderPlanes = () => {
+    const planesData = safePlanes.map(p => ({ ...p, fechaVal: formatSafeDate(p.fecha) }));
 
-            <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={formatSafeDate(editPlan?.fecha)||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-blue-600">% de Avance Físico</label><input type="number" min="0" max="100" name="progreso" defaultValue={editPlan?.progreso||0} required className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+    return (
+      <div className="space-y-6">
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Planes de Acción</h2></div>
+        {isAdmin && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
             
-            <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-slate-800 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo Archivo...' : (editPlan ? 'Actualizar Progreso' : 'Asignar Plan')}</button></div>
-          </form>
+            <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[{h.sede || 'Hotel'}] {h.titulo}</option>)}</select></div>
+              
+              <div className="md:col-span-4">
+                <label className="font-bold text-gray-600 flex justify-between items-center">
+                  <span>Acción Correctiva</span>
+                  <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                  </button>
+                </label>
+                <input name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1" />
+              </div>
+
+              <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={formatSafeDate(editPlan?.fecha)||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-blue-600">% de Avance Físico</label><input type="number" min="0" max="100" name="progreso" defaultValue={editPlan?.progreso||0} required className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+              
+              <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-slate-800 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo Archivo...' : (editPlan ? 'Actualizar Progreso' : 'Asignar Plan')}</button></div>
+            </form>
+          </div>
+        )}
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+             <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes</h3>
+             <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+             </div>
+          </div>
+          <table className="w-full text-xs text-left divide-y">
+            <thead className="bg-slate-900 text-white font-bold">
+              <tr>
+                <th className="p-3">
+                  <div>ID</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark />
+                </th>
+                <th className="p-3">
+                  <div>Hallazgo</div>
+                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark />
+                </th>
+                <th className="p-3">
+                  <div>Acción y Evidencias</div>
+                  <FilterInput colKey="accion" dark />
+                </th>
+                <th className="p-3">
+                  <div>Compromiso</div>
+                  <FilterInput colKey="fechaVal" placeholder="Fecha..." dark />
+                </th>
+                <th className="p-3 w-40">Avance</th>
+                <th className="p-3">
+                  <div>Estado</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." dark />
+                </th>
+                <th className="p-3 text-center">Gestión</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
+                const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
+                return (
+                  <tr key={`plan-row-${p.id}-${index}`}>
+                    <td className="p-3 font-bold">#PLAN-{p.id}</td>
+                    <td className="p-3"><span className="text-red-600 font-bold block">#HAL-{p.idHallazgo}</span><span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
+                    <td className="p-3">
+                      <div className="font-bold">{p.accion}</div>
+                      {p.evidenciaUrl && <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Soporte</span></a>}
+                    </td>
+                    <td className="p-3 font-mono">{p.fechaVal}</td>
+                    <td className="p-3"><ProgressBar progress={p.progreso || 0} /></td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      {isAdmin && <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
+                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes</h3>
-           <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-              <input type="text" placeholder="Buscar plan o responsable..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
-           </div>
-        </div>
-        <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Hallazgo</th><th className="p-3">Acción y Evidencias</th><th className="p-3">Compromiso</th><th className="p-3 w-40">Avance</th><th className="p-3">Estado</th><th className="p-3 text-center">Gestión</th></tr></thead>
-          <tbody className="divide-y">
-            {filterData(safePlanes, searchTerm).map((p, index) => {
-              const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
-              return (
-                <tr key={`plan-row-${p.id}-${index}`}>
-                  <td className="p-3 font-bold">#PLAN-{p.id}</td>
-                  <td className="p-3"><span className="text-red-600 font-bold block">#HAL-{p.idHallazgo}</span><span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
-                  <td className="p-3">
-                    <div className="font-bold">{p.accion}</div>
-                    {p.evidenciaUrl && <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold flex items-center space-x-1 mt-1 hover:underline"><span>📎</span><span>Ver Soporte</span></a>}
-                  </td>
-                  <td className="p-3 font-mono">{formatSafeDate(p.fecha)}</td>
-                  <td className="p-3"><ProgressBar progress={p.progreso || 0} /></td>
-                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
-                  <td className="p-3 text-center whitespace-nowrap space-x-1">
-                    {isAdmin && <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
-                    {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderIncidentes = () => (
     <div className="space-y-6">
@@ -1919,16 +2101,37 @@ export default function App() {
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Historial de Incidentes</h3>
            <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-              <input type="text" placeholder="Buscar incidente..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
+              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
            </div>
         </div>
         <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold"><tr><th className="p-3">ID</th><th className="p-3">Riesgo</th><th className="p-3 w-1/3">Título / Desc</th><th className="p-3">Impacto</th><th className="p-3 text-right">Pérdida (COP)</th><th className="p-3 text-center">Acciones</th></tr></thead>
+          <thead className="bg-slate-900 text-white font-bold">
+            <tr>
+              <th className="p-3">
+                <div>ID</div>
+                <FilterInput colKey="id" placeholder="ID..." dark />
+              </th>
+              <th className="p-3">
+                <div>Riesgo</div>
+                <FilterInput colKey="idRiesgo" placeholder="ID Riesgo..." dark />
+              </th>
+              <th className="p-3 w-1/3">
+                <div>Título / Desc</div>
+                <FilterInput colKey="titulo" dark />
+              </th>
+              <th className="p-3">
+                <div>Impacto</div>
+                <FilterInput colKey="impacto" dark />
+              </th>
+              <th className="p-3 text-right">Pérdida (COP)</th>
+              <th className="p-3 text-center">Acciones</th>
+            </tr>
+          </thead>
           <tbody className="divide-y">
-            {filterData(safeIncidentes, searchTerm).map((inc, index) => (
+            {applyFilters(safeIncidentes, searchTerm, columnFilters).map((inc, index) => (
               <tr key={`inc-${inc.id}-${index}`} className="hover:bg-slate-50">
                 <td className="p-3 font-bold text-slate-400">#INC-{inc.id}</td>
-                <td className="p-3"><span className="text-[10px] bg-slate-200 px-2 py-1 rounded font-mono">#{inc.idRiesgo}</span></td>
+                <td className="p-3"><span className="text-[10px] bg-slate-200 px-2 py-1 rounded font-mono text-slate-800">#{inc.idRiesgo}</span></td>
                 <td className="p-3"><div className="font-bold">{inc.titulo}</div><div className="text-[10px] text-slate-500 mt-1 leading-relaxed">{inc.descripcion}</div></td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${inc.impacto === 'Crítico' ? 'bg-red-200 text-red-800' : 'bg-slate-100 text-slate-700'}`}>{inc.impacto}</span></td>
                 <td className="p-3 text-right font-mono font-bold text-red-600">${Number(inc.costo)?.toLocaleString('es-CO')}</td>
@@ -1978,7 +2181,7 @@ export default function App() {
         const dateA = new Date(formatSafeDate(a.fecha)).getTime() || 0;
         const dateB = new Date(formatSafeDate(b.fecha)).getTime() || 0;
         return dateB - dateA;
-      });
+      }).map(log => ({ ...log, fechaVal: formatSafeDate(log.fecha) }));
     };
 
     const logsOrdenados = getAllLogs();
@@ -2001,7 +2204,7 @@ export default function App() {
             <div className="flex space-x-3 items-center">
               <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-                  <input type="text" placeholder="Buscar en logs..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+                  <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
               </div>
               <button onClick={() => exportToExcel(logsOrdenados, 'Trazabilidad_GRC')} className="bg-slate-800 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-700 transition-colors">📥 Exportar Logs</button>
             </div>
@@ -2011,19 +2214,31 @@ export default function App() {
             <table className="w-full text-xs text-left divide-y">
               <thead className="bg-white text-slate-400 font-bold text-[10px] uppercase tracking-widest">
                 <tr>
-                  <th className="p-4 w-40">Fecha y Hora</th>
-                  <th className="p-4 w-32">Módulo</th>
-                  <th className="p-4">Acción Realizada</th>
-                  <th className="p-4 w-64">Referencia</th>
+                  <th className="p-4 w-40">
+                    <div>Fecha y Hora</div>
+                    <FilterInput colKey="fechaVal" />
+                  </th>
+                  <th className="p-4 w-32">
+                    <div>Módulo</div>
+                    <FilterInput colKey="modulo" />
+                  </th>
+                  <th className="p-4">
+                    <div>Acción Realizada</div>
+                    <FilterInput colKey="accion" />
+                  </th>
+                  <th className="p-4 w-64">
+                    <div>Referencia</div>
+                    <FilterInput colKey="desc" />
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {logsOrdenados.length === 0 && (
                   <tr><td colSpan="4" className="p-8 text-center text-slate-400 font-medium italic">No se encontraron movimientos registrados en la base de datos.</td></tr>
                 )}
-                {filterData(logsOrdenados, searchTerm).map((log, index) => (
+                {applyFilters(logsOrdenados, searchTerm, columnFilters).map((log, index) => (
                   <tr key={`log-${index}`} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-mono font-medium text-slate-600">{formatSafeDate(log.fecha)}</td>
+                    <td className="p-4 font-mono font-medium text-slate-600">{log.fechaVal}</td>
                     <td className="p-4">
                       <span className={`flex items-center space-x-1.5 w-max px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${log.color}`}>
                         <span>{log.icon}</span>
