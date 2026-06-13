@@ -134,16 +134,6 @@ const applyFilters = (dataArray, globalTerm, colFilters) => {
 };
 
 // --- COMPONENTES VISUALES ---
-const InfoTooltip = ({ text }) => (
-  <div className="relative group inline-block ml-2 align-middle z-50">
-    <span className="bg-blue-100 text-blue-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] cursor-help font-black shadow-sm border border-blue-200 hover:bg-blue-200 transition-colors">?</span>
-    <div className="absolute z-[100] left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-64 bg-slate-900 text-white text-[11px] p-3 rounded-xl shadow-2xl pointer-events-none font-medium leading-relaxed text-left">
-      {text}
-      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
-    </div>
-  </div>
-);
-
 const ProgressBar = ({ progress }) => {
   let color = "bg-red-500";
   if (progress >= 40) color = "bg-amber-500";
