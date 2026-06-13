@@ -10,19 +10,7 @@ import {
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// =====================================================================
-// 🤖 CONEXIÓN SEGURA A GEMINI PRO (Inyectada desde Vercel / .env)
-// =====================================================================
-let GEMINI_API_KEY = "";
-try {
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  }
-} catch (error) {
-  console.warn("Entorno simulado: variables de Vercel no detectadas.");
-}
-
-// --- TUS LLAVES SECRETAS DE FIREBASE ---
+// --- CONFIGURACIÓN DE FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyBGE2P-_oep_N7o8so6wubmaZXv12imZaE",
   authDomain: "gestion-de-riesgos-b4bf0.firebaseapp.com",
@@ -38,7 +26,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app); 
 
-// --- CONTROL DE ACCESO ---
+// --- CONTROL DE ACCESO (ROLES) ---
 const ADMIN_EMAILS = [
   "controlinterno@termales.com.co",
   "auditoria@termales.com.co",
@@ -46,46 +34,8 @@ const ADMIN_EMAILS = [
   "analista.controlinterno@termales.com.co"
 ];
 
-// --- DATOS POR DEFECTO ---
-const defaultRiesgos = [
-  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene de alimentos por uso de insumos cárnicos de baja calidad.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
-  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Sanciones o pérdidas financieras por errores en la declaración de impuestos hoteleros.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
-  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Intrusión de ransomware que paralice el sistema hotelero de reservas.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
-];
-
-const defaultHallazgos = [
-  { id: 1, sede: 'Ecoparque', ref: 'Aud. Interna TI-2026', titulo: 'Acceso de usuarios genéricos a la base de datos del ERP.', proceso: 'Sistemas', responsable: 'Jefe de TI', auditor: 'Auditoría TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', anio: 2026, mes: 'Junio', historialCambios: [] },
-  { id: 2, sede: 'Hotel', ref: 'Aud. Op-2025', titulo: 'Ausencia de actas de capacitación en higiene de alimentos.', proceso: 'Alimentos y bebidas', responsable: 'Jefe de A&B', auditor: 'Control Interno', severidad: 'Medio', idRiesgo: 98, estado: 'Cerrado', fecha: '2025-11-15', anio: 2025, mes: 'Noviembre', historialCambios: [] }
-];
-
-const defaultPlanes = [
-  { id: 1, idHallazgo: 1, accion: 'Desactivar credenciales comunes y parametrizar roles individuales en base de datos.', responsable: 'Jefe de TI', fecha: '2026-07-15', estado: 'En Proceso', progreso: 30, anio: 2026, mes: 'Julio', historialCambios: [] },
-  { id: 2, idHallazgo: 2, accion: 'Realizar capacitación certificada con entidad de salud y documentar firmas.', responsable: 'Jefe de A&B', fecha: '2025-12-10', estado: 'Cerrado', progreso: 100, anio: 2025, mes: 'Diciembre', historialCambios: [] }
-];
-
-const defaultIncidentes = [
-  { id: 1, idRiesgo: 201, fecha: '2026-06-05', titulo: 'Alarma de ataque de fuerza bruta contenida', descripcion: 'El firewall detectó 400 intentos de inicio de sesión fallidos de IPs externas. El puerto se bloqueó.', costo: 1200000, impacto: 'Bajo', reportadoPor: 'analista.controlinterno@termales.com.co', estado: 'Cerrado', anio: 2026, mes: 'Junio', historialCambios: [] }
-];
-
-const defaultEvaluaciones = [
-  { id: 1, idRiesgo: 201, fecha: '2026-06-01', diseño: 'Eficaz', ejecucion: 'Eficaz', calificacion: 100, comentarios: 'Prueba de penetración simulada arrojó contención del cortafuegos de manera instantánea.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] },
-  { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] }
-];
-
-const defaultCronograma = [
-  { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque (Rentabilidad AyB), Inventarios, Auditoria Locativa e Infraestructura, Calidad, Taquilla, Manillas, Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
-  { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
-  { id: 3, codigo: '03', periodo: 'Marzo - Abril', proceso: 'Cartera (Notas Crédito y Descuentos)', enfoque: 'Verificación del comportamiento de NC en los procesos que generan estos documentos en la operación, análisis de cumplimiento de procedimientos y trazabilidad.', cumplimiento: 100, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] }
-];
-
-const defaultMonitoreo = [
-  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
-  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
-  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4, limite: 10, tendencia: 'flat', proceso: 'Auditoría' }
-];
-
 // =====================================================================
-// 🛠️ FUNCIONES GLOBALES, CÁLCULOS Y FILTROS
+// 🛠️ FUNCIONES GLOBALES, CÁLCULOS Y FILTROS SEGUROS
 // =====================================================================
 
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
@@ -183,7 +133,17 @@ const applyFilters = (dataArray, globalTerm, colFilters) => {
   return result;
 };
 
-// --- COMPONENTES VISUALES ---
+// --- COMPONENTES VISUALES COMPARTIDOS ---
+const InfoTooltip = ({ text }) => (
+  <div className="relative group inline-block ml-2 align-middle z-50">
+    <span className="bg-blue-100 text-blue-700 rounded-full w-4 h-4 flex items-center justify-center text-[10px] cursor-help font-black shadow-sm border border-blue-200 hover:bg-blue-200 transition-colors">?</span>
+    <div className="absolute z-[100] left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-64 bg-slate-900 text-white text-[11px] p-3 rounded-xl shadow-2xl pointer-events-none font-medium leading-relaxed text-left">
+      {text}
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900"></div>
+    </div>
+  </div>
+);
+
 const ProgressBar = ({ progress }) => {
   let color = "bg-red-500";
   if (progress >= 40) color = "bg-amber-500";
@@ -213,7 +173,7 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
       <span className="absolute text-xl font-black text-slate-800">{Math.round(value || 0)}%</span>
     </div>
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">{label}</p>
-    <p className="text-[10px] font-bold text-slate-500">{sublabel}</p>
+    <p className="text-xs font-bold text-slate-700">{sublabel}</p>
   </div>
 );
 
@@ -232,6 +192,86 @@ const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilter
   />
 );
 
+const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
+  const maxVal = Math.max(...data.map(d => d.valor), 1);
+  const height = 100; const width = 600; const paddingY = 20; const paddingX = 15;
+  const points = data.map((d, i) => {
+    const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
+    const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
+    return `${x},${y}`;
+  }).join(' ');
+  const fillPoints = `${paddingX},${height - paddingY} ${points} ${width - paddingX},${height - paddingY}`;
+
+  return (
+    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
+       <div className="flex justify-between items-center mb-4">
+         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4>
+         <span className="text-lg">{isCurrency ? '📉' : '📊'}</span>
+       </div>
+       <div className="relative w-full">
+         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-sm overflow-visible" preserveAspectRatio="none">
+           <polygon points={fillPoints} fill={fillColor} opacity="0.4" />
+           <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+           {data.map((d, i) => {
+              const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
+              const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
+              return (
+                <g key={i} className="group cursor-pointer">
+                    <circle cx={x} cy={y} r="4" fill="white" stroke={color} strokeWidth="2" className="transition-all duration-200 group-hover:r-[7px]" />
+                    <rect x={x - 30} y={y - 28} width="60" height="18" rx="4" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
+                    <text x={x} y={y - 15} fontSize="9" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">
+                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : d.valor}
+                    </text>
+                </g>
+              );
+           })}
+         </svg>
+         <div className="flex justify-between mt-3 text-[8px] font-bold text-slate-400 uppercase px-1 border-t border-slate-100 pt-2">
+            {data.map(d => <span key={d.mes}>{d.mes}</span>)}
+         </div>
+       </div>
+    </div>
+  );
+};
+
+// --- ARREGLOS DE DATOS POR DEFECTO ---
+const defaultRiesgos = [
+  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene de alimentos por uso de insumos cárnicos de baja calidad.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
+  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Sanciones o pérdidas financieras por errores en la declaración de impuestos hoteleros.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
+  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Intrusión de ransomware que paralice el sistema de taquillas.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
+];
+
+const defaultHallazgos = [
+  { id: 1, sede: 'Ecoparque', ref: 'HAL-2026-001', titulo: 'Acceso de usuarios genéricos a la base de datos de taquilla.', proceso: 'Sistemas', responsable: 'Jefe de TI', auditor: 'Auditoría TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', anio: 2026, mes: 'Junio', historialCambios: [] },
+  { id: 2, sede: 'Hotel', ref: 'HAL-2025-089', titulo: 'Ausencia de actas de capacitación en higiene de alimentos.', proceso: 'Alimentos y bebidas', responsable: 'Jefe de A&B', auditor: 'Control Interno', severidad: 'Medio', idRiesgo: 98, estado: 'Cerrado', fecha: '2025-11-15', anio: 2025, mes: 'Noviembre', historialCambios: [] }
+];
+
+const defaultPlanes = [
+  { id: 1, idHallazgo: 1, accion: 'Desactivar credenciales comunes y parametrizar roles individuales en base de datos.', responsable: 'Jefe de TI', fecha: '2026-07-15', estado: 'En Proceso', progreso: 30, anio: 2026, mes: 'Julio', historialCambios: [] },
+  { id: 2, idHallazgo: 2, accion: 'Realizar capacitación certificada con entidad de salud y documentar firmas.', responsable: 'Jefe de A&B', fecha: '2025-12-10', estado: 'Cerrado', progreso: 100, anio: 2025, mes: 'Diciembre', historialCambios: [] }
+];
+
+const defaultIncidentes = [
+  { id: 1, idRiesgo: 201, fecha: '2026-06-05', titulo: 'Alarma de ataque de fuerza bruta contenida', descripcion: 'El firewall detectó 400 intentos de inicio de sesión fallidos de IPs externas. El puerto se bloqueó.', costo: 1200000, impacto: 'Bajo', reportadoPor: 'analista.controlinterno@termales.com.co', estado: 'Cerrado', anio: 2026, mes: 'Junio', historialCambios: [] }
+];
+
+const defaultEvaluaciones = [
+  { id: 1, idRiesgo: 201, fecha: '2026-06-01', diseño: 'Eficaz', ejecucion: 'Eficaz', calificacion: 100, comentarios: 'Prueba de penetración simulada arrojó contención del cortafuegos de manera instantánea.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] },
+  { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] }
+];
+
+const defaultCronograma = [
+  { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque (Rentabilidad AyB), Inventarios, Auditoria Locativa e Infraestructura, Calidad, Taquilla, Manillas, Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
+  { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
+  { id: 3, codigo: '03', periodo: 'Marzo - Abril', proceso: 'Cartera (Notas Crédito y Descuentos)', enfoque: 'Verificación del comportamiento de NC en los procesos que generan estos documentos en la operación, análisis de cumplimiento de procedimientos y trazabilidad.', cumplimiento: 100, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] }
+];
+
+const defaultMonitoreo = [
+  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
+  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
+  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4, limite: 10, tendencia: 'flat', proceso: 'Auditoría' }
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
@@ -248,8 +288,7 @@ export default function App() {
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
-  const [aiModal, setAiModal] = useState(null);
+  const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
   // --- ENTIDADES PRINCIPALES ---
   const [riesgos, setRiesgos] = useState([]);
@@ -266,8 +305,9 @@ export default function App() {
   const [editHallazgo, setEditHallazgo] = useState(null);
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
-  const [editCronograma, setEditCronograma] = useState(null);
   const [editApetito, setEditApetito] = useState(null); 
+  const [editCronograma, setEditCronograma] = useState(null);
+  const [editMonitoreo, setEditMonitoreo] = useState(null);
 
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -328,6 +368,15 @@ export default function App() {
     });
   }, [user]);
 
+  useEffect(() => {
+    if (window.XLSX) { setXlsxLoaded(true); return; }
+    const script = document.createElement('script');
+    script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    script.async = true;
+    script.onload = () => setXlsxLoaded(true);
+    document.head.appendChild(script);
+  }, []);
+
   const handleAuthSubmit = async (e) => {
     e.preventDefault(); setAuthError('');
     try {
@@ -341,113 +390,21 @@ export default function App() {
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // --- IA CONEXIÓN ---
-  const sugerirConIA = async (tipoTarget) => {
-    let textoBase = "";
-    let inputDestino = null;
-
-    if (tipoTarget === 'control') {
-      textoBase = document.querySelector('input[name="descripcion"]')?.value || "";
-      inputDestino = document.querySelector('input[name="control"]');
-    } else if (tipoTarget === 'plan') {
-      const selectElement = document.querySelector('select[name="idHallazgo"]');
-      textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
-      inputDestino = document.querySelector('input[name="accion"]');
-    } else if (tipoTarget === 'hallazgo') {
-      textoBase = document.querySelector('input[name="proceso"]')?.value || "";
-      inputDestino = document.querySelector('input[name="titulo"]');
-    }
-
-    if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
-      showNotification("Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
+  const exportToExcel = (dataArray, fileName) => {
+    if (!xlsxLoaded || !window.XLSX) {
+      showNotification("La librería de exportación aún está cargando.", "error");
       return;
     }
-
-    if (!GEMINI_API_KEY) {
-      showNotification("La clave de API de Gemini no se ha cargado correctamente.", "error");
-      return;
-    }
-
-    setIsThinking(true);
-    showNotification("Gemini Pro está analizando el escenario...", "success");
-
-    try {
-      let prompt = "";
-      if (tipoTarget === 'control') {
-        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`;
-      } else if (tipoTarget === 'plan') {
-        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
-      } else if (tipoTarget === 'hallazgo') {
-        prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
-      }
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2 }
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      let sugerencia = data.candidates[0].content.parts[0].text.trim();
-
-      if (inputDestino) {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-        nativeInputValueSetter.call(inputDestino, sugerencia);
-        inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
-        inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
-        showNotification("¡Gemini ha insertado una sugerencia ejecutiva de alto nivel!");
-      }
-    } catch (error) {
-      console.error("Error conectando a Gemini:", error);
-      showNotification("Error conectando con la IA de Google. Verifica los ajustes.", "error");
-    } finally {
-      setIsThinking(false);
-    }
-  };
-
-  const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
-    setIsThinking(true);
-    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
-
-    if (!GEMINI_API_KEY) {
-      showNotification("⚠️ La clave de API de Gemini no se ha cargado correctamente.", "error");
-      setIsThinking(false);
-      return;
-    }
-
-    try {
-      const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
-      Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
-      Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }]
-          })
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      
-      const analisis = data.candidates[0].content.parts[0].text.trim();
-      setAiModal({ titulo: `📋 Checklist IA (Gemini)`, contenido: analisis, url: evidenciaUrl });
-
-    } catch (error) {
-        console.error(error);
-        showNotification("Error conectando con la IA de Google.", "error");
-    } finally {
-        setIsThinking(false);
-    }
+    const cleanData = dataArray.map(item => {
+      const { historialCambios, ...rest } = item;
+      return rest;
+    });
+    
+    const ws = window.XLSX.utils.json_to_sheet(cleanData);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+    window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
   // --- FILTRADO DE COMPONENTES MULTI-SELECT ---
@@ -623,13 +580,19 @@ export default function App() {
 
   const handleCronogramaSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
+    
+    const mesesSeleccionados = [];
+    ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].forEach(mes => {
+      if (formData.get(`mes_${mes}`)) mesesSeleccionados.push(mes);
+    });
+
     let updated;
     if (editCronograma) {
-      const mod = { ...editCronograma, codigo: formData.get('codigo'), periodo: formData.get('periodo'), proceso: formData.get('proceso'), enfoque: formData.get('enfoque'), cumplimiento: parseInt(formData.get('cumplimiento') || 0), responsable: formData.get('responsable'), apoyo: formData.get('apoyo') };
+      const mod = { ...editCronograma, codigo: formData.get('codigo'), periodo: formData.get('periodo'), proceso: formData.get('proceso'), enfoque: formData.get('enfoque'), cumplimiento: parseInt(formData.get('cumplimiento') || 0), responsable: formData.get('responsable'), apoyo: formData.get('apoyo'), meses: mesesSeleccionados };
       updated = safeCronograma.map(c => c.id === editCronograma.id ? mod : c);
       setEditCronograma(null);
     } else {
-      const nuevo = { id: Date.now(), codigo: formData.get('codigo'), periodo: formData.get('periodo'), proceso: formData.get('proceso'), enfoque: formData.get('enfoque'), cumplimiento: parseInt(formData.get('cumplimiento') || 0), responsable: formData.get('responsable'), apoyo: formData.get('apoyo'), meses: ['Enero'] };
+      const nuevo = { id: Date.now(), codigo: formData.get('codigo'), periodo: formData.get('periodo'), proceso: formData.get('proceso'), enfoque: formData.get('enfoque'), cumplimiento: parseInt(formData.get('cumplimiento') || 0), responsable: formData.get('responsable'), apoyo: formData.get('apoyo'), meses: mesesSeleccionados };
       updated = [nuevo, ...safeCronograma];
     }
     setCronograma(updated); await saveToCloud({ cronograma: updated }); e.target.reset(); showNotification("Cronograma guardado.");
@@ -678,8 +641,42 @@ export default function App() {
     if (listType === 'planes') { updated = safePlanes.filter(p => p.id !== id); setPlanes(updated); }
     if (listType === 'incidentes') { updated = safeIncidentes.filter(i => i.id !== id); setIncidentes(updated); }
     if (listType === 'cronograma') { updated = safeCronograma.filter(c => c.id !== id); setCronograma(updated); }
+    if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
     await saveToCloud({ [listType]: updated });
     showNotification("Registro eliminado.", "error");
+  };
+
+  const handleMonitoreoSubmit = async (e) => {
+    e.preventDefault(); const formData = new FormData(e.target);
+    let updatedList;
+    if (editMonitoreo && editMonitoreo.id) {
+      const modificado = {
+        ...editMonitoreo,
+        indicador: formData.get('indicador').toUpperCase(),
+        proceso: formData.get('proceso') || '',
+        valor: parseInt(formData.get('valor') || 0),
+        limite: parseInt(formData.get('limite') || 0),
+        tendencia: formData.get('tendencia') || 'flat'
+      };
+      updatedList = safeMonitoreo.map(m => m.id === editMonitoreo.id ? modificado : m);
+      setEditMonitoreo(null);
+      showNotification("Indicador actualizado exitosamente.");
+    } else {
+      const nuevo = {
+        id: Date.now(),
+        indicador: formData.get('indicador').toUpperCase(),
+        proceso: formData.get('proceso') || '',
+        valor: parseInt(formData.get('valor') || 0),
+        limite: parseInt(formData.get('limite') || 0),
+        tendencia: formData.get('tendencia') || 'flat'
+      };
+      updatedList = [...safeMonitoreo, nuevo];
+      setEditMonitoreo(null);
+      showNotification("Nuevo indicador agregado.");
+    }
+    setMonitoreo(updatedList);
+    await saveToCloud({ monitoreo: updatedList });
+    e.target.reset();
   };
 
   // =====================================================================
@@ -725,7 +722,7 @@ export default function App() {
       <div className="space-y-6">
         {renderSelectorFiltrosMultiples()}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Gauge value={avanceGlobal} label="Mitigación Global" sublabel="Promedio de Avance %" colorClass="text-blue-500" />
+          <Gauge value={avanceGlobal} label="Mitigación Global" sublabel="% de Avance Promedio" colorClass="text-blue-500" />
           <Gauge value={rendimientoControles} label="Salud Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
           <div className="bg-slate-900 text-white p-5 rounded-2xl flex flex-col justify-center text-center shadow-sm">
             <span className="text-[10px] font-black text-red-400 uppercase">Hallazgos Abiertos en Grupo</span>
@@ -757,6 +754,9 @@ export default function App() {
     const probabilidades = ['Rara', 'Posible', 'Frecuente'];
 
     const contarCelda = (imp, prob) => rFiltrados.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
+    
+    const dataIncidentes = selectedMeses.slice(0, 6).map(m => ({ mes: m.substring(0,3), valor: incFiltrados.reduce((acc, val) => acc + (val.costo || 0), 0) / 6 }));
+    const dataHallazgos = selectedMeses.slice(0, 6).map(m => ({ mes: m.substring(0,3), valor: hFiltrados.length / 6 }));
 
     return (
       <div className="space-y-6">
@@ -767,6 +767,11 @@ export default function App() {
             <button onClick={() => setTipoMatriz('inherente')} className={`px-4 py-1 rounded-lg font-bold text-[10px] uppercase ${!esRes ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Inherente</button>
             <button onClick={() => setTipoMatriz('residual')} className={`px-4 py-1 rounded-lg font-bold text-[10px] uppercase ${esRes ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}>Residual</button>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <TrendChart data={dataIncidentes} title={`Evolución de Impacto Financiero`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
+          <TrendChart data={dataHallazgos} title={`Volumen de Desviaciones`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -797,53 +802,227 @@ export default function App() {
   };
 
   const renderPlanAnual = () => {
-    const avg = safeCronograma.length ? Math.round(safeCronograma.reduce((acc, c) => acc + (c.cumplimiento || 0), 0) / safeCronograma.length) : 0;
+    const avgCumplimiento = safeCronograma.length > 0 
+      ? Math.round(safeCronograma.reduce((acc, c) => acc + (c.cumplimiento || 0), 0) / safeCronograma.length) 
+      : 0;
+
+    const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
     return (
-      <div className="space-y-6">
-        <div className="bg-[#004d40] text-white p-6 rounded-2xl flex justify-between items-center shadow-md">
-          <div><h2 className="text-xl font-black uppercase tracking-wider">Plan Anual de Auditoría Interna</h2><p className="text-xs opacity-70">Aseguramiento y Cumplimiento de Procesos</p></div>
-          <div className="bg-[#00695c] px-4 py-2 rounded-xl text-center"><span className="text-xl font-black block">{avg}%</span><span className="text-[9px] uppercase tracking-widest block opacity-80">Avance Cronograma</span></div>
+      <div className="space-y-8 animate-in fade-in duration-300">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-[#004d40] text-white p-6 flex flex-col md:flex-row justify-between items-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.4) 0%, transparent 20%)', backgroundSize: '100px 100px' }}></div>
+            <div className="relative z-10 flex items-center space-x-4">
+               <div className="bg-white text-[#004d40] h-12 w-12 rounded-full flex items-center justify-center font-black text-xl shadow-lg">T</div>
+               <h2 className="text-2xl font-black tracking-widest uppercase">Plan Anual de Auditoría Interna</h2>
+            </div>
+            <div className="relative z-10 mt-4 md:mt-0 bg-[#00695c] px-6 py-2 rounded-full border border-[#00897b] flex items-center space-x-3 shadow-inner">
+               <span className="text-2xl">🎖️</span>
+               <div>
+                  <div className="text-xl font-black">{avgCumplimiento}%</div>
+                  <div className="text-[9px] uppercase tracking-widest font-bold opacity-80">% Cumplimiento Global</div>
+               </div>
+            </div>
+          </div>
+
+          <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
+             <div className="md:col-span-1 space-y-6">
+                <div className="border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
+                   <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Índice General</h3>
+                   <div className="text-6xl font-black text-[#004d40] leading-none mb-2">{avgCumplimiento}%</div>
+                   <div className="text-xs font-bold text-emerald-600 flex items-center justify-center space-x-1"><span>▲</span><span>Meta Alcanzada</span></div>
+                   <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium">Evaluación integral de procesos administrativos, operativos y de soporte.</p>
+                </div>
+
+                <div id="seccion-monitoreo" className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                   <div className="bg-[#004d40] text-white p-3 flex justify-between items-center">
+                     <span className="text-[10px] font-black uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Gestor de KRIs</span></span>
+                     {isAdmin && <button onClick={() => setEditMonitoreo({})} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
+                   </div>
+                   <div className="divide-y divide-slate-100 p-2">
+                     {editMonitoreo && isAdmin && (
+                       <form onSubmit={handleMonitoreoSubmit} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
+                         <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Nombre KRI..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         <input name="proceso" defaultValue={editMonitoreo.proceso||''} placeholder="Proceso..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         <div className="flex space-x-2 mb-2">
+                           <input name="valor" type="number" defaultValue={editMonitoreo.valor||''} placeholder="Valor actual" required className="w-1/2 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                           <input name="limite" type="number" defaultValue={editMonitoreo.limite||''} placeholder="Límite rojo" required className="w-1/2 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                         </div>
+                         <select name="tendencia" defaultValue={editMonitoreo.tendencia||'flat'} className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none">
+                           <option value="up">Tendencia al Alza</option>
+                           <option value="down">Tendencia a la Baja</option>
+                           <option value="flat">Estable</option>
+                         </select>
+                         <div className="flex justify-between items-center mt-1">
+                           <button type="button" onClick={() => setEditMonitoreo(null)} className="text-[10px] text-red-500 hover:text-red-700 font-bold px-2">Cancelar</button>
+                           <button type="submit" className="text-[10px] bg-[#004d40] text-white px-3 py-1.5 rounded shadow-sm hover:bg-[#00695c] font-bold">{editMonitoreo.id ? 'Actualizar' : 'Guardar'}</button>
+                         </div>
+                       </form>
+                     )}
+                     
+                     {safeMonitoreo.map(m => (
+                       <div key={m.id} className="flex flex-col p-3 hover:bg-slate-50 transition-colors group rounded-lg border border-transparent hover:border-slate-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>{m.indicador}</span>
+                            {isAdmin && (
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5">
+                                <button onClick={() => setEditMonitoreo(m)} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
+                                <button onClick={() => handleDeleteItem('monitoreo', m.id)} className="text-red-500 hover:text-red-700 text-xs transition-colors" title="Eliminar">✖</button>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-[9px] text-slate-400">{m.proceso}</span>
+                            <span className={`text-xs font-black ${m.valor > (m.limite || 0) ? 'text-red-600' : 'text-emerald-600'}`}>{m.valor} {m.limite ? <span className="text-[8px] text-slate-400 font-medium">/ {m.limite}</span> : null}</span>
+                          </div>
+                       </div>
+                     ))}
+                   </div>
+                </div>
+             </div>
+
+             <div className="md:col-span-3">
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm h-full flex flex-col">
+                   <div className="bg-[#1e293b] text-white p-4 flex justify-between items-center">
+                     <span className="text-xs font-black uppercase tracking-widest flex items-center space-x-2"><span>📋</span> <span>Cronograma Técnico</span></span>
+                     <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400 px-2 py-1 rounded-full uppercase">⚙️ {avgCumplimiento}% Auditado</span>
+                   </div>
+                   <div className="overflow-x-auto flex-1">
+                     <table className="w-full text-xs text-left divide-y divide-slate-100">
+                       <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
+                         <tr>
+                           <th className="p-3">
+                             <div>ID</div>
+                             <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 w-24">
+                             <div>Periodo</div>
+                             <FilterInput colKey="periodo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 w-48">
+                             <div>Área / Proceso</div>
+                             <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3">
+                             <div>Enfoque Técnico y Alcance</div>
+                             <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 text-center">% Cumpl.</th>
+                           {isAdmin && <th className="p-3 text-center">Acción</th>}
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-100">
+                         {applyFilters(safeCronograma, searchTerm, columnFilters).map(c => (
+                           <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                             <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
+                             <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
+                             <td className="p-3 font-black text-slate-800">{c.proceso}</td>
+                             <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
+                             <td className="p-3 text-center font-black text-sm" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
+                             {isAdmin && (
+                               <td className="p-3 text-center whitespace-nowrap">
+                                 <button onClick={() => {setEditCronograma(c); scrollToTop();}} className="text-blue-500 hover:text-blue-700 mx-1" title="Editar">✏️</button>
+                                 <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-red-500 hover:text-red-700 mx-1" title="Eliminar">🗑️</button>
+                               </td>
+                             )}
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
+                </div>
+             </div>
+          </div>
         </div>
 
         {isAdmin && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-            <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Agregar Proceso al Cronograma</h3>
-            <form onSubmit={handleCronogramaSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-              <input name="codigo" required placeholder="Cód ID (Ej: 04)" className="border p-2 rounded" />
-              <input name="periodo" required placeholder="Periodo (Ej: Enero)" className="border p-2 rounded" />
-              <input name="proceso" required placeholder="Proceso o Área" className="border p-2 rounded" />
-              <input name="responsable" required placeholder="Auditor Líder" className="border p-2 rounded" />
-              <input name="cumplimiento" type="number" required placeholder="Cumplimiento Inicial %" className="border p-2 rounded" />
-              <textarea name="enfoque" required placeholder="Alcance y Enfoque Técnico" className="border p-2 rounded md:col-span-3"></textarea>
-              <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-6 py-2 rounded font-bold">Agregar Proceso</button></div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editCronograma ? '✏️ Editando Proceso del Plan' : '➕ Agregar Proceso al Cronograma'}</h3>
+              {editCronograma && <button onClick={() => setEditCronograma(null)} className="text-xs text-red-500 font-bold">✖ Cancelar</button>}
+            </div>
+            <form onSubmit={handleCronogramaSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              <div><label className="font-bold text-gray-600 block mb-1">Código ID</label><input name="codigo" defaultValue={editCronograma?.codigo||''} required placeholder="Ej: 05" className="w-full border rounded-lg p-2" /></div>
+              <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required placeholder="Ej: Enero - Abril" className="w-full border rounded-lg p-2" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" defaultValue={editCronograma?.proceso||''} required className="w-full border rounded-lg p-2" /></div>
+              
+              <div><label className="font-bold text-gray-600 block mb-1">Responsable</label><input name="responsable" defaultValue={editCronograma?.responsable||''} required className="w-full border rounded-lg p-2" /></div>
+              <div><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" defaultValue={editCronograma?.apoyo||''} className="w-full border rounded-lg p-2" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% Cumplimiento (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={editCronograma?.cumplimiento||0} required className="w-full border rounded-lg p-2" /></div>
+              
+              <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" defaultValue={editCronograma?.enfoque||''} required rows="2" className="w-full border rounded-lg p-2"></textarea></div>
+              
+              <div className="md:col-span-4">
+                <label className="font-bold text-gray-600 block mb-2">Meses Planeados (Para gráfico de Gantt)</label>
+                <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  {allMonths.map(mes => (
+                    <label key={mes} className="flex items-center space-x-2 cursor-pointer">
+                      <input type="checkbox" name={`mes_${mes}`} defaultChecked={editCronograma?.meses?.includes(mes)} className="rounded text-[#004d40] focus:ring-[#004d40]" />
+                      <span className="text-[10px] font-bold uppercase">{mes.substring(0,3)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-4 flex justify-end mt-2"><button type="submit" className="bg-[#004d40] hover:bg-[#00695c] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-colors">{editCronograma ? 'Actualizar Plan' : 'Guardar en Plan'}</button></div>
             </form>
           </div>
         )}
 
-        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-          <table className="w-full text-left">
-            <thead className="bg-slate-100 border-b text-[10px] font-black uppercase text-slate-500">
-              <tr>
-                <th className="p-3">ID <FilterInput colKey="codigo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Periodo <FilterInput colKey="periodo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Proceso <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Alcance Técnico <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3 text-center">Cumpl. %</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y text-slate-700">
-              {applyFilters(safeCronograma, searchTerm, columnFilters).map(c => (
-                <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-3 font-mono">0{c.codigo}</td>
-                  <td className="p-3 font-bold">{c.periodo}</td>
-                  <td className="p-3 font-black text-slate-900">{c.proceso}</td>
-                  <td className="p-3 text-slate-500 max-w-xs">{c.enfoque}</td>
-                  <td className="p-3 text-center font-black text-emerald-700">{c.cumplimiento}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+           <div className="bg-slate-100 border-b border-slate-200 p-4 flex justify-between items-center">
+             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">GANTT CONTROL INTERNO</h3>
+             <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
+             </div>
+           </div>
+           <div className="overflow-x-auto p-4">
+             <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
+               <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
+                 <tr>
+                   <th className="border border-slate-300 p-2 w-10 text-center">
+                     <div>Cód</div>
+                     <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-48">
+                     <div>Proceso Auditable</div>
+                     <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Responsable</div>
+                     <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Apoyo</div>
+                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   {allMonths.map(m => <th key={m} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
+                 </tr>
+               </thead>
+               <tbody>
+                 {applyFilters(safeCronograma, searchTerm, columnFilters).map(c => (
+                   <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                     <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
+                     <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
+                     <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
+                     <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.apoyo}</td>
+                     {allMonths.map(mes => {
+                       const isPlanned = c.meses?.includes(mes);
+                       return (
+                         <td key={mes} className={`border border-slate-300 text-center p-0`}>
+                           {isPlanned && <div className="bg-[#00695c] text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner">Planeado</div>}
+                         </td>
+                       );
+                     })}
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
         </div>
+
       </div>
     );
   };
@@ -857,7 +1036,9 @@ export default function App() {
       <div className="space-y-6">
         <div className="border-b pb-2 flex justify-between items-center">
           <h2 className="text-xl font-black text-slate-800">Estructura General de Riesgos</h2>
-          <input type="text" placeholder="🔍 Buscar en matriz..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="border rounded-lg px-3 py-1 text-xs w-64 shadow-sm" />
+          <div className="flex space-x-2 items-center">
+             <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md">📥 Exportar</button>
+          </div>
         </div>
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
@@ -876,9 +1057,6 @@ export default function App() {
               <div className="md:col-span-2">
                 <label className="font-bold flex justify-between items-center">
                   <span>Control Clave Diseñado</span>
-                  <button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                  </button>
                 </label>
                 <input name="control" required className="w-full border rounded p-1.5" />
               </div>
@@ -998,6 +1176,7 @@ export default function App() {
                   
                   <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
                     Postura Estratégica
+                    <InfoTooltip text="Actitud general de la gerencia hacia este riesgo. Define si la empresa prefiere evitarlo por completo (Averso), buscar un balance (Flexible) o tomar riesgos para innovar (Buscador)." />
                   </label>
                   <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm">
                     <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
@@ -1008,6 +1187,7 @@ export default function App() {
 
                   <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
                     KRI: Puntaje Residual Máximo Permitido
+                    <InfoTooltip text="Límite máximo aceptable en la Matriz 5x5 (Probabilidad x Impacto). Si el puntaje residual supera este número (Ej: 9), la plataforma disparará alertas pidiendo planes de acción." />
                   </label>
                   <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
                 </div>
@@ -1017,16 +1197,19 @@ export default function App() {
                   
                   <label className="font-bold text-blue-900 mb-1 flex items-center w-max">
                     <span>🎯 Apetito de Riesgo (Deseado)</span>
+                    <InfoTooltip text="Nivel de pérdida financiera que la empresa está dispuesta a asumir en su operación normal. Es tu 'Zona Verde' o escenario ideal." />
                   </label>
                   <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
 
                   <label className="font-bold text-amber-700 mb-1 flex items-center w-max">
                     <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span>
+                    <InfoTooltip text="Desviación máxima aceptable respecto al Apetito. Es el colchón de seguridad. Superar este monto pone a la sede en alerta amarilla/naranja." />
                   </label>
                   <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
 
                   <label className="font-bold text-red-700 mb-1 flex items-center w-max">
                     <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span>
+                    <InfoTooltip text="Monto máximo absoluto de pérdida que la empresa puede soportar antes de entrar en crisis. Si se supera, la viabilidad del negocio peligra gravemente." />
                   </label>
                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
                 </div>
@@ -1145,9 +1328,8 @@ export default function App() {
             <div><label className="font-bold">ID Riesgo Vinculado</label><input name="idRiesgo" required className="w-full border rounded p-2" /></div>
             <div><label className="font-bold">Test de Diseño</label><select name="diseno" className="w-full border rounded p-2 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Test de Ejecución</label><select name="ejecucion" className="w-full border rounded p-2 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div><label className="font-bold">Adjuntar Evidencia (PDF/IMG)</label><input type="file" name="evidenciaArchivo" className="w-full border rounded p-1.5 bg-slate-50 cursor-pointer" accept=".pdf,.jpg,.png" /></div>
             <div className="md:col-span-4"><label className="font-bold">Comentarios y Observaciones</label><input name="comentarios" required className="w-full border rounded p-2" /></div>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">{isUploading ? 'Subiendo...' : 'Guardar Test'}</button></div>
+            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Guardar Test</button></div>
           </form>
         </div>
       )}
@@ -1159,8 +1341,8 @@ export default function App() {
               <th className="p-3">Riesgo <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3">Diseño <FilterInput colKey="diseño" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3">Ejecución <FilterInput colKey="ejecucion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Calificación %</th>
-              <th className="p-3">Comentarios / Evidencia</th>
+              <th className="p-3">% Calificación</th>
+              <th className="p-3">Auditor <FilterInput colKey="auditor" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
@@ -1171,15 +1353,7 @@ export default function App() {
                 <td className="p-3">{e.diseño}</td>
                 <td className="p-3">{e.ejecucion}</td>
                 <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${e.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{e.calificacion}%</span></td>
-                <td className="p-3">
-                  <div className="mb-1">{e.comentarios}</div>
-                  {e.evidenciaUrl && (
-                    <div className="flex items-center space-x-2 mt-2">
-                      <a href={e.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver</span></a>
-                      {isAdmin && <button onClick={() => analizarEvidenciaIA(e.evidenciaUrl, e.comentarios, 'Test de Auditoría')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar IA</span></button>}
-                    </div>
-                  )}
-                </td>
+                <td className="p-3 text-slate-500 font-mono text-[10px]">{e.auditor}</td>
               </tr>
             ))}
           </tbody>
@@ -1201,17 +1375,8 @@ export default function App() {
             <input name="responsable" required placeholder="Dueño del Proceso" className="border p-2 rounded" />
             <input name="auditor" required placeholder="Auditor que reporta" className="border p-2 rounded" />
             <select name="severidad" className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option></select>
-            <div className="md:col-span-2">
-              <label className="font-bold flex justify-between items-center mb-1">
-                <span>Título / Descripción de la Falla</span>
-                <button type="button" onClick={() => sugerirConIA('hallazgo')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                </button>
-              </label>
-              <input name="titulo" required placeholder="Descripción de la desviación encontrada" className="w-full border p-2 rounded" />
-            </div>
-            <div className="md:col-span-4"><label className="font-bold">Adjuntar Evidencia (Opcional)</label><input type="file" name="evidenciaArchivo" className="w-full border rounded p-1.5 bg-slate-50 cursor-pointer" accept=".pdf,.jpg,.png" /></div>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">{isUploading ? 'Subiendo...' : 'Registrar Desviación'}</button></div>
+            <input name="titulo" required placeholder="Descripción de la desviación encontrada" className="border p-2 rounded md:col-span-2" />
+            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Registrar Desviación</button></div>
           </form>
         </div>
       )}
@@ -1231,15 +1396,7 @@ export default function App() {
               <tr key={h.id} className="hover:bg-slate-50">
                 <td className="p-3 font-black text-red-600">{h.ref}</td>
                 <td className="p-3"><b>{h.proceso}</b><span className="text-[10px] text-slate-400 block">{h.sede}</span></td>
-                <td className="p-3">
-                  <div className="font-medium text-slate-800">{h.titulo}</div>
-                  {h.evidenciaUrl && (
-                    <div className="flex items-center space-x-2 mt-2">
-                      <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Evidencia</span></a>
-                      {isAdmin && <button onClick={() => analizarEvidenciaIA(h.evidenciaUrl, h.titulo, 'Hallazgo')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar IA</span></button>}
-                    </div>
-                  )}
-                </td>
+                <td className="p-3 text-slate-800 font-medium">{h.titulo}</td>
                 <td className="p-3">Auditor: {h.auditor}<span className="text-[10px] text-slate-400 block">Dueño: {h.responsable}</span></td>
                 <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-bold uppercase text-[9px]">{h.estado}</span></td>
               </tr>
@@ -1257,21 +1414,12 @@ export default function App() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Plan Remedial</h3>
           <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <div className="md:col-span-4"><label className="font-bold">Hallazgo Vinculado</label><select name="idHallazgo" required className="w-full border rounded p-2 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, i) => <option key={`opt-hallz-${h.id}-${i}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
-            <div className="md:col-span-2">
-              <label className="font-bold flex justify-between items-center mb-1">
-                <span>Acción de Choque / Mitigación</span>
-                <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                </button>
-              </label>
-              <input name="accion" required placeholder="Acción de Choque / Mitigación" className="w-full border p-2 rounded" />
-            </div>
-            <div><label className="font-bold">Responsable de Ejecución</label><input name="responsable" required className="w-full border p-2 rounded" /></div>
-            <div><label className="font-bold">Compromiso</label><input name="fecha" type="date" required className="w-full border p-2 rounded" /></div>
-            <div><label className="font-bold text-blue-600">% Avance Real</label><input name="progreso" type="number" min="0" max="100" placeholder="% Avance Real" className="w-full border p-2 bg-blue-50 border-blue-200 rounded" /></div>
-            <div className="md:col-span-3"><label className="font-bold">Evidencia de Avance</label><input type="file" name="evidenciaArchivo" className="w-full border rounded p-1.5 bg-slate-50 cursor-pointer" accept=".pdf,.jpg,.png" /></div>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">{isUploading ? 'Subiendo...' : 'Asignar Plan'}</button></div>
+            <input name="idHallazgo" required placeholder="ID Hallazgo Vinculado" className="border p-2 rounded" />
+            <input name="accion" required placeholder="Acción de Choque / Mitigación" className="border p-2 rounded md:col-span-2" />
+            <input name="responsable" required placeholder="Responsable de Ejecución" className="border p-2 rounded" />
+            <input name="fecha" type="date" required className="border p-2 rounded" />
+            <input name="progreso" type="number" min="0" max="100" placeholder="% Avance Real" className="border p-2 bg-blue-50 border-blue-200 rounded" />
+            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Asignar Plan</button></div>
           </form>
         </div>
       )}
@@ -1282,7 +1430,7 @@ export default function App() {
               <th className="p-3">ID Plan <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3">Hallazgo <FilterInput colKey="idHallazgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3">Acción Remedial Programada <FilterInput colKey="accion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Avance %</th>
+              <th className="p-3">% Avance</th>
               <th className="p-3">Estado <FilterInput colKey="estado" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
             </tr>
           </thead>
@@ -1291,15 +1439,7 @@ export default function App() {
               <tr key={p.id}>
                 <td className="p-3 font-bold">#PLAN-{p.id}</td>
                 <td className="p-3 text-red-600 font-bold">#HAL-{p.idHallazgo}</td>
-                <td className="p-3 text-slate-800 font-medium">
-                  {p.accion} <span className="text-[10px] text-slate-400 block font-normal">Resp: {p.responsable} • Límite: {p.fecha}</span>
-                  {p.evidenciaUrl && (
-                    <div className="flex items-center space-x-2 mt-2">
-                      <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Avance</span></a>
-                      {isAdmin && <button onClick={() => analizarEvidenciaIA(p.evidenciaUrl, p.accion, 'Plan de Acción')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar IA</span></button>}
-                    </div>
-                  )}
-                </td>
+                <td className="p-3 text-slate-800 font-medium">{p.accion} <span className="text-[10px] text-slate-400 block font-normal">Resp: {p.responsable} • Límite: {p.fecha}</span></td>
                 <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
                 <td className="p-3"><span className="px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-bold uppercase text-[9px]">{p.estado}</span></td>
               </tr>
@@ -1393,8 +1533,7 @@ export default function App() {
             <div><label className="font-bold">Test de Diseño</label><select name="diseno" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Test de Ejecución</label><select name="ejecucion" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Novedades / Observaciones del mes</label><textarea name="comentarios" required className="w-full border p-2 rounded" rows="3"></textarea></div>
-            <div><label className="font-bold">Evidencia (PDF/IMG)</label><input type="file" name="evidenciaArchivo" required className="w-full border p-2 bg-slate-50 rounded" accept=".pdf,.jpg,.png" /></div>
-            <button type="submit" disabled={isUploading} className="bg-[#004d40] text-white w-full py-2.5 rounded font-black uppercase shadow">{isUploading ? 'Enviando...' : 'Enviar Certificación'}</button>
+            <button type="submit" className="bg-[#004d40] text-white w-full py-2.5 rounded font-black uppercase shadow">Enviar Certificación</button>
           </form>
         </div>
         <div className="bg-white p-6 border rounded-2xl shadow-sm flex flex-col justify-between">
@@ -1403,8 +1542,7 @@ export default function App() {
             <form onSubmit={handlePlanSubmit} className="space-y-3">
               <div><label className="font-bold">ID del Hallazgo Vinculado</label><input name="idHallazgo" required className="w-full border p-2 rounded" /></div>
               <div><label className="font-bold text-blue-600">% de Avance Físico Real</label><input name="progreso" type="number" min="0" max="100" required className="w-full border border-blue-300 bg-blue-50 p-2.5 rounded text-lg font-black text-blue-600" /></div>
-              <div><label className="font-bold">Evidencia de Avance</label><input type="file" name="evidenciaArchivo" className="w-full border p-2 bg-slate-50 rounded" accept=".pdf,.jpg,.png" /></div>
-              <button type="submit" disabled={isUploading} className="bg-blue-600 text-white w-full py-2.5 rounded font-black uppercase shadow">{isUploading ? 'Actualizando...' : 'Actualizar Avance'}</button>
+              <button type="submit" className="bg-blue-600 text-white w-full py-2.5 rounded font-black uppercase shadow">Actualizar Avance</button>
             </form>
           </div>
         </div>
@@ -1432,30 +1570,6 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden text-xs">
-      {aiModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
-           <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl">
-              <div className="bg-purple-900 text-white p-5 flex justify-between items-center border-b border-purple-800">
-                 <h3 className="font-black text-sm uppercase tracking-widest">{aiModal.titulo}</h3>
-                 <button onClick={() => setAiModal(null)} className="text-purple-300 hover:text-white font-black text-xl">✖</button>
-              </div>
-              <div className="p-6 max-h-[70vh] overflow-y-auto">
-                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-6 flex space-x-4 items-start">
-                    <span className="text-3xl">🧠</span>
-                    <p className="text-xs text-purple-900 font-medium leading-relaxed">
-                      El modelo de IA ha generado el siguiente pre-diagnóstico. Por favor, abre el archivo adjunto y utiliza esta guía para validar la evidencia de forma estricta.
-                    </p>
-                 </div>
-                 <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
-                    {aiModal.contenido}
-                 </div>
-              </div>
-              <div className="bg-slate-50 p-5 border-t border-slate-200 flex justify-end space-x-3">
-                 <a href={aiModal.url} target="_blank" rel="noreferrer" className="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-md hover:bg-slate-700 transition-colors flex items-center space-x-2"><span>📎</span><span>Abrir Archivo Manualmente</span></a>
-              </div>
-           </div>
-        </div>
-      )}
       <div className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20">
         <div className="p-6 border-b border-slate-800 font-black text-sm text-white uppercase tracking-wider">🛡️ GCM Auditor v5</div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
