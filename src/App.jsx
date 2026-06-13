@@ -5139,8 +5139,8 @@ export default function App() {
           <div className="absolute top-16 right-0 bottom-0 w-80 bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right-8 duration-300">
             <div className="p-4 border-b bg-slate-900 text-white flex justify-between items-center">
               <h3 className="font-black text-sm uppercase tracking-widest flex items-center space-x-2"><span>🤖</span> <span>Centro de Alertas</span></h3>
-              <button onClick={() => setIsAlertPanelOpen(false)} className="text-slate-400 hover:text-white font-bold">✖</button>
-            </div>
+<button onClick={() => setIsAlertPanelOpen(false)} className="text-slate-400 hover:text-white font-bold">X</button>
+            </div>  
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
               {alertasActivas.length === 0 ? (
                 <div className="text-center p-6 text-slate-400">
@@ -5181,5 +5181,5 @@ export default function App() {
         </main>
       </div>
     </div>
-  );
+ );
 }
