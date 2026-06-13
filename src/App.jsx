@@ -11,9 +11,18 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // =====================================================================
-// 🤖 MOTOR IA GEMINI 3 FLASH INTEGRADO (Válido para Canvas 2026)
+// 🤖 MOTOR IA GEMINI INTEGRADO (Dual: Flash en pruebas / Pro en Producción)
 // =====================================================================
-const apiKey = ""; // Llave inyectada automáticamente por el entorno de Canvas
+const canvasApiKey = ""; 
+
+let GEMINI_API_KEY = "";
+try {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  }
+} catch (error) {
+  console.warn("Entorno simulado detectado.");
+}
 
 // --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
@@ -67,15 +76,89 @@ const defaultEvaluaciones = [
 
 const defaultCronograma = [
   { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque (Rentabilidad AyB), Inventarios, Auditoria Locativa e Infraestructura, Calidad, Taquilla, Manillas, Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
-  { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
-  { id: 3, codigo: '03', periodo: 'Marzo - Abril', proceso: 'Cartera (Notas Crédito y Descuentos)', enfoque: 'Verificación del comportamiento de NC en los procesos que generan estos documentos en la operación, análisis de cumplimiento de procedimientos y trazabilidad.', cumplimiento: 100, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] }
+  { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] }
 ];
 
 const defaultMonitoreo = [
   { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
-  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
-  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4, limite: 10, tendencia: 'flat', proceso: 'Cartera' }
+  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' }
 ];
+
+// --- FUNCIONES AYUDANTES DE CÁLCULO Y FILTRO (GLOBALES) ---
+const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
+const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
+
+const formatSafeDate = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') return val;
+  if (val.toDate && typeof val.toDate === 'function') {
+    return val.toDate().toISOString().split('T')[0];
+  }
+  if (val instanceof Date) {
+    return val.toISOString().split('T')[0];
+  }
+  return String(val);
+};
+
+const getMonthFromDate = (dateVal) => {
+  const dateStr = formatSafeDate(dateVal);
+  if (!dateStr || dateStr.length < 7) return 'N/A';
+  if (dateStr.includes('-')) return dateStr.split('-')[1]; 
+  if (dateStr.includes('/')) return dateStr.split('/')[1];
+  return 'N/A';
+};
+
+const getYearFromDate = (dateVal) => {
+  const dateStr = formatSafeDate(dateVal);
+  if (!dateStr) return 'N/A';
+  if (dateStr.includes('-')) return dateStr.split('-')[0];
+  if (dateStr.includes('/')) return dateStr.split('/')[2].substring(0,4);
+  return 'N/A';
+};
+
+const calcularMatriz5x5 = (probabilidad, impacto) => {
+  const pVal = mapProbabilidadNum[probabilidad] || 3;
+  const iVal = mapImpactoNum[impacto] || 2;
+  const score = pVal * iVal;
+
+  let apetito = "Dentro de Apetito";
+  let accion = "Aceptar / Monitorear";
+  let color = "bg-emerald-500 text-white";
+  let borderSemaforo = "border-emerald-200";
+
+  if (score <= 4) {
+    color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600";
+  } else if (score <= 9) {
+    color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-600"; accion = "Monitorear periódicamente";
+  } else if (score <= 16) {
+    color = "bg-orange-500 text-white"; borderSemaforo = "border-orange-600"; apetito = "Fuera de Apetito"; accion = "Mitigar / Ajustar Controles";
+  } else {
+    color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Fuera de Apetito"; accion = "Evitar / Suspender Proceso / Transferir";
+  }
+  return { score, apetito, accion, color, borderSemaforo };
+};
+
+const applyFilters = (dataArray, globalTerm, colFilters) => {
+  let result = dataArray;
+  if (globalTerm) {
+    const lowerTerm = globalTerm.toLowerCase();
+    result = result.filter(item => 
+      Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
+    );
+  }
+  if (colFilters && Object.keys(colFilters).length > 0) {
+    Object.entries(colFilters).forEach(([key, filterValue]) => {
+      if (filterValue) {
+        const lowerFilter = filterValue.toLowerCase();
+        result = result.filter(item => {
+          const val = item[key];
+          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerFilter);
+        });
+      }
+    });
+  }
+  return result;
+};
 
 // --- COMPONENTES VISUALES ---
 const InfoTooltip = ({ text }) => (
@@ -168,57 +251,24 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 }
 
-const formatSafeDate = (val) => {
-  if (!val) return '';
-  if (typeof val === 'string') return val;
-  if (val.toDate && typeof val.toDate === 'function') {
-    return val.toDate().toISOString().split('T')[0];
-  }
-  if (val instanceof Date) {
-    return val.toISOString().split('T')[0];
-  }
-  return String(val);
-};
+const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
+  <input 
+    type="text" 
+    placeholder={placeholder || "Filtrar..."}
+    className={`mt-1.5 w-full text-[9px] px-1.5 py-1 font-normal rounded border focus:outline-none focus:ring-1 ${
+      dark 
+        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
+        : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
+    }`}
+    value={columnFilters[colKey] || ''}
+    onChange={(e) => handleColFilterChange(colKey, e.target.value)}
+    onClick={(e) => e.stopPropagation()} 
+  />
+);
 
-const getMonthFromDate = (dateVal) => {
-  const dateStr = formatSafeDate(dateVal);
-  if (!dateStr || dateStr.length < 7) return 'N/A';
-  if (dateStr.includes('-')) return dateStr.split('-')[1]; 
-  if (dateStr.includes('/')) return dateStr.split('/')[1];
-  return 'N/A';
-};
-
-const getYearFromDate = (dateVal) => {
-  const dateStr = formatSafeDate(dateVal);
-  if (!dateStr) return 'N/A';
-  if (dateStr.includes('-')) return dateStr.split('-')[0];
-  if (dateStr.includes('/')) return dateStr.split('/')[2].substring(0,4);
-  return 'N/A';
-};
-
-// MOTOR DE BÚSQUEDA Y FILTROS POR COLUMNA
-const applyFilters = (dataArray, globalTerm, colFilters) => {
-  let result = dataArray;
-  if (globalTerm) {
-    const lowerTerm = globalTerm.toLowerCase();
-    result = result.filter(item => 
-      Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
-    );
-  }
-  if (colFilters && Object.keys(colFilters).length > 0) {
-    Object.entries(colFilters).forEach(([key, filterValue]) => {
-      if (filterValue) {
-        const lowerFilter = filterValue.toLowerCase();
-        result = result.filter(item => {
-          const val = item[key];
-          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerFilter);
-        });
-      }
-    });
-  }
-  return result;
-};
-
+// =====================================================================
+// APLICACIÓN PRINCIPAL
+// =====================================================================
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
@@ -279,21 +329,6 @@ export default function App() {
   const handleColFilterChange = (key, value) => {
     setColumnFilters(prev => ({ ...prev, [key]: value }));
   };
-
-  const FilterInput = ({ colKey, placeholder, dark }) => (
-    <input 
-      type="text" 
-      placeholder={placeholder || "Filtrar..."}
-      className={`mt-1.5 w-full text-[9px] px-1.5 py-1 font-normal rounded border focus:outline-none focus:ring-1 ${
-        dark 
-          ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
-          : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
-      }`}
-      value={columnFilters[colKey] || ''}
-      onChange={(e) => handleColFilterChange(colKey, e.target.value)}
-      onClick={(e) => e.stopPropagation()} 
-    />
-  );
 
   const checkAlertasInteligentes = () => {
     let alertas = [];
@@ -448,14 +483,27 @@ export default function App() {
   // --- IA: ANÁLISIS DE EVIDENCIAS (MODAL) ---
   const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
     setIsThinking(true);
-    showNotification("🤖 Extrayendo documento y enviando a Gemini Pro...", "success");
+    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
+
+    let finalApiKey = canvasApiKey;
+    let modelName = "gemini-3-flash-preview"; 
+    
+    if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
+      finalApiKey = GEMINI_API_KEY;
+    }
+
+    if (!finalApiKey || finalApiKey === "") {
+        setIsThinking(false);
+        showNotification("⚠️ Entorno sin API Key de IA detectada.", "error");
+        return;
+    }
 
     try {
       const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
       Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
       Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -467,7 +515,7 @@ export default function App() {
       if (data.error) throw new Error(data.error.message);
       
       const analisis = data.candidates[0].content.parts[0].text.trim();
-      setAiModal({ titulo: `📋 Checklist IA (Gemini 3)`, contenido: analisis, url: evidenciaUrl });
+      setAiModal({ titulo: `📋 Checklist IA de Auditoría`, contenido: analisis, url: evidenciaUrl });
 
     } catch (error) {
         console.error(error);
@@ -482,7 +530,6 @@ export default function App() {
     let textoBase = "";
     let inputDestino = null;
 
-    // Asignación estricta por ID
     if (tipoTarget === 'control') {
       textoBase = document.getElementById('input-descripcion-riesgo')?.value || document.getElementById('input-proceso-riesgo')?.value || "";
       inputDestino = document.getElementById('input-control-riesgo');
@@ -503,6 +550,19 @@ export default function App() {
     setIsThinking(true);
     showNotification("🧠 Inteligencia Artificial analizando el escenario...", "success");
 
+    let finalApiKey = canvasApiKey;
+    let modelName = "gemini-3-flash-preview"; 
+    
+    if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
+      finalApiKey = GEMINI_API_KEY;
+    }
+
+    if (!finalApiKey || finalApiKey === "") {
+        setIsThinking(false);
+        showNotification("⚠️ Entorno sin API Key de IA detectada.", "error");
+        return;
+    }
+
     try {
       let prompt = "";
       if (tipoTarget === 'control') {
@@ -513,7 +573,7 @@ export default function App() {
         prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
       }
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`;
       const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
       let delays = [1000, 2000, 4000, 8000, 16000];
@@ -537,7 +597,7 @@ export default function App() {
       let sugerencia = responseData.candidates[0].content.parts[0].text.trim();
 
       if (inputDestino) {
-        // INYECCIÓN NATIVA PARA EVITAR BLOQUEOS DE REACT
+        // Inyección nativa
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
         nativeInputValueSetter.call(inputDestino, sugerencia);
         inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
@@ -552,28 +612,6 @@ export default function App() {
     } finally {
       setIsThinking(false);
     }
-  };
-
-  const calcularMatriz5x5 = (probabilidad, impacto) => {
-    const pVal = mapProbabilidadNum[probabilidad] || 3;
-    const iVal = mapImpactoNum[impacto] || 2;
-    const score = pVal * iVal;
-
-    let apetito = "Dentro de Apetito";
-    let accion = "Aceptar / Monitorear";
-    let color = "bg-emerald-500 text-white";
-    let borderSemaforo = "border-emerald-200";
-
-    if (score <= 4) {
-      color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600";
-    } else if (score <= 9) {
-      color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-600"; accion = "Monitorear periódicamente";
-    } else if (score <= 16) {
-      color = "bg-orange-500 text-white"; borderSemaforo = "border-orange-600"; apetito = "Fuera de Apetito"; accion = "Mitigar / Ajustar Controles";
-    } else {
-      color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Fuera de Apetito"; accion = "Evitar / Suspender Proceso / Transferir";
-    }
-    return { score, apetito, accion, color, borderSemaforo };
   };
 
   const handleRiesgoSubmit = async (e) => {
@@ -1051,19 +1089,19 @@ export default function App() {
                          <tr>
                            <th className="p-3">
                              <div>ID</div>
-                             <FilterInput colKey="codigo" placeholder="ID..." />
+                             <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                            </th>
                            <th className="p-3 w-24">
                              <div>Periodo</div>
-                             <FilterInput colKey="periodo" />
+                             <FilterInput colKey="periodo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                            </th>
                            <th className="p-3 w-48">
                              <div>Área / Proceso</div>
-                             <FilterInput colKey="proceso" />
+                             <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                            </th>
                            <th className="p-3">
                              <div>Enfoque Técnico y Alcance</div>
-                             <FilterInput colKey="enfoque" />
+                             <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                            </th>
                            <th className="p-3 text-center">Cumpl.</th>
                            {isAdmin && <th className="p-3 text-center">Acción</th>}
@@ -1141,19 +1179,19 @@ export default function App() {
                  <tr>
                    <th className="border border-slate-300 p-2 w-10 text-center">
                      <div>Cód</div>
-                     <FilterInput colKey="codigo" placeholder="ID..." />
+                     <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
                    <th className="border border-slate-300 p-2 w-48">
                      <div>Proceso Auditable</div>
-                     <FilterInput colKey="proceso" />
+                     <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
                    <th className="border border-slate-300 p-2 w-32">
                      <div>Responsable</div>
-                     <FilterInput colKey="responsable" />
+                     <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
                    <th className="border border-slate-300 p-2 w-32">
                      <div>Apoyo</div>
-                     <FilterInput colKey="apoyo" />
+                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
                    {allMonths.map(m => <th key={m} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
@@ -1493,6 +1531,7 @@ export default function App() {
           <div><h2 className="text-2xl font-black text-slate-800 tracking-tight">Intelligence Dashboard GRC</h2><p className="text-xs text-slate-500 mt-1 font-medium">Análisis predictivo de apetito ISO 31000 y Evolución de KRI.</p></div>
           <div className="mt-4 md:mt-0 flex flex-col md:flex-row items-center gap-3">
             
+            {/* NUEVO SELECTOR DUAL (AÑO Y MES) */}
             <div className="bg-white p-1 rounded-xl border flex items-center shadow-sm space-x-2">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-3">Periodo:</span>
               <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="bg-slate-50 border rounded-lg text-xs font-bold text-slate-700 px-3 py-1.5 focus:outline-none">
@@ -1735,16 +1774,16 @@ export default function App() {
                 <tr>
                   <th className="p-4 w-1/3">
                     <div>Proceso / Riesgo / Postura</div>
-                    <FilterInput colKey="proceso" />
+                    <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-4 text-center">
                     <div>Score (KRI)</div>
-                    <FilterInput colKey="kriScore" placeholder="Score..." />
+                    <FilterInput colKey="kriScore" placeholder="Score..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-4 w-1/3">Consumo de Capacidad Financiera (Eventos)</th>
                   <th className="p-4 text-center">
                     <div>Diagnóstico COSO</div>
-                    <FilterInput colKey="zonaVal" placeholder="Estado..." />
+                    <FilterInput colKey="zonaVal" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-4 text-center">Gestión</th>
                 </tr>
@@ -1815,7 +1854,6 @@ export default function App() {
   };
 
   const renderRiesgos = () => {
-    // Pre-calcular valores para que el filtro funcione
     const riesgosData = safeRiesgos.map(r => {
       const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
       const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
@@ -1883,27 +1921,27 @@ export default function App() {
                 <tr>
                   <th className="p-3">
                     <div>ID</div>
-                    <FilterInput colKey="id" placeholder="ID..." dark />
+                    <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-3 w-48">
                     <div>Proceso / Riesgo / Normativa</div>
-                    <FilterInput colKey="proceso" dark />
+                    <FilterInput colKey="proceso" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-3 w-48">
                     <div>Responsable / Control</div>
-                    <FilterInput colKey="responsable" dark />
+                    <FilterInput colKey="responsable" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-3 text-center">
                     <div>Score Inh</div>
-                    <FilterInput colKey="scoreInhVal" placeholder="Puntos..." dark />
+                    <FilterInput colKey="scoreInhVal" placeholder="Puntos..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-3 text-center">
                     <div>Score Res</div>
-                    <FilterInput colKey="scoreResVal" placeholder="Puntos..." dark />
+                    <FilterInput colKey="scoreResVal" placeholder="Puntos..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-3">
                     <div>Apetito</div>
-                    <FilterInput colKey="apetitoVal" placeholder="Estado..." dark />
+                    <FilterInput colKey="apetitoVal" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-3">Acción Recomendada</th>
                   <th className="p-3 text-center">Acciones</th>
@@ -1970,23 +2008,23 @@ export default function App() {
               <tr>
                 <th className="p-3">
                   <div>ID Test</div>
-                  <FilterInput colKey="id" placeholder="ID..." dark />
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
                   <div>Fecha / Autor</div>
-                  <FilterInput colKey="auditor" placeholder="Autor..." dark />
+                  <FilterInput colKey="auditor" placeholder="Autor..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
                   <div>Diseño/Operación</div>
-                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark />
+                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
                   <div>Eficacia</div>
-                  <FilterInput colKey="calificacion" placeholder="%" dark />
+                  <FilterInput colKey="calificacion" placeholder="%" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
                   <div>Comentarios / Anexos</div>
-                  <FilterInput colKey="comentarios" dark />
+                  <FilterInput colKey="comentarios" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
               </tr>
             </thead>
@@ -2078,23 +2116,23 @@ export default function App() {
               <tr>
                 <th className="p-4">
                   <div>ID / Ref</div>
-                  <FilterInput colKey="ref" placeholder="ID..." />
+                  <FilterInput colKey="ref" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-4">
                   <div>Proceso</div>
-                  <FilterInput colKey="proceso" />
+                  <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-4 w-1/3">
                   <div>Título e Informes</div>
-                  <FilterInput colKey="titulo" />
+                  <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-4">
                   <div>Responsables</div>
-                  <FilterInput colKey="responsable" placeholder="Responsable..." />
+                  <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-4 text-center">
                   <div>Estado / Gestión</div>
-                  <FilterInput colKey="estado" placeholder="Estado..." />
+                  <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
               </tr>
             </thead>
@@ -2194,24 +2232,24 @@ export default function App() {
               <tr>
                 <th className="p-3">
                   <div>ID</div>
-                  <FilterInput colKey="id" placeholder="ID..." dark />
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
                   <div>Hallazgo</div>
-                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark />
+                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
                   <div>Acción y Evidencias</div>
-                  <FilterInput colKey="accion" dark />
+                  <FilterInput colKey="accion" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
                   <div>Compromiso</div>
-                  <FilterInput colKey="fechaVal" placeholder="Fecha..." dark />
+                  <FilterInput colKey="fechaVal" placeholder="Fecha..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3 w-40">Avance</th>
                 <th className="p-3">
                   <div>Estado</div>
-                  <FilterInput colKey="estado" placeholder="Estado..." dark />
+                  <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3 text-center">Gestión</th>
               </tr>
@@ -2280,19 +2318,19 @@ export default function App() {
             <tr>
               <th className="p-3">
                 <div>ID</div>
-                <FilterInput colKey="id" placeholder="ID..." dark />
+                <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
               </th>
               <th className="p-3">
                 <div>Riesgo</div>
-                <FilterInput colKey="idRiesgo" placeholder="ID Riesgo..." dark />
+                <FilterInput colKey="idRiesgo" placeholder="ID Riesgo..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
               </th>
               <th className="p-3 w-1/3">
                 <div>Título / Desc</div>
-                <FilterInput colKey="titulo" dark />
+                <FilterInput colKey="titulo" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
               </th>
               <th className="p-3">
                 <div>Impacto</div>
-                <FilterInput colKey="impacto" dark />
+                <FilterInput colKey="impacto" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
               </th>
               <th className="p-3 text-right">Pérdida (COP)</th>
               <th className="p-3 text-center">Acciones</th>
@@ -2387,19 +2425,19 @@ export default function App() {
                 <tr>
                   <th className="p-4 w-40">
                     <div>Fecha y Hora</div>
-                    <FilterInput colKey="fechaVal" />
+                    <FilterInput colKey="fechaVal" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-4 w-32">
                     <div>Módulo</div>
-                    <FilterInput colKey="modulo" />
+                    <FilterInput colKey="modulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-4">
                     <div>Acción Realizada</div>
-                    <FilterInput colKey="accion" />
+                    <FilterInput colKey="accion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                   <th className="p-4 w-64">
                     <div>Referencia</div>
-                    <FilterInput colKey="desc" />
+                    <FilterInput colKey="desc" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
                 </tr>
               </thead>
