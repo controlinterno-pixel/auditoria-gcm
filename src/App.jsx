@@ -1851,7 +1851,8 @@ export default function App() {
       </div>
     );
   };
-const renderRiesgos = () => {
+
+  const renderRiesgos = () => {
     // Pre-calcular valores para que el filtro funcione
     const riesgosData = safeRiesgos.map(r => {
       const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
@@ -2099,12 +2100,9 @@ const renderRiesgos = () => {
             </div>
           </form>
         </div>
-      </div>
-    );
-  };
+      )}
 
-<div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-<div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b flex justify-between items-center bg-slate-50">
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Desviaciones Encontradas</h3>
            <div className="relative">
@@ -2188,7 +2186,8 @@ const renderRiesgos = () => {
       </div>
     </div>
   );
-const renderPlanes = () => {
+
+  const renderPlanes = () => {
     const planesData = safePlanes.map(p => ({ ...p, fechaVal: formatSafeDate(p.fecha) }));
 
     return (
@@ -2287,7 +2286,8 @@ const renderPlanes = () => {
       </div>
     );
   };
-const renderIncidentes = () => (
+
+  const renderIncidentes = () => (
     <div className="space-y-6">
       <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Eventos de Pérdida</h2></div>
       <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
@@ -2355,7 +2355,8 @@ const renderIncidentes = () => (
       </div>
     </div>
   );
-const renderInforme = () => {
+
+  const renderInforme = () => {
     const getAllLogs = () => {
       let allLogs = [];
       
@@ -2468,7 +2469,7 @@ const renderInforme = () => {
     );
   };
 
- // FASE 7: RENDERIZADO DEL PORTAL RCSA (AUTOEVALUACIÓN LITE) PARA USUARIOS NO ADMINISTRADORES
+  // FASE 7: RENDERIZADO DEL PORTAL RCSA (AUTOEVALUACIÓN LITE) PARA USUARIOS NO ADMINISTRADORES
   const renderRCSAPortal = () => {
     return (
       <div className="min-h-screen bg-slate-100 font-sans">
@@ -2589,7 +2590,7 @@ const renderInforme = () => {
 
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
-  // SI NO ES ADMINISTRADOR, RENDERIZA EL PORTAL RCSA (FASE 7)
+  // SI NO ES ADMINISTRADOR, RENDERIZA EL PORTAL RCSA
   if (!isAdmin) {
     return renderRCSAPortal();
   }
@@ -2667,8 +2668,8 @@ const renderInforme = () => {
           <div className="absolute top-16 right-0 bottom-0 w-80 bg-white border-l border-slate-200 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right-8 duration-300">
             <div className="p-4 border-b bg-slate-900 text-white flex justify-between items-center">
               <h3 className="font-black text-sm uppercase tracking-widest flex items-center space-x-2"><span>🤖</span> <span>Centro de Alertas</span></h3>
-<button onClick={() => setIsAlertPanelOpen(false)} className="text-slate-400 hover:text-white font-bold">X</button>
-            </div>  
+              <button onClick={() => setIsAlertPanelOpen(false)} className="text-slate-400 hover:text-white font-bold">✖</button>
+            </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
               {alertasActivas.length === 0 ? (
                 <div className="text-center p-6 text-slate-400">
