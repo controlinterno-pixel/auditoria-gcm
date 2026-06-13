@@ -11,9 +11,9 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // =====================================================================
-// 🤖 MOTOR IA GEMINI INTEGRADO (Dual: Flash en pruebas / Pro en Producción)
+// 🤖 MOTOR IA GEMINI INTEGRADO (Dual: Flash en pruebas / 1.5 Pro en Prod)
 // =====================================================================
-const canvasApiKey = ""; 
+const canvasApiKey = ""; // Llave inyectada automáticamente por el Canvas
 
 let GEMINI_API_KEY = "";
 try {
@@ -76,15 +76,20 @@ const defaultEvaluaciones = [
 
 const defaultCronograma = [
   { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque (Rentabilidad AyB), Inventarios, Auditoria Locativa e Infraestructura, Calidad, Taquilla, Manillas, Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
-  { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] }
+  { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
+  { id: 3, codigo: '03', periodo: 'Marzo - Abril', proceso: 'Cartera (Notas Crédito y Descuentos)', enfoque: 'Verificación del comportamiento de NC en los procesos que generan estos documentos en la operación, análisis de cumplimiento de procedimientos y trazabilidad.', cumplimiento: 100, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] }
 ];
 
 const defaultMonitoreo = [
   { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
-  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' }
+  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
+  { id: 3, indicador: 'NOTAS CRÉDITO', valor: 4, limite: 10, tendencia: 'flat', proceso: 'Auditoría' }
 ];
 
-// --- FUNCIONES AYUDANTES DE CÁLCULO Y FILTRO (GLOBALES) ---
+// =====================================================================
+// 🛠️ FUNCIONES GLOBALES Y FILTROS
+// =====================================================================
+
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
 const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 
@@ -178,7 +183,7 @@ const ProgressBar = ({ progress }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between text-[10px] font-bold mb-1">
-        <span className="text-slate-500">PROGRESO</span>
+        <span className="text-slate-500">% AVANCE</span>
         <span className="text-slate-800">{progress}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2">
@@ -200,7 +205,7 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
       <span className="absolute text-xl font-black text-slate-800">{Math.round(value || 0)}%</span>
     </div>
     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">{label}</p>
-    <p className="text-[10px] font-bold text-slate-500">{sublabel}</p>
+    <p className="text-xs font-bold text-slate-700">{sublabel}</p>
   </div>
 );
 
@@ -480,22 +485,16 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // --- IA: ANÁLISIS DE EVIDENCIAS (MODAL) ---
+  // --- IA: ANÁLISIS DE EVIDENCIAS VISUAL (MODAL) ---
   const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
     setIsThinking(true);
     showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
 
-    let finalApiKey = canvasApiKey;
-    let modelName = "gemini-3-flash-preview"; 
+    let finalApiKey = canvasApiKey || GEMINI_API_KEY;
+    let modelName = "gemini-2.5-flash-preview-09-2025"; 
     
     if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
-      finalApiKey = GEMINI_API_KEY;
-    }
-
-    if (!finalApiKey || finalApiKey === "") {
-        setIsThinking(false);
-        showNotification("⚠️ Entorno sin API Key de IA detectada.", "error");
-        return;
+      modelName = "gemini-1.5-pro";
     }
 
     try {
@@ -515,7 +514,7 @@ export default function App() {
       if (data.error) throw new Error(data.error.message);
       
       const analisis = data.candidates[0].content.parts[0].text.trim();
-      setAiModal({ titulo: `📋 Checklist IA de Auditoría`, contenido: analisis, url: evidenciaUrl });
+      setAiModal({ titulo: `📋 Checklist IA (${modelName})`, contenido: analisis, url: evidenciaUrl });
 
     } catch (error) {
         console.error(error);
@@ -525,7 +524,7 @@ export default function App() {
     }
   };
 
-  // --- IA: RELLENAR FORMULARIOS DE FORMA INFALIBLE ---
+  // --- IA: RELLENAR FORMULARIOS ---
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
@@ -550,11 +549,11 @@ export default function App() {
     setIsThinking(true);
     showNotification("🧠 Inteligencia Artificial analizando el escenario...", "success");
 
-    let finalApiKey = canvasApiKey;
-    let modelName = "gemini-3-flash-preview"; 
+    let finalApiKey = canvasApiKey || GEMINI_API_KEY;
+    let modelName = "gemini-2.5-flash-preview-09-2025"; 
     
     if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
-      finalApiKey = GEMINI_API_KEY;
+      modelName = "gemini-1.5-pro";
     }
 
     if (!finalApiKey || finalApiKey === "") {
@@ -1016,7 +1015,7 @@ export default function App() {
                <span className="text-2xl">🎖️</span>
                <div>
                   <div className="text-xl font-black">{avgCumplimiento}%</div>
-                  <div className="text-[9px] uppercase tracking-widest font-bold opacity-80">Cumplimiento Global</div>
+                  <div className="text-[9px] uppercase tracking-widest font-bold opacity-80">% Cumplimiento Global</div>
                </div>
             </div>
           </div>
@@ -1103,7 +1102,7 @@ export default function App() {
                              <div>Enfoque Técnico y Alcance</div>
                              <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                            </th>
-                           <th className="p-3 text-center">Cumpl.</th>
+                           <th className="p-3 text-center">% Cumpl.</th>
                            {isAdmin && <th className="p-3 text-center">Acción</th>}
                          </tr>
                        </thead>
@@ -1144,7 +1143,7 @@ export default function App() {
               
               <div><label className="font-bold text-gray-600 block mb-1">Responsable</label><input name="responsable" defaultValue={editCronograma?.responsable||''} required className="w-full border rounded-lg p-2" /></div>
               <div><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" defaultValue={editCronograma?.apoyo||''} className="w-full border rounded-lg p-2" /></div>
-              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% de Cumplimiento (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={editCronograma?.cumplimiento||0} required className="w-full border rounded-lg p-2" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% Cumplimiento (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={editCronograma?.cumplimiento||0} required className="w-full border rounded-lg p-2" /></div>
               
               <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" defaultValue={editCronograma?.enfoque||''} required rows="2" className="w-full border rounded-lg p-2"></textarea></div>
               
@@ -1361,7 +1360,7 @@ export default function App() {
                       onClick={() => { setDetalleUniverso({ sede, tipo: 'planes' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
                       className="hover:shadow-lg hover:ring-4 hover:ring-blue-100 transition-all cursor-pointer rounded-2xl relative group">
                       <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 text-blue-600 text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-widest z-10">Ver Universo ↗</div>
-                      <Gauge value={metricas.avancePlanes} label="Planes de Acción" sublabel="Promedio de Avance Físico" colorClass="text-blue-500" />
+                      <Gauge value={metricas.avancePlanes} label="Planes de Acción" sublabel="Promedio de Avance %" colorClass="text-blue-500" />
                     </div>
 
                   </div>
@@ -1854,6 +1853,7 @@ export default function App() {
   };
 
   const renderRiesgos = () => {
+    // Pre-calcular valores para que el filtro funcione
     const riesgosData = safeRiesgos.map(r => {
       const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
       const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
@@ -1960,7 +1960,7 @@ export default function App() {
                     <td className="p-3"><div className="font-bold">{r.responsable}</div><div className="italic mt-1">⚙️ {r.descripcionControl}</div></td>
                     <td className="p-3 text-center font-mono">{r.scoreInhVal} pts</td>
                     <td className="p-3 text-center font-mono font-black">{r.scoreResVal} pts</td>
-                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.apetitoVal === "Dentro de Apetito" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.apetitoVal}</span></td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.apetitoVal === "Dentro de Apetito" || r.apetitoVal === "Aceptable" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.apetitoVal}</span></td>
                     <td className="p-3"><span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black ${r.colorVal}`}>{r.accionVal}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
                       {isAdmin && <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️</button>}
@@ -2246,7 +2246,7 @@ export default function App() {
                   <div>Compromiso</div>
                   <FilterInput colKey="fechaVal" placeholder="Fecha..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
-                <th className="p-3 w-40">Avance</th>
+                <th className="p-3 w-40">Avance %</th>
                 <th className="p-3">
                   <div>Estado</div>
                   <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
@@ -2491,7 +2491,6 @@ export default function App() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Módulo de Autoevaluación RCSA */}
             <div className="bg-white rounded-3xl shadow-sm border border-emerald-100 overflow-hidden flex flex-col h-full">
               <div className="bg-emerald-50 p-5 border-b border-emerald-100">
                 <h3 className="font-black text-emerald-800 text-sm uppercase tracking-widest flex items-center space-x-2"><span>🛡️</span> <span>Evaluar Mis Controles</span></h3>
@@ -2530,7 +2529,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Módulo de Actualización de Planes */}
             <div className="bg-white rounded-3xl shadow-sm border border-blue-100 overflow-hidden flex flex-col h-full">
               <div className="bg-blue-50 p-5 border-b border-blue-100">
                 <h3 className="font-black text-blue-800 text-sm uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Actualizar Mis Planes de Acción</span></h3>
@@ -2548,7 +2546,7 @@ export default function App() {
                     </select>
                   </div>
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">¿Qué porcentaje de avance real tiene hoy?</label>
+                    <label className="font-bold text-slate-700 block mb-1">¿Qué % de avance real tiene hoy?</label>
                     <input type="number" name="progreso" min="0" max="100" required placeholder="Ej: 50" className="w-full border border-slate-300 rounded-lg p-2.5 text-lg font-black text-blue-600" />
                   </div>
                   <div>
