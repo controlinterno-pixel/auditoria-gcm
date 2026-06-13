@@ -11,18 +11,9 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // =====================================================================
-// 🤖 MOTOR IA GEMINI INTEGRADO (Dual: Flash en pruebas / 1.5 Pro en Producción)
+// 🤖 MOTOR IA GEMINI 3 FLASH INTEGRADO (Válido para Canvas 2026)
 // =====================================================================
 const apiKey = ""; // Llave inyectada automáticamente por el entorno de Canvas
-
-let GEMINI_API_KEY = "";
-try {
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  }
-} catch (error) {
-  console.warn("Entorno simulado detectado.");
-}
 
 // --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
@@ -81,9 +72,9 @@ const defaultCronograma = [
 ];
 
 const defaultMonitoreo = [
-  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up' },
-  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down' },
-  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4, limite: 10, tendencia: 'flat' }
+  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
+  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
+  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4, limite: 10, tendencia: 'flat', proceso: 'Cartera' }
 ];
 
 // --- COMPONENTES VISUALES ---
@@ -454,30 +445,17 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // --- IA: ANÁLISIS DE EVIDENCIAS VISIÓN ---
+  // --- IA: ANÁLISIS DE EVIDENCIAS (MODAL) ---
   const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
-    let finalApiKey = apiKey;
-    let modelName = "gemini-2.5-flash-preview-09-2025"; 
-    
-    if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
-      finalApiKey = GEMINI_API_KEY;
-      modelName = "gemini-1.5-pro";
-    }
-
-    if (!finalApiKey || finalApiKey.trim() === '') {
-      showNotification("⚠️ La IA está desactivada. Por favor configura tu API Key de Gemini.", "error");
-      return;
-    }
-
     setIsThinking(true);
-    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
+    showNotification("🤖 Extrayendo documento y enviando a Gemini Pro...", "success");
 
     try {
       const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
       Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
       Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -489,7 +467,7 @@ export default function App() {
       if (data.error) throw new Error(data.error.message);
       
       const analisis = data.candidates[0].content.parts[0].text.trim();
-      setAiModal({ titulo: `📋 Checklist IA (${modelName})`, contenido: analisis, url: evidenciaUrl });
+      setAiModal({ titulo: `📋 Checklist IA (Gemini 3)`, contenido: analisis, url: evidenciaUrl });
 
     } catch (error) {
         console.error(error);
@@ -499,11 +477,12 @@ export default function App() {
     }
   };
 
-  // --- IA: RELLENAR FORMULARIOS INFALIBLE ---
+  // --- IA: RELLENAR FORMULARIOS DE FORMA INFALIBLE ---
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
 
+    // Asignación estricta por ID
     if (tipoTarget === 'control') {
       textoBase = document.getElementById('input-descripcion-riesgo')?.value || document.getElementById('input-proceso-riesgo')?.value || "";
       inputDestino = document.getElementById('input-control-riesgo');
@@ -521,19 +500,6 @@ export default function App() {
       return;
     }
 
-    let finalApiKey = apiKey;
-    let modelName = "gemini-2.5-flash-preview-09-2025"; 
-    
-    if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
-      finalApiKey = GEMINI_API_KEY;
-      modelName = "gemini-1.5-pro";
-    }
-
-    if (!finalApiKey || finalApiKey.trim() === '') {
-      showNotification("⚠️ La IA está desactivada. Por favor configura tu API Key de Gemini.", "error");
-      return;
-    }
-
     setIsThinking(true);
     showNotification("🧠 Inteligencia Artificial analizando el escenario...", "success");
 
@@ -547,7 +513,7 @@ export default function App() {
         prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
       }
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${finalApiKey}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
       const payload = { contents: [{ parts: [{ text: prompt }] }] };
 
       let delays = [1000, 2000, 4000, 8000, 16000];
@@ -571,10 +537,12 @@ export default function App() {
       let sugerencia = responseData.candidates[0].content.parts[0].text.trim();
 
       if (inputDestino) {
-        inputDestino.value = sugerencia;
+        // INYECCIÓN NATIVA PARA EVITAR BLOQUEOS DE REACT
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+        nativeInputValueSetter.call(inputDestino, sugerencia);
         inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
         inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
-        showNotification(`✨ ¡Sugerencia insertada correctamente!`);
+        showNotification(`✨ ¡Sugerencia ejecutiva insertada!`);
       } else {
         showNotification("Error: No se encontró el campo de destino.", "error");
       }
@@ -585,9 +553,6 @@ export default function App() {
       setIsThinking(false);
     }
   };
-
-  const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
-  const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 
   const calcularMatriz5x5 = (probabilidad, impacto) => {
     const pVal = mapProbabilidadNum[probabilidad] || 3;
