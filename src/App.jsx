@@ -11,7 +11,7 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // =====================================================================
-// 🤖 MOTOR IA GEMINI INTEGRADO (Dual: Entorno de Pruebas / Producción)
+// 🤖 MOTOR IA GEMINI INTEGRADO (Dual: Flash en pruebas / 1.5 Pro en Prod)
 // =====================================================================
 const canvasApiKey = ""; // Llave inyectada automáticamente por el Canvas
 
@@ -87,7 +87,7 @@ const defaultMonitoreo = [
 ];
 
 // =====================================================================
-// 🛠️ FUNCIONES GLOBALES, CÁLCULOS Y FILTROS SEGURAS
+// 🛠️ FUNCIONES GLOBALES, CÁLCULOS Y FILTROS SEGUROS
 // =====================================================================
 
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
@@ -491,7 +491,7 @@ export default function App() {
     showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
 
     let finalApiKey = canvasApiKey || GEMINI_API_KEY;
-    let modelName = "gemini-2.5-flash-preview-09-2025"; 
+    let modelName = "gemini-1.5-flash"; 
     
     if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
       modelName = "gemini-1.5-pro";
@@ -524,7 +524,7 @@ export default function App() {
     }
   };
 
-  // --- IA: RELLENAR FORMULARIOS ---
+  // --- IA: RELLENAR FORMULARIOS DE FORMA INFALIBLE ---
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
@@ -550,7 +550,7 @@ export default function App() {
     showNotification("🧠 Inteligencia Artificial analizando el escenario...", "success");
 
     let finalApiKey = canvasApiKey || GEMINI_API_KEY;
-    let modelName = "gemini-2.5-flash-preview-09-2025"; 
+    let modelName = "gemini-1.5-flash"; 
     
     if (GEMINI_API_KEY && GEMINI_API_KEY.length > 5) {
       modelName = "gemini-1.5-pro";
@@ -1360,7 +1360,7 @@ export default function App() {
                       onClick={() => { setDetalleUniverso({ sede, tipo: 'planes' }); setTimeout(() => document.getElementById('detalle-universo')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150); }}
                       className="hover:shadow-lg hover:ring-4 hover:ring-blue-100 transition-all cursor-pointer rounded-2xl relative group">
                       <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-blue-50 text-blue-600 text-[8px] px-2 py-1 rounded-full font-bold uppercase tracking-widest z-10">Ver Universo ↗</div>
-                      <Gauge value={metricas.avancePlanes} label="Planes de Acción" sublabel="Promedio de Avance %" colorClass="text-blue-500" />
+                      <Gauge value={metricas.avancePlanes} label="Planes de Acción" sublabel="% Avance Promedio" colorClass="text-blue-500" />
                     </div>
 
                   </div>
@@ -1779,7 +1779,7 @@ export default function App() {
                     <div>Score (KRI)</div>
                     <FilterInput colKey="kriScore" placeholder="Score..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                   </th>
-                  <th className="p-4 w-1/3">Consumo de Capacidad Financiera (Eventos)</th>
+                  <th className="p-4 w-1/3">% Consumo vs Capacidad Total (Eventos)</th>
                   <th className="p-4 text-center">
                     <div>Diagnóstico COSO</div>
                     <FilterInput colKey="zonaVal" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
@@ -1816,7 +1816,7 @@ export default function App() {
                         {r.estaConfiguradoVal ? (
                           <div className="w-full">
                             <div className="flex justify-between text-[9px] font-black uppercase tracking-widest mb-1">
-                              <span className="text-slate-500">Consumo vs Capacidad Total</span>
+                              <span className="text-slate-500">% Consumo vs Capacidad</span>
                               <span className={r.consumoPorcentajeVal > 80 ? 'text-red-600' : 'text-slate-800'}>{r.consumoPorcentajeVal.toFixed(1)}%</span>
                             </div>
                             <div className="w-full bg-slate-200 rounded-full h-2.5 mb-2 overflow-hidden shadow-inner">
@@ -1851,8 +1851,7 @@ export default function App() {
       </div>
     );
   };
-
-  const renderRiesgos = () => {
+const renderRiesgos = () => {
     // Pre-calcular valores para que el filtro funcione
     const riesgosData = safeRiesgos.map(r => {
       const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
@@ -2100,9 +2099,12 @@ export default function App() {
             </div>
           </form>
         </div>
-      )}
+      </div>
+    );
+  };
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+<div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+<div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b flex justify-between items-center bg-slate-50">
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Desviaciones Encontradas</h3>
            <div className="relative">
@@ -2186,8 +2188,7 @@ export default function App() {
       </div>
     </div>
   );
-
-  const renderPlanes = () => {
+const renderPlanes = () => {
     const planesData = safePlanes.map(p => ({ ...p, fechaVal: formatSafeDate(p.fecha) }));
 
     return (
@@ -2246,7 +2247,7 @@ export default function App() {
                   <div>Compromiso</div>
                   <FilterInput colKey="fechaVal" placeholder="Fecha..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
-                <th className="p-3 w-40">Avance %</th>
+                <th className="p-3 w-40">% Avance</th>
                 <th className="p-3">
                   <div>Estado</div>
                   <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
@@ -2286,8 +2287,7 @@ export default function App() {
       </div>
     );
   };
-
-  const renderIncidentes = () => (
+const renderIncidentes = () => (
     <div className="space-y-6">
       <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Eventos de Pérdida</h2></div>
       <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
@@ -2355,8 +2355,7 @@ export default function App() {
       </div>
     </div>
   );
-
-  const renderInforme = () => {
+const renderInforme = () => {
     const getAllLogs = () => {
       let allLogs = [];
       
@@ -2469,7 +2468,7 @@ export default function App() {
     );
   };
 
-  // FASE 7: RENDERIZADO DEL PORTAL RCSA (AUTOEVALUACIÓN LITE) PARA USUARIOS NO ADMINISTRADORES
+ // FASE 7: RENDERIZADO DEL PORTAL RCSA (AUTOEVALUACIÓN LITE) PARA USUARIOS NO ADMINISTRADORES
   const renderRCSAPortal = () => {
     return (
       <div className="min-h-screen bg-slate-100 font-sans">
