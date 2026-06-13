@@ -317,6 +317,12 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
+  // --- LIMPIEZA AUTOMÁTICA DE FILTROS AL CAMBIAR DE PESTAÑA ---
+  useEffect(() => {
+    setSearchTerm('');
+    setColumnFilters({});
+  }, [activeTab]);
+
   const toggleAnio = (anio) => {
     setSelectedAnios(prev => prev.includes(anio) ? prev.filter(a => a !== anio) : [...prev, anio]);
   };
