@@ -397,10 +397,11 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // --- MANEJADOR DE SUBIDA RÁPIDA CON TIMEOUT ---
+  // --- MANEJADOR DE SUBIDA RÁPIDA CON TIMEOUT MEJORADO ---
   const handleFileUpload = async (archivo, folder) => {
     if (!archivo || archivo.size === 0) return null;
     setIsUploading(true);
+    showNotification("Iniciando subida de archivo...", "success");
     try {
       const uploadTask = async () => {
         const safeName = archivo.name.replace(/[^a-zA-Z0-9.]/g, '_');
@@ -409,14 +410,18 @@ export default function App() {
         return await getDownloadURL(fileRef);
       };
       
-      const timeoutTask = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 10000));
+      const timeoutTask = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT_STORAGE")), 15000));
       
       const url = await Promise.race([uploadTask(), timeoutTask]);
-      showNotification("Evidencia cargada a la nube.", "success");
+      showNotification("✅ Evidencia cargada a la nube exitosamente.", "success");
       return url;
     } catch (error) {
       console.error("Upload error:", error);
-      showNotification("Aviso: El archivo tardó demasiado en subir. Guardando texto...", "error");
+      if (error.message === "TIMEOUT_STORAGE") {
+         showNotification("⚠️ Tiempo agotado al subir archivo. El registro se guardó sin adjunto.", "error");
+      } else {
+         showNotification("❌ Error subiendo archivo. Revise las Reglas de Firebase Storage. El registro se guardó sin adjunto.", "error");
+      }
       return null;
     } finally {
       setIsUploading(false);
@@ -1592,16 +1597,18 @@ export default function App() {
                   <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
                   <td className="p-3">
                     <div className="mb-1">{ev.comentarios}</div>
-                    {ev.evidenciaUrl && (
+                    {ev.evidenciaUrl ? (
                       <div className="flex items-center space-x-2 mt-2">
                         <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
-                          <span>👁️</span><span>Ver Informe</span>
+                          <span>👁️</span><span>Ver Archivo</span>
                         </a>
                         <a href={ev.evidenciaUrl} download target="_blank" rel="noreferrer" className="bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-200 flex items-center space-x-1 transition-colors shadow-sm">
                           <span>⬇️</span><span>Descargar</span>
                         </a>
                         {isAdmin && <button onClick={() => analizarEvidenciaIA(ev.evidenciaUrl, ev.comentarios, 'Test de Auditoría')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-purple-100 flex items-center space-x-1 transition-colors shadow-sm"><span>🤖</span><span>Auditar IA</span></button>}
                       </div>
+                    ) : (
+                      <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
                     )}
                   </td>
                   {isAdmin && (
@@ -1710,7 +1717,7 @@ export default function App() {
                   </td>
                   <td className="p-4">
                     <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
-                    {h.evidenciaUrl && (
+                    {h.evidenciaUrl ? (
                       <div className="flex items-center space-x-2 mt-2">
                         <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
                           <span>👁️</span><span>Ver Informe</span>
@@ -1720,6 +1727,8 @@ export default function App() {
                         </a>
                         {isAdmin && <button onClick={() => analizarEvidenciaIA(h.evidenciaUrl, h.titulo, 'Hallazgo')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-purple-100 flex items-center space-x-1 transition-colors shadow-sm"><span>🤖</span><span>Auditar IA</span></button>}
                       </div>
+                    ) : (
+                      <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
                     )}
                   </td>
                   <td className="p-4">
@@ -1827,7 +1836,7 @@ export default function App() {
                     <td className="p-3 text-red-600 font-bold">#HAL-{p.idHallazgo}<span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-1">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
                     <td className="p-3 text-slate-800 font-medium">
                       {p.accion} <span className="text-[10px] text-slate-400 block font-normal mt-1">Resp: {p.responsable} • Límite: {p.fechaVal}</span>
-                      {p.evidenciaUrl && (
+                      {p.evidenciaUrl ? (
                         <div className="flex items-center space-x-2 mt-2">
                           <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
                             <span>👁️</span><span>Ver Soporte</span>
@@ -1837,6 +1846,8 @@ export default function App() {
                           </a>
                           {isAdmin && <button onClick={() => analizarEvidenciaIA(p.evidenciaUrl, p.accion, 'Plan de Acción')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-purple-100 flex items-center space-x-1 transition-colors shadow-sm"><span>🤖</span><span>Auditar IA</span></button>}
                         </div>
+                      ) : (
+                        <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
                       )}
                     </td>
                     <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
@@ -1857,17 +1868,17 @@ export default function App() {
 
   const renderIncidentes = () => (
     <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
+      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Registro de Eventos de Pérdida (COP)</h2></div>
       {isAdmin && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
-          <form onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <input name="idRiesgo" required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
-            <input name="titulo" required placeholder="Título del Evento" className="border p-2 rounded" />
-            <input name="costo" type="number" required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
-            <select name="impacto" className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select>
-            <textarea name="descripcion" required placeholder="Descripción de la falla operacional..." className="border p-2 rounded md:col-span-4"></textarea>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Registrar Evento</button></div>
+          <form onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs shadow-sm">
+            <div><label className="font-bold text-gray-600">Riesgo Vinculado</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-incidente-${r.id}-${index}`} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
+            <div><label className="font-bold text-gray-600">Título</label><input name="titulo" required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div><label className="font-bold text-gray-600">Pérdida (COP)</label><input name="costo" type="number" required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div className="md:col-span-2"><label className="font-bold text-gray-600">Descripción</label><textarea name="descripcion" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+            <div><label className="font-bold text-gray-600">Impacto</label><select name="impacto" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
+            <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar Evento</button></div>
           </form>
         </div>
       )}
@@ -1903,7 +1914,7 @@ export default function App() {
       .flatMap(item => (item.historialCambios || []).map(log => ({ ...log, ref: item.proceso || item.titulo || `Item: ${item.id}` })));
     return (
       <div className="space-y-6">
-        <div className="border-b pb-2 font-black text-lg">📜 Trazabilidad de Auditoría e Historial de Cambios</div>
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">📜 Trazabilidad de Auditoría e Historial de Cambios</h2></div>
         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-50 border-b text-[10px] uppercase font-black text-slate-500">
