@@ -178,6 +178,21 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
   </div>
 );
 
+const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
+  <input 
+    type="text" 
+    placeholder={placeholder || "Filtrar..."}
+    className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${
+      dark 
+        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
+        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
+    }`}
+    value={columnFilters[colKey] || ''}
+    onChange={(e) => handleColFilterChange(colKey, e.target.value)}
+    onClick={(e) => e.stopPropagation()} 
+  />
+);
+
 const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   const maxVal = Math.max(...data.map(d => d.valor), 1);
   const height = 120;
@@ -410,6 +425,39 @@ export default function App() {
     window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
     window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
     showNotification(`Archivo ${fileName} exportado con éxito.`);
+  };
+
+  // --- MANEJADORES DE CARGA MASIVA Y BACKUPS ---
+  const exportToJSON = () => {
+    const data = { riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "GCM_Backup_" + new Date().toISOString().split('T')[0] + ".json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const handleImportJSON = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const parsedData = JSON.parse(event.target.result);
+        if(window.confirm("⚠️ ALERTA: Esto sobrescribirá TODA la base de datos actual con los datos del archivo. ¿Estás seguro?")) {
+          setIsCloudLoaded(false); 
+          await saveToCloud(parsedData);
+          showNotification("Base de datos actualizada masivamente con éxito.", "success");
+          setIsCloudLoaded(true);
+        }
+      } catch(error) {
+        showNotification("Error: El archivo no tiene un formato JSON válido.", "error");
+      }
+      e.target.value = null; 
+    };
+    reader.readAsText(file);
   };
 
   // --- FUNCIONES IA GEMINI ---
@@ -831,6 +879,46 @@ export default function App() {
   // RENDERS DE VISTAS (ADMIN INTERFACE)
   // =====================================================================
 
+  const renderConfiguracion = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="border-b pb-4">
+        <h2 className="text-2xl font-black text-slate-800">⚙️ Configuración y Cargas Masivas</h2>
+        <p className="text-xs text-slate-500 font-bold mt-1">Gestión avanzada de la base de datos y copias de seguridad.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+          <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm mb-4">📥 Exportar Backup (Descarga)</h3>
+          <p className="text-xs text-slate-600 mb-6">Descarga una copia completa de toda tu base de datos actual en formato JSON. Útil para tener respaldos de seguridad o para editar los datos masivamente en un editor de texto o Excel.</p>
+          <button onClick={exportToJSON} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest py-3 rounded-xl shadow-md transition-all">
+            Descargar Base de Datos (.JSON)
+          </button>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-red-600">
+          <h3 className="font-black text-red-600 uppercase tracking-widest text-sm mb-4">📤 Carga Masiva (Sobrescribir DB)</h3>
+          <p className="text-xs text-slate-600 mb-6">Sube un archivo JSON con la estructura correcta para actualizar masivamente. <b>ADVERTENCIA:</b> Esta acción borrará los datos actuales y los reemplazará por los del archivo.</p>
+          
+          <label className="block w-full cursor-pointer bg-red-50 hover:bg-red-100 text-red-700 font-black uppercase tracking-widest py-3 text-center rounded-xl shadow-sm border border-red-200 transition-all">
+            Seleccionar Archivo JSON y Subir
+            <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
+          </label>
+        </div>
+      </div>
+      
+      <div className="bg-blue-50 p-6 rounded-3xl border border-blue-200">
+        <h3 className="font-black text-blue-800 uppercase tracking-widest text-sm mb-2">💡 ¿Cómo hacer una carga masiva desde Excel?</h3>
+        <ol className="list-decimal pl-5 text-xs text-blue-900 space-y-2 mt-4 font-medium">
+          <li>Haz clic en <b>Descargar Base de Datos (.JSON)</b> para obtener la estructura actual.</li>
+          <li>Usa un convertidor gratuito en línea de "JSON a Excel" para ver tus datos en formato tabla.</li>
+          <li>Agrega tus cientos de filas nuevas en el Excel asegurándote de no cambiar los nombres de las columnas (ej. <i>id, proceso, sede</i>).</li>
+          <li>Usa un convertidor de "Excel a JSON" para volver a transformar tu tabla en código.</li>
+          <li>Sube el nuevo archivo `.json` usando el botón rojo de <b>Carga Masiva</b>.</li>
+        </ol>
+      </div>
+    </div>
+  );
+
   const renderTablero = () => {
     const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
     return (
@@ -843,7 +931,7 @@ export default function App() {
           <Gauge value={rendimientoControles} label="CONTROLES DE SALUD" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
           <div className="bg-[#0f172a] text-white p-6 rounded-2xl flex flex-col justify-center text-center shadow-lg border border-slate-800">
             <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ALERTA CRÍTICA</span>
-            <span className="text-6xl font-black mt-4">{hAbiertos}</span>
+            <span className="text-6xl font-black mt-4 notranslate" translate="no">{hAbiertos}</span>
             <p className="text-xs font-bold text-slate-300 mt-4">Hallazgos Pendientes de Cierre</p>
           </div>
         </div>
@@ -856,7 +944,7 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer">
                 <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">HALLAZGOS ABIERTOS</span>
-                <span className="text-5xl font-black mt-4 text-slate-800">{hFiltrados.filter(h => h.sede === 'Hotel' && h.estado === 'Abierto').length}</span>
+                <span className="text-5xl font-black mt-4 text-slate-800 notranslate" translate="no">{hFiltrados.filter(h => h.sede === 'Hotel' && h.estado === 'Abierto').length}</span>
                 <p className="text-[10px] font-bold mt-4 opacity-60 text-slate-500">Pendientes de Cierre</p>
               </div>
               <Gauge value={rendimientoControles} label="SALUD DE CONTROLES" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
@@ -896,19 +984,19 @@ export default function App() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-blue-500">
              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS TOTALES</h4>
-             <span className="text-4xl font-black mt-2 block text-slate-800">{totalRiesgos}</span>
+             <span className="text-4xl font-black mt-2 block text-slate-800 notranslate" translate="no">{totalRiesgos}</span>
           </div>
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-red-600">
              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">FUERA DE APETITO</h4>
-             <span className="text-4xl font-black mt-2 block text-red-600">{riesgosFueraApetito}</span>
+             <span className="text-4xl font-black mt-2 block text-red-600 notranslate" translate="no">{riesgosFueraApetito}</span>
           </div>
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-orange-500">
              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS CRÍTICOS</h4>
-             <span className="text-4xl font-black mt-2 block text-orange-500">{riesgosCriticos}</span>
+             <span className="text-4xl font-black mt-2 block text-orange-500 notranslate" translate="no">{riesgosCriticos}</span>
           </div>
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-purple-600">
              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PÉRDIDAS TOTALES</h4>
-             <span className="text-3xl font-black mt-2 block text-purple-700">$ {(totalPerdidas).toLocaleString('es-CO')}</span>
+             <span className="text-3xl font-black mt-2 block text-purple-700 notranslate" translate="no">$ {(totalPerdidas).toLocaleString('es-CO')}</span>
           </div>
         </div>
 
@@ -940,8 +1028,8 @@ export default function App() {
                         }
                       }}
                         className={`relative border-2 p-6 flex flex-col justify-center items-center h-28 rounded-2xl transition-all duration-200 ${count > 0 ? 'cursor-pointer hover:scale-105 shadow-md opacity-100' : 'opacity-20 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100 border-black' : borderSemaforo}`}>
-                        <span className="absolute top-2 right-3 text-[9px] font-mono font-black opacity-50 text-slate-900">S: {score}</span>
-                        <span className={`text-4xl font-black text-slate-900 drop-shadow-sm`}>{count}</span>
+                        <span className="absolute top-2 right-3 text-[9px] font-mono font-black opacity-50 text-slate-900 notranslate" translate="no">S: {score}</span>
+                        <span className={`text-4xl font-black text-slate-900 drop-shadow-sm notranslate`} translate="no">{count}</span>
                       </div>
                     );
                   })}
@@ -1018,7 +1106,7 @@ export default function App() {
             <div className="relative z-10 mt-4 md:mt-0 bg-[#00695c] px-6 py-2 rounded-full border border-[#00897b] flex items-center space-x-3 shadow-inner">
                <span className="text-2xl">🎖️</span>
                <div>
-                  <div className="text-xl font-black">{avgCumplimiento}%</div>
+                  <div className="text-xl font-black notranslate" translate="no">{avgCumplimiento}%</div>
                   <div className="text-[9px] uppercase tracking-widest font-bold opacity-80">% Cumplimiento Global</div>
                </div>
             </div>
@@ -1028,7 +1116,7 @@ export default function App() {
              <div className="md:col-span-1 space-y-6">
                 <div className="border border-slate-200 rounded-2xl p-6 text-center shadow-sm">
                    <h3 className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Índice General</h3>
-                   <div className="text-6xl font-black text-[#004d40] leading-none mb-2">{avgCumplimiento}%</div>
+                   <div className="text-6xl font-black text-[#004d40] leading-none mb-2 notranslate" translate="no">{avgCumplimiento}%</div>
                    <div className="text-xs font-bold text-emerald-600 flex items-center justify-center space-x-1"><span>▲</span><span>Meta Alcanzada</span></div>
                    <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium">Evaluación integral de procesos administrativos, operativos y de soporte.</p>
                 </div>
@@ -1072,7 +1160,7 @@ export default function App() {
                           </div>
                           <div className="flex justify-between items-center mt-1">
                             <span className="text-[9px] text-slate-400">{m.proceso}</span>
-                            <span className={`text-xs font-black ${m.valor > (m.limite || 0) ? 'text-red-600' : 'text-emerald-600'}`}>{m.valor} {m.limite ? <span className="text-[8px] text-slate-400 font-medium">/ {m.limite}</span> : null}</span>
+                            <span className={`text-xs font-black ${m.valor > (m.limite || 0) ? 'text-red-600' : 'text-emerald-600'} notranslate`} translate="no">{m.valor} {m.limite ? <span className="text-[8px] text-slate-400 font-medium">/ {m.limite}</span> : null}</span>
                           </div>
                        </div>
                      ))}
@@ -1084,28 +1172,40 @@ export default function App() {
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm h-full flex flex-col">
                    <div className="bg-[#1e293b] text-white p-4 flex justify-between items-center">
                      <span className="text-xs font-black uppercase tracking-widest flex items-center space-x-2"><span>📋</span> <span>Cronograma Técnico</span></span>
-                     <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400 px-2 py-1 rounded-full uppercase">⚙️ {avgCumplimiento}% Auditado</span>
+                     <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400 px-2 py-1 rounded-full uppercase notranslate" translate="no">⚙️ {avgCumplimiento}% Auditado</span>
                    </div>
                    <div className="overflow-x-auto flex-1 p-2">
                      <table className="w-full text-xs text-left divide-y divide-slate-100">
                        <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                          <tr>
-                           <th className="p-3">ID</th>
-                           <th className="p-3 w-24">Periodo</th>
-                           <th className="p-3 w-48">Área / Proceso</th>
-                           <th className="p-3">Enfoque Técnico y Alcance</th>
+                           <th className="p-3">
+                             <div>ID</div>
+                             <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 w-24">
+                             <div>Periodo</div>
+                             <FilterInput colKey="periodo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 w-48">
+                             <div>Área / Proceso</div>
+                             <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3">
+                             <div>Enfoque Técnico y Alcance</div>
+                             <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
                            <th className="p-3 text-center">% Cumpl.</th>
                            {isAdmin && <th className="p-3 text-center">Acción</th>}
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {applyFilters(safeCronograma, searchTerm).map((c, index) => (
+                         {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
                            <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
                              <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
                              <td className="p-3 font-black text-slate-800">{c.proceso}</td>
                              <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
-                             <td className="p-3 text-center font-black text-sm" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
+                             <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
                              {isAdmin && (
                                <td className="p-3 text-center whitespace-nowrap">
                                  <button onClick={() => {setEditCronograma(c); scrollToTop();}} className="text-blue-500 hover:text-blue-700 mx-1">✏️</button>
@@ -1168,15 +1268,27 @@ export default function App() {
              <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
                <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
                  <tr>
-                   <th className="border border-slate-300 p-2 w-10 text-center">Cód</th>
-                   <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
-                   <th className="border border-slate-300 p-2 w-32">Responsable</th>
-                   <th className="border border-slate-300 p-2 w-32">Apoyo</th>
+                   <th className="border border-slate-300 p-2 w-10 text-center">
+                     <div>Cód</div>
+                     <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-48">
+                     <div>Proceso Auditable</div>
+                     <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Responsable</div>
+                     <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Apoyo</div>
+                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
                    {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
-                 {applyFilters(safeCronograma, searchTerm).map((c, index) => (
+                 {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
                    <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
@@ -1265,16 +1377,16 @@ export default function App() {
           <table className="w-full text-left">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">ID</th>
-                <th className="p-3 w-48">Proceso / Ley</th>
-                <th className="p-3">Escenario de Riesgo</th>
-                <th className="p-3">Control Mitigante</th>
-                <th className="p-3">Apetito COSO</th>
+                <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Proceso / Ley <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Escenario de Riesgo <FilterInput colKey="descripcion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Control Mitigante <FilterInput colKey="descripcionControl" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Apetito COSO <FilterInput colKey="apetitoVal" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
                 <th className="p-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(rData, searchTerm).map((r, index) => (
+              {applyFilters(rData, searchTerm, columnFilters).map((r, index) => (
                 <tr key={`riesgo-${r.id}-${index}`} className="hover:bg-slate-50/50">
                   <td className="p-3 font-bold text-slate-400">#{r.id}</td>
                   <td className="p-3">
@@ -1345,15 +1457,15 @@ export default function App() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-blue-500">
              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Modelos Parametrizados</h4>
-             <span className="text-4xl font-black mt-2 block text-slate-800">{configurados} <span className="text-xl text-slate-400">/ {rFiltrados.length}</span></span>
+             <span className="text-4xl font-black mt-2 block text-slate-800 notranslate" translate="no">{configurados} <span className="text-xl text-slate-400">/ {rFiltrados.length}</span></span>
           </div>
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-yellow-400">
              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">En Zona de Alerta (Tolerancia)</h4>
-             <span className="text-4xl font-black mt-2 block text-yellow-500">{enTolerancia}</span>
+             <span className="text-4xl font-black mt-2 block text-yellow-500 notranslate" translate="no">{enTolerancia}</span>
           </div>
           <div className="bg-[#0f172a] p-6 rounded-2xl shadow-md border border-slate-800 border-l-8 border-l-red-600 text-white">
              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Capacidad Excedida (Ruptura)</h4>
-             <span className="text-4xl font-black mt-2 block text-red-500">{capacidadExcedida}</span>
+             <span className="text-4xl font-black mt-2 block text-red-500 notranslate" translate="no">{capacidadExcedida}</span>
           </div>
         </div>
 
@@ -1430,15 +1542,24 @@ export default function App() {
             <table className="w-full text-xs text-left divide-y divide-slate-100">
               <thead className="bg-white text-slate-500 font-black uppercase tracking-wider text-[9px]">
                 <tr>
-                  <th className="p-4 w-1/3">Proceso / Riesgo / Postura</th>
-                  <th className="p-4 text-center">Puntuación (KRI)</th>
+                  <th className="p-4 w-1/3">
+                    <div>Proceso / Riesgo / Postura</div>
+                    <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-4 text-center">
+                    <div>Puntuación (KRI)</div>
+                    <FilterInput colKey="kriScore" placeholder="Puntaje..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
                   <th className="p-4 w-1/3 text-center">Consumo de Capacidad Financiera (Eventos)</th>
-                  <th className="p-4 text-center">Diagnóstico COSO</th>
+                  <th className="p-4 text-center">
+                    <div>Diagnóstico COSO</div>
+                    <FilterInput colKey="zonaVal" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
                   <th className="p-4 text-center">Gestión</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {applyFilters(apetitoData, searchTerm).map((r, index) => {
+                {applyFilters(apetitoData, searchTerm, columnFilters).map((r, index) => {
                   const excedidoScore = r.kriScore && r.resScoreVal > r.kriScore;
 
                   return (
@@ -1457,7 +1578,7 @@ export default function App() {
                         {r.kriScore ? (
                           <div className="flex flex-col items-center justify-center">
                             <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Límite: {r.kriScore}</span>
-                            <span className={`px-2 py-1 rounded font-black font-mono text-xs ${excedidoScore ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>{r.resScoreVal}</span>
+                            <span className={`px-2 py-1 rounded font-black font-mono text-xs ${excedidoScore ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'} notranslate`} translate="no">{r.resScoreVal}</span>
                           </div>
                         ) : <span className="text-slate-300 font-medium italic">-</span>}
                       </td>
@@ -1468,7 +1589,7 @@ export default function App() {
                             <div className="w-full bg-slate-200 rounded-full h-2.5 mb-2 overflow-hidden shadow-inner">
                               <div className={`h-full rounded-full transition-all duration-1000 ${r.consumoPorcentajeVal <= (r.apetitoFinanciero/r.capacidadRiesgo)*100 ? 'bg-emerald-500' : r.consumoPorcentajeVal <= (r.toleranciaFinanciera/r.capacidadRiesgo)*100 ? 'bg-yellow-400' : r.consumoPorcentajeVal < 100 ? 'bg-orange-500' : 'bg-red-600'}`} style={{ width: `${r.consumoPorcentajeVal}%` }}></div>
                             </div>
-                            <div className="flex justify-between text-[9px] font-mono font-bold text-slate-400">
+                            <div className="flex justify-between text-[9px] font-mono font-bold text-slate-400 notranslate" translate="no">
                               <span>Perdido: ${(r.costoTotalVal).toLocaleString('es-CO')}</span>
                               <span>Tope: ${(r.capacidadRiesgo).toLocaleString('es-CO')}</span>
                             </div>
@@ -1547,16 +1668,31 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold uppercase text-[10px]">
               <tr>
-                <th className="p-3">ID Test</th>
-                <th className="p-3">Fecha / Autor</th>
-                <th className="p-3">Diseño/Operación</th>
-                <th className="p-3">Eficacia</th>
-                <th className="p-3">Comentarios / Anexos</th>
+                <th className="p-3">
+                  <div>ID Test</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Fecha / Autor</div>
+                  <FilterInput colKey="auditor" placeholder="Autor..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Diseño/Operación</div>
+                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Eficacia</div>
+                  <FilterInput colKey="calificacion" placeholder="%" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Comentarios / Anexos</div>
+                  <FilterInput colKey="comentarios" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 {isAdmin && <th className="p-3 text-center">Gestión</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
-              {applyFilters(evaluacionesData, searchTerm).map((ev, index) => (
+              {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
                 <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
                   <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
                   <td className="p-3">
@@ -1564,7 +1700,7 @@ export default function App() {
                     <div className="text-[9px] text-slate-500 mt-1 uppercase truncate w-32" title={ev.auditor}>{ev.auditor}</div>
                   </td>
                   <td>D: {ev.diseño} / E: {ev.ejecucion}</td>
-                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
+                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} notranslate`} translate="no">{ev.calificacion}%</span></td>
                   <td className="p-3">
                     <div className="mb-1">{ev.comentarios}</div>
                     {ev.evidenciaUrl ? (
@@ -1667,15 +1803,30 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y divide-slate-100">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
               <tr>
-                <th className="p-4">ID / REF</th>
-                <th className="p-4">PROCESO</th>
-                <th className="p-4 w-1/3">TÍTULO E INFORMES</th>
-                <th className="p-4">RESPONSABLES</th>
-                <th className="p-4 text-center">ESTADO / GESTIÓN</th>
+                <th className="p-4">
+                  <div>ID / REF</div>
+                  <FilterInput colKey="ref" placeholder="Identificación..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>PROCESO</div>
+                  <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 w-1/3">
+                  <div>TÍTULO E INFORMES</div>
+                  <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>RESPONSABLES</div>
+                  <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 text-center">
+                  <div>ESTADO / GESTIÓN</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {applyFilters(hFiltrados, searchTerm).map((h, index) => (
+              {applyFilters(hFiltrados, searchTerm, columnFilters).map((h, index) => (
                 <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <div className="font-black text-slate-800 text-sm">{h.ref}</div>
@@ -1789,16 +1940,28 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">ID Plan</th>
-                <th className="p-3">Hallazgo</th>
-                <th className="p-3">Acción Remedial Programada</th>
+                <th className="p-3">
+                  <div>ID Plan</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Hallazgo</div>
+                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Acción Remedial Programada</div>
+                  <FilterInput colKey="accion" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 <th className="p-3 w-40">% Avance</th>
-                <th className="p-3">Estado</th>
+                <th className="p-3">
+                  <div>Estado</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 <th className="p-3 text-center">Gestión</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(planesData, searchTerm).map((p, index) => {
+              {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
                 const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
                 return (
                   <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50">
@@ -1853,15 +2016,15 @@ export default function App() {
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-900 text-white font-bold">
             <tr>
-              <th className="p-3">ID</th>
-              <th className="p-3">Riesgo ID</th>
-              <th className="p-3">Descripción</th>
-              <th className="p-3">Impacto</th>
+              <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Riesgo ID <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3 text-right">Costo (COP)</th>
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
-            {applyFilters(incFiltrados, searchTerm).map(i => (
+            {applyFilters(incFiltrados, searchTerm, columnFilters).map(i => (
               <tr key={i.id}>
                 <td className="p-3 text-slate-400">#INC-{i.id}</td>
                 <td className="p-3 font-bold">#{i.idRiesgo}</td>
@@ -1995,7 +2158,8 @@ export default function App() {
             { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
-            { id: 'informe', icon: '📜', label: 'Trazabilidad' }
+            { id: 'informe', icon: '📜', label: 'Trazabilidad' },
+            { id: 'config', icon: '⚙️', label: 'Configuración / Backups' }
           ].map((tab, index) => (
             <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
@@ -2019,6 +2183,7 @@ export default function App() {
             {activeTab === 'planes' && renderPlanes()}
             {activeTab === 'incidentes' && renderIncidentes()}
             {activeTab === 'informe' && renderInforme()}
+            {activeTab === 'config' && renderConfiguracion()}
           </div>
         </main>
       </div>
