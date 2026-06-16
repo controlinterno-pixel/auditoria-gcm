@@ -1,4 +1,4 @@
-
+import React, { useState, useEffect, useMemo } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -9,6 +9,18 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
+// =====================================================================
+// 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
+// =====================================================================
+let GEMINI_API_KEY = "";
+try {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  }
+} catch (error) {
+  console.warn("Entorno simulado: variables de Vercel no detectadas.");
+}
 
 // --- CONFIGURACIÓN DE FIREBASE ---
 const firebaseConfig = {
@@ -33,10 +45,6 @@ const ADMIN_EMAILS = [
   "analista.auditoria@termales.com.co",
   "analista.controlinterno@termales.com.co"
 ];
-
-// =====================================================================
-// 🛠️ FUNCIONES GLOBALES, CÁLCULOS Y FILTROS SEGUROS
-// =====================================================================
 
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
 const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
@@ -133,7 +141,6 @@ const applyFilters = (dataArray, globalTerm, colFilters) => {
   return result;
 };
 
-// --- COMPONENTES VISUALES ---
 const ProgressBar = ({ progress }) => {
   let color = "bg-red-500";
   if (progress >= 40) color = "bg-amber-500";
@@ -229,7 +236,6 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 };
 
-// --- DATOS POR DEFECTO ---
 const defaultRiesgos = [
   { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
   { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
@@ -288,6 +294,10 @@ export default function App() {
   // --- SELECCIÓN MÚLTIPLE DE FECHAS ACTIVADA ---
   const [selectedAnios, setSelectedAnios] = useState([2025, 2026]);
   const [selectedMeses, setSelectedMeses] = useState(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]);
+
+  // --- ESTADOS DE IA ---
+  const [isThinking, setIsThinking] = useState(false);
+  const [aiModal, setAiModal] = useState(null);
 
   // --- ENTIDADES PRINCIPALES ---
   const [riesgos, setRiesgos] = useState([]);
@@ -439,6 +449,115 @@ export default function App() {
     }
   };
 
+  // --- FUNCIONES IA GEMINI ---
+  const sugerirConIA = async (tipoTarget) => {
+    let textoBase = "";
+    let inputDestino = null;
+
+    if (tipoTarget === 'control') {
+      textoBase = document.querySelector('input[name="descripcion"]')?.value || "";
+      inputDestino = document.querySelector('input[name="control"]');
+    } else if (tipoTarget === 'plan') {
+      const selectElement = document.querySelector('select[name="idHallazgo"]');
+      textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
+      inputDestino = document.querySelector('input[name="accion"]');
+    } else if (tipoTarget === 'hallazgo') {
+      textoBase = document.querySelector('input[name="proceso"]')?.value || "";
+      inputDestino = document.querySelector('input[name="titulo"]');
+    }
+
+    if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
+      showNotification("Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
+      return;
+    }
+
+    if (!GEMINI_API_KEY) {
+      showNotification("La clave de API de Gemini no se ha cargado correctamente.", "error");
+      return;
+    }
+
+    setIsThinking(true);
+    showNotification("Gemini Pro está analizando el escenario...", "success");
+
+    try {
+      let prompt = "";
+      if (tipoTarget === 'control') {
+        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`;
+      } else if (tipoTarget === 'plan') {
+        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
+      } else if (tipoTarget === 'hallazgo') {
+        prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
+      }
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 }
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+
+      let sugerencia = data.candidates[0].content.parts[0].text.trim();
+
+      if (inputDestino) {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+        nativeInputValueSetter.call(inputDestino, sugerencia);
+        inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
+        inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
+        showNotification("¡Gemini ha insertado una sugerencia ejecutiva de alto nivel!");
+      }
+    } catch (error) {
+      console.error("Error conectando a Gemini:", error);
+      showNotification("Error conectando con la IA de Google. Verifica los ajustes.", "error");
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
+    setIsThinking(true);
+    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
+
+    if (!GEMINI_API_KEY) {
+      showNotification("⚠️ La clave de API de Gemini no se ha cargado correctamente.", "error");
+      setIsThinking(false);
+      return;
+    }
+
+    try {
+      const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
+      Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
+      Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+          })
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      const analisis = data.candidates[0].content.parts[0].text.trim();
+      setAiModal({ titulo: `📋 Checklist IA (Gemini)`, contenido: analisis, url: evidenciaUrl });
+
+    } catch (error) {
+        console.error(error);
+        showNotification("Error conectando con la IA de Google.", "error");
+    } finally {
+        setIsThinking(false);
+    }
+  };
+
   // --- FILTRADO GLOBAL COMPACTO ---
   const filterByGlobalPeriod = (item) => {
     const a = getItemAnio(item).toString();
@@ -448,10 +567,33 @@ export default function App() {
     return passAnio && passMes;
   };
 
-  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, filtroAnio, filtroMes]);
-  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, filtroAnio, filtroMes]);
-  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, filtroAnio, filtroMes]);
-  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, filtroAnio, filtroMes]);
+  const rFiltrados = useMemo(() => {
+    return safeRiesgos.filter(r => {
+      const a = getItemAnio(r); const m = getItemMesText(r);
+      return selectedAnios.includes(a) && selectedMeses.includes(m);
+    });
+  }, [safeRiesgos, selectedAnios, selectedMeses]);
+
+  const hFiltrados = useMemo(() => {
+    return safeHallazgos.filter(h => {
+      const a = getItemAnio(h); const m = getItemMesText(h);
+      return selectedAnios.includes(a) && selectedMeses.includes(m);
+    });
+  }, [safeHallazgos, selectedAnios, selectedMeses]);
+
+  const pFiltrados = useMemo(() => {
+    return safePlanes.filter(p => {
+      const a = getItemAnio(p); const m = getItemMesText(p);
+      return selectedAnios.includes(a) && selectedMeses.includes(m);
+    });
+  }, [safePlanes, selectedAnios, selectedMeses]);
+
+  const incFiltrados = useMemo(() => {
+    return safeIncidentes.filter(i => {
+      const a = getItemAnio(i); const m = getItemMesText(i);
+      return selectedAnios.includes(a) && selectedMeses.includes(m);
+    });
+  }, [safeIncidentes, selectedAnios, selectedMeses]);
 
   const avanceGlobal = useMemo(() => {
     if (pFiltrados.length === 0) return 0;
@@ -465,10 +607,9 @@ export default function App() {
   const pCerrados = pFiltrados.filter(p => p.estado === 'Cerrado').length;
 
   const rendimientoControles = useMemo(() => {
-    const evalFiltradas = safeEvaluaciones.filter(filterByGlobalPeriod);
-    if (evalFiltradas.length === 0) return 0;
-    return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
-  }, [safeEvaluaciones, filtroAnio, filtroMes]);
+    if (safeEvaluaciones.length === 0) return 0;
+    return (safeEvaluaciones.filter(e => e.calificacion === 100).length / safeEvaluaciones.length) * 100;
+  }, [safeEvaluaciones]);
 
   // --- SUBMITS DE ACCIONES ---
   const handleRiesgoSubmit = async (e) => {
@@ -497,10 +638,8 @@ export default function App() {
       if (url) evidenciaUrlOut = url;
     }
 
-    let updated; 
-    const progreso = parseInt(formData.get('progreso')||0); 
-    const estado = progreso === 100 ? 'Cerrado' : 'En Proceso';
-
+    let updated; const progreso = parseInt(formData.get('progreso')||0); const estado = progreso === 100 ? 'Cerrado' : 'En Proceso';
+    
     if (editPlan) {
       const finalUrl = evidenciaUrlOut !== '' ? evidenciaUrlOut : editPlan.evidenciaUrl;
       const mod = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso, estado, evidenciaUrl: finalUrl, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, accion: 'Actualizado' }] };
@@ -723,70 +862,55 @@ export default function App() {
     e.target.reset();
   };
 
-  // =====================================================================
-  // REUSABLE HEADER COMPONENT (Dropdown Filters)
-  // =====================================================================
-  const renderHeaderFiltros = (title, subtitle, includeMatrizToggle = false) => {
-    const añosSet = new Set(['2025', '2026']);
-    safeHallazgos.forEach(h => { const a = getYearFromDate(formatSafeDate(h.fecha)); if(a !== 'N/A') añosSet.add(a); });
-    safePlanes.forEach(p => { const a = getYearFromDate(formatSafeDate(p.fecha)); if(a !== 'N/A') añosSet.add(a); });
-    safeIncidentes.forEach(i => { const a = getYearFromDate(formatSafeDate(i.fecha)); if(a !== 'N/A') añosSet.add(a); });
-    const availableYears = Array.from(añosSet).sort().reverse();
-
-    return (
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h2>
-          {subtitle && <p className="text-xs text-slate-500 mt-1 font-medium">{subtitle}</p>}
-        </div>
-        <div className="mt-4 md:mt-0 flex items-center space-x-3">
-          <div className="bg-white px-4 py-1.5 rounded-full border border-slate-200 flex items-center shadow-sm space-x-2">
-            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">PERIODO:</span>
-            <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="text-xs font-bold border-none bg-transparent outline-none cursor-pointer text-slate-700">
-              <option value="Todos">Todos</option>
-              {availableYears.map(a => <option key={`filtro-anio-${a}`} value={a}>{a}</option>)}
-            </select>
-            <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="text-xs font-bold border-none bg-transparent outline-none cursor-pointer text-slate-700 ml-1">
-              <option value="Todos">Mes (Todos)</option>
-              {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => (
-                <option key={`filtro-mes-${m}`} value={m}>{m}</option>
-              ))}
-            </select>
+  const renderSelectorFiltrosMultiples = () => (
+    <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col space-y-3 shadow-sm mb-6">
+      <div className="text-xs font-black text-[#004d40] uppercase tracking-wider flex items-center space-x-2">
+        <span>🎛️</span> <span>Consola de Mando Temporal (Agrupación Activa)</span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="md:col-span-3 border-r pr-2">
+          <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Años:</span>
+          <div className="flex gap-1.5">
+            {[2025, 2026].map(a => {
+              const act = selectedAnios.includes(a);
+              return (
+                <button key={`filter-year-${a}`} type="button" onClick={() => toggleAnio(a)} className={`px-3 py-1 rounded text-xs font-black border transition-all ${act ? 'bg-[#004d40] text-white border-[#004d40]' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{a}</button>
+              );
+            })}
           </div>
-          {includeMatrizToggle && (
-            <div className="bg-white p-1 rounded-full border flex shadow-sm">
-              <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1 rounded-full font-bold text-[10px] uppercase transition-all ${tipoMatriz === 'inherente' ? 'bg-[#004d40] text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>INHERENTE</button>
-              <button onClick={() => {setTipoMatriz('residual'); setFiltroHeatMap(null);}} className={`px-4 py-1 rounded-full font-bold text-[10px] uppercase transition-all ${tipoMatriz === 'residual' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>RESIDUAL</button>
-            </div>
-          )}
+        </div>
+        <div className="md:col-span-9">
+          <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Meses:</span>
+          <div className="flex flex-wrap gap-1">
+            {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => {
+              const act = selectedMeses.includes(m);
+              return (
+                <button key={`filter-month-${m}`} type="button" onClick={() => toggleMes(m)} className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${act ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>{m}</button>
+              );
+            })}
+            <button type="button" onClick={() => setSelectedMeses(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"])} className="text-[10px] font-black text-blue-600 hover:underline ml-2">Seleccionar Todos</button>
+          </div>
         </div>
       </div>
-    );
-  };
-
-  // =====================================================================
-  // RENDERS DE VISTAS (ADMIN INTERFACE)
-  // =====================================================================
+    </div>
+  );
 
   const renderTablero = () => {
     const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
-        {renderHeaderFiltros("Tablero Analítico de Auditoría", "Análisis integral de desviaciones operativas.")}
-        
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">INDICADORES KRI EN TIEMPO REAL</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Gauge value={avanceGlobal} label="MITIGACIÓN GLOBAL" sublabel="% Avance Promedio" colorClass="text-blue-500" />
-          <Gauge value={rendimientoControles} label="SALUD CONTROLES" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-          <div className="bg-[#0f172a] text-white p-6 rounded-2xl flex flex-col justify-center text-center shadow-lg border border-slate-800">
-            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ALERTA CRÍTICA</span>
-            <span className="text-6xl font-black mt-4">{hAbiertos}</span>
-            <p className="text-xs font-bold text-slate-300 mt-4">Hallazgos Pendientes de Cierre</p>
+        {renderSelectorFiltrosMultiples()}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Gauge value={avanceGlobal} label="Mitigación Global" sublabel="% Avance Promedio" colorClass="text-blue-500" />
+          <Gauge value={rendimientoControles} label="Salud Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+          <div className="bg-slate-900 text-white p-5 rounded-2xl flex flex-col justify-center text-center shadow-sm">
+            <span className="text-[10px] font-black text-red-400 uppercase">Hallazgos Abiertos en Grupo</span>
+            <span className="text-4xl font-black mt-2">{hAbiertos}</span>
           </div>
         </div>
 
-        <div className="space-y-4 mt-8">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">DESEMPEÑO OPERATIVO POR SEDE</h3>
+        <div className="space-y-4 mt-6">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Desempeño Operativo por Sede</h3>
           {sedes.map(s => {
             const hSede = hFiltrados.filter(h => h.sede === s).length;
             return (
@@ -819,34 +943,41 @@ export default function App() {
 
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
-        {renderHeaderFiltros("Panel de inteligencia GRC", "Análisis predictivo de apetito ISO 31000 y Evolución de KRI.", true)}
+        {renderSelectorFiltrosMultiples()}
+        <div className="flex justify-between items-center border-b pb-2">
+          <h3 className="text-sm font-black text-slate-700 uppercase">Matriz de Riesgo Tradicional (ISO 31000)</h3>
+          <div className="bg-white p-1 rounded-xl border flex shadow-sm">
+            <button onClick={() => setTipoMatriz('inherente')} className={`px-4 py-1 rounded-lg font-bold text-[10px] uppercase ${!esRes ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Inherente</button>
+            <button onClick={() => setTipoMatriz('residual')} className={`px-4 py-1 rounded-lg font-bold text-[10px] uppercase ${esRes ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}>Residual</button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TrendChart data={dataIncidentes} title={`EVOLUCIÓN DE IMPACTO FINANCIERO (${filtroAnio})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
-          <TrendChart data={dataHallazgos} title={`VOLUMEN DE DESVIACIONES (${filtroAnio})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
+          <TrendChart data={dataIncidentes} title={`Evolución de Impacto Financiero`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
+          <TrendChart data={dataHallazgos} title={`Volumen de Desviaciones`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-blue-500">
-             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS TOTALES</h4>
-             <span className="text-4xl font-black mt-2 block text-slate-800">{totalRiesgos}</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500">
+             <span className="text-[10px] text-slate-400 font-bold uppercase block">Riesgos Totales</span>
+             <span className="text-2xl font-black text-slate-800">{totalRiesgos}</span>
           </div>
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-red-600">
-             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">FUERA DE APETITO</h4>
-             <span className="text-4xl font-black mt-2 block text-red-600">{riesgosFueraApetito}</span>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-red-600">
+             <span className="text-[10px] text-slate-400 font-bold uppercase block">Fuera de Apetito</span>
+             <span className="text-2xl font-black text-red-600">{riesgosFueraApetito}</span>
           </div>
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-orange-500">
-             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS CRÍTICOS</h4>
-             <span className="text-4xl font-black mt-2 block text-orange-500">{riesgosCriticos}</span>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-orange-500">
+             <span className="text-[10px] text-slate-400 font-bold uppercase block">Riesgos Críticos</span>
+             <span className="text-2xl font-black text-orange-600">{riesgosCriticos}</span>
           </div>
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-purple-600">
-             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PÉRDIDAS TOTALES</h4>
-             <span className="text-3xl font-black mt-2 block text-purple-700">$ {(totalPerdidas).toLocaleString('es-CO')}</span>
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 border-l-4 border-l-purple-600">
+             <span className="text-[10px] text-slate-400 font-bold uppercase block">Impacto Económico</span>
+             <span className="text-xl font-black text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</span>
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 flex flex-col items-center relative">
-          <h3 className="font-black text-slate-600 text-xs uppercase tracking-widest mb-8 w-full flex items-center space-x-3">
+        <div className="bg-white rounded-2xl border p-6 flex flex-col items-center shadow-sm relative">
+          <h3 className="font-black text-slate-600 text-xs uppercase tracking-widest mb-6 w-full flex items-center space-x-3">
             <span>🗺️ MAPA DE CALOR EMPRESARIAL (HAZ CLIC EN UN CUADRANTE CON NÚMEROS)</span>
             <span className="bg-slate-800 text-white px-3 py-1 rounded-full text-[9px] font-bold tracking-widest">{tipoMatriz}</span>
           </h3>
@@ -1303,7 +1434,7 @@ export default function App() {
       let consumoPorcentaje = 0;
 
       if (estaConfigurado) {
-        consumoPorcentaje = Math.min((costoTotal / r.capacidadRiesgo) * 100, 100);
+        consumoPorcentaje = r.capacidadRiesgo ? Math.min((costoTotal / r.capacidadRiesgo) * 100, 100) : 0;
         if (costoTotal <= r.apetitoFinanciero) { 
           zona = "Confort (Apetito)"; 
           zonaColor = "bg-emerald-50 text-emerald-700 border-emerald-200"; 
@@ -1500,7 +1631,7 @@ export default function App() {
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
-            <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs shadow-sm">
+            <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
               <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
               <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
               <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
@@ -1840,7 +1971,7 @@ export default function App() {
 
   const renderIncidentes = () => (
     <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
+      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Registro de Eventos de Pérdida (COP)</h2></div>
       {isAdmin && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
@@ -1866,8 +1997,8 @@ export default function App() {
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
-            {applyFilters(incFiltrados, searchTerm, columnFilters).map(i => (
-              <tr key={i.id}>
+            {applyFilters(incFiltrados, searchTerm, columnFilters).map((i, index) => (
+              <tr key={`inc-${i.id}-${index}`}>
                 <td className="p-3 text-slate-400">#INC-{i.id}</td>
                 <td className="p-3 font-bold">#{i.idRiesgo}</td>
                 <td className="p-3"><b>{i.titulo}</b><p className="text-[10px] text-slate-400 mt-0.5">{i.descripcion}</p></td>
@@ -1886,7 +2017,7 @@ export default function App() {
       .flatMap(item => (item.historialCambios || []).map(log => ({ ...log, ref: item.proceso || item.titulo || `Item: ${item.id}` })));
     return (
       <div className="space-y-6">
-        <div className="border-b pb-2 font-black text-lg">📜 Trazabilidad de Auditoría e Historial de Cambios</div>
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">📜 Trazabilidad de Auditoría e Historial de Cambios</h2></div>
         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-50 border-b text-[10px] uppercase font-black text-slate-500">
