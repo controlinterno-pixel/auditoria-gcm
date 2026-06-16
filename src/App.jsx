@@ -153,7 +153,7 @@ const ProgressBar = ({ progress }) => {
     <div className="w-full">
       <div className="flex justify-between text-[10px] font-bold mb-1">
         <span className="text-slate-500">PROGRESO</span>
-        <span className="text-slate-800">{safeProgress}%</span>
+        <span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2">
         <div className={`${color} h-2 rounded-full transition-all duration-1000`} style={{ width: `${safeProgress}%` }}></div>
@@ -171,7 +171,7 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
           strokeDasharray={339} strokeDashoffset={339 - (339 * (value || 0)) / 100}
           className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
       </svg>
-      <span className="absolute text-3xl font-black text-slate-800">{Math.round(value || 0)} %</span>
+      <span className="absolute text-3xl font-black text-slate-800 notranslate" translate="no">{Math.round(value || 0)} %</span>
     </div>
     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
     <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
