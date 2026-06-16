@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -272,7 +272,7 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
   
-  // --- FILTROS GLOBALES COMPACTOS ---
+  // --- FILTROS GLOBALES COMPACTOS (DESPLEGABLES) ---
   const [filtroAnio, setFiltroAnio] = useState('2026');
   const [filtroMes, setFiltroMes] = useState('Todos');
 
@@ -413,7 +413,7 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // --- AYUDANTE DE SUBIDA DE ARCHIVOS CON TIMEOUT ---
+  // --- MANEJADOR DE SUBIDA RÁPIDA CON TIMEOUT ---
   const handleFileUpload = async (archivo, folder) => {
     if (!archivo || archivo.size === 0) return null;
     setIsUploading(true);
@@ -425,14 +425,14 @@ export default function App() {
         return await getDownloadURL(fileRef);
       };
       
-      const timeoutTask = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 5000));
+      const timeoutTask = new Promise((_, reject) => setTimeout(() => reject(new Error("TIMEOUT")), 10000));
       
       const url = await Promise.race([uploadTask(), timeoutTask]);
       showNotification("Evidencia cargada a la nube.", "success");
       return url;
     } catch (error) {
       console.error("Upload error:", error);
-      showNotification("Aviso: El archivo no subió (Storage inactivo o lento). Guardando datos de registro...", "error");
+      showNotification("Aviso: El archivo tardó demasiado en subir. Guardando texto...", "error");
       return null;
     } finally {
       setIsUploading(false);
@@ -497,8 +497,10 @@ export default function App() {
       if (url) evidenciaUrlOut = url;
     }
 
-    let updated; const progreso = parseInt(formData.get('progreso')||0); const estado = progreso === 100 ? 'Cerrado' : 'En Proceso';
-    
+    let updated; 
+    const progreso = parseInt(formData.get('progreso')||0); 
+    const estado = progreso === 100 ? 'Cerrado' : 'En Proceso';
+
     if (editPlan) {
       const finalUrl = evidenciaUrlOut !== '' ? evidenciaUrlOut : editPlan.evidenciaUrl;
       const mod = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso, estado, evidenciaUrl: finalUrl, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, accion: 'Actualizado' }] };
@@ -774,8 +776,8 @@ export default function App() {
         
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">INDICADORES KRI EN TIEMPO REAL</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Gauge value={avanceGlobal} label="MITIGACIÓN GLOBAL" sublabel="Promedio Planes de Acción" colorClass="text-blue-500" />
-          <Gauge value={rendimientoControles} label="CONTROLES DE SALUD" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+          <Gauge value={avanceGlobal} label="MITIGACIÓN GLOBAL" sublabel="% Avance Promedio" colorClass="text-blue-500" />
+          <Gauge value={rendimientoControles} label="SALUD CONTROLES" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
           <div className="bg-[#0f172a] text-white p-6 rounded-2xl flex flex-col justify-center text-center shadow-lg border border-slate-800">
             <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ALERTA CRÍTICA</span>
             <span className="text-6xl font-black mt-4">{hAbiertos}</span>
@@ -784,20 +786,16 @@ export default function App() {
         </div>
 
         <div className="space-y-4 mt-8">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">DESEMPEÑO POR UNIDAD DE NEGOCIO</h3>
-          
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-            <h4 className="text-xl font-black text-slate-800 mb-6 border-b pb-2">Hotel</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center">
-                <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">HALLAZGOS ABIERTOS</span>
-                <span className="text-5xl font-black mt-4 text-slate-800">{hFiltrados.filter(h => h.sede === 'Hotel' && h.estado === 'Abierto').length}</span>
-                <p className="text-[10px] font-bold mt-4 opacity-60 text-slate-500">Pendientes de Cierre</p>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">DESEMPEÑO OPERATIVO POR SEDE</h3>
+          {sedes.map(s => {
+            const hSede = hFiltrados.filter(h => h.sede === s).length;
+            return (
+              <div key={`sede-${s}`} className="bg-white p-4 border rounded-xl flex justify-between items-center shadow-sm hover:shadow-md transition-all">
+                <span className="font-black text-slate-800 text-sm">{s}</span>
+                <span className="text-xs font-bold text-slate-500">Hallazgos Activos en Periodo: <b className="text-red-600 font-black">{hSede}</b></span>
               </div>
-              <Gauge value={rendimientoControles} label="SALUD DE CONTROLES" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-              <Gauge value={avanceGlobal} label="PLANES DE ACCIÓN" sublabel="Promedio de Avance Físico" colorClass="text-blue-500" />
-            </div>
-          </div>
+            );
+          })}
         </div>
       </div>
     );
@@ -1192,6 +1190,9 @@ export default function App() {
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 flex justify-between items-center">
                   <span>Control Clave</span>
+                  <button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                  </button>
                 </label>
                 <input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" />
               </div>
@@ -1217,36 +1218,63 @@ export default function App() {
           </div>
         )}
 
-        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-          <table className="w-full text-left">
-            <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
-              <tr>
-                <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Proceso / Ley <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Escenario de Riesgo <FilterInput colKey="descripcion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Control Mitigante <FilterInput colKey="descripcionControl" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Apetito COSO <FilterInput colKey="apetitoVal" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3 text-center">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y text-slate-700">
-              {applyFilters(rData, searchTerm, columnFilters).map(r => (
-                <tr key={r.id} className="hover:bg-slate-50/50">
-                  <td className="p-3 font-bold text-slate-400">#{r.id}</td>
-                  <td className="p-3">
-                    <span className="font-black text-slate-900 block">{r.proceso}</span>
-                    <span className="text-[9px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded tracking-wider mt-0.5 inline-block uppercase">⚖️ {r.normativa || 'Compliance'}</span>
-                  </td>
-                  <td className="p-3 max-w-xs">{r.descripcion}</td>
-                  <td className="p-3 italic max-w-xs">⚙️ {r.descripcionControl}</td>
-                  <td className="p-3"><span className="px-2 py-0.5 rounded bg-slate-100 font-bold text-[10px]">{r.apetitoVal}</span></td>
-                  <td className="p-3 text-center whitespace-nowrap">
-                    {isAdmin && <button onClick={() => handleDeleteItem('riesgos', r.id)} className="text-red-600 font-bold px-2 py-1 bg-red-50 rounded text-[10px] hover:bg-red-100">Eliminar</button>}
-                  </td>
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left divide-y">
+              <thead className="bg-slate-900 text-white font-bold">
+                <tr>
+                  <th className="p-3">
+                    <div>ID</div>
+                    <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3 w-48">
+                    <div>Proceso / Riesgo / Normativa</div>
+                    <FilterInput colKey="proceso" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3 w-48">
+                    <div>Responsable / Control</div>
+                    <FilterInput colKey="responsable" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3 text-center">
+                    <div>Score Inh</div>
+                    <FilterInput colKey="scoreInhVal" placeholder="Puntos..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3 text-center">
+                    <div>Score Res</div>
+                    <FilterInput colKey="scoreResVal" placeholder="Puntos..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3">
+                    <div>Apetito</div>
+                    <FilterInput colKey="apetitoVal" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3">Acción Recomendada</th>
+                  <th className="p-3 text-center">Acciones</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {applyFilters(rData, searchTerm, columnFilters).map((r, index) => (
+                  <tr key={`riesgo-row-${r.id}-${index}`} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold text-slate-400">#{r.id}</td>
+                    <td className="p-3">
+                      <div className="flex items-center space-x-2 mb-1"><span className="px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded font-bold uppercase">{r.sede || 'Hotel'}</span><span className="font-black text-slate-900">{r.proceso}</span></div>
+                      <div className="text-[9px] font-bold text-indigo-500 uppercase font-mono">{r.categoria}</div>
+                      <div className="mt-1">{r.descripcion}</div>
+                      {r.normativa && r.normativa !== 'Ninguna' && <div className="mt-1.5 inline-block bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border border-purple-200">⚖️ {r.normativa}</div>}
+                    </td>
+                    <td className="p-3"><div className="font-bold text-slate-800">{r.responsable}</div><div className="italic mt-1 text-slate-600">⚙️ {r.descripcionControl}</div></td>
+                    <td className="p-3 text-center font-mono">{r.scoreInhVal} pts</td>
+                    <td className="p-3 text-center font-mono font-black">{r.scoreResVal} pts</td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.apetitoVal === "Dentro de Apetito" || r.apetitoVal === "Aceptable" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.apetitoVal}</span></td>
+                    <td className="p-3"><span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black ${r.colorVal}`}>{r.accionVal}</span></td>
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      {isAdmin && <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️</button>}
+                      {isAdmin && <button onClick={() => handleDeleteItem('riesgos', r.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -1544,6 +1572,7 @@ export default function App() {
                     {ev.evidenciaUrl && (
                       <div className="flex items-center space-x-2 mt-2">
                         <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Archivo</span></a>
+                        {isAdmin && <button onClick={() => analizarEvidenciaIA(ev.evidenciaUrl, ev.comentarios, 'Test de Auditoría')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
                       </div>
                     )}
                   </td>
@@ -1590,6 +1619,9 @@ export default function App() {
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 flex justify-between items-center mb-1">
                 <span>Título / Descripción de la Falla</span>
+                <button type="button" onClick={() => sugerirConIA('hallazgo')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                </button>
               </label>
               <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
             </div>
@@ -1665,6 +1697,7 @@ export default function App() {
                     {h.evidenciaUrl && (
                       <div className="flex items-center space-x-2 mt-2">
                         <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Informe</span></a>
+                        {isAdmin && <button onClick={() => analizarEvidenciaIA(h.evidenciaUrl, h.titulo, 'Hallazgo')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
                       </div>
                     )}
                   </td>
@@ -1715,6 +1748,9 @@ export default function App() {
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 flex justify-between items-center mb-1">
                   <span>Acción de Choque / Mitigación</span>
+                  <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                  </button>
                 </label>
                 <input name="accion" defaultValue={editPlan?.accion||''} required placeholder="Acción de Choque / Mitigación" className="w-full border p-2 rounded" />
               </div>
@@ -1782,6 +1818,7 @@ export default function App() {
                       {p.evidenciaUrl && (
                         <div className="flex items-center space-x-2 mt-2">
                           <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Soporte</span></a>
+                          {isAdmin && <button onClick={() => analizarEvidenciaIA(p.evidenciaUrl, p.accion, 'Plan de Acción')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
                         </div>
                       )}
                     </td>
@@ -1857,7 +1894,7 @@ export default function App() {
             </thead>
             <tbody className="divide-y text-slate-600">
               {logs.map((l, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
+                <tr key={`log-${idx}`} className="hover:bg-slate-50">
                   <td className="p-3 font-mono">{l.fecha || new Date().toLocaleString()}</td>
                   <td className="p-3 font-bold text-slate-900">{l.ref}</td>
                   <td className="p-3 italic">{l.accion || 'Registro guardado'}</td>
@@ -1923,6 +1960,32 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden text-xs relative">
+      {/* --- MODAL IA GEMINI --- */}
+      {aiModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
+           <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl">
+              <div className="bg-purple-900 text-white p-5 flex justify-between items-center border-b border-purple-800">
+                 <h3 className="font-black text-sm uppercase tracking-widest">{aiModal.titulo}</h3>
+                 <button onClick={() => setAiModal(null)} className="text-purple-300 hover:text-white font-black text-xl">✖</button>
+              </div>
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-6 flex space-x-4 items-start">
+                    <span className="text-3xl">🧠</span>
+                    <p className="text-xs text-purple-900 font-medium leading-relaxed">
+                      El modelo de IA ha generado el siguiente pre-diagnóstico. Por favor, abre el archivo adjunto y utiliza esta guía para validar la evidencia de forma estricta.
+                    </p>
+                 </div>
+                 <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
+                    {aiModal.contenido}
+                 </div>
+              </div>
+              <div className="bg-slate-50 p-5 border-t border-slate-200 flex justify-end space-x-3">
+                 <a href={aiModal.url} target="_blank" rel="noreferrer" className="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-md hover:bg-slate-700 transition-colors flex items-center space-x-2"><span>📎</span><span>Abrir Archivo Manualmente</span></a>
+              </div>
+           </div>
+        </div>
+      )}
+
       <div className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20">
         <div className="p-6 border-b border-slate-800 font-black text-sm text-white uppercase tracking-wider">🛡️ GCM Auditor v5</div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -1937,8 +2000,8 @@ export default function App() {
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
+          ].map((tab, index) => (
+            <button key={`nav-tab-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
           ))}
