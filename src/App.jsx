@@ -46,6 +46,10 @@ const ADMIN_EMAILS = [
   "analista.controlinterno@termales.com.co"
 ];
 
+// =====================================================================
+// 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
+// =====================================================================
+
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
 const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 const mapMesNumATexto = { 
@@ -119,7 +123,7 @@ const calcularMatriz5x5 = (probabilidad, impacto) => {
   return { score, apetito, accion, color, borderSemaforo };
 };
 
-const applyFilters = (dataArray, globalTerm, colFilters) => {
+const applyFilters = (dataArray, globalTerm) => {
   let result = dataArray;
   if (globalTerm) {
     const lowerTerm = globalTerm.toLowerCase();
@@ -127,20 +131,10 @@ const applyFilters = (dataArray, globalTerm, colFilters) => {
       Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
     );
   }
-  if (colFilters && Object.keys(colFilters).length > 0) {
-    Object.entries(colFilters).forEach(([key, filterValue]) => {
-      if (filterValue) {
-        const lowerFilter = filterValue.toLowerCase();
-        result = result.filter(item => {
-          const val = item[key];
-          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerFilter);
-        });
-      }
-    });
-  }
   return result;
 };
 
+// --- COMPONENTES VISUALES ---
 const ProgressBar = ({ progress }) => {
   let color = "bg-red-500";
   if (progress >= 40) color = "bg-amber-500";
@@ -172,21 +166,6 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
     <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
   </div>
-);
-
-const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
-  <input 
-    type="text" 
-    placeholder={placeholder || "Filtrar..."}
-    className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${
-      dark 
-        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
-        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
-    }`}
-    value={columnFilters[colKey] || ''}
-    onChange={(e) => handleColFilterChange(colKey, e.target.value)}
-    onClick={(e) => e.stopPropagation()} 
-  />
 );
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
@@ -236,6 +215,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 };
 
+// --- DATOS POR DEFECTO ---
 const defaultRiesgos = [
   { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
   { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
@@ -283,7 +263,6 @@ export default function App() {
   const [filtroMes, setFiltroMes] = useState('Todos');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [columnFilters, setColumnFilters] = useState({});
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
@@ -303,6 +282,10 @@ export default function App() {
   const [evaluaciones, setEvaluaciones] = useState([]);
   const [cronograma, setCronograma] = useState([]);
   const [monitoreo, setMonitoreo] = useState([]);
+
+  // --- ESTADOS DE IA ---
+  const [isThinking, setIsThinking] = useState(false);
+  const [aiModal, setAiModal] = useState(null);
 
   // --- CONTROL FORMULARIOS MODAL / EDICIÓN ---
   const [editRiesgo, setEditRiesgo] = useState(null);
@@ -327,16 +310,11 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
-  // Limpiar filtros al cambiar de pestaña
+  // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
     setSearchTerm('');
-    setColumnFilters({});
     setFiltroHeatMap(null);
   }, [activeTab]);
-
-  const handleColFilterChange = (key, value) => {
-    setColumnFilters(prev => ({ ...prev, [key]: value }));
-  };
 
   const toggleAnio = (anio) => {
     setSelectedAnios(prev => prev.includes(anio) ? prev.filter(a => a !== anio) : [...prev, anio]);
@@ -442,6 +420,115 @@ export default function App() {
       return null;
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  // --- FUNCIONES IA GEMINI ---
+  const sugerirConIA = async (tipoTarget) => {
+    let textoBase = "";
+    let inputDestino = null;
+
+    if (tipoTarget === 'control') {
+      textoBase = document.querySelector('input[name="descripcion"]')?.value || "";
+      inputDestino = document.querySelector('input[name="control"]');
+    } else if (tipoTarget === 'plan') {
+      const selectElement = document.querySelector('select[name="idHallazgo"]');
+      textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
+      inputDestino = document.querySelector('input[name="accion"]');
+    } else if (tipoTarget === 'hallazgo') {
+      textoBase = document.querySelector('input[name="proceso"]')?.value || "";
+      inputDestino = document.querySelector('input[name="titulo"]');
+    }
+
+    if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
+      showNotification("Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
+      return;
+    }
+
+    if (!GEMINI_API_KEY) {
+      showNotification("La clave de API de Gemini no se ha cargado correctamente.", "error");
+      return;
+    }
+
+    setIsThinking(true);
+    showNotification("Gemini Pro está analizando el escenario...", "success");
+
+    try {
+      let prompt = "";
+      if (tipoTarget === 'control') {
+        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`;
+      } else if (tipoTarget === 'plan') {
+        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
+      } else if (tipoTarget === 'hallazgo') {
+        prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
+      }
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 }
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+
+      let sugerencia = data.candidates[0].content.parts[0].text.trim();
+
+      if (inputDestino) {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+        nativeInputValueSetter.call(inputDestino, sugerencia);
+        inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
+        inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
+        showNotification("¡Gemini ha insertado una sugerencia ejecutiva de alto nivel!");
+      }
+    } catch (error) {
+      console.error("Error conectando a Gemini:", error);
+      showNotification("Error conectando con la IA de Google. Verifica los ajustes.", "error");
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
+    setIsThinking(true);
+    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
+
+    if (!GEMINI_API_KEY) {
+      showNotification("⚠️ La clave de API de Gemini no se ha cargado correctamente.", "error");
+      setIsThinking(false);
+      return;
+    }
+
+    try {
+      const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
+      Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
+      Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+          })
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      const analisis = data.candidates[0].content.parts[0].text.trim();
+      setAiModal({ titulo: `📋 Checklist IA (Gemini)`, contenido: analisis, url: evidenciaUrl });
+
+    } catch (error) {
+        console.error(error);
+        showNotification("Error conectando con la IA de Google.", "error");
+    } finally {
+        setIsThinking(false);
     }
   };
 
@@ -1031,28 +1118,16 @@ export default function App() {
                      <table className="w-full text-xs text-left divide-y divide-slate-100">
                        <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                          <tr>
-                           <th className="p-3">
-                             <div>ID</div>
-                             <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                           </th>
-                           <th className="p-3 w-24">
-                             <div>Periodo</div>
-                             <FilterInput colKey="periodo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                           </th>
-                           <th className="p-3 w-48">
-                             <div>Área / Proceso</div>
-                             <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                           </th>
-                           <th className="p-3">
-                             <div>Enfoque Técnico y Alcance</div>
-                             <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                           </th>
+                           <th className="p-3">ID</th>
+                           <th className="p-3 w-24">Periodo</th>
+                           <th className="p-3 w-48">Área / Proceso</th>
+                           <th className="p-3">Enfoque Técnico y Alcance</th>
                            <th className="p-3 text-center">% Cumpl.</th>
                            {isAdmin && <th className="p-3 text-center">Acción</th>}
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
+                         {applyFilters(safeCronograma, searchTerm).map((c, index) => (
                            <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
                              <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
@@ -1121,27 +1196,15 @@ export default function App() {
              <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
                <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
                  <tr>
-                   <th className="border border-slate-300 p-2 w-10 text-center">
-                     <div>Cód</div>
-                     <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
-                   <th className="border border-slate-300 p-2 w-48">
-                     <div>Proceso Auditable</div>
-                     <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
-                   <th className="border border-slate-300 p-2 w-32">
-                     <div>Responsable</div>
-                     <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
-                   <th className="border border-slate-300 p-2 w-32">
-                     <div>Apoyo</div>
-                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
+                   <th className="border border-slate-300 p-2 w-10 text-center">Cód</th>
+                   <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
+                   <th className="border border-slate-300 p-2 w-32">Responsable</th>
+                   <th className="border border-slate-300 p-2 w-32">Apoyo</th>
                    {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
-                 {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
+                 {applyFilters(safeCronograma, searchTerm).map((c, index) => (
                    <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
@@ -1230,16 +1293,16 @@ export default function App() {
           <table className="w-full text-left">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Proceso / Ley <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Escenario de Riesgo <FilterInput colKey="descripcion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Control Mitigante <FilterInput colKey="descripcionControl" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Apetito COSO <FilterInput colKey="apetitoVal" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">ID</th>
+                <th className="p-3 w-48">Proceso / Ley</th>
+                <th className="p-3">Escenario de Riesgo</th>
+                <th className="p-3">Control Mitigante</th>
+                <th className="p-3">Apetito COSO</th>
                 <th className="p-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(rData, searchTerm, columnFilters).map((r, index) => (
+              {applyFilters(rData, searchTerm).map((r, index) => (
                 <tr key={`riesgo-${r.id}-${index}`} className="hover:bg-slate-50/50">
                   <td className="p-3 font-bold text-slate-400">#{r.id}</td>
                   <td className="p-3">
@@ -1395,24 +1458,15 @@ export default function App() {
             <table className="w-full text-xs text-left divide-y divide-slate-100">
               <thead className="bg-white text-slate-500 font-black uppercase tracking-wider text-[9px]">
                 <tr>
-                  <th className="p-4 w-1/3">
-                    <div>Proceso / Riesgo / Postura</div>
-                    <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                  </th>
-                  <th className="p-4 text-center">
-                    <div>Puntuación (KRI)</div>
-                    <FilterInput colKey="kriScore" placeholder="Puntaje..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                  </th>
+                  <th className="p-4 w-1/3">Proceso / Riesgo / Postura</th>
+                  <th className="p-4 text-center">Puntuación (KRI)</th>
                   <th className="p-4 w-1/3 text-center">Consumo de Capacidad Financiera (Eventos)</th>
-                  <th className="p-4 text-center">
-                    <div>Diagnóstico COSO</div>
-                    <FilterInput colKey="zonaVal" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                  </th>
+                  <th className="p-4 text-center">Diagnóstico COSO</th>
                   <th className="p-4 text-center">Gestión</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {applyFilters(apetitoData, searchTerm, columnFilters).map((r, index) => {
+                {applyFilters(apetitoData, searchTerm).map((r, index) => {
                   const excedidoScore = r.kriScore && r.resScoreVal > r.kriScore;
 
                   return (
@@ -1518,31 +1572,16 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold">
               <tr>
-                <th className="p-3">
-                  <div>ID Test</div>
-                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Fecha / Autor</div>
-                  <FilterInput colKey="auditor" placeholder="Autor..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Diseño/Operación</div>
-                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Eficacia</div>
-                  <FilterInput colKey="calificacion" placeholder="%" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Comentarios / Anexos</div>
-                  <FilterInput colKey="comentarios" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
+                <th className="p-3">ID Test</th>
+                <th className="p-3">Fecha / Autor</th>
+                <th className="p-3">Diseño/Operación</th>
+                <th className="p-3">Eficacia</th>
+                <th className="p-3">Comentarios / Anexos</th>
                 {isAdmin && <th className="p-3 text-center">Gestión</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
-              {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
+              {applyFilters(evaluacionesData, searchTerm).map((ev, index) => (
                 <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
                   <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
                   <td className="p-3">
@@ -1651,30 +1690,15 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y divide-slate-100">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
               <tr>
-                <th className="p-4">
-                  <div>ID / REF</div>
-                  <FilterInput colKey="ref" placeholder="Identificación..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4">
-                  <div>PROCESO</div>
-                  <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4 w-1/3">
-                  <div>TÍTULO E INFORMES</div>
-                  <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4">
-                  <div>RESPONSABLES</div>
-                  <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4 text-center">
-                  <div>ESTADO / GESTIÓN</div>
-                  <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
+                <th className="p-4">ID / REF</th>
+                <th className="p-4">PROCESO</th>
+                <th className="p-4 w-1/3">TÍTULO E INFORMES</th>
+                <th className="p-4">RESPONSABLES</th>
+                <th className="p-4 text-center">ESTADO / GESTIÓN</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {applyFilters(hFiltrados, searchTerm, columnFilters).map((h, index) => (
+              {applyFilters(hFiltrados, searchTerm).map((h, index) => (
                 <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <div className="font-black text-slate-800 text-sm">{h.ref}</div>
@@ -1786,28 +1810,16 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">
-                  <div>ID Plan</div>
-                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Hallazgo</div>
-                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Acción Remedial Programada</div>
-                  <FilterInput colKey="accion" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
+                <th className="p-3">ID Plan</th>
+                <th className="p-3">Hallazgo</th>
+                <th className="p-3">Acción Remedial Programada</th>
                 <th className="p-3 w-40">% Avance</th>
-                <th className="p-3">
-                  <div>Estado</div>
-                  <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
+                <th className="p-3">Estado</th>
                 <th className="p-3 text-center">Gestión</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
+              {applyFilters(planesData, searchTerm).map((p, index) => {
                 const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
                 return (
                   <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50">
@@ -1863,15 +1875,15 @@ export default function App() {
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-900 text-white font-bold">
             <tr>
-              <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Riesgo ID <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">ID</th>
+              <th className="p-3">Riesgo ID</th>
+              <th className="p-3">Descripción</th>
+              <th className="p-3">Impacto</th>
               <th className="p-3 text-right">Costo (COP)</th>
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
-            {applyFilters(incFiltrados, searchTerm, columnFilters).map(i => (
+            {applyFilters(incFiltrados, searchTerm).map(i => (
               <tr key={i.id}>
                 <td className="p-3 text-slate-400">#INC-{i.id}</td>
                 <td className="p-3 font-bold">#{i.idRiesgo}</td>
@@ -2005,8 +2017,8 @@ export default function App() {
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
-          ].map((tab, index) => (
-            <button key={`nav-tab-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
           ))}
