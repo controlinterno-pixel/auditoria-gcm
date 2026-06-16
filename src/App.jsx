@@ -120,13 +120,24 @@ const calcularMatriz5x5 = (probabilidad, impacto) => {
   return { score, apetito, accion, color, borderSemaforo };
 };
 
-const applyFilters = (dataArray, globalTerm) => {
+const applyFilters = (dataArray, globalTerm, colFilters = {}) => {
   let result = dataArray;
   if (globalTerm) {
     const lowerTerm = globalTerm.toLowerCase();
     result = result.filter(item => 
       Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
     );
+  }
+  if (colFilters && Object.keys(colFilters).length > 0) {
+    Object.entries(colFilters).forEach(([key, filterValue]) => {
+      if (filterValue) {
+        const lowerFilter = filterValue.toLowerCase();
+        result = result.filter(item => {
+          const val = item[key];
+          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerFilter);
+        });
+      }
+    });
   }
   return result;
 };
@@ -163,6 +174,21 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
     <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
   </div>
+);
+
+const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
+  <input 
+    type="text" 
+    placeholder={placeholder || "Filtrar..."}
+    className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${
+      dark 
+        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
+        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
+    }`}
+    value={columnFilters[colKey] || ''}
+    onChange={(e) => handleColFilterChange(colKey, e.target.value)}
+    onClick={(e) => e.stopPropagation()} 
+  />
 );
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
@@ -260,6 +286,7 @@ export default function App() {
   const [filtroMes, setFiltroMes] = useState('Todos');
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [columnFilters, setColumnFilters] = useState({});
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
@@ -309,8 +336,13 @@ export default function App() {
   // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
     setSearchTerm('');
+    setColumnFilters({});
     setFiltroHeatMap(null);
   }, [activeTab]);
+
+  const handleColFilterChange = (key, value) => {
+    setColumnFilters(prev => ({ ...prev, [key]: value }));
+  };
 
   const toggleAnio = (anio) => {
     setSelectedAnios(prev => prev.includes(anio) ? prev.filter(a => a !== anio) : [...prev, anio]);
@@ -533,7 +565,7 @@ export default function App() {
     return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
   }, [safeEvaluaciones, filtroAnio, filtroMes]);
 
-  // --- SUBMITS DE ACCIONES ---
+  // --- SUBMITS DE ACCIONES (CON ENLACES DE LA NUBE) ---
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -1067,16 +1099,28 @@ export default function App() {
                      <table className="w-full text-xs text-left divide-y divide-slate-100">
                        <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                          <tr>
-                           <th className="p-3">ID</th>
-                           <th className="p-3 w-24">Periodo</th>
-                           <th className="p-3 w-48">Área / Proceso</th>
-                           <th className="p-3">Enfoque Técnico y Alcance</th>
+                           <th className="p-3">
+                             <div>ID</div>
+                             <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 w-24">
+                             <div>Periodo</div>
+                             <FilterInput colKey="periodo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 w-48">
+                             <div>Área / Proceso</div>
+                             <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3">
+                             <div>Enfoque Técnico y Alcance</div>
+                             <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
                            <th className="p-3 text-center">% Cumpl.</th>
                            {isAdmin && <th className="p-3 text-center">Acción</th>}
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {applyFilters(safeCronograma, searchTerm).map((c, index) => (
+                         {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
                            <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
                              <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
@@ -1145,15 +1189,27 @@ export default function App() {
              <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
                <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
                  <tr>
-                   <th className="border border-slate-300 p-2 w-10 text-center">Cód</th>
-                   <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
-                   <th className="border border-slate-300 p-2 w-32">Responsable</th>
-                   <th className="border border-slate-300 p-2 w-32">Apoyo</th>
+                   <th className="border border-slate-300 p-2 w-10 text-center">
+                     <div>Cód</div>
+                     <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-48">
+                     <div>Proceso Auditable</div>
+                     <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Responsable</div>
+                     <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Apoyo</div>
+                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
                    {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
-                 {applyFilters(safeCronograma, searchTerm).map((c, index) => (
+                 {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
                    <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
@@ -1242,16 +1298,16 @@ export default function App() {
           <table className="w-full text-left">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">ID</th>
-                <th className="p-3 w-48">Proceso / Ley</th>
-                <th className="p-3">Escenario de Riesgo</th>
-                <th className="p-3">Control Mitigante</th>
-                <th className="p-3">Apetito COSO</th>
+                <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Proceso / Ley <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Escenario de Riesgo <FilterInput colKey="descripcion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Control Mitigante <FilterInput colKey="descripcionControl" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Apetito COSO <FilterInput colKey="apetitoVal" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
                 <th className="p-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(rData, searchTerm).map((r, index) => (
+              {applyFilters(rData, searchTerm, columnFilters).map((r, index) => (
                 <tr key={`riesgo-${r.id}-${index}`} className="hover:bg-slate-50/50">
                   <td className="p-3 font-bold text-slate-400">#{r.id}</td>
                   <td className="p-3">
@@ -1407,15 +1463,24 @@ export default function App() {
             <table className="w-full text-xs text-left divide-y divide-slate-100">
               <thead className="bg-white text-slate-500 font-black uppercase tracking-wider text-[9px]">
                 <tr>
-                  <th className="p-4 w-1/3">Proceso / Riesgo / Postura</th>
-                  <th className="p-4 text-center">Puntuación (KRI)</th>
+                  <th className="p-4 w-1/3">
+                    <div>Proceso / Riesgo / Postura</div>
+                    <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-4 text-center">
+                    <div>Puntuación (KRI)</div>
+                    <FilterInput colKey="kriScore" placeholder="Puntaje..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
                   <th className="p-4 w-1/3 text-center">Consumo de Capacidad Financiera (Eventos)</th>
-                  <th className="p-4 text-center">Diagnóstico COSO</th>
+                  <th className="p-4 text-center">
+                    <div>Diagnóstico COSO</div>
+                    <FilterInput colKey="zonaVal" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
                   <th className="p-4 text-center">Gestión</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {applyFilters(apetitoData, searchTerm).map((r, index) => {
+                {applyFilters(apetitoData, searchTerm, columnFilters).map((r, index) => {
                   const excedidoScore = r.kriScore && r.resScoreVal > r.kriScore;
 
                   return (
@@ -1495,7 +1560,7 @@ export default function App() {
                 {editEvaluacion?.evidenciaUrl && (
                   <div className="mt-2 flex space-x-2">
                     <a href={editEvaluacion.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
-                      👁️ Ver Archivo Actual
+                      👁️ Abrir Enlace Actual
                     </a>
                   </div>
                 )}
@@ -1518,16 +1583,31 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold uppercase text-[10px]">
               <tr>
-                <th className="p-3">ID Test</th>
-                <th className="p-3">Fecha / Autor</th>
-                <th className="p-3">Diseño/Operación</th>
-                <th className="p-3">Eficacia</th>
-                <th className="p-3">Comentarios / Anexos</th>
+                <th className="p-3">
+                  <div>ID Test</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Fecha / Autor</div>
+                  <FilterInput colKey="auditor" placeholder="Autor..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Diseño/Operación</div>
+                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Eficacia</div>
+                  <FilterInput colKey="calificacion" placeholder="%" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Comentarios / Anexos</div>
+                  <FilterInput colKey="comentarios" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 {isAdmin && <th className="p-3 text-center">Gestión</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
-              {applyFilters(evaluacionesData, searchTerm).map((ev, index) => (
+              {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
                 <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
                   <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
                   <td className="p-3">
@@ -1632,15 +1712,30 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y divide-slate-100">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
               <tr>
-                <th className="p-4">ID / REF</th>
-                <th className="p-4">PROCESO</th>
-                <th className="p-4 w-1/3">TÍTULO E INFORMES</th>
-                <th className="p-4">RESPONSABLES</th>
-                <th className="p-4 text-center">ESTADO / GESTIÓN</th>
+                <th className="p-4">
+                  <div>ID / REF</div>
+                  <FilterInput colKey="ref" placeholder="Identificación..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>PROCESO</div>
+                  <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 w-1/3">
+                  <div>TÍTULO E INFORMES</div>
+                  <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>RESPONSABLES</div>
+                  <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 text-center">
+                  <div>ESTADO / GESTIÓN</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {applyFilters(hFiltrados, searchTerm).map((h, index) => (
+              {applyFilters(hFiltrados, searchTerm, columnFilters).map((h, index) => (
                 <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <div className="font-black text-slate-800 text-sm">{h.ref}</div>
@@ -1748,16 +1843,28 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">ID Plan</th>
-                <th className="p-3">Hallazgo</th>
-                <th className="p-3">Acción Remedial Programada</th>
+                <th className="p-3">
+                  <div>ID Plan</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Hallazgo</div>
+                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Acción Remedial Programada</div>
+                  <FilterInput colKey="accion" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 <th className="p-3 w-40">% Avance</th>
-                <th className="p-3">Estado</th>
+                <th className="p-3">
+                  <div>Estado</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 <th className="p-3 text-center">Gestión</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(planesData, searchTerm).map((p, index) => {
+              {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
                 const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
                 return (
                   <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50">
@@ -1794,7 +1901,7 @@ export default function App() {
 
   const renderIncidentes = () => (
     <div className="space-y-6">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Registro de Eventos de Pérdida (COP)</h2></div>
+      <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
       {isAdmin && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
@@ -1812,15 +1919,15 @@ export default function App() {
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-900 text-white font-bold">
             <tr>
-              <th className="p-3">ID</th>
-              <th className="p-3">Riesgo ID</th>
-              <th className="p-3">Descripción</th>
-              <th className="p-3">Impacto</th>
+              <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Riesgo ID <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3 text-right">Costo (COP)</th>
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
-            {applyFilters(incFiltrados, searchTerm).map(i => (
+            {applyFilters(incFiltrados, searchTerm, columnFilters).map(i => (
               <tr key={i.id}>
                 <td className="p-3 text-slate-400">#INC-{i.id}</td>
                 <td className="p-3 font-bold">#{i.idRiesgo}</td>
@@ -1896,88 +2003,64 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
-        <form className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-2xl space-y-4 text-xs" onSubmit={handleAuthSubmit}>
-          <div className="text-center font-black text-lg text-slate-800 uppercase tracking-wider">🛡️ GCM Auditor v5</div>
-          {authError && <div className="bg-red-50 text-red-700 p-2 rounded font-bold">⚠️ {authError}</div>}
-          <div><label className="font-bold text-slate-500 uppercase">Correo Corporativo</label><input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} className="block w-full border rounded p-2 mt-1" placeholder="ejemplo@termales.com.co"/></div>
-          <div><label className="font-bold text-slate-500 uppercase">Contraseña</label><input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} className="block w-full border rounded p-2 mt-1" placeholder="••••••••"/></div>
-          <button type="submit" className="w-full bg-slate-800 text-white py-2.5 rounded font-bold shadow-md">{isRegistering ? 'Registrar Cuenta' : 'Ingresar'}</button>
-          <div className="text-center"><button type="button" onClick={() => setIsRegistering(!isRegistering)} className="text-blue-600 font-bold underline">{isRegistering ? 'Volver' : 'Solicitar Acceso RCSA'}</button></div>
-        </form>
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
+        <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
+          <div className="text-center">
+            <span className="text-5xl block animate-bounce">🛡️</span><h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2><p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p>
+          </div>
+          <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
+            {authError && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-medium">⚠️ {authError}</div>}
+            <div className="space-y-3">
+              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Correo</label><input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="tu_correo@termales.com.co" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
+              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label><input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••••" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
+            </div>
+            <button type="submit" className="w-full flex justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-xs font-bold text-white shadow-md">{isRegistering ? 'Crear Cuenta' : 'Ingresar al Portal'}</button>
+          </form>
+          <div className="text-center pt-2 border-t"><button onClick={() => {setIsRegistering(!isRegistering); setAuthError('');}} className="text-xs font-bold text-blue-600">{isRegistering ? '¿Ya tiene cuenta? Iniciar Sesión' : '¿No tiene acceso? Regístrese aquí'}</button></div>
+        </div>
       </div>
     );
   }
 
-  if (!isCloudLoaded) return <div className="h-screen w-full flex items-center justify-center bg-slate-900 text-white font-mono text-xs uppercase tracking-widest animate-pulse">☁️ Sincronizando Nube GRC...</div>;
-  if (!isAdmin) return renderRCSAPortal();
+  if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden text-xs relative">
-      {/* --- MODAL IA GEMINI --- */}
-      {aiModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
-           <div className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl">
-              <div className="bg-purple-900 text-white p-5 flex justify-between items-center border-b border-purple-800">
-                 <h3 className="font-black text-sm uppercase tracking-widest">{aiModal.titulo}</h3>
-                 <button onClick={() => setAiModal(null)} className="text-purple-300 hover:text-white font-black text-xl">✖</button>
-              </div>
-              <div className="p-6 max-h-[70vh] overflow-y-auto">
-                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 mb-6 flex space-x-4 items-start">
-                    <span className="text-3xl">🧠</span>
-                    <p className="text-xs text-purple-900 font-medium leading-relaxed">
-                      El modelo de IA ha generado el siguiente pre-diagnóstico. Por favor, abre el archivo adjunto y utiliza esta guía para validar la evidencia de forma estricta.
-                    </p>
-                 </div>
-                 <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">
-                    {aiModal.contenido}
-                 </div>
-              </div>
-              <div className="bg-slate-50 p-5 border-t border-slate-200 flex justify-end space-x-3">
-                 <a href={aiModal.url} target="_blank" rel="noreferrer" className="bg-slate-800 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest shadow-md hover:bg-slate-700 transition-colors flex items-center space-x-2"><span>📎</span><span>Abrir Archivo Manualmente</span></a>
-              </div>
-           </div>
-        </div>
-      )}
-
-      <div className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20">
-        <div className="p-6 border-b border-slate-800 font-black text-sm text-white uppercase tracking-wider">🛡️ GCM Auditor v5</div>
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl">
+        <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
+        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
-            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
-            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
             { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
             { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
+          ].map((tab, index) => (
+            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full border border-slate-700 rounded py-2 font-bold text-center hover:bg-slate-800 transition-all">🚪 Cerrar Sesión</button></div>
+        <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
       </div>
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm z-10 flex-shrink-0">
-          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
-        </header>
-        <div className="flex-grow overflow-y-auto p-8 bg-slate-50">
-          {activeTab === 'tablero' && renderTablero()}
-          {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
-          {activeTab === 'plan_anual' && renderPlanAnual()}
-          {activeTab === 'riesgos' && renderRiesgos()}
-          {activeTab === 'apetito' && renderApetito()}
-          {activeTab === 'evaluaciones' && renderEvaluaciones()}
-          {activeTab === 'hallazgos' && renderHallazgos()}
-          {activeTab === 'planes' && renderPlanes()}
-          {activeTab === 'incidentes' && renderIncidentes()}
-          {activeTab === 'informe' && renderInforme()}
-        </div>
+      
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm"><span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold">Termales de Santa Rosa</span></header>
+        <main className="flex-grow overflow-y-auto p-8">
+          <div className="max-w-7xl mx-auto">
+            {activeTab === 'tablero' && renderTablero()}
+            {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
+            {activeTab === 'riesgos' && renderRiesgos()}
+            {activeTab === 'evaluaciones' && renderEvaluaciones()}
+            {activeTab === 'hallazgos' && renderHallazgos()}
+            {activeTab === 'planes' && renderPlanes()}
+            {activeTab === 'incidentes' && renderIncidentes()}
+            {activeTab === 'informe' && renderInforme()}
+          </div>
+        </main>
       </div>
     </div>
   );
