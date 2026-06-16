@@ -1555,8 +1555,14 @@ export default function App() {
               <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
               
               <div className="md:col-span-4">
-                <label className="font-bold text-indigo-700">Enlace Externo de Evidencia (Google Drive / OneDrive / SharePoint)</label>
-                <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-indigo-200 bg-indigo-50/30 rounded-lg p-2 mt-1" />
+                <div className="flex justify-between items-end mb-1">
+                  <label className="font-bold text-indigo-700">Enlace Externo de Evidencia</label>
+                  <div className="flex space-x-2">
+                    <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir Google Drive"><span>📁</span><span>Abrir Drive</span></a>
+                    <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir OneDrive"><span>☁️</span><span>Abrir OneDrive</span></a>
+                  </div>
+                </div>
+                <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-indigo-200 bg-indigo-50/30 rounded-lg p-2" />
                 {editEvaluacion?.evidenciaUrl && (
                   <div className="mt-2 flex space-x-2">
                     <a href={editEvaluacion.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
@@ -1680,7 +1686,13 @@ export default function App() {
             </div>
             
             <div className="md:col-span-4">
-              <label className="font-bold text-blue-700 block mb-1">Enlace Externo de Evidencia (Google Drive / OneDrive / SharePoint)</label>
+              <div className="flex justify-between items-end mb-1">
+                <label className="font-bold text-blue-700 block mb-1">Enlace Externo de Evidencia</label>
+                <div className="flex space-x-2">
+                  <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir Google Drive"><span>📁</span><span>Abrir Drive</span></a>
+                  <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir OneDrive"><span>☁️</span><span>Abrir OneDrive</span></a>
+                </div>
+              </div>
               <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2" />
               {editHallazgo?.evidenciaUrl && (
                 <div className="mt-2 flex space-x-2">
@@ -1817,7 +1829,13 @@ export default function App() {
               <div><label className="font-bold text-blue-600">% Avance Real</label><input name="progreso" type="number" min="0" max="100" defaultValue={editPlan?.progreso||0} placeholder="% Avance Real" className="w-full border p-2 bg-blue-50 border-blue-200 rounded" /></div>
               
               <div className="md:col-span-3">
-                <label className="font-bold text-blue-700">Enlace de Avance (Google Drive / OneDrive)</label>
+                <div className="flex justify-between items-end mb-1">
+                  <label className="font-bold text-blue-700">Enlace de Avance (Google Drive / OneDrive)</label>
+                  <div className="flex space-x-2">
+                    <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir Google Drive"><span>📁</span><span>Abrir Drive</span></a>
+                    <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir OneDrive"><span>☁️</span><span>Abrir OneDrive</span></a>
+                  </div>
+                </div>
                 <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2 mt-1" />
                 {editPlan?.evidenciaUrl && (
                   <div className="mt-2 flex space-x-2">
@@ -1982,7 +2000,18 @@ export default function App() {
             <div><label className="font-bold">Test de Diseño</label><select name="diseno" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Test de Ejecución</label><select name="ejecucion" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Novedades / Observaciones del mes</label><textarea name="comentarios" required className="w-full border p-2 rounded" rows="3"></textarea></div>
-            <div><label className="font-bold text-slate-700 block mb-1">Enlace de Evidencia (Drive/OneDrive)</label><input type="url" name="evidenciaUrlInput" required placeholder="https://..." className="w-full border p-2 bg-slate-50 rounded" /></div>
+            
+            <div>
+              <div className="flex justify-between items-end mb-1">
+                <label className="font-bold text-slate-700">Enlace de Evidencia</label>
+                <div className="flex space-x-1">
+                  <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-bold transition-colors">📁 Drive</a>
+                  <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-bold transition-colors">☁️ OneDrive</a>
+                </div>
+              </div>
+              <input type="url" name="evidenciaUrlInput" required placeholder="Pega tu enlace de la nube aquí..." className="w-full border p-2 bg-slate-50 rounded focus:ring-2 focus:ring-[#004d40] outline-none transition-shadow" />
+            </div>
+
             <button type="submit" className="bg-[#004d40] text-white w-full py-2.5 rounded font-black uppercase shadow hover:bg-[#003d33]">Enviar Certificación</button>
           </form>
         </div>
@@ -1992,7 +2021,18 @@ export default function App() {
             <form onSubmit={handlePlanSubmit} className="space-y-3">
               <div><label className="font-bold">ID del Hallazgo Vinculado</label><input name="idHallazgo" required className="w-full border p-2 rounded" /></div>
               <div><label className="font-bold text-blue-600">% Avance Físico Real</label><input name="progreso" type="number" min="0" max="100" required className="w-full border border-blue-300 bg-blue-50 p-2.5 rounded text-lg font-black text-blue-600" /></div>
-              <div><label className="font-bold text-slate-700 block mb-1">Enlace de Soporte (Drive/OneDrive)</label><input type="url" name="evidenciaUrlInput" required placeholder="https://..." className="w-full border p-2 bg-slate-50 rounded" /></div>
+              
+              <div>
+                <div className="flex justify-between items-end mb-1">
+                  <label className="font-bold text-slate-700">Enlace de Soporte</label>
+                  <div className="flex space-x-1">
+                    <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-bold transition-colors">📁 Drive</a>
+                    <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-bold transition-colors">☁️ OneDrive</a>
+                  </div>
+                </div>
+                <input type="url" name="evidenciaUrlInput" required placeholder="Pega tu enlace de la nube aquí..." className="w-full border p-2 bg-slate-50 rounded focus:ring-2 focus:ring-blue-600 outline-none transition-shadow" />
+              </div>
+
               <button type="submit" className="bg-blue-600 text-white w-full py-2.5 rounded font-black uppercase shadow hover:bg-blue-700">Actualizar Avance</button>
             </form>
           </div>
@@ -2032,7 +2072,9 @@ export default function App() {
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
+            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
+            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
             { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
             { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
@@ -2053,7 +2095,9 @@ export default function App() {
           <div className="max-w-7xl mx-auto">
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
+            {activeTab === 'plan_anual' && renderPlanAnual()}
             {activeTab === 'riesgos' && renderRiesgos()}
+            {activeTab === 'apetito' && renderApetito()}
             {activeTab === 'evaluaciones' && renderEvaluaciones()}
             {activeTab === 'hallazgos' && renderHallazgos()}
             {activeTab === 'planes' && renderPlanes()}
