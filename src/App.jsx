@@ -10,6 +10,18 @@ import {
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
+// =====================================================================
+// 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
+// =====================================================================
+let GEMINI_API_KEY = "";
+try {
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  }
+} catch (error) {
+  console.warn("Entorno simulado: variables de Vercel no detectadas.");
+}
+
 // --- CONFIGURACIÓN DE FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyBGE2P-_oep_N7o8so6wubmaZXv12imZaE",
@@ -152,18 +164,18 @@ const ProgressBar = ({ progress }) => {
 };
 
 const Gauge = ({ value, label, sublabel, colorClass }) => (
-  <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
-    <div className="relative w-24 h-24 flex items-center justify-center">
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
+    <div className="relative w-32 h-32 flex items-center justify-center">
       <svg className="w-full h-full transform -rotate-90">
-        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
-        <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" 
-          strokeDasharray={251} strokeDashoffset={251 - (251 * (value || 0)) / 100}
-          className={`${colorClass} transition-all duration-1000`} />
+        <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
+        <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" 
+          strokeDasharray={339} strokeDashoffset={339 - (339 * (value || 0)) / 100}
+          className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
       </svg>
-      <span className="absolute text-xl font-black text-slate-800">{Math.round(value || 0)}%</span>
+      <span className="absolute text-3xl font-black text-slate-800">{Math.round(value || 0)} %</span>
     </div>
-    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">{label}</p>
-    <p className="text-[10px] font-bold text-slate-500">{sublabel}</p>
+    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
+    <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
   </div>
 );
 
@@ -171,10 +183,10 @@ const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilter
   <input 
     type="text" 
     placeholder={placeholder || "Filtrar..."}
-    className={`mt-1.5 w-full text-[9px] px-1.5 py-1 font-normal rounded border focus:outline-none focus:ring-1 ${
+    className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${
       dark 
         ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
-        : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
+        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
     }`}
     value={columnFilters[colKey] || ''}
     onChange={(e) => handleColFilterChange(colKey, e.target.value)}
@@ -184,10 +196,10 @@ const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilter
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   const maxVal = Math.max(...data.map(d => d.valor), 1);
-  const height = 100;
+  const height = 120;
   const width = 600;
   const paddingY = 20;
-  const paddingX = 15;
+  const paddingX = 20;
 
   const points = data.map((d, i) => {
     const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
@@ -198,31 +210,31 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   const fillPoints = `${paddingX},${height - paddingY} ${points} ${width - paddingX},${height - paddingY}`;
 
   return (
-    <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
-       <div className="flex justify-between items-center mb-4">
+    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
+       <div className="flex justify-between items-center mb-6">
          <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4>
-         <span className="text-lg">{isCurrency ? '📉' : '📊'}</span>
+         <span className="text-xl">{isCurrency ? '📉' : '📊'}</span>
        </div>
        <div className="relative w-full">
          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-sm overflow-visible" preserveAspectRatio="none">
-           <polygon points={fillPoints} fill={fillColor} opacity="0.4" />
-           <polyline points={points} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+           <polygon points={fillPoints} fill={fillColor} opacity="0.5" />
+           <polyline points={points} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
            {data.map((d, i) => {
               const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
               const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
               return (
-                <g key={i} className="group cursor-pointer">
-                    <circle cx={x} cy={y} r="4" fill="white" stroke={color} strokeWidth="2" className="transition-all duration-200 group-hover:r-[7px]" />
-                    <rect x={x - 30} y={y - 28} width="60" height="18" rx="4" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
-                    <text x={x} y={y - 15} fontSize="9" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">
+                <g key={`point-${i}`} className="group cursor-pointer">
+                    <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
+                    <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
+                    <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">
                        {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : d.valor}
                     </text>
                 </g>
               );
            })}
          </svg>
-         <div className="flex justify-between mt-3 text-[8px] font-bold text-slate-400 uppercase px-1 border-t border-slate-100 pt-2">
-            {data.map(d => <span key={d.mes}>{d.mes}</span>)}
+         <div className="flex justify-between mt-4 text-[9px] font-bold text-slate-400 uppercase px-2 border-t border-slate-100 pt-3">
+            {data.map((d, idx) => <span key={`chart-mes-${idx}`}>{d.mes.substring(0,3)}</span>)}
          </div>
        </div>
     </div>
@@ -231,9 +243,9 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
 
 // --- DATOS POR DEFECTO ---
 const defaultRiesgos = [
-  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene de alimentos por uso de insumos cárnicos de baja calidad.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
-  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Sanciones o pérdidas financieras por errores en la declaración de impuestos hoteleros.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
-  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Intrusión de ransomware que paralice el sistema de taquillas.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
+  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
+  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
+  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Ataque de ransomware que paraliza la operación central y expone datos confidenciales.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
 ];
 
 const defaultHallazgos = [
@@ -272,9 +284,9 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
   
-  // --- SELECCIÓN MÚLTIPLE DE FECHAS ACTIVADA ---
-  const [selectedAnios, setSelectedAnios] = useState([2025, 2026]);
-  const [selectedMeses, setSelectedMeses] = useState(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]);
+  // --- FILTROS GLOBALES COMPACTOS (DESPLEGABLES) ---
+  const [filtroAnio, setFiltroAnio] = useState('2026');
+  const [filtroMes, setFiltroMes] = useState('Todos');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
@@ -284,6 +296,10 @@ export default function App() {
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
+
+  // --- ESTADOS DE IA ---
+  const [isThinking, setIsThinking] = useState(false);
+  const [aiModal, setAiModal] = useState(null);
 
   // --- ENTIDADES PRINCIPALES ---
   const [riesgos, setRiesgos] = useState([]);
@@ -317,19 +333,12 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
-  // --- LIMPIEZA AUTOMÁTICA DE FILTROS AL CAMBIAR DE PESTAÑA ---
+  // Limpiar filtros al cambiar de pestaña
   useEffect(() => {
     setSearchTerm('');
     setColumnFilters({});
+    setFiltroHeatMap(null);
   }, [activeTab]);
-
-  const toggleAnio = (anio) => {
-    setSelectedAnios(prev => prev.includes(anio) ? prev.filter(a => a !== anio) : [...prev, anio]);
-  };
-  
-  const toggleMes = (mes) => {
-    setSelectedMeses(prev => prev.includes(mes) ? prev.filter(m => m !== mes) : [...prev, mes]);
-  };
 
   const handleColFilterChange = (key, value) => {
     setColumnFilters(prev => ({ ...prev, [key]: value }));
@@ -408,34 +417,128 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // --- FILTRADO DE COMPONENTES MULTI-SELECT ---
-  const rFiltrados = useMemo(() => {
-    return safeRiesgos.filter(r => {
-      const a = getItemAnio(r); const m = getItemMesText(r);
-      return selectedAnios.includes(a) && selectedMeses.includes(m);
-    });
-  }, [safeRiesgos, selectedAnios, selectedMeses]);
+  // --- FUNCIONES IA GEMINI ---
+  const sugerirConIA = async (tipoTarget) => {
+    let textoBase = "";
+    let inputDestino = null;
 
-  const hFiltrados = useMemo(() => {
-    return safeHallazgos.filter(h => {
-      const a = getItemAnio(h); const m = getItemMesText(h);
-      return selectedAnios.includes(a) && selectedMeses.includes(m);
-    });
-  }, [safeHallazgos, selectedAnios, selectedMeses]);
+    if (tipoTarget === 'control') {
+      textoBase = document.querySelector('input[name="descripcion"]')?.value || "";
+      inputDestino = document.querySelector('input[name="control"]');
+    } else if (tipoTarget === 'plan') {
+      const selectElement = document.querySelector('select[name="idHallazgo"]');
+      textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
+      inputDestino = document.querySelector('input[name="accion"]');
+    } else if (tipoTarget === 'hallazgo') {
+      textoBase = document.querySelector('input[name="proceso"]')?.value || "";
+      inputDestino = document.querySelector('input[name="titulo"]');
+    }
 
-  const pFiltrados = useMemo(() => {
-    return safePlanes.filter(p => {
-      const a = getItemAnio(p); const m = getItemMesText(p);
-      return selectedAnios.includes(a) && selectedMeses.includes(m);
-    });
-  }, [safePlanes, selectedAnios, selectedMeses]);
+    if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
+      showNotification("Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
+      return;
+    }
 
-  const incFiltrados = useMemo(() => {
-    return safeIncidentes.filter(i => {
-      const a = getItemAnio(i); const m = getItemMesText(i);
-      return selectedAnios.includes(a) && selectedMeses.includes(m);
-    });
-  }, [safeIncidentes, selectedAnios, selectedMeses]);
+    if (!GEMINI_API_KEY) {
+      showNotification("La clave de API de Gemini no se ha cargado correctamente.", "error");
+      return;
+    }
+
+    setIsThinking(true);
+    showNotification("Gemini Pro está analizando el escenario...", "success");
+
+    try {
+      let prompt = "";
+      if (tipoTarget === 'control') {
+        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`;
+      } else if (tipoTarget === 'plan') {
+        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
+      } else if (tipoTarget === 'hallazgo') {
+        prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
+      }
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 }
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
+
+      let sugerencia = data.candidates[0].content.parts[0].text.trim();
+
+      if (inputDestino) {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+        nativeInputValueSetter.call(inputDestino, sugerencia);
+        inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
+        inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
+        showNotification("¡Gemini ha insertado una sugerencia ejecutiva de alto nivel!");
+      }
+    } catch (error) {
+      console.error("Error conectando a Gemini:", error);
+      showNotification("Error conectando con la IA de Google. Verifica los ajustes.", "error");
+    } finally {
+      setIsThinking(false);
+    }
+  };
+
+  const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
+    setIsThinking(true);
+    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
+
+    if (!GEMINI_API_KEY) {
+      showNotification("⚠️ La clave de API de Gemini no se ha cargado correctamente.", "error");
+      setIsThinking(false);
+      return;
+    }
+
+    try {
+      const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
+      Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
+      Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }]
+          })
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      const analisis = data.candidates[0].content.parts[0].text.trim();
+      setAiModal({ titulo: `📋 Checklist IA (Gemini)`, contenido: analisis, url: evidenciaUrl });
+
+    } catch (error) {
+        console.error(error);
+        showNotification("Error conectando con la IA de Google.", "error");
+    } finally {
+        setIsThinking(false);
+    }
+  };
+
+  // --- FILTRADO GLOBAL COMPACTO ---
+  const filterByGlobalPeriod = (item) => {
+    const a = getItemAnio(item).toString();
+    const m = getItemMesText(item);
+    const passAnio = filtroAnio === 'Todos' || a === filtroAnio;
+    const passMes = filtroMes === 'Todos' || m === filtroMes;
+    return passAnio && passMes;
+  };
+
+  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, filtroAnio, filtroMes]);
+  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, filtroAnio, filtroMes]);
+  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, filtroAnio, filtroMes]);
+  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, filtroAnio, filtroMes]);
 
   const avanceGlobal = useMemo(() => {
     if (pFiltrados.length === 0) return 0;
@@ -449,9 +552,10 @@ export default function App() {
   const pCerrados = pFiltrados.filter(p => p.estado === 'Cerrado').length;
 
   const rendimientoControles = useMemo(() => {
-    if (safeEvaluaciones.length === 0) return 0;
-    return (safeEvaluaciones.filter(e => e.calificacion === 100).length / safeEvaluaciones.length) * 100;
-  }, [safeEvaluaciones]);
+    const evalFiltradas = safeEvaluaciones.filter(filterByGlobalPeriod);
+    if (evalFiltradas.length === 0) return 0;
+    return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
+  }, [safeEvaluaciones, filtroAnio, filtroMes]);
 
   // --- SUBMITS DE ACCIONES ---
   const handleRiesgoSubmit = async (e) => {
@@ -710,67 +814,83 @@ export default function App() {
   };
 
   // =====================================================================
+  // REUSABLE HEADER COMPONENT (Dropdown Filters)
+  // =====================================================================
+  const renderHeaderFiltros = (title, subtitle, includeMatrizToggle = false) => {
+    const añosSet = new Set(['2025', '2026']);
+    safeHallazgos.forEach(h => { const a = getYearFromDate(formatSafeDate(h.fecha)); if(a !== 'N/A') añosSet.add(a); });
+    safePlanes.forEach(p => { const a = getYearFromDate(formatSafeDate(p.fecha)); if(a !== 'N/A') añosSet.add(a); });
+    safeIncidentes.forEach(i => { const a = getYearFromDate(formatSafeDate(i.fecha)); if(a !== 'N/A') añosSet.add(a); });
+    const availableYears = Array.from(añosSet).sort().reverse();
+
+    return (
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h2>
+          {subtitle && <p className="text-xs text-slate-500 mt-1 font-medium">{subtitle}</p>}
+        </div>
+        <div className="mt-4 md:mt-0 flex items-center space-x-3">
+          <div className="bg-white px-4 py-1.5 rounded-full border border-slate-200 flex items-center shadow-sm space-x-2">
+            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">PERIODO:</span>
+            <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="text-xs font-bold border-none bg-transparent outline-none cursor-pointer text-slate-700">
+              <option value="Todos">Todos</option>
+              {availableYears.map(a => <option key={`filtro-anio-${a}`} value={a}>{a}</option>)}
+            </select>
+            <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="text-xs font-bold border-none bg-transparent outline-none cursor-pointer text-slate-700 ml-1">
+              <option value="Todos">Mes (Todos)</option>
+              {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => (
+                <option key={`filtro-mes-${m}`} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          {includeMatrizToggle && (
+            <div className="bg-white p-1 rounded-full border flex shadow-sm">
+              <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1 rounded-full font-bold text-[10px] uppercase transition-all ${tipoMatriz === 'inherente' ? 'bg-[#004d40] text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>INHERENTE</button>
+              <button onClick={() => {setTipoMatriz('residual'); setFiltroHeatMap(null);}} className={`px-4 py-1 rounded-full font-bold text-[10px] uppercase transition-all ${tipoMatriz === 'residual' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>RESIDUAL</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // =====================================================================
   // RENDERS DE VISTAS (ADMIN INTERFACE)
   // =====================================================================
-
-  const renderSelectorFiltrosMultiples = () => (
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col space-y-3 shadow-sm mb-6">
-      <div className="text-xs font-black text-[#004d40] uppercase tracking-wider flex items-center space-x-2">
-        <span>🎛️</span> <span>Consola de Mando Temporal (Agrupación Activa)</span>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        <div className="md:col-span-3 border-r pr-2">
-          <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Años:</span>
-          <div className="flex gap-1.5">
-            {[2025, 2026].map(a => {
-              const act = selectedAnios.includes(a);
-              return (
-                <button key={a} type="button" onClick={() => toggleAnio(a)} className={`px-3 py-1 rounded text-xs font-black border transition-all ${act ? 'bg-[#004d40] text-white border-[#004d40]' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{a}</button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="md:col-span-9">
-          <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Meses:</span>
-          <div className="flex flex-wrap gap-1">
-            {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => {
-              const act = selectedMeses.includes(m);
-              return (
-                <button key={m} type="button" onClick={() => toggleMes(m)} className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${act ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>{m}</button>
-              );
-            })}
-            <button type="button" onClick={() => setSelectedMeses(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"])} className="text-[10px] font-black text-blue-600 hover:underline ml-2">Seleccionar Todos</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   const renderTablero = () => {
     const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
     return (
-      <div className="space-y-6">
-        {renderSelectorFiltrosMultiples()}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Gauge value={avanceGlobal} label="Mitigación Global" sublabel="% Avance Promedio" colorClass="text-blue-500" />
-          <Gauge value={rendimientoControles} label="Salud Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-          <div className="bg-slate-900 text-white p-5 rounded-2xl flex flex-col justify-center text-center shadow-sm">
-            <span className="text-[10px] font-black text-red-400 uppercase">Hallazgos Abiertos en Grupo</span>
-            <span className="text-4xl font-black mt-2">{hAbiertos}</span>
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {renderHeaderFiltros("Tablero Analítico de Auditoría", "Análisis integral de desviaciones operativas.")}
+        
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">INDICADORES KRI EN TIEMPO REAL</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Gauge value={avanceGlobal} label="MITIGACIÓN GLOBAL" sublabel="Promedio Planes de Acción" colorClass="text-blue-500" />
+          <Gauge value={rendimientoControles} label="CONTROLES DE SALUD" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+          <div className="bg-[#0f172a] text-white p-6 rounded-2xl flex flex-col justify-center text-center shadow-lg border border-slate-800">
+            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ALERTA CRÍTICA</span>
+            <span className="text-6xl font-black mt-4">{hAbiertos}</span>
+            <p className="text-xs font-bold text-slate-300 mt-4">Hallazgos Pendientes de Cierre</p>
           </div>
         </div>
 
-        <div className="space-y-4 mt-6">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Desempeño Operativo por Sede</h3>
-          {sedes.map(s => {
-            const hSede = hFiltrados.filter(h => h.sede === s).length;
-            return (
-              <div key={s} className="bg-white p-4 border rounded-xl flex justify-between items-center shadow-sm hover:shadow-md transition-all">
-                <span className="font-black text-slate-800 text-sm">{s}</span>
-                <span className="text-xs font-bold text-slate-500">Hallazgos Activos en Periodo: <b className="text-red-600 font-black">{hSede}</b></span>
+        <div className="space-y-4 mt-8">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">DESEMPEÑO POR UNIDAD DE NEGOCIO</h3>
+          <p className="text-[10px] text-yellow-600 font-bold mb-4">👆 Haz clic en cualquier tarjeta o velocímetro para ver su universo de datos detallado.</p>
+          
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+            <h4 className="text-xl font-black text-slate-800 mb-6 border-b pb-2">Hotel</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer">
+                <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">HALLAZGOS ABIERTOS</span>
+                <span className="text-5xl font-black mt-4 text-slate-800">{hFiltrados.filter(h => h.sede === 'Hotel' && h.estado === 'Abierto').length}</span>
+                <p className="text-[10px] font-bold mt-4 opacity-60 text-slate-500">Pendientes de Cierre</p>
               </div>
-            );
-          })}
+              <Gauge value={rendimientoControles} label="SALUD DE CONTROLES" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+              <Gauge value={avanceGlobal} label="PLANES DE ACCIÓN" sublabel="Promedio de Avance Físico" colorClass="text-blue-500" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -779,52 +899,82 @@ export default function App() {
   const renderDashboardRiesgos = () => {
     const esRes = tipoMatriz === 'residual';
     const totalRiesgos = rFiltrados.length;
+    const riesgosCriticos = rFiltrados.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
+    const riesgosFueraApetito = rFiltrados.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).apetito === "Fuera de Apetito").length;
     const totalPerdidas = incFiltrados.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
+
     const impactos = ['Crítico', 'Alto', 'Medio', 'Bajo'];
     const probabilidades = ['Rara', 'Posible', 'Frecuente'];
 
     const contarCelda = (imp, prob) => rFiltrados.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
     
-    const dataIncidentes = selectedMeses.slice(0, 6).map(m => ({ mes: m.substring(0,3), valor: incFiltrados.reduce((acc, val) => acc + (val.costo || 0), 0) / 6 }));
-    const dataHallazgos = selectedMeses.slice(0, 6).map(m => ({ mes: m.substring(0,3), valor: hFiltrados.length / 6 }));
+    const mesesGrafica = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const dataIncidentes = mesesGrafica.map(m => ({ mes: m, valor: incFiltrados.reduce((acc, val) => acc + (val.costo || 0), 0) / 12 }));
+    const dataHallazgos = mesesGrafica.map(m => ({ mes: m, valor: hFiltrados.length / 12 }));
 
     return (
-      <div className="space-y-6">
-        {renderSelectorFiltrosMultiples()}
-        <div className="flex justify-between items-center border-b pb-2">
-          <h3 className="text-sm font-black text-slate-700 uppercase">Matriz de Riesgo Tradicional (ISO 31000)</h3>
-          <div className="bg-white p-1 rounded-xl border flex shadow-sm">
-            <button onClick={() => setTipoMatriz('inherente')} className={`px-4 py-1 rounded-lg font-bold text-[10px] uppercase ${!esRes ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Inherente</button>
-            <button onClick={() => setTipoMatriz('residual')} className={`px-4 py-1 rounded-lg font-bold text-[10px] uppercase ${esRes ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}>Residual</button>
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {renderHeaderFiltros("Panel de inteligencia GRC", "Análisis predictivo de apetito ISO 31000 y Evolución de KRI.", true)}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <TrendChart data={dataIncidentes} title={`EVOLUCIÓN DE IMPACTO FINANCIERO (${filtroAnio})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
+          <TrendChart data={dataHallazgos} title={`VOLUMEN DE DESVIACIONES (${filtroAnio})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-blue-500">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS TOTALES</h4>
+             <span className="text-4xl font-black mt-2 block text-slate-800">{totalRiesgos}</span>
+          </div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-red-600">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">FUERA DE APETITO</h4>
+             <span className="text-4xl font-black mt-2 block text-red-600">{riesgosFueraApetito}</span>
+          </div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-orange-500">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS CRÍTICOS</h4>
+             <span className="text-4xl font-black mt-2 block text-orange-500">{riesgosCriticos}</span>
+          </div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-purple-600">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PÉRDIDAS TOTALES</h4>
+             <span className="text-3xl font-black mt-2 block text-purple-700">$ {(totalPerdidas).toLocaleString('es-CO')}</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TrendChart data={dataIncidentes} title={`Evolución de Impacto Financiero`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
-          <TrendChart data={dataHallazgos} title={`Volumen de Desviaciones`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white p-4 border rounded-xl shadow-sm"><span className="text-[10px] text-slate-400 font-bold uppercase block">Riesgos Totales Consolidados</span><span className="text-2xl font-black text-slate-800">{totalRiesgos}</span></div>
-          <div className="bg-white p-4 border rounded-xl shadow-sm"><span className="text-[10px] text-slate-400 font-bold uppercase block">Impacto Económico Realizado</span><span className="text-2xl font-black text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</span></div>
-        </div>
-
-        <div className="bg-white rounded-2xl border p-6 flex flex-col items-center shadow-sm">
-          <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 w-full max-w-xl">
-            <div></div>
-            {probabilidades.map(p => <div key={p} className="text-center text-[10px] font-black uppercase text-slate-500 bg-slate-50 py-1 rounded border">{p}</div>)}
-            {impactos.map(imp => (
-              <React.Fragment key={imp}>
-                <div className="text-right pr-2 flex items-center justify-end text-[10px] font-black uppercase text-slate-500">{imp}</div>
-                {probabilidades.map(prob => {
-                  const count = contarCelda(imp, prob);
-                  const { color } = calcularMatriz5x5(prob, imp);
-                  return (
-                    <div key={prob} className={`h-14 rounded-lg flex items-center justify-center font-black border text-lg cursor-pointer transition-all hover:scale-105 ${color} ${count > 0 ? 'opacity-100 shadow-md' : 'opacity-20'}`}>{count}</div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 flex flex-col items-center relative">
+          <h3 className="font-black text-slate-600 text-xs uppercase tracking-widest mb-8 w-full flex items-center space-x-3">
+            <span>🗺️ MAPA DE CALOR EMPRESARIAL (HAZ CLIC EN UN CUADRANTE CON NÚMEROS)</span>
+            <span className="bg-slate-800 text-white px-3 py-1 rounded-full text-[9px] font-bold tracking-widest">{tipoMatriz}</span>
+          </h3>
+          <div className="flex flex-col items-center justify-center w-full">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 w-full max-w-3xl relative pb-4">
+              <div className="absolute -left-16 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-black text-slate-400 uppercase tracking-widest">IMPACTO</div>
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-black text-slate-400 uppercase tracking-widest">PROBABILIDAD</div>
+              <div></div>
+              {probabilidades.map(p => <div key={`prob-${p}`} className="text-center text-[10px] font-black uppercase text-slate-500 bg-slate-50 py-2 rounded-t-lg border-b border-slate-200">{p}</div>)}
+              {impactos.map(imp => (
+                <React.Fragment key={`imp-${imp}`}>
+                  <div className="text-right pr-4 py-6 flex items-center justify-end text-[10px] font-black uppercase text-slate-500 bg-slate-50 rounded-l-lg">{imp}</div>
+                  {probabilidades.map(prob => {
+                    const count = contarCelda(imp, prob);
+                    const { score, color, borderSemaforo } = calcularMatriz5x5(prob, imp);
+                    const isSelected = filtroHeatMap?.impacto === imp && filtroHeatMap?.probabilidad === prob;
+                    
+                    return (
+                      <div key={`cell-${imp}-${prob}`} onClick={() => { 
+                        if (count > 0) {
+                          setFiltroHeatMap({ impacto: imp, probabilidad: prob, count }); 
+                          setTimeout(() => { document.getElementById('detalle-heatmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 150);
+                        }
+                      }}
+                        className={`relative border-2 p-6 flex flex-col justify-center items-center h-28 rounded-2xl transition-all duration-200 ${count > 0 ? 'cursor-pointer hover:scale-105 shadow-md opacity-100' : 'opacity-20 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100 border-black' : borderSemaforo}`}>
+                        <span className="absolute top-2 right-3 text-[9px] font-mono font-black opacity-50 text-slate-900">S: {score}</span>
+                        <span className={`text-4xl font-black text-slate-900 drop-shadow-sm`}>{count}</span>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -891,8 +1041,8 @@ export default function App() {
                        </form>
                      )}
                      
-                     {safeMonitoreo.map(m => (
-                       <div key={m.id} className="flex flex-col p-3 hover:bg-slate-50 transition-colors group rounded-lg border border-transparent hover:border-slate-200">
+                     {safeMonitoreo.map((m, index) => (
+                       <div key={`moni-${m.id}-${index}`} className="flex flex-col p-3 hover:bg-slate-50 transition-colors group rounded-lg border border-transparent hover:border-slate-200">
                           <div className="flex justify-between items-center">
                             <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>{m.indicador}</span>
                             {isAdmin && (
@@ -918,7 +1068,7 @@ export default function App() {
                      <span className="text-xs font-black uppercase tracking-widest flex items-center space-x-2"><span>📋</span> <span>Cronograma Técnico</span></span>
                      <span className="text-[10px] font-bold text-emerald-400 border border-emerald-400 px-2 py-1 rounded-full uppercase">⚙️ {avgCumplimiento}% Auditado</span>
                    </div>
-                   <div className="overflow-x-auto flex-1">
+                   <div className="overflow-x-auto flex-1 p-2">
                      <table className="w-full text-xs text-left divide-y divide-slate-100">
                        <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                          <tr>
@@ -943,8 +1093,8 @@ export default function App() {
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {applyFilters(safeCronograma, searchTerm, columnFilters).map(c => (
-                           <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                         {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
+                           <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
                              <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
                              <td className="p-3 font-black text-slate-800">{c.proceso}</td>
@@ -987,7 +1137,7 @@ export default function App() {
                 <label className="font-bold text-gray-600 block mb-2">Meses Planeados (Para gráfico de Gantt)</label>
                 <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                   {allMonths.map(mes => (
-                    <label key={mes} className="flex items-center space-x-2 cursor-pointer">
+                    <label key={`gantt-label-${mes}`} className="flex items-center space-x-2 cursor-pointer">
                       <input type="checkbox" name={`mes_${mes}`} defaultChecked={editCronograma?.meses?.includes(mes)} className="rounded text-[#004d40] focus:ring-[#004d40]" />
                       <span className="text-[10px] font-bold uppercase">{mes.substring(0,3)}</span>
                     </label>
@@ -1028,12 +1178,12 @@ export default function App() {
                      <div>Apoyo</div>
                      <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
-                   {allMonths.map(m => <th key={m} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
+                   {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
-                 {applyFilters(safeCronograma, searchTerm, columnFilters).map(c => (
-                   <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                 {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
+                   <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
                      <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
@@ -1041,7 +1191,7 @@ export default function App() {
                      {allMonths.map(mes => {
                        const isPlanned = c.meses?.includes(mes);
                        return (
-                         <td key={mes} className={`border border-slate-300 text-center p-0`}>
+                         <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0`}>
                            {isPlanned && <div className="bg-[#00695c] text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner">Planeado</div>}
                          </td>
                        );
@@ -1057,72 +1207,409 @@ export default function App() {
   };
 
   const renderRiesgos = () => {
-    const rData = safeRiesgos.map(r => {
+    const rData = rFiltrados.map(r => {
       const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
-      return { ...r, scoreResVal: res.score, apetitoVal: res.apetito, accionVal: res.accion, colorVal: res.color };
+      const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
+      return { ...r, scoreInhVal: inh.score, scoreResVal: res.score, apetitoVal: res.apetito, accionVal: res.accion, colorVal: res.color };
     });
+
     return (
       <div className="space-y-6">
-        <div className="border-b pb-2 flex justify-between items-center">
-          <h2 className="text-xl font-black text-slate-800">Estructura General de Riesgos</h2>
-          <div className="flex space-x-2 items-center">
-             <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md">📥 Exportar</button>
+        <div className="border-b pb-4 flex justify-between items-center">
+          <h2 className="text-2xl font-black text-slate-800">Estructura de Riesgos</h2>
+          <div className="flex space-x-3">
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
+            </div>
+            <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-colors">📥 Exportar</button>
           </div>
         </div>
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-            <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Nuevo Riesgo</h3>
-            <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-              <div><label className="font-bold">Sede</label><select name="sede" className="w-full border rounded p-1.5 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
-              <div><label className="font-bold">Proceso Auditable</label><input name="proceso" required className="w-full border rounded p-1.5" /></div>
-              <div><label className="font-bold">Categoría COSO</label><select name="categoria" className="w-full border rounded p-1.5 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
-              <div><label className="font-bold">Normativa Compliance</label><input name="normativa" required className="w-full border rounded p-1.5" placeholder="Ej: ISO 31000" /></div>
+            <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
+            <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              
+              <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+              
+              <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
+              <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              
               <div className="md:col-span-2">
-                <label className="font-bold flex justify-between">
-                  Descripción Evento
+                <label className="font-bold text-gray-600 flex justify-between items-center">
+                  <span>Control Clave</span>
+                  <button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                  </button>
                 </label>
-                <input name="descripcion" required className="w-full border rounded p-1.5" />
+                <input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" />
               </div>
               <div className="md:col-span-2">
-                <label className="font-bold flex justify-between items-center">
-                  <span>Control Clave Diseñado</span>
-                </label>
-                <input name="control" required className="w-full border rounded p-1.5" />
+                <label className="font-bold text-purple-700">Normativa / Ley Aplicable</label>
+                <input name="normativa" defaultValue={editRiesgo?.normativa||'Ninguna'} placeholder="Ej: Ley 1581, ISO 31000..." required className="w-full border border-purple-300 bg-purple-50 rounded-lg p-2 mt-1" />
               </div>
-              <div><label className="font-bold">Responsable</label><input name="responsable" required className="w-full border rounded p-1.5" /></div>
-              <div><label className="font-bold">Prob. Inherente</label><select name="probInh" className="w-full border rounded p-1.5 bg-white"><option>Rara</option><option>Posible</option><option>Frecuente</option></select></div>
-              <div><label className="font-bold">Imp. Inherente</label><select name="impInh" className="w-full border rounded p-1.5 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-              <div><label className="font-bold">Prob. Residual</label><select name="probRes" className="w-full border rounded p-1.5 bg-white"><option>Rara</option><option>Posible</option><option>Frecuente</option></select></div>
-              <div><label className="font-bold">Imp. Residual</label><select name="impRes" className="w-full border rounded p-1.5 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-              <div className="flex items-end md:col-span-4"><button type="submit" className="bg-[#004d40] text-white px-6 py-2 rounded font-bold uppercase shadow-sm">Guardar en Matriz</button></div>
+
+              <div className="md:col-span-4">
+                <label className="font-bold text-gray-600">Descripción Evento</label>
+                <input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" />
+              </div>
+              
+              <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
+              <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
+              <div><label className="font-bold text-gray-600">Prob. Residual</label><select name="probRes" defaultValue={editRiesgo?.probabilidadResidual||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
+              <div><label className="font-bold text-gray-600">Imp. Residual</label><select name="impRes" defaultValue={editRiesgo?.impactoResidual||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
+              
+              <div className="md:col-span-4 flex justify-end space-x-2">
+                <button type="submit" className="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar</button>
+              </div>
             </form>
           </div>
         )}
-        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-          <table className="w-full text-left">
-            <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
+
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left divide-y">
+              <thead className="bg-slate-900 text-white font-bold">
+                <tr>
+                  <th className="p-3">
+                    <div>ID</div>
+                    <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3 w-48">
+                    <div>Proceso / Riesgo / Normativa</div>
+                    <FilterInput colKey="proceso" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3 w-48">
+                    <div>Responsable / Control</div>
+                    <FilterInput colKey="responsable" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3 text-center">
+                    <div>Score Inh</div>
+                    <FilterInput colKey="scoreInhVal" placeholder="Puntos..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3 text-center">
+                    <div>Score Res</div>
+                    <FilterInput colKey="scoreResVal" placeholder="Puntos..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3">
+                    <div>Apetito</div>
+                    <FilterInput colKey="apetitoVal" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-3">Acción Recomendada</th>
+                  <th className="p-3 text-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {applyFilters(rData, searchTerm, columnFilters).map((r, index) => (
+                  <tr key={`riesgo-row-${r.id}-${index}`} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold text-slate-400">#{r.id}</td>
+                    <td className="p-3">
+                      <div className="flex items-center space-x-2 mb-1"><span className="px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded font-bold uppercase">{r.sede || 'Hotel'}</span><span className="font-black text-slate-900">{r.proceso}</span></div>
+                      <div className="text-[9px] font-bold text-indigo-500 uppercase font-mono">{r.categoria}</div>
+                      <div className="mt-1">{r.descripcion}</div>
+                      {r.normativa && r.normativa !== 'Ninguna' && <div className="mt-1.5 inline-block bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border border-purple-200">⚖️ {r.normativa}</div>}
+                    </td>
+                    <td className="p-3"><div className="font-bold text-slate-800">{r.responsable}</div><div className="italic mt-1 text-slate-600">⚙️ {r.descripcionControl}</div></td>
+                    <td className="p-3 text-center font-mono">{r.scoreInhVal} pts</td>
+                    <td className="p-3 text-center font-mono font-black">{r.scoreResVal} pts</td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${r.apetitoVal === "Dentro de Apetito" || r.apetitoVal === "Aceptable" ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.apetitoVal}</span></td>
+                    <td className="p-3"><span className={`px-2.5 py-1 rounded-xl text-[10px] block text-center font-black ${r.colorVal}`}>{r.accionVal}</span></td>
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      {isAdmin && <button onClick={() => {setEditRiesgo(r); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️</button>}
+                      {isAdmin && <button onClick={() => handleDeleteItem('riesgos', r.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderApetito = () => {
+    const configurados = rFiltrados.filter(r => r.capacidadRiesgo).length;
+    
+    const enTolerancia = rFiltrados.filter(r => {
+      const costoTotal = incFiltrados.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
+      return r.capacidadRiesgo && costoTotal > r.apetitoFinanciero && costoTotal <= r.toleranciaFinanciera;
+    }).length;
+
+    const capacidadExcedida = rFiltrados.filter(r => {
+      const costoTotal = incFiltrados.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
+      return r.capacidadRiesgo && costoTotal > r.capacidadRiesgo;
+    }).length;
+
+    const apetitoData = rFiltrados.map(r => {
+      const resScore = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score;
+      const costoTotal = incFiltrados.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
+      const estaConfigurado = r.posturaEstrategica && r.capacidadRiesgo;
+      
+      let zona = "Sin parametrizar";
+      let zonaColor = "bg-slate-100 text-slate-500 border-slate-200";
+      let consumoPorcentaje = 0;
+
+      if (estaConfigurado) {
+        consumoPorcentaje = Math.min((costoTotal / r.capacidadRiesgo) * 100, 100);
+        if (costoTotal <= r.apetitoFinanciero) { 
+          zona = "Confort (Apetito)"; 
+          zonaColor = "bg-emerald-50 text-emerald-700 border-emerald-200"; 
+        } else if (costoTotal <= r.toleranciaFinanciera) { 
+          zona = "Alerta (Tolerancia)"; 
+          zonaColor = "bg-yellow-50 text-yellow-700 border-yellow-300"; 
+        } else if (costoTotal <= r.capacidadRiesgo) { 
+          zona = "Peligro (Brecha)"; 
+          zonaColor = "bg-orange-50 text-orange-700 border-orange-300"; 
+        } else { 
+          zona = "Crítico (Cap. Excedida)"; 
+          zonaColor = "bg-red-50 text-red-700 border-red-300"; 
+        }
+      }
+
+      return { ...r, resScoreVal: resScore, costoTotalVal: costoTotal, estaConfiguradoVal: estaConfigurado, zonaVal: zona, zonaColorVal: zonaColor, consumoPorcentajeVal: consumoPorcentaje };
+    });
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {renderHeaderFiltros("⚖️ Apetito y Perfil de Riesgo (COSO ERM)", "Parametrización multinivel: Apetito, Tolerancia y Capacidad Financiera Máxima.")}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-blue-500">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Modelos Parametrizados</h4>
+             <span className="text-4xl font-black mt-2 block text-slate-800">{configurados} <span className="text-xl text-slate-400">/ {rFiltrados.length}</span></span>
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-yellow-400">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">En Zona de Alerta (Tolerancia)</h4>
+             <span className="text-4xl font-black mt-2 block text-yellow-500">{enTolerancia}</span>
+          </div>
+          <div className="bg-[#0f172a] p-6 rounded-2xl shadow-md border border-slate-800 border-l-8 border-l-red-600 text-white">
+             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Capacidad Excedida (Ruptura)</h4>
+             <span className="text-4xl font-black mt-2 block text-red-500">{capacidadExcedida}</span>
+          </div>
+        </div>
+
+        {editApetito && (
+          <div className="bg-white p-6 rounded-3xl shadow-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white animate-in fade-in slide-in-from-top-4 space-y-6 relative z-10">
+            <div className="flex justify-between items-center border-b border-blue-100 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">⚙️ Arquitectura COSO ERM</h3>
+                <p className="text-xs font-bold text-slate-500 mt-1">Riesgo: [{editApetito.sede}] {editApetito.proceso}</p>
+              </div>
+              <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
+            </div>
+            
+            <form onSubmit={handleApetitoSubmit} className="space-y-6 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                  <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
+                  
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
+                    Postura Estratégica
+                  </label>
+                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm">
+                    <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
+                    <option value="Cauto">Cauto (Preferencia por soluciones seguras)</option>
+                    <option value="Flexible">Flexible (Equilibrio riesgo/recompensa)</option>
+                    <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
+                  </select>
+
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
+                    KRI: Puntaje Residual Máximo Permitido
+                  </label>
+                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
+                </div>
+
+                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                  <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
+                  
+                  <label className="font-bold text-blue-900 mb-1 flex items-center w-max">
+                    <span>🎯 Apetito de Riesgo (Deseado)</span>
+                  </label>
+                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+
+                  <label className="font-bold text-amber-700 mb-1 flex items-center w-max">
+                    <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span>
+                  </label>
+                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+
+                  <label className="font-bold text-red-700 mb-1 flex items-center w-max">
+                    <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span>
+                  </label>
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-slate-100">
+                <button type="submit" className="bg-slate-900 text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors transform hover:scale-105 duration-200">💾 Aplicar Arquitectura COSO</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-5 bg-[#0f172a] flex justify-between items-center border-b border-slate-800">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-white font-black text-xs uppercase tracking-widest">Monitor de Brechas Financieras</h3>
+              <span className="text-[9px] bg-slate-800 text-slate-400 px-3 py-1 rounded-full font-bold border border-slate-700">Analítica</span>
+            </div>
+            <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-700 bg-slate-800 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-sm placeholder-slate-500" />
+            </div>
+          </div>
+          <div className="overflow-x-auto p-4">
+            <table className="w-full text-xs text-left divide-y divide-slate-100">
+              <thead className="bg-white text-slate-500 font-black uppercase tracking-wider text-[9px]">
+                <tr>
+                  <th className="p-4 w-1/3">
+                    <div>Proceso / Riesgo / Postura</div>
+                    <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-4 text-center">
+                    <div>Puntuación (KRI)</div>
+                    <FilterInput colKey="kriScore" placeholder="Puntaje..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-4 w-1/3 text-center">Consumo de Capacidad Financiera (Eventos)</th>
+                  <th className="p-4 text-center">
+                    <div>Diagnóstico COSO</div>
+                    <FilterInput colKey="zonaVal" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-4 text-center">Gestión</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {applyFilters(apetitoData, searchTerm, columnFilters).map((r, index) => {
+                  const excedidoScore = r.kriScore && r.resScoreVal > r.kriScore;
+
+                  return (
+                    <tr key={`apetito-row-${r.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2 mb-1.5">
+                          <span className="px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded font-bold uppercase">{r.sede || 'Hotel'}</span>
+                          <span className="font-bold text-slate-400 text-[10px] font-mono">#{r.id}</span>
+                          <span className="font-black text-slate-800 text-sm tracking-tight">{r.proceso}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-600 font-medium pr-4 line-clamp-2" title={r.descripcion}>{r.descripcion}</div>
+                        {r.posturaEstrategica && <div className="mt-2 text-[9px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 inline-block px-2 py-0.5 rounded border border-indigo-100">Postura: {r.posturaEstrategica}</div>}
+                      </td>
+                      
+                      <td className="p-4 text-center">
+                        {r.kriScore ? (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Límite: {r.kriScore}</span>
+                            <span className={`px-2 py-1 rounded font-black font-mono text-xs ${excedidoScore ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>{r.resScoreVal}</span>
+                          </div>
+                        ) : <span className="text-slate-300 font-medium italic">-</span>}
+                      </td>
+
+                      <td className="p-4">
+                        {r.estaConfiguradoVal ? (
+                          <div className="w-full">
+                            <div className="w-full bg-slate-200 rounded-full h-2.5 mb-2 overflow-hidden shadow-inner">
+                              <div className={`h-full rounded-full transition-all duration-1000 ${r.consumoPorcentajeVal <= (r.apetitoFinanciero/r.capacidadRiesgo)*100 ? 'bg-emerald-500' : r.consumoPorcentajeVal <= (r.toleranciaFinanciera/r.capacidadRiesgo)*100 ? 'bg-yellow-400' : r.consumoPorcentajeVal < 100 ? 'bg-orange-500' : 'bg-red-600'}`} style={{ width: `${r.consumoPorcentajeVal}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-[9px] font-mono font-bold text-slate-400">
+                              <span>Perdido: ${(r.costoTotalVal).toLocaleString('es-CO')}</span>
+                              <span>Tope: ${(r.capacidadRiesgo).toLocaleString('es-CO')}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest border border-dashed border-slate-200 rounded-lg py-2 bg-slate-50">Requiere Parametrización</div>
+                        )}
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <span className={`px-3 py-1.5 rounded-full font-black text-[9px] uppercase tracking-widest border ${r.zonaColorVal} mx-auto block w-max`}>
+                          {r.zonaVal.toUpperCase()}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        {isAdmin && <button onClick={() => {setEditApetito(r); scrollToTop();}} className="bg-white border border-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full"><span>⚙️</span> <span>Ajustador</span></button>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEvaluaciones = () => {
+    const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
+
+    return (
+      <div className="space-y-6">
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Auditoría de Controles</h2></div>
+        {isAdmin && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
+            <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
+              <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              <div className="md:col-span-3"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+              <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+              <div className="md:col-span-3 flex justify-end"><button type="submit" disabled={isUploading} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo...' : 'Guardar Test'}</button></div>
+            </form>
+          </div>
+        )}
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+             <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Registros de Auditoría</h3>
+             <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 shadow-sm" />
+             </div>
+          </div>
+          <table className="w-full text-xs text-left divide-y">
+            <thead className="bg-slate-900 text-white font-bold">
               <tr>
-                <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Proceso / Ley <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Escenario de Riesgo <FilterInput colKey="descripcion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Control Mitigante <FilterInput colKey="descripcionControl" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Apetito COSO <FilterInput colKey="apetitoVal" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3 text-center">Acciones</th>
+                <th className="p-3">
+                  <div>ID Test</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Fecha / Autor</div>
+                  <FilterInput colKey="auditor" placeholder="Autor..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Diseño/Operación</div>
+                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Eficacia</div>
+                  <FilterInput colKey="calificacion" placeholder="%" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Comentarios / Anexos</div>
+                  <FilterInput colKey="comentarios" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y text-slate-700">
-              {applyFilters(rData, searchTerm, columnFilters).map(r => (
-                <tr key={r.id} className="hover:bg-slate-50/50">
-                  <td className="p-3 font-bold text-slate-400">#{r.id}</td>
+            <tbody className="divide-y">
+              {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
+                <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
+                  <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
                   <td className="p-3">
-                    <span className="font-black text-slate-900 block">{r.proceso}</span>
-                    <span className="text-[9px] bg-purple-100 text-purple-700 font-bold px-1.5 py-0.5 rounded tracking-wider mt-0.5 inline-block uppercase">⚖️ {r.normativa || 'Compliance'}</span>
+                    <div className="font-bold">{ev.fechaVal}</div>
+                    <div className="text-[9px] text-slate-500 mt-1 uppercase truncate w-32" title={ev.auditor}>{ev.auditor}</div>
                   </td>
-                  <td className="p-3 max-w-xs">{r.descripcion}</td>
-                  <td className="p-3 italic max-w-xs">⚙️ {r.descripcionControl}</td>
-                  <td className="p-3"><span className="px-2 py-0.5 rounded bg-slate-100 font-bold text-[10px]">{r.apetitoVal}</span></td>
-                  <td className="p-3 text-center whitespace-nowrap">
-                    {isAdmin && <button onClick={() => handleDeleteItem('riesgos', r.id)} className="text-red-600 font-bold px-2 py-1 bg-red-50 rounded text-[10px] hover:bg-red-100">Eliminar</button>}
+                  <td>D: {ev.diseño} / E: {ev.ejecucion}</td>
+                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
+                  <td className="p-3">
+                    <div>{ev.comentarios}</div>
+                    {ev.evidenciaUrl && (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver</span></a>
+                        {isAdmin && <button onClick={() => analizarEvidenciaIA(ev.evidenciaUrl, ev.comentarios, 'Test de Auditoría')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1133,188 +1620,249 @@ export default function App() {
     );
   };
 
-  const renderApetito = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">⚖️ Arquitectura de Apetito COSO ERM</div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 border rounded-xl shadow-sm border-l-4 border-l-blue-600"><span className="text-[10px] text-slate-400 uppercase font-black tracking-wider block">Zona de Confort</span><p className="text-xs text-slate-500 font-medium mt-1">Eventos financieros dentro de los límites normales aprobados por la junta directiva.</p></div>
-        <div className="bg-white p-5 border rounded-xl shadow-sm border-l-4 border-l-amber-500"><span className="text-[10px] text-slate-400 uppercase font-black tracking-wider block">Zona de Tolerancia</span><p className="text-xs text-slate-500 font-medium mt-1">Desviación máxima permitida antes de requerir un plan remedial obligatorio de auditoría.</p></div>
-        <div className="bg-white p-5 border rounded-xl shadow-sm border-l-4 border-l-red-600"><span className="text-[10px] text-slate-400 uppercase font-black tracking-wider block">Capacidad Financiera Máxima</span><p className="text-xs text-slate-500 font-medium mt-1">Umbral crítico que compromete la viabilidad operacional de la unidad de negocio.</p></div>
-      </div>
-    </div>
-  );
-
-  const renderEvaluaciones = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">🔬 Auditoría de Controles Clave</div>
-      {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
-          <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <div><label className="font-bold">ID Riesgo Vinculado</label><input name="idRiesgo" required className="w-full border rounded p-2" /></div>
-            <div><label className="font-bold">Test de Diseño</label><select name="diseno" className="w-full border rounded p-2 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div><label className="font-bold">Test de Ejecución</label><select name="ejecucion" className="w-full border rounded p-2 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div className="md:col-span-4"><label className="font-bold">Comentarios y Observaciones</label><input name="comentarios" required className="w-full border rounded p-2" /></div>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Guardar Test</button></div>
-          </form>
-        </div>
-      )}
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-900 text-white font-bold">
-            <tr>
-              <th className="p-3">ID Test <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Riesgo <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Diseño <FilterInput colKey="diseño" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Ejecución <FilterInput colKey="ejecucion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">% Calificación</th>
-              <th className="p-3">Auditor <FilterInput colKey="auditor" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {applyFilters(safeEvaluaciones, searchTerm, columnFilters).map(e => (
-              <tr key={e.id} className="hover:bg-slate-50">
-                <td className="p-3 font-mono text-slate-400">#TEST-{e.id}</td>
-                <td className="p-3 font-bold">Riesgo #{e.idRiesgo}</td>
-                <td className="p-3">{e.diseño}</td>
-                <td className="p-3">{e.ejecucion}</td>
-                <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${e.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{e.calificacion}%</span></td>
-                <td className="p-3 text-slate-500 font-mono text-[10px]">{e.auditor}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
   const renderHallazgos = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">📄 Hallazgos y No Conformidades</div>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="border-b pb-4 flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800">📄 Hallazgos y Desviaciones</h2>
+          <p className="text-xs text-slate-500 font-bold mt-1">Gestión de auditorías y no conformidades encontradas.</p>
+        </div>
+      </div>
+
       {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Hallazgo</h3>
-          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <input name="ref" required placeholder="Cód Referencia (HAL-01)" className="border p-2 rounded" />
-            <select name="sede" className="border p-2 bg-white rounded"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select>
-            <input name="proceso" required placeholder="Proceso o Área" className="border p-2 rounded" />
-            <input name="responsable" required placeholder="Dueño del Proceso" className="border p-2 rounded" />
-            <input name="auditor" required placeholder="Auditor que reporta" className="border p-2 rounded" />
-            <select name="severidad" className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option></select>
-            <input name="titulo" required placeholder="Descripción de la desviación encontrada" className="border p-2 rounded md:col-span-2" />
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Registrar Desviación</button></div>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
+          <div className="flex justify-between items-center border-b pb-3">
+            <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editHallazgo ? `✏️ Editando Hallazgo: ${editHallazgo.ref}` : '➕ DOCUMENTAR NUEVA DESVIACIÓN'}</h3>
+            {editHallazgo && <button onClick={() => setEditHallazgo(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">✖ Cancelar Edición</button>}
+          </div>
+
+          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+            <div><label className="font-bold text-gray-600 block mb-1">ID / Código (Manual)</label><input name="ref" defaultValue={editHallazgo?.ref||''} required placeholder="Ej: HAL-2026-01" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
+            
+            <div><label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label><input name="auditor" defaultValue={editHallazgo?.auditor||''} required placeholder="Quien levantó el hallazgo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Dueño del Proceso</label><input name="responsable" defaultValue={editHallazgo?.responsable||''} required placeholder="Responsable a cargo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            
+            <div className="md:col-span-2">
+              <label className="font-bold text-gray-600 flex justify-between items-center mb-1">
+                <span>Título / Descripción de la Falla</span>
+                <button type="button" onClick={() => sugerirConIA('hallazgo')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                </button>
+              </label>
+              <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
+            </div>
+            
+            <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Informe / Evidencia (Opcional)</label><input type="file" name="evidenciaArchivo" className="w-full border border-slate-300 rounded-lg p-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+            
+            <div className="md:col-span-2 flex justify-end items-end">
+              <button type="submit" disabled={isUploading} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-md transition-all disabled:opacity-50 w-full md:w-auto">
+                {isUploading ? 'Subiendo Archivo...' : (editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO')}
+              </button>
+            </div>
           </form>
         </div>
       )}
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-50 border-b text-[10px] uppercase text-slate-500 font-black">
-            <tr>
-              <th className="p-3">Ref <FilterInput colKey="ref" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Proceso / Sede <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Descripción de la Desviación <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Responsables <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Estado <FilterInput colKey="estado" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {applyFilters(hFiltrados, searchTerm, columnFilters).map(h => (
-              <tr key={h.id} className="hover:bg-slate-50">
-                <td className="p-3 font-black text-red-600">{h.ref}</td>
-                <td className="p-3"><b>{h.proceso}</b><span className="text-[10px] text-slate-400 block">{h.sede}</span></td>
-                <td className="p-3 text-slate-800 font-medium">{h.titulo}</td>
-                <td className="p-3">Auditor: {h.auditor}<span className="text-[10px] text-slate-400 block">Dueño: {h.responsable}</span></td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-bold uppercase text-[9px]">{h.estado}</span></td>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">DESVIACIONES</h3>
+           <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
+           </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left divide-y divide-slate-100">
+            <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+              <tr>
+                <th className="p-4">
+                  <div>ID / REF</div>
+                  <FilterInput colKey="ref" placeholder="Identificación..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>PROCESO</div>
+                  <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 w-1/3">
+                  <div>TÍTULO E INFORMES</div>
+                  <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>RESPONSABLES</div>
+                  <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 text-center">
+                  <div>ESTADO / GESTIÓN</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {applyFilters(hFiltrados, searchTerm, columnFilters).map((h, index) => (
+                <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4">
+                    <div className="font-black text-slate-800 text-sm">{h.ref}</div>
+                    <div className="text-[9px] text-slate-400 font-mono mt-0.5">INT-#{h.id}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-bold text-slate-700">{h.proceso}</div>
+                    <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-0.5">{h.sede || 'Hotel'}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
+                    {h.evidenciaUrl && (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Informe</span></a>
+                        {isAdmin && <button onClick={() => analizarEvidenciaIA(h.evidenciaUrl, h.titulo, 'Hallazgo')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-4">
+                    <div className="text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <div className="mb-1"><span className="font-bold text-slate-400 uppercase">Auditor:</span> <span className="font-black text-slate-700">{h.auditor || 'N/A'}</span></div>
+                      <div><span className="font-bold text-slate-400 uppercase">Dueño:</span> <span className="font-black text-slate-700">{h.responsable}</span></div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className={`px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest block mx-auto w-max mb-3 ${h.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {h.estado}
+                    </span>
+                    {isAdmin && (
+                      <div className="flex justify-center items-center space-x-2 border-t border-slate-100 pt-3">
+                        <button onClick={() => {setEditHallazgo(h); scrollToTop();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
+                          ✏️ Editar
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button onClick={() => handleDeleteItem('hallazgos', h.id)} className="text-slate-500 hover:text-red-600 transition-colors" title="Eliminar">
+                          🗑️ Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 
-  const renderPlanes = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">✅ Planes de Acción Remediales</div>
-      {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Plan Remedial</h3>
-          <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <input name="idHallazgo" required placeholder="ID Hallazgo Vinculado" className="border p-2 rounded" />
-            <input name="accion" required placeholder="Acción de Choque / Mitigación" className="border p-2 rounded md:col-span-2" />
-            <input name="responsable" required placeholder="Responsable de Ejecución" className="border p-2 rounded" />
-            <input name="fecha" type="date" required className="border p-2 rounded" />
-            <input name="progreso" type="number" min="0" max="100" placeholder="% Avance Real" className="border p-2 bg-blue-50 border-blue-200 rounded" />
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Asignar Plan</button></div>
-          </form>
-        </div>
-      )}
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
-            <tr>
-              <th className="p-3">ID Plan <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Hallazgo <FilterInput colKey="idHallazgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Acción Remedial Programada <FilterInput colKey="accion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">% Avance</th>
-              <th className="p-3">Estado <FilterInput colKey="estado" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {applyFilters(pFiltrados, searchTerm, columnFilters).map(p => (
-              <tr key={p.id}>
-                <td className="p-3 font-bold">#PLAN-{p.id}</td>
-                <td className="p-3 text-red-600 font-bold">#HAL-{p.idHallazgo}</td>
-                <td className="p-3 text-slate-800 font-medium">{p.accion} <span className="text-[10px] text-slate-400 block font-normal">Resp: {p.responsable} • Límite: {p.fecha}</span></td>
-                <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-bold uppercase text-[9px]">{p.estado}</span></td>
+  const renderPlanes = () => {
+    const planesData = pFiltrados.map(p => ({ ...p, fechaVal: formatSafeDate(p.fecha) }));
+
+    return (
+      <div className="space-y-6">
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Planes de Acción</h2></div>
+        {isAdmin && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
+            
+            <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="md:col-span-3"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
+              
+              <div className="md:col-span-3">
+                <label className="font-bold text-gray-600 flex justify-between items-center">
+                  <span>Acción Correctiva</span>
+                  <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                  </button>
+                </label>
+                <input name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1" />
+              </div>
+
+              <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={editPlan?.fecha||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-blue-600">% de Avance Físico</label><input type="number" min="0" max="100" name="progreso" defaultValue={editPlan?.progreso||0} required className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg p-2 mt-1" /></div>
+              
+              <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-slate-800 text-white font-bold px-6 py-2 rounded-lg shadow-md">{editPlan ? 'Actualizar Progreso' : 'Asignar Plan'}</button></div>
+            </form>
+          </div>
+        )}
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+             <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes</h3>
+             <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+             </div>
+          </div>
+          <table className="w-full text-xs text-left divide-y">
+            <thead className="bg-slate-900 text-white font-bold">
+              <tr>
+                <th className="p-3">
+                  <div>ID</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Hallazgo</div>
+                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Acción y Evidencias</div>
+                  <FilterInput colKey="accion" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Compromiso</div>
+                  <FilterInput colKey="fechaVal" placeholder="Fecha..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3 w-40">% Avance</th>
+                <th className="p-3">
+                  <div>Estado</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3 text-center">Gestión</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y">
+              {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
+                const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
+                return (
+                  <tr key={`plan-row-${p.id}-${index}`}>
+                    <td className="p-3 font-bold">#PLAN-{p.id}</td>
+                    <td className="p-3"><span className="text-red-600 font-bold block">#HAL-{p.idHallazgo}</span><span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
+                    <td className="p-3">
+                      <div className="font-bold">{p.accion}</div>
+                      {p.evidenciaUrl && (
+                        <div className="flex items-center space-x-2 mt-2">
+                          <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Soporte</span></a>
+                          {isAdmin && <button onClick={() => analizarEvidenciaIA(p.evidenciaUrl, p.accion, 'Plan de Acción')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-3 font-mono">{p.fechaVal}</td>
+                    <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      {isAdmin && <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
+                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderIncidentes = () => (
     <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
-      {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
-          <form onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <input name="idRiesgo" required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
-            <input name="titulo" required placeholder="Título del Evento" className="border p-2 rounded" />
-            <input name="costo" type="number" required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
-            <select name="impacto" className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select>
-            <textarea name="descripcion" required placeholder="Descripción de la falla operacional..." className="border p-2 rounded md:col-span-4"></textarea>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Registrar Evento</button></div>
-          </form>
-        </div>
-      )}
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-900 text-white font-bold">
-            <tr>
-              <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Riesgo ID <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3 text-right">Costo (COP)</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {applyFilters(incFiltrados, searchTerm, columnFilters).map(i => (
-              <tr key={i.id}>
-                <td className="p-3 text-slate-400">#INC-{i.id}</td>
-                <td className="p-3 font-bold">#{i.idRiesgo}</td>
-                <td className="p-3"><b>{i.titulo}</b><p className="text-[10px] text-slate-400 mt-0.5">{i.descripcion}</p></td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[9px]">{i.impacto}</span></td>
-                <td className="p-3 text-right font-mono font-bold text-red-600">${Number(i.costo || 0).toLocaleString('es-CO')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Eventos de Pérdida</h2></div>
+      <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+        <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Reportar Evento</h3>
+        <form onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div><label className="font-bold text-gray-600">Riesgo Vinculado</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-incidente-${r.id}-${index}`} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
+          <div><label className="font-bold text-gray-600">Título</label><input name="titulo" required className="w-full border rounded-lg p-2 mt-1" /></div>
+          <div><label className="font-bold text-gray-600">Pérdida (COP)</label><input name="costo" type="number" required className="w-full border rounded-lg p-2 mt-1" /></div>
+          <div className="md:col-span-2"><label className="font-bold text-gray-600">Descripción</label><textarea name="descripcion" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+          <div><label className="font-bold text-gray-600">Impacto</label><select name="impacto" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
+          <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar Evento</button></div>
+        </form>
       </div>
     </div>
   );
@@ -1324,7 +1872,7 @@ export default function App() {
       .flatMap(item => (item.historialCambios || []).map(log => ({ ...log, ref: item.proceso || item.titulo || `Item: ${item.id}` })));
     return (
       <div className="space-y-6">
-        <div className="border-b pb-2 font-black text-lg">📜 Trazabilidad de Auditoría e Historial de Cambios</div>
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">📜 Logs del Sistema</h2></div>
         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-50 border-b text-[10px] uppercase font-black text-slate-500">
@@ -1332,7 +1880,7 @@ export default function App() {
             </thead>
             <tbody className="divide-y text-slate-600">
               {logs.map((l, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
+                <tr key={`log-${idx}`} className="hover:bg-slate-50">
                   <td className="p-3 font-mono">{l.fecha || new Date().toLocaleString()}</td>
                   <td className="p-3 font-bold text-slate-900">{l.ref}</td>
                   <td className="p-3 italic">{l.accion || 'Registro guardado'}</td>
@@ -1410,8 +1958,8 @@ export default function App() {
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
+          ].map((tab, index) => (
+            <button key={`nav-tab-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
           ))}
