@@ -21,7 +21,7 @@ try {
   console.warn("Entorno simulado: variables de Vercel no detectadas.");
 }
 
-// --- CONFIGURACIÓN DE FIREBASE (Sin Storage) ---
+// --- CONFIGURACIÓN DE FIREBASE (Sin Storage, usaremos Enlaces Drive/OneDrive) ---
 const firebaseConfig = {
   apiKey: "AIzaSyBGE2P-_oep_N7o8so6wubmaZXv12imZaE",
   authDomain: "gestion-de-riesgos-b4bf0.firebaseapp.com",
@@ -44,7 +44,7 @@ const ADMIN_EMAILS = [
 ];
 
 // =====================================================================
-// 🛠️ FUNCIONES GLOBALES, CÁLCULOS Y FILTROS SEGUROS
+// 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
 // =====================================================================
 
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
@@ -120,24 +120,13 @@ const calcularMatriz5x5 = (probabilidad, impacto) => {
   return { score, apetito, accion, color, borderSemaforo };
 };
 
-const applyFilters = (dataArray, globalTerm, colFilters) => {
+const applyFilters = (dataArray, globalTerm) => {
   let result = dataArray;
   if (globalTerm) {
     const lowerTerm = globalTerm.toLowerCase();
     result = result.filter(item => 
       Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
     );
-  }
-  if (colFilters && Object.keys(colFilters).length > 0) {
-    Object.entries(colFilters).forEach(([key, filterValue]) => {
-      if (filterValue) {
-        const lowerFilter = filterValue.toLowerCase();
-        result = result.filter(item => {
-          const val = item[key];
-          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerFilter);
-        });
-      }
-    });
   }
   return result;
 };
@@ -174,21 +163,6 @@ const Gauge = ({ value, label, sublabel, colorClass }) => (
     <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
     <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
   </div>
-);
-
-const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
-  <input 
-    type="text" 
-    placeholder={placeholder || "Filtrar..."}
-    className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${
-      dark 
-        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
-        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
-    }`}
-    value={columnFilters[colKey] || ''}
-    onChange={(e) => handleColFilterChange(colKey, e.target.value)}
-    onClick={(e) => e.stopPropagation()} 
-  />
 );
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
@@ -286,7 +260,6 @@ export default function App() {
   const [filtroMes, setFiltroMes] = useState('Todos');
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [columnFilters, setColumnFilters] = useState({});
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
@@ -333,16 +306,11 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
-  // Limpiar filtros al cambiar de pestaña
+  // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
     setSearchTerm('');
-    setColumnFilters({});
     setFiltroHeatMap(null);
   }, [activeTab]);
-
-  const handleColFilterChange = (key, value) => {
-    setColumnFilters(prev => ({ ...prev, [key]: value }));
-  };
 
   const toggleAnio = (anio) => {
     setSelectedAnios(prev => prev.includes(anio) ? prev.filter(a => a !== anio) : [...prev, anio]);
@@ -509,7 +477,7 @@ export default function App() {
 
     try {
       const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
-      Se acaba de adjuntar un archivo de evidencia (Foto o PDF o Enlace Drive) para el siguiente ${tipoItem}: "${contextoItem}".
+      Se acaba de adjuntar un archivo de evidencia (Foto o PDF o Enlace) para el siguiente ${tipoItem}: "${contextoItem}".
       Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
@@ -597,7 +565,7 @@ export default function App() {
       const planToUpdate = safePlanes.find(p => p.idHallazgo === idHallazgo);
       
       if (planToUpdate) {
-        const mod = { ...planToUpdate, progreso, estado, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, accion: 'Avance físico reportado con Enlace' }] };
+        const mod = { ...planToUpdate, progreso, estado, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, accion: 'Avance reportado con link' }] };
         updated = safePlanes.map(p => p.id === planToUpdate.id ? mod : p);
       } else {
         showNotification("Error: Plan asociado no encontrado.", "error");
@@ -609,7 +577,7 @@ export default function App() {
     }
     
     if (updated) {
-      setPlanes(updated); await saveToCloud({ planes: updated }); e.target.reset(); showNotification("Plan remedial procesado exitosamente.");
+      setPlanes(updated); await saveToCloud({ planes: updated }); e.target.reset(); showNotification("Plan remedial procesado.");
     }
   };
 
@@ -647,7 +615,7 @@ export default function App() {
       const nuevo = { id: Date.now(), sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [] };
       updated = [nuevo, ...safeHallazgos];
     }
-    setHallazgos(updated); await saveToCloud({ hallazgos: updated }); e.target.reset(); showNotification("Desviación documentada con Enlace.");
+    setHallazgos(updated); await saveToCloud({ hallazgos: updated }); e.target.reset(); showNotification("Desviación documentada.");
   };
 
   const handleIncidenteSubmit = async (e) => {
@@ -840,64 +808,38 @@ export default function App() {
   // RENDERS DE VISTAS (ADMIN INTERFACE)
   // =====================================================================
 
-  const renderSelectorFiltrosMultiples = () => (
-    <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col space-y-3 shadow-sm mb-6">
-      <div className="text-xs font-black text-[#004d40] uppercase tracking-wider flex items-center space-x-2">
-        <span>🎛️</span> <span>Consola de Mando Temporal (Agrupación Activa)</span>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-        <div className="md:col-span-3 border-r pr-2">
-          <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Años:</span>
-          <div className="flex gap-1.5">
-            {[2025, 2026].map(a => {
-              const act = selectedAnios.includes(a);
-              return (
-                <button key={`filter-year-${a}`} type="button" onClick={() => toggleAnio(a)} className={`px-3 py-1 rounded text-xs font-black border transition-all ${act ? 'bg-[#004d40] text-white border-[#004d40]' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>{a}</button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="md:col-span-9">
-          <span className="text-[10px] font-black text-slate-400 uppercase block mb-1">Meses:</span>
-          <div className="flex flex-wrap gap-1">
-            {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => {
-              const act = selectedMeses.includes(m);
-              return (
-                <button key={`filter-month-${m}`} type="button" onClick={() => toggleMes(m)} className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all ${act ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>{m}</button>
-              );
-            })}
-            <button type="button" onClick={() => setSelectedMeses(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"])} className="text-[10px] font-black text-blue-600 hover:underline ml-2">Seleccionar Todos</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderTablero = () => {
     const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
     return (
-      <div className="space-y-6">
-        {renderSelectorFiltrosMultiples()}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Gauge value={avanceGlobal} label="Mitigación Global" sublabel="% de Avance Promedio" colorClass="text-blue-500" />
-          <Gauge value={rendimientoControles} label="Salud Controles" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-          <div className="bg-slate-900 text-white p-5 rounded-2xl flex flex-col justify-center text-center shadow-sm">
-            <span className="text-[10px] font-black text-red-400 uppercase">Hallazgos Abiertos en Grupo</span>
-            <span className="text-4xl font-black mt-2">{hAbiertos}</span>
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {renderHeaderFiltros("Tablero Analítico de Auditoría", "Análisis integral de desviaciones operativas.")}
+        
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">INDICADORES KRI EN TIEMPO REAL</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Gauge value={avanceGlobal} label="MITIGACIÓN GLOBAL" sublabel="Promedio Planes de Acción" colorClass="text-blue-500" />
+          <Gauge value={rendimientoControles} label="CONTROLES DE SALUD" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+          <div className="bg-[#0f172a] text-white p-6 rounded-2xl flex flex-col justify-center text-center shadow-lg border border-slate-800">
+            <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ALERTA CRÍTICA</span>
+            <span className="text-6xl font-black mt-4">{hAbiertos}</span>
+            <p className="text-xs font-bold text-slate-300 mt-4">Hallazgos Pendientes de Cierre</p>
           </div>
         </div>
 
-        <div className="space-y-4 mt-6">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Desempeño Operativo por Sede</h3>
-          {sedes.map(s => {
-            const hSede = hFiltrados.filter(h => h.sede === s).length;
-            return (
-              <div key={`sede-${s}`} className="bg-white p-4 border rounded-xl flex justify-between items-center shadow-sm hover:shadow-md transition-all">
-                <span className="font-black text-slate-800 text-sm">{s}</span>
-                <span className="text-xs font-bold text-slate-500">Hallazgos Activos en Periodo: <b className="text-red-600 font-black">{hSede}</b></span>
+        <div className="space-y-4 mt-8">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">DESEMPEÑO POR UNIDAD DE NEGOCIO</h3>
+          
+          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
+            <h4 className="text-xl font-black text-slate-800 mb-6 border-b pb-2">Hotel</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-pointer">
+                <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">HALLAZGOS ABIERTOS</span>
+                <span className="text-5xl font-black mt-4 text-slate-800">{hFiltrados.filter(h => h.sede === 'Hotel' && h.estado === 'Abierto').length}</span>
+                <p className="text-[10px] font-bold mt-4 opacity-60 text-slate-500">Pendientes de Cierre</p>
               </div>
-            );
-          })}
+              <Gauge value={rendimientoControles} label="SALUD DE CONTROLES" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+              <Gauge value={avanceGlobal} label="PLANES DE ACCIÓN" sublabel="Promedio de Avance Físico" colorClass="text-blue-500" />
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -915,47 +857,120 @@ export default function App() {
 
     const contarCelda = (imp, prob) => rFiltrados.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
     
-    const dataIncidentes = selectedMeses.slice(0, 6).map(m => ({ mes: m.substring(0,3), valor: incFiltrados.reduce((acc, val) => acc + (val.costo || 0), 0) / 6 }));
-    const dataHallazgos = selectedMeses.slice(0, 6).map(m => ({ mes: m.substring(0,3), valor: hFiltrados.length / 6 }));
+    const mesesGrafica = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const dataIncidentes = mesesGrafica.map(m => ({ mes: m, valor: incFiltrados.reduce((acc, val) => acc + (val.costo || 0), 0) / 12 }));
+    const dataHallazgos = mesesGrafica.map(m => ({ mes: m, valor: hFiltrados.length / 12 }));
 
     return (
-      <div className="space-y-6">
-        {renderSelectorFiltrosMultiples()}
-        <div className="flex justify-between items-center border-b pb-2">
-          <h3 className="text-sm font-black text-slate-700 uppercase">Matriz de Riesgo Tradicional (ISO 31000)</h3>
-          <div className="bg-white p-1 rounded-xl border flex shadow-sm">
-            <button onClick={() => setTipoMatriz('inherente')} className={`px-4 py-1 rounded-lg font-bold text-[10px] uppercase ${!esRes ? 'bg-slate-900 text-white' : 'text-slate-500'}`}>Inherente</button>
-            <button onClick={() => setTipoMatriz('residual')} className={`px-4 py-1 rounded-lg font-bold text-[10px] uppercase ${esRes ? 'bg-emerald-600 text-white' : 'text-slate-500'}`}>Residual</button>
-          </div>
-        </div>
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {renderHeaderFiltros("Panel de inteligencia GRC", "Análisis predictivo de apetito ISO 31000 y Evolución de KRI.", true)}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TrendChart data={dataIncidentes} title={`Evolución de Impacto Financiero`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
-          <TrendChart data={dataHallazgos} title={`Volumen de Desviaciones`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
+          <TrendChart data={dataIncidentes} title={`EVOLUCIÓN DE IMPACTO FINANCIERO (${filtroAnio})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
+          <TrendChart data={dataHallazgos} title={`VOLUMEN DE DESVIACIONES (${filtroAnio})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-white p-4 border rounded-xl shadow-sm"><span className="text-[10px] text-slate-400 font-bold uppercase block">Riesgos Totales Consolidados</span><span className="text-2xl font-black text-slate-800">{totalRiesgos}</span></div>
-          <div className="bg-white p-4 border rounded-xl shadow-sm"><span className="text-[10px] text-slate-400 font-bold uppercase block">Impacto Económico Realizado</span><span className="text-2xl font-black text-purple-700">${totalPerdidas.toLocaleString('es-CO')}</span></div>
-        </div>
-
-        <div className="bg-white rounded-2xl border p-6 flex flex-col items-center shadow-sm">
-          <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 w-full max-w-xl">
-            <div></div>
-            {probabilidades.map(p => <div key={p} className="text-center text-[10px] font-black uppercase text-slate-500 bg-slate-50 py-1 rounded border">{p}</div>)}
-            {impactos.map(imp => (
-              <React.Fragment key={imp}>
-                <div className="text-right pr-2 flex items-center justify-end text-[10px] font-black uppercase text-slate-500">{imp}</div>
-                {probabilidades.map(prob => {
-                  const count = contarCelda(imp, prob);
-                  const { color } = calcularMatriz5x5(prob, imp);
-                  return (
-                    <div key={prob} className={`h-14 rounded-lg flex items-center justify-center font-black border text-lg cursor-pointer transition-all hover:scale-105 ${color} ${count > 0 ? 'opacity-100 shadow-md' : 'opacity-20'}`}>{count}</div>
-                  );
-                })}
-              </React.Fragment>
-            ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-blue-500">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS TOTALES</h4>
+             <span className="text-4xl font-black mt-2 block text-slate-800">{totalRiesgos}</span>
           </div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-red-600">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">FUERA DE APETITO</h4>
+             <span className="text-4xl font-black mt-2 block text-red-600">{riesgosFueraApetito}</span>
+          </div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-orange-500">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS CRÍTICOS</h4>
+             <span className="text-4xl font-black mt-2 block text-orange-500">{riesgosCriticos}</span>
+          </div>
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-purple-600">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">PÉRDIDAS TOTALES</h4>
+             <span className="text-3xl font-black mt-2 block text-purple-700">$ {(totalPerdidas).toLocaleString('es-CO')}</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 flex flex-col items-center relative">
+          <h3 className="font-black text-slate-600 text-xs uppercase tracking-widest mb-8 w-full flex items-center space-x-3">
+            <span>🗺️ MAPA DE CALOR EMPRESARIAL (HAZ CLIC EN UN CUADRANTE CON NÚMEROS)</span>
+            <span className="bg-slate-800 text-white px-3 py-1 rounded-full text-[9px] font-bold tracking-widest">{tipoMatriz}</span>
+          </h3>
+          
+          <div className="flex flex-col items-center justify-center w-full">
+            <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 w-full max-w-3xl relative pb-4">
+              <div className="absolute -left-16 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-black text-slate-400 uppercase tracking-widest">IMPACTO</div>
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-black text-slate-400 uppercase tracking-widest">PROBABILIDAD</div>
+              <div></div>
+              {probabilidades.map(p => <div key={`prob-${p}`} className="text-center text-[10px] font-black uppercase text-slate-500 bg-slate-50 py-2 rounded-t-lg border-b border-slate-200">{p}</div>)}
+              {impactos.map(imp => (
+                <React.Fragment key={`imp-${imp}`}>
+                  <div className="text-right pr-4 py-6 flex items-center justify-end text-[10px] font-black uppercase text-slate-500 bg-slate-50 rounded-l-lg">{imp}</div>
+                  {probabilidades.map(prob => {
+                    const count = contarCelda(imp, prob);
+                    const { score, color, borderSemaforo } = calcularMatriz5x5(prob, imp);
+                    const isSelected = filtroHeatMap?.impacto === imp && filtroHeatMap?.probabilidad === prob;
+                    
+                    return (
+                      <div key={`cell-${imp}-${prob}`} onClick={() => { 
+                        if (count > 0) {
+                          setFiltroHeatMap({ impacto: imp, probabilidad: prob, count }); 
+                          setTimeout(() => { document.getElementById('detalle-heatmap')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 150);
+                        }
+                      }}
+                        className={`relative border-2 p-6 flex flex-col justify-center items-center h-28 rounded-2xl transition-all duration-200 ${count > 0 ? 'cursor-pointer hover:scale-105 shadow-md opacity-100' : 'opacity-20 cursor-not-allowed'} ${color} ${isSelected ? 'ring-4 ring-slate-900 scale-105 shadow-xl bg-opacity-100 border-black' : borderSemaforo}`}>
+                        <span className="absolute top-2 right-3 text-[9px] font-mono font-black opacity-50 text-slate-900">S: {score}</span>
+                        <span className={`text-4xl font-black text-slate-900 drop-shadow-sm`}>{count}</span>
+                      </div>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* DETALLE DEL HEATMAP */}
+          {filtroHeatMap && (
+            <div id="detalle-heatmap" className="mt-8 w-full bg-white rounded-xl border border-slate-200 shadow-sm animate-in fade-in duration-300">
+              <div className="flex justify-between items-center mb-4 p-4 border-b bg-slate-50 rounded-t-xl">
+                <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider">🔎 Detalle de Riesgos en Cuadrante: {filtroHeatMap.probabilidad} / {filtroHeatMap.impacto}</h4>
+                <button onClick={() => setFiltroHeatMap(null)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-colors">✖ Limpiar Filtro</button>
+              </div>
+              <div className="overflow-x-auto p-4 pt-0">
+                <table className="w-full text-xs text-left divide-y border border-slate-200 rounded-lg overflow-hidden">
+                  <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
+                    <tr>
+                      <th className="p-3">Identificación</th>
+                      <th className="p-3">Proceso</th>
+                      <th className="p-3 w-1/2">Descripción</th>
+                      <th className="p-3">Responsable</th>
+                      <th className="p-3 text-center">Estrategia</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-slate-700 bg-white">
+                    {rFiltrados.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === filtroHeatMap.impacto && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === filtroHeatMap.probabilidad).map((r, index) => {
+                       const matrizData = calcularMatriz5x5(esRes ? r.probabilidadResidual : r.probabilidadInherente, esRes ? r.impactoResidual : r.impactoInherente);
+                       return (
+                        <tr key={`filtered-${r.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-bold text-slate-800">#{r.id}</td>
+                          <td className="p-3">
+                            <span className="font-black text-slate-900 block">{r.proceso}</span>
+                            <span className="text-[9px] text-slate-400 font-bold block mt-1">{r.sede || 'Hotel'}</span>
+                          </td>
+                          <td className="p-3 font-medium">{r.descripcion}</td>
+                          <td className="p-3">{r.responsable || 'No Asignado'}</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-3 py-1.5 rounded text-[9px] uppercase font-black shadow-sm block w-full truncate ${matrizData.color}`}>
+                              {matrizData.accion}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     );
@@ -1163,56 +1178,72 @@ export default function App() {
   };
 
   const renderRiesgos = () => {
-    const rData = safeRiesgos.map(r => {
+    const rData = rFiltrados.map(r => {
       const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
-      return { ...r, scoreResVal: res.score, apetitoVal: res.apetito, accionVal: res.accion, colorVal: res.color };
+      const inh = calcularMatriz5x5(r.probabilidadInherente, r.impactoInherente);
+      return { ...r, scoreInhVal: inh.score, scoreResVal: res.score, apetitoVal: res.apetito, accionVal: res.accion, colorVal: res.color };
     });
+
     return (
       <div className="space-y-6">
-        <div className="border-b pb-2 flex justify-between items-center">
-          <h2 className="text-xl font-black text-slate-800">Estructura General de Riesgos</h2>
-          <div className="flex space-x-2 items-center">
-             <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md">📥 Exportar</button>
+        <div className="border-b pb-4 flex justify-between items-center">
+          <h2 className="text-2xl font-black text-slate-800">Estructura de Riesgos</h2>
+          <div className="flex space-x-3">
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-2 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
+            </div>
+            <button onClick={() => exportToExcel(safeRiesgos, 'Matriz_Riesgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-colors">📥 Exportar</button>
           </div>
         </div>
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-            <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Nuevo Riesgo</h3>
-            <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-              <div><label className="font-bold">Sede</label><select name="sede" className="w-full border rounded p-1.5 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
-              <div><label className="font-bold">Proceso Auditable</label><input name="proceso" required className="w-full border rounded p-1.5" /></div>
-              <div><label className="font-bold">Categoría COSO</label><select name="categoria" className="w-full border rounded p-1.5 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
-              <div><label className="font-bold">Normativa Compliance</label><input name="normativa" required className="w-full border rounded p-1.5" placeholder="Ej: ISO 31000" /></div>
+            <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
+            <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              
+              <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+              
+              <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
+              <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+              
               <div className="md:col-span-2">
-                <label className="font-bold flex justify-between">
-                  Descripción Evento
-                </label>
-                <input name="descripcion" required className="w-full border rounded p-1.5" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="font-bold flex justify-between items-center">
-                  <span>Control Clave Diseñado</span>
+                <label className="font-bold text-gray-600 flex justify-between items-center">
+                  <span>Control Clave</span>
                   <button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
                     <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
                   </button>
                 </label>
-                <input name="control" required className="w-full border rounded p-1.5" />
+                <input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" />
               </div>
-              <div><label className="font-bold">Responsable</label><input name="responsable" required className="w-full border rounded p-1.5" /></div>
-              <div><label className="font-bold">Prob. Inherente</label><select name="probInh" className="w-full border rounded p-1.5 bg-white"><option>Rara</option><option>Posible</option><option>Frecuente</option></select></div>
-              <div><label className="font-bold">Imp. Inherente</label><select name="impInh" className="w-full border rounded p-1.5 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-              <div><label className="font-bold">Prob. Residual</label><select name="probRes" className="w-full border rounded p-1.5 bg-white"><option>Rara</option><option>Posible</option><option>Frecuente</option></select></div>
-              <div><label className="font-bold">Imp. Residual</label><select name="impRes" className="w-full border rounded p-1.5 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-              <div className="flex items-end md:col-span-4"><button type="submit" className="bg-[#004d40] text-white px-6 py-2 rounded font-bold uppercase shadow-sm">Guardar en Matriz</button></div>
+              <div className="md:col-span-2">
+                <label className="font-bold text-purple-700">Normativa / Ley Aplicable</label>
+                <input name="normativa" defaultValue={editRiesgo?.normativa||'Ninguna'} placeholder="Ej: Ley 1581, ISO 31000..." required className="w-full border border-purple-300 bg-purple-50 rounded-lg p-2 mt-1" />
+              </div>
+
+              <div className="md:col-span-4">
+                <label className="font-bold text-gray-600">Descripción Evento</label>
+                <input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" />
+              </div>
+              
+              <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
+              <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
+              <div><label className="font-bold text-gray-600">Prob. Residual</label><select name="probRes" defaultValue={editRiesgo?.probabilidadResidual||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
+              <div><label className="font-bold text-gray-600">Imp. Residual</label><select name="impRes" defaultValue={editRiesgo?.impactoResidual||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico">Crítico</option></select></div>
+              
+              <div className="md:col-span-4 flex justify-end space-x-2">
+                <button type="submit" className="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar</button>
+              </div>
             </form>
           </div>
         )}
+
         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
           <table className="w-full text-left">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
                 <th className="p-3">ID</th>
-                <th className="p-3">Proceso / Ley</th>
+                <th className="p-3 w-48">Proceso / Ley</th>
                 <th className="p-3">Escenario de Riesgo</th>
                 <th className="p-3">Control Mitigante</th>
                 <th className="p-3">Apetito COSO</th>
@@ -1220,8 +1251,8 @@ export default function App() {
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(rData, searchTerm).map(r => (
-                <tr key={r.id} className="hover:bg-slate-50/50">
+              {applyFilters(rData, searchTerm).map((r, index) => (
+                <tr key={`riesgo-${r.id}-${index}`} className="hover:bg-slate-50/50">
                   <td className="p-3 font-bold text-slate-400">#{r.id}</td>
                   <td className="p-3">
                     <span className="font-black text-slate-900 block">{r.proceso}</span>
@@ -1242,213 +1273,528 @@ export default function App() {
     );
   };
 
-  const renderApetito = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">⚖️ Arquitectura de Apetito COSO ERM</div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-5 border rounded-xl shadow-sm border-l-4 border-l-blue-600"><span className="text-[10px] text-slate-400 uppercase font-black tracking-wider block">Zona de Confort</span><p className="text-xs text-slate-500 font-medium mt-1">Eventos financieros dentro de los límites normales aprobados por la junta directiva.</p></div>
-        <div className="bg-white p-5 border rounded-xl shadow-sm border-l-4 border-l-amber-500"><span className="text-[10px] text-slate-400 uppercase font-black tracking-wider block">Zona de Tolerancia</span><p className="text-xs text-slate-500 font-medium mt-1">Desviación máxima permitida antes de requerir un plan remedial obligatorio de auditoría.</p></div>
-        <div className="bg-white p-5 border rounded-xl shadow-sm border-l-4 border-l-red-600"><span className="text-[10px] text-slate-400 uppercase font-black tracking-wider block">Capacidad Financiera Máxima</span><p className="text-xs text-slate-500 font-medium mt-1">Umbral crítico que compromete la viabilidad operacional de la unidad de negocio.</p></div>
-      </div>
-    </div>
-  );
+  const renderApetito = () => {
+    const configurados = rFiltrados.filter(r => r.capacidadRiesgo).length;
+    
+    const enTolerancia = rFiltrados.filter(r => {
+      const costoTotal = incFiltrados.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
+      return r.capacidadRiesgo && costoTotal > r.apetitoFinanciero && costoTotal <= r.toleranciaFinanciera;
+    }).length;
 
-  const renderEvaluaciones = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">🔬 Auditoría de Controles Clave</div>
-      {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
-          <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <div><label className="font-bold">ID Riesgo Vinculado</label><input name="idRiesgo" required className="w-full border rounded p-2" /></div>
-            <div><label className="font-bold">Test de Diseño</label><select name="diseno" className="w-full border rounded p-2 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div><label className="font-bold">Test de Ejecución</label><select name="ejecucion" className="w-full border rounded p-2 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div className="md:col-span-4"><label className="font-bold">Comentarios y Observaciones</label><input name="comentarios" required className="w-full border rounded p-2" /></div>
-            <div className="md:col-span-4">
-              <label className="font-bold">Enlace a Evidencia (Drive / OneDrive)</label>
-              <input type="url" name="evidenciaUrlInput" placeholder="Ej: https://drive.google.com/..." className="w-full border border-blue-300 bg-blue-50 rounded p-2 mt-1" />
-            </div>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Guardar Test</button></div>
-          </form>
+    const capacidadExcedida = rFiltrados.filter(r => {
+      const costoTotal = incFiltrados.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
+      return r.capacidadRiesgo && costoTotal > r.capacidadRiesgo;
+    }).length;
+
+    const apetitoData = rFiltrados.map(r => {
+      const resScore = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score;
+      const costoTotal = incFiltrados.filter(i => i.idRiesgo === r.id).reduce((sum, i) => sum + (Number(i.costo) || 0), 0);
+      const estaConfigurado = r.posturaEstrategica && r.capacidadRiesgo;
+      
+      let zona = "Sin parametrizar";
+      let zonaColor = "bg-slate-100 text-slate-500 border-slate-200";
+      let consumoPorcentaje = 0;
+
+      if (estaConfigurado) {
+        consumoPorcentaje = r.capacidadRiesgo ? Math.min((costoTotal / r.capacidadRiesgo) * 100, 100) : 0;
+        if (costoTotal <= r.apetitoFinanciero) { 
+          zona = "Confort (Apetito)"; 
+          zonaColor = "bg-emerald-50 text-emerald-700 border-emerald-200"; 
+        } else if (costoTotal <= r.toleranciaFinanciera) { 
+          zona = "Alerta (Tolerancia)"; 
+          zonaColor = "bg-yellow-50 text-yellow-700 border-yellow-300"; 
+        } else if (costoTotal <= r.capacidadRiesgo) { 
+          zona = "Peligro (Brecha)"; 
+          zonaColor = "bg-orange-50 text-orange-700 border-orange-300"; 
+        } else { 
+          zona = "Crítico (Cap. Excedida)"; 
+          zonaColor = "bg-red-50 text-red-700 border-red-300"; 
+        }
+      }
+
+      return { ...r, resScoreVal: resScore, costoTotalVal: costoTotal, estaConfiguradoVal: estaConfigurado, zonaVal: zona, zonaColorVal: zonaColor, consumoPorcentajeVal: consumoPorcentaje };
+    });
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {renderHeaderFiltros("⚖️ Apetito y Perfil de Riesgo (COSO ERM)", "Parametrización multinivel: Apetito, Tolerancia y Capacidad Financiera Máxima.")}
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-blue-500">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Modelos Parametrizados</h4>
+             <span className="text-4xl font-black mt-2 block text-slate-800">{configurados} <span className="text-xl text-slate-400">/ {rFiltrados.length}</span></span>
+          </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-yellow-400">
+             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">En Zona de Alerta (Tolerancia)</h4>
+             <span className="text-4xl font-black mt-2 block text-yellow-500">{enTolerancia}</span>
+          </div>
+          <div className="bg-[#0f172a] p-6 rounded-2xl shadow-md border border-slate-800 border-l-8 border-l-red-600 text-white">
+             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Capacidad Excedida (Ruptura)</h4>
+             <span className="text-4xl font-black mt-2 block text-red-500">{capacidadExcedida}</span>
+          </div>
         </div>
-      )}
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-900 text-white font-bold">
-            <tr>
-              <th className="p-3">ID Test</th>
-              <th className="p-3">Riesgo</th>
-              <th className="p-3">Diseño</th>
-              <th className="p-3">Ejecución</th>
-              <th className="p-3">% Calificación</th>
-              <th className="p-3">Evidencia / Auditor</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {applyFilters(safeEvaluaciones, searchTerm).map(e => (
-              <tr key={e.id} className="hover:bg-slate-50">
-                <td className="p-3 font-mono text-slate-400">#TEST-{e.id}</td>
-                <td className="p-3 font-bold">Riesgo #{e.idRiesgo}</td>
-                <td className="p-3">{e.diseño}</td>
-                <td className="p-3">{e.ejecucion}</td>
-                <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${e.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{e.calificacion}%</span></td>
-                <td className="p-3">
-                  <span className="text-slate-500 font-mono text-[10px] block mb-1">{e.auditor}</span>
-                  {e.evidenciaUrl ? (
-                    <div className="flex items-center space-x-2 mt-1">
-                      <a href={e.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>🔗</span><span>Abrir Enlace</span></a>
-                    </div>
-                  ) : (
-                    <span className="text-[9px] text-slate-400 italic block">🚫 Sin evidencia adjunta</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+        {editApetito && (
+          <div className="bg-white p-6 rounded-3xl shadow-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white animate-in fade-in slide-in-from-top-4 space-y-6 relative z-10">
+            <div className="flex justify-between items-center border-b border-blue-100 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">⚙️ Arquitectura COSO ERM</h3>
+                <p className="text-xs font-bold text-slate-500 mt-1">Riesgo: [{editApetito.sede}] {editApetito.proceso}</p>
+              </div>
+              <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
+            </div>
+            
+            <form onSubmit={handleApetitoSubmit} className="space-y-6 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                  <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
+                  
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
+                    Postura Estratégica
+                  </label>
+                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm">
+                    <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
+                    <option value="Cauto">Cauto (Preferencia por soluciones seguras)</option>
+                    <option value="Flexible">Flexible (Equilibrio riesgo/recompensa)</option>
+                    <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
+                  </select>
+
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
+                    KRI: Puntaje Residual Máximo Permitido
+                  </label>
+                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
+                </div>
+
+                <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                  <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
+                  
+                  <label className="font-bold text-blue-900 mb-1 flex items-center w-max">
+                    <span>🎯 Apetito de Riesgo (Deseado)</span>
+                  </label>
+                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+
+                  <label className="font-bold text-amber-700 mb-1 flex items-center w-max">
+                    <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span>
+                  </label>
+                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+
+                  <label className="font-bold text-red-700 mb-1 flex items-center w-max">
+                    <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span>
+                  </label>
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-slate-100">
+                <button type="submit" className="bg-slate-900 text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors transform hover:scale-105 duration-200">💾 Aplicar Arquitectura COSO</button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-5 bg-[#0f172a] flex justify-between items-center border-b border-slate-800">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-white font-black text-xs uppercase tracking-widest">Monitor de Brechas Financieras</h3>
+              <span className="text-[9px] bg-slate-800 text-slate-400 px-3 py-1 rounded-full font-bold border border-slate-700">Analítica</span>
+            </div>
+            <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-700 bg-slate-800 text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-sm placeholder-slate-500" />
+            </div>
+          </div>
+          <div className="overflow-x-auto p-4">
+            <table className="w-full text-xs text-left divide-y divide-slate-100">
+              <thead className="bg-white text-slate-500 font-black uppercase tracking-wider text-[9px]">
+                <tr>
+                  <th className="p-4 w-1/3">Proceso / Riesgo / Postura</th>
+                  <th className="p-4 text-center">Puntuación (KRI)</th>
+                  <th className="p-4 w-1/3 text-center">Consumo de Capacidad Financiera (Eventos)</th>
+                  <th className="p-4 text-center">Diagnóstico COSO</th>
+                  <th className="p-4 text-center">Gestión</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {applyFilters(apetitoData, searchTerm).map((r, index) => {
+                  const excedidoScore = r.kriScore && r.resScoreVal > r.kriScore;
+
+                  return (
+                    <tr key={`apetito-row-${r.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-4">
+                        <div className="flex items-center space-x-2 mb-1.5">
+                          <span className="px-2 py-0.5 bg-slate-800 text-white text-[9px] rounded font-bold uppercase">{r.sede || 'Hotel'}</span>
+                          <span className="font-bold text-slate-400 text-[10px] font-mono">#{r.id}</span>
+                          <span className="font-black text-slate-800 text-sm tracking-tight">{r.proceso}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-600 font-medium pr-4 line-clamp-2" title={r.descripcion}>{r.descripcion}</div>
+                        {r.posturaEstrategica && <div className="mt-2 text-[9px] font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 inline-block px-2 py-0.5 rounded border border-indigo-100">Postura: {r.posturaEstrategica}</div>}
+                      </td>
+                      
+                      <td className="p-4 text-center">
+                        {r.kriScore ? (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-1">Límite: {r.kriScore}</span>
+                            <span className={`px-2 py-1 rounded font-black font-mono text-xs ${excedidoScore ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>{r.resScoreVal}</span>
+                          </div>
+                        ) : <span className="text-slate-300 font-medium italic">-</span>}
+                      </td>
+
+                      <td className="p-4">
+                        {r.estaConfiguradoVal ? (
+                          <div className="w-full">
+                            <div className="w-full bg-slate-200 rounded-full h-2.5 mb-2 overflow-hidden shadow-inner">
+                              <div className={`h-full rounded-full transition-all duration-1000 ${r.consumoPorcentajeVal <= (r.apetitoFinanciero/r.capacidadRiesgo)*100 ? 'bg-emerald-500' : r.consumoPorcentajeVal <= (r.toleranciaFinanciera/r.capacidadRiesgo)*100 ? 'bg-yellow-400' : r.consumoPorcentajeVal < 100 ? 'bg-orange-500' : 'bg-red-600'}`} style={{ width: `${r.consumoPorcentajeVal}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-[9px] font-mono font-bold text-slate-400">
+                              <span>Perdido: ${(r.costoTotalVal).toLocaleString('es-CO')}</span>
+                              <span>Tope: ${(r.capacidadRiesgo).toLocaleString('es-CO')}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest border border-dashed border-slate-200 rounded-lg py-2 bg-slate-50">Requiere Parametrización</div>
+                        )}
+                      </td>
+
+                      <td className="p-4 text-center">
+                        <span className={`px-3 py-1.5 rounded-full font-black text-[9px] uppercase tracking-widest border ${r.zonaColorVal} mx-auto block w-max`}>
+                          {r.zonaVal.toUpperCase()}
+                        </span>
+                      </td>
+
+                      <td className="p-4 text-center">
+                        {isAdmin && <button onClick={() => {setEditApetito(r); scrollToTop();}} className="bg-white border border-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full"><span>⚙️</span> <span>Ajustador</span></button>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const renderEvaluaciones = () => {
+    const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
+
+    return (
+      <div className="space-y-6">
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Auditoría de Controles</h2></div>
+        {isAdmin && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
+            <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+              <div className="md:col-span-2"><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
+              <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              
+              <div className="md:col-span-4">
+                <label className="font-bold text-indigo-700">Enlace Externo de Evidencia (Google Drive / OneDrive / SharePoint)</label>
+                <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-indigo-200 bg-indigo-50/30 rounded-lg p-2 mt-1" />
+                {editEvaluacion?.evidenciaUrl && (
+                  <div className="mt-2 flex space-x-2">
+                    <a href={editEvaluacion.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
+                      👁️ Ver Archivo Actual
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="md:col-span-4"><label className="font-bold text-gray-600">Comentarios y Observaciones</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+              
+              <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md hover:bg-indigo-700">Guardar Test</button></div>
+            </form>
+          </div>
+        )}
+        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+          <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+             <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Registros de Auditoría</h3>
+             <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 shadow-sm" />
+             </div>
+          </div>
+          <table className="w-full text-xs text-left divide-y">
+            <thead className="bg-slate-900 text-white font-bold uppercase text-[10px]">
+              <tr>
+                <th className="p-3">ID Test</th>
+                <th className="p-3">Fecha / Autor</th>
+                <th className="p-3">Diseño/Operación</th>
+                <th className="p-3">Eficacia</th>
+                <th className="p-3">Comentarios / Anexos</th>
+                {isAdmin && <th className="p-3 text-center">Gestión</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {applyFilters(evaluacionesData, searchTerm).map((ev, index) => (
+                <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
+                  <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
+                  <td className="p-3">
+                    <div className="font-bold">{ev.fechaVal}</div>
+                    <div className="text-[9px] text-slate-500 mt-1 uppercase truncate w-32" title={ev.auditor}>{ev.auditor}</div>
+                  </td>
+                  <td>D: {ev.diseño} / E: {ev.ejecucion}</td>
+                  <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
+                  <td className="p-3">
+                    <div className="mb-1">{ev.comentarios}</div>
+                    {ev.evidenciaUrl ? (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
+                          <span>🔗</span><span>Abrir Enlace</span>
+                        </a>
+                        {isAdmin && <button onClick={() => analizarEvidenciaIA(ev.evidenciaUrl, ev.comentarios, 'Test de Auditoría')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-purple-100 flex items-center space-x-1 transition-colors shadow-sm"><span>🤖</span><span>Auditar IA</span></button>}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
+                    )}
+                  </td>
+                  {isAdmin && (
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      <button onClick={() => {setEditEvaluacion(ev); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                      <button onClick={() => handleDeleteItem('evaluaciones', ev.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   const renderHallazgos = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">📄 Hallazgos y No Conformidades</div>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="border-b pb-4 flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800">📄 Hallazgos y Desviaciones</h2>
+          <p className="text-xs text-slate-500 font-bold mt-1">Gestión de auditorías y no conformidades encontradas.</p>
+        </div>
+      </div>
+
       {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Hallazgo</h3>
-          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <input name="ref" required placeholder="Cód Referencia (HAL-01)" className="border p-2 rounded" />
-            <select name="sede" className="border p-2 bg-white rounded"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select>
-            <input name="proceso" required placeholder="Proceso o Área" className="border p-2 rounded" />
-            <input name="responsable" required placeholder="Dueño del Proceso" className="border p-2 rounded" />
-            <input name="auditor" required placeholder="Auditor que reporta" className="border p-2 rounded" />
-            <select name="severidad" className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option></select>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
+          <div className="flex justify-between items-center border-b pb-3">
+            <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editHallazgo ? `✏️ Editando Hallazgo: ${editHallazgo.ref}` : '➕ DOCUMENTAR NUEVA DESVIACIÓN'}</h3>
+            {editHallazgo && <button onClick={() => setEditHallazgo(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">✖ Cancelar Edición</button>}
+          </div>
+
+          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+            <div><label className="font-bold text-gray-600 block mb-1">ID / Código (Manual)</label><input name="ref" defaultValue={editHallazgo?.ref||''} required placeholder="Ej: HAL-2026-01" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
+            
+            <div><label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label><input name="auditor" defaultValue={editHallazgo?.auditor||''} required placeholder="Quien levantó el hallazgo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Dueño del Proceso</label><input name="responsable" defaultValue={editHallazgo?.responsable||''} required placeholder="Responsable a cargo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+            
             <div className="md:col-span-2">
-              <label className="font-bold flex justify-between items-center mb-1">
+              <label className="font-bold text-gray-600 flex justify-between items-center mb-1">
                 <span>Título / Descripción de la Falla</span>
                 <button type="button" onClick={() => sugerirConIA('hallazgo')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
                   <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
                 </button>
               </label>
-              <input name="titulo" required placeholder="Descripción de la desviación encontrada" className="w-full border p-2 rounded" />
+              <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
             </div>
-            <div className="md:col-span-4">
-              <label className="font-bold">Enlace a Evidencia (Drive / OneDrive)</label>
-              <input type="url" name="evidenciaUrlInput" placeholder="Ej: https://drive.google.com/..." className="w-full border border-blue-300 bg-blue-50 rounded p-2 mt-1" />
-            </div>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Registrar Desviación</button></div>
-          </form>
-        </div>
-      )}
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-50 border-b text-[10px] uppercase text-slate-500 font-black">
-            <tr>
-              <th className="p-3">Ref</th>
-              <th className="p-3">Proceso / Sede</th>
-              <th className="p-3">Descripción / Evidencia</th>
-              <th className="p-3">Responsables</th>
-              <th className="p-3">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {applyFilters(hFiltrados, searchTerm).map(h => (
-              <tr key={h.id} className="hover:bg-slate-50">
-                <td className="p-3 font-black text-red-600">{h.ref}</td>
-                <td className="p-3"><b>{h.proceso}</b><span className="text-[10px] text-slate-400 block">{h.sede}</span></td>
-                <td className="p-3">
-                  <div className="text-slate-800 font-medium mb-1">{h.titulo}</div>
-                  {h.evidenciaUrl ? (
-                    <div className="flex items-center space-x-2 mt-1">
-                      <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>🔗</span><span>Abrir Enlace</span></a>
-                    </div>
-                  ) : (
-                    <span className="text-[9px] text-slate-400 italic block mt-1">🚫 Sin evidencia adjunta</span>
-                  )}
-                </td>
-                <td className="p-3">Auditor: {h.auditor}<span className="text-[10px] text-slate-400 block">Dueño: {h.responsable}</span></td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-bold uppercase text-[9px]">{h.estado}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-
-  const renderPlanes = () => (
-    <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">✅ Planes de Acción Remediales</div>
-      {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Plan Remedial</h3>
-          <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <div className="md:col-span-4"><label className="font-bold">Hallazgo Vinculado</label><select name="idHallazgo" required className="w-full border rounded p-2 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
-            <div className="md:col-span-2">
-              <label className="font-bold flex justify-between items-center mb-1">
-                <span>Acción de Choque / Mitigación</span>
-                <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                </button>
-              </label>
-              <input name="accion" required placeholder="Acción de Choque / Mitigación" className="w-full border p-2 rounded" />
-            </div>
-            <div><label className="font-bold">Responsable de Ejecución</label><input name="responsable" required className="w-full border p-2 rounded" /></div>
-            <div><label className="font-bold">Compromiso</label><input name="fecha" type="date" required className="w-full border p-2 rounded" /></div>
-            <div><label className="font-bold text-blue-600">% Avance Real</label><input name="progreso" type="number" min="0" max="100" placeholder="% Avance Real" className="w-full border p-2 bg-blue-50 border-blue-200 rounded" /></div>
             
-            <div className="md:col-span-3">
-              <label className="font-bold">Enlace de Avance (Drive / OneDrive)</label>
-              <input type="url" name="evidenciaUrlInput" placeholder="Ej: https://drive.google.com/..." className="w-full border border-blue-300 bg-blue-50 rounded p-2 mt-1" />
+            <div className="md:col-span-4">
+              <label className="font-bold text-blue-700 block mb-1">Enlace Externo de Evidencia (Google Drive / OneDrive / SharePoint)</label>
+              <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2" />
+              {editHallazgo?.evidenciaUrl && (
+                <div className="mt-2 flex space-x-2">
+                  <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
+                    👁️ Abrir Enlace Actual
+                  </a>
+                </div>
+              )}
             </div>
-
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Asignar Plan</button></div>
+            
+            <div className="md:col-span-4 flex justify-end items-end">
+              <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-md transition-all w-full md:w-auto">
+                {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
+              </button>
+            </div>
           </form>
         </div>
       )}
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <table className="w-full text-xs text-left">
-          <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
-            <tr>
-              <th className="p-3">ID Plan</th>
-              <th className="p-3">Hallazgo</th>
-              <th className="p-3">Acción y Evidencias</th>
-              <th className="p-3">% Avance</th>
-              <th className="p-3">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {applyFilters(pFiltrados, searchTerm).map(p => {
-              const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
-              return (
-              <tr key={p.id}>
-                <td className="p-3 font-bold">#PLAN-{p.id}</td>
-                <td className="p-3 text-red-600 font-bold">#HAL-{p.idHallazgo}<span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-1">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
-                <td className="p-3">
-                  <div className="text-slate-800 font-medium">{p.accion}</div>
-                  <span className="text-[10px] text-slate-400 block font-normal mt-1">Resp: {p.responsable} • Límite: {p.fecha}</span>
-                  {p.evidenciaUrl ? (
-                    <div className="flex items-center space-x-2 mt-2">
-                      <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>🔗</span><span>Abrir Enlace</span></a>
-                    </div>
-                  ) : (
-                    <span className="text-[9px] text-slate-400 italic block mt-1">🚫 Sin evidencia adjunta</span>
-                  )}
-                </td>
-                <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
-                <td className="p-3"><span className="px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 font-bold uppercase text-[9px]">{p.estado}</span></td>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">DESVIACIONES</h3>
+           <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
+           </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left divide-y divide-slate-100">
+            <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+              <tr>
+                <th className="p-4">ID / REF</th>
+                <th className="p-4">PROCESO</th>
+                <th className="p-4 w-1/3">TÍTULO E INFORMES</th>
+                <th className="p-4">RESPONSABLES</th>
+                <th className="p-4 text-center">ESTADO / GESTIÓN</th>
               </tr>
-              );
-            })}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {applyFilters(hFiltrados, searchTerm).map((h, index) => (
+                <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4">
+                    <div className="font-black text-slate-800 text-sm">{h.ref}</div>
+                    <div className="text-[9px] text-slate-400 font-mono mt-0.5">INT-#{h.id}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-bold text-slate-700">{h.proceso}</div>
+                    <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-0.5">{h.sede || 'Hotel'}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
+                    {h.evidenciaUrl ? (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
+                          <span>🔗</span><span>Abrir Enlace</span>
+                        </a>
+                        {isAdmin && <button onClick={() => analizarEvidenciaIA(h.evidenciaUrl, h.titulo, 'Hallazgo')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-purple-100 flex items-center space-x-1 transition-colors shadow-sm"><span>🤖</span><span>Auditar IA</span></button>}
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
+                    )}
+                  </td>
+                  <td className="p-4">
+                    <div className="text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <div className="mb-1"><span className="font-bold text-slate-400 uppercase">Auditor:</span> <span className="font-black text-slate-700">{h.auditor || 'N/A'}</span></div>
+                      <div><span className="font-bold text-slate-400 uppercase">Dueño:</span> <span className="font-black text-slate-700">{h.responsable}</span></div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className={`px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest block mx-auto w-max mb-3 ${h.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {h.estado}
+                    </span>
+                    {isAdmin && (
+                      <div className="flex justify-center items-center space-x-2 border-t border-slate-100 pt-3">
+                        <button onClick={() => {setEditHallazgo(h); scrollToTop();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
+                          ✏️ Editar
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button onClick={() => handleDeleteItem('hallazgos', h.id)} className="text-slate-500 hover:text-red-600 transition-colors" title="Eliminar">
+                          🗑️ Eliminar
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
+
+  const renderPlanes = () => {
+    const planesData = pFiltrados.map(p => ({ ...p, fechaVal: formatSafeDate(p.fecha) }));
+
+    return (
+      <div className="space-y-6">
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">✅ Planes de Acción Remediales</h2></div>
+        {isAdmin && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
+            
+            <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+              <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallz-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
+              
+              <div className="md:col-span-2">
+                <label className="font-bold text-gray-600 flex justify-between items-center mb-1">
+                  <span>Acción de Choque / Mitigación</span>
+                  <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
+                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
+                  </button>
+                </label>
+                <input name="accion" defaultValue={editPlan?.accion||''} required placeholder="Acción de Choque / Mitigación" className="w-full border p-2 rounded" />
+              </div>
+
+              <div><label className="font-bold text-gray-600">Responsable de Ejecución</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border p-2 rounded" /></div>
+              <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={formatSafeDate(editPlan?.fecha)||''} required className="w-full border p-2 rounded" /></div>
+              <div><label className="font-bold text-blue-600">% Avance Real</label><input name="progreso" type="number" min="0" max="100" defaultValue={editPlan?.progreso||0} placeholder="% Avance Real" className="w-full border p-2 bg-blue-50 border-blue-200 rounded" /></div>
+              
+              <div className="md:col-span-3">
+                <label className="font-bold text-blue-700">Enlace de Avance (Google Drive / OneDrive)</label>
+                <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2 mt-1" />
+                {editPlan?.evidenciaUrl && (
+                  <div className="mt-2 flex space-x-2">
+                    <a href={editPlan.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
+                      👁️ Abrir Enlace Actual
+                    </a>
+                  </div>
+                )}
+              </div>
+              
+              <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold hover:bg-[#003d33]">{editPlan ? 'Actualizar Plan' : 'Asignar Plan'}</button></div>
+            </form>
+          </div>
+        )}
+        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+          <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+             <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes</h3>
+             <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+             </div>
+          </div>
+          <table className="w-full text-xs text-left divide-y">
+            <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
+              <tr>
+                <th className="p-3">ID Plan</th>
+                <th className="p-3">Hallazgo</th>
+                <th className="p-3">Acción Remedial Programada</th>
+                <th className="p-3 w-40">% Avance</th>
+                <th className="p-3">Estado</th>
+                <th className="p-3 text-center">Gestión</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y text-slate-700">
+              {applyFilters(planesData, searchTerm).map((p, index) => {
+                const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
+                return (
+                  <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50">
+                    <td className="p-3 font-bold">#PLAN-{p.id}</td>
+                    <td className="p-3 text-red-600 font-bold">#HAL-{p.idHallazgo}<span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-1">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
+                    <td className="p-3 text-slate-800 font-medium">
+                      {p.accion} <span className="text-[10px] text-slate-400 block font-normal mt-1">Resp: {p.responsable} • Límite: {p.fechaVal}</span>
+                      {p.evidenciaUrl ? (
+                        <div className="flex items-center space-x-2 mt-2">
+                          <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
+                            <span>🔗</span><span>Abrir Enlace</span>
+                          </a>
+                          {isAdmin && <button onClick={() => analizarEvidenciaIA(p.evidenciaUrl, p.accion, 'Plan de Acción')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-purple-100 flex items-center space-x-1 transition-colors shadow-sm"><span>🤖</span><span>Auditar IA</span></button>}
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
+                      )}
+                    </td>
+                    <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      {isAdmin && <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
+                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   const renderIncidentes = () => (
     <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
+      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Registro de Eventos de Pérdida (COP)</h2></div>
       {isAdmin && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
@@ -1529,8 +1875,8 @@ export default function App() {
             <div><label className="font-bold">Test de Diseño</label><select name="diseno" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Test de Ejecución</label><select name="ejecucion" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Novedades / Observaciones del mes</label><textarea name="comentarios" required className="w-full border p-2 rounded" rows="3"></textarea></div>
-            <div><label className="font-bold text-slate-700 block mb-1">Enlace a Evidencia (Drive / OneDrive)</label><input type="url" name="evidenciaUrlInput" required placeholder="https://..." className="w-full border p-2 bg-slate-50 rounded" /></div>
-            <button type="submit" className="bg-[#004d40] text-white w-full py-2.5 rounded font-black uppercase shadow">Enviar Certificación</button>
+            <div><label className="font-bold text-slate-700 block mb-1">Enlace de Evidencia (Drive/OneDrive)</label><input type="url" name="evidenciaUrlInput" required placeholder="https://..." className="w-full border p-2 bg-slate-50 rounded" /></div>
+            <button type="submit" className="bg-[#004d40] text-white w-full py-2.5 rounded font-black uppercase shadow hover:bg-[#003d33]">Enviar Certificación</button>
           </form>
         </div>
         <div className="bg-white p-6 border rounded-2xl shadow-sm flex flex-col justify-between">
@@ -1539,8 +1885,8 @@ export default function App() {
             <form onSubmit={handlePlanSubmit} className="space-y-3">
               <div><label className="font-bold">ID del Hallazgo Vinculado</label><input name="idHallazgo" required className="w-full border p-2 rounded" /></div>
               <div><label className="font-bold text-blue-600">% Avance Físico Real</label><input name="progreso" type="number" min="0" max="100" required className="w-full border border-blue-300 bg-blue-50 p-2.5 rounded text-lg font-black text-blue-600" /></div>
-              <div><label className="font-bold text-slate-700 block mb-1">Enlace a Evidencia (Drive / OneDrive)</label><input type="url" name="evidenciaUrlInput" required placeholder="https://..." className="w-full border p-2 bg-slate-50 rounded" /></div>
-              <button type="submit" className="bg-blue-600 text-white w-full py-2.5 rounded font-black uppercase shadow">Actualizar Avance</button>
+              <div><label className="font-bold text-slate-700 block mb-1">Enlace de Soporte (Drive/OneDrive)</label><input type="url" name="evidenciaUrlInput" required placeholder="https://..." className="w-full border p-2 bg-slate-50 rounded" /></div>
+              <button type="submit" className="bg-blue-600 text-white w-full py-2.5 rounded font-black uppercase shadow hover:bg-blue-700">Actualizar Avance</button>
             </form>
           </div>
         </div>
@@ -1608,8 +1954,8 @@ export default function App() {
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
-          ].map((tab, index) => (
-            <button key={`nav-tab-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
           ))}
