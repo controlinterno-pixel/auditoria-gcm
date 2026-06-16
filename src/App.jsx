@@ -10,18 +10,6 @@ import {
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// =====================================================================
-// 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
-// =====================================================================
-let GEMINI_API_KEY = "";
-try {
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  }
-} catch (error) {
-  console.warn("Entorno simulado: variables de Vercel no detectadas.");
-}
-
 // --- CONFIGURACIÓN DE FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyBGE2P-_oep_N7o8so6wubmaZXv12imZaE",
@@ -481,13 +469,29 @@ export default function App() {
 
     let updated; const progreso = parseInt(formData.get('progreso')||0); const estado = progreso === 100 ? 'Cerrado' : 'En Proceso';
     if (editPlan) {
-      const mod = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso, estado, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, accion: 'Actualizado' }] };
+      const finalUrl = evidenciaUrlOut !== '' ? evidenciaUrlOut : editPlan.evidenciaUrl;
+      const mod = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso, estado, evidenciaUrl: finalUrl, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, accion: 'Actualizado' }] };
       updated = safePlanes.map(p => p.id === editPlan.id ? mod : p); setEditPlan(null);
+    } else if (!isAdmin) {
+      const idHallazgo = parseInt(formData.get('idHallazgo'));
+      const planToUpdate = safePlanes.find(p => p.idHallazgo === idHallazgo);
+      
+      if (planToUpdate) {
+        const finalUrl = evidenciaUrlOut !== '' ? evidenciaUrlOut : planToUpdate.evidenciaUrl;
+        const mod = { ...planToUpdate, progreso, estado, evidenciaUrl: finalUrl, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, accion: 'Avance físico reportado' }] };
+        updated = safePlanes.map(p => p.id === planToUpdate.id ? mod : p);
+      } else {
+        showNotification("Error: Plan asociado no encontrado.", "error");
+        return;
+      }
     } else {
       const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso, estado, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: ts, accion: 'Asignado' }] };
       updated = [nuevo, ...safePlanes];
     }
-    setPlanes(updated); await saveToCloud({ planes: updated }); e.target.reset(); showNotification("Plan remedial registrado.");
+    
+    if (updated) {
+      setPlanes(updated); await saveToCloud({ planes: updated }); e.target.reset(); showNotification("Plan remedial registrado.");
+    }
   };
 
   const handleEvaluacionSubmit = async (e) => {
@@ -513,7 +517,8 @@ export default function App() {
 
     let updated;
     if (editEvaluacion) {
-      const mod = { ...editEvaluacion, idRiesgo: parseInt(formData.get('idRiesgo')), diseño: formData.get('diseno'), ejecucion: formData.get('ejecucion'), calificacion: calif, comentarios: formData.get('comentarios'), evidenciaUrl: evidenciaUrlOut };
+      const finalUrl = evidenciaUrlOut !== '' ? evidenciaUrlOut : editEvaluacion.evidenciaUrl;
+      const mod = { ...editEvaluacion, idRiesgo: parseInt(formData.get('idRiesgo')), diseño: formData.get('diseno'), ejecucion: formData.get('ejecucion'), calificacion: calif, comentarios: formData.get('comentarios'), evidenciaUrl: finalUrl };
       updated = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? mod : ev);
       setEditEvaluacion(null);
     } else {
@@ -545,7 +550,8 @@ export default function App() {
 
     let updated;
     if (editHallazgo) {
-      const mod = { ...editHallazgo, sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), evidenciaUrl: evidenciaUrlOut };
+      const finalUrl = evidenciaUrlOut !== '' ? evidenciaUrlOut : editHallazgo.evidenciaUrl;
+      const mod = { ...editHallazgo, sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), evidenciaUrl: finalUrl };
       updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
       setEditHallazgo(null);
     } else {
@@ -628,7 +634,7 @@ export default function App() {
     const capacidad = parseFloat(formData.get('capacidadRiesgo') || 0);
 
     if (apetito > tolerancia || tolerancia > capacidad) {
-      showNotification("Error: La jerarquía debe ser: Apetito ≤ Tolerancia ≤ Capacidad.", "error");
+      showNotification({ message: "Error: La jerarquía debe ser: Apetito ≤ Tolerancia ≤ Capacidad.", type: "error" });
       return;
     }
 
@@ -1479,13 +1485,26 @@ export default function App() {
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
-            <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs shadow-sm">
               <div><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
               <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
               <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-              <div className="md:col-span-3"><label className="font-bold text-gray-600">Comentarios</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
-              <div><label className="font-bold text-gray-600">Adjuntar Evidencia</label><input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
-              <div className="md:col-span-3 flex justify-end"><button type="submit" disabled={isUploading} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo...' : 'Guardar Test'}</button></div>
+              
+              <div>
+                <label className="font-bold text-gray-600">Adjuntar Evidencia (PDF/IMG)</label>
+                <input type="file" name="evidenciaArchivo" className="w-full border rounded-lg p-1.5 mt-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" />
+                {editEvaluacion?.evidenciaUrl && (
+                  <div className="mt-2">
+                    <a href={editEvaluacion.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold hover:bg-blue-100">
+                      📎 Ver Archivo Actual
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              <div className="md:col-span-4"><label className="font-bold text-gray-600">Comentarios y Observaciones</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+              
+              <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md disabled:opacity-50">{isUploading ? 'Subiendo...' : 'Guardar Test'}</button></div>
             </form>
           </div>
         )}
@@ -1520,6 +1539,7 @@ export default function App() {
                   <div>Comentarios / Anexos</div>
                   <FilterInput colKey="comentarios" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
+                {isAdmin && <th className="p-3 text-center">Gestión</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -1533,8 +1553,14 @@ export default function App() {
                   <td>D: {ev.diseño} / E: {ev.ejecucion}</td>
                   <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
                   <td className="p-3">
-                    <div>{ev.comentarios}</div>
+                    <div className="mb-1">{ev.comentarios}</div>
                   </td>
+                  {isAdmin && (
+                    <td className="p-3 text-center whitespace-nowrap space-x-1">
+                      <button onClick={() => {setEditEvaluacion(ev); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                      <button onClick={() => handleDeleteItem('evaluaciones', ev.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -1576,7 +1602,17 @@ export default function App() {
               <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
             </div>
             
-            <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Informe / Evidencia (Opcional)</label><input type="file" name="evidenciaArchivo" className="w-full border border-slate-300 rounded-lg p-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" /></div>
+            <div className="md:col-span-2">
+              <label className="font-bold text-gray-600 block mb-1">Informe / Evidencia (Opcional)</label>
+              <input type="file" name="evidenciaArchivo" className="w-full border border-slate-300 rounded-lg p-1 bg-slate-50 cursor-pointer" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png" />
+              {editHallazgo?.evidenciaUrl && (
+                <div className="mt-2">
+                  <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold hover:bg-blue-100">
+                    📎 Ver Archivo Actual
+                  </a>
+                </div>
+              )}
+            </div>
             
             <div className="md:col-span-2 flex justify-end items-end">
               <button type="submit" disabled={isUploading} className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-md transition-all disabled:opacity-50 w-full md:w-auto">
@@ -1634,11 +1670,6 @@ export default function App() {
                   </td>
                   <td className="p-4">
                     <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
-                    {h.evidenciaUrl && (
-                      <div className="flex items-center space-x-2 mt-2">
-                        <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Informe</span></a>
-                      </div>
-                    )}
                   </td>
                   <td className="p-4">
                     <div className="text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
@@ -1676,30 +1707,42 @@ export default function App() {
 
     return (
       <div className="space-y-6">
-        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Planes de Acción</h2></div>
+        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">✅ Planes de Acción Remediales</h2></div>
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
             
-            <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div className="md:col-span-3"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallazgo-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
+            <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+              <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallz-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
               
-              <div className="md:col-span-3">
-                <label className="font-bold text-gray-600 flex justify-between items-center">
-                  <span>Acción Correctiva</span>
+              <div className="md:col-span-2">
+                <label className="font-bold text-gray-600 flex justify-between items-center mb-1">
+                  <span>Acción de Choque / Mitigación</span>
                 </label>
-                <input name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1" />
+                <input name="accion" defaultValue={editPlan?.accion||''} required placeholder="Acción de Choque / Mitigación" className="w-full border p-2 rounded" />
               </div>
 
-              <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-              <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={editPlan?.fecha||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-              <div><label className="font-bold text-blue-600">% de Avance Físico</label><input type="number" min="0" max="100" name="progreso" defaultValue={editPlan?.progreso||0} required className="w-full border-2 border-blue-200 bg-blue-50 rounded-lg p-2 mt-1" /></div>
+              <div><label className="font-bold text-gray-600">Responsable de Ejecución</label><input name="responsable" defaultValue={editPlan?.responsable||''} required className="w-full border p-2 rounded" /></div>
+              <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={formatSafeDate(editPlan?.fecha)||''} required className="w-full border p-2 rounded" /></div>
+              <div><label className="font-bold text-blue-600">% Avance Real</label><input name="progreso" type="number" min="0" max="100" defaultValue={editPlan?.progreso||0} placeholder="% Avance Real" className="w-full border p-2 bg-blue-50 border-blue-200 rounded" /></div>
               
-              <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-slate-800 text-white font-bold px-6 py-2 rounded-lg shadow-md">{editPlan ? 'Actualizar Progreso' : 'Asignar Plan'}</button></div>
+              <div className="md:col-span-3">
+                <label className="font-bold text-gray-600">Soporte de Avance (PDF/IMG)</label>
+                <input type="file" name="evidenciaArchivo" className="w-full border rounded p-1.5 bg-slate-50 cursor-pointer" accept=".pdf,.jpg,.png" />
+                {editPlan?.evidenciaUrl && (
+                  <div className="mt-2">
+                    <a href={editPlan.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded text-[10px] font-bold hover:bg-blue-100">
+                      📎 Ver Soporte Actual
+                    </a>
+                  </div>
+                )}
+              </div>
+              
+              <div className="md:col-span-4 flex justify-end"><button type="submit" disabled={isUploading} className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">{isUploading ? 'Subiendo...' : (editPlan ? 'Actualizar Plan' : 'Asignar Plan')}</button></div>
             </form>
           </div>
         )}
-        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
           <div className="p-4 border-b flex justify-between items-center bg-slate-50">
              <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes</h3>
              <div className="relative">
@@ -1708,10 +1751,10 @@ export default function App() {
              </div>
           </div>
           <table className="w-full text-xs text-left divide-y">
-            <thead className="bg-slate-900 text-white font-bold">
+            <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
                 <th className="p-3">
-                  <div>ID</div>
+                  <div>ID Plan</div>
                   <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
@@ -1719,12 +1762,8 @@ export default function App() {
                   <FilterInput colKey="idHallazgo" placeholder="Ref..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3">
-                  <div>Acción y Evidencias</div>
+                  <div>Acción Remedial Programada</div>
                   <FilterInput colKey="accion" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Compromiso</div>
-                  <FilterInput colKey="fechaVal" placeholder="Fecha..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                 </th>
                 <th className="p-3 w-40">% Avance</th>
                 <th className="p-3">
@@ -1734,24 +1773,18 @@ export default function App() {
                 <th className="p-3 text-center">Gestión</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y text-slate-700">
               {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
                 const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
                 return (
-                  <tr key={`plan-row-${p.id}-${index}`}>
+                  <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50">
                     <td className="p-3 font-bold">#PLAN-{p.id}</td>
-                    <td className="p-3"><span className="text-red-600 font-bold block">#HAL-{p.idHallazgo}</span><span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
-                    <td className="p-3">
-                      <div className="font-bold">{p.accion}</div>
-                      {p.evidenciaUrl && (
-                        <div className="flex items-center space-x-2 mt-2">
-                          <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Soporte</span></a>
-                        </div>
-                      )}
+                    <td className="p-3 text-red-600 font-bold">#HAL-{p.idHallazgo}<span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-1">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
+                    <td className="p-3 text-slate-800 font-medium">
+                      {p.accion} <span className="text-[10px] text-slate-400 block font-normal mt-1">Resp: {p.responsable} • Límite: {p.fechaVal}</span>
                     </td>
-                    <td className="p-3 font-mono">{p.fechaVal}</td>
                     <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
-                    <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
+                    <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
                       {isAdmin && <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
                       {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
@@ -1768,17 +1801,43 @@ export default function App() {
 
   const renderIncidentes = () => (
     <div className="space-y-6">
-      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Eventos de Pérdida</h2></div>
-      <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-        <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Reportar Evento</h3>
-        <form onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div><label className="font-bold text-gray-600">Riesgo Vinculado</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-incidente-${r.id}-${index}`} value={r.id}>[ID: {r.id}] {r.proceso}</option>)}</select></div>
-          <div><label className="font-bold text-gray-600">Título</label><input name="titulo" required className="w-full border rounded-lg p-2 mt-1" /></div>
-          <div><label className="font-bold text-gray-600">Pérdida (COP)</label><input name="costo" type="number" required className="w-full border rounded-lg p-2 mt-1" /></div>
-          <div className="md:col-span-2"><label className="font-bold text-gray-600">Descripción</label><textarea name="descripcion" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
-          <div><label className="font-bold text-gray-600">Impacto</label><select name="impacto" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
-          <div className="md:col-span-3 flex justify-end"><button type="submit" className="bg-red-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar Evento</button></div>
-        </form>
+      <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
+      {isAdmin && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
+          <form onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+            <input name="idRiesgo" required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
+            <input name="titulo" required placeholder="Título del Evento" className="border p-2 rounded" />
+            <input name="costo" type="number" required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
+            <select name="impacto" className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select>
+            <textarea name="descripcion" required placeholder="Descripción de la falla operacional..." className="border p-2 rounded md:col-span-4"></textarea>
+            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Registrar Evento</button></div>
+          </form>
+        </div>
+      )}
+      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+        <table className="w-full text-xs text-left">
+          <thead className="bg-slate-900 text-white font-bold">
+            <tr>
+              <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Riesgo ID <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3 text-right">Costo (COP)</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y text-slate-700">
+            {applyFilters(incFiltrados, searchTerm, columnFilters).map(i => (
+              <tr key={i.id}>
+                <td className="p-3 text-slate-400">#INC-{i.id}</td>
+                <td className="p-3 font-bold">#{i.idRiesgo}</td>
+                <td className="p-3"><b>{i.titulo}</b><p className="text-[10px] text-slate-400 mt-0.5">{i.descripcion}</p></td>
+                <td className="p-3"><span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[9px]">{i.impacto}</span></td>
+                <td className="p-3 text-right font-mono font-bold text-red-600">${Number(i.costo || 0).toLocaleString('es-CO')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -1788,7 +1847,7 @@ export default function App() {
       .flatMap(item => (item.historialCambios || []).map(log => ({ ...log, ref: item.proceso || item.titulo || `Item: ${item.id}` })));
     return (
       <div className="space-y-6">
-        <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">📜 Logs del Sistema</h2></div>
+        <div className="border-b pb-2 font-black text-lg">📜 Trazabilidad de Auditoría e Historial de Cambios</div>
         <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-50 border-b text-[10px] uppercase font-black text-slate-500">
@@ -1796,7 +1855,7 @@ export default function App() {
             </thead>
             <tbody className="divide-y text-slate-600">
               {logs.map((l, idx) => (
-                <tr key={`log-${idx}`} className="hover:bg-slate-50">
+                <tr key={idx} className="hover:bg-slate-50">
                   <td className="p-3 font-mono">{l.fecha || new Date().toLocaleString()}</td>
                   <td className="p-3 font-bold text-slate-900">{l.ref}</td>
                   <td className="p-3 italic">{l.accion || 'Registro guardado'}</td>
@@ -1823,7 +1882,8 @@ export default function App() {
             <div><label className="font-bold">Test de Diseño</label><select name="diseno" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Test de Ejecución</label><select name="ejecucion" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
             <div><label className="font-bold">Novedades / Observaciones del mes</label><textarea name="comentarios" required className="w-full border p-2 rounded" rows="3"></textarea></div>
-            <button type="submit" className="bg-[#004d40] text-white w-full py-2.5 rounded font-black uppercase shadow">Enviar Certificación</button>
+            <div><label className="font-bold text-slate-700 block mb-1">Evidencia (PDF/IMG)</label><input type="file" name="evidenciaArchivo" required className="w-full border p-2 bg-slate-50 rounded" accept=".pdf,.jpg,.png" /></div>
+            <button type="submit" disabled={isUploading} className="bg-[#004d40] text-white w-full py-2.5 rounded font-black uppercase shadow">{isUploading ? 'Subiendo...' : 'Enviar Certificación'}</button>
           </form>
         </div>
         <div className="bg-white p-6 border rounded-2xl shadow-sm flex flex-col justify-between">
@@ -1832,7 +1892,8 @@ export default function App() {
             <form onSubmit={handlePlanSubmit} className="space-y-3">
               <div><label className="font-bold">ID del Hallazgo Vinculado</label><input name="idHallazgo" required className="w-full border p-2 rounded" /></div>
               <div><label className="font-bold text-blue-600">% Avance Físico Real</label><input name="progreso" type="number" min="0" max="100" required className="w-full border border-blue-300 bg-blue-50 p-2.5 rounded text-lg font-black text-blue-600" /></div>
-              <button type="submit" className="bg-blue-600 text-white w-full py-2.5 rounded font-black uppercase shadow">Actualizar Avance</button>
+              <div><label className="font-bold text-slate-700 block mb-1">Soporte de Avance (PDF/IMG)</label><input type="file" name="evidenciaArchivo" required className="w-full border p-2 bg-slate-50 rounded" accept=".pdf,.jpg,.png" /></div>
+              <button type="submit" disabled={isUploading} className="bg-blue-600 text-white w-full py-2.5 rounded font-black uppercase shadow">{isUploading ? 'Actualizando...' : 'Actualizar Avance'}</button>
             </form>
           </div>
         </div>
@@ -1859,7 +1920,7 @@ export default function App() {
   if (!isAdmin) return renderRCSAPortal();
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden text-xs">
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden text-xs relative">
       <div className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20">
         <div className="p-6 border-b border-slate-800 font-black text-sm text-white uppercase tracking-wider">🛡️ GCM Auditor v5</div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -1874,8 +1935,8 @@ export default function App() {
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' }
-          ].map((tab, index) => (
-            <button key={`nav-tab-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
+          ].map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-2.5 rounded-xl flex items-center space-x-3 font-bold transition-all ${activeTab === tab.id ? 'bg-[#004d40] text-white shadow' : 'hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
           ))}
