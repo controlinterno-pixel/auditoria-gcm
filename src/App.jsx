@@ -244,7 +244,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
 const defaultRiesgos = [
   { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
   { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
-  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Ataque de ransomware que paraliza la operation central y expone datos confidenciales.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
+  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Ataque de ransomware que paraliza la operación central y expone datos confidenciales.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
 ];
 
 const defaultHallazgos = [
@@ -1056,7 +1056,7 @@ export default function App() {
                    </div>
                    <div className="divide-y divide-slate-100 p-2">
                      {editMonitoreo && isAdmin && (
-                       <form onSubmit={handleMonitoreoSubmit} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
+                       <form key={editMonitoreo?.id || 'new'} onSubmit={handleMonitoreoSubmit} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
                          <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Nombre KRI..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
                          <input name="proceso" defaultValue={editMonitoreo.proceso||''} placeholder="Proceso..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
                          <div className="flex space-x-2 mb-2">
@@ -1106,16 +1106,28 @@ export default function App() {
                      <table className="w-full text-xs text-left divide-y divide-slate-100">
                        <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                          <tr>
-                           <th className="p-3">ID</th>
-                           <th className="p-3 w-24">Periodo</th>
-                           <th className="p-3 w-48">Área / Proceso</th>
-                           <th className="p-3">Enfoque Técnico y Alcance</th>
+                           <th className="p-3">
+                             <div>ID</div>
+                             <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 w-24">
+                             <div>Periodo</div>
+                             <FilterInput colKey="periodo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3 w-48">
+                             <div>Área / Proceso</div>
+                             <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
+                           <th className="p-3">
+                             <div>Enfoque Técnico y Alcance</div>
+                             <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                           </th>
                            <th className="p-3 text-center">% Cumpl.</th>
                            {isAdmin && <th className="p-3 text-center">Acción</th>}
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {applyFilters(safeCronograma, searchTerm).map((c, index) => (
+                         {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
                            <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
                              <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
@@ -1144,7 +1156,7 @@ export default function App() {
               <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editCronograma ? '✏️ Editando Proceso del Plan' : '➕ Agregar Proceso al Cronograma'}</h3>
               {editCronograma && <button onClick={() => setEditCronograma(null)} className="text-xs text-red-500 font-bold">✖ Cancelar</button>}
             </div>
-            <form onSubmit={handleCronogramaSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <form key={editCronograma?.id || 'new'} onSubmit={handleCronogramaSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
               <div><label className="font-bold text-gray-600 block mb-1">Código ID</label><input name="codigo" defaultValue={editCronograma?.codigo||''} required placeholder="Ej: 05" className="w-full border rounded-lg p-2" /></div>
               <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required placeholder="Ej: Enero - Abril" className="w-full border rounded-lg p-2" /></div>
               <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" defaultValue={editCronograma?.proceso||''} required className="w-full border rounded-lg p-2" /></div>
@@ -1184,15 +1196,27 @@ export default function App() {
              <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
                <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
                  <tr>
-                   <th className="border border-slate-300 p-2 w-10 text-center">Cód</th>
-                   <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
-                   <th className="border border-slate-300 p-2 w-32">Responsable</th>
-                   <th className="border border-slate-300 p-2 w-32">Apoyo</th>
+                   <th className="border border-slate-300 p-2 w-10 text-center">
+                     <div>Cód</div>
+                     <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-48">
+                     <div>Proceso Auditable</div>
+                     <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Responsable</div>
+                     <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
+                   <th className="border border-slate-300 p-2 w-32">
+                     <div>Apoyo</div>
+                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                   </th>
                    {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
-                 {applyFilters(safeCronograma, searchTerm).map((c, index) => (
+                 {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
                    <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
@@ -1238,7 +1262,7 @@ export default function App() {
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
-            <form onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <form key={editRiesgo?.id || 'new'} onSubmit={handleRiesgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
               
               <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
               
@@ -1281,16 +1305,16 @@ export default function App() {
           <table className="w-full text-left">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">ID</th>
-                <th className="p-3 w-48">Proceso / Ley</th>
-                <th className="p-3">Escenario de Riesgo</th>
-                <th className="p-3">Control Mitigante</th>
-                <th className="p-3">Apetito COSO</th>
+                <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Proceso / Ley <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Escenario de Riesgo <FilterInput colKey="descripcion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Control Mitigante <FilterInput colKey="descripcionControl" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">Apetito COSO <FilterInput colKey="apetitoVal" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
                 <th className="p-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(rData, searchTerm).map((r, index) => (
+              {applyFilters(rData, searchTerm, columnFilters).map((r, index) => (
                 <tr key={`riesgo-${r.id}-${index}`} className="hover:bg-slate-50/50">
                   <td className="p-3 font-bold text-slate-400">#{r.id}</td>
                   <td className="p-3">
@@ -1383,7 +1407,7 @@ export default function App() {
               <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
             </div>
             
-            <form onSubmit={handleApetitoSubmit} className="space-y-6 text-xs">
+            <form key={editApetito?.id || 'new'} onSubmit={handleApetitoSubmit} className="space-y-6 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
@@ -1446,15 +1470,24 @@ export default function App() {
             <table className="w-full text-xs text-left divide-y divide-slate-100">
               <thead className="bg-white text-slate-500 font-black uppercase tracking-wider text-[9px]">
                 <tr>
-                  <th className="p-4 w-1/3">Proceso / Riesgo / Postura</th>
-                  <th className="p-4 text-center">Puntuación (KRI)</th>
+                  <th className="p-4 w-1/3">
+                    <div>Proceso / Riesgo / Postura</div>
+                    <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
+                  <th className="p-4 text-center">
+                    <div>Puntuación (KRI)</div>
+                    <FilterInput colKey="kriScore" placeholder="Puntaje..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
                   <th className="p-4 w-1/3 text-center">Consumo de Capacidad Financiera (Eventos)</th>
-                  <th className="p-4 text-center">Diagnóstico COSO</th>
+                  <th className="p-4 text-center">
+                    <div>Diagnóstico COSO</div>
+                    <FilterInput colKey="zonaVal" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                  </th>
                   <th className="p-4 text-center">Gestión</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {applyFilters(apetitoData, searchTerm).map((r, index) => {
+                {applyFilters(apetitoData, searchTerm, columnFilters).map((r, index) => {
                   const excedidoScore = r.kriScore && r.resScoreVal > r.kriScore;
 
                   return (
@@ -1523,10 +1556,10 @@ export default function App() {
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
-            <form onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-              <div className="md:col-span-2"><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
-              <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-              <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+            <form key={editEvaluacion?.id || 'new'} onSubmit={handleEvaluacionSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+              <div className="md:col-span-2"><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" defaultValue={editEvaluacion?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
+              <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" defaultValue={editEvaluacion?.ejecucion||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
               
               <div className="md:col-span-4">
                 <div className="flex justify-between items-end mb-1">
@@ -1536,7 +1569,7 @@ export default function App() {
                     <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir OneDrive"><span>☁️</span><span>Abrir OneDrive</span></a>
                   </div>
                 </div>
-                <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-indigo-200 bg-indigo-50/30 rounded-lg p-2" />
+                <input type="url" name="evidenciaUrlInput" defaultValue={editEvaluacion?.evidenciaUrl||''} placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-indigo-200 bg-indigo-50/30 rounded-lg p-2" />
                 {editEvaluacion?.evidenciaUrl && (
                   <div className="mt-2 flex space-x-2">
                     <a href={editEvaluacion.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
@@ -1546,7 +1579,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="md:col-span-4"><label className="font-bold text-gray-600">Comentarios y Observaciones</label><textarea name="comentarios" required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+              <div className="md:col-span-4"><label className="font-bold text-gray-600">Comentarios y Observaciones</label><textarea name="comentarios" defaultValue={editEvaluacion?.comentarios||''} required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
               
               <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md hover:bg-indigo-700">Guardar Test</button></div>
             </form>
@@ -1563,16 +1596,31 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold uppercase text-[10px]">
               <tr>
-                <th className="p-3">ID Test</th>
-                <th className="p-3">Fecha / Autor</th>
-                <th className="p-3">Diseño/Operación</th>
-                <th className="p-3">Eficacia</th>
-                <th className="p-3">Comentarios / Anexos</th>
+                <th className="p-3">
+                  <div>ID Test</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Fecha / Autor</div>
+                  <FilterInput colKey="auditor" placeholder="Autor..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Diseño/Operación</div>
+                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Eficacia</div>
+                  <FilterInput colKey="calificacion" placeholder="%" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Comentarios / Anexos</div>
+                  <FilterInput colKey="comentarios" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 {isAdmin && <th className="p-3 text-center">Gestión</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
-              {applyFilters(evaluacionesData, searchTerm).map((ev, index) => (
+              {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
                 <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
                   <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
                   <td className="p-3">
@@ -1625,7 +1673,7 @@ export default function App() {
             {editHallazgo && <button onClick={() => setEditHallazgo(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">✖ Cancelar Edición</button>}
           </div>
 
-          <form onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+          <form key={editHallazgo?.id || 'new'} onSubmit={handleHallazgoSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             <div><label className="font-bold text-gray-600 block mb-1">ID / Código (Manual)</label><input name="ref" defaultValue={editHallazgo?.ref||''} required placeholder="Ej: HAL-2026-01" className="w-full border border-slate-300 rounded-lg p-2" /></div>
             <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
             <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
@@ -1652,7 +1700,7 @@ export default function App() {
                   <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir OneDrive"><span>☁️</span><span>Abrir OneDrive</span></a>
                 </div>
               </div>
-              <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2" />
+              <input type="url" name="evidenciaUrlInput" defaultValue={editHallazgo?.evidenciaUrl||''} placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2" />
               {editHallazgo?.evidenciaUrl && (
                 <div className="mt-2 flex space-x-2">
                   <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
@@ -1683,15 +1731,30 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y divide-slate-100">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
               <tr>
-                <th className="p-4">ID / REF</th>
-                <th className="p-4">PROCESO</th>
-                <th className="p-4 w-1/3">TÍTULO E INFORMES</th>
-                <th className="p-4">RESPONSABLES</th>
-                <th className="p-4 text-center">ESTADO / GESTIÓN</th>
+                <th className="p-4">
+                  <div>ID / REF</div>
+                  <FilterInput colKey="ref" placeholder="Identificación..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>PROCESO</div>
+                  <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 w-1/3">
+                  <div>TÍTULO E INFORMES</div>
+                  <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>RESPONSABLES</div>
+                  <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 text-center">
+                  <div>ESTADO / GESTIÓN</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {applyFilters(hFiltrados, searchTerm).map((h, index) => (
+              {applyFilters(hFiltrados, searchTerm, columnFilters).map((h, index) => (
                 <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <div className="font-black text-slate-800 text-sm">{h.ref}</div>
@@ -1755,7 +1818,7 @@ export default function App() {
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
             
-            <form onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+            <form key={editPlan?.id || 'new'} onSubmit={handlePlanSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
               <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallz-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
               
               <div className="md:col-span-2">
@@ -1780,7 +1843,7 @@ export default function App() {
                     <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir OneDrive"><span>☁️</span><span>Abrir OneDrive</span></a>
                   </div>
                 </div>
-                <input type="url" name="evidenciaUrlInput" placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2 mt-1" />
+                <input type="url" name="evidenciaUrlInput" defaultValue={editPlan?.evidenciaUrl||''} placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2 mt-1" />
                 {editPlan?.evidenciaUrl && (
                   <div className="mt-2 flex space-x-2">
                     <a href={editPlan.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
@@ -1805,16 +1868,28 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">ID Plan</th>
-                <th className="p-3">Hallazgo</th>
-                <th className="p-3">Acción Remedial Programada</th>
+                <th className="p-3">
+                  <div>ID Plan</div>
+                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Hallazgo</div>
+                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-3">
+                  <div>Acción Remedial Programada</div>
+                  <FilterInput colKey="accion" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 <th className="p-3 w-40">% Avance</th>
-                <th className="p-3">Estado</th>
+                <th className="p-3">
+                  <div>Estado</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
                 <th className="p-3 text-center">Gestión</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(planesData, searchTerm).map((p, index) => {
+              {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
                 const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
                 return (
                   <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50">
@@ -1854,14 +1929,17 @@ export default function App() {
       <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
       {isAdmin && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
-          <form onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <input name="idRiesgo" required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
-            <input name="titulo" required placeholder="Título del Evento" className="border p-2 rounded" />
-            <input name="costo" type="number" required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
-            <select name="impacto" className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select>
-            <textarea name="descripcion" required placeholder="Descripción de la falla operacional..." className="border p-2 rounded md:col-span-4"></textarea>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Registrar Evento</button></div>
+          <h3 className="text-xs font-bold text-slate-700 uppercase">{editIncidente ? '✏️ Editar Evento de Pérdida' : '➕ Registrar Evento de Pérdida'}</h3>
+          <form key={editIncidente?.id || 'new'} onSubmit={handleIncidenteSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+            <input name="idRiesgo" defaultValue={editIncidente?.idRiesgo||''} required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
+            <input name="titulo" defaultValue={editIncidente?.titulo||''} required placeholder="Título del Evento" className="border p-2 rounded" />
+            <input name="costo" defaultValue={editIncidente?.costo||''} type="number" required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
+            <select name="impacto" defaultValue={editIncidente?.impacto||'Bajo'} className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select>
+            <textarea name="descripcion" defaultValue={editIncidente?.descripcion||''} required placeholder="Descripción de la falla operacional..." className="border p-2 rounded md:col-span-4"></textarea>
+            <div className="md:col-span-4 flex justify-between">
+              {editIncidente && <button type="button" onClick={() => setEditIncidente(null)} className="text-red-500 font-bold">Cancelar</button>}
+              <button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">{editIncidente ? 'Actualizar Evento' : 'Registrar Evento'}</button>
+            </div>
           </form>
         </div>
       )}
@@ -1869,19 +1947,22 @@ export default function App() {
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-900 text-white font-bold">
             <tr>
-              <th className="p-3">ID</th>
-              <th className="p-3">Riesgo ID</th>
-              <th className="p-3">Descripción</th>
-              <th className="p-3">Impacto</th>
+              <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Riesgo ID <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3 text-right">Costo (COP)</th>
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
-            {applyFilters(incFiltrados, searchTerm).map(i => (
+            {applyFilters(incFiltrados, searchTerm, columnFilters).map(i => (
               <tr key={i.id}>
                 <td className="p-3 text-slate-400">#INC-{i.id}</td>
                 <td className="p-3 font-bold">#{i.idRiesgo}</td>
-                <td className="p-3"><b>{i.titulo}</b><p className="text-[10px] text-slate-400 mt-0.5">{i.descripcion}</p></td>
+                <td className="p-3">
+                  <b>{i.titulo}</b><p className="text-[10px] text-slate-400 mt-0.5">{i.descripcion}</p>
+                  {isAdmin && <button onClick={() => {setEditIncidente(i); scrollToTop();}} className="mt-2 text-[10px] text-blue-600 font-bold underline">Editar</button>}
+                </td>
                 <td className="p-3"><span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[9px]">{i.impacto}</span></td>
                 <td className="p-3 text-right font-mono font-bold text-red-600">${Number(i.costo || 0).toLocaleString('es-CO')}</td>
               </tr>
