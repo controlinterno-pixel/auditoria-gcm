@@ -144,17 +144,19 @@ const applyFilters = (dataArray, globalTerm, colFilters = {}) => {
 
 // --- COMPONENTES VISUALES ---
 const ProgressBar = ({ progress }) => {
+  const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
   let color = "bg-red-500";
-  if (progress >= 40) color = "bg-amber-500";
-  if (progress >= 80) color = "bg-emerald-500";
+  if (safeProgress >= 40) color = "bg-amber-500";
+  if (safeProgress >= 80) color = "bg-emerald-500";
+  
   return (
     <div className="w-full">
       <div className="flex justify-between text-[10px] font-bold mb-1">
-        <span className="text-slate-500">% AVANCE</span>
-        <span className="text-slate-800">{progress}%</span>
+        <span className="text-slate-500">PROGRESO</span>
+        <span className="text-slate-800">{safeProgress}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2">
-        <div className={`${color} h-2 rounded-full transition-all duration-1000`} style={{ width: `${progress}%` }}></div>
+        <div className={`${color} h-2 rounded-full transition-all duration-1000`} style={{ width: `${safeProgress}%` }}></div>
       </div>
     </div>
   );
@@ -242,7 +244,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
 const defaultRiesgos = [
   { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
   { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
-  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Ataque de ransomware que paraliza la operación central y expone datos confidenciales.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
+  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Ataque de ransomware que paraliza la operation central y expone datos confidenciales.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
 ];
 
 const defaultHallazgos = [
@@ -581,55 +583,60 @@ export default function App() {
   };
 
   const handlePlanSubmit = async (e) => {
-    e.preventDefault(); const formData = new FormData(e.target);
+    e.preventDefault(); 
+    const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     
     // Capturamos el link de Google Drive/OneDrive
     let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editPlan?.evidenciaUrl || '';
+    const progresoVal = parseInt(formData.get('progreso') || 0);
+    const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
 
-    let updated; const progreso = parseInt(formData.get('progreso')||0); const estado = progreso === 100 ? 'Cerrado' : 'En Proceso';
-    
-    if (editPlan) {
-      const mod = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso, estado, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, accion: 'Actualizado' }] };
-      updated = safePlanes.map(p => p.id === editPlan.id ? mod : p); setEditPlan(null);
+    let updatedList;
+    if (editPlan && isAdmin) {
+      const modificado = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, accion: 'Plan actualizado' }] };
+      updatedList = safePlanes.map(p => p.id === editPlan.id ? modificado : p);
+      setEditPlan(null);
     } else if (!isAdmin) {
       const idHallazgo = parseInt(formData.get('idHallazgo'));
       const planToUpdate = safePlanes.find(p => p.idHallazgo === idHallazgo);
       
       if (planToUpdate) {
-        const mod = { ...planToUpdate, progreso, estado, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, accion: 'Avance reportado con link' }] };
-        updated = safePlanes.map(p => p.id === planToUpdate.id ? mod : p);
+        const mod = { ...planToUpdate, progreso: progresoVal, estado: estadoVal, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, accion: 'Avance reportado por Jefe de área' }] };
+        updatedList = safePlanes.map(p => p.id === planToUpdate.id ? mod : p);
       } else {
-        showNotification("Error: Plan asociado no encontrado.", "error");
+        showNotification("Error: No se encontró el plan asociado a este hallazgo.", "error");
         return;
       }
     } else {
-      const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso, estado, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: ts, accion: 'Asignado' }] };
-      updated = [nuevo, ...safePlanes];
+      const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: ts, accion: 'Plan asignado' }] };
+      updatedList = [...safePlanes, nuevo];
     }
     
-    if (updated) {
-      setPlanes(updated); await saveToCloud({ planes: updated }); e.target.reset(); showNotification("Plan remedial procesado.");
-    }
+    setPlanes(updatedList); 
+    await saveToCloud({ planes: updatedList }); 
+    e.target.reset(); 
+    showNotification("Progreso del plan guardado correctamente.");
   };
 
   const handleEvaluacionSubmit = async (e) => {
-    e.preventDefault(); const formData = new FormData(e.target);
+    e.preventDefault(); 
+    const formData = new FormData(e.target);
     const calif = (formData.get('diseno') === 'Eficaz' && formData.get('ejecucion') === 'Eficaz') ? 100 : 0;
     const ts = new Date().toLocaleString();
     
     let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editEvaluacion?.evidenciaUrl || '';
 
-    let updated;
-    if (editEvaluacion) {
+    let updatedList;
+    if (editEvaluacion && isAdmin) {
       const mod = { ...editEvaluacion, idRiesgo: parseInt(formData.get('idRiesgo')), diseño: formData.get('diseno'), ejecucion: formData.get('ejecucion'), calificacion: calif, comentarios: formData.get('comentarios'), evidenciaUrl: evidenciaUrlOut };
-      updated = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? mod : ev);
+      updatedList = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? mod : ev);
       setEditEvaluacion(null);
     } else {
       const nuevo = { id: Date.now(), idRiesgo: parseInt(formData.get('idRiesgo')), fecha: new Date().toISOString().split('T')[0], diseño: formData.get('diseno'), ejecucion: formData.get('ejecucion'), calificacion: calif, comentarios: formData.get('comentarios'), auditor: user.email, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [] };
-      updated = [nuevo, ...safeEvaluaciones];
+      updatedList = [...safeEvaluaciones, nuevo];
     }
-    setEvaluaciones(updated); await saveToCloud({ evaluaciones: updated }); e.target.reset(); showNotification("Test guardado exitosamente.");
+    setEvaluaciones(updatedList); await saveToCloud({ evaluaciones: updatedList }); e.target.reset(); showNotification("Evaluación registrada exitosamente.");
   };
 
   const handleHallazgoSubmit = async (e) => {
@@ -645,7 +652,7 @@ export default function App() {
       setEditHallazgo(null);
     } else {
       const nuevo = { id: Date.now(), sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [] };
-      updated = [nuevo, ...safeHallazgos];
+      updated = [...safeHallazgos, nuevo];
     }
     setHallazgos(updated); await saveToCloud({ hallazgos: updated }); e.target.reset(); showNotification("Desviación documentada.");
   };
@@ -660,7 +667,7 @@ export default function App() {
       setEditIncidente(null);
     } else {
       const nuevo = { id: Date.now(), idRiesgo: parseInt(formData.get('idRiesgo')), fecha: new Date().toISOString().split('T')[0], titulo: formData.get('titulo'), descripcion: formData.get('descripcion'), costo: parseFloat(formData.get('costo') || 0), impacto: formData.get('impacto'), reportadoPor: user.email, estado: 'Abierto', anio: 2026, mes: "Junio", historialCambios: [] };
-      updated = [nuevo, ...safeIncidentes];
+      updated = [...safeIncidentes, nuevo];
     }
     setIncidentes(updated); await saveToCloud({ incidentes: updated }); e.target.reset(); showNotification("Evento registrado.");
   };
@@ -1099,28 +1106,16 @@ export default function App() {
                      <table className="w-full text-xs text-left divide-y divide-slate-100">
                        <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase tracking-widest">
                          <tr>
-                           <th className="p-3">
-                             <div>ID</div>
-                             <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                           </th>
-                           <th className="p-3 w-24">
-                             <div>Periodo</div>
-                             <FilterInput colKey="periodo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                           </th>
-                           <th className="p-3 w-48">
-                             <div>Área / Proceso</div>
-                             <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                           </th>
-                           <th className="p-3">
-                             <div>Enfoque Técnico y Alcance</div>
-                             <FilterInput colKey="enfoque" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                           </th>
+                           <th className="p-3">ID</th>
+                           <th className="p-3 w-24">Periodo</th>
+                           <th className="p-3 w-48">Área / Proceso</th>
+                           <th className="p-3">Enfoque Técnico y Alcance</th>
                            <th className="p-3 text-center">% Cumpl.</th>
                            {isAdmin && <th className="p-3 text-center">Acción</th>}
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
+                         {applyFilters(safeCronograma, searchTerm).map((c, index) => (
                            <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
                              <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
@@ -1189,27 +1184,15 @@ export default function App() {
              <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
                <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
                  <tr>
-                   <th className="border border-slate-300 p-2 w-10 text-center">
-                     <div>Cód</div>
-                     <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
-                   <th className="border border-slate-300 p-2 w-48">
-                     <div>Proceso Auditable</div>
-                     <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
-                   <th className="border border-slate-300 p-2 w-32">
-                     <div>Responsable</div>
-                     <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
-                   <th className="border border-slate-300 p-2 w-32">
-                     <div>Apoyo</div>
-                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
+                   <th className="border border-slate-300 p-2 w-10 text-center">Cód</th>
+                   <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
+                   <th className="border border-slate-300 p-2 w-32">Responsable</th>
+                   <th className="border border-slate-300 p-2 w-32">Apoyo</th>
                    {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
-                 {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
+                 {applyFilters(safeCronograma, searchTerm).map((c, index) => (
                    <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
@@ -1298,16 +1281,16 @@ export default function App() {
           <table className="w-full text-left">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Proceso / Ley <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Escenario de Riesgo <FilterInput colKey="descripcion" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Control Mitigante <FilterInput colKey="descripcionControl" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-                <th className="p-3">Apetito COSO <FilterInput colKey="apetitoVal" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+                <th className="p-3">ID</th>
+                <th className="p-3 w-48">Proceso / Ley</th>
+                <th className="p-3">Escenario de Riesgo</th>
+                <th className="p-3">Control Mitigante</th>
+                <th className="p-3">Apetito COSO</th>
                 <th className="p-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(rData, searchTerm, columnFilters).map((r, index) => (
+              {applyFilters(rData, searchTerm).map((r, index) => (
                 <tr key={`riesgo-${r.id}-${index}`} className="hover:bg-slate-50/50">
                   <td className="p-3 font-bold text-slate-400">#{r.id}</td>
                   <td className="p-3">
@@ -1463,24 +1446,15 @@ export default function App() {
             <table className="w-full text-xs text-left divide-y divide-slate-100">
               <thead className="bg-white text-slate-500 font-black uppercase tracking-wider text-[9px]">
                 <tr>
-                  <th className="p-4 w-1/3">
-                    <div>Proceso / Riesgo / Postura</div>
-                    <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                  </th>
-                  <th className="p-4 text-center">
-                    <div>Puntuación (KRI)</div>
-                    <FilterInput colKey="kriScore" placeholder="Puntaje..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                  </th>
+                  <th className="p-4 w-1/3">Proceso / Riesgo / Postura</th>
+                  <th className="p-4 text-center">Puntuación (KRI)</th>
                   <th className="p-4 w-1/3 text-center">Consumo de Capacidad Financiera (Eventos)</th>
-                  <th className="p-4 text-center">
-                    <div>Diagnóstico COSO</div>
-                    <FilterInput colKey="zonaVal" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                  </th>
+                  <th className="p-4 text-center">Diagnóstico COSO</th>
                   <th className="p-4 text-center">Gestión</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {applyFilters(apetitoData, searchTerm, columnFilters).map((r, index) => {
+                {applyFilters(apetitoData, searchTerm).map((r, index) => {
                   const excedidoScore = r.kriScore && r.resScoreVal > r.kriScore;
 
                   return (
@@ -1589,31 +1563,16 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold uppercase text-[10px]">
               <tr>
-                <th className="p-3">
-                  <div>ID Test</div>
-                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Fecha / Autor</div>
-                  <FilterInput colKey="auditor" placeholder="Autor..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Diseño/Operación</div>
-                  <FilterInput colKey="diseno" placeholder="Filtrar..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Eficacia</div>
-                  <FilterInput colKey="calificacion" placeholder="%" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Comentarios / Anexos</div>
-                  <FilterInput colKey="comentarios" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
+                <th className="p-3">ID Test</th>
+                <th className="p-3">Fecha / Autor</th>
+                <th className="p-3">Diseño/Operación</th>
+                <th className="p-3">Eficacia</th>
+                <th className="p-3">Comentarios / Anexos</th>
                 {isAdmin && <th className="p-3 text-center">Gestión</th>}
               </tr>
             </thead>
             <tbody className="divide-y">
-              {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
+              {applyFilters(evaluacionesData, searchTerm).map((ev, index) => (
                 <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
                   <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
                   <td className="p-3">
@@ -1724,30 +1683,15 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y divide-slate-100">
             <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
               <tr>
-                <th className="p-4">
-                  <div>ID / REF</div>
-                  <FilterInput colKey="ref" placeholder="Identificación..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4">
-                  <div>PROCESO</div>
-                  <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4 w-1/3">
-                  <div>TÍTULO E INFORMES</div>
-                  <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4">
-                  <div>RESPONSABLES</div>
-                  <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4 text-center">
-                  <div>ESTADO / GESTIÓN</div>
-                  <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
+                <th className="p-4">ID / REF</th>
+                <th className="p-4">PROCESO</th>
+                <th className="p-4 w-1/3">TÍTULO E INFORMES</th>
+                <th className="p-4">RESPONSABLES</th>
+                <th className="p-4 text-center">ESTADO / GESTIÓN</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {applyFilters(hFiltrados, searchTerm, columnFilters).map((h, index) => (
+              {applyFilters(hFiltrados, searchTerm).map((h, index) => (
                 <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <div className="font-black text-slate-800 text-sm">{h.ref}</div>
@@ -1861,28 +1805,16 @@ export default function App() {
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3">
-                  <div>ID Plan</div>
-                  <FilterInput colKey="id" placeholder="ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Hallazgo</div>
-                  <FilterInput colKey="idHallazgo" placeholder="Ref..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-3">
-                  <div>Acción Remedial Programada</div>
-                  <FilterInput colKey="accion" dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
+                <th className="p-3">ID Plan</th>
+                <th className="p-3">Hallazgo</th>
+                <th className="p-3">Acción Remedial Programada</th>
                 <th className="p-3 w-40">% Avance</th>
-                <th className="p-3">
-                  <div>Estado</div>
-                  <FilterInput colKey="estado" placeholder="Estado..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
+                <th className="p-3">Estado</th>
                 <th className="p-3 text-center">Gestión</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
-              {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
+              {applyFilters(planesData, searchTerm).map((p, index) => {
                 const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
                 return (
                   <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50">
@@ -1937,15 +1869,15 @@ export default function App() {
         <table className="w-full text-xs text-left">
           <thead className="bg-slate-900 text-white font-bold">
             <tr>
-              <th className="p-3">ID <FilterInput colKey="id" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Riesgo ID <FilterInput colKey="idRiesgo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
+              <th className="p-3">ID</th>
+              <th className="p-3">Riesgo ID</th>
+              <th className="p-3">Descripción</th>
+              <th className="p-3">Impacto</th>
               <th className="p-3 text-right">Costo (COP)</th>
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
-            {applyFilters(incFiltrados, searchTerm, columnFilters).map(i => (
+            {applyFilters(incFiltrados, searchTerm).map(i => (
               <tr key={i.id}>
                 <td className="p-3 text-slate-400">#INC-{i.id}</td>
                 <td className="p-3 font-bold">#{i.idRiesgo}</td>
