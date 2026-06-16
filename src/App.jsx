@@ -297,10 +297,6 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
-  // --- ESTADOS DE IA ---
-  const [isThinking, setIsThinking] = useState(false);
-  const [aiModal, setAiModal] = useState(null);
-
   // --- ENTIDADES PRINCIPALES ---
   const [riesgos, setRiesgos] = useState([]);
   const [hallazgos, setHallazgos] = useState([]);
@@ -415,115 +411,6 @@ export default function App() {
     window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
     window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
     showNotification(`Archivo ${fileName} exportado con éxito.`);
-  };
-
-  // --- FUNCIONES IA GEMINI ---
-  const sugerirConIA = async (tipoTarget) => {
-    let textoBase = "";
-    let inputDestino = null;
-
-    if (tipoTarget === 'control') {
-      textoBase = document.querySelector('input[name="descripcion"]')?.value || "";
-      inputDestino = document.querySelector('input[name="control"]');
-    } else if (tipoTarget === 'plan') {
-      const selectElement = document.querySelector('select[name="idHallazgo"]');
-      textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : "";
-      inputDestino = document.querySelector('input[name="accion"]');
-    } else if (tipoTarget === 'hallazgo') {
-      textoBase = document.querySelector('input[name="proceso"]')?.value || "";
-      inputDestino = document.querySelector('input[name="titulo"]');
-    }
-
-    if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
-      showNotification("Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
-      return;
-    }
-
-    if (!GEMINI_API_KEY) {
-      showNotification("La clave de API de Gemini no se ha cargado correctamente.", "error");
-      return;
-    }
-
-    setIsThinking(true);
-    showNotification("Gemini Pro está analizando el escenario...", "success");
-
-    try {
-      let prompt = "";
-      if (tipoTarget === 'control') {
-        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`;
-      } else if (tipoTarget === 'plan') {
-        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
-      } else if (tipoTarget === 'hallazgo') {
-        prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
-      }
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2 }
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      let sugerencia = data.candidates[0].content.parts[0].text.trim();
-
-      if (inputDestino) {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-        nativeInputValueSetter.call(inputDestino, sugerencia);
-        inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
-        inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
-        showNotification("¡Gemini ha insertado una sugerencia ejecutiva de alto nivel!");
-      }
-    } catch (error) {
-      console.error("Error conectando a Gemini:", error);
-      showNotification("Error conectando con la IA de Google. Verifica los ajustes.", "error");
-    } finally {
-      setIsThinking(false);
-    }
-  };
-
-  const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
-    setIsThinking(true);
-    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
-
-    if (!GEMINI_API_KEY) {
-      showNotification("⚠️ La clave de API de Gemini no se ha cargado correctamente.", "error");
-      setIsThinking(false);
-      return;
-    }
-
-    try {
-      const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
-      Se acaba de adjuntar un archivo de evidencia (Foto o PDF) para el siguiente ${tipoItem}: "${contextoItem}".
-      Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }]
-          })
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      
-      const analisis = data.candidates[0].content.parts[0].text.trim();
-      setAiModal({ titulo: `📋 Checklist IA (Gemini)`, contenido: analisis, url: evidenciaUrl });
-
-    } catch (error) {
-        console.error(error);
-        showNotification("Error conectando con la IA de Google.", "error");
-    } finally {
-        setIsThinking(false);
-    }
   };
 
   // --- FILTRADO GLOBAL COMPACTO ---
@@ -945,6 +832,7 @@ export default function App() {
             <span>🗺️ MAPA DE CALOR EMPRESARIAL (HAZ CLIC EN UN CUADRANTE CON NÚMEROS)</span>
             <span className="bg-slate-800 text-white px-3 py-1 rounded-full text-[9px] font-bold tracking-widest">{tipoMatriz}</span>
           </h3>
+          
           <div className="flex flex-col items-center justify-center w-full">
             <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-3 w-full max-w-3xl relative pb-4">
               <div className="absolute -left-16 top-1/2 -translate-y-1/2 -rotate-90 text-[10px] font-black text-slate-400 uppercase tracking-widest">IMPACTO</div>
@@ -976,6 +864,51 @@ export default function App() {
               ))}
             </div>
           </div>
+
+          {/* DETALLE DEL HEATMAP */}
+          {filtroHeatMap && (
+            <div id="detalle-heatmap" className="mt-8 w-full bg-white rounded-xl border border-slate-200 shadow-sm animate-in fade-in duration-300">
+              <div className="flex justify-between items-center mb-4 p-4 border-b bg-slate-50 rounded-t-xl">
+                <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider">🔎 Detalle de Riesgos en Cuadrante: {filtroHeatMap.probabilidad} / {filtroHeatMap.impacto}</h4>
+                <button onClick={() => setFiltroHeatMap(null)} className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-colors">✖ Limpiar Filtro</button>
+              </div>
+              <div className="overflow-x-auto p-4 pt-0">
+                <table className="w-full text-xs text-left divide-y border border-slate-200 rounded-lg overflow-hidden">
+                  <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
+                    <tr>
+                      <th className="p-3">Identificación</th>
+                      <th className="p-3">Proceso</th>
+                      <th className="p-3 w-1/2">Descripción</th>
+                      <th className="p-3">Responsable</th>
+                      <th className="p-3 text-center">Estrategia</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-slate-700 bg-white">
+                    {rFiltrados.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === filtroHeatMap.impacto && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === filtroHeatMap.probabilidad).map((r, index) => {
+                       const matrizData = calcularMatriz5x5(esRes ? r.probabilidadResidual : r.probabilidadInherente, esRes ? r.impactoResidual : r.impactoInherente);
+                       return (
+                        <tr key={`filtered-${r.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-bold text-slate-800">#{r.id}</td>
+                          <td className="p-3">
+                            <span className="font-black text-slate-900 block">{r.proceso}</span>
+                            <span className="text-[9px] text-slate-400 font-bold block mt-1">{r.sede || 'Hotel'}</span>
+                          </td>
+                          <td className="p-3 font-medium">{r.descripcion}</td>
+                          <td className="p-3">{r.responsable || 'No Asignado'}</td>
+                          <td className="p-3 text-center">
+                            <span className={`px-3 py-1.5 rounded text-[9px] uppercase font-black shadow-sm block w-full truncate ${matrizData.color}`}>
+                              {matrizData.accion}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     );
@@ -1239,9 +1172,6 @@ export default function App() {
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 flex justify-between items-center">
                   <span>Control Clave</span>
-                  <button type="button" onClick={() => sugerirConIA('control')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                  </button>
                 </label>
                 <input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" />
               </div>
@@ -1604,12 +1534,6 @@ export default function App() {
                   <td className="p-3"><span className={`px-2 py-0.5 rounded font-black ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{ev.calificacion}%</span></td>
                   <td className="p-3">
                     <div>{ev.comentarios}</div>
-                    {ev.evidenciaUrl && (
-                      <div className="flex items-center space-x-2 mt-2">
-                        <a href={ev.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver</span></a>
-                        {isAdmin && <button onClick={() => analizarEvidenciaIA(ev.evidenciaUrl, ev.comentarios, 'Test de Auditoría')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
-                      </div>
-                    )}
                   </td>
                 </tr>
               ))}
@@ -1648,9 +1572,6 @@ export default function App() {
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 flex justify-between items-center mb-1">
                 <span>Título / Descripción de la Falla</span>
-                <button type="button" onClick={() => sugerirConIA('hallazgo')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                  <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                </button>
               </label>
               <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
             </div>
@@ -1716,7 +1637,6 @@ export default function App() {
                     {h.evidenciaUrl && (
                       <div className="flex items-center space-x-2 mt-2">
                         <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Informe</span></a>
-                        {isAdmin && <button onClick={() => analizarEvidenciaIA(h.evidenciaUrl, h.titulo, 'Hallazgo')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
                       </div>
                     )}
                   </td>
@@ -1767,9 +1687,6 @@ export default function App() {
               <div className="md:col-span-3">
                 <label className="font-bold text-gray-600 flex justify-between items-center">
                   <span>Acción Correctiva</span>
-                  <button type="button" onClick={() => sugerirConIA('plan')} className="text-[9px] bg-purple-100 text-purple-700 border border-purple-300 px-2 py-0.5 rounded font-black flex items-center space-x-1">
-                    <span>{isThinking ? '⏳' : '🤖'}</span> <span>{isThinking ? 'Pensando...' : 'Sugerir IA'}</span>
-                  </button>
                 </label>
                 <input name="accion" defaultValue={editPlan?.accion||''} required className="w-full border rounded-lg p-2 mt-1" />
               </div>
@@ -1829,7 +1746,6 @@ export default function App() {
                       {p.evidenciaUrl && (
                         <div className="flex items-center space-x-2 mt-2">
                           <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-600 font-bold px-2 py-1 rounded text-[10px] hover:bg-blue-100 flex items-center space-x-1"><span>📎</span><span>Ver Soporte</span></a>
-                          {isAdmin && <button onClick={() => analizarEvidenciaIA(p.evidenciaUrl, p.accion, 'Plan de Acción')} className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded text-[10px] hover:bg-purple-100 flex items-center space-x-1"><span>🤖</span><span>Auditar con IA</span></button>}
                         </div>
                       )}
                     </td>
