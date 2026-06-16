@@ -84,8 +84,8 @@ const getYearFromDate = (dateVal) => {
 const getItemAnio = (item) => {
   if (item.anio) return Number(item.anio);
   const dateStr = formatSafeDate(item.fecha);
-  if (dateStr) return Number(getYearFromDate(dateStr)) || 2026;
-  return 2026;
+  if (dateStr) return Number(getYearFromDate(dateStr)) || new Date().getFullYear();
+  return new Date().getFullYear();
 };
 
 const getItemMesText = (item) => {
@@ -153,6 +153,7 @@ const ProgressBar = ({ progress }) => {
     <div className="w-full">
       <div className="flex justify-between text-[10px] font-bold mb-1">
         <span className="text-slate-500">PROGRESO</span>
+        {/* Etiqueta translate="no" para que Google Translate no congele el número */}
         <span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2">
@@ -162,21 +163,24 @@ const ProgressBar = ({ progress }) => {
   );
 };
 
-const Gauge = ({ value, label, sublabel, colorClass }) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
-    <div className="relative w-32 h-32 flex items-center justify-center">
-      <svg className="w-full h-full transform -rotate-90">
-        <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-        <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" 
-          strokeDasharray={339} strokeDashoffset={339 - (339 * (value || 0)) / 100}
-          className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
-      </svg>
-      <span className="absolute text-3xl font-black text-slate-800 notranslate" translate="no">{Math.round(value || 0)} %</span>
+const Gauge = ({ value, label, sublabel, colorClass }) => {
+  const safeValue = Math.min(Math.max(Math.round(Number(value) || 0), 0), 100);
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
+      <div className="relative w-32 h-32 flex items-center justify-center">
+        <svg className="w-full h-full transform -rotate-90">
+          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
+          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" 
+            strokeDasharray={339} strokeDashoffset={339 - (339 * safeValue) / 100}
+            className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
+        </svg>
+        <span className="absolute text-3xl font-black text-slate-800 notranslate" translate="no">{safeValue} %</span>
+      </div>
+      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
+      <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
     </div>
-    <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
-    <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
-  </div>
-);
+  );
+};
 
 const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
   <input 
@@ -225,8 +229,8 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
                 <g key={`point-${i}`} className="group cursor-pointer">
                     <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
                     <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
-                    <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none">
-                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : d.valor}
+                    <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
+                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
                     </text>
                 </g>
               );
@@ -282,10 +286,6 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
-  
-  // --- FILTROS GLOBALES COMPACTOS (DESPLEGABLES) ---
-  const [filtroAnio, setFiltroAnio] = useState('2026');
-  const [filtroMes, setFiltroMes] = useState('Todos');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
@@ -296,7 +296,7 @@ export default function App() {
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
 
   // --- SELECCIÓN MÚLTIPLE DE FECHAS ACTIVADA ---
-  const [selectedAnios, setSelectedAnios] = useState([2025, 2026]);
+  const [selectedAnios, setSelectedAnios] = useState([new Date().getFullYear(), new Date().getFullYear() + 1]);
   const [selectedMeses, setSelectedMeses] = useState(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]);
 
   // --- ENTIDADES PRINCIPALES ---
@@ -569,19 +569,21 @@ export default function App() {
     }
   };
 
-  // --- FILTRADO GLOBAL COMPACTO ---
+  // --- FILTRADO GLOBAL COMPACTO (AÑOS Y MESES MÚLTIPLES) ---
   const filterByGlobalPeriod = (item) => {
-    const a = getItemAnio(item).toString();
+    const a = getItemAnio(item);
     const m = getItemMesText(item);
-    const passAnio = filtroAnio === 'Todos' || a === filtroAnio;
-    const passMes = filtroMes === 'Todos' || m === filtroMes;
+    
+    const passAnio = selectedAnios.length === 0 || selectedAnios.includes(Number(a)) || selectedAnios.includes(String(a));
+    const passMes = selectedMeses.length === 0 || selectedMeses.includes(m);
+    
     return passAnio && passMes;
   };
 
-  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, filtroAnio, filtroMes]);
-  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, filtroAnio, filtroMes]);
-  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, filtroAnio, filtroMes]);
-  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, filtroAnio, filtroMes]);
+  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, selectedAnios, selectedMeses]);
+  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, selectedAnios, selectedMeses]);
+  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, selectedAnios, selectedMeses]);
+  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
 
   const avanceGlobal = useMemo(() => {
     if (pFiltrados.length === 0) return 0;
@@ -598,7 +600,7 @@ export default function App() {
     const evalFiltradas = safeEvaluaciones.filter(filterByGlobalPeriod);
     if (evalFiltradas.length === 0) return 0;
     return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
-  }, [safeEvaluaciones, filtroAnio, filtroMes]);
+  }, [safeEvaluaciones, selectedAnios, selectedMeses]);
 
   // --- SUBMITS DE ACCIONES (CON ENLACES DE LA NUBE) ---
   const handleRiesgoSubmit = async (e) => {
@@ -835,14 +837,15 @@ export default function App() {
   };
 
   // =====================================================================
-  // REUSABLE HEADER COMPONENT (Dropdown Filters)
+  // REUSABLE HEADER COMPONENT (Dropdown Filters MULTIPLES)
   // =====================================================================
   const renderHeaderFiltros = (title, subtitle, includeMatrizToggle = false) => {
-    const añosSet = new Set(['2025', '2026']);
-    safeHallazgos.forEach(h => { const a = getYearFromDate(formatSafeDate(h.fecha)); if(a !== 'N/A') añosSet.add(a); });
-    safePlanes.forEach(p => { const a = getYearFromDate(formatSafeDate(p.fecha)); if(a !== 'N/A') añosSet.add(a); });
-    safeIncidentes.forEach(i => { const a = getYearFromDate(formatSafeDate(i.fecha)); if(a !== 'N/A') añosSet.add(a); });
+    const añosSet = new Set([new Date().getFullYear()]);
+    safeHallazgos.forEach(h => { const a = getYearFromDate(formatSafeDate(h.fecha)); if(a !== 'N/A') añosSet.add(Number(a)); });
+    safePlanes.forEach(p => { const a = getYearFromDate(formatSafeDate(p.fecha)); if(a !== 'N/A') añosSet.add(Number(a)); });
+    safeIncidentes.forEach(i => { const a = getYearFromDate(formatSafeDate(i.fecha)); if(a !== 'N/A') añosSet.add(Number(a)); });
     const availableYears = Array.from(añosSet).sort().reverse();
+    const allMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
     return (
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
@@ -851,19 +854,52 @@ export default function App() {
           {subtitle && <p className="text-xs text-slate-500 mt-1 font-medium">{subtitle}</p>}
         </div>
         <div className="mt-4 md:mt-0 flex items-center space-x-3">
-          <div className="bg-white px-4 py-1.5 rounded-full border border-slate-200 flex items-center shadow-sm space-x-2">
+          <div className="bg-white px-4 py-1.5 rounded-full border border-slate-200 flex items-center shadow-sm space-x-4">
             <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">PERIODO:</span>
-            <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="text-xs font-bold border-none bg-transparent outline-none cursor-pointer text-slate-700">
-              <option value="Todos">Todos</option>
-              {availableYears.map(a => <option key={`filtro-anio-${a}`} value={a}>{a}</option>)}
-            </select>
-            <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="text-xs font-bold border-none bg-transparent outline-none cursor-pointer text-slate-700 ml-1">
-              <option value="Todos">Mes (Todos)</option>
-              {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => (
-                <option key={`filtro-mes-${m}`} value={m}>{m}</option>
-              ))}
-            </select>
+            
+            {/* DROPDOWN AÑOS MULTIPLE */}
+            <div className="relative group">
+              <button className="text-xs font-bold bg-transparent text-slate-700 outline-none flex items-center space-x-1 cursor-pointer">
+                <span>Años ({selectedAnios.length})</span> <span className="text-[8px]">▼</span>
+              </button>
+              <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl p-3 z-50 hidden group-hover:block min-w-[120px]">
+                <div className="flex justify-between items-center mb-2 border-b pb-1">
+                  <button onClick={() => setSelectedAnios(availableYears)} className="text-[9px] text-blue-600 font-bold hover:underline">Todos</button>
+                  <button onClick={() => setSelectedAnios([])} className="text-[9px] text-red-600 font-bold hover:underline">Ninguno</button>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  {availableYears.map(a => (
+                    <label key={`filter-year-${a}`} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                      <input type="checkbox" checked={selectedAnios.includes(a)} onChange={() => toggleAnio(a)} className="rounded text-[#004d40] focus:ring-[#004d40]"/>
+                      <span className="text-xs font-bold text-slate-700">{a}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* DROPDOWN MESES MULTIPLE */}
+            <div className="relative group">
+              <button className="text-xs font-bold bg-transparent text-slate-700 outline-none flex items-center space-x-1 cursor-pointer">
+                <span>Meses ({selectedMeses.length})</span> <span className="text-[8px]">▼</span>
+              </button>
+              <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl p-3 z-50 hidden group-hover:block min-w-[140px] max-h-64 overflow-y-auto">
+                <div className="flex justify-between items-center mb-2 border-b pb-1 sticky top-0 bg-white">
+                  <button onClick={() => setSelectedMeses(allMonths)} className="text-[9px] text-blue-600 font-bold hover:underline">Todos</button>
+                  <button onClick={() => setSelectedMeses([])} className="text-[9px] text-red-600 font-bold hover:underline">Ninguno</button>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  {allMonths.map(m => (
+                    <label key={`filter-month-${m}`} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                      <input type="checkbox" checked={selectedMeses.includes(m)} onChange={() => toggleMes(m)} className="rounded text-[#004d40] focus:ring-[#004d40]"/>
+                      <span className="text-xs font-bold text-slate-700">{m}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
+
           {includeMatrizToggle && (
             <div className="bg-white p-1 rounded-full border flex shadow-sm">
               <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1 rounded-full font-bold text-[10px] uppercase transition-all ${tipoMatriz === 'inherente' ? 'bg-[#004d40] text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>INHERENTE</button>
@@ -920,7 +956,6 @@ export default function App() {
   );
 
   const renderTablero = () => {
-    const sedes = ['Hotel', 'Ecoparque', 'Administrativo'];
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         {renderHeaderFiltros("Tablero Analítico de Auditoría", "Análisis integral de desviaciones operativas.")}
@@ -972,13 +1007,15 @@ export default function App() {
     const dataIncidentes = mesesGrafica.map(m => ({ mes: m, valor: incFiltrados.reduce((acc, val) => acc + (val.costo || 0), 0) / 12 }));
     const dataHallazgos = mesesGrafica.map(m => ({ mes: m, valor: hFiltrados.length / 12 }));
 
+    const chartTitleLabel = selectedAnios.length === 0 ? 'TODOS LOS AÑOS' : selectedAnios.length <= 2 ? selectedAnios.join(' y ') : `${selectedAnios.length} AÑOS`;
+
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         {renderHeaderFiltros("Panel de inteligencia GRC", "Análisis predictivo de apetito ISO 31000 y Evolución de KRI.", true)}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TrendChart data={dataIncidentes} title={`EVOLUCIÓN DE IMPACTO FINANCIERO (${filtroAnio})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
-          <TrendChart data={dataHallazgos} title={`VOLUMEN DE DESVIACIONES (${filtroAnio})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
+          <TrendChart data={dataIncidentes} title={`EVOLUCIÓN DE IMPACTO FINANCIERO (${chartTitleLabel})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
+          <TrendChart data={dataHallazgos} title={`VOLUMEN DE DESVIACIONES (${chartTitleLabel})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
@@ -1242,7 +1279,7 @@ export default function App() {
               <div className="md:col-span-4">
                 <label className="font-bold text-gray-600 block mb-2">Meses Planeados (Para gráfico de Gantt)</label>
                 <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  {allMonths.map(mes => (
+                  {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(mes => (
                     <label key={`gantt-label-${mes}`} className="flex items-center space-x-2 cursor-pointer">
                       <input type="checkbox" name={`mes_${mes}`} defaultChecked={editCronograma?.meses?.includes(mes)} className="rounded text-[#004d40] focus:ring-[#004d40]" />
                       <span className="text-[10px] font-bold uppercase">{mes.substring(0,3)}</span>
@@ -1284,7 +1321,7 @@ export default function App() {
                      <div>Apoyo</div>
                      <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
-                   {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
+                   {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
@@ -1294,7 +1331,7 @@ export default function App() {
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
                      <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
                      <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.apoyo}</td>
-                     {allMonths.map(mes => {
+                     {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(mes => {
                        const isPlanned = c.meses?.includes(mes);
                        return (
                          <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0`}>
@@ -1629,9 +1666,9 @@ export default function App() {
           <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
             <form onSubmit={handleEvaluacionSubmit} key={editEvaluacion?.id || 'nueva-evaluacion'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-              <div className="md:col-span-2"><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
-              <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
-              <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" defaultValue={editEvaluacion?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
+              <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
+              <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" defaultValue={editEvaluacion?.ejecucion||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
               
               <div className="md:col-span-4">
                 <div className="flex justify-between items-end mb-1">
@@ -2030,7 +2067,7 @@ export default function App() {
                 <td className="p-3 font-bold">#{i.idRiesgo}</td>
                 <td className="p-3"><b>{i.titulo}</b><p className="text-[10px] text-slate-400 mt-0.5">{i.descripcion}</p></td>
                 <td className="p-3"><span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[9px]">{i.impacto}</span></td>
-                <td className="p-3 text-right font-mono font-bold text-red-600">${Number(i.costo || 0).toLocaleString('es-CO')}</td>
+                <td className="p-3 text-right font-mono font-bold text-red-600 notranslate" translate="no">${Number(i.costo || 0).toLocaleString('es-CO')}</td>
               </tr>
             ))}
           </tbody>
