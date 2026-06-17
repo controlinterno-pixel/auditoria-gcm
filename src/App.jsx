@@ -1170,6 +1170,16 @@ export default function App() {
 
     const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+    // LÓGICA DE ORDENAMIENTO CRONOLÓGICO: 
+    // Ordenamos primero por el primer mes que aparece en el array 'meses' de cada proceso
+    const cronogramaOrdenado = [...safeCronograma].sort((a, b) => {
+        if (!a.meses || a.meses.length === 0) return 1;
+        if (!b.meses || b.meses.length === 0) return -1;
+        const indexA = allMonths.indexOf(a.meses[0]);
+        const indexB = allMonths.indexOf(b.meses[0]);
+        return indexA - indexB;
+    });
+
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1334,7 +1344,7 @@ export default function App() {
 
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
            <div className="bg-slate-100 border-b border-slate-200 p-4 flex justify-between items-center">
-             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">GANTT CONTROL INTERNO</h3>
+             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">GANTT CONTROL INTERNO (ORDEN CRONOLÓGICO)</h3>
              <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
                 <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
@@ -1356,25 +1366,36 @@ export default function App() {
                      <div>Responsable</div>
                      <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
-                   <th className="border border-slate-300 p-2 w-32">
-                     <div>Apoyo</div>
-                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
                    {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
-                 {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
+                 {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => (
                    <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
                      <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
-                     <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.apoyo}</td>
                      {allMonths.map(mes => {
                        const isPlanned = c.meses?.includes(mes);
+                       let bgColor = 'bg-transparent';
+                       let textLabel = '';
+                       
+                       if (isPlanned) {
+                           if (c.cumplimiento === 100) {
+                               bgColor = 'bg-emerald-500';
+                               textLabel = 'Completado';
+                           } else if (c.cumplimiento > 0) {
+                               bgColor = 'bg-amber-500';
+                               textLabel = `${c.cumplimiento}%`;
+                           } else {
+                               bgColor = 'bg-[#00695c]';
+                               textLabel = 'Planeado';
+                           }
+                       }
+
                        return (
                          <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0`}>
-                           {isPlanned && <div className="bg-[#00695c] text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner">Planeado</div>}
+                           {isPlanned && <div className={`${bgColor} text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner`}>{textLabel}</div>}
                          </td>
                        );
                      })}
