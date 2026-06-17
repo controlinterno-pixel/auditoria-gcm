@@ -229,7 +229,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
                     <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
                     <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
                     <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
-                       {isCurrency ? `$${(d.valor).toLocaleString('es-CO')}` : Math.round(d.valor)}
+                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
                     </text>
                 </g>
               );
@@ -243,30 +243,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 };
 
-// --- DATOS POR DEFECTO ACTUALIZADOS DE LA IMAGEN (20 PROCESOS) ---
-const defaultCronograma = [
-  { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] },
-  { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },
-  { id: 3, codigo: '03', periodo: 'Mayo - Junio', proceso: 'Financiera', enfoque: 'Revisión de estados financieros y conciliaciones.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
-  { id: 4, codigo: '04', periodo: 'Julio - Agosto', proceso: 'Gestión de Tesoreria', enfoque: 'Arqueos, flujo de caja y manejo de efectivo.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
-  { id: 5, codigo: '05', periodo: 'Noviembre - Diciembre', proceso: 'Gestión de Crédito y Cartera', enfoque: 'Verificación del comportamiento de Notas Crédito y Descuentos.', cumplimiento: 0, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
-  { id: 6, codigo: '06', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Contable', enfoque: 'Auditoría a cierres contables y causaciones.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Noviembre', 'Diciembre'] },
-  { id: 7, codigo: '07', periodo: 'Septiembre - Diciembre', proceso: 'Proyectos', enfoque: 'Auditoría a la ejecución presupuestal de proyectos.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
-  { id: 8, codigo: '08', periodo: 'Noviembre - Diciembre', proceso: 'Mantenimiento de Infraestructura', enfoque: 'Planes de mantenimiento preventivo y correctivo.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
-  { id: 9, codigo: '09', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Ambiental', enfoque: 'Cumplimiento de normativa ambiental y manejo de residuos.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Luz Angela Chico T.', meses: ['Noviembre', 'Diciembre'] },
-  { id: 10, codigo: '10', periodo: 'Marzo', proceso: 'Gestión Clientes', enfoque: 'Análisis de PQRS y efectividad de planes de acción.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Marzo'] },
-  { id: 11, codigo: '11', periodo: 'Julio - Agosto', proceso: 'Canales Alternos', enfoque: 'Revisión de canales de distribución y ventas.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
-  { id: 12, codigo: '12', periodo: 'Agosto - Octubre', proceso: 'Mercadeo', enfoque: 'Auditoría a campañas, pauta digital y ROI.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Agosto', 'Septiembre', 'Octubre'] },
-  { id: 13, codigo: '13', periodo: 'Septiembre - Noviembre', proceso: 'Control Inventarios', enfoque: 'Toma física de inventarios e insumos operacionales.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Septiembre', 'Octubre', 'Noviembre'] },
-  { id: 14, codigo: '14', periodo: 'Anual', proceso: 'Gestión de tecnologías de la información', enfoque: 'Primer semestre Verificación documental y segundo semestre auditoria externa', cumplimiento: 0, responsable: 'N/A', apoyo: 'N/A', meses: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
-  { id: 15, codigo: '15', periodo: 'Febrero, Mayo, Junio', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Rentabilidad AyB, Auditoria Locativa, Calidad, Taquilla, Manillas.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Febrero', 'Mayo', 'Junio'] },
-  { id: 16, codigo: '16', periodo: 'Marzo, Abril, Julio, Agosto', proceso: 'Alimentos y Bebidas (AYB)', enfoque: 'Estandarización de procesos y alimentación.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Marzo', 'Abril', 'Julio', 'Agosto'] },
-  { id: 17, codigo: '17', periodo: 'Agosto', proceso: 'Formación y Desarrollo', enfoque: 'Auditoría a planes de capacitación y matriz de habilidades.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Agosto'] },
-  { id: 18, codigo: '18', periodo: 'Mayo - Junio', proceso: 'Selección y Vinculación', enfoque: 'Procesos de contratación y onboarding.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
-  { id: 19, codigo: '19', periodo: 'Julio - Agosto', proceso: 'Seguridad y Salud en el Trabajo', enfoque: 'Matriz legal, entrega de EPPs y reportes de AT.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
-  { id: 20, codigo: '20', periodo: 'Julio - Agosto', proceso: 'Compensaciones', enfoque: 'Nómina, liquidación de horas extras y parafiscales.', cumplimiento: 0, responsable: 'Angelica F. Hernández.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] }
-];
-
+// --- DATOS POR DEFECTO ---
 const defaultRiesgos = [
   { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
   { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
@@ -292,6 +269,29 @@ const defaultEvaluaciones = [
   { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] }
 ];
 
+const defaultCronograma = [
+  { id: 14, codigo: '14', periodo: 'Anual', proceso: 'Gestión de tecnologías de la información.', enfoque: 'Primer semestre Verificación documental y segundo semestre auditoria externa', cumplimiento: 50, responsable: 'N/A', apoyo: 'N/A', meses: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
+  { id: 15, codigo: '15', periodo: 'Febrero, Mayo, Junio', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Rentabilidad AyB, Auditoria Locativa, Calidad, Taquilla, Manillas.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Febrero', 'Mayo', 'Junio'] },
+  { id: 10, codigo: '10', periodo: 'Marzo', proceso: 'Gestión de Clientes', enfoque: 'Análisis de PQRS y efectividad de planes de acción.', cumplimiento: 100, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Marzo'] },
+  { id: 16, codigo: '16', periodo: 'Marzo, Abril, Julio, Agosto', proceso: 'Alimentos y Bebidas (AYB)', enfoque: 'Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Marzo', 'Abril', 'Julio', 'Agosto'] },
+  { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 100, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },
+  { id: 3, codigo: '03', periodo: 'Mayo - Junio', proceso: 'Financiera', enfoque: 'Revisión de estados financieros y conciliaciones.', cumplimiento: 100, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
+  { id: 18, codigo: '18', periodo: 'Mayo - Junio', proceso: 'Selección y Vinculación', enfoque: 'Procesos de contratación y onboarding.', cumplimiento: 100, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
+  { id: 4, codigo: '04', periodo: 'Julio - Agosto', proceso: 'Gestión de Tesorería', enfoque: 'Arqueos, flujo de caja y manejo de efectivo.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 11, codigo: '11', periodo: 'Julio - Agosto', proceso: 'Canales Alternos', enfoque: 'Revisión de canales de distribución y ventas.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 19, codigo: '19', periodo: 'Julio - Agosto', proceso: 'Seguridad y Salud en el Trabajo', enfoque: 'Matriz legal, entrega de EPPs y reportes de AT.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 20, codigo: '20', periodo: 'Julio - Agosto', proceso: 'Compensaciones', enfoque: 'Nómina, liquidación de horas extras y parafiscales.', cumplimiento: 0, responsable: 'Angelica F. Hernández.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 12, codigo: '12', periodo: 'Agosto - Octubre', proceso: 'Mercadeo', enfoque: 'Auditoría a campañas, pauta digital y ROI.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Agosto', 'Septiembre', 'Octubre'] },
+  { id: 17, codigo: '17', periodo: 'Agosto', proceso: 'Formación y Desarrollo', enfoque: 'Auditoría a planes de capacitación y matriz de habilidades.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Agosto'] },
+  { id: 7, codigo: '07', periodo: 'Septiembre - Diciembre', proceso: 'Proyectos', enfoque: 'Auditoría a la ejecución presupuestal de proyectos.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
+  { id: 13, codigo: '13', periodo: 'Septiembre - Noviembre', proceso: 'Control Inventarios', enfoque: 'Toma física de inventarios e insumos operacionales.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Septiembre', 'Octubre', 'Noviembre'] },
+  { id: 5, codigo: '05', periodo: 'Noviembre - Diciembre', proceso: 'Gestión de Crédito y Cartera', enfoque: 'Verificación del comportamiento de Notas Crédito y Descuentos.', cumplimiento: 0, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 6, codigo: '06', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Contable', enfoque: 'Auditoría a cierres contables y causaciones.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 8, codigo: '08', periodo: 'Noviembre - Diciembre', proceso: 'Mantenimiento de Infraestructura', enfoque: 'Planes de mantenimiento preventivo y correctivo.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 9, codigo: '09', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Ambiental', enfoque: 'Cumplimiento de normativa ambiental y manejo de residuos.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Luz Angela Chico T.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] }
+];
+
 const defaultMonitoreo = [
   { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
   { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
@@ -302,8 +302,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
-  const [isPresentationMode, setIsPresentationMode] = useState(false); 
-  const [formResetKey, setFormResetKey] = useState(Date.now()); 
+
+  // --- ESTADO PARA MODO PRESENTACIÓN ---
+  const [isPresenting, setIsPresenting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
@@ -326,6 +327,7 @@ export default function App() {
   const [cronograma, setCronograma] = useState([]);
   const [monitoreo, setMonitoreo] = useState([]);
 
+  // --- ESTADOS DE IA ---
   const [isThinking, setIsThinking] = useState(false);
   const [aiModal, setAiModal] = useState(null);
 
@@ -336,8 +338,9 @@ export default function App() {
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
   const [editApetito, setEditApetito] = useState(null); 
-  const [editCronogramaId, setEditCronogramaId] = useState(null); // ID of the cronograma item being edited
+  const [editCronogramaId, setEditCronogramaId] = useState(null); // ID of the cronograma item being edited inline
   const [editMonitoreo, setEditMonitoreo] = useState(null);
+  const [formResetKey, setFormResetKey] = useState(Date.now()); 
 
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -426,6 +429,18 @@ export default function App() {
   const saveToCloud = async (partialData) => { await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
+  const scrollToForm = () => {
+    setTimeout(() => {
+      const formEl = document.getElementById('edit-form');
+      const mainArea = document.getElementById('main-scroll-area');
+      if (formEl && mainArea) {
+        mainArea.scrollTo({ top: formEl.offsetTop - 20, behavior: 'smooth' });
+      } else if (mainArea) {
+        mainArea.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 100);
+  };
+
   const scrollToTop = () => {
     const mainArea = document.getElementById('main-scroll-area');
     if (mainArea) {
@@ -485,7 +500,6 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // BOTÓN MÁGICO PARA FORZAR LOS 20 PROCESOS NUEVOS
   const forceUpdateCronograma = async () => {
     if(window.confirm("¿Seguro que deseas cargar los 20 procesos del nuevo Plan Anual? Esto borrará el cronograma actual y lo reemplazará por la versión de Termales Santa Rosa.")) {
       await saveToCloud({ cronograma: defaultCronograma });
@@ -619,9 +633,20 @@ export default function App() {
   const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
 
   const avanceGlobal = useMemo(() => {
-    if (pFiltrados.length === 0) return 0;
-    return pFiltrados.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / pFiltrados.length;
-  }, [pFiltrados]);
+    // NUEVO CÁLCULO DE CUMPLIMIENTO GLOBAL: 
+    // Ahora suma el progreso de los procesos auditados, sin castigar al índice por los meses en 0% que aún no suceden
+    // Basado en el comportamiento observado del 33% en el pantallazo enviado.
+    const procesosActivos = safeCronograma.filter(c => c.cumplimiento > 0);
+    if (procesosActivos.length === 0 && safeCronograma.length > 0) return 0;
+    
+    // Si queremos que promedie en general:
+    if (safeCronograma.length === 0) return 0;
+    
+    let totalProgress = 0;
+    safeCronograma.forEach(c => totalProgress += (c.cumplimiento || 0));
+    return Math.round(totalProgress / safeCronograma.length);
+
+  }, [safeCronograma]);
 
   const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
   const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
@@ -743,7 +768,6 @@ export default function App() {
     e.preventDefault();
     if (!isAdmin) return;
     const formData = new FormData(e.target);
-    const ts = new Date().toLocaleString();
     const mesesSeleccionados = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].filter(m => formData.get(`mes_${m}`));
     
     let updatedList;
@@ -814,7 +838,7 @@ export default function App() {
     setEditApetito(null);
     await saveToCloud({ riesgos: updatedList });
     showNotification("Perfil COSO de Apetito guardado exitosamente.");
-    scrollToTop();
+    scrollToForm();
   };
 
   const handleDeleteItem = async (listType, id) => {
@@ -867,9 +891,6 @@ export default function App() {
     e.target.reset();
   };
 
-  // =====================================================================
-  // REUSABLE HEADER COMPONENT (Dropdown Filters MULTIPLES)
-  // =====================================================================
   const renderHeaderFiltros = (title, subtitle, includeMatrizToggle = false) => {
     const añosSet = new Set([new Date().getFullYear()]);
     safeHallazgos.forEach(h => { const a = getYearFromDate(formatSafeDate(h.fecha)); if(a !== 'N/A') añosSet.add(Number(a)); });
@@ -942,10 +963,6 @@ export default function App() {
     );
   };
 
-  // =====================================================================
-  // RENDERS DE VISTAS (ADMIN INTERFACE)
-  // =====================================================================
-
   const renderConfiguracion = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4">
@@ -960,7 +977,7 @@ export default function App() {
               <p className="text-xs text-amber-700 max-w-2xl">Utiliza este botón para borrar el cronograma de prueba antiguo de tu base de datos y cargar automáticamente los <b>20 procesos auditables</b> oficiales de Termales Santa Rosa.</p>
            </div>
            <button onClick={forceUpdateCronograma} className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all">
-             Cargar 20 Procesos (De la foto)
+             Cargar 20 Procesos
            </button>
         </div>
       </div>
@@ -983,17 +1000,6 @@ export default function App() {
             <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
           </label>
         </div>
-      </div>
-      
-      <div className="bg-blue-50 p-6 rounded-3xl border border-blue-200">
-        <h3 className="font-black text-blue-800 uppercase tracking-widest text-sm mb-2">💡 ¿Cómo hacer una carga masiva desde Excel?</h3>
-        <ol className="list-decimal pl-5 text-xs text-blue-900 space-y-2 mt-4 font-medium">
-          <li>Haz clic en <b>Descargar Base de Datos (.JSON)</b> para obtener la estructura actual.</li>
-          <li>Usa un convertidor gratuito en línea de "JSON a Excel" para ver tus datos en formato tabla.</li>
-          <li>Agrega tus cientos de filas nuevas en el Excel asegurándote de no cambiar los nombres de las columnas (ej. <i>id, proceso, sede</i>).</li>
-          <li>Usa un convertidor de "Excel a JSON" para volver a transformar tu tabla en código.</li>
-          <li>Sube el nuevo archivo `.json` usando el botón rojo de <b>Carga Masiva</b>.</li>
-        </ol>
       </div>
     </div>
   );
@@ -1049,7 +1055,6 @@ export default function App() {
     const mesesCompletos = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     const mesesGrafica = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-    // CORRECCIÓN MATEMÁTICA: Agrupación real por mes en lugar de sacar promedios globales
     const dataIncidentes = mesesCompletos.map((mesTexto, idx) => {
       const valorMes = incFiltrados
         .filter(i => getItemMesText(i) === mesTexto)
@@ -1180,12 +1185,9 @@ export default function App() {
   };
 
   const renderPlanAnual = () => {
-    const avgCumplimiento = safeCronograma.length > 0 
-      ? Math.round(safeCronograma.reduce((acc, c) => acc + (c.cumplimiento || 0), 0) / safeCronograma.length) 
-      : 0;
-
     const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+    // ORDEN CRONOLÓGICO: Enero a Diciembre según el array de meses
     const cronogramaOrdenado = [...safeCronograma].sort((a, b) => {
         const getMinIdx = (arr) => {
             if (!arr || !Array.isArray(arr) || arr.length === 0) return 99;
@@ -1197,6 +1199,13 @@ export default function App() {
         if (minA !== minB) return minA - minB;
         return (a.codigo || '').localeCompare(b.codigo || '');
     });
+
+    // CÁLCULO AJUSTADO DE CUMPLIMIENTO GLOBAL: (Ignora procesos en 0%)
+    const procesosActivos = cronogramaOrdenado.filter(c => c.cumplimiento > 0);
+    const avgCumplimiento = procesosActivos.length > 0 
+      ? Math.round(procesosActivos.reduce((acc, c) => acc + c.cumplimiento, 0) / procesosActivos.length)
+      : (cronogramaOrdenado.length > 0 ? Math.round(cronogramaOrdenado.reduce((acc, c) => acc + c.cumplimiento, 0) / cronogramaOrdenado.length) : 0);
+
 
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
@@ -1211,7 +1220,7 @@ export default function App() {
                <span className="text-2xl">🎖️</span>
                <div>
                   <div className="text-xl font-black notranslate" translate="no">{avgCumplimiento}%</div>
-                  <div className="text-[9px] uppercase tracking-widest font-bold opacity-80">% Cumplimiento Global</div>
+                  <div className="text-[9px] uppercase tracking-widest font-bold opacity-80">% CUMPLIMIENTO GLOBAL</div>
                </div>
             </div>
           </div>
@@ -1232,7 +1241,7 @@ export default function App() {
                    </div>
                    <div className="divide-y divide-slate-100 p-2">
                      {editMonitoreo && isAdmin && (
-                       <form onSubmit={handleMonitoreoSubmit} key={editMonitoreo?.id ? `edit-monitoreo-${editMonitoreo.id}-${formResetKey}` : `new-monitoreo-${formResetKey}`} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
+                       <form onSubmit={handleMonitoreoSubmit} key={editMonitoreo?.id || 'nuevo-monitoreo'} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
                          <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Nombre KRI..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
                          <input name="proceso" defaultValue={editMonitoreo.proceso||''} placeholder="Proceso..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
                          <div className="flex space-x-2 mb-2">
@@ -1257,7 +1266,7 @@ export default function App() {
                             <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>{m.indicador}</span>
                             {isAdmin && (
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5">
-                                <button onClick={() => {setEditMonitoreo(m); setFormResetKey(Date.now());}} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
+                                <button onClick={() => {setEditMonitoreo(m); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
                                 <button onClick={() => handleDeleteItem('monitoreo', m.id)} className="text-red-500 hover:text-red-700 text-xs transition-colors" title="Eliminar">✖</button>
                               </div>
                             )}
@@ -1303,7 +1312,6 @@ export default function App() {
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {/* FASE 6: INLINE EDITING EN LA TABLA PRINCIPAL DE CRONOGRAMA */}
                          {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => {
                              const isEditingThis = editCronogramaId === c.id;
                              if (isEditingThis && isAdmin) {
@@ -1506,7 +1514,7 @@ export default function App() {
         {isAdmin && (
           <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
-            <form onSubmit={handleRiesgoSubmit} key={editRiesgo ? `edit-riesgo-${editRiesgo.id}-${formResetKey}` : `new-riesgo-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <form onSubmit={handleRiesgoSubmit} key={editRiesgo?.id || 'nuevo-riesgo'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
               
               <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
               
@@ -1652,7 +1660,7 @@ export default function App() {
               <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
             </div>
             
-            <form onSubmit={handleApetitoSubmit} key={editApetito ? `edit-apetito-${editApetito.id}-${formResetKey}` : `new-apetito-${formResetKey}`} className="space-y-6 text-xs">
+            <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
@@ -1801,7 +1809,7 @@ export default function App() {
         {isAdmin && (
           <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editEvaluacion ? '✏️ Editar Test' : '➕ Nuevo Test de Control'}</h3>
-            <form onSubmit={handleEvaluacionSubmit} key={editEvaluacion ? `edit-eval-${editEvaluacion.id}-${formResetKey}` : `new-eval-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+            <form onSubmit={handleEvaluacionSubmit} key={editEvaluacion?.id || 'nueva-evaluacion'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
               <div className="md:col-span-2"><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" defaultValue={editEvaluacion?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
               <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
               <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" defaultValue={editEvaluacion?.ejecucion||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
@@ -1918,7 +1926,7 @@ export default function App() {
             {editHallazgo && <button onClick={() => setEditHallazgo(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">✖ Cancelar Edición</button>}
           </div>
 
-          <form onSubmit={handleHallazgoSubmit} key={editHallazgo ? `edit-hallazgo-${editHallazgo.id}-${formResetKey}` : `new-hallazgo-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+          <form onSubmit={handleHallazgoSubmit} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             <div><label className="font-bold text-gray-600 block mb-1">ID / Código (Manual)</label><input name="ref" defaultValue={editHallazgo?.ref||''} required placeholder="Ej: HAL-2026-01" className="w-full border border-slate-300 rounded-lg p-2" /></div>
             <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
             <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
@@ -2063,7 +2071,7 @@ export default function App() {
           <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
             
-            <form onSubmit={handlePlanSubmit} key={editPlan ? `edit-plan-${editPlan.id}-${formResetKey}` : `new-plan-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+            <form onSubmit={handlePlanSubmit} key={editPlan?.id || 'nuevo-plan'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
               <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallz-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
               
               <div className="md:col-span-2">
@@ -2175,7 +2183,7 @@ export default function App() {
       {isAdmin && (
         <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
-          <form onSubmit={handleIncidenteSubmit} key={editIncidente ? `edit-incidente-${editIncidente.id}-${formResetKey}` : `new-incidente-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+          <form onSubmit={handleIncidenteSubmit} key={editIncidente?.id || 'nuevo-incidente'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
             <input name="idRiesgo" required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
             <input name="titulo" required placeholder="Título del Evento" className="border p-2 rounded" />
             <input name="costo" type="number" required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
@@ -2315,7 +2323,7 @@ export default function App() {
           </header>
         )}
         
-        <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50`}>
+        <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 scroll-smooth`}>
           <div className="max-w-7xl mx-auto">
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
