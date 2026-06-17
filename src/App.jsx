@@ -383,15 +383,11 @@ export default function App() {
       const formEl = document.getElementById('edit-form');
       const mainArea = document.getElementById('main-scroll-area');
       if (formEl && mainArea) {
-        // Obtenemos la posición exacta del elemento tomando en cuenta el padding superior del contenedor
-        const yOffset = formEl.getBoundingClientRect().top + mainArea.scrollTop - mainArea.getBoundingClientRect().top - 20;
-        mainArea.scrollTo({ top: yOffset, behavior: 'smooth' });
+        mainArea.scrollTo({ top: formEl.offsetTop - 20, behavior: 'smooth' });
       } else if (mainArea) {
         mainArea.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
-    }, 150); // Un pequeño retraso para asegurar que React ya renderizó el formulario
+    }, 100);
   };
 
   const scrollToTop = () => {
