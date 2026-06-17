@@ -153,7 +153,6 @@ const ProgressBar = ({ progress }) => {
     <div className="w-full">
       <div className="flex justify-between text-[10px] font-bold mb-1">
         <span className="text-slate-500">PROGRESO</span>
-        {/* Etiqueta translate="no" para que Google Translate no congele el número */}
         <span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2">
@@ -230,14 +229,14 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
                     <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
                     <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
                     <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
-                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
+                       {isCurrency ? `$${(d.valor).toLocaleString('es-CO')}` : Math.round(d.valor)}
                     </text>
                 </g>
               );
            })}
          </svg>
          <div className="flex justify-between mt-4 text-[9px] font-bold text-slate-400 uppercase px-2 border-t border-slate-100 pt-3">
-            {data.map((d, idx) => <span key={`chart-mes-${idx}`}>{d.mes.substring(0,3)}</span>)}
+            {data.map((d, idx) => <span key={`chart-mes-${idx}`} className="notranslate" translate="no">{d.mes.substring(0,3)}</span>)}
          </div>
        </div>
     </div>
@@ -860,7 +859,7 @@ export default function App() {
             {/* DROPDOWN AÑOS MULTIPLE */}
             <div className="relative group">
               <button className="text-xs font-bold bg-transparent text-slate-700 outline-none flex items-center space-x-1 cursor-pointer">
-                <span>Años ({selectedAnios.length})</span> <span className="text-[8px]">▼</span>
+                <span className="notranslate" translate="no">Años ({selectedAnios.length})</span> <span className="text-[8px]">▼</span>
               </button>
               <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl p-3 z-50 hidden group-hover:block min-w-[120px]">
                 <div className="flex justify-between items-center mb-2 border-b pb-1">
@@ -871,7 +870,7 @@ export default function App() {
                   {availableYears.map(a => (
                     <label key={`filter-year-${a}`} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
                       <input type="checkbox" checked={selectedAnios.includes(a)} onChange={() => toggleAnio(a)} className="rounded text-[#004d40] focus:ring-[#004d40]"/>
-                      <span className="text-xs font-bold text-slate-700">{a}</span>
+                      <span className="text-xs font-bold text-slate-700 notranslate" translate="no">{a}</span>
                     </label>
                   ))}
                 </div>
@@ -881,7 +880,7 @@ export default function App() {
             {/* DROPDOWN MESES MULTIPLE */}
             <div className="relative group">
               <button className="text-xs font-bold bg-transparent text-slate-700 outline-none flex items-center space-x-1 cursor-pointer">
-                <span>Meses ({selectedMeses.length})</span> <span className="text-[8px]">▼</span>
+                <span className="notranslate" translate="no">Meses ({selectedMeses.length})</span> <span className="text-[8px]">▼</span>
               </button>
               <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl p-3 z-50 hidden group-hover:block min-w-[140px] max-h-64 overflow-y-auto">
                 <div className="flex justify-between items-center mb-2 border-b pb-1 sticky top-0 bg-white">
@@ -892,7 +891,7 @@ export default function App() {
                   {allMonths.map(m => (
                     <label key={`filter-month-${m}`} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
                       <input type="checkbox" checked={selectedMeses.includes(m)} onChange={() => toggleMes(m)} className="rounded text-[#004d40] focus:ring-[#004d40]"/>
-                      <span className="text-xs font-bold text-slate-700">{m}</span>
+                      <span className="text-xs font-bold text-slate-700 notranslate" translate="no">{m}</span>
                     </label>
                   ))}
                 </div>
@@ -1003,9 +1002,21 @@ export default function App() {
 
     const contarCelda = (imp, prob) => rFiltrados.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
     
+    const mesesCompletos = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     const mesesGrafica = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const dataIncidentes = mesesGrafica.map(m => ({ mes: m, valor: incFiltrados.reduce((acc, val) => acc + (val.costo || 0), 0) / 12 }));
-    const dataHallazgos = mesesGrafica.map(m => ({ mes: m, valor: hFiltrados.length / 12 }));
+
+    // CORRECCIÓN MATEMÁTICA: Agrupación real por mes en lugar de sacar promedios globales
+    const dataIncidentes = mesesCompletos.map((mesTexto, idx) => {
+      const valorMes = incFiltrados
+        .filter(i => getItemMesText(i) === mesTexto)
+        .reduce((acc, val) => acc + (Number(val.costo) || 0), 0);
+      return { mes: mesesGrafica[idx], valor: valorMes };
+    });
+
+    const dataHallazgos = mesesCompletos.map((mesTexto, idx) => {
+      const valorMes = hFiltrados.filter(h => getItemMesText(h) === mesTexto).length;
+      return { mes: mesesGrafica[idx], valor: valorMes };
+    });
 
     const chartTitleLabel = selectedAnios.length === 0 ? 'TODOS LOS AÑOS' : selectedAnios.length <= 2 ? selectedAnios.join(' y ') : `${selectedAnios.length} AÑOS`;
 
