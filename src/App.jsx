@@ -321,9 +321,13 @@ export default function App() {
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
   const [editApetito, setEditApetito] = useState(null); 
-  const [editCronograma, setEditCronograma] = useState(null);
   const [editMonitoreo, setEditMonitoreo] = useState(null);
+  
+  // Novedad: Edición en línea para el Cronograma (evita el scroll jump)
+  const [inlineCronoId, setInlineCronoId] = useState(null);
+  const [inlineCronoData, setInlineCronoData] = useState(null);
 
+  const [formResetKey, setFormResetKey] = useState(Date.now()); 
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -410,7 +414,16 @@ export default function App() {
   const handleLogout = async () => { await signOut(auth); };
   const saveToCloud = async (partialData) => { await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  // Desplazamiento inteligente hacia arriba
+  const scrollToTop = () => {
+    const mainArea = document.getElementById('main-scroll-area');
+    if (mainArea) {
+      mainArea.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const exportToExcel = (dataArray, fileName) => {
     if (!xlsxLoaded || !window.XLSX) {
@@ -429,7 +442,6 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
-  // --- MANEJADORES DE CARGA MASIVA Y BACKUPS ---
   const exportToJSON = () => {
     const data = { riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
@@ -462,7 +474,13 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  // --- FUNCIONES IA GEMINI ---
+  const forceUpdateCronograma = async () => {
+    if(window.confirm("¿Seguro que deseas cargar los 20 procesos del nuevo Plan Anual? Esto borrará el cronograma actual y lo reemplazará por la versión de Termales Santa Rosa.")) {
+      await saveToCloud({ cronograma: defaultCronograma });
+      showNotification("¡Plan Anual actualizado exitosamente con los 20 procesos!", "success");
+    }
+  };
+
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
@@ -513,9 +531,7 @@ export default function App() {
 
       const data = await response.json();
       
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
+      if (data.error) throw new Error(data.error.message);
 
       let sugerencia = data.candidates[0].content.parts[0].text.trim();
 
@@ -571,7 +587,6 @@ export default function App() {
     }
   };
 
-  // --- FILTRADO GLOBAL COMPACTO (AÑOS Y MESES MÚLTIPLES) ---
   const filterByGlobalPeriod = (item) => {
     const a = getItemAnio(item);
     const m = getItemMesText(item);
@@ -604,7 +619,6 @@ export default function App() {
     return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
   }, [safeEvaluaciones, selectedAnios, selectedMeses]);
 
-  // --- SUBMITS DE ACCIONES (CON ENLACES DE LA NUBE) ---
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -708,7 +722,8 @@ export default function App() {
     setIncidentes(updated); await saveToCloud({ incidentes: updated }); e.target.reset(); showNotification("Evento registrado.");
   };
 
-  const handleCronogramaSubmit = async (e) => {
+  // Función exclusiva para AGREGAR un proceso nuevo desde el formulario inferior
+  const handleAddCronogramaSubmit = async (e) => {
     e.preventDefault(); 
     if (!isAdmin) return;
     const formData = new FormData(e.target);
@@ -718,41 +733,23 @@ export default function App() {
       if (formData.get(`mes_${mes}`)) mesesSeleccionados.push(mes);
     });
 
-    let updatedList;
-    if (editCronograma) {
-      const modificado = {
-        ...editCronograma,
-        codigo: formData.get('codigo'),
-        proceso: formData.get('proceso'),
-        responsable: formData.get('responsable'),
-        apoyo: formData.get('apoyo'),
-        periodo: formData.get('periodo'),
-        enfoque: formData.get('enfoque'),
-        cumplimiento: parseInt(formData.get('cumplimiento') || 0),
-        meses: mesesSeleccionados
-      };
-      updatedList = safeCronograma.map(c => c.id === editCronograma.id ? modificado : c);
-      setEditCronograma(null);
-      showNotification("Proceso del plan actualizado.");
-    } else {
-      const nuevo = {
-        id: Date.now(),
-        codigo: formData.get('codigo'),
-        proceso: formData.get('proceso'),
-        responsable: formData.get('responsable'),
-        apoyo: formData.get('apoyo'),
-        periodo: formData.get('periodo'),
-        enfoque: formData.get('enfoque'),
-        cumplimiento: parseInt(formData.get('cumplimiento') || 0),
-        meses: mesesSeleccionados
-      };
-      updatedList = [...safeCronograma, nuevo];
-      showNotification("Proceso agregado al Plan Anual.");
-    }
-
+    const nuevo = {
+      id: Date.now(),
+      codigo: formData.get('codigo'),
+      proceso: formData.get('proceso'),
+      responsable: formData.get('responsable'),
+      apoyo: formData.get('apoyo'),
+      periodo: formData.get('periodo'),
+      enfoque: formData.get('enfoque'),
+      cumplimiento: parseInt(formData.get('cumplimiento') || 0),
+      meses: mesesSeleccionados
+    };
+    
+    const updatedList = [...safeCronograma, nuevo];
     setCronograma(updatedList);
     await saveToCloud({ cronograma: updatedList });
     e.target.reset();
+    showNotification("Nuevo proceso agregado al Plan Anual.");
   };
 
   const handleApetitoSubmit = async (e) => {
@@ -924,6 +921,18 @@ export default function App() {
         <p className="text-xs text-slate-500 font-bold mt-1">Gestión avanzada de la base de datos y copias de seguridad.</p>
       </div>
 
+      <div className="bg-amber-50 p-6 rounded-3xl border border-amber-200">
+        <div className="flex justify-between items-center">
+           <div>
+              <h3 className="font-black text-amber-900 uppercase tracking-widest text-sm mb-1">🚀 Forzar Actualización de Cronograma</h3>
+              <p className="text-xs text-amber-700 max-w-2xl">Utiliza este botón para borrar el cronograma de prueba antiguo de tu base de datos y cargar automáticamente los <b>20 procesos auditables</b> oficiales de Termales Santa Rosa.</p>
+           </div>
+           <button onClick={forceUpdateCronograma} className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all">
+             Cargar 20 Procesos
+           </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
           <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm mb-4">📥 Exportar Backup (Descarga)</h3>
@@ -942,17 +951,6 @@ export default function App() {
             <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
           </label>
         </div>
-      </div>
-      
-      <div className="bg-blue-50 p-6 rounded-3xl border border-blue-200">
-        <h3 className="font-black text-blue-800 uppercase tracking-widest text-sm mb-2">💡 ¿Cómo hacer una carga masiva desde Excel?</h3>
-        <ol className="list-decimal pl-5 text-xs text-blue-900 space-y-2 mt-4 font-medium">
-          <li>Haz clic en <b>Descargar Base de Datos (.JSON)</b> para obtener la estructura actual.</li>
-          <li>Usa un convertidor gratuito en línea de "JSON a Excel" para ver tus datos en formato tabla.</li>
-          <li>Agrega tus cientos de filas nuevas en el Excel asegurándote de no cambiar los nombres de las columnas (ej. <i>id, proceso, sede</i>).</li>
-          <li>Usa un convertidor de "Excel a JSON" para volver a transformar tu tabla en código.</li>
-          <li>Sube el nuevo archivo `.json` usando el botón rojo de <b>Carga Masiva</b>.</li>
-        </ol>
       </div>
     </div>
   );
@@ -1008,7 +1006,6 @@ export default function App() {
     const mesesCompletos = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     const mesesGrafica = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-    // CORRECCIÓN MATEMÁTICA: Agrupación real por mes en lugar de sacar promedios globales
     const dataIncidentes = mesesCompletos.map((mesTexto, idx) => {
       const valorMes = incFiltrados
         .filter(i => getItemMesText(i) === mesTexto)
@@ -1145,6 +1142,19 @@ export default function App() {
 
     const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
+    // LÓGICA DE ORDENAMIENTO CRONOLÓGICA INTELIGENTE
+    // Identificamos cuál es el "primer mes" en el que este proceso está planeado
+    const getMinMesIndex = (mesesArray) => {
+      if (!mesesArray || mesesArray.length === 0) return 99; // Si no tiene meses, al final
+      return Math.min(...mesesArray.map(m => allMonths.indexOf(m)).filter(idx => idx !== -1));
+    };
+
+    const cronogramaOrdenado = [...safeCronograma].sort((a, b) => {
+      const indexA = getMinMesIndex(a.meses);
+      const indexB = getMinMesIndex(b.meses);
+      return indexA - indexB;
+    });
+
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1179,7 +1189,7 @@ export default function App() {
                    </div>
                    <div className="divide-y divide-slate-100 p-2">
                      {editMonitoreo && isAdmin && (
-                       <form onSubmit={handleMonitoreoSubmit} key={editMonitoreo?.id || 'nuevo-monitoreo'} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
+                       <form onSubmit={handleMonitoreoSubmit} key={editMonitoreo?.id ? `edit-monitoreo-${editMonitoreo.id}-${formResetKey}` : `new-monitoreo-${formResetKey}`} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
                          <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Nombre KRI..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
                          <input name="proceso" defaultValue={editMonitoreo.proceso||''} placeholder="Proceso..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
                          <div className="flex space-x-2 mb-2">
@@ -1219,6 +1229,7 @@ export default function App() {
                 </div>
              </div>
 
+             {/* TABLA PRINCIPAL DEL CRONOGRAMA */}
              <div className="md:col-span-3">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm h-full flex flex-col">
                    <div className="bg-[#1e293b] text-white p-4 flex justify-between items-center">
@@ -1250,21 +1261,50 @@ export default function App() {
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
-                           <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
-                             <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
-                             <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
-                             <td className="p-3 font-black text-slate-800">{c.proceso}</td>
-                             <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
-                             <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
-                             {isAdmin && (
-                               <td className="p-3 text-center whitespace-nowrap">
-                                 <button onClick={() => {setEditCronograma(c); scrollToTop();}} className="text-blue-500 hover:text-blue-700 mx-1">✏️</button>
-                                 <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-red-500 hover:text-red-700 mx-1">🗑️</button>
-                               </td>
-                             )}
-                           </tr>
-                         ))}
+                         {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => {
+                           
+                           // NUEVO MODO DE EDICIÓN EN LÍNEA PARA ESTA TABLA
+                           if (inlineCronoId === c.id) {
+                             return (
+                               <tr key={`crono-edit-${c.id}-${index}`} className="bg-indigo-50/40 shadow-inner">
+                                 <td className="p-2 align-top"><input value={inlineCronoData.codigo} onChange={e=>setInlineCronoData({...inlineCronoData, codigo: e.target.value})} className="w-12 border border-indigo-200 p-1.5 text-xs rounded focus:ring-2 outline-none font-mono text-center"/></td>
+                                 <td className="p-2 align-top"><input value={inlineCronoData.periodo} onChange={e=>setInlineCronoData({...inlineCronoData, periodo: e.target.value})} className="w-full min-w-[80px] border border-indigo-200 p-1.5 text-xs rounded focus:ring-2 outline-none"/></td>
+                                 <td className="p-2 align-top"><input value={inlineCronoData.proceso} onChange={e=>setInlineCronoData({...inlineCronoData, proceso: e.target.value})} className="w-full min-w-[150px] border border-indigo-200 p-1.5 text-xs font-bold rounded focus:ring-2 outline-none"/></td>
+                                 <td className="p-2 align-top"><textarea value={inlineCronoData.enfoque} onChange={e=>setInlineCronoData({...inlineCronoData, enfoque: e.target.value})} className="w-full min-w-[200px] border border-indigo-200 p-1.5 text-xs rounded focus:ring-2 outline-none" rows={3}/></td>
+                                 <td className="p-2 align-top text-center"><input type="number" min="0" max="100" value={inlineCronoData.cumplimiento} onChange={e=>setInlineCronoData({...inlineCronoData, cumplimiento: parseInt(e.target.value)||0})} className="w-16 border border-indigo-200 p-1.5 text-xs text-center font-black rounded focus:ring-2 outline-none text-indigo-700"/></td>
+                                 {isAdmin && (
+                                   <td className="p-2 text-center align-top whitespace-nowrap">
+                                     <button onClick={async () => {
+                                       const updated = safeCronograma.map(item => item.id === inlineCronoId ? inlineCronoData : item);
+                                       setCronograma(updated);
+                                       await saveToCloud({ cronograma: updated });
+                                       setInlineCronoId(null);
+                                       showNotification("Proceso actualizado.");
+                                     }} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold mx-1 shadow transition-colors w-full block mb-2">💾 Guardar</button>
+                                     <button onClick={() => setInlineCronoId(null)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded text-xs font-bold mx-1 shadow transition-colors w-full block">✖ Cancelar</button>
+                                   </td>
+                                 )}
+                               </tr>
+                             );
+                           }
+
+                           // MODO VISTA NORMAL
+                           return (
+                             <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
+                               <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
+                               <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
+                               <td className="p-3 font-black text-slate-800">{c.proceso}</td>
+                               <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
+                               <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
+                               {isAdmin && (
+                                 <td className="p-3 text-center whitespace-nowrap">
+                                   <button onClick={() => { setInlineCronoId(c.id); setInlineCronoData({...c}); }} className="text-blue-500 hover:text-blue-700 mx-1 border border-blue-200 bg-white px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-all">✏️ Editar</button>
+                                   <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-red-500 hover:text-red-700 mx-1 border border-red-200 bg-white px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-all">🗑️</button>
+                                 </td>
+                               )}
+                             </tr>
+                           );
+                         })}
                        </tbody>
                      </table>
                    </div>
@@ -1273,43 +1313,43 @@ export default function App() {
           </div>
         </div>
 
+        {/* FORMULARIO INFERIOR: AHORA ES SOLO PARA AGREGAR NUEVOS PROCESOS */}
         {isAdmin && (
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center border-b pb-3 mb-4">
-              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editCronograma ? '✏️ Editando Proceso del Plan' : '➕ Agregar Proceso al Cronograma'}</h3>
-              {editCronograma && <button onClick={() => setEditCronograma(null)} className="text-xs text-red-500 font-bold">✖ Cancelar</button>}
+              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">➕ Agregar Nuevo Proceso al Cronograma</h3>
             </div>
-            <form onSubmit={handleCronogramaSubmit} key={editCronograma?.id || 'nuevo-cronograma'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-              <div><label className="font-bold text-gray-600 block mb-1">Código ID</label><input name="codigo" defaultValue={editCronograma?.codigo||''} required placeholder="Ej: 05" className="w-full border rounded-lg p-2" /></div>
-              <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required placeholder="Ej: Enero - Abril" className="w-full border rounded-lg p-2" /></div>
-              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" defaultValue={editCronograma?.proceso||''} required className="w-full border rounded-lg p-2" /></div>
+            <form onSubmit={handleAddCronogramaSubmit} key={`new-crono-form-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+              <div><label className="font-bold text-gray-600 block mb-1">Código ID</label><input name="codigo" required placeholder="Ej: 05" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+              <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" required placeholder="Ej: Enero - Abril" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" required placeholder="Ej: Talento Humano" className="w-full border border-slate-300 rounded-lg p-2" /></div>
               
-              <div><label className="font-bold text-gray-600 block mb-1">Responsable</label><input name="responsable" defaultValue={editCronograma?.responsable||''} required className="w-full border rounded-lg p-2" /></div>
-              <div><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" defaultValue={editCronograma?.apoyo||''} className="w-full border rounded-lg p-2" /></div>
-              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% Cumplimiento (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={editCronograma?.cumplimiento||0} required className="w-full border rounded-lg p-2" /></div>
+              <div><label className="font-bold text-gray-600 block mb-1">Responsable</label><input name="responsable" required placeholder="Responsable principal" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+              <div><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" placeholder="Persona de apoyo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% Cumplimiento (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={0} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
               
-              <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" defaultValue={editCronograma?.enfoque||''} required rows="2" className="w-full border rounded-lg p-2"></textarea></div>
+              <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" required placeholder="Descripción técnica de lo que se va a auditar..." rows="2" className="w-full border border-slate-300 rounded-lg p-2"></textarea></div>
               
               <div className="md:col-span-4">
                 <label className="font-bold text-gray-600 block mb-2">Meses Planeados (Para gráfico de Gantt)</label>
                 <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(mes => (
-                    <label key={`gantt-label-${mes}`} className="flex items-center space-x-2 cursor-pointer">
-                      <input type="checkbox" name={`mes_${mes}`} defaultChecked={editCronograma?.meses?.includes(mes)} className="rounded text-[#004d40] focus:ring-[#004d40]" />
-                      <span className="text-[10px] font-bold uppercase">{mes.substring(0,3)}</span>
+                  {allMonths.map(mes => (
+                    <label key={`gantt-label-new-${mes}`} className="flex items-center space-x-2 cursor-pointer">
+                      <input type="checkbox" name={`mes_${mes}`} className="rounded text-[#004d40] focus:ring-[#004d40]" />
+                      <span className="text-[10px] font-bold uppercase notranslate" translate="no">{mes.substring(0,3)}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
-              <div className="md:col-span-4 flex justify-end mt-2"><button type="submit" className="bg-[#004d40] hover:bg-[#00695c] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-colors">{editCronograma ? 'Actualizar Plan' : 'Guardar en Plan'}</button></div>
+              <div className="md:col-span-4 flex justify-end mt-2"><button type="submit" className="bg-[#004d40] hover:bg-[#00695c] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-colors">➕ Registrar Proceso</button></div>
             </form>
           </div>
         )}
 
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
            <div className="bg-slate-100 border-b border-slate-200 p-4 flex justify-between items-center">
-             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">GANTT CONTROL INTERNO</h3>
+             <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">GANTT CONTROL INTERNO (ORDEN CRONOLÓGICO)</h3>
              <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
                 <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-64 shadow-sm" />
@@ -1331,30 +1371,78 @@ export default function App() {
                      <div>Responsable</div>
                      <FilterInput colKey="responsable" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
-                   <th className="border border-slate-300 p-2 w-32">
-                     <div>Apoyo</div>
-                     <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                   </th>
-                   {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
+                   {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">{m.substring(0,3)}</th>)}
+                   {isAdmin && <th className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">ACCIÓN</th>}
                  </tr>
                </thead>
                <tbody>
-                 {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
-                   <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
-                     <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
-                     <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
-                     <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
-                     <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.apoyo}</td>
-                     {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(mes => {
-                       const isPlanned = c.meses?.includes(mes);
-                       return (
-                         <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0`}>
-                           {isPlanned && <div className="bg-[#00695c] text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner">Planeado</div>}
+                 {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => {
+                   
+                   // MODO DE EDICIÓN EN LÍNEA PARA GANTT
+                   if (inlineCronoId === c.id) {
+                      return (
+                         <tr key={`gantt-edit-${c.id}-${index}`} className="bg-indigo-50/40 shadow-inner">
+                           <td className="border border-slate-300 p-2 align-middle text-center"><input value={inlineCronoData.codigo} onChange={e=>setInlineCronoData({...inlineCronoData, codigo: e.target.value})} className="w-8 border border-indigo-200 p-1 text-xs rounded outline-none text-center font-mono"/></td>
+                           <td className="border border-slate-300 p-2 align-middle"><input value={inlineCronoData.proceso} onChange={e=>setInlineCronoData({...inlineCronoData, proceso: e.target.value})} className="w-full min-w-[120px] border border-indigo-200 p-1 text-xs font-bold rounded outline-none"/></td>
+                           <td className="border border-slate-300 p-2 align-middle"><input value={inlineCronoData.responsable} onChange={e=>setInlineCronoData({...inlineCronoData, responsable: e.target.value})} className="w-full border border-indigo-200 p-1 text-xs rounded outline-none"/></td>
+                           {allMonths.map(mes => (
+                             <td key={`gantt-edit-cell-${c.id}-${mes}`} className="border border-slate-300 text-center align-middle p-1 bg-white">
+                               <label className="flex items-center justify-center w-full h-full cursor-pointer p-1">
+                                 <input type="checkbox" checked={inlineCronoData.meses?.includes(mes)} onChange={e => {
+                                    const checked = e.target.checked;
+                                    const newMeses = checked ? [...(inlineCronoData.meses||[]), mes] : (inlineCronoData.meses||[]).filter(m => m !== mes);
+                                    setInlineCronoData({...inlineCronoData, meses: newMeses});
+                                 }} className="w-4 h-4 text-indigo-600 border-indigo-300 focus:ring-indigo-500 cursor-pointer" />
+                               </label>
+                             </td>
+                           ))}
+                           {isAdmin && (
+                             <td className="border border-slate-300 p-2 text-center align-middle whitespace-nowrap bg-white">
+                               <button onClick={async () => {
+                                 const updated = safeCronograma.map(item => item.id === inlineCronoId ? inlineCronoData : item);
+                                 setCronograma(updated);
+                                 await saveToCloud({ cronograma: updated });
+                                 setInlineCronoId(null);
+                                 showNotification("Gantt actualizado correctamente.");
+                               }} className="bg-emerald-500 text-white px-2 py-1 rounded text-xs font-bold mb-1 w-full shadow hover:bg-emerald-600 transition-colors">💾 OK</button>
+                               <button onClick={() => setInlineCronoId(null)} className="bg-slate-200 text-slate-700 px-2 py-1 rounded text-xs font-bold w-full shadow hover:bg-slate-300 transition-colors">✖</button>
+                             </td>
+                           )}
+                         </tr>
+                      );
+                   }
+
+                   // MODO VISTA NORMAL PARA GANTT
+                   return (
+                     <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                       <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono align-middle">{c.codigo}</td>
+                       <td className="border border-slate-300 p-2 font-black text-slate-800 align-middle">{c.proceso}</td>
+                       <td className="border border-slate-300 p-2 text-slate-600 font-medium align-middle">{c.responsable}</td>
+                       {allMonths.map(mes => {
+                         const isPlanned = c.meses?.includes(mes);
+                         let bgColor = 'bg-transparent';
+                         let textLabel = '';
+                         
+                         if (isPlanned) {
+                             if (c.cumplimiento === 100) { bgColor = 'bg-emerald-500'; textLabel = 'Completado'; } 
+                             else if (c.cumplimiento > 0) { bgColor = 'bg-amber-500'; textLabel = `${c.cumplimiento}%`; } 
+                             else { bgColor = 'bg-[#00695c]'; textLabel = 'Planeado'; }
+                         }
+
+                         return (
+                           <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0 align-middle`}>
+                             {isPlanned && <div className={`${bgColor} text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner notranslate`} translate="no">{textLabel}</div>}
+                           </td>
+                         );
+                       })}
+                       {isAdmin && (
+                         <td className="border border-slate-300 p-2 text-center align-middle bg-slate-50">
+                           <button onClick={() => { setInlineCronoId(c.id); setInlineCronoData({...c}); }} className="text-blue-500 hover:text-blue-700 bg-white border border-blue-200 px-3 py-1.5 rounded shadow-sm text-[10px] font-bold transition-all">✏️ Editar Fila</button>
                          </td>
-                       );
-                     })}
-                   </tr>
-                 ))}
+                       )}
+                     </tr>
+                   );
+                 })}
                </tbody>
              </table>
            </div>
@@ -1383,9 +1471,9 @@ export default function App() {
           </div>
         </div>
         {isAdmin && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+          <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
-            <form onSubmit={handleRiesgoSubmit} key={editRiesgo?.id || 'nuevo-riesgo'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <form onSubmit={handleRiesgoSubmit} key={editRiesgo ? `edit-riesgo-${editRiesgo.id}-${formResetKey}` : `new-riesgo-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
               
               <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
               
@@ -1448,6 +1536,7 @@ export default function App() {
                   <td className="p-3 italic max-w-xs">⚙️ {r.descripcionControl}</td>
                   <td className="p-3"><span className="px-2 py-0.5 rounded bg-slate-100 font-bold text-[10px]">{r.apetitoVal}</span></td>
                   <td className="p-3 text-center whitespace-nowrap">
+                    {isAdmin && <button onClick={() => {setEditRiesgo(r); setFormResetKey(Date.now()); scrollToTop();}} className="text-blue-500 hover:text-blue-700 mx-1">✏️</button>}
                     {isAdmin && <button onClick={() => handleDeleteItem('riesgos', r.id)} className="text-red-600 font-bold px-2 py-1 bg-red-50 rounded text-[10px] hover:bg-red-100">Eliminar</button>}
                   </td>
                 </tr>
@@ -1521,7 +1610,7 @@ export default function App() {
         </div>
 
         {editApetito && (
-          <div className="bg-white p-6 rounded-3xl shadow-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white animate-in fade-in slide-in-from-top-4 space-y-6 relative z-10">
+          <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white animate-in fade-in slide-in-from-top-4 space-y-6 relative z-10">
             <div className="flex justify-between items-center border-b border-blue-100 pb-4">
               <div>
                 <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">⚙️ Arquitectura COSO ERM</h3>
@@ -1530,7 +1619,7 @@ export default function App() {
               <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
             </div>
             
-            <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
+            <form onSubmit={handleApetitoSubmit} key={editApetito ? `edit-apetito-${editApetito.id}-${formResetKey}` : `new-apetito-${formResetKey}`} className="space-y-6 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
@@ -1657,7 +1746,7 @@ export default function App() {
                       </td>
 
                       <td className="p-4 text-center">
-                        {isAdmin && <button onClick={() => {setEditApetito(r); scrollToTop();}} className="bg-white border border-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full"><span>⚙️</span> <span>Ajustador</span></button>}
+                        {isAdmin && <button onClick={() => {setEditApetito(r); setFormResetKey(Date.now()); scrollToTop();}} className="bg-white border border-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full"><span>⚙️</span> <span>Ajustador</span></button>}
                       </td>
                     </tr>
                   );
@@ -1677,9 +1766,9 @@ export default function App() {
       <div className="space-y-6">
         <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">Auditoría de Controles</h2></div>
         {isAdmin && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-            <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Nuevo Test de Control</h3>
-            <form onSubmit={handleEvaluacionSubmit} key={editEvaluacion?.id || 'nueva-evaluacion'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+          <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+            <h3 className="text-xs font-bold text-slate-700 uppercase">{editEvaluacion ? '✏️ Editar Test' : '➕ Nuevo Test de Control'}</h3>
+            <form onSubmit={handleEvaluacionSubmit} key={editEvaluacion ? `edit-eval-${editEvaluacion.id}-${formResetKey}` : `new-eval-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
               <div className="md:col-span-2"><label className="font-bold text-gray-600">Riesgo / Control</label><select name="idRiesgo" defaultValue={editEvaluacion?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white">{safeRiesgos.map((r, index) => <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>)}</select></div>
               <div><label className="font-bold text-gray-600">Diseño</label><select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
               <div><label className="font-bold text-gray-600">Ejecución</label><select name="ejecucion" defaultValue={editEvaluacion?.ejecucion||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Eficaz</option><option>Inadecuado</option></select></div>
@@ -1767,7 +1856,7 @@ export default function App() {
                   </td>
                   {isAdmin && (
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
-                      <button onClick={() => {setEditEvaluacion(ev); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                      <button onClick={() => {setEditEvaluacion(ev); setFormResetKey(Date.now()); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
                       <button onClick={() => handleDeleteItem('evaluaciones', ev.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
                     </td>
                   )}
@@ -1790,13 +1879,13 @@ export default function App() {
       </div>
 
       {isAdmin && (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
+        <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
           <div className="flex justify-between items-center border-b pb-3">
             <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editHallazgo ? `✏️ Editando Hallazgo: ${editHallazgo.ref}` : '➕ DOCUMENTAR NUEVA DESVIACIÓN'}</h3>
             {editHallazgo && <button onClick={() => setEditHallazgo(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">✖ Cancelar Edición</button>}
           </div>
 
-          <form onSubmit={handleHallazgoSubmit} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+          <form onSubmit={handleHallazgoSubmit} key={editHallazgo ? `edit-hallazgo-${editHallazgo.id}-${formResetKey}` : `new-hallazgo-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             <div><label className="font-bold text-gray-600 block mb-1">ID / Código (Manual)</label><input name="ref" defaultValue={editHallazgo?.ref||''} required placeholder="Ej: HAL-2026-01" className="w-full border border-slate-300 rounded-lg p-2" /></div>
             <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
             <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
@@ -1912,7 +2001,7 @@ export default function App() {
                     </span>
                     {isAdmin && (
                       <div className="flex justify-center items-center space-x-2 border-t border-slate-100 pt-3">
-                        <button onClick={() => {setEditHallazgo(h); scrollToTop();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
+                        <button onClick={() => {setEditHallazgo(h); setFormResetKey(Date.now()); scrollToTop();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
                           ✏️ Editar
                         </button>
                         <span className="text-slate-300">|</span>
@@ -1938,10 +2027,10 @@ export default function App() {
       <div className="space-y-6">
         <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">✅ Planes de Acción Remediales</h2></div>
         {isAdmin && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+          <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
             <h3 className="text-xs font-bold text-slate-700 uppercase">{editPlan ? `✏️ Editando Avance de Plan` : '➕ Asignar Plan'}</h3>
             
-            <form onSubmit={handlePlanSubmit} key={editPlan?.id || 'nuevo-plan'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+            <form onSubmit={handlePlanSubmit} key={editPlan ? `edit-plan-${editPlan.id}-${formResetKey}` : `new-plan-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
               <div className="md:col-span-4"><label className="font-bold text-gray-600">Hallazgo Vinculado</label><select name="idHallazgo" defaultValue={editPlan?.idHallazgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="">-- Seleccione --</option>{safeHallazgos.map((h, index) => <option key={`opt-hallz-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>)}</select></div>
               
               <div className="md:col-span-2">
@@ -2034,7 +2123,7 @@ export default function App() {
                     <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
                     <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
-                      {isAdmin && <button onClick={() => {setEditPlan(p); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
+                      {isAdmin && <button onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
                       {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
                     </td>
                   </tr>
@@ -2051,9 +2140,9 @@ export default function App() {
     <div className="space-y-6">
       <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
       {isAdmin && (
-        <div className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
+        <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
-          <form onSubmit={handleIncidenteSubmit} key={editIncidente?.id || 'nuevo-incidente'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+          <form onSubmit={handleIncidenteSubmit} key={editIncidente ? `edit-incidente-${editIncidente.id}-${formResetKey}` : `new-incidente-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
             <input name="idRiesgo" required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
             <input name="titulo" required placeholder="Título del Evento" className="border p-2 rounded" />
             <input name="costo" type="number" required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
@@ -2072,6 +2161,7 @@ export default function App() {
               <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3 text-right">Costo (COP)</th>
+              {isAdmin && <th className="p-3 text-center">Acción</th>}
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
@@ -2082,6 +2172,12 @@ export default function App() {
                 <td className="p-3"><b>{i.titulo}</b><p className="text-[10px] text-slate-400 mt-0.5">{i.descripcion}</p></td>
                 <td className="p-3"><span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold text-[9px]">{i.impacto}</span></td>
                 <td className="p-3 text-right font-mono font-bold text-red-600 notranslate" translate="no">${Number(i.costo || 0).toLocaleString('es-CO')}</td>
+                {isAdmin && (
+                  <td className="p-3 text-center whitespace-nowrap space-x-1">
+                    <button onClick={() => {setEditIncidente(i); setFormResetKey(Date.now()); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                    <button onClick={() => handleDeleteItem('incidentes', i.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -2104,7 +2200,7 @@ export default function App() {
             <tbody className="divide-y text-slate-600">
               {logs.map((l, idx) => (
                 <tr key={idx} className="hover:bg-slate-50">
-                  <td className="p-3 font-mono">{l.fecha || new Date().toLocaleString()}</td>
+                  <td className="p-3 font-mono notranslate" translate="no">{l.fecha || new Date().toLocaleString()}</td>
                   <td className="p-3 font-bold text-slate-900">{l.ref}</td>
                   <td className="p-3 italic">{l.accion || 'Registro guardado'}</td>
                 </tr>
@@ -2192,15 +2288,19 @@ export default function App() {
     );
   }
 
+  if (!isAdmin) {
+    return renderRCSAPortal();
+  }
+
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       
       {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
-      {isPresenting && (
+      {isPresentationMode && (
         <button 
-          onClick={() => setIsPresenting(false)} 
+          onClick={() => setIsPresentationMode(false)} 
           className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 flex items-center space-x-2 border-2 border-slate-700 animate-in slide-in-from-bottom-10"
         >
           <span>✖</span><span>Salir de Presentación</span>
@@ -2208,7 +2308,7 @@ export default function App() {
       )}
 
       {/* SIDEBAR */}
-      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresenting ? 'hidden' : 'flex'}`}>
+      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
         <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
@@ -2234,18 +2334,18 @@ export default function App() {
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
         {/* HEADER SUPERIOR */}
-        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresenting ? 'hidden' : 'flex'}`}>
+        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresentationMode ? 'hidden' : 'flex'}`}>
           <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
           <button 
-            onClick={() => setIsPresenting(true)} 
+            onClick={() => setIsPresentationMode(true)} 
             className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-2"
           >
             <span>📺</span><span>Modo Presentación</span>
           </button>
         </header>
         
-        <main className={`flex-grow overflow-y-auto ${isPresenting ? 'p-12' : 'p-8'}`}>
-          <div className={`${isPresenting ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
+        <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50`}>
+          <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
             {activeTab === 'plan_anual' && renderPlanAnual()}
@@ -2260,6 +2360,8 @@ export default function App() {
           </div>
         </main>
       </div>
+      
+      {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
   );
 }
