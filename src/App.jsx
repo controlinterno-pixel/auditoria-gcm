@@ -8,9 +8,10 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // =====================================================================
-// 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
+// 🤖 CONEXIÓN SEGURA A GEMINI PRO (Inyectada desde Vercel / .env)
 // =====================================================================
 let GEMINI_API_KEY = "";
 try {
@@ -21,11 +22,12 @@ try {
   console.warn("Entorno simulado: variables de Vercel no detectadas.");
 }
 
-// --- CONFIGURACIÓN DE FIREBASE (Sin Storage, usaremos Enlaces Drive/OneDrive) ---
+// --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyBGE2P-_oep_N7o8so6wubmaZXv12imZaE",
   authDomain: "gestion-de-riesgos-b4bf0.firebaseapp.com",
   projectId: "gestion-de-riesgos-b4bf0",
+  storageBucket: "gestion-de-riesgos-b4bf0.firebasestorage.app",
   messagingSenderId: "507146405155",
   appId: "1:507146405155:web:574f89d0cc6256e629b896",
   measurementId: "G-WTZPTWV67Y"
@@ -34,8 +36,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); 
 
-// --- CONTROL DE ACCESO (ROLES) ---
+// --- CONTROL DE ACCESO ---
 const ADMIN_EMAILS = [
   "controlinterno@termales.com.co",
   "auditoria@termales.com.co",
@@ -46,7 +49,6 @@ const ADMIN_EMAILS = [
 // =====================================================================
 // 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
 // =====================================================================
-
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
 const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 const mapMesNumATexto = { 
@@ -58,12 +60,8 @@ const mapMesNumATexto = {
 const formatSafeDate = (val) => {
   if (!val) return '';
   if (typeof val === 'string') return val;
-  if (val.toDate && typeof val.toDate === 'function') {
-    return val.toDate().toISOString().split('T')[0];
-  }
-  if (val instanceof Date) {
-    return val.toISOString().split('T')[0];
-  }
+  if (val.toDate && typeof val.toDate === 'function') return val.toDate().toISOString().split('T')[0];
+  if (val instanceof Date) return val.toISOString().split('T')[0];
   return String(val);
 };
 
@@ -102,21 +100,12 @@ const calcularMatriz5x5 = (probabilidad, impacto) => {
   const pVal = mapProbabilidadNum[probabilidad] || 3;
   const iVal = mapImpactoNum[impacto] || 2;
   const score = pVal * iVal;
+  let apetito = "Dentro de Apetito", accion = "Aceptar / Monitorear", color = "bg-emerald-500 text-white", borderSemaforo = "border-emerald-200";
 
-  let apetito = "Dentro de Apetito";
-  let accion = "Aceptar / Monitorear";
-  let color = "bg-emerald-500 text-white";
-  let borderSemaforo = "border-emerald-200";
-
-  if (score <= 4) {
-    color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600";
-  } else if (score <= 9) {
-    color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-600"; accion = "Monitorear periódicamente";
-  } else if (score <= 16) {
-    color = "bg-orange-500 text-white"; borderSemaforo = "border-orange-600"; apetito = "Fuera de Apetito"; accion = "Mitigar / Ajustar Controles";
-  } else {
-    color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Fuera de Apetito"; accion = "Evitar / Suspender Proceso / Transferir";
-  }
+  if (score <= 4) { color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600"; } 
+  else if (score <= 9) { color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-600"; accion = "Monitorear periódicamente"; } 
+  else if (score <= 16) { color = "bg-orange-500 text-white"; borderSemaforo = "border-orange-600"; apetito = "Fuera de Apetito"; accion = "Mitigar / Ajustar Controles"; } 
+  else { color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Fuera de Apetito"; accion = "Evitar / Suspender Proceso / Transferir"; }
   return { score, apetito, accion, color, borderSemaforo };
 };
 
@@ -124,9 +113,7 @@ const applyFilters = (dataArray, globalTerm, colFilters = {}) => {
   let result = dataArray;
   if (globalTerm) {
     const lowerTerm = globalTerm.toLowerCase();
-    result = result.filter(item => 
-      Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
-    );
+    result = result.filter(item => Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm)));
   }
   if (colFilters && Object.keys(colFilters).length > 0) {
     Object.entries(colFilters).forEach(([key, filterValue]) => {
@@ -152,8 +139,7 @@ const ProgressBar = ({ progress }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between text-[10px] font-bold mb-1">
-        <span className="text-slate-500">PROGRESO</span>
-        <span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
+        <span className="text-slate-500">PROGRESO</span><span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2">
         <div className={`${color} h-2 rounded-full transition-all duration-1000`} style={{ width: `${safeProgress}%` }}></div>
@@ -165,65 +151,41 @@ const ProgressBar = ({ progress }) => {
 const Gauge = ({ value, label, sublabel, colorClass }) => {
   const safeValue = Math.min(Math.max(Math.round(Number(value) || 0), 0), 100);
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
-      <div className="relative w-32 h-32 flex items-center justify-center">
+    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
+      <div className="relative w-24 h-24 flex items-center justify-center">
         <svg className="w-full h-full transform -rotate-90">
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" 
-            strokeDasharray={339} strokeDashoffset={339 - (339 * safeValue) / 100}
-            className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
+          <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
+          <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={251} strokeDashoffset={251 - (251 * safeValue) / 100} className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
         </svg>
-        <span className="absolute text-3xl font-black text-slate-800 notranslate" translate="no">{safeValue} %</span>
+        <span className="absolute text-xl font-black text-slate-800 notranslate" translate="no">{safeValue}%</span>
       </div>
-      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
-      <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">{label}</p>
+      <p className="text-xs font-bold text-slate-700 mt-1">{sublabel}</p>
     </div>
   );
 };
 
 const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
-  <input 
-    type="text" 
-    placeholder={placeholder || "Filtrar..."}
-    className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${
-      dark 
-        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
-        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
-    }`}
-    value={columnFilters[colKey] || ''}
-    onChange={(e) => handleColFilterChange(colKey, e.target.value)}
-    onClick={(e) => e.stopPropagation()} 
-  />
+  <input type="text" placeholder={placeholder || "Filtrar..."} className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${dark ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'}`} value={columnFilters[colKey] || ''} onChange={(e) => handleColFilterChange(colKey, e.target.value)} onClick={(e) => e.stopPropagation()} />
 );
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   const maxVal = Math.max(...data.map(d => d.valor), 1);
-  const height = 120;
-  const width = 600;
-  const paddingY = 20;
-  const paddingX = 20;
-
-  const points = data.map((d, i) => {
-    const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
-    const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
-    return `${x},${y}`;
-  }).join(' ');
-
+  const height = 120, width = 600, paddingY = 20, paddingX = 20;
+  const points = data.map((d, i) => `${paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1))},${height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY))}`).join(' ');
   const fillPoints = `${paddingX},${height - paddingY} ${points} ${width - paddingX},${height - paddingY}`;
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
        <div className="flex justify-between items-center mb-6">
-         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4>
-         <span className="text-xl">{isCurrency ? '📉' : '📊'}</span>
+         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4><span className="text-xl">{isCurrency ? '📉' : '📊'}</span>
        </div>
        <div className="relative w-full">
          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-sm overflow-visible" preserveAspectRatio="none">
            <polygon points={fillPoints} fill={fillColor} opacity="0.5" />
            <polyline points={points} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
            {data.map((d, i) => {
-              const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
-              const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
+              const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1)), y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
               return (
                 <g key={`point-${i}`} className="group cursor-pointer">
                     <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
@@ -243,7 +205,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 };
 
-// --- DATOS POR DEFECTO ACTUALIZADOS (20 PROCESOS DEL PLAN ANUAL) ---
+// --- DATOS POR DEFECTO ACTUALIZADOS DE LA IMAGEN (20 PROCESOS) ---
 const defaultCronograma = [
   { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] },
   { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },
@@ -259,7 +221,7 @@ const defaultCronograma = [
   { id: 12, codigo: '12', periodo: 'Agosto - Octubre', proceso: 'Mercadeo', enfoque: 'Auditoría a campañas, pauta digital y ROI.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Agosto', 'Septiembre', 'Octubre'] },
   { id: 13, codigo: '13', periodo: 'Septiembre - Noviembre', proceso: 'Control Inventarios', enfoque: 'Toma física de inventarios e insumos operacionales.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Septiembre', 'Octubre', 'Noviembre'] },
   { id: 14, codigo: '14', periodo: 'Anual', proceso: 'Gestión de tecnologías de la información', enfoque: 'Primer semestre Verificación documental y segundo semestre auditoria externa', cumplimiento: 0, responsable: 'N/A', apoyo: 'N/A', meses: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
-  { id: 15, codigo: '15', periodo: 'Febrero, Mayo, Junio', proceso: 'Operaciones Alojamiento', enfoque: 'Rentabilidad AyB, Auditoria Locativa, Calidad, Taquilla, Manillas.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Febrero', 'Mayo', 'Junio'] },
+  { id: 15, codigo: '15', periodo: 'Febrero, Mayo, Junio', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Rentabilidad AyB, Auditoria Locativa, Calidad, Taquilla, Manillas.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Febrero', 'Mayo', 'Junio'] },
   { id: 16, codigo: '16', periodo: 'Marzo, Abril, Julio, Agosto', proceso: 'Alimentos y Bebidas (AYB)', enfoque: 'Estandarización de procesos y alimentación.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Marzo', 'Abril', 'Julio', 'Agosto'] },
   { id: 17, codigo: '17', periodo: 'Agosto', proceso: 'Formación y Desarrollo', enfoque: 'Auditoría a planes de capacitación y matriz de habilidades.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Agosto'] },
   { id: 18, codigo: '18', periodo: 'Mayo - Junio', proceso: 'Selección y Vinculación', enfoque: 'Procesos de contratación y onboarding.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
@@ -268,16 +230,35 @@ const defaultCronograma = [
 ];
 
 const defaultRiesgos = [
-  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: new Date().getFullYear(), mes: 'Mayo', historialCambios: [] },
-  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: new Date().getFullYear(), mes: 'Mayo', historialCambios: [] },
-  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches', causaRaiz: 'Obsolescencia de servidores', descripcion: 'Ataque de ransomware que paraliza la operación.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y backups.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: new Date().getFullYear(), mes: 'Junio', historialCambios: [] }
+  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2026, mes: 'Mayo', historialCambios: [] },
+  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo.', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2026, mes: 'Mayo', historialCambios: [] },
+  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Ataque de ransomware que paraliza la operation central y expone datos confidenciales.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
 ];
 
-const defaultHallazgos = [{ id: 1, sede: 'Ecoparque', ref: 'HAL-2026-001', titulo: 'Acceso de usuarios genéricos a BD.', proceso: 'Sistemas', responsable: 'Jefe de TI', auditor: 'Auditoría TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', anio: new Date().getFullYear(), mes: 'Junio', historialCambios: [] }];
-const defaultPlanes = [{ id: 1, idHallazgo: 1, accion: 'Desactivar credenciales comunes.', responsable: 'Jefe de TI', fecha: '2026-07-15', estado: 'En Proceso', progreso: 30, anio: new Date().getFullYear(), mes: 'Julio', historialCambios: [] }];
-const defaultIncidentes = [{ id: 1, idRiesgo: 201, fecha: '2026-06-05', titulo: 'Alarma de ataque contenida', descripcion: 'El firewall detectó 400 intentos.', costo: 1200000, impacto: 'Bajo', reportadoPor: 'analista@termales.com', estado: 'Cerrado', anio: new Date().getFullYear(), mes: 'Junio', historialCambios: [] }];
-const defaultEvaluaciones = [{ id: 1, idRiesgo: 201, fecha: '2026-06-01', diseño: 'Eficaz', ejecucion: 'Eficaz', calificacion: 100, comentarios: 'Prueba de penetración simulada arrojó contención.', auditor: 'controlinterno@termales.com.co', anio: new Date().getFullYear(), mes: 'Junio', historialCambios: [] }];
-const defaultMonitoreo = [{ id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' }];
+const defaultHallazgos = [
+  { id: 1, sede: 'Ecoparque', ref: 'HAL-2026-001', titulo: 'Acceso de usuarios genéricos a la base de datos de taquilla.', proceso: 'Sistemas', responsable: 'Jefe de TI', auditor: 'Auditoría TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', anio: 2026, mes: 'Junio', historialCambios: [] },
+  { id: 2, sede: 'Hotel', ref: 'HAL-2025-089', titulo: 'Ausencia de actas de capacitación en higiene de alimentos.', proceso: 'Alimentos y bebidas', responsable: 'Jefe de A&B', auditor: 'Control Interno', severidad: 'Medio', idRiesgo: 98, estado: 'Cerrado', fecha: '2025-11-15', anio: 2025, mes: 'Noviembre', historialCambios: [] }
+];
+
+const defaultPlanes = [
+  { id: 1, idHallazgo: 1, accion: 'Desactivar credenciales comunes y parametrizar roles individuales en base de datos.', responsable: 'Jefe de TI', fecha: '2026-07-15', estado: 'En Proceso', progreso: 30, anio: 2026, mes: 'Julio', historialCambios: [] },
+  { id: 2, idHallazgo: 2, accion: 'Realizar capacitación certificada con entidad de salud y documentar firmas.', responsable: 'Jefe de A&B', fecha: '2025-12-10', estado: 'Cerrado', progreso: 100, anio: 2025, mes: 'Diciembre', historialCambios: [] }
+];
+
+const defaultIncidentes = [
+  { id: 1, idRiesgo: 201, fecha: '2026-06-05', titulo: 'Alarma de ataque de fuerza bruta contenida', descripcion: 'El firewall detectó 400 intentos de inicio de sesión fallidos de IPs externas. El puerto se bloqueó.', costo: 1200000, impacto: 'Bajo', reportadoPor: 'analista.controlinterno@termales.com.co', estado: 'Cerrado', anio: 2026, mes: 'Junio', historialCambios: [] }
+];
+
+const defaultEvaluaciones = [
+  { id: 1, idRiesgo: 201, fecha: '2026-06-01', diseño: 'Eficaz', ejecucion: 'Eficaz', calificacion: 100, comentarios: 'Prueba de penetración simulada arrojó contención del cortafuegos de manera instantánea.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] },
+  { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] }
+];
+
+const defaultMonitoreo = [
+  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
+  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
+  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4, limite: 10, tendencia: 'flat', proceso: 'Auditoría' }
+];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
@@ -294,10 +275,14 @@ export default function App() {
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [aiModal, setAiModal] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
+  // --- SELECCIÓN MÚLTIPLE DE FECHAS ACTIVADA ---
   const [selectedAnios, setSelectedAnios] = useState([new Date().getFullYear(), new Date().getFullYear() + 1]);
   const [selectedMeses, setSelectedMeses] = useState(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]);
 
+  // --- ENTIDADES PRINCIPALES ---
   const [riesgos, setRiesgos] = useState([]);
   const [hallazgos, setHallazgos] = useState([]);
   const [planes, setPlanes] = useState([]);
@@ -306,13 +291,14 @@ export default function App() {
   const [cronograma, setCronograma] = useState([]);
   const [monitoreo, setMonitoreo] = useState([]);
 
+  // --- CONTROL FORMULARIOS MODAL / EDICIÓN ---
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
   const [editHallazgo, setEditHallazgo] = useState(null);
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
   const [editApetito, setEditApetito] = useState(null); 
-  const [editCronogramaId, setEditCronogramaId] = useState(null); 
+  const [editCronograma, setEditCronograma] = useState(null);
   const [editMonitoreo, setEditMonitoreo] = useState(null);
 
   const [authEmail, setAuthEmail] = useState('');
@@ -329,7 +315,9 @@ export default function App() {
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
   useEffect(() => {
-    setSearchTerm(''); setColumnFilters({}); setFiltroHeatMap(null);
+    setSearchTerm('');
+    setColumnFilters({});
+    setFiltroHeatMap(null);
   }, [activeTab]);
 
   const handleColFilterChange = (key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }));
@@ -339,7 +327,12 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      setIsAdmin(currentUser ? ADMIN_EMAILS.includes(currentUser.email?.toLowerCase().trim()) : false);
+      if (currentUser) {
+        const emailNorm = currentUser.email?.toLowerCase().trim();
+        setIsAdmin(ADMIN_EMAILS.includes(emailNorm));
+      } else {
+        setIsAdmin(false);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -351,11 +344,17 @@ export default function App() {
     return onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() || {};
-        setRiesgos(data.riesgos || defaultRiesgos); setHallazgos(data.hallazgos || defaultHallazgos); setPlanes(data.planes || defaultPlanes);
-        setIncidentes(data.incidentes || defaultIncidentes); setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
-        setCronograma(data.cronograma || defaultCronograma); setMonitoreo(data.monitoreo || defaultMonitoreo);
+        setRiesgos(data.riesgos || defaultRiesgos);
+        setHallazgos(data.hallazgos || defaultHallazgos);
+        setPlanes(data.planes || defaultPlanes);
+        setIncidentes(data.incidentes || defaultIncidentes);
+        setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
+        setCronograma(data.cronograma || defaultCronograma);
+        setMonitoreo(data.monitoreo || defaultMonitoreo);
       } else {
-        setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo });
+        if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
+           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo });
+        }
       }
       setIsCloudLoaded(true);
     });
@@ -365,19 +364,24 @@ export default function App() {
     if (window.XLSX) { setXlsxLoaded(true); return; }
     const script = document.createElement('script');
     script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-    script.async = true; script.onload = () => setXlsxLoaded(true);
+    script.async = true;
+    script.onload = () => setXlsxLoaded(true);
     document.head.appendChild(script);
   }, []);
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault(); setAuthError('');
-    try { isRegistering ? await createUserWithEmailAndPassword(auth, authEmail, authPassword) : await signInWithEmailAndPassword(auth, authEmail, authPassword); } 
-    catch (error) { setAuthError('Error en credenciales.'); }
+    try {
+      if (isRegistering) await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+      else await signInWithEmailAndPassword(auth, authEmail, authPassword);
+    } catch (error) { setAuthError('Error en credenciales.'); }
   };
+
   const handleLogout = async () => await signOut(auth);
   const saveToCloud = async (partialData) => await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true });
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
+  // FUNCION INTELIGENTE PARA SUBIR AL FORMULARIO
   const scrollToForm = () => {
     setTimeout(() => {
       const formEl = document.getElementById('edit-form');
@@ -390,82 +394,97 @@ export default function App() {
     }, 100);
   };
 
-  const scrollToTop = () => {
-    const mainArea = document.getElementById('main-scroll-area');
-    mainArea ? mainArea.scrollTo({ top: 0, behavior: 'smooth' }) : window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   const exportToExcel = (dataArray, fileName) => {
-    if (!xlsxLoaded || !window.XLSX) return showNotification("La librería de exportación aún está cargando.", "error");
-    const ws = window.XLSX.utils.json_to_sheet(dataArray.map(item => { const { historialCambios, ...rest } = item; return rest; }));
-    const wb = window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+    if (!xlsxLoaded || !window.XLSX) {
+      showNotification("La librería de exportación aún está cargando.", "error");
+      return;
+    }
+    const cleanData = dataArray.map(item => {
+      const { historialCambios, ...rest } = item;
+      return rest;
+    });
+    const ws = window.XLSX.utils.json_to_sheet(cleanData);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
     window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showNotification(`Archivo exportado con éxito.`);
   };
 
   const exportToJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo }, null, 2));
-    const dlNode = document.createElement('a'); dlNode.setAttribute("href", dataStr); dlNode.setAttribute("download", `GCM_Backup_${new Date().toISOString().split('T')[0]}.json`);
+    const data = { riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+    const dlNode = document.createElement('a'); dlNode.setAttribute("href", dataStr); dlNode.setAttribute("download", "GCM_Backup.json");
     document.body.appendChild(dlNode); dlNode.click(); dlNode.remove();
   };
 
   const handleImportJSON = (e) => {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
-    reader.onload = async (ev) => {
+    reader.onload = async (event) => {
       try {
-        const parsed = JSON.parse(ev.target.result);
-        if(window.confirm("⚠️ ALERTA: Esto sobrescribirá TODA la base de datos actual. ¿Estás seguro?")) {
-          setIsCloudLoaded(false); await saveToCloud(parsed); showNotification("Base de datos actualizada masivamente."); setIsCloudLoaded(true);
+        const parsedData = JSON.parse(event.target.result);
+        if(window.confirm("⚠️ ALERTA: Esto sobrescribirá TODA la DB. ¿Seguro?")) {
+          setIsCloudLoaded(false); await saveToCloud(parsedData); showNotification("DB actualizada."); setIsCloudLoaded(true);
         }
-      } catch(err) { showNotification("Error: Archivo JSON inválido.", "error"); }
+      } catch(error) { showNotification("Error formato JSON.", "error"); }
       e.target.value = null; 
     }; reader.readAsText(file);
   };
 
   const forceUpdateCronograma = async () => {
-    if(window.confirm("¿Seguro que deseas cargar los 20 procesos oficiales? Esto borrará el cronograma actual.")) {
-      await saveToCloud({ cronograma: defaultCronograma }); showNotification("¡Plan Anual actualizado!");
+    if(window.confirm("¿Cargar 20 procesos base y borrar actual?")) {
+      await saveToCloud({ cronograma: defaultCronograma }); showNotification("Plan Anual restaurado.");
     }
   };
 
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "", inputDestino = null;
-    if (tipoTarget === 'control') { textoBase = document.querySelector('input[name="descripcion"]')?.value || ""; inputDestino = document.querySelector('input[name="control"]'); } 
-    else if (tipoTarget === 'plan') { const sel = document.querySelector('select[name="idHallazgo"]'); textoBase = sel ? sel.options[sel.selectedIndex]?.text : ""; inputDestino = document.querySelector('input[name="accion"]'); } 
-    else if (tipoTarget === 'hallazgo') { textoBase = document.querySelector('input[name="proceso"]')?.value || ""; inputDestino = document.querySelector('input[name="titulo"]'); }
+    if (tipoTarget === 'control') {
+      textoBase = document.querySelector('input[name="descripcion"]')?.value || ""; inputDestino = document.querySelector('input[name="control"]');
+    } else if (tipoTarget === 'plan') {
+      const selectElement = document.querySelector('select[name="idHallazgo"]');
+      textoBase = selectElement ? selectElement.options[selectElement.selectedIndex]?.text : ""; inputDestino = document.querySelector('input[name="accion"]');
+    } else if (tipoTarget === 'hallazgo') {
+      textoBase = document.querySelector('input[name="proceso"]')?.value || ""; inputDestino = document.querySelector('input[name="titulo"]');
+    }
 
-    if (!textoBase || textoBase.includes('-- Seleccione --')) return showNotification("Escribe o selecciona algo primero.", "error");
-    if (!GEMINI_API_KEY) return showNotification("Falta API Key de Gemini.", "error");
-    
-    setIsThinking(true); showNotification("Gemini está analizando...", "success");
+    if (!textoBase || textoBase.includes('-- Seleccione --')) return showNotification("Escribe descripción primero.", "error");
+    if (!GEMINI_API_KEY) return showNotification("Falta API Key IA.", "error");
+
+    setIsThinking(true); showNotification("Gemini analizando...");
+
     try {
-      const prompt = tipoTarget === 'control' ? `Actúa como auditor GRC. Evento: "${textoBase}". Redacta un CONTROL CLAVE mitigante ejecutivo (máximo 20 words). Responde solo el texto.`
-        : tipoTarget === 'plan' ? `Gerente de auditoría. Hallazgo: "${textoBase}". Redacta ACCIÓN DE CHOQUE correctiva ejecutiva (máximo 20 words). Responde solo el texto.`
-        : `Auditor Senior. Proceso: "${textoBase}". Redacta un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras). Responde solo el texto.`;
+      const prompt = tipoTarget === 'control' ? `Actúa como auditor. Evento de riesgo: "${textoBase}". Redacta un CONTROL CLAVE (máximo 20 words). Solo responde el texto.`
+        : tipoTarget === 'plan' ? `Auditor. Hallazgo: "${textoBase}". Redacta ACCIÓN DE CHOQUE (máximo 20 words). Solo responde el texto.`
+        : `Auditor. Proceso: "${textoBase}". Redacta un HALLAZGO grave y realista (máximo 20 palabras). Solo responde el texto.`;
 
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2 } }) });
-      const data = await res.json(); if (data.error) throw new Error(data.error.message);
-      
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2 } })
+      });
+      const data = await response.json(); if (data.error) throw new Error();
       if (inputDestino) {
-        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(inputDestino, data.candidates[0].content.parts[0].text.trim());
+        inputDestino.value = data.candidates[0].content.parts[0].text.trim();
         inputDestino.dispatchEvent(new Event('input', { bubbles: true })); inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
-        showNotification("¡Gemini insertó una sugerencia ejecutiva!");
+        showNotification("¡Sugerencia insertada!");
       }
-    } catch (err) { showNotification("Error conectando con IA.", "error"); } finally { setIsThinking(false); }
+    } catch (error) { showNotification("Error conectando con IA.", "error"); } finally { setIsThinking(false); }
   };
 
   const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
-    if (!GEMINI_API_KEY) return showNotification("Falta API Key de Gemini.", "error");
-    showNotification("🤖 Enviando documento a Gemini...", "success");
+    if (!GEMINI_API_KEY) return showNotification("Falta API Key IA.", "error");
+    setIsThinking(true); showNotification("Extrayendo documento...");
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: `Auditor ISO. Archivo adjunto para ${tipoItem}: "${contextoItem}". Genera dictamen estricto de 4 puntos que el analista DEBE verificar OBLIGATORIAMENTE al abrir la evidencia. Muy técnico.` }] }] }) });
-      const data = await res.json(); if (data.error) throw new Error();
+      const prompt = `Auditor ISO. Archivo para ${tipoItem}: "${contextoItem}". Genera 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE al abrir la evidencia. Sé muy técnico y directo.`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      });
+      const data = await response.json(); if (data.error) throw new Error();
       alert(`📋 Checklist IA (Gemini)\n\n${data.candidates[0].content.parts[0].text.trim()}`);
-    } catch (err) { showNotification("Error con IA.", "error"); }
+    } catch (error) { showNotification("Error conectando IA.", "error"); } finally { setIsThinking(false); }
   };
 
   const filterByGlobalPeriod = (item) => {
-    const a = getItemAnio(item), m = getItemMesText(item);
+    const a = getItemAnio(item); const m = getItemMesText(item);
     return (selectedAnios.length === 0 || selectedAnios.includes(Number(a)) || selectedAnios.includes(String(a))) && (selectedMeses.length === 0 || selectedMeses.includes(m));
   };
 
@@ -474,37 +493,34 @@ export default function App() {
   const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, selectedAnios, selectedMeses]);
   const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
 
-  const avanceGlobal = useMemo(() => pFiltrados.length === 0 ? 0 : pFiltrados.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / pFiltrados.length, [pFiltrados]);
-  const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length, pTotal = pFiltrados.length, pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
+  const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
   const rendimientoControles = useMemo(() => {
-    const ev = safeEvaluaciones.filter(filterByGlobalPeriod);
-    return ev.length === 0 ? 0 : (ev.filter(e => e.calificacion === 100).length / ev.length) * 100;
+    const evs = safeEvaluaciones.filter(filterByGlobalPeriod);
+    return evs.length === 0 ? 0 : (evs.filter(e => e.calificacion === 100).length / evs.length) * 100;
   }, [safeEvaluaciones, selectedAnios, selectedMeses]);
 
   const handleSubmits = async (e, type) => {
     e.preventDefault(); const fd = new FormData(e.target); const ts = new Date().toLocaleString(); let updated;
     if (type === 'riesgo') {
-      const pInh = fd.get('probInh'), iInh = fd.get('impInh'), pRes = fd.get('probRes'), iRes = fd.get('impRes');
-      const base = { sede: fd.get('sede'), proceso: fd.get('proceso'), categoria: fd.get('categoria'), normativa: fd.get('normativa'), responsable: fd.get('responsable'), descripcionControl: fd.get('control'), descripcion: fd.get('descripcion'), probabilidadInherente: pInh, impactoInherente: iInh, probabilidadResidual: pRes, impactoResidual: iRes };
+      const base = { sede: fd.get('sede'), proceso: fd.get('proceso'), categoria: fd.get('categoria'), normativa: fd.get('normativa'), responsable: fd.get('responsable'), descripcionControl: fd.get('control'), descripcion: fd.get('descripcion'), probabilidadInherente: fd.get('probInh'), impactoInherente: fd.get('impInh'), probabilidadResidual: fd.get('probRes'), impactoResidual: fd.get('impRes') };
       if (editRiesgo) { updated = safeRiesgos.map(r => r.id === editRiesgo.id ? { ...editRiesgo, ...base, historialCambios: [...(editRiesgo.historialCambios||[]), {fecha:ts, accion:'Modificado'}] } : r); setEditRiesgo(null); } 
       else { updated = [{ id: Date.now(), noControl: 'C-'+Math.floor(Math.random()*100+100), anio: new Date().getFullYear(), mes: "Mayo", historialCambios: [{fecha:ts, accion:'Creado'}], ...base }, ...safeRiesgos]; }
       setRiesgos(updated); await saveToCloud({ riesgos: updated });
     } else if (type === 'plan') {
-      const prog = parseInt(fd.get('progreso')||0), est = prog === 100 ? 'Cerrado' : 'En Proceso', url = fd.get('evidenciaUrlInput') || editPlan?.evidenciaUrl || '';
-      const base = { idHallazgo: parseInt(fd.get('idHallazgo')), accion: fd.get('accion'), responsable: fd.get('responsable'), fecha: fd.get('fecha'), progreso: prog, estado: est, evidenciaUrl: url };
+      const prog = parseInt(fd.get('progreso')||0);
+      const base = { idHallazgo: parseInt(fd.get('idHallazgo')), accion: fd.get('accion'), responsable: fd.get('responsable'), fecha: fd.get('fecha'), progreso: prog, estado: prog === 100 ? 'Cerrado' : 'En Proceso', evidenciaUrl: fd.get('evidenciaUrlInput') || editPlan?.evidenciaUrl || '' };
       if (editPlan && isAdmin) { updated = safePlanes.map(p => p.id === editPlan.id ? { ...editPlan, ...base, historialCambios: [...(editPlan.historialCambios||[]), {fecha:ts, accion:'Plan act.'}] } : p); setEditPlan(null); } 
-      else if (!isAdmin) { const pt = safePlanes.find(p => p.idHallazgo === base.idHallazgo); if(pt) updated = safePlanes.map(p => p.id === pt.id ? { ...pt, progreso: prog, estado: est, evidenciaUrl: url, historialCambios: [...(pt.historialCambios||[]), {fecha:ts, accion:'Avance jefe'}] } : p); else return showNotification("No se halló plan.", "error"); }
+      else if (!isAdmin) { const pt = safePlanes.find(p => p.idHallazgo === base.idHallazgo); if(pt) updated = safePlanes.map(p => p.id === pt.id ? { ...pt, progreso: prog, estado: base.estado, evidenciaUrl: base.evidenciaUrl, historialCambios: [...(pt.historialCambios||[]), {fecha:ts, accion:'Avance jefe'}] } : p); else return showNotification("No se halló plan.", "error"); }
       else { updated = [...safePlanes, { id: Date.now(), ...base, anio: new Date().getFullYear(), mes: "Mayo", historialCambios: [{fecha:ts, accion:'Plan asignado'}] }]; }
       setPlanes(updated); await saveToCloud({ planes: updated });
     } else if (type === 'eval') {
-      const c = (fd.get('diseno')==='Eficaz' && fd.get('ejecucion')==='Eficaz') ? 100 : 0, url = fd.get('evidenciaUrlInput') || editEvaluacion?.evidenciaUrl || '';
-      const base = { idRiesgo: parseInt(fd.get('idRiesgo')), diseño: fd.get('diseno'), ejecucion: fd.get('ejecucion'), calificacion: c, comentarios: fd.get('comentarios'), evidenciaUrl: url };
+      const c = (fd.get('diseno')==='Eficaz' && fd.get('ejecucion')==='Eficaz') ? 100 : 0;
+      const base = { idRiesgo: parseInt(fd.get('idRiesgo')), diseño: fd.get('diseno'), ejecucion: fd.get('ejecucion'), calificacion: c, comentarios: fd.get('comentarios'), evidenciaUrl: fd.get('evidenciaUrlInput') || editEvaluacion?.evidenciaUrl || '' };
       if (editEvaluacion) { updated = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? { ...editEvaluacion, ...base } : ev); setEditEvaluacion(null); } 
       else { updated = [...safeEvaluaciones, { id: Date.now(), fecha: new Date().toISOString().split('T')[0], auditor: user.email, anio: new Date().getFullYear(), mes: "Mayo", historialCambios: [], ...base }]; }
       setEvaluaciones(updated); await saveToCloud({ evaluaciones: updated });
     } else if (type === 'hallazgo') {
-      const url = fd.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
-      const base = { sede: fd.get('sede'), ref: fd.get('ref'), proceso: fd.get('proceso'), responsable: fd.get('responsable'), auditor: fd.get('auditor'), titulo: fd.get('titulo'), severidad: fd.get('severidad'), evidenciaUrl: url };
+      const base = { sede: fd.get('sede'), ref: fd.get('ref'), proceso: fd.get('proceso'), responsable: fd.get('responsable'), auditor: fd.get('auditor'), titulo: fd.get('titulo'), severidad: fd.get('severidad'), evidenciaUrl: fd.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '' };
       if (editHallazgo) { updated = safeHallazgos.map(h => h.id === editHallazgo.id ? { ...editHallazgo, ...base } : h); setEditHallazgo(null); } 
       else { updated = [...safeHallazgos, { id: Date.now(), estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], anio: new Date().getFullYear(), mes: "Mayo", historialCambios: [], ...base }]; }
       setHallazgos(updated); await saveToCloud({ hallazgos: updated });
@@ -513,6 +529,12 @@ export default function App() {
       if (editIncidente) { updated = safeIncidentes.map(i => i.id === editIncidente.id ? { ...editIncidente, ...base, historialCambios: [...(editIncidente.historialCambios||[]), {fecha:ts, accion:'Modificado'}] } : i); setEditIncidente(null); } 
       else { updated = [...safeIncidentes, { id: Date.now(), fecha: new Date().toISOString().split('T')[0], reportadoPor: user.email, estado: 'Abierto', anio: new Date().getFullYear(), mes: "Mayo", historialCambios: [], ...base }]; }
       setIncidentes(updated); await saveToCloud({ incidentes: updated });
+    } else if (type === 'crono') {
+      const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].filter(m => fd.get(`mes_${m}`));
+      const base = { codigo: fd.get('codigo'), proceso: fd.get('proceso'), responsable: fd.get('responsable'), apoyo: fd.get('apoyo'), periodo: fd.get('periodo'), enfoque: fd.get('enfoque'), cumplimiento: parseInt(fd.get('cumplimiento')||0), meses };
+      if (editCronograma) { updated = safeCronograma.map(c => c.id === editCronograma.id ? { ...editCronograma, ...base } : c); setEditCronograma(null); } 
+      else { updated = [...safeCronograma, { id: Date.now(), ...base }]; }
+      setCronograma(updated); await saveToCloud({ cronograma: updated });
     } else if (type === 'apetito') {
       const apetito = parseFloat(fd.get('apetitoFinanciero')||0), tolerancia = parseFloat(fd.get('toleranciaFinanciera')||0), capacidad = parseFloat(fd.get('capacidadRiesgo')||0);
       if (apetito > tolerancia || tolerancia > capacidad) return showNotification("Jerarquía inválida (Apetito ≤ Tolerancia ≤ Capacidad).", "error");
@@ -525,50 +547,6 @@ export default function App() {
       setMonitoreo(updated); await saveToCloud({ monitoreo: updated });
     }
     if (type !== 'apetito') { e.target.reset(); showNotification("Registro exitoso."); }
-  };
-
-  const handleCronogramaInlineSubmit = async (e, id) => {
-    e.preventDefault();
-    if (!isAdmin) return;
-    const formData = new FormData(e.target);
-    const mesesSeleccionados = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].filter(m => formData.get(`mes_${m}`));
-    
-    let updatedList;
-    if (id) {
-        const itemToUpdate = safeCronograma.find(c => c.id === id);
-        if(!itemToUpdate) return;
-        const modificado = {
-            ...itemToUpdate,
-            codigo: formData.get('codigo'),
-            proceso: formData.get('proceso'),
-            responsable: formData.get('responsable'),
-            apoyo: formData.get('apoyo'),
-            periodo: formData.get('periodo'),
-            enfoque: formData.get('enfoque'),
-            cumplimiento: parseInt(formData.get('cumplimiento') || 0),
-            meses: mesesSeleccionados
-        };
-        updatedList = safeCronograma.map(c => c.id === id ? modificado : c);
-        setEditCronogramaId(null);
-        showNotification("Proceso del plan actualizado.");
-    } else {
-        const nuevo = {
-            id: Date.now(),
-            codigo: formData.get('codigo'),
-            proceso: formData.get('proceso'),
-            responsable: formData.get('responsable'),
-            apoyo: formData.get('apoyo'),
-            periodo: formData.get('periodo'),
-            enfoque: formData.get('enfoque'),
-            cumplimiento: parseInt(formData.get('cumplimiento') || 0),
-            meses: mesesSeleccionados
-        };
-        updatedList = [...safeCronograma, nuevo];
-        setEditCronogramaId(null);
-        showNotification("Proceso agregado al Plan Anual.");
-    }
-    setCronograma(updatedList);
-    await saveToCloud({ cronograma: updatedList });
   };
 
   const handleDeleteItem = async (listType, id) => {
@@ -644,17 +622,20 @@ export default function App() {
     </div>
   );
 
-  const renderTablero = () => (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {renderHeaderFiltros("Tablero Analítico de Auditoría", "Análisis integral de desviaciones operativas.")}
-      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">INDICADORES KRI EN TIEMPO REAL</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Gauge value={avanceGlobal} label="MITIGACIÓN GLOBAL" sublabel="Promedio Planes de Acción" colorClass="text-blue-500" />
-        <Gauge value={rendimientoControles} label="CONTROLES DE SALUD" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-        <div className="bg-[#0f172a] text-white p-6 rounded-2xl shadow-lg border border-slate-800 text-center"><span className="text-[10px] font-black text-rose-500 uppercase">ALERTA CRÍTICA</span><span className="text-6xl font-black mt-4 block">{hAbiertos}</span><p className="text-xs font-bold text-slate-300 mt-4">Hallazgos Pendientes de Cierre</p></div>
+  const renderTablero = () => {
+    const avanceGlobal = pFiltrados.length > 0 ? pFiltrados.reduce((acc, p) => acc + (p.progreso || 0), 0) / pFiltrados.length : 0;
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {renderHeaderFiltros("Tablero Analítico de Auditoría", "Análisis integral de desviaciones operativas.")}
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">INDICADORES KRI EN TIEMPO REAL</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Gauge value={avanceGlobal} label="MITIGACIÓN GLOBAL" sublabel="Promedio Planes de Acción" colorClass="text-blue-500" />
+          <Gauge value={rendimientoControles} label="CONTROLES DE SALUD" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
+          <div className="bg-[#0f172a] text-white p-6 rounded-2xl shadow-lg border border-slate-800 text-center"><span className="text-[10px] font-black text-rose-500 uppercase">ALERTA CRÍTICA</span><span className="text-6xl font-black mt-4 block">{hAbiertos}</span><p className="text-xs font-bold text-slate-300 mt-4">Hallazgos Pendientes de Cierre</p></div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderDashboardRiesgos = () => {
     const esRes = tipoMatriz === 'residual';
@@ -715,7 +696,7 @@ export default function App() {
         return (a.codigo || '').localeCompare(b.codigo || '');
     });
 
-    // CÁLCULO AJUSTADO DE CUMPLIMIENTO GLOBAL: (Ignora procesos en 0%)
+    // CÁLCULO AJUSTADO DE CUMPLIMIENTO GLOBAL: (Ignora procesos en 0% que aún no inician)
     const procesosActivos = cronogramaOrdenado.filter(c => c.cumplimiento > 0);
     const avgCumplimiento = procesosActivos.length > 0 
       ? Math.round(procesosActivos.reduce((acc, c) => acc + c.cumplimiento, 0) / procesosActivos.length)
@@ -725,7 +706,7 @@ export default function App() {
       <div className="space-y-8 animate-in fade-in duration-300">
         <div className="bg-white rounded-3xl shadow-sm border overflow-hidden">
           <div className="bg-[#004d40] text-white p-6 flex justify-between items-center">
-            <h2 className="text-2xl font-black uppercase">Plan Anual de Auditoría</h2>
+            <h2 className="text-2xl font-black uppercase">Plan Anual de Auditoría 2026</h2>
             <div className="bg-[#00695c] px-6 py-2 rounded-full border border-[#00897b] flex items-center space-x-3"><span className="text-xl font-black">{avgCumplimiento}% Global</span></div>
           </div>
           <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -733,20 +714,13 @@ export default function App() {
                 <div className="border rounded-2xl p-6 text-center">
                    <h3 className="text-[10px] font-black uppercase text-slate-500">Índice General</h3>
                    <div className="text-6xl font-black text-[#004d40] mt-2 mb-2">{avgCumplimiento}%</div>
+                   <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium">Evaluación integral de procesos.</p>
                 </div>
                 <div className="border rounded-2xl overflow-hidden shadow-sm">
-                   <div className="bg-[#004d40] text-white p-3 flex justify-between items-center"><span className="text-[10px] font-black uppercase">Gestor KRIs</span>{isAdmin && <button onClick={() => setEditMonitoreo({})} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded">➕</button>}</div>
+                   <div className="bg-[#004d40] text-white p-3 flex justify-between items-center"><span className="text-[10px] font-black uppercase">Gestor KRIs</span>{isAdmin && <button onClick={() => {setEditMonitoreo({}); scrollToForm();}} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded">➕</button>}</div>
                    <div className="divide-y p-2">
-                     {editMonitoreo && isAdmin && (
-                       <form onSubmit={(e) => handleSubmits(e, 'moni')} key={`moni-form-${formResetKey}`} className="p-3 bg-slate-50 rounded-lg mb-2 border">
-                         <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="KRI..." required className="w-full text-xs p-1.5 mb-2 border rounded" />
-                         <input name="proceso" defaultValue={editMonitoreo.proceso||''} placeholder="Proceso..." required className="w-full text-xs p-1.5 mb-2 border rounded" />
-                         <div className="flex space-x-2 mb-2"><input name="valor" type="number" defaultValue={editMonitoreo.valor||''} required className="w-1/2 text-xs p-1.5 border rounded" /><input name="limite" type="number" defaultValue={editMonitoreo.limite||''} className="w-1/2 text-xs p-1.5 border rounded" /></div>
-                         <div className="flex justify-between mt-1"><button type="button" onClick={() => setEditMonitoreo(null)} className="text-[10px] text-red-500 px-2">Cancel</button><button type="submit" className="text-[10px] bg-[#004d40] text-white px-3 py-1.5 rounded">Guardar</button></div>
-                       </form>
-                     )}
                      {safeMonitoreo.map((m) => (
-                       <div key={m.id} className="p-3 hover:bg-slate-50 group flex justify-between items-center"><div className="text-[10px] font-bold">{m.indicador} <div className="text-slate-400 font-normal">{m.proceso}</div></div><div className="text-xs font-black">{m.valor}/{m.limite} {isAdmin && <span className="ml-2 space-x-1 opacity-0 group-hover:opacity-100"><button onClick={()=>{setEditMonitoreo(m); setFormResetKey(Date.now());}}>✏️</button><button onClick={()=>handleDeleteItem('monitoreo', m.id)}>🗑️</button></span>}</div></div>
+                       <div key={m.id} className="p-3 hover:bg-slate-50 group flex justify-between items-center"><div className="text-[10px] font-bold">{m.indicador} <div className="text-slate-400 font-normal">{m.proceso}</div></div><div className="text-xs font-black">{m.valor}/{m.limite} {isAdmin && <span className="ml-2 space-x-1 opacity-0 group-hover:opacity-100"><button onClick={()=>{setEditMonitoreo(m); setFormResetKey(Date.now()); scrollToForm();}}>✏️</button><button onClick={()=>handleDeleteItem('monitoreo', m.id)}>🗑️</button></span>}</div></div>
                      ))}
                    </div>
                 </div>
@@ -758,36 +732,11 @@ export default function App() {
                      <table className="w-full text-xs text-left divide-y">
                        <thead className="bg-slate-50 text-slate-400 font-bold text-[9px] uppercase"><tr><th className="p-3">ID</th><th className="p-3">Periodo</th><th className="p-3">Proceso</th><th className="p-3 text-center">% Cumpl.</th>{isAdmin && <th className="p-3 text-center">Acción</th>}</tr></thead>
                        <tbody className="divide-y">
-                         {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c) => {
-                             const isEditingThis = editCronogramaId === c.id;
-                             if (isEditingThis && isAdmin) {
-                                 return (
-                                     <tr key={`edit-main-${c.id}`} className="bg-blue-50/50">
-                                         <td colSpan="5" className="p-0">
-                                             <form onSubmit={(e) => handleCronogramaInlineSubmit(e, c.id)} className="flex items-center w-full p-2 gap-2">
-                                                 <input name="codigo" defaultValue={c.codigo} className="w-12 text-xs border rounded p-1" />
-                                                 <input name="periodo" defaultValue={c.periodo} className="w-24 text-xs border rounded p-1" />
-                                                 <input name="proceso" defaultValue={c.proceso} className="w-48 text-xs border rounded p-1 font-bold" />
-                                                 <input name="enfoque" defaultValue={c.enfoque} className="flex-1 text-xs border rounded p-1 hidden" />
-                                                 <input type="number" min="0" max="100" name="cumplimiento" defaultValue={c.cumplimiento} className="w-16 text-xs border rounded p-1 text-center font-bold" />
-                                                 <input type="hidden" name="responsable" value={c.responsable} />
-                                                 <input type="hidden" name="apoyo" value={c.apoyo} />
-                                                 {allMonths.map(m => <input key={`hidden-${m}`} type="hidden" name={`mes_${m}`} value={c.meses?.includes(m) ? 'on' : ''} />)}
-                                                 <div className="flex space-x-1">
-                                                     <button type="submit" className="bg-emerald-600 text-white p-1.5 rounded shadow">💾</button>
-                                                     <button type="button" onClick={() => setEditCronogramaId(null)} className="bg-red-500 text-white p-1.5 rounded shadow">✖</button>
-                                                 </div>
-                                             </form>
-                                         </td>
-                                     </tr>
-                                 );
-                             }
-                             return (
-                               <tr key={c.id} className="hover:bg-slate-50/50"><td className="p-3">0{c.codigo}</td><td className="p-3">{c.periodo}</td><td className="p-3 font-black">{c.proceso}</td><td className="p-3 text-center font-black">{c.cumplimiento}%</td>
-                                 {isAdmin && (<td className="p-3 text-center"><button onClick={() => setEditCronogramaId(c.id)} className="text-blue-500 mx-1">✏️</button><button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-red-500 mx-1">🗑️</button></td>)}
-                               </tr>
-                             );
-                         })}
+                         {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c) => (
+                           <tr key={c.id} className="hover:bg-slate-50/50"><td className="p-3">0{c.codigo}</td><td className="p-3">{c.periodo}</td><td className="p-3 font-black">{c.proceso}</td><td className="p-3 text-center font-black">{c.cumplimiento}%</td>
+                             {isAdmin && (<td className="p-3 text-center"><button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-500 mx-1">✏️</button><button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-red-500 mx-1">🗑️</button></td>)}
+                           </tr>
+                         ))}
                        </tbody>
                      </table>
                    </div>
@@ -796,55 +745,54 @@ export default function App() {
           </div>
         </div>
 
+        {isAdmin && (
+          <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <div className="flex justify-between items-center border-b pb-3 mb-4"><h3 className="text-sm font-black text-slate-700">{editCronograma ? '✏️ Editando Proceso' : (editMonitoreo ? '✏️ Gestor KRI' : '➕ Agregar Proceso al Cronograma')}</h3>{(editCronograma || editMonitoreo) && <button onClick={() => {setEditCronograma(null); setEditMonitoreo(null);}} className="text-xs text-red-500 font-bold">✖ Cancelar</button>}</div>
+            
+            {editMonitoreo ? (
+              <form onSubmit={(e) => handleSubmits(e, 'moni')} key={`moni-form-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs bg-slate-50 p-4 rounded-xl border">
+                 <div className="md:col-span-2"><label className="font-bold">Indicador</label><input name="indicador" defaultValue={editMonitoreo.indicador||''} required className="w-full border rounded-lg p-2" /></div>
+                 <div className="md:col-span-2"><label className="font-bold">Proceso</label><input name="proceso" defaultValue={editMonitoreo.proceso||''} required className="w-full border rounded-lg p-2" /></div>
+                 <div><label className="font-bold">Valor</label><input name="valor" type="number" defaultValue={editMonitoreo.valor||''} required className="w-full border rounded-lg p-2" /></div>
+                 <div><label className="font-bold">Límite</label><input name="limite" type="number" defaultValue={editMonitoreo.limite||''} className="w-full border rounded-lg p-2" /></div>
+                 <div className="md:col-span-2"><label className="font-bold">Tendencia</label><select name="tendencia" defaultValue={editMonitoreo.tendencia||'flat'} className="w-full border rounded-lg p-2 bg-white"><option value="up">Tendencia al Alza</option><option value="down">Tendencia a la Baja</option><option value="flat">Estable</option></select></div>
+                 <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white font-black px-8 py-3 rounded-xl shadow-md">Guardar KRI</button></div>
+              </form>
+            ) : (
+              <form onSubmit={(e) => handleSubmits(e, 'crono')} key={editCronograma ? `edit-crono-${editCronograma.id}-${formResetKey}` : `new-crono-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+                <div><label className="font-bold">Código ID</label><input name="codigo" defaultValue={editCronograma?.codigo||''} required className="w-full border rounded-lg p-2" /></div>
+                <div><label className="font-bold">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required className="w-full border rounded-lg p-2" /></div>
+                <div className="md:col-span-2"><label className="font-bold">Proceso</label><input name="proceso" defaultValue={editCronograma?.proceso||''} required className="w-full border rounded-lg p-2" /></div>
+                <div><label className="font-bold">Responsable</label><input name="responsable" defaultValue={editCronograma?.responsable||''} required className="w-full border rounded-lg p-2" /></div>
+                <div><label className="font-bold">Apoyo</label><input name="apoyo" defaultValue={editCronograma?.apoyo||''} className="w-full border rounded-lg p-2" /></div>
+                <div className="md:col-span-2"><label className="font-bold">% Cumplimiento</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={editCronograma?.cumplimiento||0} required className="w-full border rounded-lg p-2" /></div>
+                <div className="md:col-span-4"><label className="font-bold">Enfoque Técnico</label><textarea name="enfoque" defaultValue={editCronograma?.enfoque||''} required rows="2" className="w-full border rounded-lg p-2"></textarea></div>
+                <div className="md:col-span-4"><label className="font-bold block mb-2">Meses Planeados (Gantt)</label>
+                  <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border">{allMonths.map(mes => (<label key={mes} className="flex items-center space-x-2"><input type="checkbox" name={`mes_${mes}`} defaultChecked={editCronograma?.meses?.includes(mes)} className="rounded text-[#004d40]" /><span className="text-[10px] font-bold notranslate" translate="no">{mes.substring(0,3)}</span></label>))}</div>
+                </div>
+                <div className="md:col-span-4 flex justify-end mt-2"><button type="submit" className="bg-[#004d40] text-white font-black px-8 py-3 rounded-xl shadow-md">Guardar</button></div>
+              </form>
+            )}
+          </div>
+        )}
+
         <div className="bg-white rounded-3xl shadow-sm border overflow-hidden">
            <div className="bg-slate-100 border-b p-4"><h3 className="text-[#004d40] font-black text-xl uppercase text-center">GANTT CONTROL INTERNO</h3></div>
            <div className="overflow-x-auto p-4">
              <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
                <thead className="bg-slate-200 text-slate-700 font-bold uppercase"><tr><th className="border p-2 w-10">Cód</th><th className="border p-2 w-48">Proceso Auditable</th>{allMonths.map(m => <th key={m} className="border p-2 text-center w-16 notranslate" translate="no">{m.substring(0,3)}</th>)}{isAdmin && <th className="border p-2 text-center w-16">Acción</th>}</tr></thead>
                <tbody>
-                 {cronogramaOrdenado.map((c) => {
-                     const isEditingThis = editCronogramaId === `gantt-${c.id}`;
-                     if (isEditingThis && isAdmin) {
-                         return (
-                             <tr key={`gantt-edit-${c.id}`} className="bg-blue-50/50">
-                                 <td colSpan={3 + allMonths.length} className="p-0 border border-slate-300">
-                                     <form onSubmit={(e) => handleCronogramaInlineSubmit(e, c.id)} className="flex items-center w-full p-2 gap-2">
-                                         <input type="hidden" name="codigo" value={c.codigo} />
-                                         <input type="hidden" name="periodo" value={c.periodo} />
-                                         <input type="hidden" name="enfoque" value={c.enfoque} />
-                                         <div className="font-mono text-slate-500 w-10 text-center">{c.codigo}</div>
-                                         <input name="proceso" defaultValue={c.proceso} className="w-48 text-xs border rounded p-1 font-bold" />
-                                         <input type="hidden" name="responsable" value={c.responsable} />
-                                         <input type="hidden" name="apoyo" value={c.apoyo} />
-                                         <div className="flex flex-1 justify-around px-2">
-                                             {allMonths.map(mes => (
-                                                <div key={`edit-gantt-${mes}`} className="flex flex-col items-center">
-                                                    <input type="checkbox" name={`mes_${mes}`} defaultChecked={c.meses?.includes(mes)} className="rounded text-[#004d40]" />
-                                                </div>
-                                             ))}
-                                         </div>
-                                         <input type="number" min="0" max="100" name="cumplimiento" defaultValue={c.cumplimiento} className="w-16 text-xs border rounded p-1 text-center font-bold" title="% de Avance" />
-                                         <div className="flex space-x-1 ml-2">
-                                             <button type="submit" className="bg-emerald-600 text-white p-1.5 rounded shadow">💾</button>
-                                             <button type="button" onClick={() => setEditCronogramaId(null)} className="bg-red-500 text-white p-1.5 rounded shadow">✖</button>
-                                         </div>
-                                     </form>
-                                 </td>
-                             </tr>
-                         );
-                     }
-                     return (
-                       <tr key={c.id} className="hover:bg-slate-50">
-                         <td className="border p-2 text-center text-slate-500 font-mono">{c.codigo}</td><td className="border p-2 font-black">{c.proceso}</td>
-                         {allMonths.map(mes => {
-                           const isP = c.meses?.includes(mes); let bg = 'bg-transparent', txt = '';
-                           if (isP) { if (c.cumplimiento === 100) { bg = 'bg-emerald-500'; txt = 'Completado'; } else if (c.cumplimiento > 0) { bg = 'bg-amber-500'; txt = `${c.cumplimiento}%`; } else { bg = 'bg-[#00695c]'; txt = 'Planeado'; } }
-                           return <td key={mes} className="border text-center p-0">{isP && <div className={`${bg} text-white w-full h-full py-2 font-bold uppercase text-[8px] notranslate`} translate="no">{txt}</div>}</td>;
-                         })}
-                         {isAdmin && <td className="border p-2 text-center"><button onClick={() => setEditCronogramaId(`gantt-${c.id}`)} className="text-blue-500 border border-blue-200 px-2 py-1 rounded">✏️ Modificar</button></td>}
-                       </tr>
-                     );
-                 })}
+                 {cronogramaOrdenado.map((c) => (
+                   <tr key={`gantt-${c.id}`} className="hover:bg-slate-50">
+                     <td className="border p-2 text-center text-slate-500 font-mono">{c.codigo}</td><td className="border p-2 font-black">{c.proceso}</td>
+                     {allMonths.map(mes => {
+                       const isP = c.meses?.includes(mes); let bg = 'bg-transparent', txt = '';
+                       if (isP) { if (c.cumplimiento === 100) { bg = 'bg-emerald-500'; txt = 'Completado'; } else if (c.cumplimiento > 0) { bg = 'bg-amber-500'; txt = `${c.cumplimiento}%`; } else { bg = 'bg-[#00695c]'; txt = 'Planeado'; } }
+                       return <td key={mes} className="border text-center p-0">{isP && <div className={`${bg} text-white w-full h-full py-2 font-bold uppercase text-[8px] notranslate`} translate="no">{txt}</div>}</td>;
+                     })}
+                     {isAdmin && <td className="border p-2 text-center"><button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-500 border border-blue-200 px-2 py-1 rounded">✏️ Modificar</button></td>}
+                   </tr>
+                 ))}
                </tbody>
              </table>
            </div>
@@ -1081,7 +1029,7 @@ export default function App() {
 
   const renderIncidentes = () => (
     <div className="space-y-6">
-      <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
+      <div className="border-b pb-4"><h2 className="text-2xl font-black text-slate-800">🚨 Eventos de Pérdida (COP)</h2></div>
       {isAdmin && (
         <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
           <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
@@ -1165,44 +1113,56 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      {!isPresentationMode && (
-        <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20">
-          <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-          <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
-            {[
-              { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
-              { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
-              { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
-              { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
-              { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
-              { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
-              { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
-              { id: 'planes', icon: '✅', label: 'Planes de Acción' },
-              { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
-              { id: 'informe', icon: '📜', label: 'Trazabilidad' },
-              { id: 'config', icon: '⚙️', label: 'Configuración / Backups' }
-            ].map((tab) => (
-              <button key={`nav-${tab.id}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <span>{tab.icon}</span><span>{tab.label}</span>
-              </button>
-            ))}
-          </nav>
-          <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
-        </div>
+      
+      {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
+      {isPresentationMode && (
+        <button 
+          onClick={() => setIsPresentationMode(false)} 
+          className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 flex items-center space-x-2 border-2 border-slate-700 animate-in slide-in-from-bottom-10"
+        >
+          <span>✖</span><span>Salir de Presentación</span>
+        </button>
       )}
+
+      {/* SIDEBAR */}
+      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
+        <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
+        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+          {[
+            { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
+            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
+            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
+            { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
+            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
+            { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
+            { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
+            { id: 'planes', icon: '✅', label: 'Planes de Acción' },
+            { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
+            { id: 'informe', icon: '📜', label: 'Trazabilidad' },
+            { id: 'config', icon: '⚙️', label: 'Configuración / Backups' }
+          ].map((tab) => (
+            <button key={`nav-${tab.id}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+              <span>{tab.icon}</span><span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
+      </div>
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {!isPresentationMode && (
-          <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm z-10 flex-shrink-0">
-            <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
-            <button onClick={() => setIsPresentationMode(true)} className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-slate-700 transition-colors flex items-center space-x-2">
-              <span>📺</span><span>Modo Presentación</span>
-            </button>
-          </header>
-        )}
+        {/* HEADER SUPERIOR */}
+        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresentationMode ? 'hidden' : 'flex'}`}>
+          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
+          <button 
+            onClick={() => setIsPresentationMode(true)} 
+            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-2"
+          >
+            <span>📺</span><span>Modo Presentación</span>
+          </button>
+        </header>
         
         <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 scroll-smooth`}>
-          <div className="max-w-7xl mx-auto">
+          <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
             {activeTab === 'plan_anual' && renderPlanAnual()}
@@ -1216,12 +1176,6 @@ export default function App() {
             {activeTab === 'config' && renderConfiguracion()}
           </div>
         </main>
-
-        {isPresentationMode && (
-           <button onClick={() => setIsPresentationMode(false)} className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full shadow-2xl font-black text-[10px] uppercase tracking-widest z-50 hover:scale-105 transition-transform flex items-center space-x-2 border-2 border-white">
-              <span>✖</span><span>Salir de Presentación</span>
-           </button>
-        )}
       </div>
       
       {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
