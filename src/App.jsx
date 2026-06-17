@@ -229,7 +229,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
                     <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
                     <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
                     <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
-                       {isCurrency ? `$${(d.valor).toLocaleString('es-CO')}` : Math.round(d.valor)}
+                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
                     </text>
                 </g>
               );
@@ -285,6 +285,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
+
+  // --- ESTADO PARA MODO PRESENTACIÓN ---
+  const [isPresenting, setIsPresenting] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
@@ -2193,7 +2196,19 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl">
+      
+      {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
+      {isPresenting && (
+        <button 
+          onClick={() => setIsPresenting(false)} 
+          className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 flex items-center space-x-2 border-2 border-slate-700 animate-in slide-in-from-bottom-10"
+        >
+          <span>✖</span><span>Salir de Presentación</span>
+        </button>
+      )}
+
+      {/* SIDEBAR */}
+      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresenting ? 'hidden' : 'flex'}`}>
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
         <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
@@ -2218,9 +2233,19 @@ export default function App() {
       </div>
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm"><span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold">Termales de Santa Rosa</span></header>
-        <main className="flex-grow overflow-y-auto p-8">
-          <div className="max-w-7xl mx-auto">
+        {/* HEADER SUPERIOR */}
+        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresenting ? 'hidden' : 'flex'}`}>
+          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
+          <button 
+            onClick={() => setIsPresenting(true)} 
+            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-2"
+          >
+            <span>📺</span><span>Modo Presentación</span>
+          </button>
+        </header>
+        
+        <main className={`flex-grow overflow-y-auto ${isPresenting ? 'p-12' : 'p-8'}`}>
+          <div className={`${isPresenting ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
             {activeTab === 'plan_anual' && renderPlanAnual()}
