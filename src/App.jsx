@@ -1285,7 +1285,7 @@ export default function App() {
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
-                         {applyFilters(safeCronograma, searchTerm, columnFilters).map((c, index) => (
+                         {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => (
                            <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
                              <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
