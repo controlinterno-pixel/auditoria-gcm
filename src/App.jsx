@@ -8,9 +8,10 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // =====================================================================
-// 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
+// 🤖 CONEXIÓN SEGURA A GEMINI PRO (Inyectada desde Vercel / .env)
 // =====================================================================
 let GEMINI_API_KEY = "";
 try {
@@ -21,11 +22,12 @@ try {
   console.warn("Entorno simulado: variables de Vercel no detectadas.");
 }
 
-// --- CONFIGURACIÓN DE FIREBASE (Sin Storage, usaremos Enlaces Drive/OneDrive) ---
+// --- TUS LLAVES SECRETAS DE FIREBASE ---
 const firebaseConfig = {
   apiKey: "AIzaSyBGE2P-_oep_N7o8so6wubmaZXv12imZaE",
   authDomain: "gestion-de-riesgos-b4bf0.firebaseapp.com",
   projectId: "gestion-de-riesgos-b4bf0",
+  storageBucket: "gestion-de-riesgos-b4bf0.firebasestorage.app",
   messagingSenderId: "507146405155",
   appId: "1:507146405155:web:574f89d0cc6256e629b896",
   measurementId: "G-WTZPTWV67Y"
@@ -34,8 +36,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); 
 
-// --- CONTROL DE ACCESO (ROLES) ---
+// --- CONTROL DE ACCESO ---
 const ADMIN_EMAILS = [
   "controlinterno@termales.com.co",
   "auditoria@termales.com.co",
@@ -43,27 +46,50 @@ const ADMIN_EMAILS = [
   "analista.controlinterno@termales.com.co"
 ];
 
+// --- DATOS POR DEFECTO REDUCIDOS PARA EVITAR SOBRECARGA DE MEMORIA ---
+const defaultRiesgos = [
+  { id: 98, categoria: 'Operativo', proceso: 'Alimentos y bebidas', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado', causaRaiz: 'Proveedores no evaluados', descripcion: 'Afectación del sabor e higiene.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist diario.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe A&B', historialCambios: [] },
+  { id: 201, categoria: 'Tecnológico', proceso: 'Infraestructura TI', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta parches', causaRaiz: 'Obsolescencia', descripcion: 'Intrusión de ransomware.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'Director TI', historialCambios: [] }
+];
+
+const defaultHallazgos = [
+  { id: 1, ref: 'Aud. TI-2026', titulo: 'Acceso genérico a BD.', proceso: 'Sistemas', responsable: 'Jefe de TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', historialCambios: [] }
+];
+
+const defaultPlanes = [
+  { id: 1, idHallazgo: 1, accion: 'Desactivar credenciales.', responsable: 'Jefe de TI', fecha: '2026-07-15', estado: 'En Proceso', progreso: 30, historialCambios: [] }
+];
+
+const defaultIncidentes = [
+  { id: 1, idRiesgo: 201, fecha: '2026-06-05', titulo: 'Alarma contenida', descripcion: 'El firewall detectó intentos.', costo: 1200000, impacto: 'Bajo', reportadoPor: 'analista@termales.com.co', estado: 'Cerrado', historialCambios: [] }
+];
+
+const defaultEvaluaciones = [
+  { id: 1, idRiesgo: 201, fecha: '2026-06-01', diseño: 'Eficaz', ejecucion: 'Eficaz', calificacion: 100, comentarios: 'Prueba exitosa.', auditor: 'controlinterno@termales.com.co', historialCambios: [] }
+];
+
+const defaultCronograma = [
+  { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento', enfoque: 'Auditoria Locativa.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
+  { id: 2, codigo: '02', periodo: 'Marzo', proceso: 'Servicio al cliente', enfoque: 'Análisis de Quejas.', cumplimiento: 80, responsable: 'Angelica', apoyo: '', meses: ['Marzo'] },
+  { id: 3, codigo: '03', periodo: 'Abril', proceso: 'Cartera', enfoque: 'Verificación.', cumplimiento: 0, responsable: 'Luz', apoyo: '', meses: ['Abril'] }
+];
+
+const defaultMonitoreo = [
+  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' }
+];
+
 // =====================================================================
 // 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
 // =====================================================================
-
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
 const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
-const mapMesNumATexto = { 
-  "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", 
-  "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto", 
-  "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre" 
-};
+const mapMesNumATexto = { "01": "Enero", "02": "Febrero", "03": "Marzo", "04": "Abril", "05": "Mayo", "06": "Junio", "07": "Julio", "08": "Agosto", "09": "Septiembre", "10": "Octubre", "11": "Noviembre", "12": "Diciembre" };
 
 const formatSafeDate = (val) => {
   if (!val) return '';
   if (typeof val === 'string') return val;
-  if (val.toDate && typeof val.toDate === 'function') {
-    return val.toDate().toISOString().split('T')[0];
-  }
-  if (val instanceof Date) {
-    return val.toISOString().split('T')[0];
-  }
+  if (val.toDate && typeof val.toDate === 'function') return val.toDate().toISOString().split('T')[0];
+  if (val instanceof Date) return val.toISOString().split('T')[0];
   return String(val);
 };
 
@@ -91,10 +117,7 @@ const getItemAnio = (item) => {
 const getItemMesText = (item) => {
   if (item.mes) return item.mes;
   const dateStr = formatSafeDate(item.fecha);
-  if (dateStr) {
-    const mNum = getMonthFromDate(dateStr);
-    return mapMesNumATexto[mNum] || "Mayo";
-  }
+  if (dateStr) return mapMesNumATexto[getMonthFromDate(dateStr)] || "Mayo";
   return "Mayo";
 };
 
@@ -102,21 +125,12 @@ const calcularMatriz5x5 = (probabilidad, impacto) => {
   const pVal = mapProbabilidadNum[probabilidad] || 3;
   const iVal = mapImpactoNum[impacto] || 2;
   const score = pVal * iVal;
+  let apetito = "Dentro de Apetito", accion = "Aceptar / Monitorear", color = "bg-emerald-500 text-white", borderSemaforo = "border-emerald-200";
 
-  let apetito = "Dentro de Apetito";
-  let accion = "Aceptar / Monitorear";
-  let color = "bg-emerald-500 text-white";
-  let borderSemaforo = "border-emerald-200";
-
-  if (score <= 4) {
-    color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600";
-  } else if (score <= 9) {
-    color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-600"; accion = "Monitorear periódicamente";
-  } else if (score <= 16) {
-    color = "bg-orange-500 text-white"; borderSemaforo = "border-orange-600"; apetito = "Fuera de Apetito"; accion = "Mitigar / Ajustar Controles";
-  } else {
-    color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Fuera de Apetito"; accion = "Evitar / Suspender Proceso / Transferir";
-  }
+  if (score <= 4) { color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600"; } 
+  else if (score <= 9) { color = "bg-yellow-400 text-slate-900"; borderSemaforo = "border-yellow-600"; accion = "Monitorear periódicamente"; } 
+  else if (score <= 16) { color = "bg-orange-500 text-white"; borderSemaforo = "border-orange-600"; apetito = "Fuera de Apetito"; accion = "Mitigar / Ajustar Controles"; } 
+  else { color = "bg-red-600 text-white"; borderSemaforo = "border-red-700"; apetito = "Fuera de Apetito"; accion = "Evitar / Suspender Proceso / Transferir"; }
   return { score, apetito, accion, color, borderSemaforo };
 };
 
@@ -124,9 +138,7 @@ const applyFilters = (dataArray, globalTerm, colFilters = {}) => {
   let result = dataArray;
   if (globalTerm) {
     const lowerTerm = globalTerm.toLowerCase();
-    result = result.filter(item => 
-      Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
-    );
+    result = result.filter(item => Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm)));
   }
   if (colFilters && Object.keys(colFilters).length > 0) {
     Object.entries(colFilters).forEach(([key, filterValue]) => {
@@ -152,8 +164,7 @@ const ProgressBar = ({ progress }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between text-[10px] font-bold mb-1">
-        <span className="text-slate-500">PROGRESO</span>
-        <span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
+        <span className="text-slate-500">PROGRESO</span><span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2">
         <div className={`${color} h-2 rounded-full transition-all duration-1000`} style={{ width: `${safeProgress}%` }}></div>
@@ -165,71 +176,47 @@ const ProgressBar = ({ progress }) => {
 const Gauge = ({ value, label, sublabel, colorClass }) => {
   const safeValue = Math.min(Math.max(Math.round(Number(value) || 0), 0), 100);
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
-      <div className="relative w-32 h-32 flex items-center justify-center">
+    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
+      <div className="relative w-24 h-24 flex items-center justify-center">
         <svg className="w-full h-full transform -rotate-90">
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" 
-            strokeDasharray={339} strokeDashoffset={339 - (339 * safeValue) / 100}
-            className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
+          <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
+          <circle cx="48" cy="48" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={251} strokeDashoffset={251 - (251 * safeValue) / 100} className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
         </svg>
-        <span className="absolute text-3xl font-black text-slate-800 notranslate" translate="no">{safeValue} %</span>
+        <span className="absolute text-xl font-black text-slate-800 notranslate" translate="no">{safeValue}%</span>
       </div>
-      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
-      <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-4">{label}</p>
+      <p className="text-xs font-bold text-slate-700 mt-1">{sublabel}</p>
     </div>
   );
 };
 
 const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
-  <input 
-    type="text" 
-    placeholder={placeholder || "Filtrar..."}
-    className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${
-      dark 
-        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
-        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
-    }`}
-    value={columnFilters[colKey] || ''}
-    onChange={(e) => handleColFilterChange(colKey, e.target.value)}
-    onClick={(e) => e.stopPropagation()} 
-  />
+  <input type="text" placeholder={placeholder || "Filtrar..."} className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${dark ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'}`} value={columnFilters[colKey] || ''} onChange={(e) => handleColFilterChange(colKey, e.target.value)} onClick={(e) => e.stopPropagation()} />
 );
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   const maxVal = Math.max(...data.map(d => d.valor), 1);
-  const height = 120;
-  const width = 600;
-  const paddingY = 20;
-  const paddingX = 20;
-
-  const points = data.map((d, i) => {
-    const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
-    const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
-    return `${x},${y}`;
-  }).join(' ');
-
+  const height = 120, width = 600, paddingY = 20, paddingX = 20;
+  const points = data.map((d, i) => `${paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1))},${height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY))}`).join(' ');
   const fillPoints = `${paddingX},${height - paddingY} ${points} ${width - paddingX},${height - paddingY}`;
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
        <div className="flex justify-between items-center mb-6">
-         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4>
-         <span className="text-xl">{isCurrency ? '📉' : '📊'}</span>
+         <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4><span className="text-xl">{isCurrency ? '📉' : '📊'}</span>
        </div>
        <div className="relative w-full">
          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-sm overflow-visible" preserveAspectRatio="none">
            <polygon points={fillPoints} fill={fillColor} opacity="0.5" />
            <polyline points={points} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
            {data.map((d, i) => {
-              const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
-              const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
+              const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1)), y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
               return (
                 <g key={`point-${i}`} className="group cursor-pointer">
                     <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
                     <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
                     <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
-                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
+                       {isCurrency ? `$${(d.valor).toLocaleString('es-CO')}` : Math.round(d.valor)}
                     </text>
                 </g>
               );
@@ -243,65 +230,11 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 };
 
-// --- DATOS POR DEFECTO ---
-const defaultRiesgos = [
-  { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
-  { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
-  { id: 201, sede: 'Ecoparque', categoria: 'Tecnológico', proceso: 'Infraestructura TI', normativa: 'Ley 1581 Protección de Datos', tipoRiesgo: 'Ciberseguridad', afectacion: 'Operacional', causaInmediata: 'Falta de parches de seguridad', causaRaiz: 'Obsolescencia de servidores locales', descripcion: 'Ataque de ransomware que paraliza la operation central y expone datos confidenciales.', probabilidadInherente: 'Posible', impactoInherente: 'Crítico', noControl: 'C-201', descripcionControl: 'Firewall activo con logs y copias de seguridad semanales inmutables.', probabilidadResidual: 'Posible', impactoResidual: 'Alto', responsable: 'CISO / Director de TI', anio: 2026, mes: 'Junio', historialCambios: [] }
-];
-
-const defaultHallazgos = [
-  { id: 1, sede: 'Ecoparque', ref: 'HAL-2026-001', titulo: 'Acceso de usuarios genéricos a la base de datos de taquilla.', proceso: 'Sistemas', responsable: 'Jefe de TI', auditor: 'Auditoría TI', severidad: 'Alto', idRiesgo: 201, estado: 'Abierto', fecha: '2026-06-01', anio: 2026, mes: 'Junio', historialCambios: [] },
-  { id: 2, sede: 'Hotel', ref: 'HAL-2025-089', titulo: 'Ausencia de actas de capacitación en higiene de alimentos.', proceso: 'Alimentos y bebidas', responsable: 'Jefe de A&B', auditor: 'Control Interno', severidad: 'Medio', idRiesgo: 98, estado: 'Cerrado', fecha: '2025-11-15', anio: 2025, mes: 'Noviembre', historialCambios: [] }
-];
-
-const defaultPlanes = [
-  { id: 1, idHallazgo: 1, accion: 'Desactivar credenciales comunes y parametrizar roles individuales en base de datos.', responsable: 'Jefe de TI', fecha: '2026-07-15', estado: 'En Proceso', progreso: 30, anio: 2026, mes: 'Julio', historialCambios: [] },
-  { id: 2, idHallazgo: 2, accion: 'Realizar capacitación certificada con entidad de salud y documentar firmas.', responsable: 'Jefe de A&B', fecha: '2025-12-10', estado: 'Cerrado', progreso: 100, anio: 2025, mes: 'Diciembre', historialCambios: [] }
-];
-
-const defaultIncidentes = [
-  { id: 1, idRiesgo: 201, fecha: '2026-06-05', titulo: 'Alarma de ataque de fuerza bruta contenida', descripcion: 'El firewall detectó 400 intentos de inicio de sesión fallidos de IPs externas. El puerto se bloqueó.', costo: 1200000, impacto: 'Bajo', reportadoPor: 'analista.controlinterno@termales.com.co', estado: 'Cerrado', anio: 2026, mes: 'Junio', historialCambios: [] }
-];
-
-const defaultEvaluaciones = [
-  { id: 1, idRiesgo: 201, fecha: '2026-06-01', diseño: 'Eficaz', ejecucion: 'Eficaz', calificacion: 100, comentarios: 'Prueba de penetración simulada arrojó contención del cortafuegos de manera instantánea.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] },
-  { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] }
-];
-
-const defaultCronograma = [
-  { id: 1, codigo: '14', periodo: 'Anual', proceso: 'Gestión de tecnologías de la información.', enfoque: 'Primer semestre Verificación documental y segundo semestre auditoria externa', cumplimiento: 50, responsable: 'N/A', apoyo: 'N/A', meses: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
-  { id: 2, codigo: '15', periodo: 'Febrero, Mayo, Junio', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Rentabilidad AyB, Auditoria Locativa, Calidad, Taquilla, Manillas.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Febrero', 'Mayo', 'Junio'] },
-  { id: 3, codigo: '10', periodo: 'Marzo', proceso: 'Gestión de Clientes', enfoque: 'Análisis de PQRS y efectividad de planes de acción.', cumplimiento: 100, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo'] },
-  { id: 4, codigo: '16', periodo: 'Marzo, Abril, Julio, Agosto', proceso: 'Alimentos y Bebidas (AYB)', enfoque: 'Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Marzo', 'Abril', 'Julio', 'Agosto'] },
-  { id: 5, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 100, responsable: 'Yehison J Pineda', apoyo: 'Rodolfo Gonzalez', meses: ['Mayo', 'Junio'] },
-  { id: 6, codigo: '03', periodo: 'Mayo - Junio', proceso: 'Financiera', enfoque: 'Revisión de estados financieros y conciliaciones.', cumplimiento: 100, responsable: 'Rodolfo Gonzalez', apoyo: 'Yehison Pineda', meses: ['Mayo', 'Junio'] },
-  { id: 7, codigo: '18', periodo: 'Mayo - Junio', proceso: 'Selección y Vinculación', enfoque: 'Procesos de contratación y onboarding.', cumplimiento: 100, responsable: 'Angelica Hernandez', apoyo: 'Yehison Pineda', meses: ['Mayo', 'Junio'] },
-  { id: 8, codigo: '04', periodo: 'Julio - Agosto', proceso: 'Gestión de Tesorería', enfoque: 'Arqueos, flujo de caja y manejo de efectivo.', cumplimiento: 0, responsable: 'Angelica Hernandez', apoyo: 'Yehison Pineda', meses: ['Julio', 'Agosto'] },
-  { id: 9, codigo: '11', periodo: 'Julio - Agosto', proceso: 'Canales Alternos', enfoque: 'Revisión de canales de distribución y ventas.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez', apoyo: 'Yehison Pineda', meses: ['Julio', 'Agosto'] },
-  { id: 10, codigo: '19', periodo: 'Julio - Agosto', proceso: 'Seguridad y Salud en el Trabajo', enfoque: 'Matriz legal, entrega de EPPs y reportes de AT.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez', apoyo: 'Yehison Pineda', meses: ['Julio', 'Agosto'] },
-  { id: 11, codigo: '20', periodo: 'Julio - Agosto', proceso: 'Compensaciones', enfoque: 'Nómina, liquidación de horas extras y parafiscales.', cumplimiento: 0, responsable: 'Angelica Hernandez', apoyo: 'Yehison Pineda', meses: ['Julio', 'Agosto'] },
-  { id: 12, codigo: '17', periodo: 'Agosto', proceso: 'Formación y Desarrollo', enfoque: 'Auditoría a planes de capacitación y matriz de habilidades.', cumplimiento: 0, responsable: 'Angelica Hernandez', apoyo: 'Yehison Pineda', meses: ['Agosto'] },
-  { id: 13, codigo: '12', periodo: 'Agosto - Octubre', proceso: 'Mercadeo', enfoque: 'Auditoría a campañas, pauta digital y ROI.', cumplimiento: 0, responsable: 'Yehison Pineda', apoyo: 'Angelica Hernandez', meses: ['Agosto', 'Septiembre', 'Octubre'] },
-  { id: 14, codigo: '07', periodo: 'Septiembre - Diciembre', proceso: 'Proyectos', enfoque: 'Auditoría a la ejecución presupuestal de proyectos.', cumplimiento: 0, responsable: 'Yehison Pineda', apoyo: 'Rodolfo Gonzalez', meses: ['Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
-  { id: 15, codigo: '13', periodo: 'Septiembre - Noviembre', proceso: 'Control Inventarios', enfoque: 'Toma física de inventarios e insumos operacionales.', cumplimiento: 0, responsable: 'Yehison Pineda', apoyo: 'Angelica Hernandez', meses: ['Septiembre', 'Octubre', 'Noviembre'] },
-  { id: 16, codigo: '05', periodo: 'Noviembre - Diciembre', proceso: 'Gestión de Crédito y Cartera', enfoque: 'Verificación del comportamiento de Notas Crédito.', cumplimiento: 0, responsable: 'Luz Angela Chico', apoyo: 'Yehison Pineda', meses: ['Noviembre', 'Diciembre'] },
-  { id: 17, codigo: '06', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Contable', enfoque: 'Auditoría a cierres contables y causaciones.', cumplimiento: 0, responsable: 'Yehison Pineda', apoyo: 'Rodolfo Gonzalez', meses: ['Noviembre', 'Diciembre'] },
-  { id: 18, codigo: '08', periodo: 'Noviembre - Diciembre', proceso: 'Mantenimiento de Infraestructura', enfoque: 'Planes de mantenimiento preventivo y correctivo.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez', apoyo: 'Yehison Pineda', meses: ['Noviembre', 'Diciembre'] },
-  { id: 19, codigo: '09', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Ambiental', enfoque: 'Cumplimiento de normativa ambiental y residuos.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez', apoyo: 'Luz Angela Chico', meses: ['Noviembre', 'Diciembre'] },
-  { id: 20, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison Pineda', apoyo: 'Rodolfo Gonzalez', meses: ['Diciembre'] }
-];
-
-const defaultMonitoreo = [
-  { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
-  { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
-  { id: 3, indicador: 'NOTAS CRÉDITO (AUDIT)', valor: 4, limite: 10, tendencia: 'flat', proceso: 'Auditoría' }
-];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
-  const [tipoMatriz, setTipoMatriz] = useState('residual'); 
+  const [tipoMatriz, setTipoMatriz] = useState('inherente'); 
   const [isPresentationMode, setIsPresentationMode] = useState(false); 
   const [formResetKey, setFormResetKey] = useState(Date.now()); 
 
@@ -312,12 +245,12 @@ export default function App() {
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
   const [filtroHeatMap, setFiltroHeatMap] = useState(null);
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [aiModal, setAiModal] = useState(null);
 
-  // --- SELECCIÓN MÚLTIPLE DE FECHAS ACTIVADA ---
   const [selectedAnios, setSelectedAnios] = useState([new Date().getFullYear(), new Date().getFullYear() + 1]);
   const [selectedMeses, setSelectedMeses] = useState(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]);
 
-  // --- ENTIDADES PRINCIPALES ---
   const [riesgos, setRiesgos] = useState([]);
   const [hallazgos, setHallazgos] = useState([]);
   const [planes, setPlanes] = useState([]);
@@ -326,10 +259,6 @@ export default function App() {
   const [cronograma, setCronograma] = useState([]);
   const [monitoreo, setMonitoreo] = useState([]);
 
-  const [isThinking, setIsThinking] = useState(false);
-  const [aiModal, setAiModal] = useState(null);
-
-  // --- CONTROL FORMULARIOS MODAL / EDICIÓN ---
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
   const [editHallazgo, setEditHallazgo] = useState(null);
@@ -352,7 +281,6 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
-  // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
     setSearchTerm('');
     setColumnFilters({});
@@ -399,7 +327,9 @@ export default function App() {
         setCronograma(data.cronograma || defaultCronograma);
         setMonitoreo(data.monitoreo || defaultMonitoreo);
       } else {
-        setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo });
+        if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
+           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo });
+        }
       }
       setIsCloudLoaded(true);
     });
@@ -426,7 +356,7 @@ export default function App() {
   const saveToCloud = async (partialData) => { await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
-  // SOLUCIÓN AL SCROLL DE EDICIÓN: Encuentra el elemento del formulario y baja hasta ahí de forma inteligente
+  // SOLUCIÓN AL SCROLL DE EDICIÓN
   const scrollToForm = () => {
     setTimeout(() => {
       const formEl = document.getElementById('edit-form');
@@ -474,7 +404,7 @@ export default function App() {
     reader.onload = async (event) => {
       try {
         const parsedData = JSON.parse(event.target.result);
-        if(window.confirm("⚠️ ALERTA: Esto sobrescribirá TODA la base de datos actual con los datos del archivo. ¿Estás seguro?")) {
+        if(window.confirm("⚠️ ALERTA: Esto sobrescribirá TODA la base de datos actual. ¿Estás seguro?")) {
           setIsCloudLoaded(false); 
           await saveToCloud(parsedData);
           showNotification("Base de datos actualizada masivamente con éxito.", "success");
@@ -488,14 +418,65 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  const forceUpdateCronograma = async () => {
-    if(window.confirm("¿Seguro que deseas cargar los 20 procesos del nuevo Plan Anual? Esto borrará el cronograma actual y lo reemplazará por la versión de Termales Santa Rosa.")) {
-      await saveToCloud({ cronograma: defaultCronograma });
-      showNotification("¡Plan Anual actualizado exitosamente con los 20 procesos!", "success");
+  // --- NUEVA FUNCIÓN: CARGAR RIESGOS DESDE EXCEL ---
+  const handleImportExcelRiesgos = (e) => {
+    if (!window.XLSX) {
+      showNotification("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.", "error");
+      return;
     }
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = window.XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json = window.XLSX.utils.sheet_to_json(worksheet);
+
+        if(window.confirm("⚠️ ALERTA: Esto reemplazará tu Matriz de Riesgos actual con los datos del Excel. ¿Estás seguro?")) {
+          setIsCloudLoaded(false);
+          
+          const nuevosRiesgos = json.map((r, index) => ({
+            id: r.id || Date.now() + index,
+            sede: r.sede || 'Hotel',
+            proceso: r.proceso || 'Proceso General',
+            categoria: r.categoria || 'Operativo',
+            normativa: r.normativa || 'Ninguna',
+            responsable: r.responsable || 'Sin Asignar',
+            noControl: r.noControl || 'C-' + Math.floor(Math.random() * 100 + 100),
+            descripcionControl: r.descripcionControl || r.control || 'Control no definido',
+            descripcion: r.descripcion || 'Sin descripción',
+            probabilidadInherente: r.probabilidadInherente || 'Posible',
+            impactoInherente: r.impactoInherente || 'Medio',
+            probabilidadResidual: r.probabilidadResidual || 'Posible',
+            impactoResidual: r.impactoResidual || 'Medio',
+            capacidadRiesgo: r.capacidadRiesgo || null,
+            toleranciaFinanciera: r.toleranciaFinanciera || null,
+            apetitoFinanciero: r.apetitoFinanciero || null,
+            posturaEstrategica: r.posturaEstrategica || null,
+            kriScore: r.kriScore || null,
+            anio: r.anio || new Date().getFullYear(),
+            mes: r.mes || "Mayo",
+            historialCambios: [{ fecha: new Date().toLocaleString(), accion: 'Importado masivamente desde Excel' }]
+          }));
+
+          await saveToCloud({ riesgos: nuevosRiesgos });
+          showNotification(`Matriz de Riesgos actualizada masivamente. (${nuevosRiesgos.length} riesgos cargados)`, "success");
+          setIsCloudLoaded(true);
+        }
+      } catch (error) {
+        console.error(error);
+        showNotification("Error: El archivo Excel no tiene un formato válido o está corrupto.", "error");
+        setIsCloudLoaded(true);
+      }
+      e.target.value = null;
+    };
+    reader.readAsArrayBuffer(file);
   };
 
-  // --- FUNCIONES IA GEMINI ---
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
@@ -961,29 +942,41 @@ export default function App() {
         <div className="flex justify-between items-center">
            <div>
               <h3 className="font-black text-amber-900 uppercase tracking-widest text-sm mb-1">🚀 Forzar Actualización de Cronograma (NUEVO)</h3>
-              <p className="text-xs text-amber-700 max-w-2xl">Utiliza este botón para borrar el cronograma de prueba antiguo de tu base de datos y cargar automáticamente los <b>20 procesos auditables</b> oficiales de Termales Santa Rosa.</p>
+              <p className="text-xs text-amber-700 max-w-2xl">Utiliza este botón para borrar el cronograma de prueba antiguo de tu base de datos y cargar automáticamente los <b>procesos auditables</b> oficiales de Termales Santa Rosa.</p>
            </div>
            <button onClick={forceUpdateCronograma} className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all">
-             Cargar 20 Procesos
+             Cargar Procesos
            </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* NUEVO BOTON PARA IMPORTAR MATRIZ RIESGOS DESDE EXCEL */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-600">
+          <h3 className="font-black text-emerald-700 uppercase tracking-widest text-sm mb-4">📊 Cargar Matriz de Riesgos (Excel)</h3>
+          <p className="text-xs text-slate-600 mb-6">Sube un archivo .xlsx para actualizar masivamente <b>solo la Matriz de Riesgos</b>. Asegúrate de usar la plantilla descargada previamente.</p>
+          
+          <label className="block w-full cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-black uppercase tracking-widest py-3 text-center rounded-xl shadow-sm border border-emerald-200 transition-all">
+            Seleccionar Archivo Excel
+            <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcelRiesgos} />
+          </label>
+        </div>
+
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
           <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm mb-4">📥 Exportar Backup (Descarga)</h3>
           <p className="text-xs text-slate-600 mb-6">Descarga una copia completa de toda tu base de datos actual en formato JSON. Útil para tener respaldos de seguridad o para editar los datos masivamente en un editor de texto o Excel.</p>
-          <button onClick={exportToJSON} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest py-3 rounded-xl shadow-md transition-all">
+          <button onClick={exportToJSON} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black uppercase tracking-widest py-3 rounded-xl shadow-md transition-all">
             Descargar Base de Datos (.JSON)
           </button>
         </div>
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-red-600">
-          <h3 className="font-black text-red-600 uppercase tracking-widest text-sm mb-4">📤 Carga Masiva (Sobrescribir DB)</h3>
-          <p className="text-xs text-slate-600 mb-6">Sube un archivo JSON con la estructura correcta para actualizar masivamente. <b>ADVERTENCIA:</b> Esta acción borrará los datos actuales y los reemplazará por los del archivo.</p>
+          <h3 className="font-black text-red-600 uppercase tracking-widest text-sm mb-4">📤 Carga Masiva Completa DB</h3>
+          <p className="text-xs text-slate-600 mb-6">Sube un archivo JSON con la estructura correcta para actualizar masivamente. <b>ADVERTENCIA:</b> Esta acción borrará todos los datos actuales de todos los módulos.</p>
           
           <label className="block w-full cursor-pointer bg-red-50 hover:bg-red-100 text-red-700 font-black uppercase tracking-widest py-3 text-center rounded-xl shadow-sm border border-red-200 transition-all">
-            Seleccionar Archivo JSON y Subir
+            Seleccionar Archivo JSON
             <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
           </label>
         </div>
@@ -992,11 +985,9 @@ export default function App() {
       <div className="bg-blue-50 p-6 rounded-3xl border border-blue-200">
         <h3 className="font-black text-blue-800 uppercase tracking-widest text-sm mb-2">💡 ¿Cómo hacer una carga masiva desde Excel?</h3>
         <ol className="list-decimal pl-5 text-xs text-blue-900 space-y-2 mt-4 font-medium">
-          <li>Haz clic en <b>Descargar Base de Datos (.JSON)</b> para obtener la estructura actual.</li>
-          <li>Usa un convertidor gratuito en línea de "JSON a Excel" para ver tus datos en formato tabla.</li>
-          <li>Agrega tus cientos de filas nuevas en el Excel asegurándote de no cambiar los nombres de las columnas (ej. <i>id, proceso, sede</i>).</li>
-          <li>Usa un convertidor de "Excel a JSON" para volver a transformar tu tabla en código.</li>
-          <li>Sube el nuevo archivo `.json` usando el botón rojo de <b>Carga Masiva</b>.</li>
+          <li>Ve a la pestaña <b>Matriz de Riesgos</b> y presiona el botón de <b>Exportar</b> para obtener la estructura actual en Excel.</li>
+          <li>Abre el Excel y agrega tus cientos de filas nuevas en el Excel asegurándote de no cambiar los nombres de las columnas (ej. <i>id, proceso, sede</i>).</li>
+          <li>Ve a esta pestaña de Configuración y usa el botón verde <b>Cargar Matriz de Riesgos (Excel)</b> para subir el archivo actualizado.</li>
         </ol>
       </div>
     </div>
@@ -1019,7 +1010,7 @@ export default function App() {
         </div>
 
         <div className="space-y-4 mt-8">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">DESEMPEÑO POR UNIDAD DE NEGOCIO</h3>
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">DESEMPEÑO POR UNIDAD DE NEGOCIO</h3>
           
           <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
             <h4 className="text-xl font-black text-slate-800 mb-6 border-b pb-2">Hotel</h4>
@@ -1232,7 +1223,7 @@ export default function App() {
                    <p className="text-[10px] text-slate-500 mt-4 leading-relaxed font-medium">Evaluación integral de procesos administrativos, operativos y de soporte.</p>
                 </div>
 
-                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div id="seccion-monitoreo" className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                    <div className="bg-[#004d40] text-white p-3 flex justify-between items-center">
                      <span className="text-[10px] font-black uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Gestor de KRIs</span></span>
                      {isAdmin && <button onClick={() => {setEditMonitoreo({}); scrollToForm();}} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
@@ -2112,8 +2103,8 @@ export default function App() {
                     <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
                     <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
-                      {isAdmin && <button onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 mx-1 text-sm">✏️</button>}
-                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="text-slate-400 hover:text-red-700 mx-1 text-sm">🗑️</button>}
+                      {isAdmin && <button onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToForm();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
+                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
                     </td>
                   </tr>
                 )
@@ -2163,8 +2154,8 @@ export default function App() {
                 <td className="p-3 text-right font-mono font-bold text-red-600 notranslate" translate="no">${Number(i.costo || 0).toLocaleString('es-CO')}</td>
                 {isAdmin && (
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
-                    <button onClick={() => {setEditIncidente(i); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 mx-1 text-sm">✏️</button>
-                    <button onClick={() => handleDeleteItem('incidentes', i.id)} className="text-slate-400 hover:text-red-700 mx-1 text-sm">🗑️</button>
+                    <button onClick={() => {setEditIncidente(i); setFormResetKey(Date.now()); scrollToForm();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                    <button onClick={() => handleDeleteItem('incidentes', i.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
                   </td>
                 )}
               </tr>
@@ -2252,7 +2243,7 @@ export default function App() {
         <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
-            { id: 'dashboard_riesgos', icon: '📈', label: 'Panel de control inteligente' },
+            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
             { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
             { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
             { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
@@ -2261,9 +2252,9 @@ export default function App() {
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' },
-            { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
-          ].map((tab, index) => (
-            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+            { id: 'config', icon: '⚙️', label: 'Configuración / Backups' }
+          ].map((tab) => (
+            <button key={`nav-${tab.id}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
               <span>{tab.icon}</span><span>{tab.label}</span>
             </button>
           ))}
