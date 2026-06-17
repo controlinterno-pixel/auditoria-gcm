@@ -153,6 +153,7 @@ const ProgressBar = ({ progress }) => {
     <div className="w-full">
       <div className="flex justify-between text-[10px] font-bold mb-1">
         <span className="text-slate-500">PROGRESO</span>
+        {/* Etiqueta translate="no" para que Google Translate no congele el número */}
         <span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
       </div>
       <div className="w-full bg-slate-200 rounded-full h-2">
@@ -229,7 +230,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
                     <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
                     <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
                     <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
-                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
+                       {isCurrency ? `$${(d.valor).toLocaleString('es-CO')}` : Math.round(d.valor)}
                     </text>
                 </g>
               );
@@ -243,7 +244,30 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 };
 
-// --- DATOS POR DEFECTO ---
+// --- DATOS POR DEFECTO ACTUALIZADOS DE LA IMAGEN (20 PROCESOS) ---
+const defaultCronograma = [
+  { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] },
+  { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },
+  { id: 3, codigo: '03', periodo: 'Mayo - Junio', proceso: 'Financiera', enfoque: 'Revisión de estados financieros y conciliaciones.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
+  { id: 4, codigo: '04', periodo: 'Julio - Agosto', proceso: 'Gestión de Tesoreria', enfoque: 'Arqueos, flujo de caja y manejo de efectivo.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 5, codigo: '05', periodo: 'Noviembre - Diciembre', proceso: 'Gestión de Crédito y Cartera', enfoque: 'Verificación del comportamiento de Notas Crédito y Descuentos.', cumplimiento: 0, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 6, codigo: '06', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Contable', enfoque: 'Auditoría a cierres contables y causaciones.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 7, codigo: '07', periodo: 'Septiembre - Diciembre', proceso: 'Proyectos', enfoque: 'Auditoría a la ejecución presupuestal de proyectos.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
+  { id: 8, codigo: '08', periodo: 'Noviembre - Diciembre', proceso: 'Mantenimiento de Infraestructura', enfoque: 'Planes de mantenimiento preventivo y correctivo.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 9, codigo: '09', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Ambiental', enfoque: 'Cumplimiento de normativa ambiental y manejo de residuos.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Luz Angela Chico T.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 10, codigo: '10', periodo: 'Marzo', proceso: 'Gestión Clientes', enfoque: 'Análisis de PQRS y efectividad de planes de acción.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Marzo'] },
+  { id: 11, codigo: '11', periodo: 'Julio - Agosto', proceso: 'Canales Alternos', enfoque: 'Revisión de canales de distribución y ventas.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 12, codigo: '12', periodo: 'Agosto - Octubre', proceso: 'Mercadeo', enfoque: 'Auditoría a campañas, pauta digital y ROI.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Agosto', 'Septiembre', 'Octubre'] },
+  { id: 13, codigo: '13', periodo: 'Septiembre - Noviembre', proceso: 'Control Inventarios', enfoque: 'Toma física de inventarios e insumos operacionales.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Septiembre', 'Octubre', 'Noviembre'] },
+  { id: 14, codigo: '14', periodo: 'Anual', proceso: 'Gestión de tecnologías de la información', enfoque: 'Primer semestre Verificación documental y segundo semestre auditoria externa', cumplimiento: 0, responsable: 'N/A', apoyo: 'N/A', meses: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
+  { id: 15, codigo: '15', periodo: 'Febrero, Mayo, Junio', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Rentabilidad AyB, Auditoria Locativa, Calidad, Taquilla, Manillas.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Febrero', 'Mayo', 'Junio'] },
+  { id: 16, codigo: '16', periodo: 'Marzo, Abril, Julio, Agosto', proceso: 'Alimentos y Bebidas (AYB)', enfoque: 'Estandarización de procesos y alimentación.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Marzo', 'Abril', 'Julio', 'Agosto'] },
+  { id: 17, codigo: '17', periodo: 'Agosto', proceso: 'Formación y Desarrollo', enfoque: 'Auditoría a planes de capacitación y matriz de habilidades.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Agosto'] },
+  { id: 18, codigo: '18', periodo: 'Mayo - Junio', proceso: 'Selección y Vinculación', enfoque: 'Procesos de contratación y onboarding.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
+  { id: 19, codigo: '19', periodo: 'Julio - Agosto', proceso: 'Seguridad y Salud en el Trabajo', enfoque: 'Matriz legal, entrega de EPPs y reportes de AT.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 20, codigo: '20', periodo: 'Julio - Agosto', proceso: 'Compensaciones', enfoque: 'Nómina, liquidación de horas extras y parafiscales.', cumplimiento: 0, responsable: 'Angelica F. Hernández.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] }
+];
+
 const defaultRiesgos = [
   { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
   { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
@@ -269,29 +293,6 @@ const defaultEvaluaciones = [
   { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] }
 ];
 
-const defaultCronograma = [
-  { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento de normativas legales e internas aplicables a la empresa.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] },
-  { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría al proceso de adquisiciones, cotizaciones y evaluación de proveedores.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },
-  { id: 3, codigo: '03', periodo: 'Mayo - Junio', proceso: 'Financiera', enfoque: 'Revisión de estados financieros, conciliaciones y ejecución presupuestal.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
-  { id: 4, codigo: '04', periodo: 'Julio - Agosto', proceso: 'Gestión de Tesoreria', enfoque: 'Control de flujo de caja, arqueos y pagos a terceros.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
-  { id: 5, codigo: '05', periodo: 'Noviembre - Diciembre', proceso: 'Gestión de Crédito y Cartera', enfoque: 'Análisis de cartera vencida, políticas de crédito y recaudo.', cumplimiento: 0, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
-  { id: 6, codigo: '06', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Contable', enfoque: 'Cierre fiscal, registros contables y cumplimiento tributario.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Noviembre', 'Diciembre'] },
-  { id: 7, codigo: '07', periodo: 'Septiembre - Diciembre', proceso: 'Proyectos', enfoque: 'Seguimiento a la ejecución presupuestal y cronograma de proyectos en curso.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
-  { id: 8, codigo: '08', periodo: 'Noviembre - Diciembre', proceso: 'Mantenimiento de Infraestructura', enfoque: 'Auditoría a planes de mantenimiento preventivo y correctivo locativo.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
-  { id: 9, codigo: '09', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Ambiental', enfoque: 'Verificación de cumplimiento de normativas ambientales y manejo de residuos.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Luz Angela Chico T.', meses: ['Noviembre', 'Diciembre'] },
-  { id: 10, codigo: '10', periodo: 'Marzo - Abril', proceso: 'Gestión Clientes', enfoque: 'Análisis de PQRS (Quejas y Reclamos) y encuestas de satisfacción.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Marzo', 'Abril'] },
-  { id: 11, codigo: '11', periodo: 'Julio - Agosto', proceso: 'Canales Alternos', enfoque: 'Auditoría a plataformas digitales de reserva y ventas.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
-  { id: 12, codigo: '12', periodo: 'Agosto - Septiembre', proceso: 'Mercadeo', enfoque: 'Revisión de ROI en campañas publicitarias y manejo de marca.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Agosto', 'Septiembre'] },
-  { id: 13, codigo: '13', periodo: 'Septiembre - Noviembre', proceso: 'Control Inventarios', enfoque: 'Toma física de inventarios e identificación de mermas.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Septiembre', 'Octubre', 'Noviembre'] },
-  { id: 14, codigo: '14', periodo: 'Anual', proceso: 'Gestión de tecnologías de la información', enfoque: 'Primer semestre Verificación documental y segundo semestre auditoria externa.', cumplimiento: 0, responsable: 'Auditoría Externa', apoyo: 'N/A', meses: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
-  { id: 15, codigo: '15', periodo: 'Ene-Feb / May-Jun', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque: Auditoría a procesos operativos, habitaciones y áreas de recreación.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero', 'Mayo', 'Junio'] },
-  { id: 16, codigo: '16', periodo: 'Mar-Abr / Jul-Ago', proceso: 'Alimentos y Bebidas (AYB)', enfoque: 'Rentabilidad de AYB, estandarización de procesos y cumplimiento de sanidad.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Marzo', 'Abril', 'Julio', 'Agosto'] },
-  { id: 17, codigo: '17', periodo: 'Agosto - Septiembre', proceso: 'Formación y Desarrollo', enfoque: 'Ejecución del plan de capacitaciones y efectividad del entrenamiento.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Agosto', 'Septiembre'] },
-  { id: 18, codigo: '18', periodo: 'Mayo - Junio', proceso: 'Selección y Vinculación', enfoque: 'Auditoría a procesos de contratación y cumplimiento de perfiles de cargo.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
-  { id: 19, codigo: '19', periodo: 'Julio - Agosto', proceso: 'Seguridad y Salud en el Trabajo', enfoque: 'Revisión del SG-SST, matriz de peligros y accidentalidad.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
-  { id: 20, codigo: '20', periodo: 'Julio - Agosto', proceso: 'Compensaciones', enfoque: 'Liquidación de nómina, horas extras y prestaciones sociales.', cumplimiento: 0, responsable: 'Angelica F. Hernández.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] }
-];
-
 const defaultMonitoreo = [
   { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
   { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
@@ -302,9 +303,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
-
-  // --- ESTADO PARA MODO PRESENTACIÓN ---
-  const [isPresenting, setIsPresenting] = useState(false);
+  const [isPresentationMode, setIsPresentationMode] = useState(false); 
 
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
@@ -477,6 +476,14 @@ export default function App() {
       e.target.value = null; 
     };
     reader.readAsText(file);
+  };
+
+  // BOTÓN MÁGICO PARA FORZAR LOS 20 PROCESOS NUEVOS
+  const forceUpdateCronograma = async () => {
+    if(window.confirm("¿Seguro que deseas cargar los 20 procesos del nuevo Plan Anual? Esto borrará el cronograma actual y lo reemplazará por la versión de Termales Santa Rosa.")) {
+      await saveToCloud({ cronograma: defaultCronograma });
+      showNotification("¡Plan Anual actualizado exitosamente con los 20 procesos!", "success");
+    }
   };
 
   // --- FUNCIONES IA GEMINI ---
@@ -941,6 +948,18 @@ export default function App() {
         <p className="text-xs text-slate-500 font-bold mt-1">Gestión avanzada de la base de datos y copias de seguridad.</p>
       </div>
 
+      <div className="bg-amber-50 p-6 rounded-3xl border border-amber-200">
+        <div className="flex justify-between items-center">
+           <div>
+              <h3 className="font-black text-amber-900 uppercase tracking-widest text-sm mb-1">🚀 Forzar Actualización de Cronograma (NUEVO)</h3>
+              <p className="text-xs text-amber-700 max-w-2xl">Utiliza este botón para borrar el cronograma de prueba antiguo de tu base de datos y cargar automáticamente los <b>20 procesos auditables</b> oficiales de Termales Santa Rosa.</p>
+           </div>
+           <button onClick={forceUpdateCronograma} className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all">
+             Cargar 20 Procesos (De la foto)
+           </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
           <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm mb-4">📥 Exportar Backup (Descarga)</h3>
@@ -959,17 +978,6 @@ export default function App() {
             <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
           </label>
         </div>
-      </div>
-      
-      <div className="bg-blue-50 p-6 rounded-3xl border border-blue-200">
-        <h3 className="font-black text-blue-800 uppercase tracking-widest text-sm mb-2">💡 ¿Cómo hacer una carga masiva desde Excel?</h3>
-        <ol className="list-decimal pl-5 text-xs text-blue-900 space-y-2 mt-4 font-medium">
-          <li>Haz clic en <b>Descargar Base de Datos (.JSON)</b> para obtener la estructura actual.</li>
-          <li>Usa un convertidor gratuito en línea de "JSON a Excel" para ver tus datos en formato tabla.</li>
-          <li>Agrega tus cientos de filas nuevas en el Excel asegurándote de no cambiar los nombres de las columnas (ej. <i>id, proceso, sede</i>).</li>
-          <li>Usa un convertidor de "Excel a JSON" para volver a transformar tu tabla en código.</li>
-          <li>Sube el nuevo archivo `.json` usando el botón rojo de <b>Carga Masiva</b>.</li>
-        </ol>
       </div>
     </div>
   );
@@ -1310,10 +1318,10 @@ export default function App() {
               <div className="md:col-span-4">
                 <label className="font-bold text-gray-600 block mb-2">Meses Planeados (Para gráfico de Gantt)</label>
                 <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(mes => (
+                  {allMonths.map(mes => (
                     <label key={`gantt-label-${mes}`} className="flex items-center space-x-2 cursor-pointer">
                       <input type="checkbox" name={`mes_${mes}`} defaultChecked={editCronograma?.meses?.includes(mes)} className="rounded text-[#004d40] focus:ring-[#004d40]" />
-                      <span className="text-[10px] font-bold uppercase">{mes.substring(0,3)}</span>
+                      <span className="text-[10px] font-bold uppercase notranslate" translate="no">{mes.substring(0,3)}</span>
                     </label>
                   ))}
                 </div>
@@ -1352,7 +1360,7 @@ export default function App() {
                      <div>Apoyo</div>
                      <FilterInput colKey="apoyo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                    </th>
-                   {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16">{m.substring(0,3)}</th>)}
+                   {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">{m.substring(0,3)}</th>)}
                  </tr>
                </thead>
                <tbody>
@@ -1362,7 +1370,7 @@ export default function App() {
                      <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
                      <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
                      <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.apoyo}</td>
-                     {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(mes => {
+                     {allMonths.map(mes => {
                        const isPlanned = c.meses?.includes(mes);
                        return (
                          <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0`}>
@@ -2121,7 +2129,7 @@ export default function App() {
             <tbody className="divide-y text-slate-600">
               {logs.map((l, idx) => (
                 <tr key={idx} className="hover:bg-slate-50">
-                  <td className="p-3 font-mono">{l.fecha || new Date().toLocaleString()}</td>
+                  <td className="p-3 font-mono notranslate" translate="no">{l.fecha || new Date().toLocaleString()}</td>
                   <td className="p-3 font-bold text-slate-900">{l.ref}</td>
                   <td className="p-3 italic">{l.accion || 'Registro guardado'}</td>
                 </tr>
@@ -2213,56 +2221,44 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      
-      {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
-      {isPresenting && (
-        <button 
-          onClick={() => setIsPresenting(false)} 
-          className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 flex items-center space-x-2 border-2 border-slate-700 animate-in slide-in-from-bottom-10"
-        >
-          <span>✖</span><span>Salir de Presentación</span>
-        </button>
+      {!isPresentationMode && (
+        <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20">
+          <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
+          <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+            {[
+              { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
+              { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
+              { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
+              { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
+              { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
+              { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
+              { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
+              { id: 'planes', icon: '✅', label: 'Planes de Acción' },
+              { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
+              { id: 'informe', icon: '📜', label: 'Trazabilidad' },
+              { id: 'config', icon: '⚙️', label: 'Configuración / Backups' }
+            ].map((tab, index) => (
+              <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <span>{tab.icon}</span><span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+          <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
+        </div>
       )}
-
-      {/* SIDEBAR */}
-      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresenting ? 'hidden' : 'flex'}`}>
-        <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
-          {[
-            { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
-            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
-            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
-            { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
-            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
-            { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
-            { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
-            { id: 'planes', icon: '✅', label: 'Planes de Acción' },
-            { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
-            { id: 'informe', icon: '📜', label: 'Trazabilidad' },
-            { id: 'config', icon: '⚙️', label: 'Configuración / Backups' }
-          ].map((tab, index) => (
-            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-              <span>{tab.icon}</span><span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
-      </div>
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* HEADER SUPERIOR */}
-        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresenting ? 'hidden' : 'flex'}`}>
-          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
-          <button 
-            onClick={() => setIsPresenting(true)} 
-            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-2"
-          >
-            <span>📺</span><span>Modo Presentación</span>
-          </button>
-        </header>
+        {!isPresentationMode && (
+          <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm z-10 flex-shrink-0">
+            <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
+            <button onClick={() => setIsPresentationMode(true)} className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-slate-700 transition-colors flex items-center space-x-2">
+              <span>📺</span><span>Modo Presentación</span>
+            </button>
+          </header>
+        )}
         
-        <main className={`flex-grow overflow-y-auto ${isPresenting ? 'p-12' : 'p-8'}`}>
-          <div className={`${isPresenting ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
+        <main className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50`}>
+          <div className="max-w-7xl mx-auto">
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
             {activeTab === 'plan_anual' && renderPlanAnual()}
@@ -2276,6 +2272,12 @@ export default function App() {
             {activeTab === 'config' && renderConfiguracion()}
           </div>
         </main>
+
+        {isPresentationMode && (
+           <button onClick={() => setIsPresentationMode(false)} className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full shadow-2xl font-black text-[10px] uppercase tracking-widest z-50 hover:scale-105 transition-transform flex items-center space-x-2 border-2 border-white">
+              <span>✖</span><span>Salir de Presentación</span>
+           </button>
+        )}
       </div>
     </div>
   );
