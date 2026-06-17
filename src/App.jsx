@@ -229,7 +229,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
                     <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
                     <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
                     <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
-                       {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
+                       {isCurrency ? `$${(d.valor).toLocaleString('es-CO')}` : Math.round(d.valor)}
                     </text>
                 </g>
               );
@@ -243,7 +243,30 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
   );
 };
 
-// --- DATOS POR DEFECTO ---
+// --- DATOS POR DEFECTO ACTUALIZADOS DE LA IMAGEN (20 PROCESOS) ---
+const defaultCronograma = [
+  { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] },
+  { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },
+  { id: 3, codigo: '03', periodo: 'Mayo - Junio', proceso: 'Financiera', enfoque: 'Revisión de estados financieros y conciliaciones.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
+  { id: 4, codigo: '04', periodo: 'Julio - Agosto', proceso: 'Gestión de Tesoreria', enfoque: 'Arqueos, flujo de caja y manejo de efectivo.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 5, codigo: '05', periodo: 'Noviembre - Diciembre', proceso: 'Gestión de Crédito y Cartera', enfoque: 'Verificación del comportamiento de Notas Crédito y Descuentos.', cumplimiento: 0, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 6, codigo: '06', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Contable', enfoque: 'Auditoría a cierres contables y causaciones.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 7, codigo: '07', periodo: 'Septiembre - Diciembre', proceso: 'Proyectos', enfoque: 'Auditoría a la ejecución presupuestal de proyectos.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
+  { id: 8, codigo: '08', periodo: 'Noviembre - Diciembre', proceso: 'Mantenimiento de Infraestructura', enfoque: 'Planes de mantenimiento preventivo y correctivo.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 9, codigo: '09', periodo: 'Noviembre - Diciembre', proceso: 'Gestión Ambiental', enfoque: 'Cumplimiento de normativa ambiental y manejo de residuos.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Luz Angela Chico T.', meses: ['Noviembre', 'Diciembre'] },
+  { id: 10, codigo: '10', periodo: 'Marzo', proceso: 'Gestión Clientes', enfoque: 'Análisis de PQRS y efectividad de planes de acción.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Marzo'] },
+  { id: 11, codigo: '11', periodo: 'Julio - Agosto', proceso: 'Canales Alternos', enfoque: 'Revisión de canales de distribución y ventas.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 12, codigo: '12', periodo: 'Agosto - Octubre', proceso: 'Mercadeo', enfoque: 'Auditoría a campañas, pauta digital y ROI.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Agosto', 'Septiembre', 'Octubre'] },
+  { id: 13, codigo: '13', periodo: 'Septiembre - Noviembre', proceso: 'Control Inventarios', enfoque: 'Toma física de inventarios e insumos operacionales.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Angelica F. Hernandez.', meses: ['Septiembre', 'Octubre', 'Noviembre'] },
+  { id: 14, codigo: '14', periodo: 'Anual', proceso: 'Gestión de tecnologías de la información', enfoque: 'Primer semestre Verificación documental y segundo semestre auditoria externa', cumplimiento: 0, responsable: 'N/A', apoyo: 'N/A', meses: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] },
+  { id: 15, codigo: '15', periodo: 'Febrero, Mayo, Junio', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Rentabilidad AyB, Auditoria Locativa, Calidad, Taquilla, Manillas.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Febrero', 'Mayo', 'Junio'] },
+  { id: 16, codigo: '16', periodo: 'Marzo, Abril, Julio, Agosto', proceso: 'Alimentos y Bebidas (AYB)', enfoque: 'Estandarización de procesos y alimentación.', cumplimiento: 0, responsable: 'Todos', apoyo: '', meses: ['Marzo', 'Abril', 'Julio', 'Agosto'] },
+  { id: 17, codigo: '17', periodo: 'Agosto', proceso: 'Formación y Desarrollo', enfoque: 'Auditoría a planes de capacitación y matriz de habilidades.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Agosto'] },
+  { id: 18, codigo: '18', periodo: 'Mayo - Junio', proceso: 'Selección y Vinculación', enfoque: 'Procesos de contratación y onboarding.', cumplimiento: 0, responsable: 'Angelica F. Hernandez.', apoyo: 'Yehison J Pineda.', meses: ['Mayo', 'Junio'] },
+  { id: 19, codigo: '19', periodo: 'Julio - Agosto', proceso: 'Seguridad y Salud en el Trabajo', enfoque: 'Matriz legal, entrega de EPPs y reportes de AT.', cumplimiento: 0, responsable: 'Rodolfo Gonzalez G.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] },
+  { id: 20, codigo: '20', periodo: 'Julio - Agosto', proceso: 'Compensaciones', enfoque: 'Nómina, liquidación de horas extras y parafiscales.', cumplimiento: 0, responsable: 'Angelica F. Hernández.', apoyo: 'Yehison J Pineda.', meses: ['Julio', 'Agosto'] }
+];
+
 const defaultRiesgos = [
   { id: 98, sede: 'Hotel', categoria: 'Operativo', proceso: 'Alimentos y bebidas', normativa: 'Norma Técnica de Salubridad', tipoRiesgo: 'Operativo', afectacion: 'Reputacional', causaInmediata: 'Mal estado de materias primas', causaRaiz: 'Proveedores no evaluados', descripcion: 'Insatisfacción del cliente por mala calidad de los productos ofertados en A&B debido a una afectación de la cocción y sabor de los alimentos.', probabilidadInherente: 'Posible', impactoInherente: 'Alto', noControl: 'C-98', descripcionControl: 'Checklist de cadena de frío diaria e inspección organoléptica al recibir insumos.', probabilidadResidual: 'Posible', impactoResidual: 'Medio', responsable: 'Jefe de Alimentos y Bebidas', anio: 2025, mes: 'Mayo', historialCambios: [] },
   { id: 186, sede: 'Administrativo', categoria: 'Estratégico', proceso: 'Gestión Estratégica', normativa: 'Estatuto Tributario (DIAN)', tipoRiesgo: 'Legal y Regulatorio', afectacion: 'Económica', causaInmediata: 'Cambios normativos tributarios', causaRaiz: 'Falta de comité legal interno', descripcion: 'Pérdidas económicas por afectación al modelo de negocio debido a un entorno regulatorio negativo (Cambios normativos o especulaciones...', probabilidadInherente: 'Rara', impactoInherente: 'Medio', noControl: 'C-186', descripcionControl: 'Revisión y auditoría externa por firma contable cada trimestre.', probabilidadResidual: 'Rara', impactoResidual: 'Bajo', responsable: 'Gerente Financiero', anio: 2025, mes: 'Mayo', historialCambios: [] },
@@ -269,12 +292,6 @@ const defaultEvaluaciones = [
   { id: 2, idRiesgo: 98, fecha: '2026-06-02', diseño: 'Eficaz', ejecucion: 'Inadecuado', calificacion: 0, comentarios: 'No se encontraron los checklist del mes pasado en la cocina del Hotel.', auditor: 'controlinterno@termales.com.co', anio: 2026, mes: 'Junio', historialCambios: [] }
 ];
 
-const defaultCronograma = [
-  { id: 1, codigo: '01', periodo: 'Enero - Febrero', proceso: 'Operaciones Alojamiento y recreación.', enfoque: 'Hotel/Ecoparque (Rentabilidad AyB), Inventarios, Auditoria Locativa e Infraestructura, Calidad, Taquilla, Manillas, Estandarización de procesos y alimentación.', cumplimiento: 100, responsable: 'Todos', apoyo: '', meses: ['Enero', 'Febrero'] },
-  { id: 2, codigo: '02', periodo: 'Marzo - Abril', proceso: 'Servicio al cliente', enfoque: 'Hotel/Ecoparque Análisis de Quejas y Reclamos, Verificación de efectividad de planes de acción y auditoría de raíz de las cosas.', cumplimiento: 80, responsable: 'Angelica F. Hernandez', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] },
-  { id: 3, codigo: '03', periodo: 'Marzo - Abril', proceso: 'Cartera (Notas Crédito y Descuentos)', enfoque: 'Verificación del comportamiento de NC en los procesos que generan estos documentos en la operación, análisis de cumplimiento de procedimientos y trazabilidad.', cumplimiento: 100, responsable: 'Luz Angela Chico T.', apoyo: 'Yehison J Pineda', meses: ['Marzo', 'Abril'] }
-];
-
 const defaultMonitoreo = [
   { id: 1, indicador: 'ARQUEOS DE CAJA', valor: 117, limite: 120, tendencia: 'up', proceso: 'Finanzas' },
   { id: 2, indicador: 'INVENTARIO MANILLAS', valor: 16, limite: 20, tendencia: 'down', proceso: 'Operaciones' },
@@ -285,9 +302,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
-
-  // --- ESTADO PARA MODO PRESENTACIÓN ---
-  const [isPresenting, setIsPresenting] = useState(false);
+  const [isPresentationMode, setIsPresentationMode] = useState(false); 
+  const [formResetKey, setFormResetKey] = useState(Date.now()); 
 
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
@@ -310,7 +326,6 @@ export default function App() {
   const [cronograma, setCronograma] = useState([]);
   const [monitoreo, setMonitoreo] = useState([]);
 
-  // --- ESTADOS DE IA ---
   const [isThinking, setIsThinking] = useState(false);
   const [aiModal, setAiModal] = useState(null);
 
@@ -321,13 +336,9 @@ export default function App() {
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
   const [editApetito, setEditApetito] = useState(null); 
+  const [editCronogramaId, setEditCronogramaId] = useState(null); // ID of the cronograma item being edited
   const [editMonitoreo, setEditMonitoreo] = useState(null);
-  
-  // Novedad: Edición en línea para el Cronograma (evita el scroll jump)
-  const [inlineCronoId, setInlineCronoId] = useState(null);
-  const [inlineCronoData, setInlineCronoData] = useState(null);
 
-  const [formResetKey, setFormResetKey] = useState(Date.now()); 
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -415,7 +426,6 @@ export default function App() {
   const saveToCloud = async (partialData) => { await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
-  // Desplazamiento inteligente hacia arriba
   const scrollToTop = () => {
     const mainArea = document.getElementById('main-scroll-area');
     if (mainArea) {
@@ -442,6 +452,7 @@ export default function App() {
     showNotification(`Archivo ${fileName} exportado con éxito.`);
   };
 
+  // --- MANEJADORES DE CARGA MASIVA Y BACKUPS ---
   const exportToJSON = () => {
     const data = { riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
@@ -474,6 +485,7 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  // BOTÓN MÁGICO PARA FORZAR LOS 20 PROCESOS NUEVOS
   const forceUpdateCronograma = async () => {
     if(window.confirm("¿Seguro que deseas cargar los 20 procesos del nuevo Plan Anual? Esto borrará el cronograma actual y lo reemplazará por la versión de Termales Santa Rosa.")) {
       await saveToCloud({ cronograma: defaultCronograma });
@@ -481,6 +493,7 @@ export default function App() {
     }
   };
 
+  // --- FUNCIONES IA GEMINI ---
   const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
@@ -531,7 +544,9 @@ export default function App() {
 
       const data = await response.json();
       
-      if (data.error) throw new Error(data.error.message);
+      if (data.error) {
+        throw new Error(data.error.message);
+      }
 
       let sugerencia = data.candidates[0].content.parts[0].text.trim();
 
@@ -587,6 +602,7 @@ export default function App() {
     }
   };
 
+  // --- FILTRADO GLOBAL COMPACTO (AÑOS Y MESES MÚLTIPLES) ---
   const filterByGlobalPeriod = (item) => {
     const a = getItemAnio(item);
     const m = getItemMesText(item);
@@ -619,6 +635,7 @@ export default function App() {
     return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
   }, [safeEvaluaciones, selectedAnios, selectedMeses]);
 
+  // --- SUBMITS DE ACCIONES (CON ENLACES DE LA NUBE) ---
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -722,34 +739,49 @@ export default function App() {
     setIncidentes(updated); await saveToCloud({ incidentes: updated }); e.target.reset(); showNotification("Evento registrado.");
   };
 
-  // Función exclusiva para AGREGAR un proceso nuevo desde el formulario inferior
-  const handleAddCronogramaSubmit = async (e) => {
-    e.preventDefault(); 
+  const handleCronogramaInlineSubmit = async (e, id) => {
+    e.preventDefault();
     if (!isAdmin) return;
     const formData = new FormData(e.target);
+    const ts = new Date().toLocaleString();
+    const mesesSeleccionados = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].filter(m => formData.get(`mes_${m}`));
     
-    const mesesSeleccionados = [];
-    ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].forEach(mes => {
-      if (formData.get(`mes_${mes}`)) mesesSeleccionados.push(mes);
-    });
-
-    const nuevo = {
-      id: Date.now(),
-      codigo: formData.get('codigo'),
-      proceso: formData.get('proceso'),
-      responsable: formData.get('responsable'),
-      apoyo: formData.get('apoyo'),
-      periodo: formData.get('periodo'),
-      enfoque: formData.get('enfoque'),
-      cumplimiento: parseInt(formData.get('cumplimiento') || 0),
-      meses: mesesSeleccionados
-    };
-    
-    const updatedList = [...safeCronograma, nuevo];
+    let updatedList;
+    if (id) {
+        const itemToUpdate = safeCronograma.find(c => c.id === id);
+        if(!itemToUpdate) return;
+        const modificado = {
+            ...itemToUpdate,
+            codigo: formData.get('codigo'),
+            proceso: formData.get('proceso'),
+            responsable: formData.get('responsable'),
+            apoyo: formData.get('apoyo'),
+            periodo: formData.get('periodo'),
+            enfoque: formData.get('enfoque'),
+            cumplimiento: parseInt(formData.get('cumplimiento') || 0),
+            meses: mesesSeleccionados
+        };
+        updatedList = safeCronograma.map(c => c.id === id ? modificado : c);
+        setEditCronogramaId(null);
+        showNotification("Proceso del plan actualizado.");
+    } else {
+        const nuevo = {
+            id: Date.now(),
+            codigo: formData.get('codigo'),
+            proceso: formData.get('proceso'),
+            responsable: formData.get('responsable'),
+            apoyo: formData.get('apoyo'),
+            periodo: formData.get('periodo'),
+            enfoque: formData.get('enfoque'),
+            cumplimiento: parseInt(formData.get('cumplimiento') || 0),
+            meses: mesesSeleccionados
+        };
+        updatedList = [...safeCronograma, nuevo];
+        setEditCronogramaId(null);
+        showNotification("Proceso agregado al Plan Anual.");
+    }
     setCronograma(updatedList);
     await saveToCloud({ cronograma: updatedList });
-    e.target.reset();
-    showNotification("Nuevo proceso agregado al Plan Anual.");
   };
 
   const handleApetitoSubmit = async (e) => {
@@ -924,11 +956,11 @@ export default function App() {
       <div className="bg-amber-50 p-6 rounded-3xl border border-amber-200">
         <div className="flex justify-between items-center">
            <div>
-              <h3 className="font-black text-amber-900 uppercase tracking-widest text-sm mb-1">🚀 Forzar Actualización de Cronograma</h3>
+              <h3 className="font-black text-amber-900 uppercase tracking-widest text-sm mb-1">🚀 Forzar Actualización de Cronograma (NUEVO)</h3>
               <p className="text-xs text-amber-700 max-w-2xl">Utiliza este botón para borrar el cronograma de prueba antiguo de tu base de datos y cargar automáticamente los <b>20 procesos auditables</b> oficiales de Termales Santa Rosa.</p>
            </div>
            <button onClick={forceUpdateCronograma} className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all">
-             Cargar 20 Procesos
+             Cargar 20 Procesos (De la foto)
            </button>
         </div>
       </div>
@@ -951,6 +983,17 @@ export default function App() {
             <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
           </label>
         </div>
+      </div>
+      
+      <div className="bg-blue-50 p-6 rounded-3xl border border-blue-200">
+        <h3 className="font-black text-blue-800 uppercase tracking-widest text-sm mb-2">💡 ¿Cómo hacer una carga masiva desde Excel?</h3>
+        <ol className="list-decimal pl-5 text-xs text-blue-900 space-y-2 mt-4 font-medium">
+          <li>Haz clic en <b>Descargar Base de Datos (.JSON)</b> para obtener la estructura actual.</li>
+          <li>Usa un convertidor gratuito en línea de "JSON a Excel" para ver tus datos en formato tabla.</li>
+          <li>Agrega tus cientos de filas nuevas en el Excel asegurándote de no cambiar los nombres de las columnas (ej. <i>id, proceso, sede</i>).</li>
+          <li>Usa un convertidor de "Excel a JSON" para volver a transformar tu tabla en código.</li>
+          <li>Sube el nuevo archivo `.json` usando el botón rojo de <b>Carga Masiva</b>.</li>
+        </ol>
       </div>
     </div>
   );
@@ -1006,6 +1049,7 @@ export default function App() {
     const mesesCompletos = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     const mesesGrafica = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
+    // CORRECCIÓN MATEMÁTICA: Agrupación real por mes en lugar de sacar promedios globales
     const dataIncidentes = mesesCompletos.map((mesTexto, idx) => {
       const valorMes = incFiltrados
         .filter(i => getItemMesText(i) === mesTexto)
@@ -1142,17 +1186,16 @@ export default function App() {
 
     const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-    // LÓGICA DE ORDENAMIENTO CRONOLÓGICA INTELIGENTE
-    // Identificamos cuál es el "primer mes" en el que este proceso está planeado
-    const getMinMesIndex = (mesesArray) => {
-      if (!mesesArray || mesesArray.length === 0) return 99; // Si no tiene meses, al final
-      return Math.min(...mesesArray.map(m => allMonths.indexOf(m)).filter(idx => idx !== -1));
-    };
-
     const cronogramaOrdenado = [...safeCronograma].sort((a, b) => {
-      const indexA = getMinMesIndex(a.meses);
-      const indexB = getMinMesIndex(b.meses);
-      return indexA - indexB;
+        const getMinIdx = (arr) => {
+            if (!arr || !Array.isArray(arr) || arr.length === 0) return 99;
+            const indices = arr.map(m => allMonths.indexOf(m)).filter(i => i >= 0);
+            return indices.length ? Math.min(...indices) : 99;
+        };
+        const minA = getMinIdx(a.meses);
+        const minB = getMinIdx(b.meses);
+        if (minA !== minB) return minA - minB;
+        return (a.codigo || '').localeCompare(b.codigo || '');
     });
 
     return (
@@ -1214,7 +1257,7 @@ export default function App() {
                             <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>{m.indicador}</span>
                             {isAdmin && (
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5">
-                                <button onClick={() => setEditMonitoreo(m)} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
+                                <button onClick={() => {setEditMonitoreo(m); setFormResetKey(Date.now());}} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
                                 <button onClick={() => handleDeleteItem('monitoreo', m.id)} className="text-red-500 hover:text-red-700 text-xs transition-colors" title="Eliminar">✖</button>
                               </div>
                             )}
@@ -1229,7 +1272,6 @@ export default function App() {
                 </div>
              </div>
 
-             {/* TABLA PRINCIPAL DEL CRONOGRAMA */}
              <div className="md:col-span-3">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm h-full flex flex-col">
                    <div className="bg-[#1e293b] text-white p-4 flex justify-between items-center">
@@ -1261,93 +1303,77 @@ export default function App() {
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-slate-100">
+                         {/* FASE 6: INLINE EDITING EN LA TABLA PRINCIPAL DE CRONOGRAMA */}
                          {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => {
-                           
-                           // NUEVO MODO DE EDICIÓN EN LÍNEA PARA ESTA TABLA
-                           if (inlineCronoId === c.id) {
+                             const isEditingThis = editCronogramaId === c.id;
+                             if (isEditingThis && isAdmin) {
+                                 return (
+                                     <tr key={`edit-main-${c.id}`} className="bg-blue-50/50">
+                                         <td colSpan="6" className="p-0">
+                                             <form onSubmit={(e) => handleCronogramaInlineSubmit(e, c.id)} className="flex items-center w-full p-2 gap-2">
+                                                 <input name="codigo" defaultValue={c.codigo} className="w-12 text-xs border rounded p-1" />
+                                                 <input name="periodo" defaultValue={c.periodo} className="w-24 text-xs border rounded p-1" />
+                                                 <input name="proceso" defaultValue={c.proceso} className="w-48 text-xs border rounded p-1 font-bold" />
+                                                 <input name="enfoque" defaultValue={c.enfoque} className="flex-1 text-xs border rounded p-1" />
+                                                 <input type="number" min="0" max="100" name="cumplimiento" defaultValue={c.cumplimiento} className="w-16 text-xs border rounded p-1 text-center font-bold" />
+                                                 <input type="hidden" name="responsable" value={c.responsable} />
+                                                 <input type="hidden" name="apoyo" value={c.apoyo} />
+                                                 {allMonths.map(m => <input key={`hidden-${m}`} type="hidden" name={`mes_${m}`} value={c.meses?.includes(m) ? 'on' : ''} />)}
+                                                 <div className="flex space-x-1">
+                                                     <button type="submit" className="bg-emerald-600 text-white p-1.5 rounded shadow hover:bg-emerald-700">💾</button>
+                                                     <button type="button" onClick={() => setEditCronogramaId(null)} className="bg-red-500 text-white p-1.5 rounded shadow hover:bg-red-600">✖</button>
+                                                 </div>
+                                             </form>
+                                         </td>
+                                     </tr>
+                                 );
+                             }
+
                              return (
-                               <tr key={`crono-edit-${c.id}-${index}`} className="bg-indigo-50/40 shadow-inner">
-                                 <td className="p-2 align-top"><input value={inlineCronoData.codigo} onChange={e=>setInlineCronoData({...inlineCronoData, codigo: e.target.value})} className="w-12 border border-indigo-200 p-1.5 text-xs rounded focus:ring-2 outline-none font-mono text-center"/></td>
-                                 <td className="p-2 align-top"><input value={inlineCronoData.periodo} onChange={e=>setInlineCronoData({...inlineCronoData, periodo: e.target.value})} className="w-full min-w-[80px] border border-indigo-200 p-1.5 text-xs rounded focus:ring-2 outline-none"/></td>
-                                 <td className="p-2 align-top"><input value={inlineCronoData.proceso} onChange={e=>setInlineCronoData({...inlineCronoData, proceso: e.target.value})} className="w-full min-w-[150px] border border-indigo-200 p-1.5 text-xs font-bold rounded focus:ring-2 outline-none"/></td>
-                                 <td className="p-2 align-top"><textarea value={inlineCronoData.enfoque} onChange={e=>setInlineCronoData({...inlineCronoData, enfoque: e.target.value})} className="w-full min-w-[200px] border border-indigo-200 p-1.5 text-xs rounded focus:ring-2 outline-none" rows={3}/></td>
-                                 <td className="p-2 align-top text-center"><input type="number" min="0" max="100" value={inlineCronoData.cumplimiento} onChange={e=>setInlineCronoData({...inlineCronoData, cumplimiento: parseInt(e.target.value)||0})} className="w-16 border border-indigo-200 p-1.5 text-xs text-center font-black rounded focus:ring-2 outline-none text-indigo-700"/></td>
+                               <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
+                                 <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
+                                 <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
+                                 <td className="p-3 font-black text-slate-800">{c.proceso}</td>
+                                 <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
+                                 <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
                                  {isAdmin && (
-                                   <td className="p-2 text-center align-top whitespace-nowrap">
-                                     <button onClick={async () => {
-                                       const updated = safeCronograma.map(item => item.id === inlineCronoId ? inlineCronoData : item);
-                                       setCronograma(updated);
-                                       await saveToCloud({ cronograma: updated });
-                                       setInlineCronoId(null);
-                                       showNotification("Proceso actualizado.");
-                                     }} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold mx-1 shadow transition-colors w-full block mb-2">💾 Guardar</button>
-                                     <button onClick={() => setInlineCronoId(null)} className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded text-xs font-bold mx-1 shadow transition-colors w-full block">✖ Cancelar</button>
+                                   <td className="p-3 text-center whitespace-nowrap">
+                                     <button onClick={() => setEditCronogramaId(c.id)} className="text-blue-500 hover:text-blue-700 mx-1">✏️</button>
+                                     <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-red-500 hover:text-red-700 mx-1">🗑️</button>
                                    </td>
                                  )}
                                </tr>
-                             );
-                           }
-
-                           // MODO VISTA NORMAL
-                           return (
-                             <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
-                               <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
-                               <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
-                               <td className="p-3 font-black text-slate-800">{c.proceso}</td>
-                               <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
-                               <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
-                               {isAdmin && (
-                                 <td className="p-3 text-center whitespace-nowrap">
-                                   <button onClick={() => { setInlineCronoId(c.id); setInlineCronoData({...c}); }} className="text-blue-500 hover:text-blue-700 mx-1 border border-blue-200 bg-white px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-all">✏️ Editar</button>
-                                   <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-red-500 hover:text-red-700 mx-1 border border-red-200 bg-white px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-all">🗑️</button>
-                                 </td>
-                               )}
-                             </tr>
-                           );
+                             )
                          })}
                        </tbody>
                      </table>
+                     {isAdmin && (
+                         <div className="p-3 border-t">
+                             <button onClick={() => setEditCronogramaId('new')} className="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow hover:bg-slate-700">➕ Agregar Nuevo Proceso</button>
+                         </div>
+                     )}
+                     {editCronogramaId === 'new' && isAdmin && (
+                         <form onSubmit={(e) => handleCronogramaInlineSubmit(e, null)} className="flex items-center w-full p-2 gap-2 bg-blue-50/50 border-t">
+                             <input name="codigo" placeholder="ID" required className="w-12 text-xs border rounded p-1" />
+                             <input name="periodo" placeholder="Periodo" required className="w-24 text-xs border rounded p-1" />
+                             <input name="proceso" placeholder="Proceso" required className="w-48 text-xs border rounded p-1 font-bold" />
+                             <input name="enfoque" placeholder="Enfoque" required className="flex-1 text-xs border rounded p-1" />
+                             <input type="number" min="0" max="100" name="cumplimiento" defaultValue={0} className="w-16 text-xs border rounded p-1 text-center font-bold" />
+                             <input type="hidden" name="responsable" value="Sin Asignar" />
+                             <input type="hidden" name="apoyo" value="" />
+                             <div className="flex space-x-1">
+                                 <button type="submit" className="bg-emerald-600 text-white p-1.5 rounded shadow hover:bg-emerald-700">💾</button>
+                                 <button type="button" onClick={() => setEditCronogramaId(null)} className="bg-red-500 text-white p-1.5 rounded shadow hover:bg-red-600">✖</button>
+                             </div>
+                         </form>
+                     )}
                    </div>
                 </div>
              </div>
           </div>
         </div>
 
-        {/* FORMULARIO INFERIOR: AHORA ES SOLO PARA AGREGAR NUEVOS PROCESOS */}
-        {isAdmin && (
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-            <div className="flex justify-between items-center border-b pb-3 mb-4">
-              <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">➕ Agregar Nuevo Proceso al Cronograma</h3>
-            </div>
-            <form onSubmit={handleAddCronogramaSubmit} key={`new-crono-form-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
-              <div><label className="font-bold text-gray-600 block mb-1">Código ID</label><input name="codigo" required placeholder="Ej: 05" className="w-full border border-slate-300 rounded-lg p-2" /></div>
-              <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" required placeholder="Ej: Enero - Abril" className="w-full border border-slate-300 rounded-lg p-2" /></div>
-              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" required placeholder="Ej: Talento Humano" className="w-full border border-slate-300 rounded-lg p-2" /></div>
-              
-              <div><label className="font-bold text-gray-600 block mb-1">Responsable</label><input name="responsable" required placeholder="Responsable principal" className="w-full border border-slate-300 rounded-lg p-2" /></div>
-              <div><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" placeholder="Persona de apoyo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
-              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% Cumplimiento (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={0} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
-              
-              <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" required placeholder="Descripción técnica de lo que se va a auditar..." rows="2" className="w-full border border-slate-300 rounded-lg p-2"></textarea></div>
-              
-              <div className="md:col-span-4">
-                <label className="font-bold text-gray-600 block mb-2">Meses Planeados (Para gráfico de Gantt)</label>
-                <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  {allMonths.map(mes => (
-                    <label key={`gantt-label-new-${mes}`} className="flex items-center space-x-2 cursor-pointer">
-                      <input type="checkbox" name={`mes_${mes}`} className="rounded text-[#004d40] focus:ring-[#004d40]" />
-                      <span className="text-[10px] font-bold uppercase notranslate" translate="no">{mes.substring(0,3)}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-4 flex justify-end mt-2"><button type="submit" className="bg-[#004d40] hover:bg-[#00695c] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-colors">➕ Registrar Proceso</button></div>
-            </form>
-          </div>
-        )}
-
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mt-8">
            <div className="bg-slate-100 border-b border-slate-200 p-4 flex justify-between items-center">
              <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center flex-1">GANTT CONTROL INTERNO (ORDEN CRONOLÓGICO)</h3>
              <div className="relative">
@@ -1377,71 +1403,78 @@ export default function App() {
                </thead>
                <tbody>
                  {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => {
-                   
-                   // MODO DE EDICIÓN EN LÍNEA PARA GANTT
-                   if (inlineCronoId === c.id) {
-                      return (
-                         <tr key={`gantt-edit-${c.id}-${index}`} className="bg-indigo-50/40 shadow-inner">
-                           <td className="border border-slate-300 p-2 align-middle text-center"><input value={inlineCronoData.codigo} onChange={e=>setInlineCronoData({...inlineCronoData, codigo: e.target.value})} className="w-8 border border-indigo-200 p-1 text-xs rounded outline-none text-center font-mono"/></td>
-                           <td className="border border-slate-300 p-2 align-middle"><input value={inlineCronoData.proceso} onChange={e=>setInlineCronoData({...inlineCronoData, proceso: e.target.value})} className="w-full min-w-[120px] border border-indigo-200 p-1 text-xs font-bold rounded outline-none"/></td>
-                           <td className="border border-slate-300 p-2 align-middle"><input value={inlineCronoData.responsable} onChange={e=>setInlineCronoData({...inlineCronoData, responsable: e.target.value})} className="w-full border border-indigo-200 p-1 text-xs rounded outline-none"/></td>
-                           {allMonths.map(mes => (
-                             <td key={`gantt-edit-cell-${c.id}-${mes}`} className="border border-slate-300 text-center align-middle p-1 bg-white">
-                               <label className="flex items-center justify-center w-full h-full cursor-pointer p-1">
-                                 <input type="checkbox" checked={inlineCronoData.meses?.includes(mes)} onChange={e => {
-                                    const checked = e.target.checked;
-                                    const newMeses = checked ? [...(inlineCronoData.meses||[]), mes] : (inlineCronoData.meses||[]).filter(m => m !== mes);
-                                    setInlineCronoData({...inlineCronoData, meses: newMeses});
-                                 }} className="w-4 h-4 text-indigo-600 border-indigo-300 focus:ring-indigo-500 cursor-pointer" />
-                               </label>
-                             </td>
-                           ))}
+                     const isEditingThis = editCronogramaId === `gantt-${c.id}`;
+                     
+                     if (isEditingThis && isAdmin) {
+                         return (
+                             <tr key={`gantt-edit-${c.id}`} className="bg-blue-50/50">
+                                 <td colSpan={4 + allMonths.length} className="p-0 border border-slate-300">
+                                     <form onSubmit={(e) => handleCronogramaInlineSubmit(e, c.id)} className="flex items-center w-full p-2 gap-2">
+                                         <input type="hidden" name="codigo" value={c.codigo} />
+                                         <input type="hidden" name="periodo" value={c.periodo} />
+                                         <input type="hidden" name="enfoque" value={c.enfoque} />
+                                         
+                                         <div className="font-mono text-slate-500 w-10 text-center">{c.codigo}</div>
+                                         <input name="proceso" defaultValue={c.proceso} className="w-48 text-xs border rounded p-1 font-bold" />
+                                         <input name="responsable" defaultValue={c.responsable} className="w-32 text-xs border rounded p-1" />
+                                         <input type="hidden" name="apoyo" value={c.apoyo} />
+                                         
+                                         <div className="flex flex-1 justify-around px-2">
+                                             {allMonths.map(mes => (
+                                                <div key={`edit-gantt-${mes}`} className="flex flex-col items-center">
+                                                    <input type="checkbox" name={`mes_${mes}`} defaultChecked={c.meses?.includes(mes)} className="rounded text-[#004d40]" />
+                                                </div>
+                                             ))}
+                                         </div>
+                                         
+                                         <input type="number" min="0" max="100" name="cumplimiento" defaultValue={c.cumplimiento} className="w-16 text-xs border rounded p-1 text-center font-bold" title="% de Avance" />
+                                         
+                                         <div className="flex space-x-1 ml-2">
+                                             <button type="submit" className="bg-emerald-600 text-white p-1.5 rounded shadow hover:bg-emerald-700">💾</button>
+                                             <button type="button" onClick={() => setEditCronogramaId(null)} className="bg-red-500 text-white p-1.5 rounded shadow hover:bg-red-600">✖</button>
+                                         </div>
+                                     </form>
+                                 </td>
+                             </tr>
+                         );
+                     }
+
+                     return (
+                         <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                           <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
+                           <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
+                           <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
+                           {allMonths.map(mes => {
+                             const isPlanned = c.meses?.includes(mes);
+                             let bgColor = 'bg-transparent';
+                             let textLabel = '';
+                             
+                             if (isPlanned) {
+                                 if (c.cumplimiento === 100) {
+                                     bgColor = 'bg-emerald-500';
+                                     textLabel = 'Completado';
+                                 } else if (c.cumplimiento > 0) {
+                                     bgColor = 'bg-amber-500';
+                                     textLabel = `${c.cumplimiento}%`;
+                                 } else {
+                                     bgColor = 'bg-[#00695c]';
+                                     textLabel = 'Planeado';
+                                 }
+                             }
+
+                             return (
+                               <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0`}>
+                                 {isPlanned && <div className={`${bgColor} text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner notranslate`} translate="no">{textLabel}</div>}
+                               </td>
+                             );
+                           })}
                            {isAdmin && (
-                             <td className="border border-slate-300 p-2 text-center align-middle whitespace-nowrap bg-white">
-                               <button onClick={async () => {
-                                 const updated = safeCronograma.map(item => item.id === inlineCronoId ? inlineCronoData : item);
-                                 setCronograma(updated);
-                                 await saveToCloud({ cronograma: updated });
-                                 setInlineCronoId(null);
-                                 showNotification("Gantt actualizado correctamente.");
-                               }} className="bg-emerald-500 text-white px-2 py-1 rounded text-xs font-bold mb-1 w-full shadow hover:bg-emerald-600 transition-colors">💾 OK</button>
-                               <button onClick={() => setInlineCronoId(null)} className="bg-slate-200 text-slate-700 px-2 py-1 rounded text-xs font-bold w-full shadow hover:bg-slate-300 transition-colors">✖</button>
+                             <td className="border border-slate-300 p-2 text-center bg-slate-50">
+                               <button onClick={() => setEditCronogramaId(`gantt-${c.id}`)} className="text-blue-500 hover:text-blue-700 bg-white border border-blue-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold">✏️ Modificar</button>
                              </td>
                            )}
                          </tr>
-                      );
-                   }
-
-                   // MODO VISTA NORMAL PARA GANTT
-                   return (
-                     <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
-                       <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono align-middle">{c.codigo}</td>
-                       <td className="border border-slate-300 p-2 font-black text-slate-800 align-middle">{c.proceso}</td>
-                       <td className="border border-slate-300 p-2 text-slate-600 font-medium align-middle">{c.responsable}</td>
-                       {allMonths.map(mes => {
-                         const isPlanned = c.meses?.includes(mes);
-                         let bgColor = 'bg-transparent';
-                         let textLabel = '';
-                         
-                         if (isPlanned) {
-                             if (c.cumplimiento === 100) { bgColor = 'bg-emerald-500'; textLabel = 'Completado'; } 
-                             else if (c.cumplimiento > 0) { bgColor = 'bg-amber-500'; textLabel = `${c.cumplimiento}%`; } 
-                             else { bgColor = 'bg-[#00695c]'; textLabel = 'Planeado'; }
-                         }
-
-                         return (
-                           <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0 align-middle`}>
-                             {isPlanned && <div className={`${bgColor} text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner notranslate`} translate="no">{textLabel}</div>}
-                           </td>
-                         );
-                       })}
-                       {isAdmin && (
-                         <td className="border border-slate-300 p-2 text-center align-middle bg-slate-50">
-                           <button onClick={() => { setInlineCronoId(c.id); setInlineCronoData({...c}); }} className="text-blue-500 hover:text-blue-700 bg-white border border-blue-200 px-3 py-1.5 rounded shadow-sm text-[10px] font-bold transition-all">✏️ Editar Fila</button>
-                         </td>
-                       )}
-                     </tr>
-                   );
+                     );
                  })}
                </tbody>
              </table>
@@ -1536,7 +1569,7 @@ export default function App() {
                   <td className="p-3 italic max-w-xs">⚙️ {r.descripcionControl}</td>
                   <td className="p-3"><span className="px-2 py-0.5 rounded bg-slate-100 font-bold text-[10px]">{r.apetitoVal}</span></td>
                   <td className="p-3 text-center whitespace-nowrap">
-                    {isAdmin && <button onClick={() => {setEditRiesgo(r); setFormResetKey(Date.now()); scrollToTop();}} className="text-blue-500 hover:text-blue-700 mx-1">✏️</button>}
+                    {isAdmin && <button onClick={() => {setEditRiesgo(r); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-500 hover:text-blue-700 mx-1">✏️</button>}
                     {isAdmin && <button onClick={() => handleDeleteItem('riesgos', r.id)} className="text-red-600 font-bold px-2 py-1 bg-red-50 rounded text-[10px] hover:bg-red-100">Eliminar</button>}
                   </td>
                 </tr>
@@ -1746,7 +1779,7 @@ export default function App() {
                       </td>
 
                       <td className="p-4 text-center">
-                        {isAdmin && <button onClick={() => {setEditApetito(r); setFormResetKey(Date.now()); scrollToTop();}} className="bg-white border border-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full"><span>⚙️</span> <span>Ajustador</span></button>}
+                        {isAdmin && <button onClick={() => {setEditApetito(r); setFormResetKey(Date.now()); scrollToForm();}} className="bg-white border border-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full"><span>⚙️</span> <span>Ajustador</span></button>}
                       </td>
                     </tr>
                   );
@@ -1856,7 +1889,7 @@ export default function App() {
                   </td>
                   {isAdmin && (
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
-                      <button onClick={() => {setEditEvaluacion(ev); setFormResetKey(Date.now()); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                      <button onClick={() => {setEditEvaluacion(ev); setFormResetKey(Date.now()); scrollToForm();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
                       <button onClick={() => handleDeleteItem('evaluaciones', ev.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
                     </td>
                   )}
@@ -2001,7 +2034,7 @@ export default function App() {
                     </span>
                     {isAdmin && (
                       <div className="flex justify-center items-center space-x-2 border-t border-slate-100 pt-3">
-                        <button onClick={() => {setEditHallazgo(h); setFormResetKey(Date.now()); scrollToTop();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
+                        <button onClick={() => {setEditHallazgo(h); setFormResetKey(Date.now()); scrollToForm();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
                           ✏️ Editar
                         </button>
                         <span className="text-slate-300">|</span>
@@ -2123,7 +2156,7 @@ export default function App() {
                     <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
                     <td className="p-3"><span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${p.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-800' : 'bg-yellow-100 text-yellow-800'}`}>{p.estado}</span></td>
                     <td className="p-3 text-center whitespace-nowrap space-x-1">
-                      {isAdmin && <button onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
+                      {isAdmin && <button onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToForm();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>}
                       {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>}
                     </td>
                   </tr>
@@ -2174,7 +2207,7 @@ export default function App() {
                 <td className="p-3 text-right font-mono font-bold text-red-600 notranslate" translate="no">${Number(i.costo || 0).toLocaleString('es-CO')}</td>
                 {isAdmin && (
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
-                    <button onClick={() => {setEditIncidente(i); setFormResetKey(Date.now()); scrollToTop();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
+                    <button onClick={() => {setEditIncidente(i); setFormResetKey(Date.now()); scrollToForm();}} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">✏️ Editar</button>
                     <button onClick={() => handleDeleteItem('incidentes', i.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">🗑️</button>
                   </td>
                 )}
@@ -2213,57 +2246,12 @@ export default function App() {
   };
 
   const renderRCSAPortal = () => (
-    <div className="min-h-screen bg-slate-100 font-sans text-xs">
-      <header className="bg-[#004d40] text-white p-6 flex justify-between items-center shadow-md">
-        <div><h1 className="text-lg font-black uppercase tracking-widest">Portal RCSA Jefes (1ra Línea)</h1><p className="text-xs text-[#deff9a]">Certificación obligatoria de controles operacionales</p></div>
-        <button onClick={handleLogout} className="bg-red-600 text-white px-4 py-2 rounded text-xs font-bold shadow">Cerrar Sesión</button>
-      </header>
-      <main className="max-w-4xl mx-auto p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white p-6 border rounded-2xl shadow-sm">
-          <h3 className="font-black text-emerald-800 text-sm mb-3">🛡️ Certificar Mi Control Operativo</h3>
-          <form onSubmit={handleEvaluacionSubmit} className="space-y-3">
-            <div><label className="font-bold">ID del Riesgo</label><input name="idRiesgo" required className="w-full border p-2 rounded" /></div>
-            <div><label className="font-bold">Test de Diseño</label><select name="diseno" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div><label className="font-bold">Test de Ejecución</label><select name="ejecucion" className="w-full border p-2 bg-white rounded"><option>Eficaz</option><option>Inadecuado</option></select></div>
-            <div><label className="font-bold">Novedades / Observaciones del mes</label><textarea name="comentarios" required className="w-full border p-2 rounded" rows="3"></textarea></div>
-            
-            <div>
-              <div className="flex justify-between items-end mb-1">
-                <label className="font-bold text-slate-700">Enlace de Evidencia</label>
-                <div className="flex space-x-1">
-                  <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-bold transition-colors">📁 Drive</a>
-                  <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-bold transition-colors">☁️ OneDrive</a>
-                </div>
-              </div>
-              <input type="url" name="evidenciaUrlInput" required placeholder="Pega tu enlace de la nube aquí..." className="w-full border p-2 bg-slate-50 rounded focus:ring-2 focus:ring-[#004d40] outline-none transition-shadow" />
-            </div>
-
-            <button type="submit" className="bg-[#004d40] text-white w-full py-2.5 rounded font-black uppercase shadow hover:bg-[#003d33]">Enviar Certificación</button>
-          </form>
-        </div>
-        <div className="bg-white p-6 border rounded-2xl shadow-sm flex flex-col justify-between">
-          <div>
-            <h3 className="font-black text-blue-800 text-sm mb-3">📈 Reportar Avance de Plan</h3>
-            <form onSubmit={handlePlanSubmit} className="space-y-3">
-              <div><label className="font-bold">ID del Hallazgo Vinculado</label><input name="idHallazgo" required className="w-full border p-2 rounded" /></div>
-              <div><label className="font-bold text-blue-600">% Avance Físico Real</label><input name="progreso" type="number" min="0" max="100" required className="w-full border border-blue-300 bg-blue-50 p-2.5 rounded text-lg font-black text-blue-600" /></div>
-              
-              <div>
-                <div className="flex justify-between items-end mb-1">
-                  <label className="font-bold text-slate-700">Enlace de Soporte</label>
-                  <div className="flex space-x-1">
-                    <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-bold transition-colors">📁 Drive</a>
-                    <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded font-bold transition-colors">☁️ OneDrive</a>
-                  </div>
-                </div>
-                <input type="url" name="evidenciaUrlInput" required placeholder="Pega tu enlace de la nube aquí..." className="w-full border p-2 bg-slate-50 rounded focus:ring-2 focus:ring-blue-600 outline-none transition-shadow" />
-              </div>
-
-              <button type="submit" className="bg-blue-600 text-white w-full py-2.5 rounded font-black uppercase shadow hover:bg-blue-700">Actualizar Avance</button>
-            </form>
-          </div>
-        </div>
-      </main>
+    <div className="min-h-screen bg-slate-100 font-sans text-xs flex flex-col items-center justify-center p-8">
+      <div className="bg-white p-12 rounded-3xl shadow-xl max-w-lg text-center border-t-8 border-[#004d40]">
+        <h1 className="text-2xl font-black mb-4">Portal RCSA Jefes de Área</h1>
+        <p className="text-slate-500 mb-8 text-sm">Bienvenido a la vista de Primera Línea de Defensa. Actualmente la parametrización de auto-reportes de % de avance se encuentra en configuración por el equipo de Control Interno.</p>
+        <button onClick={handleLogout} className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold w-full uppercase tracking-widest">Cerrar Sesión</button>
+      </div>
     </div>
   );
 
@@ -2271,9 +2259,7 @@ export default function App() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
         <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
-          <div className="text-center">
-            <span className="text-5xl block animate-bounce">🛡️</span><h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2><p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p>
-          </div>
+          <div className="text-center"><span className="text-5xl block animate-bounce">🛡️</span><h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2><p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p></div>
           <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
             {authError && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-medium">⚠️ {authError}</div>}
             <div className="space-y-3">
@@ -2288,64 +2274,49 @@ export default function App() {
     );
   }
 
-  if (!isAdmin) {
-    return renderRCSAPortal();
-  }
-
+  if (!isAdmin) return renderRCSAPortal();
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      
-      {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
-      {isPresentationMode && (
-        <button 
-          onClick={() => setIsPresentationMode(false)} 
-          className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 flex items-center space-x-2 border-2 border-slate-700 animate-in slide-in-from-bottom-10"
-        >
-          <span>✖</span><span>Salir de Presentación</span>
-        </button>
+      {!isPresentationMode && (
+        <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20">
+          <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
+          <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+            {[
+              { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
+              { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
+              { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
+              { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
+              { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
+              { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
+              { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
+              { id: 'planes', icon: '✅', label: 'Planes de Acción' },
+              { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
+              { id: 'informe', icon: '📜', label: 'Trazabilidad' },
+              { id: 'config', icon: '⚙️', label: 'Configuración / Backups' }
+            ].map((tab) => (
+              <button key={`nav-${tab.id}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <span>{tab.icon}</span><span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+          <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
+        </div>
       )}
-
-      {/* SIDEBAR */}
-      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
-        <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
-          {[
-            { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
-            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
-            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
-            { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
-            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
-            { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
-            { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
-            { id: 'planes', icon: '✅', label: 'Planes de Acción' },
-            { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
-            { id: 'informe', icon: '📜', label: 'Trazabilidad' },
-            { id: 'config', icon: '⚙️', label: 'Configuración / Backups' }
-          ].map((tab, index) => (
-            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-              <span>{tab.icon}</span><span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
-      </div>
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* HEADER SUPERIOR */}
-        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresentationMode ? 'hidden' : 'flex'}`}>
-          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
-          <button 
-            onClick={() => setIsPresentationMode(true)} 
-            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-2"
-          >
-            <span>📺</span><span>Modo Presentación</span>
-          </button>
-        </header>
+        {!isPresentationMode && (
+          <header className="bg-white border-b h-16 flex items-center justify-between px-8 shadow-sm z-10 flex-shrink-0">
+            <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
+            <button onClick={() => setIsPresentationMode(true)} className="text-xs bg-slate-800 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-slate-700 transition-colors flex items-center space-x-2">
+              <span>📺</span><span>Modo Presentación</span>
+            </button>
+          </header>
+        )}
         
         <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50`}>
-          <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
+          <div className="max-w-7xl mx-auto">
             {activeTab === 'tablero' && renderTablero()}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
             {activeTab === 'plan_anual' && renderPlanAnual()}
@@ -2359,6 +2330,12 @@ export default function App() {
             {activeTab === 'config' && renderConfiguracion()}
           </div>
         </main>
+
+        {isPresentationMode && (
+           <button onClick={() => setIsPresentationMode(false)} className="fixed bottom-6 right-6 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-full shadow-2xl font-black text-[10px] uppercase tracking-widest z-50 hover:scale-105 transition-transform flex items-center space-x-2 border-2 border-white">
+              <span>✖</span><span>Salir de Presentación</span>
+           </button>
+        )}
       </div>
       
       {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
