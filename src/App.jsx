@@ -2155,18 +2155,24 @@ const renderApetito = () => {
               <div><label className="font-bold text-gray-600">Compromiso</label><input name="fecha" type="date" defaultValue={formatSafeDate(editPlan?.fecha)||''} required className="w-full border p-2 rounded" /></div>
               <div><label className="font-bold text-blue-600">% Avance Real</label><input name="progreso" type="number" min="0" max="100" defaultValue={editPlan?.progreso||0} placeholder="% Avance Real" className="w-full border p-2 bg-blue-50 border-blue-200 rounded" /></div>
               
-              <div className="md:col-span-3">
-                <div className="flex justify-between items-end mb-1">
-                  <label className="font-bold text-blue-700">Enlace de Avance (Google Drive / OneDrive)</label>
-                  <div className="flex space-x-2">
-                    <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir Google Drive"><span>📁</span><span>Abrir Drive</span></a>
-                    <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir OneDrive"><span>☁️</span><span>Abrir OneDrive</span></a>
+                           <div className="md:col-span-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-emerald-100 pb-3">
+                  <div>
+                    <label className="font-black text-emerald-800 uppercase tracking-widest text-[10px]">Paso 1: Busca y copia el enlace del entregable</label>
+                    <p className="text-[9px] text-emerald-600 font-medium mt-0.5">Ve a tu nube, busca el archivo de evidencia que demuestre la mitigación, haz clic en "Compartir" y copia el link.</p>
+                  </div>
+                  <div className="flex space-x-2 mt-2 md:mt-0">
+                    <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>📁</span><span>Ir a Drive</span></a>
+                    <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>☁️</span><span>Ir a OneDrive</span></a>
                   </div>
                 </div>
-                <input type="url" name="evidenciaUrlInput" defaultValue={editPlan?.evidenciaUrl||''} placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2 mt-1" />
+                <div>
+                  <label className="font-black text-emerald-800 uppercase tracking-widest text-[10px] block mb-1.5">Paso 2: Pega el enlace del soporte aquí</label>
+                  <input type="url" name="evidenciaUrlInput" defaultValue={editPlan?.evidenciaUrl||''} placeholder="Ej: https://drive.google.com/file/d/1a2b3c..." className="w-full border border-emerald-200 bg-white rounded-lg p-2.5 text-xs shadow-inner focus:ring-2 focus:ring-emerald-500 outline-none transition-all" />
+                </div>
                 {editPlan?.evidenciaUrl && (
-                  <div className="mt-2 flex space-x-2">
-                    <a href={editPlan.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
+                  <div className="mt-3 flex space-x-2 border-t border-emerald-100 pt-2">
+                    <a href={editPlan.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold hover:bg-emerald-200 shadow-sm transition-colors">
                       👁️ Abrir Enlace Actual
                     </a>
                   </div>
