@@ -1109,7 +1109,7 @@ export default function App() {
     );
   };
 
-  const renderDashboardRiesgos = () => {
+    const renderDashboardRiesgos = () => {
     const esRes = tipoMatriz === 'residual';
     const totalRiesgos = rFiltrados.length;
     const riesgosCriticos = rFiltrados.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
@@ -1120,21 +1120,20 @@ export default function App() {
     const probabilidades = ['Rara', 'Posible', 'Frecuente'];
 
     const contarCelda = (imp, prob) => rFiltrados.filter(r => (esRes ? r.impactoResidual : r.impactoInherente) === imp && (esRes ? r.probabilidadResidual : r.probabilidadInherente) === prob).length;
-    
+
     const mesesCompletos = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
     const mesesGrafica = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-    // CORRECCIÓN MATEMÁTICA: Agrupación real por mes en lugar de sacar promedios globales
     const dataIncidentes = mesesCompletos.map((mesTexto, idx) => {
-      const valorMes = incFiltrados
-        .filter(i => getItemMesText(i) === mesTexto)
-        .reduce((acc, val) => acc + (Number(val.costo) || 0), 0);
-      return { mes: mesesGrafica[idx], valor: valorMes };
+      const itemsMes = incFiltrados.filter(i => getItemMesText(i) === mesTexto);
+      const valorMes = itemsMes.reduce((acc, val) => acc + (Number(val.costo) || 0), 0);
+      return { mes: mesesGrafica[idx], mesCompleto: mesTexto, valor: valorMes, items: itemsMes, tipo: 'Incidentes Financiados' };
     });
 
     const dataHallazgos = mesesCompletos.map((mesTexto, idx) => {
-      const valorMes = hFiltrados.filter(h => getItemMesText(h) === mesTexto).length;
-      return { mes: mesesGrafica[idx], valor: valorMes };
+      const itemsMes = hFiltrados.filter(h => getItemMesText(h) === mesTexto);
+      const valorMes = itemsMes.length;
+      return { mes: mesesGrafica[idx], mesCompleto: mesTexto, valor: valorMes, items: itemsMes, tipo: 'Hallazgos Detectados' };
     });
 
     const chartTitleLabel = selectedAnios.length === 0 ? 'TODOS LOS AÑOS' : selectedAnios.length <= 2 ? selectedAnios.join(' y ') : `${selectedAnios.length} AÑOS`;
@@ -1144,8 +1143,8 @@ export default function App() {
         {renderHeaderFiltros("Panel de inteligencia GRC", "Análisis predictivo de apetito ISO 31000 y Evolución de KRI.", true)}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TrendChart data={dataIncidentes} title={`EVOLUCIÓN DE IMPACTO FINANCIERO (${chartTitleLabel})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" />
-          <TrendChart data={dataHallazgos} title={`VOLUMEN DE DESVIACIONES (${chartTitleLabel})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" />
+          <TrendChart data={dataIncidentes} title={`EVOLUCIÓN DE IMPACTO FINANCIERO (${chartTitleLabel})`} isCurrency={true} color="#ef4444" fillColor="#fef2f2" onPointClick={setChartDetail} />
+          <TrendChart data={dataHallazgos} title={`VOLUMEN DE DESVIACIONES (${chartTitleLabel})`} isCurrency={false} color="#3b82f6" fillColor="#eff6ff" onPointClick={setChartDetail} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
@@ -1158,7 +1157,7 @@ export default function App() {
              <span className="text-4xl font-black mt-2 block text-red-600 notranslate" translate="no">{riesgosFueraApetito}</span>
           </div>
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-orange-500">
-             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">RIESGOS CRÍTICOS</h4>
+             <h4 className="text-xl font-black text-slate-500 uppercase tracking-widest">RIESGOS CRÍTICOS</h4>
              <span className="text-4xl font-black mt-2 block text-orange-500 notranslate" translate="no">{riesgosCriticos}</span>
           </div>
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-8 border-l-purple-600">
@@ -2454,6 +2453,7 @@ const renderApetito = () => {
                   <span>🔗</span> <span>Ver Evidencia</span>
                 </a>
               )}
+
               <button onClick={() => setAiModal(null)} className="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-700 transition-colors">
                 Cerrar Análisis
               </button>
@@ -2461,7 +2461,66 @@ const renderApetito = () => {
           </div>
         </div>
       )}
-
+{/* 📊 MODAL DE INFORME DETALLADO POR PUNTO DE GRÁFICA */}
+      {chartDetail && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+              <h3 className="font-black text-xs uppercase tracking-widest flex items-center space-x-2">
+                <span>📈</span> <span>Foco de Control: {chartDetail.tipo} — {chartDetail.mesCompleto.toUpperCase()}</span>
+              </h3>
+              <button onClick={() => setChartDetail(null)} className="hover:text-slate-300 font-bold text-lg">✖</button>
+            </div>
+            
+            <div className="p-6 max-h-[380px] overflow-y-auto text-xs">
+              {chartDetail.items.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-wider border border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                  🚫 No se encontraron eventos ni novedades en este periodo.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden p-2 bg-white">
+                  {chartDetail.tipo === 'Incidentes Financiados' ? (
+                    chartDetail.items.map((item, idx) => (
+                      <div key={`modal-inc-${idx}`} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-start space-x-4">
+                        <div>
+                          <div className="font-black text-slate-800 text-sm">{item.titulo}</div>
+                          <div className="text-slate-500 mt-1 font-medium leading-relaxed">{item.descripcion}</div>
+                          <div className="text-[9px] text-slate-400 font-mono font-bold mt-2 uppercase tracking-wide">Vinculado a Riesgo: #{item.idRiesgo} • Reporta: {item.reportadoPor}</div>
+                        </div>
+                       <div className="font-mono font-black text-red-600 text-right text-sm whitespace-nowrap bg-red-50 px-3 py-1 rounded-lg border border-red-100">
+  ${Number(item.costo || 0).toLocaleString('es-CO')}
+</div>
+                      </div>
+                    ))
+                  ) : (
+                    chartDetail.items.map((item, idx) => (
+                      <div key={`modal-hal-${idx}`} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-start space-x-4">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-black text-slate-900 text-sm">{item.ref}</span>
+                            <span className="px-2 py-0.5 bg-slate-800 text-white font-bold text-[8px] rounded uppercase tracking-wider">{item.proceso}</span>
+                          </div>
+                          <div className="text-slate-600 font-semibold leading-relaxed">{item.titulo}</div>
+                          <div className="text-[9px] text-slate-400 font-bold mt-2 uppercase tracking-wide">Sede: {item.sede} • Dueño de Proceso: {item.responsable}</div>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full font-black text-[9px] uppercase tracking-widest border shrink-0 ${
+                          item.severidad === 'Crítico' || item.severidad === 'Alto' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>{item.severidad}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-slate-50 px-6 py-4 flex justify-end border-t">
+              <button onClick={() => setChartDetail(null)} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-colors shadow-md">
+                Cerrar Análisis
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
   );
