@@ -1607,7 +1607,7 @@ export default function App() {
     );
   };
 
-  const renderApetito = () => {
+   const renderApetito = () => {
     const configurados = rFiltrados.filter(r => r.capacidadRiesgo).length;
     
     const enTolerancia = rFiltrados.filter(r => {
@@ -1678,7 +1678,7 @@ export default function App() {
               <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
             </div>
             
-<form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
+            <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
@@ -1713,7 +1713,7 @@ export default function App() {
                       <b className="text-blue-300 text-xs">Escala para diligenciar (1 al 25):</b><br/>
                       <ul className="list-disc pl-4 mt-1 space-y-1">
                         <li><b>De 1 a 4 (Zona Verde):</b> Riesgos casi imposibles o sin impacto.</li>
-                        <li><b>De 5 a 9 (Zona Amarilla):</b> Riesgos tolerables y monitoreables.</li>
+                        <li><b>De 5 a 9 (Zona Amarilla):</b> Riesgos tolerables and monitoreables.</li>
                         <li><b>De 10 a 16 (Zona Naranja):</b> Riesgos peligrosos que requieren mitigación.</li>
                         <li><b>De 17 a 25 (Zona Roja):</b> Riesgos inaceptables y críticos.</li>
                       </ul><br/>
@@ -1741,7 +1741,7 @@ export default function App() {
 
                   <label className="font-bold text-amber-700 mb-1 flex items-center w-max relative group cursor-help">
                     <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] normal-case font-medium leading-relaxed">
                       <b className="text-amber-300 text-xs">¿Qué significa este concepto?</b><br/>
                       La zona amarilla. Es una pérdida económica que nos duele, nos incomoda, pero no nos quiebra.<br/><br/>
                       <b className="text-amber-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
@@ -1754,7 +1754,7 @@ export default function App() {
 
                   <label className="font-bold text-red-700 mb-1 flex items-center w-max relative group cursor-help">
                     <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] normal-case font-medium leading-relaxed">
                       <b className="text-red-300 text-xs">¿Qué significa este concepto?</b><br/>
                       El abismo. La cantidad de dinero máxima que podemos perder antes de una catástrofe real.<br/><br/>
                       <b className="text-red-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
@@ -1771,6 +1771,7 @@ export default function App() {
             </form>
           </div>
         )}
+
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-5 bg-[#0f172a] flex justify-between items-center border-b border-slate-800">
             <div className="flex items-center space-x-3">
@@ -1862,6 +1863,7 @@ export default function App() {
       </div>
     );
   };
+
 
   const renderEvaluaciones = () => {
     const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
