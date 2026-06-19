@@ -1762,7 +1762,7 @@ export default function App() {
                       <b className="text-red-300 text-xs">¿Por qué es vital llenarlo?</b> Fija la "línea de muerte" financiera. Si un riesgo se acerca a esta capacidad, la orden debe ser suspender inmediatamente el proceso.
                     </div>
                   </label>
-                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
+                                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
               </div>
               <div className="flex justify-end pt-4 border-t border-slate-100">
