@@ -196,7 +196,7 @@ const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilter
   />
 );
 
-const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
+const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick }) => {
   const maxVal = Math.max(...data.map(d => d.valor), 1);
   const height = 120;
   const width = 600;
@@ -225,8 +225,8 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor }) => {
               const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
               const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
               return (
-                <g key={`point-${i}`} className="group cursor-pointer">
-                    <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[8px]" />
+                <g key={`point-${i}`} className="group cursor-pointer" onClick={() => onPointClick && onPointClick(d)}>
+                    <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[7px] group-hover:fill-slate-800" />
                     <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
                     <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
                        {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
@@ -314,6 +314,7 @@ export default function App() {
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [aiModal, setAiModal] = useState(null);
+  const [chartDetail, setChartDetail] = useState(null);
 
   // --- SELECCIÓN MÚLTIPLE DE FECHAS ACTIVADA ---
   const [selectedAnios, setSelectedAnios] = useState([new Date().getFullYear(), new Date().getFullYear() + 1]);
