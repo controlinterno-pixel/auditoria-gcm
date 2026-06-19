@@ -1887,18 +1887,18 @@ const renderApetito = () => {
                   <div className="flex space-x-2 mt-2 md:mt-0">
                     <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>📁</span><span>Ir a Drive</span></a>
                     <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>☁️</span><span>Ir a OneDrive</span></a>
-                  </div>
-                </div>
-                <div>
-                  <label className="font-black text-indigo-800 uppercase tracking-widest text-[10px] block mb-1.5">Paso 2: Pega el enlace copiado aquí</label>
-                  <input type="url" name="evidenciaUrlInput" defaultValue={editEvaluacion?.evidenciaUrl||''} placeholder="Ej: https://drive.google.com/file/d/1a2b3c..." className="w-full border border-indigo-200 bg-white rounded-lg p-2.5 text-xs shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
-                </div>
-              <div className="md:col-span-4"><label className="font-bold text-gray-600">Comentarios y Observaciones</label><textarea name="comentarios" defaultValue={editEvaluacion?.comentarios||''} required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
-              
-              <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md hover:bg-indigo-700">Guardar Test</button></div>
-            </form>
-          </div>
-        )}
+                         </div>
+      </div>
+      <div>
+        <label className="font-black text-indigo-800 uppercase tracking-widest text-[10px] block mb-1.5">Paso 2: Pega el enlace copiado aquí</label>
+        <input type="url" name="evidenciaUrlInput" defaultValue={editEvaluacion?.evidenciaUrl||''} placeholder="Ej: https://drive.google.com/file/d/1a2b3c..." className="w-full border border-indigo-200 bg-white rounded-lg p-2.5 text-xs shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+      </div>
+    </div>
+    <div className="md:col-span-4"><label className="font-bold text-gray-600">Comentarios y Observaciones</label><textarea name="comentarios" defaultValue={editEvaluacion?.comentarios||''} required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea></div>
+    <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md hover:bg-indigo-700">Guardar Test</button></div>
+  </form>
+</div>
+)}
         <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
           <div className="p-4 border-b flex justify-between items-center bg-slate-50">
              <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Registros de Auditoría</h3>
