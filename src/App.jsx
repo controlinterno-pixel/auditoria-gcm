@@ -1678,14 +1678,14 @@ export default function App() {
               <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
             </div>
             
-                               <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
+<form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
                   
-                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help">
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help z-50">
                     Postura Estratégica <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-50 normal-case font-medium leading-relaxed">
+                    <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
                       <b className="text-blue-300 text-xs">¿Qué significa este concepto?</b><br/>
                       Define la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico. No todos los riesgos se tratan igual.<br/><br/>
                       <b className="text-blue-300 text-xs">Opciones y Ejemplos de diligenciamiento:</b><br/>
@@ -1698,25 +1698,30 @@ export default function App() {
                       <b className="text-blue-300 text-xs">¿Por qué es vital llenarlo?</b> Le indica al auditor interno qué tan estricto debe ser. Si eres "Averso", el auditor exigirá controles extremos. Si eres "Buscador", el auditor será más permisivo.
                     </div>
                   </label>
-                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm">
+                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10">
                     <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
                     <option value="Cauto">Cauto (Preferencia por soluciones seguras)</option>
                     <option value="Flexible">Flexible (Equilibrio riesgo/recompensa)</option>
                     <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
                   </select>
 
-                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help">
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help z-40">
                     KRI: Puntaje Residual Máximo Permitido <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-50 normal-case font-medium leading-relaxed">
-                      <b className="text-blue-300 text-xs">¿Qué significa este concepto?</b><br/>
-                      El KRI (Indicador Clave de Riesgo) es el límite numérico de tolerancia basado en la Matriz de Calor de 5x5. Es la calificación máxima que aceptas tener <b>después</b> de haber aplicado tus controles.<br/><br/>
+                    <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                      <b className="text-blue-300 text-xs">¿Qué significa y de dónde sale el dato?</b><br/>
+                      Es tu límite de tolerancia basado en la "Matriz 5x5". Se calcula multiplicando la <b>Probabilidad</b> (del 1 al 5) por el <b>Impacto</b> (del 1 al 5) de un riesgo.<br/><br/>
+                      <b className="text-blue-300 text-xs">Escala para diligenciar (1 al 25):</b><br/>
+                      <ul className="list-disc pl-4 mt-1 space-y-1">
+                        <li><b>De 1 a 4 (Zona Verde):</b> Riesgos casi imposibles o sin impacto.</li>
+                        <li><b>De 5 a 9 (Zona Amarilla):</b> Riesgos tolerables y monitoreables.</li>
+                        <li><b>De 10 a 16 (Zona Naranja):</b> Riesgos peligrosos que requieren mitigación.</li>
+                        <li><b>De 17 a 25 (Zona Roja):</b> Riesgos inaceptables y críticos.</li>
+                      </ul><br/>
                       <b className="text-blue-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
-                      Supongamos que este es un riesgo de "Falla en el internet". Tú decides que lo máximo que puedes soportar es un puntaje de <b>9</b> (que es un riesgo Medio/Amarillo en la matriz). Ingresas el número "9" en esta casilla.<br/><br/>
-                      Si el mes siguiente fallan las plantas eléctricas y, al evaluar el riesgo, este saca un puntaje de <b>16</b> (Naranja/Alto), el sistema automáticamente encenderá una alarma roja en el tablero principal, avisando a la gerencia que los controles fallaron y el riesgo superó el límite permitido.<br/><br/>
-                      <b className="text-blue-300 text-xs">¿Por qué es vital llenarlo?</b> Es el "gatillo" matemático que automatiza las alertas en tiempo real del sistema.
+                      Si decides que para el "Riesgo de falla en internet" lo máximo que estás dispuesto a soportar es estar en la zona amarilla, ingresas el número <b>9</b>. Si el mes siguiente el internet falla y el puntaje sube a <b>12</b>, el sistema lanzará una alerta prioritaria porque el riesgo superó el límite numérico que definiste.
                     </div>
                   </label>
-                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
+                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
 
                 <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
@@ -1724,48 +1729,46 @@ export default function App() {
                   
                   <label className="font-bold text-blue-900 mb-1 flex items-center w-max relative group cursor-help">
                     <span>🎯 Apetito de Riesgo (Deseado)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-50 normal-case font-medium leading-relaxed">
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
                       <b className="text-emerald-300 text-xs">¿Qué significa este concepto?</b><br/>
                       Es el "presupuesto" de pérdidas normales que la empresa acepta en su día a día. Operar un negocio implica pequeñas pérdidas inevitables; esta es la "zona verde" o de confort.<br/><br/>
                       <b className="text-emerald-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
                       En las piscinas de Termales, es predecible que los clientes rompan o se lleven por error 20 toallas al mes. Si reponer esas toallas cuesta <b>$1.000.000 COP</b> al año, ese es nuestro Apetito. Ponemos "1000000" en esta casilla.<br/><br/>
-                      <b className="text-emerald-300 text-xs">¿Por qué es vital llenarlo?</b> Nos ayuda a no generar falsas alarmas operativas. Nadie será despedido ni se harán auditorías si las pérdidas se mantienen en este rango, porque ya estaban presupuestadas como "costo de operación".
+                      <b className="text-emerald-300 text-xs">¿Por qué es vital llenarlo?</b> Para no activar falsas alarmas por pérdidas operativas que son completamente normales en el negocio.
                     </div>
                   </label>
-                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
 
                   <label className="font-bold text-amber-700 mb-1 flex items-center w-max relative group cursor-help">
                     <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-50 normal-case font-medium leading-relaxed">
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
                       <b className="text-amber-300 text-xs">¿Qué significa este concepto?</b><br/>
-                      Es la zona de "Dolor moderado" o alerta amarilla. Es la desviación máxima que estamos dispuestos a soportar por encima de nuestro Apetito (el cuadro anterior). Incomoda a las finanzas, requiere explicaciones, pero no quiebra a la empresa.<br/><br/>
+                      La zona amarilla. Es una pérdida económica que nos duele, nos incomoda, pero no nos quiebra.<br/><br/>
                       <b className="text-amber-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
-                      Si nuestro apetito en toallas era de 1 millón, pero por una falla en la lavandería se dañan toallas por <b>$3.000.000 COP</b>. Ingresamos "3000000" aquí.<br/>
-                      Si esto ocurre, superamos lo normal (Apetito), pero estamos dentro del límite soportable (Tolerancia). La gerencia pedirá un reporte, se arreglará la lavadora, pero el hotel pagará las toallas y seguirá operando sin problemas financieros graves.<br/><br/>
-                      <b className="text-amber-300 text-xs">¿Por qué es vital llenarlo?</b> Es el límite exacto donde el equipo de control interno debe dejar de "solo vigilar" y empezar a "intervenir" de urgencia.
+                      Si nuestro apetito en toallas era de 1 millón, pero por una falla se dañan toallas por <b>$3.000.000 COP</b>. Ingresamos "3000000" aquí.<br/>
+                      Si esto ocurre, superamos lo normal (Apetito), pero estamos dentro del límite soportable (Tolerancia). La gerencia pedirá un reporte, pero el hotel seguirá operando.<br/><br/>
+                      <b className="text-amber-300 text-xs">¿Por qué es vital llenarlo?</b> Es el límite exacto donde el equipo de control interno debe empezar a "intervenir" de urgencia.
                     </div>
                   </label>
-                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
 
                   <label className="font-bold text-red-700 mb-1 flex items-center w-max relative group cursor-help">
                     <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-50 normal-case font-medium leading-relaxed">
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
                       <b className="text-red-300 text-xs">¿Qué significa este concepto?</b><br/>
-                      Es el "abismo" o zona roja catastrófica. Representa la máxima cantidad de dinero absoluto que la empresa puede perder por culpa de este riesgo antes de entrar en insolvencia, incapacidad de operar o daño reputacional irreparable.<br/><br/>
+                      El abismo. La cantidad de dinero máxima que podemos perder antes de una catástrofe real.<br/><br/>
                       <b className="text-red-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
-                      Siguiendo con el ejemplo, si por un incendio en el almacén se pierden toallas e insumos por <b>$20.000.000 COP</b>, y la empresa solo tenía $15 millones en caja para operar el mes. Ingresamos "20000000" aquí.<br/>
-                      Llegar a este número significa que no habrá flujo de caja para pagar nómina o servicios. La operación se detiene. Es un límite que <b>jamás, bajo ninguna circunstancia</b>, se debe alcanzar.<br/><br/>
-                      <b className="text-red-300 text-xs">¿Por qué es vital llenarlo?</b> Fija la "línea de muerte" financiera. Si un riesgo se acerca a esta capacidad, la orden gerencial debe ser suspender inmediatamente el proceso que genera el riesgo, cueste lo que cueste.
+                      Si por un incendio se pierden toallas por <b>$20.000.000 COP</b>, y la empresa solo tenía $15 millones en caja. Ingresamos "20000000" aquí. Llegar a este número significa que no habrá flujo de caja. Es un límite que <b>jamás</b> se debe alcanzar.<br/><br/>
+                      <b className="text-red-300 text-xs">¿Por qué es vital llenarlo?</b> Fija la "línea de muerte" financiera. Si un riesgo se acerca a esta capacidad, la orden debe ser suspender inmediatamente el proceso.
                     </div>
                   </label>
-                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
               </div>
               <div className="flex justify-end pt-4 border-t border-slate-100">
                 <button type="submit" className="bg-slate-900 text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors transform hover:scale-105 duration-200">💾 Aplicar Arquitectura COSO</button>
               </div>
-            </form>
-          </div>
+            </form></div>
         )}
 
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
