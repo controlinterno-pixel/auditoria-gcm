@@ -2195,19 +2195,28 @@ export default function App() {
     );
   };
 
-  const renderIncidentes = () => (
+    const renderIncidentes = () => (
     <div className="space-y-6">
       <div className="border-b pb-2 font-black text-lg">🚨 Registro de Eventos de Pérdida (COP)</div>
       {isAdmin && (
         <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">➕ Registrar Evento de Pérdida</h3>
-          <form onSubmit={(e) => handleSubmits(e, 'incidente')} key={editIncidente ? `edit-incidente-${editIncidente.id}-${formResetKey}` : `new-incidente-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-            <input name="idRiesgo" required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
-            <input name="titulo" required placeholder="Título del Evento" className="border p-2 rounded" />
-            <input name="costo" type="number" required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
-            <select name="impacto" className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select>
-            <textarea name="descripcion" required placeholder="Descripción de la falla operacional..." className="border p-2 rounded md:col-span-4"></textarea>
-            <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold">Registrar Evento</button></div>
+          <div className="flex justify-between items-center border-b pb-3">
+             <h3 className="text-xs font-bold text-slate-700 uppercase">
+               {editIncidente ? `✏️ Editando Evento #${editIncidente.id}` : '➕ Registrar Evento de Pérdida'}
+             </h3>
+             {editIncidente && <button onClick={() => setEditIncidente(null)} className="text-xs text-red-500 font-bold hover:text-red-700">✖ Cancelar</button>}
+          </div>
+          <form onSubmit={handleIncidenteSubmit} key={editIncidente ? `edit-incidente-${editIncidente.id}-${formResetKey}` : `new-incidente-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+            <input name="idRiesgo" defaultValue={editIncidente?.idRiesgo || ''} required placeholder="ID Riesgo Vinculado" className="border p-2 rounded" />
+            <input name="titulo" defaultValue={editIncidente?.titulo || ''} required placeholder="Título del Evento" className="border p-2 rounded" />
+            <input name="costo" type="number" defaultValue={editIncidente?.costo || ''} required placeholder="Monto de la Pérdida Financiera" className="border p-2 rounded" />
+            <select name="impacto" defaultValue={editIncidente?.impacto || 'Bajo'} className="border p-2 bg-white rounded"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select>
+            <textarea name="descripcion" defaultValue={editIncidente?.descripcion || ''} required placeholder="Descripción de la falla operacional..." className="border p-2 rounded md:col-span-4"></textarea>
+            <div className="md:col-span-4 flex justify-end">
+              <button type="submit" className="bg-[#004d40] text-white px-5 py-2 rounded font-bold hover:bg-[#003d33]">
+                {editIncidente ? 'Actualizar Evento' : 'Registrar Evento'}
+              </button>
+            </div>
           </form>
         </div>
       )}
