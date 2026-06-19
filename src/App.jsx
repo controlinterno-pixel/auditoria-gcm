@@ -1607,7 +1607,7 @@ export default function App() {
     );
   };
 
-   const renderApetito = () => {
+const renderApetito = () => {
     const configurados = rFiltrados.filter(r => r.capacidadRiesgo).length;
     
     const enTolerancia = rFiltrados.filter(r => {
@@ -1690,7 +1690,7 @@ export default function App() {
                       Define la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico. No todos los riesgos se tratan igual.<br/><br/>
                       <b className="text-blue-300 text-xs">Opciones y Ejemplos de diligenciamiento:</b><br/>
                       <ul className="list-disc pl-4 mt-1 space-y-2">
-                        <li><b>Averso (Cero tolerancia):</b> No aceptamos este riesgo bajo ninguna circunstancia. <i>Ejemplo: Riesgos de seguridad humana. Si hay riesgo de que un empleado se accidente en el Ecoparque, somos aversos; invertimos lo que sea necesario para que la probabilidad sea cero.</i></li>
+                        <li><b>Averso (Cero tolerancia):</b> No aceptamos este riesgo bajo ninguna circunstancia. <i>Ejemplo: Riesgos de seguridad humana. Si hay riesgo de que un empleado se accidente en el Ecoparque, somos aversos; invertimos lo que sea necesario para que la probabilidad sea zero.</i></li>
                         <li><b>Cauto (Preferencia segura):</b> Aceptamos un riesgo mínimo, pero preferimos ir a lo seguro aunque cueste más. <i>Ejemplo: Contratar proveedores de alimentos. Preferimos proveedores más caros pero con certificación sanitaria, en lugar de uno barato y sin registros.</i></li>
                         <li><b>Flexible (Equilibrio):</b> Tomamos riesgos calculados si el beneficio vale la pena. <i>Ejemplo: Probar un nuevo software de reservas. Puede tener fallas iniciales, pero a largo plazo agilizará las ventas.</i></li>
                         <li><b>Buscador (Amante del riesgo):</b> Buscamos activamente este riesgo porque trae grandes ganancias. <i>Ejemplo: Lanzar una campaña de marketing muy disruptiva que podría ofender a algunos, pero que se volverá viral y atraerá miles de turistas.</i></li>
@@ -1762,7 +1762,7 @@ export default function App() {
                       <b className="text-red-300 text-xs">¿Por qué es vital llenarlo?</b> Fija la "línea de muerte" financiera. Si un riesgo se acerca a esta capacidad, la orden debe ser suspender inmediatamente el proceso.
                     </div>
                   </label>
-                                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
               </div>
               <div className="flex justify-end pt-4 border-t border-slate-100">
@@ -1863,7 +1863,6 @@ export default function App() {
       </div>
     );
   };
-
 
   const renderEvaluaciones = () => {
     const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
