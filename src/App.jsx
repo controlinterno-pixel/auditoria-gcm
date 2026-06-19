@@ -1768,9 +1768,9 @@ export default function App() {
               <div className="flex justify-end pt-4 border-t border-slate-100">
                 <button type="submit" className="bg-slate-900 text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors transform hover:scale-105 duration-200">💾 Aplicar Arquitectura COSO</button>
               </div>
-            </form></div>
+            </form>
+          </div>
         )}
-
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-5 bg-[#0f172a] flex justify-between items-center border-b border-slate-800">
             <div className="flex items-center space-x-3">
