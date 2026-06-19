@@ -1680,11 +1680,15 @@ export default function App() {
             
             <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
                   
-                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
-                    Postura Estratégica
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help">
+                    Postura Estratégica <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b>¿Qué es?</b> Define la actitud general de la empresa frente a este riesgo.<br/>
+                      <b>Diligenciamiento:</b> Seleccione si la empresa prefiere evitarlo (Averso), controlarlo con cuidado (Cauto) o aceptarlo por el beneficio esperado (Buscador).
+                    </div>
                   </label>
                   <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm">
                     <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
@@ -1693,8 +1697,12 @@ export default function App() {
                     <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
                   </select>
 
-                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max">
-                    KRI: Puntaje Residual Máximo Permitido
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help">
+                    KRI: Puntaje Residual Máximo Permitido <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b>¿Qué es?</b> El límite de tolerancia reflejado en la Matriz 5x5.<br/>
+                      <b>Diligenciamiento:</b> Ingrese un número del 1 al 25. Si el riesgo residual supera este puntaje, se activará una alerta prioritaria de atención.
+                    </div>
                   </label>
                   <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
                 </div>
@@ -1702,18 +1710,30 @@ export default function App() {
                 <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                   <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
                   
-                  <label className="font-bold text-blue-900 mb-1 flex items-center w-max">
-                    <span>🎯 Apetito de Riesgo (Deseado)</span>
+                  <label className="font-bold text-blue-900 mb-1 flex items-center w-max relative group cursor-help">
+                    <span>🎯 Apetito de Riesgo (Deseado)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b>¿Qué es?</b> Es el nivel óptimo de pérdida o impacto financiero que la empresa está dispuesta a aceptar para lograr sus objetivos.<br/>
+                      <b>Diligenciamiento:</b> Ingrese el monto en COP. Es la zona de "confort".
+                    </div>
                   </label>
                   <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
 
-                  <label className="font-bold text-amber-700 mb-1 flex items-center w-max">
-                    <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span>
+                  <label className="font-bold text-amber-700 mb-1 flex items-center w-max relative group cursor-help">
+                    <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b>¿Qué es?</b> La desviación máxima aceptable por encima del Apetito.<br/>
+                      <b>Diligenciamiento:</b> Ingrese un monto superior al Apetito. Si se supera esta cifra, la gerencia debe tomar acción correctiva urgente.
+                    </div>
                   </label>
                   <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
 
-                  <label className="font-bold text-red-700 mb-1 flex items-center w-max">
-                    <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span>
+                  <label className="font-bold text-red-700 mb-1 flex items-center w-max relative group cursor-help">
+                    <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b>¿Qué es?</b> La pérdida catastrófica máxima que la empresa podría soportar antes de entrar en insolvencia o daño irreparable.<br/>
+                      <b>Diligenciamiento:</b> Ingrese el límite financiero máximo absoluto. NUNCA se debe superar.
+                    </div>
                   </label>
                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
                 </div>
