@@ -1680,14 +1680,15 @@ export default function App() {
             
             <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
                   
                   <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help">
                     Postura Estratégica <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
-                      <b>¿Qué es?</b> Define la actitud general de la empresa frente a este riesgo.<br/>
-                      <b>Diligenciamiento:</b> Seleccione si la empresa prefiere evitarlo (Averso), controlarlo con cuidado (Cauto) o aceptarlo por el beneficio esperado (Buscador).
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b className="text-blue-300">¿Qué es?</b> Define la "personalidad" o actitud de la empresa frente a este riesgo en particular.<br/><br/>
+                      <b className="text-blue-300">Ejemplo práctico:</b> Si es un riesgo de fraude financiero, seremos <b>Aversos</b> (cero tolerancia a perder un peso). Pero si es un riesgo de lanzar una nueva campaña publicitaria, podríamos ser <b>Buscadores</b> (estamos dispuestos a arriesgar dinero para innovar y ganar más clientes).<br/><br/>
+                      <b className="text-blue-300">¿Por qué llenarlo?</b> Porque le dice al auditor si debe ser extremadamente estricto o si puede ser más flexible con los controles en esta área.
                     </div>
                   </label>
                   <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm">
@@ -1699,9 +1700,10 @@ export default function App() {
 
                   <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help">
                     KRI: Puntaje Residual Máximo Permitido <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
-                      <b>¿Qué es?</b> El límite de tolerancia reflejado en la Matriz 5x5.<br/>
-                      <b>Diligenciamiento:</b> Ingrese un número del 1 al 25. Si el riesgo residual supera este puntaje, se activará una alerta prioritaria de atención.
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b className="text-blue-300">¿Qué es?</b> Es la calificación máxima aceptable en tu Matriz de Calor (del 1 al 25) <b>después</b> de aplicar los controles.<br/><br/>
+                      <b className="text-blue-300">Ejemplo práctico:</b> Si pones "9", significa que aceptas convivir con riesgos que lleguen máximo a la "zona amarilla". Si al evaluar el riesgo saca un puntaje de "16" (zona naranja), el sistema lanzará una alerta porque el riesgo está superando el límite que habías permitido.<br/><br/>
+                      <b className="text-blue-300">¿Por qué llenarlo?</b> Para que el tablero sepa matemáticamente cuándo un riesgo está fuera de control.
                     </div>
                   </label>
                   <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
@@ -1712,28 +1714,34 @@ export default function App() {
                   
                   <label className="font-bold text-blue-900 mb-1 flex items-center w-max relative group cursor-help">
                     <span>🎯 Apetito de Riesgo (Deseado)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
-                      <b>¿Qué es?</b> Es el nivel óptimo de pérdida o impacto financiero que la empresa está dispuesta a aceptar para lograr sus objetivos.<br/>
-                      <b>Diligenciamiento:</b> Ingrese el monto en COP. Es la zona de "confort".
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b className="text-emerald-300">¿Qué es?</b> El presupuesto "normal" de pérdidas que la empresa acepta en el día a día sin preocuparse.<br/><br/>
+                      <b className="text-emerald-300">Ejemplo práctico:</b> En un hotel, sabemos que algunas toallas se van a dañar o extraviar. Si decimos que nuestro apetito es $1.000.000 COP al año en toallas, es porque ya contamos con perder ese dinero. Es la zona verde de confort.<br/><br/>
+                      <b className="text-emerald-300">¿Por qué llenarlo?</b> Para no activar falsas alarmas por pérdidas operativas que son completamente normales en el negocio.
                     </div>
                   </label>
                   <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
 
                   <label className="font-bold text-amber-700 mb-1 flex items-center w-max relative group cursor-help">
                     <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
-                      <b>¿Qué es?</b> La desviación máxima aceptable por encima del Apetito.<br/>
-                      <b>Diligenciamiento:</b> Ingrese un monto superior al Apetito. Si se supera esta cifra, la gerencia debe tomar acción correctiva urgente.
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b className="text-amber-300">¿Qué es?</b> La zona amarilla. Es una pérdida económica que nos duele, nos incomoda, pero no nos quiebra.<br/><br/>
+                      <b className="text-amber-300">Ejemplo práctico:</b> Si se pierden toallas por $3.000.000 COP, superamos nuestro apetito normal. El gerente de Alojamiento tendrá que dar explicaciones y habrá que revisar los controles de la lavandería, pero el hotel puede pagar el repuesto y seguir operando con normalidad.<br/><br/>
+                      <b className="text-amber-300">¿Por qué llenarlo?</b> Es la línea amarilla donde pasamos de "solo vigilar" a "tomar acciones correctivas urgentes".
                     </div>
                   </label>
                   <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
 
                   <label className="font-bold text-red-700 mb-1 flex items-center w-max relative group cursor-help">
                     <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
-                      <b>¿Qué es?</b> La pérdida catastrófica máxima que la empresa podría soportar antes de entrar en insolvencia o daño irreparable.<br/>
-                      <b>Diligenciamiento:</b> Ingrese el límite financiero máximo absoluto. NUNCA se debe superar.
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-80 p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-50 normal-case font-medium leading-relaxed">
+                      <b className="text-red-300">¿Qué es?</b> El abismo. La cantidad de dinero máxima que podemos perder antes de una catástrofe real.<br/><br/>
+                      <b className="text-red-300">Ejemplo práctico:</b> Si perdemos $10.000.000 COP en toallas (nuestra capacidad máxima), significa que este mes no tendremos flujo de caja para pagar la nómina de los empleados o los servicios públicos. Es un límite que <b>jamás</b> se debe cruzar.<br/><br/>
+                      <b className="text-red-300">¿Por qué llenarlo?</b> Marca el límite absoluto de viabilidad del negocio frente a este riesgo específico.
                     </div>
+                  </label>
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
+                </div>
                   </label>
                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
                 </div>
