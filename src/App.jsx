@@ -1678,9 +1678,9 @@ export default function App() {
               <button onClick={() => setEditApetito(null)} className="text-xs text-slate-500 hover:text-red-600 bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold transition-colors">✖ Cerrar Panel</button>
             </div>
             
-            <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
+                       <form onSubmit={handleApetitoSubmit} key={editApetito?.id || 'nuevo-apetito'} className="space-y-6 text-xs">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Operativos (KRI)</h4>
                   
                   <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help">
@@ -1739,9 +1739,6 @@ export default function App() {
                       <b className="text-red-300">Ejemplo práctico:</b> Si perdemos $10.000.000 COP en toallas (nuestra capacidad máxima), significa que este mes no tendremos flujo de caja para pagar la nómina de los empleados o los servicios públicos. Es un límite que <b>jamás</b> se debe cruzar.<br/><br/>
                       <b className="text-red-300">¿Por qué llenarlo?</b> Marca el límite absoluto de viabilidad del negocio frente a este riesgo específico.
                     </div>
-                  </label>
-                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
-                </div>
                   </label>
                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
                 </div>
