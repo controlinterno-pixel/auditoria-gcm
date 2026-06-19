@@ -2006,18 +2006,24 @@ const renderApetito = () => {
               <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
             </div>
             
-            <div className="md:col-span-4">
-              <div className="flex justify-between items-end mb-1">
-                <label className="font-bold text-blue-700 block mb-1">Enlace Externo de Evidencia</label>
-                <div className="flex space-x-2">
-                  <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir Google Drive"><span>📁</span><span>Abrir Drive</span></a>
-                  <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[9px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:bg-slate-50 transition-colors flex items-center space-x-1" title="Abrir OneDrive"><span>☁️</span><span>Abrir OneDrive</span></a>
+                        <div className="md:col-span-4 bg-rose-50/50 p-4 rounded-xl border border-rose-100 shadow-sm">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-rose-100 pb-3">
+                <div>
+                  <label className="font-black text-rose-800 uppercase tracking-widest text-[10px]">Paso 1: Busca y copia el enlace de soporte</label>
+                  <p className="text-[9px] text-rose-600 font-medium mt-0.5">Ve a tu nube, busca el archivo del informe o foto, haz clic en "Compartir" y copia el link.</p>
+                </div>
+                <div className="flex space-x-2 mt-2 md:mt-0">
+                  <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>📁</span><span>Ir a Drive</span></a>
+                  <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>☁️</span><span>Ir a OneDrive</span></a>
                 </div>
               </div>
-              <input type="url" name="evidenciaUrlInput" defaultValue={editHallazgo?.evidenciaUrl||''} placeholder="Pega aquí el enlace de tu archivo en la nube..." className="w-full border border-blue-200 bg-blue-50/30 rounded-lg p-2" />
+              <div>
+                <label className="font-black text-rose-800 uppercase tracking-widest text-[10px] block mb-1.5">Paso 2: Pega el enlace de la evidencia aquí</label>
+                <input type="url" name="evidenciaUrlInput" defaultValue={editHallazgo?.evidenciaUrl||''} placeholder="Ej: https://drive.google.com/file/d/1a2b3c..." className="w-full border border-rose-200 bg-white rounded-lg p-2.5 text-xs shadow-inner focus:ring-2 focus:ring-rose-500 outline-none transition-all" />
+              </div>
               {editHallazgo?.evidenciaUrl && (
-                <div className="mt-2 flex space-x-2">
-                  <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-[10px] font-bold hover:bg-blue-100 shadow-sm transition-colors">
+                <div className="mt-3 flex space-x-2 border-t border-rose-100 pt-2">
+                  <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-rose-100 text-rose-800 rounded-lg text-[10px] font-bold hover:bg-rose-200 shadow-sm transition-colors">
                     👁️ Abrir Enlace Actual
                   </a>
                 </div>
