@@ -1330,19 +1330,19 @@ export default function App() {
                      
                      {safeMonitoreo.map((m, index) => (
                        <div key={`moni-${m.id}-${index}`} className="flex flex-col p-3 hover:bg-slate-50 transition-colors group rounded-lg border border-transparent hover:border-slate-200">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>{m.indicador}</span>
-                            {isAdmin && (
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5">
-                                <button onClick={() => {setEditMonitoreo(m); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
-                                <button onClick={() => handleDeleteItem('monitoreo', m.id)} className="text-red-500 hover:text-red-700 text-xs transition-colors" title="Eliminar">✖</button>
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex justify-between items-center mt-1">
-                            <span className="text-[9px] text-slate-400">{m.proceso}</span>
-                            <span className={`text-xs font-black ${m.valor > (m.limite || 0) ? 'text-red-600' : 'text-emerald-600'} notranslate`} translate="no">{m.valor} {m.limite ? <span className="text-[8px] text-slate-400 font-medium">/ {m.limite}</span> : null}</span>
-                          </div>
+                         <div className="flex justify-between items-center">
+                           <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>{m.indicador}</span>
+                           {isAdmin && (
+                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5">
+                               <button onClick={() => {setEditMonitoreo(m); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
+                               <button onClick={() => handleDeleteItem('monitoreo', m.id)} className="text-red-500 hover:text-red-700 text-xs transition-colors" title="Eliminar">✖</button>
+                             </div>
+                           )}
+                         </div>
+                         <div className="flex justify-between items-center mt-1">
+                           <span className="text-[9px] text-slate-400">{m.proceso}</span>
+                           <span className={`text-xs font-black ${m.valor > (m.limite || 0) ? 'text-red-600' : 'text-emerald-600'} notranslate`} translate="no">{m.valor} {m.limite ? <span className="text-[8px] text-slate-400 font-medium">/ {m.limite}</span> : null}</span>
+                         </div>
                        </div>
                      ))}
                    </div>
@@ -1718,7 +1718,6 @@ export default function App() {
                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
                 </div>
               </div>
-
               <div className="flex justify-end pt-4 border-t border-slate-100">
                 <button type="submit" className="bg-slate-900 text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors transform hover:scale-105 duration-200">💾 Aplicar Arquitectura COSO</button>
               </div>
@@ -2378,7 +2377,34 @@ export default function App() {
           </div>
         </main>
       </div>
-      
+
+      {/* CÓDIGO AÑADIDO: Renderizado del Modal de Inteligencia Artificial */}
+      {aiModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-purple-600 p-4 flex justify-between items-center text-white">
+              <h3 className="font-black text-sm uppercase tracking-widest flex items-center space-x-2">
+                <span>🤖</span> <span>{aiModal.titulo}</span>
+              </h3>
+              <button onClick={() => setAiModal(null)} className="hover:text-purple-200 font-bold text-lg">✖</button>
+            </div>
+            <div className="p-6 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed border-b border-slate-100">
+              {aiModal.contenido}
+            </div>
+            <div className="bg-slate-50 p-4 flex justify-between items-center">
+              {aiModal.url && (
+                <a href={aiModal.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-purple-600 hover:text-purple-800 flex items-center space-x-1">
+                  <span>🔗</span> <span>Ver Evidencia</span>
+                </a>
+              )}
+              <button onClick={() => setAiModal(null)} className="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-700 transition-colors">
+                Cerrar Análisis
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
   );
