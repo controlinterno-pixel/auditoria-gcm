@@ -1898,11 +1898,11 @@ const renderApetito = () => {
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Base (KRI)</h4>
                   
-                  <div className="mb-1 flex items-center w-max relative z-50">
+                  <div className={`mb-1 flex items-center w-max relative ${activeTooltip === 'postura' ? 'z-[100]' : 'z-10'}`}>
                     <label className="font-bold text-gray-700">Postura Estratégica</label>
                     <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'postura' ? null : 'postura')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                     {activeTooltip === 'postura' && (
-                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700">
                         <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                           <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: Postura Estratégica</span>
                           <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -1927,18 +1927,18 @@ const renderApetito = () => {
                       </div>
                     )}
                   </div>
-                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10">
+                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-0">
                     <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
                     <option value="Cauto">Cauto (Preferencia por soluciones seguras)</option>
                     <option value="Flexible">Flexible (Equilibrio riesgo/recompensa)</option>
                     <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
                   </select>
 
-                  <div className="mb-1 flex items-center w-max relative z-40">
+                  <div className={`mb-1 flex items-center w-max relative ${activeTooltip === 'kri' ? 'z-[100]' : 'z-10'}`}>
                     <label className="font-bold text-gray-700">KRI: Puntaje Residual Máx</label>
                     <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'kri' ? null : 'kri')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                     {activeTooltip === 'kri' && (
-                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700">
                         <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                           <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: Score Residual Máximo</span>
                           <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -1967,18 +1967,18 @@ const renderApetito = () => {
                       </div>
                     )}
                   </div>
-                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm relative z-10" />
+                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm relative z-0" />
                 </div>
 
                 {/* 2. UMBRALES FINANCIEROS */}
                 <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                   <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
                   
-                  <div className="mb-1 flex items-center w-max relative z-50">
+                  <div className={`mb-1 flex items-center w-max relative ${activeTooltip === 'apetito' ? 'z-[100]' : 'z-10'}`}>
                     <label className="font-bold text-blue-900">🎯 Apetito de Riesgo (Deseado)</label>
                     <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'apetito' ? null : 'apetito')} className="ml-1.5 text-[12px] text-blue-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                     {activeTooltip === 'apetito' && (
-                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700">
                         <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                           <span className="font-black text-emerald-400 uppercase tracking-widest text-[9px]">Ayuda: Apetito (Zona Verde)</span>
                           <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -1998,13 +1998,13 @@ const renderApetito = () => {
                       </div>
                     )}
                   </div>
-                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
+                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-0" />
 
-                  <div className="mb-1 flex items-center w-max relative z-40">
+                  <div className={`mb-1 flex items-center w-max relative ${activeTooltip === 'tolerancia' ? 'z-[100]' : 'z-10'}`}>
                     <label className="font-bold text-amber-700">⚠️ Tolerancia al Riesgo (Desv. Máx)</label>
                     <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'tolerancia' ? null : 'tolerancia')} className="ml-1.5 text-[12px] text-amber-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-amber-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                     {activeTooltip === 'tolerancia' && (
-                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] border border-slate-700">
+                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl border border-slate-700">
                         <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                           <span className="font-black text-amber-400 uppercase tracking-widest text-[9px]">Ayuda: Tolerancia (Zona Amarilla)</span>
                           <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -2025,13 +2025,13 @@ const renderApetito = () => {
                       </div>
                     )}
                   </div>
-                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
+                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-0" />
 
-                  <div className="mb-1 flex items-center w-max relative z-30">
+                  <div className={`mb-1 flex items-center w-max relative ${activeTooltip === 'capacidad' ? 'z-[100]' : 'z-10'}`}>
                     <label className="font-bold text-red-700">🛑 Capacidad de Riesgo (Límite)</label>
                     <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'capacidad' ? null : 'capacidad')} className="ml-1.5 text-[12px] text-red-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-red-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                     {activeTooltip === 'capacidad' && (
-                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] border border-slate-700">
+                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl border border-slate-700">
                         <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                           <span className="font-black text-red-400 uppercase tracking-widest text-[9px]">Ayuda: Capacidad (Zona Roja)</span>
                           <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -2051,7 +2051,7 @@ const renderApetito = () => {
                       </div>
                     )}
                   </div>
-                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
                 </div>
 
                 {/* 3. IMPACTOS NO FINANCIEROS Y ESCALAMIENTO */}
@@ -2059,13 +2059,13 @@ const renderApetito = () => {
                   <h4 className="font-black text-purple-800 uppercase tracking-widest mb-3 border-b border-purple-200 pb-2">3. Impactos No Financieros y Protocolo de Escalamiento</h4>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="relative z-50">
+                    <div className={`relative ${activeTooltip === 'operativo' ? 'z-[100]' : 'z-10'}`}>
                       <div className="mb-1 flex items-center w-max">
                         <label className="font-bold text-purple-900">⚙️ Límite Operativo</label>
                         <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'operativo' ? null : 'operativo')} className="ml-1.5 text-[12px] text-purple-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-purple-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                       </div>
                       {activeTooltip === 'operativo' && (
-                        <div className="absolute top-full left-0 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                        <div className="absolute top-full left-0 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700">
                           <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                             <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Límite Operativo</span>
                             <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -2087,16 +2087,16 @@ const renderApetito = () => {
                           </div>
                         </div>
                       )}
-                      <input name="impactoOperativo" defaultValue={editApetito.impactoOperativo || ''} required placeholder="Ej: Máx 2 hrs de caída del sistema" className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
+                      <input name="impactoOperativo" defaultValue={editApetito.impactoOperativo || ''} required placeholder="Ej: Máx 2 hrs de caída del sistema" className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
                     </div>
 
-                    <div className="relative z-40">
+                    <div className={`relative ${activeTooltip === 'reputacional' ? 'z-[100]' : 'z-10'}`}>
                       <div className="mb-1 flex items-center w-max">
                         <label className="font-bold text-purple-900">🗣️ Límite Reputacional</label>
                         <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'reputacional' ? null : 'reputacional')} className="ml-1.5 text-[12px] text-purple-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-purple-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                       </div>
                       {activeTooltip === 'reputacional' && (
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700">
                           <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                             <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Daño de Imagen</span>
                             <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -2119,20 +2119,20 @@ const renderApetito = () => {
                           </div>
                         </div>
                       )}
-                      <select name="impactoReputacional" defaultValue={editApetito.impactoReputacional || 'Quejas Locales'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10">
+                      <select name="impactoReputacional" defaultValue={editApetito.impactoReputacional || 'Quejas Locales'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-0">
                         <option value="Ninguno">Ninguno (Averso)</option>
                         <option value="Quejas Locales">Solo quejas locales controlables</option>
                         <option value="Medios Regionales">Impacto en medios regionales</option>
                       </select>
                     </div>
 
-                    <div className="relative z-30">
+                    <div className={`relative ${activeTooltip === 'legal' ? 'z-[100]' : 'z-10'}`}>
                       <div className="mb-1 flex items-center w-max">
                         <label className="font-bold text-purple-900">⚖️ Límite Legal / Normativo</label>
                         <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'legal' ? null : 'legal')} className="ml-1.5 text-[12px] text-purple-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-purple-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                       </div>
                       {activeTooltip === 'legal' && (
-                        <div className="absolute top-full right-0 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                        <div className="absolute top-full right-0 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700">
                           <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                             <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Riesgo Regulatorio</span>
                             <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -2154,7 +2154,7 @@ const renderApetito = () => {
                           </div>
                         </div>
                       )}
-                      <select name="impactoLegal" defaultValue={editApetito.impactoLegal || 'Cero Tolerancia'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10">
+                      <select name="impactoLegal" defaultValue={editApetito.impactoLegal || 'Cero Tolerancia'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-0">
                         <option value="Cero Tolerancia">Cero Tolerancia (Averso)</option>
                         <option value="Sanciones Leves">Acepta sanciones o multas leves</option>
                         <option value="Demandas">Acepta riesgo de demandas</option>
@@ -2162,13 +2162,13 @@ const renderApetito = () => {
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-purple-200 relative z-20">
+                  <div className={`mt-4 pt-4 border-t border-purple-200 flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4 relative ${activeTooltip === 'escalamiento' ? 'z-[100]' : 'z-10'}`}>
                     <div className="mb-1 flex items-center w-max">
-                      <label className="font-black text-purple-900">🚨 ¿A quién escalar en caso de alerta (Amarillo/Rojo)?</label>
+                      <label className="font-black text-purple-900">🚨 ¿A quién escalar en caso de alerta?</label>
                       <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'escalamiento' ? null : 'escalamiento')} className="ml-2 text-[12px] text-purple-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
                     </div>
                     {activeTooltip === 'escalamiento' && (
-                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700">
                         <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
                           <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Cadena de Mando</span>
                           <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
@@ -2191,7 +2191,7 @@ const renderApetito = () => {
                         </div>
                       </div>
                     )}
-                    <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full md:w-1/2 border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm relative z-10 mt-1">
+                    <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full md:w-1/2 border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm relative z-0 mt-1">
                       <option value="Jefe de Área">Jefe de Área (Bajo Impacto)</option>
                       <option value="Comité de Gerencia">Comité de Gerencia (Impacto Medio)</option>
                       <option value="Junta Directiva">Junta Directiva (Alto Impacto / Crítico)</option>
