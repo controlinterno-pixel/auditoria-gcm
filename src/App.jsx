@@ -321,8 +321,30 @@ export default function App() {
   const [editInformeAuditoria, setEditInformeAuditoria] = useState(null);
 
   // --- SELECCIÓN MÚLTIPLE DE FECHAS ACTIVADA ---
-  const [selectedAnios, setSelectedAnios] = useState([new Date().getFullYear(), new Date().getFullYear() + 1]);
-  const [selectedMeses, setSelectedMeses] = useState(["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]);
+ // --- FILTROS DE PERIODICIDAD INDEPENDIENTES POR MÓDULO ---
+  const [periodFilters, setPeriodFilters] = useState({});
+  
+  const defaultAnios = [new Date().getFullYear(), new Date().getFullYear() + 1];
+  const defaultMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+  // El sistema lee la pestaña activa y saca su filtro correspondiente (o le da los valores por defecto)
+  const selectedAnios = periodFilters[activeTab]?.anios || defaultAnios;
+  const selectedMeses = periodFilters[activeTab]?.meses || defaultMeses;
+
+  // Secuestramos los actualizadores originales para guardarlos en el diccionario de la pestaña actual
+  const setSelectedAnios = (valOrFunc) => {
+    setPeriodFilters(prev => {
+      const cur = prev[activeTab] || { anios: defaultAnios, meses: defaultMeses };
+      return { ...prev, [activeTab]: { ...cur, anios: typeof valOrFunc === 'function' ? valOrFunc(cur.anios) : valOrFunc } };
+    });
+  };
+
+  const setSelectedMeses = (valOrFunc) => {
+    setPeriodFilters(prev => {
+      const cur = prev[activeTab] || { anios: defaultAnios, meses: defaultMeses };
+      return { ...prev, [activeTab]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
+    });
+  };
 
   // --- ENTIDADES PRINCIPALES ---
   const [riesgos, setRiesgos] = useState([]);
