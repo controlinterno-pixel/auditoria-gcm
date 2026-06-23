@@ -12,7 +12,7 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 // =====================================================================
 // 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
 // =====================================================================
-let GEMINI_API_KEY = "AIzaSyTuClaveVerdaderaDeGoogleAqui123456"; 
+let GEMINI_API_KEY = "AIzaSyBFP_jHfIsUV_wbc5EMbgmsYslcBbRltPo"; 
 
 // --- CONFIGURACIÓN DE FIREBASE (Sin Storage, usaremos Enlaces Drive/OneDrive) ---
 const firebaseConfig = {
@@ -617,8 +617,8 @@ setInformesAuditoria(data.informesAuditoria || []);
         prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+       method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -664,7 +664,7 @@ setInformesAuditoria(data.informesAuditoria || []);
       Se acaba de adjuntar un archivo de evidencia (Foto o PDF o Enlace) para el siguiente ${tipoItem}: "${contextoItem}".
       Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
