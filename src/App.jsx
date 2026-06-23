@@ -362,6 +362,7 @@ export default function App() {
   const [editPlan, setEditPlan] = useState(null);
   const [editIncidente, setEditIncidente] = useState(null);
   const [editApetito, setEditApetito] = useState(null); 
+  const [activeTooltip, setActiveTooltip] = useState(null);
   const [editCronograma, setEditCronograma] = useState(null); 
   const [editMonitoreo, setEditMonitoreo] = useState(null);
 
@@ -1897,28 +1898,35 @@ const renderApetito = () => {
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Base (KRI)</h4>
                   
-                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help z-50">
-                    Postura Estratégica <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
-                    <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
-                      <div className="mb-3">
-                        <b className="text-blue-300 text-xs block mb-1">¿Qué significa este concepto?</b>
-                        Define la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico. No todos los riesgos se tratan igual.
+                  <div className="mb-1 flex items-center w-max relative z-50">
+                    <label className="font-bold text-gray-700">Postura Estratégica</label>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'postura' ? null : 'postura')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    {activeTooltip === 'postura' && (
+                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: Postura Estratégica</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-blue-300 text-xs block mb-1">¿Qué significa este concepto?</b>
+                          Define la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico. No todos los riesgos se tratan igual.
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-blue-300 text-xs block mb-1">Opciones y Ejemplos de diligenciamiento:</b>
+                          <ul className="list-disc pl-4 space-y-1.5">
+                            <li><b>Averso (Cero tolerancia):</b> No aceptamos este riesgo bajo ninguna circunstancia. <i>Ejemplo: Riesgos de seguridad humana. Si hay riesgo de que un empleado se accidente en el Ecoparque, somos aversos.</i></li>
+                            <li><b>Cauto (Preferencia segura):</b> Aceptamos un riesgo mínimo, preferimos ir a lo seguro. <i>Ejemplo: Contratar proveedores de alimentos. Preferimos proveedores certificados.</i></li>
+                            <li><b>Flexible (Equilibrio):</b> Tomamos riesgos calculados si el beneficio vale la pena. <i>Ejemplo: Probar un nuevo software de reservas.</i></li>
+                            <li><b>Buscador (Amante del riesgo):</b> Buscamos activamente este riesgo porque trae grandes ganancias. <i>Ejemplo: Lanzar una campaña de marketing disruptiva.</i></li>
+                          </ul>
+                        </div>
+                        <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
+                          <b className="text-blue-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b>
+                          Le indica al auditor interno qué tan estricto debe ser. Si eres "Averso", el auditor exigirá controles extremos. Si eres "Buscador", el auditor será más permisivo.
+                        </div>
                       </div>
-                      <div className="mb-3">
-                        <b className="text-blue-300 text-xs block mb-1">Opciones y Ejemplos de diligenciamiento:</b>
-                        <ul className="list-disc pl-4 space-y-1.5">
-                          <li><b>Averso (Cero tolerancia):</b> No aceptamos este riesgo bajo ninguna circunstancia. <i>Ejemplo: Riesgos de seguridad humana. Si hay riesgo de que un empleado se accidente en el Ecoparque, somos aversos.</i></li>
-                          <li><b>Cauto (Preferencia segura):</b> Aceptamos un riesgo mínimo, preferimos ir a lo seguro. <i>Ejemplo: Contratar proveedores de alimentos. Preferimos proveedores certificados.</i></li>
-                          <li><b>Flexible (Equilibrio):</b> Tomamos riesgos calculados si el beneficio vale la pena. <i>Ejemplo: Probar un nuevo software de reservas.</i></li>
-                          <li><b>Buscador (Amante del riesgo):</b> Buscamos activamente este riesgo porque trae grandes ganancias. <i>Ejemplo: Lanzar una campaña de marketing disruptiva.</i></li>
-                        </ul>
-                      </div>
-                      <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
-                        <b className="text-blue-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b>
-                        Le indica al auditor interno qué tan estricto debe ser. Si eres "Averso", el auditor exigirá controles extremos. Si eres "Buscador", el auditor será más permisivo.
-                      </div>
-                    </div>
-                  </label>
+                    )}
+                  </div>
                   <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10">
                     <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
                     <option value="Cauto">Cauto (Preferencia por soluciones seguras)</option>
@@ -1926,32 +1934,39 @@ const renderApetito = () => {
                     <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
                   </select>
 
-                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help z-40">
-                    KRI: Puntaje Residual Máximo Permitido <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
-                    <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
-                      <div className="mb-3">
-                        <b className="text-blue-300 text-xs block mb-1">¿Qué significa y de dónde sale el dato?</b>
-                        Es tu límite de tolerancia basado en la "Matriz 5x5". Se calcula multiplicando la <b>Probabilidad</b> (del 1 al 5) por el <b>Impacto</b> (del 1 al 5) de un riesgo.
+                  <div className="mb-1 flex items-center w-max relative z-40">
+                    <label className="font-bold text-gray-700">KRI: Puntaje Residual Máx</label>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'kri' ? null : 'kri')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    {activeTooltip === 'kri' && (
+                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: Score Residual Máximo</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-blue-300 text-xs block mb-1">¿Qué significa y de dónde sale el dato?</b>
+                          Es tu límite de tolerancia basado en la "Matriz 5x5". Se calcula multiplicando la <b>Probabilidad</b> (del 1 al 5) por el <b>Impacto</b> (del 1 al 5) de un riesgo.
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-blue-300 text-xs block mb-1">Escala para diligenciar (1 al 25):</b>
+                          <ul className="list-disc pl-4 space-y-1.5">
+                            <li><b>De 1 a 4 (Zona Verde):</b> Riesgos casi imposibles o sin impacto.</li>
+                            <li><b>De 5 a 9 (Zona Amarilla):</b> Riesgos tolerables y monitoreables.</li>
+                            <li><b>De 10 a 16 (Zona Naranja):</b> Riesgos peligrosos que requieren mitigación.</li>
+                            <li><b>De 17 a 25 (Zona Roja):</b> Riesgos inaceptables y críticos.</li>
+                          </ul>
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-blue-300 text-xs block mb-1">Ejemplo práctico de diligenciamiento:</b>
+                          Si decides que para el "Riesgo de falla en internet" lo máximo que estás dispuesto a soportar es estar en la zona amarilla, ingresas el número <b>9</b>. Si el mes siguiente el internet falla y el puntaje sube a <b>12</b>, el sistema lanzará una alerta.
+                        </div>
+                        <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
+                          <b className="text-blue-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b>
+                          Define numéricamente cuándo el sistema debe declarar un riesgo como 'Fuera de Control'.
+                        </div>
                       </div>
-                      <div className="mb-3">
-                        <b className="text-blue-300 text-xs block mb-1">Escala para diligenciar (1 al 25):</b>
-                        <ul className="list-disc pl-4 space-y-1.5">
-                          <li><b>De 1 a 4 (Zona Verde):</b> Riesgos casi imposibles o sin impacto.</li>
-                          <li><b>De 5 a 9 (Zona Amarilla):</b> Riesgos tolerables y monitoreables.</li>
-                          <li><b>De 10 a 16 (Zona Naranja):</b> Riesgos peligrosos que requieren mitigación.</li>
-                          <li><b>De 17 a 25 (Zona Roja):</b> Riesgos inaceptables y críticos.</li>
-                        </ul>
-                      </div>
-                      <div className="mb-3">
-                        <b className="text-blue-300 text-xs block mb-1">Ejemplo práctico de diligenciamiento:</b>
-                        Si decides que para el "Riesgo de falla en internet" lo máximo que estás dispuesto a soportar es estar en la zona amarilla, ingresas el número <b>9</b>. Si el mes siguiente el internet falla y el puntaje sube a <b>12</b>, el sistema lanzará una alerta.
-                      </div>
-                      <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
-                        <b className="text-blue-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b>
-                        Define numéricamente cuándo el sistema debe declarar un riesgo como 'Fuera de Control'.
-                      </div>
-                    </div>
-                  </label>
+                    )}
+                  </div>
                   <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
 
@@ -1959,74 +1974,102 @@ const renderApetito = () => {
                 <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                   <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
                   
-                  <label className="font-bold text-blue-900 mb-1 flex items-center w-max relative group cursor-help z-50">
-                    <span>🎯 Apetito de Riesgo (Deseado)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
-                      <div className="mb-3">
-                        <b className="text-emerald-300 text-xs block mb-1">¿Qué significa este concepto?</b>
-                        Es el "presupuesto" de pérdidas normales que la empresa acepta en su día a día. Operar un negocio implica pequeñas pérdidas inevitables; esta es la "zona verde" o de confort.
+                  <div className="mb-1 flex items-center w-max relative z-50">
+                    <label className="font-bold text-blue-900">🎯 Apetito de Riesgo (Deseado)</label>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'apetito' ? null : 'apetito')} className="ml-1.5 text-[12px] text-blue-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    {activeTooltip === 'apetito' && (
+                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-emerald-400 uppercase tracking-widest text-[9px]">Ayuda: Apetito (Zona Verde)</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-emerald-300 text-xs block mb-1">¿Qué significa este concepto?</b>
+                          Es el "presupuesto" de pérdidas normales que la empresa acepta en su día a día. Operar un negocio implica pequeñas pérdidas inevitables; esta es la "zona verde" o de confort.
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-emerald-300 text-xs block mb-1">Ejemplo práctico de diligenciamiento:</b>
+                          En las piscinas de Termales, es predecible que los clientes rompan o se lleven por error 20 toallas al mes. Si reponer esas toallas cuesta <b>$1.000.000 COP</b> al año, ese es nuestro Apetito. Ponemos "1000000" en esta casilla.
+                        </div>
+                        <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
+                          <b className="text-emerald-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b> 
+                          Para no activar falsas alarmas por pérdidas operativas que son completamente normales en el negocio.
+                        </div>
                       </div>
-                      <div className="mb-3">
-                        <b className="text-emerald-300 text-xs block mb-1">Ejemplo práctico de diligenciamiento:</b>
-                        En las piscinas de Termales, es predecible que los clientes rompan o se lleven por error 20 toallas al mes. Si reponer esas toallas cuesta <b>$1.000.000 COP</b> al año, ese es nuestro Apetito. Ponemos "1000000" en esta casilla.
-                      </div>
-                      <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
-                        <b className="text-emerald-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b> 
-                        Para no activar falsas alarmas por pérdidas operativas que son completamente normales en el negocio.
-                      </div>
-                    </div>
-                  </label>
+                    )}
+                  </div>
                   <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
 
-                  <label className="font-bold text-amber-700 mb-1 flex items-center w-max relative group cursor-help z-40">
-                    <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] normal-case font-medium leading-relaxed">
-                      <div className="mb-3">
-                        <b className="text-amber-300 text-xs block mb-1">¿Qué significa este concepto?</b>
-                        La zona amarilla. Es una pérdida económica que nos duele, nos incomoda, pero no nos quiebra.
+                  <div className="mb-1 flex items-center w-max relative z-40">
+                    <label className="font-bold text-amber-700">⚠️ Tolerancia al Riesgo (Desv. Máx)</label>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'tolerancia' ? null : 'tolerancia')} className="ml-1.5 text-[12px] text-amber-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-amber-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    {activeTooltip === 'tolerancia' && (
+                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] border border-slate-700">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-amber-400 uppercase tracking-widest text-[9px]">Ayuda: Tolerancia (Zona Amarilla)</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-amber-300 text-xs block mb-1">¿Qué significa este concepto?</b>
+                          La zona amarilla. Es una pérdida económica que nos duele, nos incomoda, pero no nos quiebra.
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-amber-300 text-xs block mb-1">Ejemplo práctico de diligenciamiento:</b>
+                          Si nuestro apetito en toallas era de 1 millón, pero por una falla se dañan toallas por <b>$3.000.000 COP</b>. Ingresamos "3000000" aquí.<br/>
+                          Si esto ocurre, superamos lo normal (Apetito), pero estamos dentro del límite soportable (Tolerancia).
+                        </div>
+                        <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
+                          <b className="text-amber-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b>
+                          Es el límite exacto donde el equipo de control interno debe empezar a "intervenir" de urgencia.
+                        </div>
                       </div>
-                      <div className="mb-3">
-                        <b className="text-amber-300 text-xs block mb-1">Ejemplo práctico de diligenciamiento:</b>
-                        Si nuestro apetito en toallas era de 1 millón, pero por una falla se dañan toallas por <b>$3.000.000 COP</b>. Ingresamos "3000000" aquí.<br/>
-                        Si esto ocurre, superamos lo normal (Apetito), pero estamos dentro del límite soportable (Tolerancia).
-                      </div>
-                      <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
-                        <b className="text-amber-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b>
-                        Es el límite exacto donde el equipo de control interno debe empezar a "intervenir" de urgencia.
-                      </div>
-                    </div>
-                  </label>
+                    )}
+                  </div>
                   <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
 
-                  <label className="font-bold text-red-700 mb-1 flex items-center w-max relative group cursor-help z-30">
-                    <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
-                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] normal-case font-medium leading-relaxed">
-                      <div className="mb-3">
-                        <b className="text-red-300 text-xs block mb-1">¿Qué significa este concepto?</b>
-                        El abismo. La cantidad de dinero máxima que podemos perder antes de una catástrofe real.
+                  <div className="mb-1 flex items-center w-max relative z-30">
+                    <label className="font-bold text-red-700">🛑 Capacidad de Riesgo (Límite)</label>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'capacidad' ? null : 'capacidad')} className="ml-1.5 text-[12px] text-red-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-red-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    {activeTooltip === 'capacidad' && (
+                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] border border-slate-700">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-red-400 uppercase tracking-widest text-[9px]">Ayuda: Capacidad (Zona Roja)</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-red-300 text-xs block mb-1">¿Qué significa este concepto?</b>
+                          El abismo. La cantidad de dinero máxima que podemos perder antes de una catástrofe real.
+                        </div>
+                        <div className="mb-3">
+                          <b className="text-red-300 text-xs block mb-1">Ejemplo práctico de diligenciamiento:</b>
+                          Si por un incendio se pierden toallas por <b>$20.000.000 COP</b>, y la empresa solo tenía $15 millones en caja. Ingresamos "20000000" aquí. Llegar a este número significa que no habrá flujo de caja. Es un límite que <b>jamás</b> se debe alcanzar.
+                        </div>
+                        <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
+                          <b className="text-red-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b>
+                          Fija la "línea de muerte" financiera. Si un riesgo se acerca a esta capacidad, la orden debe ser suspender inmediatamente el proceso.
+                        </div>
                       </div>
-                      <div className="mb-3">
-                        <b className="text-red-300 text-xs block mb-1">Ejemplo práctico de diligenciamiento:</b>
-                        Si por un incendio se pierden toallas por <b>$20.000.000 COP</b>, y la empresa solo tenía $15 millones en caja. Ingresamos "20000000" aquí. Llegar a este número significa que no habrá flujo de caja. Es un límite que <b>jamás</b> se debe alcanzar.
-                      </div>
-                      <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 mt-2">
-                        <b className="text-red-300 text-xs block mb-1">¿Por qué es vital llenarlo?</b>
-                        Fija la "línea de muerte" financiera. Si un riesgo se acerca a esta capacidad, la orden debe ser suspender inmediatamente el proceso.
-                      </div>
-                    </div>
-                  </label>
+                    )}
+                  </div>
                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
 
                 {/* 3. IMPACTOS NO FINANCIEROS Y ESCALAMIENTO */}
-                <div className="md:col-span-2 bg-purple-50/50 p-4 rounded-2xl border border-purple-100 shadow-inner">
+                <div className="md:col-span-2 bg-purple-50/50 p-4 rounded-2xl border border-purple-100 shadow-inner mt-4">
                   <h4 className="font-black text-purple-800 uppercase tracking-widest mb-3 border-b border-purple-200 pb-2">3. Impactos No Financieros y Protocolo de Escalamiento</h4>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="font-bold text-purple-900 mb-1 flex items-center w-max relative group cursor-help z-50">
-                        ⚙️ Límite Operativo <span className="ml-1 text-[10px] text-purple-500">ℹ️</span>
-                        <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[400px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                    <div className="relative z-50">
+                      <div className="mb-1 flex items-center w-max">
+                        <label className="font-bold text-purple-900">⚙️ Límite Operativo</label>
+                        <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'operativo' ? null : 'operativo')} className="ml-1.5 text-[12px] text-purple-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-purple-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                      </div>
+                      {activeTooltip === 'operativo' && (
+                        <div className="absolute top-full left-0 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                          <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                            <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Límite Operativo</span>
+                            <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                          </div>
                           <div className="mb-3">
                             <b className="text-purple-300 text-xs block mb-1">¿Qué significa este concepto?</b>
                             Tolerancia en la operación física o de servicio antes de declarar emergencia o llamar al área técnica.
@@ -2043,13 +2086,21 @@ const renderApetito = () => {
                             Porque no todos los riesgos generan pérdida de dinero inmediato; este límite protege la experiencia del usuario turista y el flujo de la operación.
                           </div>
                         </div>
-                      </label>
+                      )}
                       <input name="impactoOperativo" defaultValue={editApetito.impactoOperativo || ''} required placeholder="Ej: Máx 2 hrs de caída del sistema" className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                     </div>
-                    <div>
-                      <label className="font-bold text-purple-900 mb-1 flex items-center w-max relative group cursor-help z-40">
-                        🗣️ Límite Reputacional <span className="ml-1 text-[10px] text-purple-500">ℹ️</span>
-                        <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[400px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+
+                    <div className="relative z-40">
+                      <div className="mb-1 flex items-center w-max">
+                        <label className="font-bold text-purple-900">🗣️ Límite Reputacional</label>
+                        <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'reputacional' ? null : 'reputacional')} className="ml-1.5 text-[12px] text-purple-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-purple-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                      </div>
+                      {activeTooltip === 'reputacional' && (
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                          <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                            <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Daño de Imagen</span>
+                            <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                          </div>
                           <div className="mb-3">
                             <b className="text-purple-300 text-xs block mb-1">¿Qué significa este concepto?</b>
                             Tolerancia al daño de imagen de la marca Termales Santa Rosa frente a clientes y público externo.
@@ -2067,17 +2118,25 @@ const renderApetito = () => {
                             Protege el activo más valioso del turismo: el buen nombre y las recomendaciones.
                           </div>
                         </div>
-                      </label>
+                      )}
                       <select name="impactoReputacional" defaultValue={editApetito.impactoReputacional || 'Quejas Locales'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10">
                         <option value="Ninguno">Ninguno (Averso)</option>
                         <option value="Quejas Locales">Solo quejas locales controlables</option>
                         <option value="Medios Regionales">Impacto en medios regionales</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="font-bold text-purple-900 mb-1 flex items-center w-max relative group cursor-help z-30">
-                        ⚖️ Límite Legal / Compliance <span className="ml-1 text-[10px] text-purple-500">ℹ️</span>
-                        <div className="absolute top-full right-0 mt-2 hidden group-hover:block w-[400px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+
+                    <div className="relative z-30">
+                      <div className="mb-1 flex items-center w-max">
+                        <label className="font-bold text-purple-900">⚖️ Límite Legal / Normativo</label>
+                        <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'legal' ? null : 'legal')} className="ml-1.5 text-[12px] text-purple-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-purple-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                      </div>
+                      {activeTooltip === 'legal' && (
+                        <div className="absolute top-full right-0 mt-3 w-[350px] md:w-[400px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                          <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                            <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Riesgo Regulatorio</span>
+                            <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                          </div>
                           <div className="mb-3">
                             <b className="text-purple-300 text-xs block mb-1">¿Qué significa este concepto?</b>
                             Tolerancia a faltas regulatorias o multas de entes gubernamentales.
@@ -2094,7 +2153,7 @@ const renderApetito = () => {
                             Evita que la empresa sea sellada, multada masivamente o clausurada por ignorar normas obligatorias.
                           </div>
                         </div>
-                      </label>
+                      )}
                       <select name="impactoLegal" defaultValue={editApetito.impactoLegal || 'Cero Tolerancia'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10">
                         <option value="Cero Tolerancia">Cero Tolerancia (Averso)</option>
                         <option value="Sanciones Leves">Acepta sanciones o multas leves</option>
@@ -2103,10 +2162,17 @@ const renderApetito = () => {
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-purple-200 flex items-center space-x-4">
-                    <label className="font-black text-purple-900 whitespace-nowrap flex items-center relative group cursor-help z-50">
-                      🚨 ¿A quién escalar en caso de alerta (Amarillo/Rojo)? <span className="ml-1 text-[10px] text-purple-500">ℹ️</span>
-                      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                  <div className="mt-4 pt-4 border-t border-purple-200 relative z-20">
+                    <div className="mb-1 flex items-center w-max">
+                      <label className="font-black text-purple-900">🚨 ¿A quién escalar en caso de alerta (Amarillo/Rojo)?</label>
+                      <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'escalamiento' ? null : 'escalamiento')} className="ml-2 text-[12px] text-purple-600 hover:scale-125 transition-transform bg-white rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    </div>
+                    {activeTooltip === 'escalamiento' && (
+                      <div className="absolute bottom-full left-0 mb-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] border border-slate-700">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Cadena de Mando</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-600 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
                         <div className="mb-3">
                           <b className="text-purple-300 text-xs block mb-1">¿Qué significa este concepto?</b>
                           Define el protocolo de emergencia y quién toma la decisión final cuando el riesgo pasa a zona Amarilla o Roja.
@@ -2124,8 +2190,8 @@ const renderApetito = () => {
                           Evita la parálisis por análisis; establece una cadena de mando clara para actuar rápido en medio de una crisis real.
                         </div>
                       </div>
-                    </label>
-                    <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm relative z-10">
+                    )}
+                    <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full md:w-1/2 border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm relative z-10 mt-1">
                       <option value="Jefe de Área">Jefe de Área (Bajo Impacto)</option>
                       <option value="Comité de Gerencia">Comité de Gerencia (Impacto Medio)</option>
                       <option value="Junta Directiva">Junta Directiva (Alto Impacto / Crítico)</option>
@@ -2232,6 +2298,7 @@ const renderApetito = () => {
       </div>
     );
   };
+
   const renderEvaluaciones = () => {
     const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
 
