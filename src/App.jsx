@@ -1454,8 +1454,8 @@ const renderConfiguracion = () => (
   const renderPlanAnual = () => {
     const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     
-    // ORDEN CRONOLÓGICO: Enero a Diciembre según el array de meses
-    const cronogramaOrdenado = [...safeCronograma].sort((a, b) => {
+    // ORDEN CRONOLÓGICO: Enero a Diciembre según el array de meses (USANDO cFiltrados)
+    const cronogramaOrdenado = [...cFiltrados].sort((a, b) => {
         const getMinIdx = (arr) => {
             if (!arr || !Array.isArray(arr) || arr.length === 0) return 99;
             const indices = arr.map(m => allMonths.indexOf(m)).filter(i => i >= 0);
@@ -1467,20 +1467,25 @@ const renderConfiguracion = () => (
         return (a.codigo || '').localeCompare(b.codigo || '');
     });
 
-    // CÁLCULO AJUSTADO DE CUMPLIMIENTO GLOBAL: (Ignora procesos en 0% que aún no inician)
     const procesosActivos = cronogramaOrdenado.filter(c => c.cumplimiento > 0);
     const avgCumplimiento = procesosActivos.length > 0 
       ? Math.round(procesosActivos.reduce((acc, c) => acc + c.cumplimiento, 0) / procesosActivos.length)
       : (cronogramaOrdenado.length > 0 ? Math.round(cronogramaOrdenado.reduce((acc, c) => acc + c.cumplimiento, 0) / cronogramaOrdenado.length) : 0);
 
+    const labelAnio = selectedAnios.length === 0 ? 'HISTÓRICO MULTIANUAL' : selectedAnios.join(' - ');
+
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
+        
+        {/* FILTROS GLOBALES DEL MÓDULO AÑADIDOS */}
+        {renderHeaderFiltros("Gestión de Auditoría", "Filtra el cronograma y los procesos por periodo.")}
+
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="bg-[#004d40] text-white p-6 flex flex-col md:flex-row justify-between items-center relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.4) 0%, transparent 20%)', backgroundSize: '100px 100px' }}></div>
             <div className="relative z-10 flex items-center space-x-4">
                <div className="bg-white text-[#004d40] h-12 w-12 rounded-full flex items-center justify-center font-black text-xl shadow-lg">T</div>
-               <h2 className="text-2xl font-black tracking-widest uppercase">Plan Anual de Auditoría 2026</h2>
+               <h2 className="text-2xl font-black tracking-widest uppercase">Plan Anual de Auditoría {labelAnio}</h2>
             </div>
             <div className="relative z-10 mt-4 md:mt-0 bg-[#00695c] px-6 py-2 rounded-full border border-[#00897b] flex items-center space-x-3 shadow-inner">
                <span className="text-2xl">🎖️</span>
@@ -1562,7 +1567,7 @@ const renderConfiguracion = () => (
                              <FilterInput colKey="codigo" placeholder="ID..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                            </th>
                            <th className="p-3 w-24">
-                             <div>Periodo</div>
+                             <div>Año / Periodo</div>
                              <FilterInput colKey="periodo" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                            </th>
                            <th className="p-3 w-48">
@@ -1581,7 +1586,7 @@ const renderConfiguracion = () => (
                          {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => (
                            <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                              <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
-                             <td className="p-3 font-medium text-slate-600">{c.periodo}</td>
+                             <td className="p-3 font-medium text-slate-600"><span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black mr-1">{c.anio || new Date().getFullYear()}</span>{c.periodo}</td>
                              <td className="p-3 font-black text-slate-800">{c.proceso}</td>
                              <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
                              <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
@@ -1607,18 +1612,19 @@ const renderConfiguracion = () => (
               <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editCronograma ? '✏️ Editando Proceso del Plan' : '➕ Agregar Proceso al Cronograma'}</h3>
               {editCronograma && <button onClick={() => setEditCronograma(null)} className="text-xs text-red-500 font-bold hover:text-red-700">✖ Cancelar</button>}
             </div>
-            <form onSubmit={handleCronogramaSubmit} key={editCronograma ? `edit-crono-${editCronograma.id}-${formResetKey}` : `new-crono-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+            <form onSubmit={handleCronogramaSubmit} key={editCronograma ? `edit-crono-${editCronograma.id}-${formResetKey}` : `new-crono-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-5 gap-4 text-xs">
               <div><label className="font-bold text-gray-600 block mb-1">Identificación</label><input name="codigo" defaultValue={editCronograma?.codigo||''} required placeholder="Ej: 05" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
+              <div><label className="font-bold text-gray-600 block mb-1">Año</label><input type="number" name="anio" defaultValue={editCronograma?.anio||new Date().getFullYear()} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-black text-slate-800 bg-slate-50" /></div>
               <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required placeholder="Ej: Enero - Abril" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
               <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" defaultValue={editCronograma?.proceso||''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-bold text-slate-800" /></div>
               
               <div><label className="font-bold text-gray-600 block mb-1">Responsable</label><input name="responsable" defaultValue={editCronograma?.responsable||''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
-              <div><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" defaultValue={editCronograma?.apoyo||''} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
+              <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Apoyo (Opcional)</label><input name="apoyo" defaultValue={editCronograma?.apoyo||''} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
               <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">% Acumulado (0-100)</label><input type="number" min="0" max="100" name="cumplimiento" defaultValue={editCronograma?.cumplimiento||0} required className="w-full border border-emerald-300 bg-emerald-50 rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-black text-emerald-700" /></div>
               
-              <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" defaultValue={editCronograma?.enfoque||''} required rows="2" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none"></textarea></div>
+              <div className="md:col-span-5"><label className="font-bold text-gray-600 block mb-1">Enfoque Técnico y Alcance</label><textarea name="enfoque" defaultValue={editCronograma?.enfoque||''} required rows="2" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none"></textarea></div>
               
-              <div className="md:col-span-4">
+              <div className="md:col-span-5">
                 <label className="font-bold text-gray-600 block mb-2">Meses Planeados (Para gráfico de Gantt)</label>
                 <div className="grid grid-cols-6 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                   {allMonths.map(mes => (
@@ -1630,7 +1636,7 @@ const renderConfiguracion = () => (
                 </div>
               </div>
 
-              <div className="md:col-span-4 flex justify-end mt-2"><button type="submit" className="bg-[#004d40] hover:bg-[#00695c] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all transform hover:scale-105">{editCronograma ? 'Actualizar Plan' : 'Guardar en Plan'}</button></div>
+              <div className="md:col-span-5 flex justify-end mt-2"><button type="submit" className="bg-[#004d40] hover:bg-[#00695c] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all transform hover:scale-105">{editCronograma ? 'Actualizar Plan' : 'Guardar en Plan'}</button></div>
             </form>
           </div>
         )}
@@ -1667,7 +1673,7 @@ const renderConfiguracion = () => (
                  {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => (
                    <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                      <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
-                     <td className="border border-slate-300 p-2 font-black text-slate-800">{c.proceso}</td>
+                     <td className="border border-slate-300 p-2 font-black text-slate-800"><span className="bg-slate-200 text-slate-700 px-1 py-0.5 rounded font-bold mr-1 text-[8px]">{c.anio || new Date().getFullYear()}</span>{c.proceso}</td>
                      <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
                      {allMonths.map(mes => {
                        const isPlanned = c.meses?.includes(mes);
@@ -1707,7 +1713,6 @@ const renderConfiguracion = () => (
       </div>
     );
   };
-
   const renderRiesgos = () => {
     const rData = rFiltrados.map(r => {
       const res = calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual);
