@@ -1861,31 +1861,6 @@ const renderApetito = () => {
       return { ...r, resScoreVal: resScore, costoTotalVal: costoTotal, estaConfiguradoVal: estaConfigurado, zonaVal: zona, zonaColorVal: zonaColor, consumoPorcentajeVal: consumoPorcentaje };
     });
 
-    // COMPONENTE INTERNO DE TOOLTIPS
-    const InfoTooltip = ({ texto, opciones, vital }) => (
-      <div className="relative group inline-block ml-1.5 cursor-help z-50">
-        <span className="bg-blue-100 text-blue-600 rounded-full px-1.5 py-0 text-[10px] font-black border border-blue-200 shadow-sm">i</span>
-        <div className="absolute left-0 top-full mt-2 w-80 bg-slate-900 text-white p-4 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-300 text-[10px] font-normal text-left hidden group-hover:block z-[100]">
-          <h5 className="font-black text-blue-300 mb-1.5 text-xs">¿Qué significa este concepto?</h5>
-          <p className="mb-3 leading-relaxed">{texto}</p>
-          {opciones && (
-            <>
-              <h5 className="font-black text-blue-300 mb-1.5 mt-2">Opciones y ejemplos:</h5>
-              <ul className="list-disc pl-4 space-y-1.5 text-[10px] text-slate-300 mb-3">
-                {opciones.map((op, i) => <li key={i}><strong className="text-white">{op.split(':')[0]}:</strong>{op.substring(op.indexOf(':') + 1)}</li>)}
-              </ul>
-            </>
-          )}
-          {vital && (
-            <div className="mt-2 bg-slate-800 p-2.5 rounded-lg border border-slate-700">
-              <span className="font-black text-blue-300 block mb-1">¿Por qué es vital llenarlo?</span>
-              <span className="text-[10px] text-slate-300 leading-relaxed">{vital}</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         {renderHeaderFiltros("⚖️ Apetito y Perfil de Riesgo (COSO ERM)", "Parametrización multinivel: Apetito, Tolerancia y Capacidad Financiera Máxima.")}
@@ -1922,18 +1897,20 @@ const renderApetito = () => {
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Base (KRI)</h4>
                   
-                  <label className="font-bold text-gray-700 mb-1 flex items-center w-full relative">
-                    Postura Estratégica
-                    <InfoTooltip 
-                      texto='Defina la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico.'
-                      opciones={[
-                        'Averso (Cero tolerancia): Invertimos lo que sea para que la probabilidad sea cero. Ej: Riesgos humanos.',
-                        'Cauto (Preferencia segura): Aceptamos mínimo riesgo si hay mitigación.',
-                        'Flexible (Equilibrio): Tomamos riesgos calculados si el beneficio vale la pena.',
-                        'Buscador: Buscamos activamente este riesgo porque trae ganancias operativas o comerciales.'
-                      ]}
-                      vital="Le indica al auditor interno qué tan estricto debe ser al evaluar los controles."
-                    />
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help z-50">
+                    Postura Estratégica <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
+                    <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                      <b className="text-blue-300 text-xs">¿Qué significa este concepto?</b><br/>
+                      Define la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico. No todos los riesgos se tratan igual.<br/><br/>
+                      <b className="text-blue-300 text-xs">Opciones y Ejemplos de diligenciamiento:</b><br/>
+                      <ul className="list-disc pl-4 mt-1 space-y-2">
+                        <li><b>Averso (Cero tolerancia):</b> No aceptamos este riesgo bajo ninguna circunstancia. <i>Ejemplo: Riesgos de seguridad humana. Si hay riesgo de que un empleado se accidente en el Ecoparque, somos aversos; invertimos lo que sea necesario para que la probabilidad sea zero.</i></li>
+                        <li><b>Cauto (Preferencia segura):</b> Aceptamos un riesgo mínimo, pero preferimos ir a lo seguro aunque cueste más. <i>Ejemplo: Contratar proveedores de alimentos. Preferimos proveedores más caros pero con certificación sanitaria, en lugar de uno barato y sin registros.</i></li>
+                        <li><b>Flexible (Equilibrio):</b> Tomamos riesgos calculados si el beneficio vale la pena. <i>Ejemplo: Probar un nuevo software de reservas. Puede tener fallas iniciales, pero a largo plazo agilizará las ventas.</i></li>
+                        <li><b>Buscador (Amante del riesgo):</b> Buscamos activamente este riesgo porque trae grandes ganancias. <i>Ejemplo: Lanzar una campaña de marketing muy disruptiva que podría ofender a algunos, pero que se volverá viral y atraerá miles de turistas.</i></li>
+                      </ul><br/>
+                      <b className="text-blue-300 text-xs">¿Por qué es vital llenarlo?</b> Le indica al auditor interno qué tan estricto debe ser. Si eres "Averso", el auditor exigirá controles extremos. Si eres "Buscador", el auditor será más permisivo.
+                    </div>
                   </label>
                   <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10">
                     <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
@@ -1942,85 +1919,102 @@ const renderApetito = () => {
                     <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
                   </select>
 
-                  <label className="font-bold text-gray-700 mb-1 flex items-center">
-                    KRI: Puntaje Residual Máx (1-25)
-                    <InfoTooltip 
-                      texto='El límite máximo permitido en el semáforo de la Matriz de Riesgos.'
-                      opciones={[
-                        '1 a 4: Exigir que el riesgo se mantenga en Verde.',
-                        '5 a 9: Aceptar que el riesgo llegue hasta Amarillo.',
-                        '10 a 16: Permitir que el riesgo opere en Naranja.',
-                        '17 a 25: Aceptar operar en Rojo (Solo para posturas Buscadoras).'
-                      ]}
-                      vital="Define cuándo un riesgo se considera matemáticamente 'Fuera de Control'."
-                    />
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-max relative group cursor-help z-40">
+                    KRI: Puntaje Residual Máximo Permitido <span className="ml-1 text-[10px] text-blue-500">ℹ️</span>
+                    <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                      <b className="text-blue-300 text-xs">¿Qué significa y de dónde sale el dato?</b><br/>
+                      Es tu límite de tolerancia basado en la "Matriz 5x5". Se calcula multiplicando la <b>Probabilidad</b> (del 1 al 5) por el <b>Impacto</b> (del 1 al 5) de un riesgo.<br/><br/>
+                      <b className="text-blue-300 text-xs">Escala para diligenciar (1 al 25):</b><br/>
+                      <ul className="list-disc pl-4 mt-1 space-y-1">
+                        <li><b>De 1 a 4 (Zona Verde):</b> Riesgos casi imposibles o sin impacto.</li>
+                        <li><b>De 5 a 9 (Zona Amarilla):</b> Riesgos tolerables y monitoreables.</li>
+                        <li><b>De 10 a 16 (Zona Naranja):</b> Riesgos peligrosos que requieren mitigación.</li>
+                        <li><b>De 17 a 25 (Zona Roja):</b> Riesgos inaceptables y críticos.</li>
+                      </ul><br/>
+                      <b className="text-blue-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
+                      Si decides que para el "Riesgo de falla en internet" lo máximo que estás dispuesto a soportar es estar en la zona amarilla, ingresas el número <b>9</b>. Si el mes siguiente el internet falla y el puntaje sube a <b>12</b>, el sistema lanzará una alerta prioritaria porque el riesgo superó el límite numérico que definiste.
+                    </div>
                   </label>
-                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm relative z-10" />
+                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
 
                 {/* 2. UMBRALES FINANCIEROS */}
                 <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                   <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
                   
-                  <label className="font-bold text-blue-900 mb-1 flex items-center">
-                    🎯 Apetito de Riesgo (Deseado)
-                    <InfoTooltip 
-                      texto="Es la pérdida esperada que la empresa ya tiene presupuestada y acepta con tranquilidad."
-                      vital="Sirve como base presupuestal; si estamos por debajo de esto, el negocio está sano."
-                    />
+                  <label className="font-bold text-blue-900 mb-1 flex items-center w-max relative group cursor-help">
+                    <span>🎯 Apetito de Riesgo (Deseado)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                      <b className="text-emerald-300 text-xs">¿Qué significa este concepto?</b><br/>
+                      Es el "presupuesto" de pérdidas normales que la empresa acepta en su día a día. Operar un negocio implica pequeñas pérdidas inevitables; esta es la "zona verde" o de confort.<br/><br/>
+                      <b className="text-emerald-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
+                      En las piscinas de Termales, es predecible que los clientes rompan o se lleven por error 20 toallas al mes. Si reponer esas toallas cuesta <b>$1.000.000 COP</b> al año, ese es nuestro Apetito. Ponemos "1000000" en esta casilla.<br/><br/>
+                      <b className="text-emerald-300 text-xs">¿Por qué es vital llenarlo?</b> Para no activar falsas alarmas por pérdidas operativas que son completamente normales en el negocio.
+                    </div>
                   </label>
-                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Ej: 1000000" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
+                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable (Ej: 1000000)" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
 
-                  <label className="font-bold text-amber-700 mb-1 flex items-center">
-                    ⚠️ Tolerancia al Riesgo (Desv. Máx)
-                    <InfoTooltip 
-                      texto="Es el 'colchón' o la desviación máxima permitida antes de que empiece a doler financieramente."
-                      vital="Si el costo de los incidentes cruza este valor, se encienden las alarmas amarillas en el tablero."
-                    />
+                  <label className="font-bold text-amber-700 mb-1 flex items-center w-max relative group cursor-help">
+                    <span>⚠️ Tolerancia al Riesgo (Desv. Máx)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] normal-case font-medium leading-relaxed">
+                      <b className="text-amber-300 text-xs">¿Qué significa este concepto?</b><br/>
+                      La zona amarilla. Es una pérdida económica que nos duele, nos incomoda, pero no nos quiebra.<br/><br/>
+                      <b className="text-amber-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
+                      Si nuestro apetito en toallas era de 1 millón, pero por una falla se dañan toallas por <b>$3.000.000 COP</b>. Ingresamos "3000000" aquí.<br/>
+                      Si esto ocurre, superamos lo normal (Apetito), pero estamos dentro del límite soportable (Tolerancia). La gerencia pedirá un reporte, pero el hotel seguirá operando.<br/><br/>
+                      <b className="text-amber-300 text-xs">¿Por qué es vital llenarlo?</b> Es el límite exacto donde el equipo de control interno debe empezar a "intervenir" de urgencia.
+                    </div>
                   </label>
-                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Ej: 3000000" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
+                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada (Ej: 3000000)" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
 
-                  <label className="font-bold text-red-700 mb-1 flex items-center">
-                    🛑 Capacidad de Riesgo (Ruptura)
-                    <InfoTooltip 
-                      texto="Es la pérdida catastrófica. La cantidad máxima de dinero que la empresa puede perder antes de comprometer su viabilidad."
-                      vital="Si se rompe este umbral, el sistema alerta una ruptura de capacidad (Rojo)."
-                    />
+                  <label className="font-bold text-red-700 mb-1 flex items-center w-max relative group cursor-help">
+                    <span>🛑 Capacidad de Riesgo (Límite Ruptura)</span> <span className="ml-1 text-[10px] opacity-70">ℹ️</span>
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-xl z-[100] normal-case font-medium leading-relaxed">
+                      <b className="text-red-300 text-xs">¿Qué significa este concepto?</b><br/>
+                      El abismo. La cantidad de dinero máxima que podemos perder antes de una catástrofe real.<br/><br/>
+                      <b className="text-red-300 text-xs">Ejemplo práctico de diligenciamiento:</b><br/>
+                      Si por un incendio se pierden toallas por <b>$20.000.000 COP</b>, y la empresa solo tenía $15 millones en caja. Ingresamos "20000000" aquí. Llegar a este número significa que no habrá flujo de caja. Es un límite que <b>jamás</b> se debe alcanzar.<br/><br/>
+                      <b className="text-red-300 text-xs">¿Por qué es vital llenarlo?</b> Fija la "línea de muerte" financiera. Si un riesgo se acerca a esta capacidad, la orden debe ser suspender inmediatamente el proceso.
+                    </div>
                   </label>
-                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Ej: 10000000" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica (Ej: 10000000)" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
 
                 {/* 3. IMPACTOS NO FINANCIEROS Y ESCALAMIENTO */}
                 <div className="md:col-span-2 bg-purple-50/50 p-4 rounded-2xl border border-purple-100 shadow-inner">
-                  <h4 className="font-black text-purple-800 uppercase tracking-widest mb-3 border-b border-purple-200 pb-2">3. Impactos No Financieros y Escalamiento</h4>
+                  <h4 className="font-black text-purple-800 uppercase tracking-widest mb-3 border-b border-purple-200 pb-2">3. Impactos No Financieros y Protocolo de Escalamiento</h4>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="font-bold text-purple-900 mb-1 flex items-center">
-                        ⚙️ Límite Operativo
-                        <InfoTooltip 
-                          texto="Tolerancia en la operación física o de servicio antes de declarar emergencia."
-                          opciones={[
-                            'Horas de caída: Ej. Máximo 2 hrs sin sistema de manillas.',
-                            'Volumen de quejas: Ej. Máximo 5 PQRS semanales por este tema.'
-                          ]}
-                          vital="No todos los riesgos quitan dinero inmediato; este mide el golpe al servicio."
-                        />
+                      <label className="font-bold text-purple-900 mb-1 flex items-center w-max relative group cursor-help z-50">
+                        ⚙️ Límite Operativo <span className="ml-1 text-[10px] text-purple-500">ℹ️</span>
+                        <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[400px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                          <b className="text-purple-300 text-xs">¿Qué significa este concepto?</b><br/>
+                          Tolerancia en la operación física o de servicio antes de declarar emergencia o llamar al área técnica.<br/><br/>
+                          <b className="text-purple-300 text-xs">Ejemplos de diligenciamiento:</b><br/>
+                          <ul className="list-disc pl-4 mt-1 space-y-2">
+                            <li><i>Ejemplo 1: En Taquilla, aceptamos máximo 15 minutos de caída del sistema antes de aplicar el plan de contingencia manual.</i></li>
+                            <li><i>Ejemplo 2: En Mantenimiento, aceptamos máximo 2 quejas a la semana por agua fría en las piscinas del Hotel.</i></li>
+                          </ul><br/>
+                          <b className="text-purple-300 text-xs">¿Por qué es vital llenarlo?</b> Porque no todos los riesgos generan pérdida de dinero inmediato; este límite protege la experiencia del usuario turista y el flujo de la operación.
+                        </div>
                       </label>
                       <input name="impactoOperativo" defaultValue={editApetito.impactoOperativo || ''} required placeholder="Ej: Máx 2 hrs de caída del sistema" className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                     </div>
                     <div>
-                      <label className="font-bold text-purple-900 mb-1 flex items-center">
-                        🗣️ Límite Reputacional
-                        <InfoTooltip 
-                          texto="Tolerancia al daño de imagen de la marca Termales Santa Rosa."
-                          opciones={[
-                            'Ninguno (Averso): Cero tolerancia a crisis de imagen.',
-                            'Quejas Locales: Manejables directamente por el staff.',
-                            'Medios Regionales: Aceptamos que el impacto trascienda externamente.'
-                          ]}
-                          vital="Protege el activo más valioso del turismo: el buen nombre y el 'Word of Mouth'."
-                        />
+                      <label className="font-bold text-purple-900 mb-1 flex items-center w-max relative group cursor-help z-40">
+                        🗣️ Límite Reputacional <span className="ml-1 text-[10px] text-purple-500">ℹ️</span>
+                        <div className="absolute top-full left-0 mt-2 hidden group-hover:block w-[400px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                          <b className="text-purple-300 text-xs">¿Qué significa este concepto?</b><br/>
+                          Tolerancia al daño de imagen de la marca Termales Santa Rosa frente a clientes y público externo.<br/><br/>
+                          <b className="text-purple-300 text-xs">Opciones y Ejemplos:</b><br/>
+                          <ul className="list-disc pl-4 mt-1 space-y-2">
+                            <li><b>Ninguno (Averso):</b> <i>Ejemplo: Cero tolerancia a crisis de imagen, como una intoxicación masiva en el restaurante.</i></li>
+                            <li><b>Quejas Locales:</b> <i>Ejemplo: Un cliente molesto en recepción por una demora, que se maneja con una cortesía.</i></li>
+                            <li><b>Medios Regionales:</b> <i>Ejemplo: Una noticia en radio sobre alto tráfico en la vía a los termales en temporada alta.</i></li>
+                          </ul><br/>
+                          <b className="text-purple-300 text-xs">¿Por qué es vital llenarlo?</b> Protege el activo más valioso del turismo: el buen nombre y las recomendaciones.
+                        </div>
                       </label>
                       <select name="impactoReputacional" defaultValue={editApetito.impactoReputacional || 'Quejas Locales'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10">
                         <option value="Ninguno">Ninguno (Averso)</option>
@@ -2029,16 +2023,18 @@ const renderApetito = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="font-bold text-purple-900 mb-1 flex items-center">
-                        ⚖️ Límite Legal / Compliance
-                        <InfoTooltip 
-                          texto="Tolerancia a faltas regulatorias o multas de entes gubernamentales."
-                          opciones={[
-                            'Cero Tolerancia: Para temas de salud pública, DIAN o MinTrabajo.',
-                            'Sanciones Leves: Riesgos operativos donde la multa es baja y asumible.'
-                          ]}
-                          vital="Ayuda a identificar qué riesgos pueden clausurar la operación por orden legal."
-                        />
+                      <label className="font-bold text-purple-900 mb-1 flex items-center w-max relative group cursor-help z-30">
+                        ⚖️ Límite Legal / Compliance <span className="ml-1 text-[10px] text-purple-500">ℹ️</span>
+                        <div className="absolute top-full right-0 mt-2 hidden group-hover:block w-[400px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                          <b className="text-purple-300 text-xs">¿Qué significa este concepto?</b><br/>
+                          Tolerancia a faltas regulatorias o multas de entes gubernamentales.<br/><br/>
+                          <b className="text-purple-300 text-xs">Opciones y Ejemplos:</b><br/>
+                          <ul className="list-disc pl-4 mt-1 space-y-2">
+                            <li><b>Cero Tolerancia:</b> <i>Ejemplo: Incumplimientos de sanidad en A&B, vertimientos de aguas termales o normas de seguridad humana.</i></li>
+                            <li><b>Sanciones Leves:</b> <i>Ejemplo: Un retraso menor en un reporte contable que genera una multa administrativa pequeña y asumible.</i></li>
+                          </ul><br/>
+                          <b className="text-purple-300 text-xs">¿Por qué es vital llenarlo?</b> Evita que la empresa sea sellada, multada masivamente o clausurada por ignorar normas obligatorias.
+                        </div>
                       </label>
                       <select name="impactoLegal" defaultValue={editApetito.impactoLegal || 'Cero Tolerancia'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10">
                         <option value="Cero Tolerancia">Cero Tolerancia (Averso)</option>
@@ -2048,20 +2044,22 @@ const renderApetito = () => {
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-purple-200 flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
-                    <label className="font-black text-purple-900 flex items-center">
-                      🚨 ¿A quién escalar en caso de alerta (Amarillo/Rojo)?
-                      <InfoTooltip 
-                        texto="Define el protocolo de emergencia y quién toma la decisión final."
-                        opciones={[
-                          'Jefe de Área: Riesgos tácticos que se resuelven internamente.',
-                          'Comité de Gerencia: Requiere presupuesto extra o apoyo de otras áreas.',
-                          'Junta Directiva: Riesgos que amenazan la continuidad del negocio.'
-                        ]}
-                        vital="Evita la parálisis por análisis; establece una cadena de mando clara en crisis."
-                      />
+                  <div className="mt-4 pt-4 border-t border-purple-200 flex items-center space-x-4">
+                    <label className="font-black text-purple-900 whitespace-nowrap flex items-center relative group cursor-help z-50">
+                      🚨 ¿A quién escalar en caso de alerta (Amarillo/Rojo)? <span className="ml-1 text-[10px] text-purple-500">ℹ️</span>
+                      <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-[450px] p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl z-[100] normal-case font-medium leading-relaxed">
+                        <b className="text-purple-300 text-xs">¿Qué significa este concepto?</b><br/>
+                        Define el protocolo de emergencia y quién toma la decisión final cuando el riesgo pasa a zona Amarilla o Roja.<br/><br/>
+                        <b className="text-purple-300 text-xs">Opciones y Ejemplos:</b><br/>
+                        <ul className="list-disc pl-4 mt-1 space-y-2">
+                          <li><b>Jefe de Área:</b> <i>Riesgos tácticos que se resuelven con el equipo interno sin afectar a los demás.</i></li>
+                          <li><b>Comité de Gerencia:</b> <i>Riesgos que requieren aprobación de presupuesto extra o apoyo urgente de otras áreas.</i></li>
+                          <li><b>Junta Directiva:</b> <i>Riesgos catastróficos que amenazan la continuidad del negocio o exigen cierres prolongados.</i></li>
+                        </ul><br/>
+                        <b className="text-purple-300 text-xs">¿Por qué es vital llenarlo?</b> Evita la parálisis por análisis; establece una cadena de mando clara para actuar rápido en medio de una crisis real.
+                      </div>
                     </label>
-                    <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full md:w-auto flex-1 border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm relative z-10">
+                    <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm relative z-10">
                       <option value="Jefe de Área">Jefe de Área (Bajo Impacto)</option>
                       <option value="Comité de Gerencia">Comité de Gerencia (Impacto Medio)</option>
                       <option value="Junta Directiva">Junta Directiva (Alto Impacto / Crítico)</option>
@@ -2168,7 +2166,6 @@ const renderApetito = () => {
       </div>
     );
   };
-
   const renderEvaluaciones = () => {
     const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
 
