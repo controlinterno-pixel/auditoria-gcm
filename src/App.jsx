@@ -1861,6 +1861,31 @@ const renderApetito = () => {
       return { ...r, resScoreVal: resScore, costoTotalVal: costoTotal, estaConfiguradoVal: estaConfigurado, zonaVal: zona, zonaColorVal: zonaColor, consumoPorcentajeVal: consumoPorcentaje };
     });
 
+    // COMPONENTE INTERNO DE TOOLTIPS
+    const InfoTooltip = ({ texto, opciones, vital }) => (
+      <div className="relative group inline-block ml-1.5 cursor-help z-50">
+        <span className="bg-blue-100 text-blue-600 rounded-full px-1.5 py-0 text-[10px] font-black border border-blue-200 shadow-sm">i</span>
+        <div className="absolute left-0 top-full mt-2 w-80 bg-slate-900 text-white p-4 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-300 text-[10px] font-normal text-left hidden group-hover:block z-[100]">
+          <h5 className="font-black text-blue-300 mb-1.5 text-xs">¿Qué significa este concepto?</h5>
+          <p className="mb-3 leading-relaxed">{texto}</p>
+          {opciones && (
+            <>
+              <h5 className="font-black text-blue-300 mb-1.5 mt-2">Opciones y ejemplos:</h5>
+              <ul className="list-disc pl-4 space-y-1.5 text-[10px] text-slate-300 mb-3">
+                {opciones.map((op, i) => <li key={i}><strong className="text-white">{op.split(':')[0]}:</strong>{op.substring(op.indexOf(':') + 1)}</li>)}
+              </ul>
+            </>
+          )}
+          {vital && (
+            <div className="mt-2 bg-slate-800 p-2.5 rounded-lg border border-slate-700">
+              <span className="font-black text-blue-300 block mb-1">¿Por qué es vital llenarlo?</span>
+              <span className="text-[10px] text-slate-300 leading-relaxed">{vital}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         {renderHeaderFiltros("⚖️ Apetito y Perfil de Riesgo (COSO ERM)", "Parametrización multinivel: Apetito, Tolerancia y Capacidad Financiera Máxima.")}
@@ -1881,7 +1906,7 @@ const renderApetito = () => {
         </div>
 
         {editApetito && (
-          <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white animate-in fade-in slide-in-from-top-4 space-y-6 relative z-10">
+          <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white animate-in fade-in slide-in-from-top-4 space-y-6 relative z-10 overflow-visible">
             <div className="flex justify-between items-center border-b border-blue-100 pb-4">
               <div>
                 <h3 className="text-sm font-black text-blue-900 uppercase tracking-widest">⚙️ Arquitectura COSO ERM</h3>
@@ -1897,53 +1922,125 @@ const renderApetito = () => {
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                   <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Base (KRI)</h4>
                   
-                  <label className="font-bold text-gray-700 mb-1 block">Postura Estratégica</label>
-                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm">
+                  <label className="font-bold text-gray-700 mb-1 flex items-center w-full relative">
+                    Postura Estratégica
+                    <InfoTooltip 
+                      texto='Defina la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico.'
+                      opciones={[
+                        'Averso (Cero tolerancia): Invertimos lo que sea para que la probabilidad sea cero. Ej: Riesgos humanos.',
+                        'Cauto (Preferencia segura): Aceptamos mínimo riesgo si hay mitigación.',
+                        'Flexible (Equilibrio): Tomamos riesgos calculados si el beneficio vale la pena.',
+                        'Buscador: Buscamos activamente este riesgo porque trae ganancias operativas o comerciales.'
+                      ]}
+                      vital="Le indica al auditor interno qué tan estricto debe ser al evaluar los controles."
+                    />
+                  </label>
+                  <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10">
                     <option value="Averso">Averso (Evitar riesgo a toda costa)</option>
                     <option value="Cauto">Cauto (Preferencia por soluciones seguras)</option>
                     <option value="Flexible">Flexible (Equilibrio riesgo/recompensa)</option>
                     <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
                   </select>
 
-                  <label className="font-bold text-gray-700 mb-1 block">KRI: Puntaje Residual Máx (1-25)</label>
-                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
+                  <label className="font-bold text-gray-700 mb-1 flex items-center">
+                    KRI: Puntaje Residual Máx (1-25)
+                    <InfoTooltip 
+                      texto='El límite máximo permitido en el semáforo de la Matriz de Riesgos.'
+                      opciones={[
+                        '1 a 4: Exigir que el riesgo se mantenga en Verde.',
+                        '5 a 9: Aceptar que el riesgo llegue hasta Amarillo.',
+                        '10 a 16: Permitir que el riesgo opere en Naranja.',
+                        '17 a 25: Aceptar operar en Rojo (Solo para posturas Buscadoras).'
+                      ]}
+                      vital="Define cuándo un riesgo se considera matemáticamente 'Fuera de Control'."
+                    />
+                  </label>
+                  <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
 
                 {/* 2. UMBRALES FINANCIEROS */}
                 <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                   <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
                   
-                  <label className="font-bold text-blue-900 mb-1 block">🎯 Apetito de Riesgo (Deseado)</label>
-                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Ej: 1000000" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+                  <label className="font-bold text-blue-900 mb-1 flex items-center">
+                    🎯 Apetito de Riesgo (Deseado)
+                    <InfoTooltip 
+                      texto="Es la pérdida esperada que la empresa ya tiene presupuestada y acepta con tranquilidad."
+                      vital="Sirve como base presupuestal; si estamos por debajo de esto, el negocio está sano."
+                    />
+                  </label>
+                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Ej: 1000000" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
 
-                  <label className="font-bold text-amber-700 mb-1 block">⚠️ Tolerancia al Riesgo (Desv. Máx)</label>
-                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Ej: 3000000" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm" />
+                  <label className="font-bold text-amber-700 mb-1 flex items-center">
+                    ⚠️ Tolerancia al Riesgo (Desv. Máx)
+                    <InfoTooltip 
+                      texto="Es el 'colchón' o la desviación máxima permitida antes de que empiece a doler financieramente."
+                      vital="Si el costo de los incidentes cruza este valor, se encienden las alarmas amarillas en el tablero."
+                    />
+                  </label>
+                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Ej: 3000000" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-10" />
 
-
-                  <label className="font-bold text-red-700 mb-1 block">🛑 Capacidad de Riesgo (Ruptura)</label>
-                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Ej: 10000000" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
+                  <label className="font-bold text-red-700 mb-1 flex items-center">
+                    🛑 Capacidad de Riesgo (Ruptura)
+                    <InfoTooltip 
+                      texto="Es la pérdida catastrófica. La cantidad máxima de dinero que la empresa puede perder antes de comprometer su viabilidad."
+                      vital="Si se rompe este umbral, el sistema alerta una ruptura de capacidad (Rojo)."
+                    />
+                  </label>
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Ej: 10000000" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                 </div>
 
                 {/* 3. IMPACTOS NO FINANCIEROS Y ESCALAMIENTO */}
                 <div className="md:col-span-2 bg-purple-50/50 p-4 rounded-2xl border border-purple-100 shadow-inner">
-                  <h4 className="font-black text-purple-800 uppercase tracking-widest mb-3 border-b border-purple-200 pb-2">3. Impactos No Financieros y Protocolo de Escalamiento</h4>
+                  <h4 className="font-black text-purple-800 uppercase tracking-widest mb-3 border-b border-purple-200 pb-2">3. Impactos No Financieros y Escalamiento</h4>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="font-bold text-purple-900 mb-1 block">⚙️ Límite Operativo</label>
-                      <input name="impactoOperativo" defaultValue={editApetito.impactoOperativo || ''} placeholder="Ej: Máx 2 hrs de caída del sistema" className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm" />
+                      <label className="font-bold text-purple-900 mb-1 flex items-center">
+                        ⚙️ Límite Operativo
+                        <InfoTooltip 
+                          texto="Tolerancia en la operación física o de servicio antes de declarar emergencia."
+                          opciones={[
+                            'Horas de caída: Ej. Máximo 2 hrs sin sistema de manillas.',
+                            'Volumen de quejas: Ej. Máximo 5 PQRS semanales por este tema.'
+                          ]}
+                          vital="No todos los riesgos quitan dinero inmediato; este mide el golpe al servicio."
+                        />
+                      </label>
+                      <input name="impactoOperativo" defaultValue={editApetito.impactoOperativo || ''} required placeholder="Ej: Máx 2 hrs de caída del sistema" className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10" />
                     </div>
                     <div>
-                      <label className="font-bold text-purple-900 mb-1 block">🗣️ Límite Reputacional</label>
-                      <select name="impactoReputacional" defaultValue={editApetito.impactoReputacional || 'Quejas Locales'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm">
+                      <label className="font-bold text-purple-900 mb-1 flex items-center">
+                        🗣️ Límite Reputacional
+                        <InfoTooltip 
+                          texto="Tolerancia al daño de imagen de la marca Termales Santa Rosa."
+                          opciones={[
+                            'Ninguno (Averso): Cero tolerancia a crisis de imagen.',
+                            'Quejas Locales: Manejables directamente por el staff.',
+                            'Medios Regionales: Aceptamos que el impacto trascienda externamente.'
+                          ]}
+                          vital="Protege el activo más valioso del turismo: el buen nombre y el 'Word of Mouth'."
+                        />
+                      </label>
+                      <select name="impactoReputacional" defaultValue={editApetito.impactoReputacional || 'Quejas Locales'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10">
                         <option value="Ninguno">Ninguno (Averso)</option>
                         <option value="Quejas Locales">Solo quejas locales controlables</option>
                         <option value="Medios Regionales">Impacto en medios regionales</option>
                       </select>
                     </div>
                     <div>
-                      <label className="font-bold text-purple-900 mb-1 block">⚖️ Límite Legal / Compliance</label>
-                      <select name="impactoLegal" defaultValue={editApetito.impactoLegal || 'Cero Tolerancia'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm">
+                      <label className="font-bold text-purple-900 mb-1 flex items-center">
+                        ⚖️ Límite Legal / Compliance
+                        <InfoTooltip 
+                          texto="Tolerancia a faltas regulatorias o multas de entes gubernamentales."
+                          opciones={[
+                            'Cero Tolerancia: Para temas de salud pública, DIAN o MinTrabajo.',
+                            'Sanciones Leves: Riesgos operativos donde la multa es baja y asumible.'
+                          ]}
+                          vital="Ayuda a identificar qué riesgos pueden clausurar la operación por orden legal."
+                        />
+                      </label>
+                      <select name="impactoLegal" defaultValue={editApetito.impactoLegal || 'Cero Tolerancia'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-10">
                         <option value="Cero Tolerancia">Cero Tolerancia (Averso)</option>
                         <option value="Sanciones Leves">Acepta sanciones o multas leves</option>
                         <option value="Demandas">Acepta riesgo de demandas</option>
@@ -1951,9 +2048,20 @@ const renderApetito = () => {
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-purple-200 flex items-center space-x-4">
-                    <label className="font-black text-purple-900 whitespace-nowrap">🚨 ¿A quién escalar en caso de alerta (Amarillo/Rojo)?</label>
-                    <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm">
+                  <div className="mt-4 pt-4 border-t border-purple-200 flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4">
+                    <label className="font-black text-purple-900 flex items-center">
+                      🚨 ¿A quién escalar en caso de alerta (Amarillo/Rojo)?
+                      <InfoTooltip 
+                        texto="Define el protocolo de emergencia y quién toma la decisión final."
+                        opciones={[
+                          'Jefe de Área: Riesgos tácticos que se resuelven internamente.',
+                          'Comité de Gerencia: Requiere presupuesto extra o apoyo de otras áreas.',
+                          'Junta Directiva: Riesgos que amenazan la continuidad del negocio.'
+                        ]}
+                        vital="Evita la parálisis por análisis; establece una cadena de mando clara en crisis."
+                      />
+                    </label>
+                    <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full md:w-auto flex-1 border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm relative z-10">
                       <option value="Jefe de Área">Jefe de Área (Bajo Impacto)</option>
                       <option value="Comité de Gerencia">Comité de Gerencia (Impacto Medio)</option>
                       <option value="Junta Directiva">Junta Directiva (Alto Impacto / Crítico)</option>
@@ -1963,13 +2071,13 @@ const renderApetito = () => {
 
               </div>
               <div className="flex justify-end pt-4 border-t border-slate-100">
-                <button type="submit" className="bg-slate-900 text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors transform hover:scale-105 duration-200">💾 Aplicar Arquitectura Integral</button>
+                <button type="submit" className="bg-slate-900 text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-lg hover:bg-slate-800 transition-colors transform hover:scale-105 duration-200 relative z-10">💾 Aplicar Arquitectura Integral</button>
               </div>
             </form>
           </div>
         )}
 
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mt-6">
           <div className="p-5 bg-[#0f172a] flex justify-between items-center border-b border-slate-800">
             <div className="flex items-center space-x-3">
               <h3 className="text-white font-black text-xs uppercase tracking-widest">Monitor de Brechas Financieras</h3>
@@ -2060,6 +2168,7 @@ const renderApetito = () => {
       </div>
     );
   };
+
   const renderEvaluaciones = () => {
     const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
 
