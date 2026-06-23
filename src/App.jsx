@@ -12,14 +12,7 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 // =====================================================================
 // 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
 // =====================================================================
-let GEMINI_API_KEY = "";
-try {
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-    GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  }
-} catch (error) {
-  console.warn("Entorno simulado: variables de Vercel no detectadas.");
-}
+let GEMINI_API_KEY = "AIzaSyTuClaveVerdaderaDeGoogleAqui123456"; 
 
 // --- CONFIGURACIÓN DE FIREBASE (Sin Storage, usaremos Enlaces Drive/OneDrive) ---
 const firebaseConfig = {
