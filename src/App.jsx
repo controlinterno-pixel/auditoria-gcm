@@ -707,6 +707,10 @@ setInformesAuditoria(data.informesAuditoria || []);
   const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, selectedAnios, selectedMeses]);
   const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, selectedAnios, selectedMeses]);
   const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
+  const cFiltrados = useMemo(() => safeCronograma.filter(c => {
+    const anio = Number(c.anio) || new Date().getFullYear();
+    return selectedAnios.length === 0 || selectedAnios.includes(anio);
+  }), [safeCronograma, selectedAnios]);
 
   const avanceGlobal = useMemo(() => {
     if (pFiltrados.length === 0) return 0;
