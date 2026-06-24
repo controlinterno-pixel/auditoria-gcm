@@ -962,12 +962,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     e.target.reset();
   };
 const handleInformeAuditoriaSubmit = async () => {
-    console.log("🚀 Ejecución forzada desde el clic directo del botón");
-    
-    const ts = new Date().toLocaleString();
-    const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
-    
-    // Lectura directa de elementos de la pantalla
+    // 🔍 CAPTURA DIRECTA DE PANTALLA
     const tituloVal = document.getElementsByName('tituloInput')[0]?.value || document.getElementsByName('titulo')[0]?.value || 'Sin título';
     const procesoVal = document.getElementsByName('procesoInput')[0]?.value || document.getElementsByName('proceso')[0]?.value || 'Sin proceso';
     const evidenciaUrlOut = document.getElementsByName('evidenciaUrlInput')[0]?.value || editInformeAuditoria?.evidenciaUrl || '';
@@ -976,7 +971,19 @@ const handleInformeAuditoriaSubmit = async () => {
     const correosInputEl = document.getElementsByName('correosNotificacioInput')[0] || document.getElementsByName('correosNotificacionInput')[0];
     const correosNotificacionOut = correosInputEl ? String(correosInputEl.value).trim() : '';
 
+    // 🚨 PRUEBA REINA: Mostrará un letrero en tu pantalla con lo que leyó
+    alert(
+      "📢 DETECTOR DE DATOS:\n\n" +
+      "• Título detectado: " + tituloVal + "\n" +
+      "• Proceso detectado: " + procesoVal + "\n" +
+      "• Correos detectados: '" + correosNotificacionOut + "'\n\n" +
+      "Si los correos aparecen vacíos o entre comillas simples '', EmailJS nunca se activará."
+    );
+
+    const ts = new Date().toLocaleString();
+    const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
     let updated;
+
     if (editInformeAuditoria) {
       const mod = {
         ...editInformeAuditoria,
@@ -1018,7 +1025,6 @@ const handleInformeAuditoriaSubmit = async () => {
       };
       updated = [nuevo, ...safeInformes];
 
-      // Disparador de EmailJS
       if (correosNotificacionOut !== '') {
         const emailParams = {
           ref_consecutivo: refConsecutivo,
@@ -1043,23 +1049,21 @@ const handleInformeAuditoriaSubmit = async () => {
           if (res.ok) {
             showNotification("Notificación electrónica enviada con éxito.");
           } else {
-            console.error("Fallo el envío por EmailJS");
+            alert("❌ EmailJS rechazó los datos. Revisa las llaves.");
           }
         })
-        .catch((err) => console.error("Error de red en EmailJS:", err));
+        .catch((err) => alert("💥 Error de conexión de red: " + err));
       }   
     }
     setInformesAuditoria(updated);
     await saveToCloud({ informesAuditoria: updated });
     
-    // Limpiar pantalla
-    const inputsParaLimpiar = ['tituloInput', 'titulo', 'procesoInput', 'proceso', 'correosNotificacioInput', 'correosNotificacionInput', 'evidenciaUrlInput', 'actaSocializacionUrlInput', 'elaboradoPor', 'revisadoPor', 'aprobadoPor', 'socializadoCon'];
+    const inputsParaLimpiar = ['tituloInput', 'titulo', 'procesoInput', 'proceso', 'correosNotificacioInput', 'correosNotificacionInput', 'evidenciaUrlInput', 'actaSocializacionUrlInput'];
     inputsParaLimpiar.forEach(name => {
       const el = document.getElementsByName(name)[0];
       if (el) el.value = '';
     });
-
-    showNotification("Informe de auditoría indexado, archivado y notificado correctamente.");
+    showNotification("Informe procesado correctamente.");
   };
   // =====================================================================
   // REUSABLE HEADER COMPONENT (Dropdown Filters MULTIPLES)
