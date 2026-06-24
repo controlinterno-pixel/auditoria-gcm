@@ -1393,21 +1393,37 @@ const renderPlanes = () => {
         setSearchTerm={setSearchTerm}
         columnFilters={columnFilters}
         handleColFilterChange={handleColFilterChange}
-        // NUEVA FUNCIÓN INYECTADA PARA PASAR DE FASE EL COMPONENTE
+        // 👇 FUNCIÓN REAL DE ACTUALIZACIÓN EN FIREBASE 👇
         onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
           try {
-            // Asegúrate de usar la llamada a tu base de datos de firebase aquí. Por ejemplo:
-            // await db.collection(coleccion).doc(id).update({ estadoWorkflow: nuevoEstadoWorkflow });
-            alert(`Plan cambiado con éxito a: ${nuevoEstadoWorkflow}. (Por favor implementa tu función de actualización de Firebase en App.jsx si deseas persistencia real)`);
+            // Referencia directa al documento en Firebase
+            const docRef = doc(db, coleccion, id);
+            
+            // Creamos el log de trazabilidad como exigen las normas corporativas
+            const logTrazabilidad = {
+              fecha: new Date().toISOString(),
+              usuario: user?.email || 'Usuario Desconocido',
+              accion: `Workflow actualizado a: ${nuevoEstadoWorkflow}`
+            };
+
+            // Actualizamos solo el estado y añadimos la trazabilidad
+            await updateDoc(docRef, {
+              estadoWorkflow: nuevoEstadoWorkflow,
+              historialCambios: arrayUnion(logTrazabilidad)
+            });
+
+            // Forzamos al sistema a refrescar el formulario
+            setEditPlan(prev => ({ ...prev, estadoWorkflow: nuevoEstadoWorkflow }));
             setFormResetKey(Date.now());
+            
           } catch (err) {
-            console.error("Error al actualizar estado de gobernanza:", err);
+            console.error("Error al actualizar la fase del Workflow:", err);
+            alert("Hubo un error al actualizar el estado. Revisa la consola.");
           }
         }}
       />
     );
-  }; 
-
+  };
 
   const renderIncidentes = () => {
     return (
