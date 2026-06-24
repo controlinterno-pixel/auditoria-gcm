@@ -1054,6 +1054,47 @@ const handleInformeAuditoriaSubmit = async (e) => {
       setIsSubmitting(false); // ✅ APAGAMOS EL ESTADO DE CARGA Y DESBLOQUEAMOS BOTÓN (Incluso si falló)
     }
   };  
+const renderHeaderFiltros = (titulo, subtitulo) => (
+    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6 relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
+      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800">{titulo}</h2>
+          <p className="text-xs text-slate-500 font-bold mt-1">{subtitulo}</p>
+        </div>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex flex-col">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Años de Análisis</label>
+            <div className="flex flex-wrap gap-2">
+              {defaultAnios.map(anio => (
+                <button key={`filt-anio-${anio}`} onClick={() => toggleAnio(anio)} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm border ${selectedAnios.includes(anio) ? 'bg-slate-800 text-white border-slate-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
+                  {anio}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Meses de Análisis</label>
+            <div className="flex flex-wrap gap-1.5">
+              {defaultMeses.map(mes => (
+                <button key={`filt-mes-${mes}`} onClick={() => toggleMes(mes)} className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border shadow-sm notranslate ${selectedMeses.includes(mes) ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} translate="no" title={mes}>
+                  {mes.substring(0,3)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(selectedAnios.length > 0 || selectedMeses.length > 0) && (
+            <div className="flex items-end">
+              <button onClick={() => { setSelectedAnios([]); setSelectedMeses([]); }} className="h-[30px] px-3 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg text-[10px] font-bold transition-colors">
+                Limpiar Filtros
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   // =====================================================================
   // RENDERS DE VISTAS (ADMIN INTERFACE)
   // =====================================================================
@@ -1128,11 +1169,12 @@ const renderInformesAuditoria = () => {
               </div>
 
            <div className="md:col-span-4 flex justify-end">
-              <button 
+             <button 
   type="submit" 
-  className="bg-[#004d40] hover:bg-[#003d33] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center cursor-pointer block"
+  disabled={isSubmitting}
+  className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#004d40] hover:bg-[#003d33] text-white cursor-pointer'}`}
 >
-  {editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen'}
+  {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen')}
 </button>
               </div>
             </form>
@@ -2926,7 +2968,7 @@ const renderApetito = () => {
       )}
      {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
-  );
+);
 }
 
 
