@@ -961,24 +961,20 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     await saveToCloud({ monitoreo: updatedList });
     e.target.reset();
   };
-const handleInformeAuditoriaSubmit = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
-    console.log("🚀 Iniciando proceso de radicación forzado...");
+const handleInformeAuditoriaSubmit = async () => {
+    console.log("🚀 Ejecución forzada desde el clic directo del botón");
     
     const ts = new Date().toLocaleString();
     const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
     
-    // 🔍 LECTURA DIRECTA POR ELEMENTOS DE PANTALLA (Inmune a fallas de contenedores)
+    // Lectura directa de elementos de la pantalla
     const tituloVal = document.getElementsByName('tituloInput')[0]?.value || document.getElementsByName('titulo')[0]?.value || 'Sin título';
     const procesoVal = document.getElementsByName('procesoInput')[0]?.value || document.getElementsByName('proceso')[0]?.value || 'Sin proceso';
     const evidenciaUrlOut = document.getElementsByName('evidenciaUrlInput')[0]?.value || editInformeAuditoria?.evidenciaUrl || '';
     const actaSocializacionUrlOut = document.getElementsByName('actaSocializacionUrlInput')[0]?.value || editInformeAuditoria?.actaSocializacionUrl || '';
     
-    // Captura del input con o sin la letra "n" para blindarlo completamente
     const correosInputEl = document.getElementsByName('correosNotificacioInput')[0] || document.getElementsByName('correosNotificacionInput')[0];
     const correosNotificacionOut = correosInputEl ? String(correosInputEl.value).trim() : '';
-
-    console.log("📊 Correo detectado en casilla:", correosNotificacionOut);
 
     let updated;
     if (editInformeAuditoria) {
@@ -1022,9 +1018,8 @@ const handleInformeAuditoriaSubmit = async (e) => {
       };
       updated = [nuevo, ...safeInformes];
 
-      // 📧 DISPARADOR INMEDIATO DEL FETCH A EMAILJS
+      // Disparador de EmailJS
       if (correosNotificacionOut !== '') {
-        console.log("📬 Enviando paquete de datos a EmailJS para destinatarios:", correosNotificacionOut);
         const emailParams = {
           ref_consecutivo: refConsecutivo,
           titulo_informe: tituloVal,
@@ -1046,22 +1041,19 @@ const handleInformeAuditoriaSubmit = async (e) => {
         })
         .then((res) => {
           if (res.ok) {
-            console.log("✅ EmailJS procesó el envío correctamente.");
             showNotification("Notificación electrónica enviada con éxito.");
           } else {
-            console.error("❌ Fallo el envío por EmailJS");
+            console.error("Fallo el envío por EmailJS");
           }
         })
-        .catch((err) => console.error("💥 Error de red enviando correo:", err));
-      } else {
-        console.log("⚠️ No se envía correo porque la casilla de destinatarios está vacía.");
+        .catch((err) => console.error("Error de red en EmailJS:", err));
       }   
     }
     setInformesAuditoria(updated);
     await saveToCloud({ informesAuditoria: updated });
     
-    // Limpieza manual de los campos de texto
-    const inputsParaLimpiar = ['tituloInput', 'titulo', 'procesoInput', 'proceso', 'correosNotificacioInput', 'correosNotificacionInput', 'evidenciaUrlInput', 'actaSocializacionUrlInput'];
+    // Limpiar pantalla
+    const inputsParaLimpiar = ['tituloInput', 'titulo', 'procesoInput', 'proceso', 'correosNotificacioInput', 'correosNotificacionInput', 'evidenciaUrlInput', 'actaSocializacionUrlInput', 'elaboradoPor', 'revisadoPor', 'aprobadoPor', 'socializadoCon'];
     inputsParaLimpiar.forEach(name => {
       const el = document.getElementsByName(name)[0];
       if (el) el.value = '';
@@ -1217,7 +1209,15 @@ const renderInformesAuditoria = () => {
                 </div>
               </div>
 
-              <div className="md:col-span-4 flex justify-end"><button type="submit" className="bg-[#004d40] hover:bg-[#003d33] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all">{editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen'}</button></div>
+           <div className="md:col-span-4 flex justify-end">
+                <button 
+                  type="button" 
+                  onClick={handleInformeAuditoriaSubmit} 
+                  className="bg-[#004d40] hover:bg-[#003d33] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center cursor-pointer block"
+                >
+                  {editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen'}
+                </button>
+              </div>
             </form>
           </div>
         )}
