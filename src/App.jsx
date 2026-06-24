@@ -990,7 +990,6 @@ const handleInformeAuditoriaSubmit = async (e) => {
       updated = safeInformes.map(i => i.id === editInformeAuditoria.id ? mod : i);
       setEditInformeAuditoria(null);
     } else {
-      // 🔢 GENERACIÓN DE CÓDIGO CONSECUTIVO AUTOMÁTICO
       const nextNum = safeInformes.length + 1;
       const anioActual = new Date().getFullYear();
       const refConsecutivo = `INF-${anioActual}-${String(nextNum).padStart(3, '0')}`;
@@ -1025,13 +1024,13 @@ const handleInformeAuditoriaSubmit = async (e) => {
           destinatarios: correosNotificacionOut
         };
 
-      fetch('https://api.emailjs.com/api/v1.0/email/send', {
+        fetch('https://api.emailjs.com/api/v1.0/email/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             service_id: 'service_alaojyc',
             template_id: 'template_o2df1a9',
-            user_id: 'KKvlQtIZQIdTQP0Xe', // <-- Reemplaza con tu clave pública real aquí
+            user_id: 'KKvlQtIZQIdTQP0Xe',
             template_params: emailParams
           })
         })
@@ -1044,13 +1043,12 @@ const handleInformeAuditoriaSubmit = async (e) => {
         })
         .catch((err) => console.error("Error enviando correo corporativo:", err));
       }    
-    
+    }
     setInformesAuditoria(updated);
     await saveToCloud({ informesAuditoria: updated });
     e.target.reset();
     showNotification("Informe de auditoría indexado, archivado y notificado correctamente.");
   };
-
   // =====================================================================
   // REUSABLE HEADER COMPONENT (Dropdown Filters MULTIPLES)
   // =====================================================================
