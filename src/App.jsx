@@ -620,6 +620,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
   }, [pFiltrados]);
 
   const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
+const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisión').length;
   const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
   const pTotal = pFiltrados.length;
   const pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
@@ -1392,7 +1393,6 @@ const renderPlanes = () => {
         setSearchTerm={setSearchTerm}
         columnFilters={columnFilters}
         handleColFilterChange={handleColFilterChange}
-        // 👇 FUNCIÓN ADAPTADA A TU ARQUITECTURA DE DATOS 👇
         onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
           try {
             const ts = new Date().toLocaleString();
@@ -1402,27 +1402,53 @@ const renderPlanes = () => {
               accion: `Fase de Gobernanza actualizada a: ${nuevoEstadoWorkflow}`
             };
 
-            // 1. Buscamos el plan exacto en tu lista actual
             const planActual = safePlanes.find(p => p.id === id);
             if (!planActual) return;
 
-            // 2. Le inyectamos el nuevo estado y el log de historial
             const planModificado = {
               ...planActual,
               estadoWorkflow: nuevoEstadoWorkflow,
               historialCambios: [...(planActual.historialCambios || []), logTrazabilidad]
             };
 
-            // 3. Reemplazamos el viejo por el nuevo en la lista
             const updatedList = safePlanes.map(p => p.id === id ? planModificado : p);
-
-            // 4. Guardamos en pantalla y en la nube usando tu súper-función
             setPlanes(updatedList);
             await saveToCloud({ planes: updatedList });
 
-            // 5. Refrescamos el formulario visualmente
             setEditPlan(planModificado);
             setFormResetKey(Date.now());
+
+            // 📧 DISPARADOR DE EMAILJS AUTOMÁTICO
+            if (nuevoEstadoWorkflow === 'En Revisión') {
+              // Notificamos al administrador principal
+              const emailParams = {
+                ref_consecutivo: `PLAN-${id}`,
+                titulo_informe: 'Alerta: Plan de Acción listo para revisión',
+                proceso_auditado: planModificado.accion.substring(0, 50) + '...',
+                enlace_pdf: 'Revisa la plataforma GCM Auditor',
+                enlace_acta: 'N/A',
+                destinatarios: 'controlinterno@termales.com.co' // Correo del administrador
+              };
+
+              fetch('https://api.emailjs.com/api/v1.0/email/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
+                  template_id: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+                  user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, 
+                  accessToken: import.meta.env.VITE_EMAILJS_PRIVATE_KEY, 
+                  template_params: emailParams
+                })
+              }).catch(e => console.error("Error silencioso EmailJS:", e));
+            }
+
+            // Mensaje de éxito en pantalla
+            if (nuevoEstadoWorkflow === 'En Revisión') {
+               showNotification("Plan enviado a revisión y administrador notificado.");
+            } else {
+               showNotification(`Fase del plan actualizada a: ${nuevoEstadoWorkflow}`);
+            }
             
           } catch (err) {
             console.error("Error al actualizar la fase del Workflow:", err);
@@ -1432,7 +1458,6 @@ const renderPlanes = () => {
       />
     );
   };
-
   const renderIncidentes = () => {
     return (
       <Incidentes 
@@ -1528,8 +1553,16 @@ const renderPlanes = () => {
                              { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
             { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
           ].map((tab, index) => (
-            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center space-x-2 ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-              <span>{tab.icon}</span><span>{tab.label}</span>
+            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+              <div className="flex items-center space-x-2">
+                <span>{tab.icon}</span><span>{tab.label}</span>
+              </div>
+              {/* BURBUJA ROJA DE NOTIFICACIÓN PARA PLANES */}
+              {tab.id === 'planes' && isAdmin && pendingPlansCount > 0 && (
+                <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                  {pendingPlansCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>
