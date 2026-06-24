@@ -12,11 +12,11 @@ import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 // =====================================================================
 // 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
 // =====================================================================
-let GEMINI_API_KEY = "AIzaSyBFP_jHfIsUV_wbc5EMbgmsYslcBbRltPo"; 
+let GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
 
-// --- CONFIGURACIÓN DE FIREBASE (Sin Storage, usaremos Enlaces Drive/OneDrive) ---
+// --- CONFIGURACIÓN DE FIREBASE ---
 const firebaseConfig = {
-  apiKey: "AIzaSyBGE2P-_oep_N7o8so6wubmaZXv12imZaE",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: "gestion-de-riesgos-b4bf0.firebaseapp.com",
   projectId: "gestion-de-riesgos-b4bf0",
   messagingSenderId: "507146405155",
@@ -912,9 +912,10 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     scrollToForm();
   };
 
-  const handleDeleteItem = async (listType, id) => {
+const handleDeleteItem = async (listType, id) => {
     if (!isAdmin) return;
     if (!window.confirm('¿Seguro que desea eliminar este registro permanentemente?')) return;
+    
     let updated;
     if (listType === 'riesgos') { updated = safeRiesgos.filter(r => r.id !== id); setRiesgos(updated); }
     if (listType === 'evaluaciones') { updated = safeEvaluaciones.filter(e => e.id !== id); setEvaluaciones(updated); }
@@ -923,10 +924,11 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     if (listType === 'incidentes') { updated = safeIncidentes.filter(i => i.id !== id); setIncidentes(updated); }
     if (listType === 'cronograma') { updated = safeCronograma.filter(c => c.id !== id); setCronograma(updated); }
     if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
+    if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); } // <--- LÍNEA CORREGIDA
+    
     await saveToCloud({ [listType]: updated });
     showNotification("Registro eliminado.", "success");
   };
-
   const handleMonitoreoSubmit = async (e) => {
     e.preventDefault(); 
     if (!isAdmin) return;
@@ -962,73 +964,65 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     e.target.reset();
   };
 
-const handleInformeAuditoriaSubmit = async (e) => {
+  const handleInformeAuditoriaSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     console.log("🚀 Ejecución global de envío y radicación...");
     
     const ts = new Date().toLocaleString();
     const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
     
-    // 🔍 Lectura directa de elementos en pantalla
-    const tituloVal = document.getElementsByName('tituloInput')[0]?.value || document.getElementsByName('titulo')[0]?.value || document.getElementById('tituloInput')?.value || 'Sin título';
-    const procesoVal = document.getElementsByName('procesoInput')[0]?.value || document.getElementsByName('proceso')[0]?.value || document.getElementById('procesoInput')?.value || 'Sin proceso';
-    const evidenciaUrlOut = document.getElementsByName('evidenciaUrlInput')[0]?.value || document.getElementById('evidenciaUrlInput')?.value || editInformeAuditoria?.evidenciaUrl || '';
-    const actaSocializacionUrlOut = document.getElementsByName('actaSocializacionUrlInput')[0]?.value || document.getElementById('actaSocializacionUrlInput')?.value || editInformeAuditoria?.actaSocializacionUrl || '';
+    // 🔍 Limpieza: Lectura directa y limpia de los inputs
+    const tituloVal = document.getElementsByName('titulo')[0]?.value || 'Sin título';
+    const procesoVal = document.getElementsByName('proceso')[0]?.value || 'Sin proceso';
+    const evidenciaUrlOut = document.getElementsByName('evidenciaUrlInput')[0]?.value || editInformeAuditoria?.evidenciaUrl || '';
+    const actaSocializacionUrlOut = document.getElementsByName('actaSocializacionUrlInput')[0]?.value || editInformeAuditoria?.actaSocializacionUrl || '';
     
-    const correoPorName1 = document.getElementsByName('correosNotificacioInput')[0]?.value;
-    const correoPorName2 = document.getElementsByName('correosNotificacionInput')[0]?.value;
-    const correoPorId1 = document.getElementById('correosNotificacioInput')?.value;
-    const correoPorId2 = document.getElementById('correosNotificacionInput')?.value;
-    
-    const correosNotificacionOut = String(correoPorName1 || correoPorName2 || correoPorId1 || correoPorId2 || '').trim();
+    const correosNotificacionOut = String(document.getElementsByName('correosNotificacionInput')[0]?.value || '').trim();
 
     let updated;
     let refConsecutivoFinal = '';
 
+    // =========================================================================
+    // LÓGICA DE CREACIÓN O ACTUALIZACIÓN DEL INFORME
+    // =========================================================================
     if (editInformeAuditoria) {
-      refConsecutivoFinal = editInformeAuditoria.ref || 'INF-MOD';
-      const mod = {
-        ...editInformeAuditoria,
+      refConsecutivoFinal = editInformeAuditoria.ref;
+      const mod = { 
+        ...editInformeAuditoria, 
         titulo: tituloVal,
         proceso: procesoVal,
-        fecha: document.getElementsByName('fecha')[0]?.value || document.getElementById('fecha')?.value || ts,
-        elaboradoPor: document.getElementsByName('elaboradoPor')[0]?.value || document.getElementById('elaboradoPor')?.value || '',
-        revisadoPor: document.getElementsByName('revisadoPor')[0]?.value || document.getElementById('revisadoPor')?.value || '',
-        aprobadoPor: document.getElementsByName('aprobadoPor')[0]?.value || document.getElementById('aprobadoPor')?.value || '',
-        socializado: document.getElementsByName('socializado')[0]?.value || 'No',
-        socializadoCon: document.getElementsByName('socializadoCon')[0]?.value || 'N/A',
+        fecha: document.getElementsByName('fecha')[0]?.value || editInformeAuditoria.fecha,
+        elaboradoPor: document.getElementsByName('elaboradoPor')[0]?.value || editInformeAuditoria.elaboradoPor,
+        revisadoPor: document.getElementsByName('revisadoPor')[0]?.value || editInformeAuditoria.revisadoPor,
+        aprobadoPor: document.getElementsByName('aprobadoPor')[0]?.value || editInformeAuditoria.aprobadoPor,
+        socializado: document.getElementsByName('socializado')[0]?.value || editInformeAuditoria.socializado,
+        socializadoCon: document.getElementsByName('socializadoCon')[0]?.value || editInformeAuditoria.socializadoCon,
         evidenciaUrl: evidenciaUrlOut,
-        actaSocializacionUrl: actaSocializacionUrlOut,
-        historialCambios: [...(editInformeAuditoria.historialCambios || []), { fecha: ts, accion: 'Informe de auditoría modificado' }]
+        actaSocializacionUrl: actaSocializacionUrlOut
       };
-      updated = safeInformes.map(i => i.id === editInformeAuditoria.id ? mod : i);
+      updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf);
       setEditInformeAuditoria(null);
     } else {
-      const nextNum = safeInformes.length + 1;
-      const anioActual = new Date().getFullYear();
-      refConsecutivoFinal = `INF-${anioActual}-${String(nextNum).padStart(3, '0')}`;
-      
-      const nuevo = {
-        id: Date.now(),
+      const idx = safeInformes.length + 1;
+      refConsecutivoFinal = `INF-2026-${String(idx).padStart(3, '0')}`;
+      const nuevo = { 
+        id: Date.now(), 
         ref: refConsecutivoFinal,
         titulo: tituloVal,
         proceso: procesoVal,
-        fecha: document.getElementsByName('fecha')[0]?.value || document.getElementById('fecha')?.value || ts,
-        elaboradoPor: document.getElementsByName('elaboradoPor')[0]?.value || document.getElementById('elaboradoPor')?.value || '',
-        revisadoPor: document.getElementsByName('revisadoPor')[0]?.value || document.getElementById('revisadoPor')?.value || '',
-        aprobadoPor: document.getElementsByName('aprobadoPor')[0]?.value || document.getElementById('aprobadoPor')?.value || '',
+        fecha: document.getElementsByName('fecha')[0]?.value || new Date().toISOString().split('T')[0],
+        elaboradoPor: document.getElementsByName('elaboradoPor')[0]?.value || '',
+        revisadoPor: document.getElementsByName('revisadoPor')[0]?.value || '',
+        aprobadoPor: document.getElementsByName('aprobadoPor')[0]?.value || '',
         socializado: document.getElementsByName('socializado')[0]?.value || 'No',
-        socializadoCon: document.getElementsByName('socializadoCon')[0]?.value || 'N/A',
+        socializadoCon: document.getElementsByName('socializadoCon')[0]?.value || '',
         evidenciaUrl: evidenciaUrlOut,
-        actaSocializacionUrl: actaSocializacionUrlOut,
-        anio: anioActual,
-        mes: "Junio",
-        historialCambios: [{ fecha: ts, accion: 'Informe firmado, indexado y notificado por correo' }]
+        actaSocializacionUrl: actaSocializacionUrlOut
       };
       updated = [nuevo, ...safeInformes];
     }
 
-    // 📧 DISPARADOR GLOBAL DE EMAILJS
+    // 📧 DISPARADOR GLOBAL DE EMAILJS PROTEGIDO
     if (correosNotificacionOut !== '') {
       console.log("📡 Disparando Fetch hacia la API de EmailJS para: " + correosNotificacionOut);
       const emailParams = {
@@ -1040,14 +1034,14 @@ const handleInformeAuditoriaSubmit = async (e) => {
         destinatarios: correosNotificacionOut
       };
 
-fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          service_id: 'service_alaojyc',
-          template_id: 'template_o2df1a9',
-          user_id: 'KKvlQtlZQIdTQP0Xe', // <--- ¡AQUÍ ESTABA LA 'L' MINÚSCULA INVISIBLE!
-          accessToken: '5M20ONuh2Lk2w731_uqdz', 
+          service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
+          template_id: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+          user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, 
+          accessToken: import.meta.env.VITE_EMAILJS_PRIVATE_KEY, 
           template_params: emailParams
         })
       })
@@ -1056,15 +1050,17 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
         if (res.ok) {
           showNotification("Notificación electrónica enviada con éxito.");
         } else {
-          console.error("❌ EmailJS rechazó la petición. Verifica tus 3 IDs.");
+          console.error("❌ EmailJS rechazó la petición. Verifica tus llaves en el .env");
         }
       })
-      .catch((err) => console.error("Error de red en EmailJS:", err)); } else {
+      .catch((err) => console.error("Error de red en EmailJS:", err));
+    } else {
       console.log("⚠️ No hay correos en la casilla, omitiendo EmailJS.");
     }   
 
     // Actualización del estado visual de la tabla
     setInformesAuditoria(updated);    
+    
     // Almacenamiento seguro en la nube
     try {
       await saveToCloud({ informesAuditoria: updated });
@@ -1073,14 +1069,15 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
     }
     
     // Limpieza total de los campos
-    const inputsParaLimpiar = ['tituloInput', 'titulo', 'procesoInput', 'proceso', 'correosNotificacioInput', 'correosNotificacionInput', 'evidenciaUrlInput', 'actaSocializacionUrlInput'];
+    const inputsParaLimpiar = ['titulo', 'proceso', 'correosNotificacionInput', 'evidenciaUrlInput', 'actaSocializacionUrlInput', 'elaboradoPor', 'revisadoPor', 'aprobadoPor', 'socializadoCon'];
     inputsParaLimpiar.forEach(name => {
       const el = document.getElementsByName(name)[0] || document.getElementById(name);
       if (el) el.value = '';
     });
 
-    showNotification("Informe de auditoría procesado y notificado correctamente.");
+    showNotification("Informe de auditoría procesado y guardado correctamente.");
   };
+ 
 // =====================================================================
   // REUSABLE HEADER COMPONENT (Dropdown Filters MULTIPLES)
   // =====================================================================
@@ -1229,13 +1226,12 @@ const renderInformesAuditoria = () => {
               </div>
 
            <div className="md:col-span-4 flex justify-end">
-                <button 
-                  type="button" 
-                  onClick={handleInformeAuditoriaSubmit} 
-                  className="bg-[#004d40] hover:bg-[#003d33] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center cursor-pointer block"
-                >
-                  {editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen'}
-                </button>
+              <button 
+  type="submit" 
+  className="bg-[#004d40] hover:bg-[#003d33] text-white font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center cursor-pointer block"
+>
+  {editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen'}
+</button>
               </div>
             </form>
           </div>
