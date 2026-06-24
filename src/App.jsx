@@ -961,124 +961,80 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     await saveToCloud({ monitoreo: updatedList });
     e.target.reset();
   };
-  const handleInformeAuditoriaSubmit = async () => {
-    console.log("🚀 Ejecución global de envío y radicación...");
-    
-    const ts = new Date().toLocaleString();
-    const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
-    
-    // 🔍 Lectura directa de elementos en pantalla
-    const tituloVal = document.getElementsByName('tituloInput')[0]?.value || document.getElementsByName('titulo')[0]?.value || document.getElementById('tituloInput')?.value || 'Sin título';
-    const procesoVal = document.getElementsByName('procesoInput')[0]?.value || document.getElementsByName('proceso')[0]?.value || document.getElementById('procesoInput')?.value || 'Sin proceso';
-    const evidenciaUrlOut = document.getElementsByName('evidenciaUrlInput')[0]?.value || document.getElementById('evidenciaUrlInput')?.value || editInformeAuditoria?.evidenciaUrl || '';
-    const actaSocializacionUrlOut = document.getElementsByName('actaSocializacionUrlInput')[0]?.value || document.getElementById('actaSocializacionUrlInput')?.value || editInformeAuditoria?.actaSocializacionUrl || '';
-    
-    const correoPorName1 = document.getElementsByName('correosNotificacioInput')[0]?.value;
-    const correoPorName2 = document.getElementsByName('correosNotificacionInput')[0]?.value;
-    const correoPorId1 = document.getElementById('correosNotificacioInput')?.value;
-    const correoPorId2 = document.getElementById('correosNotificacionInput')?.value;
-    
-    const correosNotificacionOut = String(correoPorName1 || correoPorName2 || correoPorId1 || correoPorId2 || '').trim();
+// =====================================================================
+  // REUSABLE HEADER COMPONENT (Dropdown Filters MULTIPLES)
+  // =====================================================================
+  const renderHeaderFiltros = (title, subtitle, includeMatrizToggle = false) => {
+    const añosSet = new Set([new Date().getFullYear()]);
+    safeHallazgos.forEach(h => { const a = getYearFromDate(formatSafeDate(h.fecha)); if(a !== 'N/A') añosSet.add(Number(a)); });
+    safePlanes.forEach(p => { const a = getYearFromDate(formatSafeDate(p.fecha)); if(a !== 'N/A') añosSet.add(Number(a)); });
+    safeIncidentes.forEach(i => { const a = getYearFromDate(formatSafeDate(i.fecha)); if(a !== 'N/A') añosSet.add(Number(a)); });
+    const availableYears = Array.from(añosSet).sort().reverse();
+    const allMonths = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-    let updated;
-    let refConsecutivoFinal = '';
+    return (
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800 tracking-tight">{title}</h2>
+          {subtitle && <p className="text-xs text-slate-500 mt-1 font-medium">{subtitle}</p>}
+        </div>
+        <div className="mt-4 md:mt-0 flex items-center space-x-3">
+          <div className="bg-white px-4 py-1.5 rounded-full border border-slate-200 flex items-center shadow-sm space-x-4">
+            <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">PERIODO:</span>
+            
+            {/* DROPDOWN AÑOS MULTIPLE */}
+            <div className="relative group">
+              <button className="text-xs font-bold bg-transparent text-slate-700 outline-none flex items-center space-x-1 cursor-pointer">
+                <span className="notranslate" translate="no">Años ({selectedAnios.length})</span> <span className="text-[8px]">▼</span>
+              </button>
+              <div className="absolute top-full left-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl p-3 z-50 hidden group-hover:block min-w-[120px]">
+                <div className="flex justify-between items-center mb-2 border-b pb-1">
+                  <button onClick={() => setSelectedAnios(availableYears)} className="text-[9px] text-blue-600 font-bold hover:underline">Todos</button>
+                  <button onClick={() => setSelectedAnios([])} className="text-[9px] text-red-600 font-bold hover:underline">Ninguno</button>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  {availableYears.map(a => (
+                    <label key={`filter-year-${a}`} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                      <input type="checkbox" checked={selectedAnios.includes(a)} onChange={() => toggleAnio(a)} className="rounded text-[#004d40] focus:ring-[#004d40]"/>
+                      <span className="text-xs font-bold text-slate-700 notranslate" translate="no">{a}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-    if (editInformeAuditoria) {
-      refConsecutivoFinal = editInformeAuditoria.ref || 'INF-MOD';
-      const mod = {
-        ...editInformeAuditoria,
-        titulo: tituloVal,
-        proceso: procesoVal,
-        fecha: document.getElementsByName('fecha')[0]?.value || document.getElementById('fecha')?.value || ts,
-        elaboradoPor: document.getElementsByName('elaboradoPor')[0]?.value || document.getElementById('elaboradoPor')?.value || '',
-        revisadoPor: document.getElementsByName('revisadoPor')[0]?.value || document.getElementById('revisadoPor')?.value || '',
-        aprobadoPor: document.getElementsByName('aprobadoPor')[0]?.value || document.getElementById('aprobadoPor')?.value || '',
-        socializado: document.getElementsByName('socializado')[0]?.value || 'No',
-        socializadoCon: document.getElementsByName('socializadoCon')[0]?.value || 'N/A',
-        evidenciaUrl: evidenciaUrlOut,
-        actaSocializacionUrl: actaSocializacionUrlOut,
-        historialCambios: [...(editInformeAuditoria.historialCambios || []), { fecha: ts, accion: 'Informe de auditoría modificado' }]
-      };
-      updated = safeInformes.map(i => i.id === editInformeAuditoria.id ? mod : i);
-      setEditInformeAuditoria(null);
-    } else {
-      const nextNum = safeInformes.length + 1;
-      const anioActual = new Date().getFullYear();
-      refConsecutivoFinal = `INF-${anioActual}-${String(nextNum).padStart(3, '0')}`;
-      
-      const nuevo = {
-        id: Date.now(),
-        ref: refConsecutivoFinal,
-        titulo: tituloVal,
-        proceso: procesoVal,
-        fecha: document.getElementsByName('fecha')[0]?.value || document.getElementById('fecha')?.value || ts,
-        elaboradoPor: document.getElementsByName('elaboradoPor')[0]?.value || document.getElementById('elaboradoPor')?.value || '',
-        revisadoPor: document.getElementsByName('revisadoPor')[0]?.value || document.getElementById('revisadoPor')?.value || '',
-        aprobadoPor: document.getElementsByName('aprobadoPor')[0]?.value || document.getElementById('aprobadoPor')?.value || '',
-        socializado: document.getElementsByName('socializado')[0]?.value || 'No',
-        socializadoCon: document.getElementsByName('socializadoCon')[0]?.value || 'N/A',
-        evidenciaUrl: evidenciaUrlOut,
-        actaSocializacionUrl: actaSocializacionUrlOut,
-        anio: anioActual,
-        mes: "Junio",
-        historialCambios: [{ fecha: ts, accion: 'Informe firmado, indexado y notificado por correo' }]
-      };
-      updated = [nuevo, ...safeInformes];
-    }
+            {/* DROPDOWN MESES MULTIPLE */}
+            <div className="relative group">
+              <button className="text-xs font-bold bg-transparent text-slate-700 outline-none flex items-center space-x-1 cursor-pointer">
+                <span className="notranslate" translate="no">Meses ({selectedMeses.length})</span> <span className="text-[8px]">▼</span>
+              </button>
+              <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl p-3 z-50 hidden group-hover:block min-w-[140px] max-h-64 overflow-y-auto">
+                <div className="flex justify-between items-center mb-2 border-b pb-1 sticky top-0 bg-white">
+                  <button onClick={() => setSelectedMeses(allMonths)} className="text-[9px] text-blue-600 font-bold hover:underline">Todos</button>
+                  <button onClick={() => setSelectedMeses([])} className="text-[9px] text-red-600 font-bold hover:underline">Ninguno</button>
+                </div>
+                <div className="flex flex-col space-y-1">
+                  {allMonths.map(m => (
+                    <label key={`filter-month-${m}`} className="flex items-center space-x-2 cursor-pointer hover:bg-slate-50 p-1 rounded">
+                      <input type="checkbox" checked={selectedMeses.includes(m)} onChange={() => toggleMes(m)} className="rounded text-[#004d40] focus:ring-[#004d40]"/>
+                      <span className="text-xs font-bold text-slate-700 notranslate" translate="no">{m}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
 
-    // 📧 DISPARADOR GLOBAL DE EMAILJS (Funciona tanto para nuevos como para modificaciones)
-    if (correosNotificacionOut !== '') {
-      console.log("📡 Disparando Fetch hacia la API de EmailJS para: " + correosNotificacionOut);
-      const emailParams = {
-        ref_consecutivo: refConsecutivoFinal,
-        titulo_informe: tituloVal,
-        proceso_auditado: procesoVal,
-        enlace_pdf: evidenciaUrlOut,
-        enlace_acta: actaSocializacionUrlOut || 'No adjunta',
-        destinatarios: correosNotificacionOut
-      };
-
-      fetch('https://api.emailjs.com/api/v1.0/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: 'service_alaojyc',
-          template_id: 'template_o2df1a9',
-          public_key: 'KKvlQtIZQIdTQP0Xe',
-          template_params: emailParams
-        })
-      })
-      .then((res) => {
-        console.log("📬 API Response Status:", res.status);
-        if (res.ok) {
-          showNotification("Notificación electrónica enviada con éxito.");
-        }
-      })
-      .catch((err) => console.error("Error de red en EmailJS:", err));
-    } else {
-      console.log("⚠️ No hay correos en la casilla, omitiendo EmailJS.");
-    }   
-    
-    // Actualización del estado visual de la tabla
-    setInformesAuditoria(updated);
-    
-    // Almacenamiento seguro en la nube
-    try {
-      await saveToCloud({ informesAuditoria: updated });
-    } catch (firebaseError) {
-      console.warn("Advertencia de Firebase ignorada:", firebaseError);
-    }
-    
-    // Limpieza total de los campos
-    const inputsParaLimpiar = ['tituloInput', 'titulo', 'procesoInput', 'proceso', 'correosNotificacioInput', 'correosNotificacionInput', 'evidenciaUrlInput', 'actaSocializacionUrlInput'];
-    inputsParaLimpiar.forEach(name => {
-      const el = document.getElementsByName(name)[0] || document.getElementById(name);
-      if (el) el.value = '';
-    });
-
-    showNotification("Informe de auditoría procesado y notificado correctamente.");
-  };
-
+          {includeMatrizToggle && (
+            <div className="bg-white p-1 rounded-full border flex shadow-sm">
+              <button onClick={() => {setTipoMatriz('inherente'); setFiltroHeatMap(null);}} className={`px-4 py-1 rounded-full font-bold text-[10px] uppercase transition-all ${tipoMatriz === 'inherente' ? 'bg-[#004d40] text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>INHERENTE</button>
+              <button onClick={() => {setTipoMatriz('residual'); setFiltroHeatMap(null);}} className={`px-4 py-1 rounded-full font-bold text-[10px] uppercase transition-all ${tipoMatriz === 'residual' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:bg-slate-100'}`}>RESIDUAL</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };  
   // =====================================================================
   // RENDERS DE VISTAS (ADMIN INTERFACE)
   // =====================================================================
