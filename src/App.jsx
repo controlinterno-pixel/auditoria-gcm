@@ -1040,14 +1040,14 @@ const handleInformeAuditoriaSubmit = async (e) => {
         destinatarios: correosNotificacionOut
       };
 
-    fetch('https://api.emailjs.com/api/v1.0/email/send', {
+fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service_id: 'service_alaojyc',
           template_id: 'template_o2df1a9',
-          user_id: 'KKvlQtIZQIdTQP0Xe', 
-          accessToken: '5M20ONuh2Lk2w731_uqdz', // <--- LA LLAVE PRIVADA QUE FALTABA
+          user_id: 'KKvlQtlZQIdTQP0Xe', // <--- ¡AQUÍ ESTABA LA 'L' MINÚSCULA INVISIBLE!
+          accessToken: '5M20ONuh2Lk2w731_uqdz', 
           template_params: emailParams
         })
       })
@@ -1059,7 +1059,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
           console.error("❌ EmailJS rechazó la petición. Verifica tus 3 IDs.");
         }
       })
-      .catch((err) => console.error("Error de red en EmailJS:", err));    } else {
+      .catch((err) => console.error("Error de red en EmailJS:", err)); } else {
       console.log("⚠️ No hay correos en la casilla, omitiendo EmailJS.");
     }   
 
