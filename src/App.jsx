@@ -962,30 +962,36 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     e.target.reset();
   };
 const handleInformeAuditoriaSubmit = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
+    if (e && e.preventDefault) e.preventDefault();
+    console.log("🚀 Iniciando proceso de radicación forzado...");
+    
     const ts = new Date().toLocaleString();
     const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
     
-    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
-    let actaSocializacionUrlOut = formData.get('actaSocializacionUrlInput') || editInformeAuditoria?.actaSocializacionUrl || '';
+    // 🔍 LECTURA DIRECTA POR ELEMENTOS DE PANTALLA (Inmune a fallas de contenedores)
+    const tituloVal = document.getElementsByName('tituloInput')[0]?.value || document.getElementsByName('titulo')[0]?.value || 'Sin título';
+    const procesoVal = document.getElementsByName('procesoInput')[0]?.value || document.getElementsByName('proceso')[0]?.value || 'Sin proceso';
+    const evidenciaUrlOut = document.getElementsByName('evidenciaUrlInput')[0]?.value || editInformeAuditoria?.evidenciaUrl || '';
+    const actaSocializacionUrlOut = document.getElementsByName('actaSocializacionUrlInput')[0]?.value || editInformeAuditoria?.actaSocializacionUrl || '';
     
-    // 📬 EXTRAER CORREOS DE FORMA SEGURA (Evita el error 'trim' de nulos)
-    const rawEmails = e.target.elements['correosNotificacioInput']?.value || formData.get('correosNotificacioInput') || '';
-    const correosNotificacionOut = String(rawEmails).trim();
-    
+    // Captura del input con o sin la letra "n" para blindarlo completamente
+    const correosInputEl = document.getElementsByName('correosNotificacioInput')[0] || document.getElementsByName('correosNotificacionInput')[0];
+    const correosNotificacionOut = correosInputEl ? String(correosInputEl.value).trim() : '';
+
+    console.log("📊 Correo detectado en casilla:", correosNotificacionOut);
+
     let updated;
     if (editInformeAuditoria) {
       const mod = {
         ...editInformeAuditoria,
-        titulo: formData.get('tituloInput') || formData.get('titulo') || 'Sin título',
-        proceso: formData.get('procesoInput') || formData.get('proceso') || 'Sin proceso',
-        fecha: formData.get('fecha'),
-        elaboradoPor: formData.get('elaboradoPor'),
-        revisadoPor: formData.get('revisadoPor'),
-        aprobadoPor: formData.get('aprobadoPor'),
-        socializado: formData.get('socializado'),
-        socializadoCon: formData.get('socializadoCon') || 'N/A',
+        titulo: tituloVal,
+        proceso: procesoVal,
+        fecha: document.getElementsByName('fecha')[0]?.value || ts,
+        elaboradoPor: document.getElementsByName('elaboradoPor')[0]?.value || '',
+        revisadoPor: document.getElementsByName('revisadoPor')[0]?.value || '',
+        aprobadoPor: document.getElementsByName('aprobadoPor')[0]?.value || '',
+        socializado: document.getElementsByName('socializado')[0]?.value || 'No',
+        socializadoCon: document.getElementsByName('socializadoCon')[0]?.value || 'N/A',
         evidenciaUrl: evidenciaUrlOut,
         actaSocializacionUrl: actaSocializacionUrlOut,
         historialCambios: [...(editInformeAuditoria.historialCambios || []), { fecha: ts, accion: 'Informe de auditoría modificado' }]
@@ -1000,14 +1006,14 @@ const handleInformeAuditoriaSubmit = async (e) => {
       const nuevo = {
         id: Date.now(),
         ref: refConsecutivo,
-        titulo: formData.get('tituloInput') || formData.get('titulo') || 'Sin título',
-        proceso: formData.get('procesoInput') || formData.get('proceso') || 'Sin proceso',
-        fecha: formData.get('fecha'),
-        elaboradoPor: formData.get('elaboradoPor'),
-        revisadoPor: formData.get('revisadoPor'),
-        aprobadoPor: formData.get('aprobadoPor'),
-        socializado: formData.get('socializado'),
-        socializadoCon: formData.get('socializadoCon') || 'N/A',
+        titulo: tituloVal,
+        proceso: procesoVal,
+        fecha: document.getElementsByName('fecha')[0]?.value || ts,
+        elaboradoPor: document.getElementsByName('elaboradoPor')[0]?.value || '',
+        revisadoPor: document.getElementsByName('revisadoPor')[0]?.value || '',
+        aprobadoPor: document.getElementsByName('aprobadoPor')[0]?.value || '',
+        socializado: document.getElementsByName('socializado')[0]?.value || 'No',
+        socializadoCon: document.getElementsByName('socializadoCon')[0]?.value || 'N/A',
         evidenciaUrl: evidenciaUrlOut,
         actaSocializacionUrl: actaSocializacionUrlOut,
         anio: anioActual,
@@ -1016,12 +1022,13 @@ const handleInformeAuditoriaSubmit = async (e) => {
       };
       updated = [nuevo, ...safeInformes];
 
-      // 📧 DISPARADOR DE CORREO ELECTRÓNICO ELECTRÓNICO
+      // 📧 DISPARADOR INMEDIATO DEL FETCH A EMAILJS
       if (correosNotificacionOut !== '') {
+        console.log("📬 Enviando paquete de datos a EmailJS para destinatarios:", correosNotificacionOut);
         const emailParams = {
           ref_consecutivo: refConsecutivo,
-          titulo_informe: formData.get('tituloInput') || formData.get('titulo') || 'Sin título',
-          proceso_auditado: formData.get('procesoInput') || formData.get('proceso') || 'Sin proceso',
+          titulo_informe: tituloVal,
+          proceso_auditado: procesoVal,
           enlace_pdf: evidenciaUrlOut,
           enlace_acta: actaSocializacionUrlOut || 'No adjunta',
           destinatarios: correosNotificacionOut
@@ -1039,17 +1046,27 @@ const handleInformeAuditoriaSubmit = async (e) => {
         })
         .then((res) => {
           if (res.ok) {
+            console.log("✅ EmailJS procesó el envío correctamente.");
             showNotification("Notificación electrónica enviada con éxito.");
           } else {
-            console.error("Fallo el envío por EmailJS");
+            console.error("❌ Fallo el envío por EmailJS");
           }
         })
-        .catch((err) => console.error("Error enviando correo corporativo:", err));
-      }    
+        .catch((err) => console.error("💥 Error de red enviando correo:", err));
+      } else {
+        console.log("⚠️ No se envía correo porque la casilla de destinatarios está vacía.");
+      }   
     }
     setInformesAuditoria(updated);
     await saveToCloud({ informesAuditoria: updated });
-    e.target.reset();
+    
+    // Limpieza manual de los campos de texto
+    const inputsParaLimpiar = ['tituloInput', 'titulo', 'procesoInput', 'proceso', 'correosNotificacioInput', 'correosNotificacionInput', 'evidenciaUrlInput', 'actaSocializacionUrlInput'];
+    inputsParaLimpiar.forEach(name => {
+      const el = document.getElementsByName(name)[0];
+      if (el) el.value = '';
+    });
+
     showNotification("Informe de auditoría indexado, archivado y notificado correctamente.");
   };
   // =====================================================================
