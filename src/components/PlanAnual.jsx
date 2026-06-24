@@ -228,9 +228,9 @@ export default function PlanAnual({
                  <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
                  <th className="border border-slate-300 p-2 w-32">Responsable</th>
                  {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">{m.substring(0,3)}</th>)}
-                 {isAdmin && <th className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">ACCIÓN</th>}
+                {isAdmin && <th className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">ACCIÓN</th>}
                </tr>
-             </tbody>
+             </thead>
              <tbody>
                {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => (
                  <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
