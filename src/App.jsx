@@ -1040,13 +1040,13 @@ const handleInformeAuditoriaSubmit = async (e) => {
         destinatarios: correosNotificacionOut
       };
 
-      fetch('https://api.emailjs.com/api/v1.0/email/send', {
+     fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service_id: 'service_alaojyc',
           template_id: 'template_o2df1a9',
-          public_key: 'KKvlQtIZQIdTQP0Xe',
+          user_id: 'KKvlQtIZQIdTQP0Xe', // <--- El cambio clave está aquí
           template_params: emailParams
         })
       })
@@ -1054,16 +1054,17 @@ const handleInformeAuditoriaSubmit = async (e) => {
         console.log("📬 API Response Status:", res.status);
         if (res.ok) {
           showNotification("Notificación electrónica enviada con éxito.");
+        } else {
+          console.error("❌ EmailJS rechazó la petición. Verifica tus 3 IDs.");
         }
       })
       .catch((err) => console.error("Error de red en EmailJS:", err));
     } else {
       console.log("⚠️ No hay correos en la casilla, omitiendo EmailJS.");
     }   
-    
+
     // Actualización del estado visual de la tabla
-    setInformesAuditoria(updated);
-    
+    setInformesAuditoria(updated);    
     // Almacenamiento seguro en la nube
     try {
       await saveToCloud({ informesAuditoria: updated });
