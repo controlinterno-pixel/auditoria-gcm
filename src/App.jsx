@@ -12,7 +12,8 @@ import { auth, db } from './services/firebase';
 import { obtenerSugerenciaIA, obtenerAnalisisEvidenciaIA } from './services/gemini';
 import { 
   formatSafeDate, getMonthFromDate, getYearFromDate, 
-  getItemAnio, getItemMesText, calcularMatriz5x5, applyFilters, mapMesNumATexto
+  getItemAnio, getItemMesText, calcularMatriz5x5, applyFilters, mapMesNumATexto 
+} from './utils/helpers';
 import InformesAuditoria from './components/InformesAuditoria';
 import Configuracion from './components/Configuracion';
 import Incidentes from './components/Incidentes';
