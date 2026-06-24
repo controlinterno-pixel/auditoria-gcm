@@ -1001,9 +1001,15 @@ const handleInformeAuditoriaSubmit = async (e) => {
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf);
         setEditInformeAuditoria(null);
       } else {
-        const idx = safeInformes.length + 1;
+        // 🛡️ Lógica robusta: Busca el número más alto usado para no repetir consecutivos
+        const ultimo = Math.max(
+          ...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)),
+          0
+        );
+        const idx = ultimo + 1;
+
         refConsecutivoFinal = `INF-2026-${String(idx).padStart(3, '0')}`;
-        const nuevo = { 
+        const nuevo = {
           id: crypto.randomUUID(), ref: refConsecutivoFinal, titulo: tituloVal, proceso: procesoVal,
           fecha: fechaVal, elaboradoPor: elaboradoPorVal, revisadoPor: revisadoPorVal,
           aprobadoPor: aprobadoPorVal, socializado: socializadoVal, socializadoCon: socializadoConVal,
@@ -2970,8 +2976,3 @@ const renderApetito = () => {
     </div>
 );
 }
-
-
-
-
-
