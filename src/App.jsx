@@ -969,14 +969,16 @@ const handleInformeAuditoriaSubmit = async (e) => {
     
     let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
     let actaSocializacionUrlOut = formData.get('actaSocializacionUrlInput') || editInformeAuditoria?.actaSocializacionUrl || '';
-    let correosNotificacionOut = formData.get('correosNotificacionInput') || '';
+    
+    // CORRECCIÓN AQUÍ: Se lee el nombre exacto que tiene tu input en la línea 1435 ('correosNotificacioInput')
+    let correosNotificacionOut = formData.get('correosNotificacioInput') || '';
     
     let updated;
     if (editInformeAuditoria) {
       const mod = {
         ...editInformeAuditoria,
-        titulo: formData.get('titulo'),
-        proceso: formData.get('proceso'),
+        titulo: formData.get('tituloInput'), // Corregido para leer tu input real
+        proceso: formData.get('procesoInput'), // Corregido para leer tu input real
         fecha: formData.get('fecha'),
         elaboradoPor: formData.get('elaboradoPor'),
         revisadoPor: formData.get('revisadoPor'),
@@ -997,8 +999,8 @@ const handleInformeAuditoriaSubmit = async (e) => {
       const nuevo = {
         id: Date.now(),
         ref: refConsecutivo,
-        titulo: formData.get('titulo'),
-        proceso: formData.get('proceso'),
+        titulo: formData.get('tituloInput'), // Corregido para leer tu input real
+        proceso: formData.get('procesoInput'), // Corregido para leer tu input real
         fecha: formData.get('fecha'),
         elaboradoPor: formData.get('elaboradoPor'),
         revisadoPor: formData.get('revisadoPor'),
@@ -1013,12 +1015,12 @@ const handleInformeAuditoriaSubmit = async (e) => {
       };
       updated = [nuevo, ...safeInformes];
 
-      // Envió de correo
+      // 📧 ENVÍO DE CORREO ELECTRÓNICO REAL CON GMAIL CORPORATIVO
       if (correosNotificacionOut.trim() !== '') {
         const emailParams = {
           ref_consecutivo: refConsecutivo,
-          titulo_informe: formData.get('titulo'),
-          proceso_auditado: formData.get('proceso'),
+          titulo_informe: formData.get('tituloInput'), // Corregido
+          proceso_auditado: formData.get('procesoInput'), // Corregido
           enlace_pdf: evidenciaUrlOut,
           enlace_acta: actaSocializacionUrlOut || 'No adjunta',
           destinatarios: correosNotificacionOut
@@ -1036,12 +1038,12 @@ const handleInformeAuditoriaSubmit = async (e) => {
         })
         .then((res) => {
           if (res.ok) {
-            showNotification("Notificación electrónica enviada con éxito.");
+            showNotification("Notificación electrónica enviada con éxito a las bandejas de entrada.");
           } else {
             console.error("Fallo el envío por EmailJS");
           }
         })
-        .catch((err) => console.error("Error enviando correo:", err));
+        .catch((err) => console.error("Error enviando correo corporativo:", err));
       }    
     }
     setInformesAuditoria(updated);
@@ -2987,7 +2989,12 @@ const renderApetito = () => {
           </div>
         </div>
       )}
-      {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
+     {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
   );
 }
+
+
+
+
+
