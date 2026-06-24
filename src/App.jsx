@@ -966,8 +966,7 @@ const handleDeleteItem = async (listType, id) => {
 
   const handleInformeAuditoriaSubmit = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
-    console.log("🚀 Ejecución global de envío y radicación...");
-    
+    console.log("🚀 Ejecución global V2 con llaves inyectadas...");
     const ts = new Date().toLocaleString();
     const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
     
