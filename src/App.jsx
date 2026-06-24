@@ -1,32 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
 import { 
-  getAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+
+// 🔥 NUEVA CONEXIÓN MODULAR A FIREBASE
+import { auth, db } from './services/firebase';
 
 // =====================================================================
 // 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
 // =====================================================================
 let GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY; 
-
-// --- CONFIGURACIÓN DE FIREBASE ---
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: "gestion-de-riesgos-b4bf0.firebaseapp.com",
-  projectId: "gestion-de-riesgos-b4bf0",
-  messagingSenderId: "507146405155",
-  appId: "1:507146405155:web:574f89d0cc6256e629b896",
-  measurementId: "G-WTZPTWV67Y"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
 
 // --- CONTROL DE ACCESO (ROLES) ---
 const ADMIN_EMAILS = [
@@ -39,7 +26,6 @@ const ADMIN_EMAILS = [
 // =====================================================================
 // 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
 // =====================================================================
-
 const mapImpactoNum = { 'Bajo': 1, 'Medio': 2, 'Alto': 4, 'Crítico': 5 };
 const mapProbabilidadNum = { 'Rara': 1, 'Posible': 3, 'Frecuente': 5 };
 const mapMesNumATexto = { 
