@@ -1392,27 +1392,36 @@ const renderPlanes = () => {
         setSearchTerm={setSearchTerm}
         columnFilters={columnFilters}
         handleColFilterChange={handleColFilterChange}
-        // 👇 FUNCIÓN REAL DE ACTUALIZACIÓN EN FIREBASE 👇
+        // 👇 FUNCIÓN ADAPTADA A TU ARQUITECTURA DE DATOS 👇
         onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
           try {
-            // Referencia directa al documento en Firebase
-            const docRef = doc(db, coleccion, id);
-            
-            // Creamos el log de trazabilidad como exigen las normas corporativas
+            const ts = new Date().toLocaleString();
             const logTrazabilidad = {
-              fecha: new Date().toISOString(),
-              usuario: user?.email || 'Usuario Desconocido',
-              accion: `Workflow actualizado a: ${nuevoEstadoWorkflow}`
+              fecha: ts,
+              usuario: user?.email || 'Usuario',
+              accion: `Fase de Gobernanza actualizada a: ${nuevoEstadoWorkflow}`
             };
 
-            // Actualizamos solo el estado y añadimos la trazabilidad
-            await updateDoc(docRef, {
-              estadoWorkflow: nuevoEstadoWorkflow,
-              historialCambios: arrayUnion(logTrazabilidad)
-            });
+            // 1. Buscamos el plan exacto en tu lista actual
+            const planActual = safePlanes.find(p => p.id === id);
+            if (!planActual) return;
 
-            // Forzamos al sistema a refrescar el formulario
-            setEditPlan(prev => ({ ...prev, estadoWorkflow: nuevoEstadoWorkflow }));
+            // 2. Le inyectamos el nuevo estado y el log de historial
+            const planModificado = {
+              ...planActual,
+              estadoWorkflow: nuevoEstadoWorkflow,
+              historialCambios: [...(planActual.historialCambios || []), logTrazabilidad]
+            };
+
+            // 3. Reemplazamos el viejo por el nuevo en la lista
+            const updatedList = safePlanes.map(p => p.id === id ? planModificado : p);
+
+            // 4. Guardamos en pantalla y en la nube usando tu súper-función
+            setPlanes(updatedList);
+            await saveToCloud({ planes: updatedList });
+
+            // 5. Refrescamos el formulario visualmente
+            setEditPlan(planModificado);
             setFormResetKey(Date.now());
             
           } catch (err) {
