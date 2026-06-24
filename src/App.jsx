@@ -1014,11 +1014,36 @@ const handleInformeAuditoriaSubmit = async (e) => {
       };
       updated = [nuevo, ...safeInformes];
 
-      // 📧 SIMULACIÓN DE ENVÍO DE CORREO ELECTRÓNICO INSTITUCIONAL
+      // 📧 ENVÍO DE CORREO ELECTRÓNICO REAL CON GMAIL CORPORATIVO
       if (correosNotificacionOut.trim() !== '') {
-        alert(`📧 [Simulación de Correo Termales]\nDe: controlinterno@termales.com.co\nPara: ${correosNotificacionOut}\nAsunto: Compartido: ${refConsecutivo} - Informe de Control Interno\n\nEstimados, se comparte formalmente el informe de auditoría emitido:\n📌 Título: ${formData.get('titulo')}\n🌿 Proceso: ${formData.get('proceso')}\n\n🔗 Enlace al Informe PDF: ${evidenciaUrlOut}\n🔗 Enlace al Acta de Socialización: ${actaSocializacionUrlOut || 'No adjunta'}`);
-      }
-    }
+        const emailParams = {
+          ref_consecutivo: refConsecutivo,
+          titulo_informe: formData.get('titulo'),
+          proceso_auditado: formData.get('proceso'),
+          enlace_pdf: evidenciaUrlOut,
+          enlace_acta: actaSocializacionUrlOut || 'No adjunta',
+          destinatarios: correosNotificacionOut
+        };
+
+      fetch('https://api.emailjs.com/api/v1.0/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            service_id: 'service_alaojyc',
+            template_id: 'template_o2df1a9',
+            user_id: 'KKvlQtIZQIdTQP0Xe', // <-- Reemplaza con tu clave pública real aquí
+            template_params: emailParams
+          })
+        })
+        .then((res) => {
+          if (res.ok) {
+            showNotification("Notificación electrónica enviada con éxito a las bandejas de entrada.");
+          } else {
+            console.error("Fallo el envío por EmailJS");
+          }
+        })
+        .catch((err) => console.error("Error enviando correo corporativo:", err));
+      }    
     
     setInformesAuditoria(updated);
     await saveToCloud({ informesAuditoria: updated });
