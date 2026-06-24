@@ -5,8 +5,7 @@ import {
   signOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
-
+import { doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 // 🔥 NUEVA CONEXIÓN MODULAR A FIREBASE
 import { auth, db } from './services/firebase';
 import { obtenerSugerenciaIA, obtenerAnalisisEvidenciaIA } from './services/gemini';
