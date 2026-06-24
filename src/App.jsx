@@ -1013,7 +1013,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
       };
       updated = [nuevo, ...safeInformes];
 
-      // 📧 ENVÍO DE CORREO ELECTRÓNICO REAL CON GMAIL CORPORATIVO
+      // Envió de correo
       if (correosNotificacionOut.trim() !== '') {
         const emailParams = {
           ref_consecutivo: refConsecutivo,
@@ -1030,18 +1030,18 @@ const handleInformeAuditoriaSubmit = async (e) => {
           body: JSON.stringify({
             service_id: 'service_alaojyc',
             template_id: 'template_o2df1a9',
-            public_key: 'KKvlQtIZQIdTQP0Xe', // <-- Se cambió user_id por public_key
+            public_key: 'KKvlQtIZQIdTQP0Xe',
             template_params: emailParams
           })
         })
         .then((res) => {
           if (res.ok) {
-            showNotification("Notificación electrónica enviada con éxito a las bandejas de entrada.");
+            showNotification("Notificación electrónica enviada con éxito.");
           } else {
             console.error("Fallo el envío por EmailJS");
           }
         })
-        .catch((err) => console.error("Error enviando correo corporativo:", err));
+        .catch((err) => console.error("Error enviando correo:", err));
       }    
     }
     setInformesAuditoria(updated);
@@ -1164,11 +1164,16 @@ const renderInformesAuditoria = () => {
               <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Líderes y convocados)</label><input name="socializadoCon" defaultValue={editInformeAuditoria?.socializadoCon||''} placeholder="Ej: Comité de Auditoría, Gerencia General, Jefe de Compras..." className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
 
               {/* 📬 CASILLA: PROTOCOLO DE DISTRIBUCIÓN DE CORREOS */}
-              <div className="md:col-span-4 bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
-                <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 Distribución por Correo Electrónico (Notificación Inmediata)</label>
-                <input name="correosNotificacionInput" type="text" placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700" />
-                <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
-              </div>
+<div className="md:col-span-4 bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
+  <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 Distribución por Correo Electrónico (Notificación Inmediata)</label>
+  <input 
+    name="correosNotificacionInput" // <--- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ EXACTAMENTE ASÍ
+    type="text" 
+    placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" 
+    className="w-full border border-blue-300 bg-white rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700" 
+  />
+  <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
+</div>
 
               {/* REPOSITORIO DE CARGA DRIVE / ONEDRIVE AMPLIADO (INFORME + ACTA) */}
               <div className="md:col-span-4 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner grid grid-cols-1 md:grid-cols-2 gap-4">
