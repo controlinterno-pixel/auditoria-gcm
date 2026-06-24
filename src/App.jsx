@@ -1030,7 +1030,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
           body: JSON.stringify({
             service_id: 'service_alaojyc',
             template_id: 'template_o2df1a9',
-            user_id: 'KKvlQtIZQIdTQP0Xe',
+            public_key: 'KKvlQtIZQIdTQP0Xe', // <-- Se cambió user_id por public_key
             template_params: emailParams
           })
         })
