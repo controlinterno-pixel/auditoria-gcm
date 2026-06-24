@@ -963,6 +963,8 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
   };
 const handleInformeAuditoriaSubmit = async (e) => {
     e.preventDefault();
+    console.log("🚀 [DIAGNÓSTICO] ¡Botón presionado! Iniciando función submit.");
+    
     const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
@@ -970,15 +972,21 @@ const handleInformeAuditoriaSubmit = async (e) => {
     let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
     let actaSocializacionUrlOut = formData.get('actaSocializacionUrlInput') || editInformeAuditoria?.actaSocializacionUrl || '';
     
-    // CORRECCIÓN AQUÍ: Se lee el nombre exacto que tiene tu input en la línea 1435 ('correosNotificacioInput')
+    // Capturamos el input tal cual está en tu línea 1435
     let correosNotificacionOut = formData.get('correosNotificacioInput') || '';
     
+    console.log("📊 [DIAGNÓSTICO] Datos capturados del formulario:");
+    console.log(" -> Título Input:", formData.get('tituloInput'));
+    console.log(" -> Proceso Input:", formData.get('procesoInput'));
+    console.log(" -> Correos Destinatarios:", correosNotificacionOut);
+
     let updated;
     if (editInformeAuditoria) {
+      console.log("✏️ [DIAGNÓSTICO] Detectado modo EDICIÓN.");
       const mod = {
         ...editInformeAuditoria,
-        titulo: formData.get('tituloInput'), // Corregido para leer tu input real
-        proceso: formData.get('procesoInput'), // Corregido para leer tu input real
+        titulo: formData.get('tituloInput'),
+        proceso: formData.get('procesoInput'),
         fecha: formData.get('fecha'),
         elaboradoPor: formData.get('elaboradoPor'),
         revisadoPor: formData.get('revisadoPor'),
@@ -992,6 +1000,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
       updated = safeInformes.map(i => i.id === editInformeAuditoria.id ? mod : i);
       setEditInformeAuditoria(null);
     } else {
+      console.log("➕ [DIAGNÓSTICO] Detectado modo NUEVO INFORME.");
       const nextNum = safeInformes.length + 1;
       const anioActual = new Date().getFullYear();
       const refConsecutivo = `INF-${anioActual}-${String(nextNum).padStart(3, '0')}`;
@@ -999,8 +1008,8 @@ const handleInformeAuditoriaSubmit = async (e) => {
       const nuevo = {
         id: Date.now(),
         ref: refConsecutivo,
-        titulo: formData.get('tituloInput'), // Corregido para leer tu input real
-        proceso: formData.get('procesoInput'), // Corregido para leer tu input real
+        titulo: formData.get('tituloInput'),
+        proceso: formData.get('procesoInput'),
         fecha: formData.get('fecha'),
         elaboradoPor: formData.get('elaboradoPor'),
         revisadoPor: formData.get('revisadoPor'),
@@ -1015,12 +1024,14 @@ const handleInformeAuditoriaSubmit = async (e) => {
       };
       updated = [nuevo, ...safeInformes];
 
-      // 📧 ENVÍO DE CORREO ELECTRÓNICO REAL CON GMAIL CORPORATIVO
+      console.log("🔍 [DIAGNÓSTICO] Evaluando si se debe enviar correo...");
       if (correosNotificacionOut.trim() !== '') {
+        console.log("📬 [DIAGNÓSTICO] Hay correos escritos. Disparando FETCH a EmailJS...");
+        
         const emailParams = {
           ref_consecutivo: refConsecutivo,
-          titulo_informe: formData.get('tituloInput'), // Corregido
-          proceso_auditado: formData.get('procesoInput'), // Corregido
+          titulo_informe: formData.get('tituloInput'),
+          proceso_auditado: formData.get('procesoInput'),
           enlace_pdf: evidenciaUrlOut,
           enlace_acta: actaSocializacionUrlOut || 'No adjunta',
           destinatarios: correosNotificacionOut
@@ -1037,14 +1048,17 @@ const handleInformeAuditoriaSubmit = async (e) => {
           })
         })
         .then((res) => {
+          console.log("📡 [DIAGNÓSTICO] Respuesta cruda de la API de EmailJS:", res.status, res.statusText);
           if (res.ok) {
-            showNotification("Notificación electrónica enviada con éxito a las bandejas de entrada.");
+            showNotification("Notificación electrónica enviada con éxito.");
           } else {
-            console.error("Fallo el envío por EmailJS");
+            console.error("❌ [DIAGNÓSTICO] EmailJS rechazó la petición con código no-ok.");
           }
         })
-        .catch((err) => console.error("Error enviando correo corporativo:", err));
-      }    
+        .catch((err) => console.error("💥 [DIAGNÓSTICO] Error crítico en el fetch de red:", err));
+      } else {
+        console.log("⚠️ [DIAGNÓSTICO] OJO: El campo de correos se leyó VACÍO. Por eso NO se envió el fetch.");
+      }   
     }
     setInformesAuditoria(updated);
     await saveToCloud({ informesAuditoria: updated });
