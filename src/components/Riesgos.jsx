@@ -42,16 +42,39 @@ export default function Riesgos({
           <h3 className="text-xs font-bold text-slate-700 uppercase">{editRiesgo ? `✏️ Editando Riesgo #${editRiesgo.id}` : '➕ Registrar Nuevo Riesgo'}</h3>
           <form onSubmit={handleRiesgoSubmit} key={editRiesgo?.id || 'nuevo-riesgo'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
             
-            <div><label className="font-bold text-gray-600">Sede</label><select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+            <div>
+              <label className="font-bold text-gray-600">Sede</label>
+              <select name="sede" defaultValue={editRiesgo?.sede||'Hotel'} className="w-full border rounded-lg p-2 mt-1 bg-white">
+                <option>Hotel</option>
+                <option>Ecoparque</option>
+                <option>Administrativo</option>
+              </select>
+            </div>
             
-            <div><label className="font-bold text-gray-600">Proceso</label><input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
-            <div><label className="font-bold text-gray-600">Categoría</label><select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option>Operativo</option><option>Estratégico</option><option>Tecnológico</option></select></div>
-            <div><label className="font-bold text-gray-600">Responsable</label><input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" /></div>
+            <div>
+              <label className="font-bold text-gray-600">Proceso</label>
+              <input name="proceso" defaultValue={editRiesgo?.proceso||''} required className="w-full border rounded-lg p-2 mt-1" />
+            </div>
+            
+            <div>
+              <label className="font-bold text-gray-600">Categoría</label>
+              <select name="categoria" defaultValue={editRiesgo?.categoria||'Operativo'} className="w-full border rounded-lg p-2 mt-1 bg-white">
+                <option>Operativo</option>
+                <option>Estratégico</option>
+                <option>Tecnológico</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="font-bold text-gray-600">Responsable</label>
+              <input name="responsable" defaultValue={editRiesgo?.responsable||''} required className="w-full border rounded-lg p-2 mt-1" />
+            </div>
             
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block">Control Clave</label>
               <input name="control" defaultValue={editRiesgo?.descripcionControl||''} required className="w-full border rounded-lg p-2 mt-1" />
             </div>
+            
             <div className="md:col-span-2">
               <label className="font-bold text-purple-700">Normativa / Ley Aplicable</label>
               <input name="normativa" defaultValue={editRiesgo?.normativa||'Ninguna'} placeholder="Ej: Ley 1581, ISO 31000..." required className="w-full border border-purple-300 bg-purple-50 rounded-lg p-2 mt-1" />
@@ -62,10 +85,43 @@ export default function Riesgos({
               <input name="descripcion" defaultValue={editRiesgo?.descripcion||''} required className="w-full border rounded-lg p-2 mt-1" />
             </div>
             
-            <div><label className="font-bold text-gray-600">Prob. Inherente</label><select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>
-            <div><label className="font-bold text-gray-600">Imp. Inherente</label><select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico</option></select></div>
-<div><label className="font-bold text-gray-600">Prob. Residual</label><select name="probRes" defaultValue={editRiesgo?.probabilidadResidual||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Rara">Rara</option><option value="Posible">Posible</option><option value="Frecuente">Frecuente</option></select></div>            
-            <div><label className="font-bold text-gray-600">Imp. Residual</label><select name="impRes" defaultValue={editRiesgo?.impactoResidual||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white"><option value="Bajo">Bajo</option><option value="Medio">Medio</option><option value="Alto">Alto</option><option value="Crítico</option></select></div>
+            <div>
+              <label className="font-bold text-gray-600">Prob. Inherente</label>
+              <select name="probInh" defaultValue={editRiesgo?.probabilidadInherente||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white">
+                <option value="Rara">Rara</option>
+                <option value="Posible">Posible</option>
+                <option value="Frecuente">Frecuente</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="font-bold text-gray-600">Imp. Inherente</label>
+              <select name="impInh" defaultValue={editRiesgo?.impactoInherente||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white">
+                <option value="Bajo">Bajo</option>
+                <option value="Medio">Medio</option>
+                <option value="Alto">Alto</option>
+                <option value="Crítico">Crítico</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="font-bold text-gray-600">Prob. Residual</label>
+              <select name="probRes" defaultValue={editRiesgo?.probabilidadResidual||'Posible'} className="w-full border rounded-lg p-2 mt-1 bg-white">
+                <option value="Rara">Rara</option>
+                <option value="Posible">Posible</option>
+                <option value="Frecuente">Frecuente</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="font-bold text-gray-600">Imp. Residual</label>
+              <select name="impRes" defaultValue={editRiesgo?.impactoResidual||'Medio'} className="w-full border rounded-lg p-2 mt-1 bg-white">
+                <option value="Bajo">Bajo</option>
+                <option value="Medio">Medio</option>
+                <option value="Alto">Alto</option>
+                <option value="Crítico">Crítico</option>
+              </select>
+            </div>
             
             <div className="md:col-span-4 flex justify-end space-x-2">
               <button type="submit" className="bg-blue-600 text-white font-bold px-6 py-2 rounded-lg shadow-md">Guardar</button>
