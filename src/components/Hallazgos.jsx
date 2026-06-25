@@ -59,4 +59,114 @@ export default function Hallazgos({
               <label className="font-black text-rose-800 uppercase tracking-widest text-[10px] block mb-1.5">Paso 2: Pega el enlace de la evidencia aquí</label>
               <input type="url" name="evidenciaUrlInput" defaultValue={editHallazgo?.evidenciaUrl||''} placeholder="Ej: https://drive.google.com/file/d/1a2b3c..." className="w-full border border-rose-200 bg-white rounded-lg p-2.5 text-xs shadow-inner focus:ring-2 focus:ring-rose-500 outline-none transition-all" />
             </div>
-            {editHallazgo?.
+            {editHallazgo?.evidenciaUrl && (
+              <div className="mt-3 flex space-x-2 border-t border-rose-100 pt-2">
+                <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-rose-100 text-rose-800 rounded-lg text-[10px] font-bold hover:bg-rose-200 shadow-sm transition-colors">
+                  👁️ Abrir Enlace Actual
+                </a>
+              </div>
+            )}
+          </div>
+          
+          <div className="md:col-span-4 flex justify-end items-end">
+            <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-md transition-all w-full md:w-auto">
+              {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">DESVIACIONES</h3>
+           <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-64 shadow-sm" />
+           </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left divide-y divide-slate-100">
+            <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
+              <tr>
+                <th className="p-4">
+                  <div>ID / REF</div>
+                  <FilterInput colKey="ref" placeholder="Identificación..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>PROCESO</div>
+                  <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 w-1/3">
+                  <div>TÍTULO E INFORMES</div>
+                  <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4">
+                  <div>RESPONSABLES</div>
+                  <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+                <th className="p-4 text-center">
+                  <div>ESTADO / GESTIÓN</div>
+                  <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {applyFilters(hFiltrados, searchTerm, columnFilters).map((h, index) => (
+                <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-4">
+                    <div className="font-black text-slate-800 text-sm">{h.ref}</div>
+                    <div className="text-[9px] text-slate-400 font-mono mt-0.5">INT-#{h.id}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-bold text-slate-700">{h.proceso}</div>
+                    <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-0.5">{h.sede || 'Hotel'}</div>
+                  </td>
+                  <td className="p-4">
+                    <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
+                    {h.evidenciaUrl ? (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
+                          <span>🔗</span><span>Abrir Enlace</span>
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
+                    )}
+                  </td>
+                  <td className="p-4">
+                    <div className="text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <div className="mb-1"><span className="font-bold text-slate-400 uppercase">Auditor:</span> <span className="font-black text-slate-700">{h.auditor || 'N/A'}</span></div>
+                      <div><span className="font-bold text-slate-400 uppercase">Dueño:</span> <span className="font-black text-slate-700">{h.responsable}</span></div>
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <span className={`px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest block mx-auto w-max mb-3 ${h.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {h.estado}
+                    </span>
+                    
+                    <div className="flex justify-center items-center space-x-2 border-t border-slate-100 pt-3">
+                      {/* 🔓 EL BOTÓN EDITAR YA NO TIENE CANDADO */}
+                      <button onClick={() => {setEditHallazgo(h); setFormResetKey(Date.now()); scrollToForm();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
+                        ✏️ Editar
+                      </button>
+                      
+                      {/* 🔒 EL BOTÓN ELIMINAR SIGUE BLOQUEADO PARA JEFES DE ÁREA */}
+                      {isAdmin && (
+                        <>
+                          <span className="text-slate-300">|</span>
+                          <button onClick={() => handleDeleteItem('hallazgos', h.id)} className="text-slate-500 hover:text-red-600 transition-colors" title="Eliminar">
+                            🗑️ Eliminar
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
