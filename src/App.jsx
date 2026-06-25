@@ -29,7 +29,7 @@ import DashboardRiesgos from './components/DashboardRiesgos';
 // =====================================================================
 // 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
 // =====================================================================
-
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 // --- CONTROL DE ACCESO (ROLES) ---
 const ADMIN_EMAILS = [
   "controlinterno@termales.com.co",
@@ -216,23 +216,72 @@ export default function App() {
   const [aiModal, setAiModal] = useState(null);
   const [chartDetail, setChartDetail] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+// 🔐 ESTADOS DE AUTENTICACIÓN
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
 
+  // ✏️ ESTADOS DE EDICIÓN Y COMPONENTES
+  const [editRiesgo, setEditRiesgo] = useState(null);
+  const [editPlan, setEditPlan] = useState(null);
+  const [editEvaluacion, setEditEvaluacion] = useState(null);
+  const [editHallazgo, setEditHallazgo] = useState(null);
+  const [editIncidente, setEditIncidente] = useState(null);
+  const [editCronograma, setEditCronograma] = useState(null);
+  const [editApetito, setEditApetito] = useState(null);
+  const [editMonitoreo, setEditMonitoreo] = useState(null);
+  const [activeTooltip, setActiveTooltip] = useState(null);
 // --- NUEVOS ESTADOS PARA INFORMES DE AUDITORÍA ---
   const [informesAuditoria, setInformesAuditoria] = useState([]);
   const [editInformeAuditoria, setEditInformeAuditoria] = useState(null);
 
-  // --- SELECCIÓN MÚLTIPLE DE FECHAS ACTIVADA ---
- // --- FILTROS DE PERIODICIDAD INDEPENDIENTES POR MÓDULO ---
+ // =====================================================================
+  // ⚙️ ENTIDADES PRINCIPALES (ESTADOS DE BASE DE DATOS)
+  // =====================================================================
+  const [riesgos, setRiesgos] = useState([]);
+  const [hallazgos, setHallazgos] = useState([]);
+  const [planes, setPlanes] = useState([]);
+  const [incidentes, setIncidentes] = useState([]);
+  const [evaluaciones, setEvaluaciones] = useState([]);
+  const [cronograma, setCronograma] = useState([]);
+  const [monitoreo, setMonitoreo] = useState([]);
+
+  const safeRiesgos = Array.isArray(riesgos) ? riesgos : [];
+  const safeHallazgos = Array.isArray(hallazgos) ? hallazgos : [];
+  const safePlanes = Array.isArray(planes) ? planes : [];
+  const safeIncidentes = Array.isArray(incidentes) ? incidentes : [];
+  const safeEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
+  const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
+  const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
+
+  // =====================================================================
+  // 🗓️ FILTROS DE PERIODICIDAD INTELIGENTES Y ABIERTOS
+  // =====================================================================
   const [periodFilters, setPeriodFilters] = useState({});
-  
-  const defaultAnios = [new Date().getFullYear(), new Date().getFullYear() + 1];
+
+  // 🔥 ESCÁNER DINÁMICO: Encuentra automáticamente todos los años con datos + año actual
+  const defaultAnios = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1]); // Asegura histórico, actual y futuro próximo
+
+    // Extrae dinámicamente cualquier año registrado en tus módulos
+    safeRiesgos.forEach(r => r.anio && yearsSet.add(Number(r.anio)));
+    safeHallazgos.forEach(h => h.anio && yearsSet.add(Number(h.anio)));
+    safePlanes.forEach(p => p.anio && yearsSet.add(Number(p.anio)));
+    safeIncidentes.forEach(i => i.anio && yearsSet.add(Number(i.anio)));
+    safeCronograma.forEach(c => c.anio && yearsSet.add(Number(c.anio)));
+
+    // Devuelve la lista ordenada de menor a mayor
+    return Array.from(yearsSet).sort((a, b) => a - b);
+  }, [safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma]);
+
   const defaultMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-  // El sistema lee la pestaña activa y saca su filtro correspondiente (o le da los valores por defecto)
+  // El sistema lee la pestaña activa y saca su filtro correspondiente
   const selectedAnios = periodFilters[activeTab]?.anios || defaultAnios;
   const selectedMeses = periodFilters[activeTab]?.meses || defaultMeses;
 
-  // Secuestramos los actualizadores originales para guardarlos en el diccionario de la pestaña actual
   const setSelectedAnios = (valOrFunc) => {
     setPeriodFilters(prev => {
       const cur = prev[activeTab] || { anios: defaultAnios, meses: defaultMeses };
@@ -246,39 +295,6 @@ export default function App() {
       return { ...prev, [activeTab]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
     });
   };
-
-  // --- ENTIDADES PRINCIPALES ---
-  const [riesgos, setRiesgos] = useState([]);
-  const [hallazgos, setHallazgos] = useState([]);
-  const [planes, setPlanes] = useState([]);
-  const [incidentes, setIncidentes] = useState([]);
-  const [evaluaciones, setEvaluaciones] = useState([]);
-  const [cronograma, setCronograma] = useState([]);
-  const [monitoreo, setMonitoreo] = useState([]);
-
-  // --- CONTROL FORMULARIOS MODAL / EDICIÓN ---
-  const [editRiesgo, setEditRiesgo] = useState(null);
-  const [editEvaluacion, setEditEvaluacion] = useState(null);
-  const [editHallazgo, setEditHallazgo] = useState(null);
-  const [editPlan, setEditPlan] = useState(null);
-  const [editIncidente, setEditIncidente] = useState(null);
-  const [editApetito, setEditApetito] = useState(null); 
-  const [activeTooltip, setActiveTooltip] = useState(null);
-  const [editCronograma, setEditCronograma] = useState(null); 
-  const [editMonitoreo, setEditMonitoreo] = useState(null);
-
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [authError, setAuthError] = useState('');
-
-  const safeRiesgos = Array.isArray(riesgos) ? riesgos : [];
-  const safeHallazgos = Array.isArray(hallazgos) ? hallazgos : [];
-  const safePlanes = Array.isArray(planes) ? planes : [];
-  const safeIncidentes = Array.isArray(incidentes) ? incidentes : [];
-  const safeEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
-  const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
-  const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
   // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
