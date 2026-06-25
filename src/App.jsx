@@ -1430,16 +1430,16 @@ const renderPlanes = () => {
                 destinatarios: 'controlinterno@termales.com.co' // Correo del administrador
               };
 
-              fetch('https://api.emailjs.com/api/v1.0/email/send', {
+fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
-                  template_id: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+                  template_id: "template_dwr658j", // <-- AQUÍ PEGAMOS TU NUEVO ID
                   user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, 
                   accessToken: import.meta.env.VITE_EMAILJS_PRIVATE_KEY, 
                   template_params: emailParams
-                })
+                })              
               }).catch(e => console.error("Error silencioso EmailJS:", e));
             }
 
