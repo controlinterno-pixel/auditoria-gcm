@@ -126,14 +126,36 @@ export default function Apetito({
 
               <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                 <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
-                <label className="font-bold text-blue-900 block mb-1">🎯 Apetito de Riesgo (Deseado)</label>
-                <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Pérdida esperada aceptable" className="w-full border border-blue-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-0" />
+                
+                {/* 1. CAPACIDAD DE RIESGO */}
+                <div className="relative group mb-4">
+                  <label className="font-black text-red-700 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1">
+                    <span>🛑 Capacidad de Riesgo (Límite)</span>
+                    <span className="text-red-400 cursor-help text-sm" title="Nivel MÁXIMO absoluto de riesgo que la empresa puede soportar antes de quebrar o fallar catastróficamente.">ℹ️</span>
+                  </label>
+                  <p className="text-[9px] text-slate-500 mb-1 leading-tight">Límite de supervivencia (Ej: Pérdida {">"} $500M = Quiebra).</p>
+                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Ej: 50000000" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
+                </div>
 
-                <label className="font-bold text-amber-700 block mb-1">⚠️ Tolerancia al Riesgo (Desv. Máx)</label>
-                <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Pérdida máxima tolerada" className="w-full border border-amber-200 rounded-lg p-2 mb-4 bg-white shadow-sm relative z-0" />
+                {/* 2. TOLERANCIA FINANCIERA */}
+                <div className="relative group mb-4">
+                  <label className="font-black text-amber-700 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1">
+                    <span>⚠️ Tolerancia Financiera (Desv. Máx)</span>
+                    <span className="text-amber-500 cursor-help text-sm" title="Límite de desviación aceptable frente a los objetivos estratégicos. Debe ser MENOR a la Capacidad.">ℹ️</span>
+                  </label>
+                  <p className="text-[9px] text-slate-500 mb-1 leading-tight">Desviación máxima permitida (Alerta Roja Gerencial).</p>
+                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Ej: 30000000" className="w-full border border-amber-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
+                </div>
 
-                <label className="font-bold text-red-700 block mb-1">🛑 Capacidad de Riesgo (Límite)</label>
-                <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Pérdida catastrófica" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
+                {/* 3. APETITO FINANCIERO */}
+                <div className="relative group">
+                  <label className="font-black text-blue-900 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1">
+                    <span>🎯 Apetito Financiero (Deseado)</span>
+                    <span className="text-blue-500 cursor-help text-sm" title="El nivel de riesgo que Termales está dispuesto a aceptar ACTIVAMENTE para generar valor. Debe ser MENOR a la Tolerancia.">ℹ️</span>
+                  </label>
+                  <p className="text-[9px] text-slate-500 mb-1 leading-tight">Riesgo ideal a asumir (Zona Verde de Operación).</p>
+                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Ej: 10000000" className="w-full border border-blue-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
+                </div>
               </div>
 
               <div className="md:col-span-2 bg-purple-50/50 p-4 rounded-2xl border border-purple-100 shadow-inner mt-4">
