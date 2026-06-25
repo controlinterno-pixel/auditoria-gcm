@@ -6,7 +6,6 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
-// 🔥 NUEVA CONEXIÓN MODULAR A FIREBASE
 import { auth, db } from './services/firebase';
 import { obtenerSugerenciaIA, obtenerAnalisisEvidenciaIA } from './services/gemini';
 import { 
@@ -26,11 +25,8 @@ import PlanAnual from './components/PlanAnual';
 import Tablero from './components/Tablero';
 import DashboardRiesgos from './components/DashboardRiesgos';
 
-// =====================================================================
-// 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
-// =====================================================================
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-// --- CONTROL DE ACCESO (ROLES) ---
+
 const ADMIN_EMAILS = [
   "controlinterno@termales.com.co",
   "auditoria@termales.com.co",
@@ -38,11 +34,6 @@ const ADMIN_EMAILS = [
   "analista.controlinterno@termales.com.co"
 ];
 
-// =====================================================================
-// 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
-// =====================================================================
-
-// --- COMPONENTES VISUALES ---
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
   let color = "bg-red-500";
@@ -143,7 +134,6 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
   );
 };
 
-// --- DATOS POR DEFECTO ACTUALIZADOS DE LA IMAGEN (20 PROCESOS) ---
 const defaultCronograma = [
   { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] },
   { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 100, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },
@@ -216,15 +206,14 @@ export default function App() {
   const [aiModal, setAiModal] = useState(null);
   const [chartDetail, setChartDetail] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-// 🚪 ESTADO PARA EL LOBBY DE JEFES DE ÁREA
+  
   const [inLobby, setInLobby] = useState(true);
-// 🔐 ESTADOS DE AUTENTICACIÓN
+
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
 
-  // ✏️ ESTADOS DE EDICIÓN Y COMPONENTES
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editPlan, setEditPlan] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
@@ -234,13 +223,10 @@ export default function App() {
   const [editApetito, setEditApetito] = useState(null);
   const [editMonitoreo, setEditMonitoreo] = useState(null);
   const [activeTooltip, setActiveTooltip] = useState(null);
-// --- NUEVOS ESTADOS PARA INFORMES DE AUDITORÍA ---
+
   const [informesAuditoria, setInformesAuditoria] = useState([]);
   const [editInformeAuditoria, setEditInformeAuditoria] = useState(null);
 
- // =====================================================================
-  // ⚙️ ENTIDADES PRINCIPALES (ESTADOS DE BASE DE DATOS)
-  // =====================================================================
   const [riesgos, setRiesgos] = useState([]);
   const [hallazgos, setHallazgos] = useState([]);
   const [planes, setPlanes] = useState([]);
@@ -257,30 +243,23 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
-  // =====================================================================
-  // 🗓️ FILTROS DE PERIODICIDAD INTELIGENTES Y ABIERTOS
-  // =====================================================================
   const [periodFilters, setPeriodFilters] = useState({});
 
-  // 🔥 ESCÁNER DINÁMICO: Encuentra automáticamente todos los años con datos + año actual
   const defaultAnios = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1]); // Asegura histórico, actual y futuro próximo
+    const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1]); 
 
-    // Extrae dinámicamente cualquier año registrado en tus módulos
     safeRiesgos.forEach(r => r.anio && yearsSet.add(Number(r.anio)));
     safeHallazgos.forEach(h => h.anio && yearsSet.add(Number(h.anio)));
     safePlanes.forEach(p => p.anio && yearsSet.add(Number(p.anio)));
     safeIncidentes.forEach(i => i.anio && yearsSet.add(Number(i.anio)));
     safeCronograma.forEach(c => c.anio && yearsSet.add(Number(c.anio)));
 
-    // Devuelve la lista ordenada de menor a mayor
     return Array.from(yearsSet).sort((a, b) => a - b);
   }, [safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma]);
 
   const defaultMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-  // El sistema lee la pestaña activa y saca su filtro correspondiente
   const selectedAnios = periodFilters[activeTab]?.anios || defaultAnios;
   const selectedMeses = periodFilters[activeTab]?.meses || defaultMeses;
 
@@ -298,7 +277,6 @@ export default function App() {
     });
   };
 
-  // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
     setSearchTerm('');
     setColumnFilters({});
@@ -332,8 +310,7 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-// 🚧 MOSTRAR EL LOBBY SI NO ES ADMIN Y AÚN NO HA HECHO CLIC EN INGRESAR
-      setIsCloudLoaded(false);
+    setIsCloudLoaded(false);
     const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
     return onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
@@ -345,7 +322,7 @@ export default function App() {
         setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
         setCronograma(data.cronograma || defaultCronograma);
         setMonitoreo(data.monitoreo || defaultMonitoreo);
-setInformesAuditoria(data.informesAuditoria || []);
+        setInformesAuditoria(data.informesAuditoria || []);
       } else {
         if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
            setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [] });
@@ -365,18 +342,34 @@ setInformesAuditoria(data.informesAuditoria || []);
   }, []);
 
   const handleAuthSubmit = async (e) => {
-    e.preventDefault(); setAuthError('');
+    e.preventDefault(); 
+    setAuthError('');
     try {
-      if (isRegistering) { await createUserWithEmailAndPassword(auth, authEmail, authPassword); }
-      else { await signInWithEmailAndPassword(auth, authEmail, authPassword); }
-    } catch (error) { setAuthError('Error en credenciales.'); }
+      if (isRegistering) { 
+        await createUserWithEmailAndPassword(auth, authEmail, authPassword); 
+      } else { 
+        await signInWithEmailAndPassword(auth, authEmail, authPassword); 
+      }
+    } catch (error) { 
+      console.error("Error de Auth Firebase:", error.code);
+      if (error.code === 'auth/email-already-in-use') {
+        setAuthError('Este correo ya está registrado. Cambie a "Iniciar Sesión".');
+      } else if (error.code === 'auth/weak-password') {
+        setAuthError('La contraseña es muy débil. Debe tener mínimo 6 caracteres.');
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        setAuthError('Correo o contraseña incorrectos. Verifique sus datos.');
+      } else if (error.code === 'auth/user-not-found') {
+        setAuthError('No existe una cuenta con este correo.');
+      } else {
+        setAuthError('Error: No se pudo autenticar. Verifique su conexión.');
+      }
+    }
   };
 
   const handleLogout = async () => { await signOut(auth); };
   const saveToCloud = async (partialData) => { await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
-  // SOLUCIÓN AL SCROLL DE EDICIÓN: Búsqueda precisa del contenedor central para evitar el salto
   const scrollToForm = () => {
     setTimeout(() => {
       const formEl = document.getElementById('edit-form');
@@ -544,8 +537,8 @@ setInformesAuditoria(data.informesAuditoria || []);
         prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
       }
 
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-       method: 'POST',
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -591,7 +584,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
       Se acaba de adjuntar un archivo de evidencia (Foto o PDF o Enlace) para el siguiente ${tipoItem}: "${contextoItem}".
       Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
 
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -613,7 +606,6 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     }
   };
 
-  // --- FILTRADO GLOBAL COMPACTO (AÑOS Y MESES MÚLTIPLES) ---
   const filterByGlobalPeriod = (item) => {
     const a = getItemAnio(item);
     const m = getItemMesText(item);
@@ -639,7 +631,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
   }, [pFiltrados]);
 
   const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
-const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisión').length;
+  const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisión').length;
   const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
   const pTotal = pFiltrados.length;
   const pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
@@ -651,9 +643,6 @@ const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisi
     return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
   }, [safeEvaluaciones, selectedAnios, selectedMeses]);
 
-// =====================================================================
-  // --- SUBMITS DE ACCIONES CON TRAZABILIDAD DE AUTOR COMPLETA ---
-  // =====================================================================
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -826,7 +815,6 @@ const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisi
       apetitoFinanciero: apetito,
       toleranciaFinanciera: tolerancia,
       capacidadRiesgo: capacidad,
-      // --- NUEVAS DIMENSIONES COSO ERM ---
       impactoOperativo: formData.get('impactoOperativo') || 'No definido',
       impactoReputacional: formData.get('impactoReputacional') || 'No definido',
       impactoLegal: formData.get('impactoLegal') || 'No definido',
@@ -842,8 +830,7 @@ const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisi
     scrollToForm();
   };
 
-const handleDeleteItem = async (listType, id) => {
-    // 👇 ESCUDO DE SEGURIDAD PARA BLOQUEAR ELIMINACIONES 👇
+  const handleDeleteItem = async (listType, id) => {
     if (!isAdmin) {
       showNotification("Acceso denegado: Solo el Administrador puede eliminar registros.", "error");
       return;
@@ -900,9 +887,9 @@ const handleDeleteItem = async (listType, id) => {
     e.target.reset();
   };
 
-const handleInformeAuditoriaSubmit = async (e) => {
+  const handleInformeAuditoriaSubmit = async (e) => {
     e.preventDefault(); 
-    setIsSubmitting(true); // 🛑 PRENDEMOS EL ESTADO DE CARGA Y BLOQUEAMOS BOTÓN
+    setIsSubmitting(true); 
     console.log("🚀 Ejecución global V4 (Con Loading State)...");
     
     try {
@@ -936,7 +923,6 @@ const handleInformeAuditoriaSubmit = async (e) => {
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf);
         setEditInformeAuditoria(null);
       } else {
-        // 🛡️ Lógica robusta: Busca el número más alto usado para no repetir consecutivos
         const ultimo = Math.max(
           ...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)),
           0
@@ -953,7 +939,6 @@ const handleInformeAuditoriaSubmit = async (e) => {
         updated = [nuevo, ...safeInformes];
       }
 
-      // 📧 DISPARADOR GLOBAL DE EMAILJS CON ESPERA (AWAIT)
       if (correosNotificacionOut !== '') {
         console.log("📡 Disparando Fetch hacia la API de EmailJS para: " + correosNotificacionOut);
         const emailParams = {
@@ -982,7 +967,6 @@ const handleInformeAuditoriaSubmit = async (e) => {
         console.log("⚠️ No hay correos en la casilla, omitiendo EmailJS.");
       }   
 
-      // Guardado final
       setInformesAuditoria(updated);    
       await saveToCloud({ informesAuditoria: updated });
       e.target.reset();
@@ -992,10 +976,11 @@ const handleInformeAuditoriaSubmit = async (e) => {
       console.error("Error crítico al procesar informe:", error);
       showNotification("Hubo un error al procesar la solicitud.", "error");
     } finally {
-      setIsSubmitting(false); // ✅ APAGAMOS EL ESTADO DE CARGA Y DESBLOQUEAMOS BOTÓN (Incluso si falló)
+      setIsSubmitting(false); 
     }
   };  
-const renderHeaderFiltros = (titulo, subtitulo) => (
+
+  const renderHeaderFiltros = (titulo, subtitulo) => (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
       <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1036,11 +1021,7 @@ const renderHeaderFiltros = (titulo, subtitulo) => (
     </div>
   );
 
-  // =====================================================================
-  // RENDERS DE VISTAS (ADMIN INTERFACE)
-  // =====================================================================
-
-const renderInformesAuditoria = () => {
+  const renderInformesAuditoria = () => {
     const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
     
     return (
@@ -1075,19 +1056,17 @@ const renderInformesAuditoria = () => {
               
               <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Líderes y convocados)</label><input name="socializadoCon" defaultValue={editInformeAuditoria?.socializadoCon||''} placeholder="Ej: Comité de Auditoría, Gerencia General, Jefe de Compras..." className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
 
-              {/* 📬 CASILLA: PROTOCOLO DE DISTRIBUCIÓN DE CORREOS */}
-<div className="md:col-span-4 bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
-  <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 Distribución por Correo Electrónico (Notificación Inmediata)</label>
-  <input 
-    name="correosNotificacionInput" // <--- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ EXACTAMENTE ASÍ
-    type="text" 
-    placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" 
-    className="w-full border border-blue-300 bg-white rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700" 
-  />
-  <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
-</div>
+              <div className="md:col-span-4 bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
+                <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 Distribución por Correo Electrónico (Notificación Inmediata)</label>
+                <input 
+                  name="correosNotificacionInput" 
+                  type="text" 
+                  placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" 
+                  className="w-full border border-blue-300 bg-white rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700" 
+                />
+                <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
+              </div>
 
-              {/* REPOSITORIO DE CARGA DRIVE / ONEDRIVE AMPLIADO (INFORME + ACTA) */}
               <div className="md:col-span-4 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 flex justify-between items-center border-b pb-2 border-slate-200">
                   <div>
@@ -1109,14 +1088,14 @@ const renderInformesAuditoria = () => {
                 </div>
               </div>
 
-           <div className="md:col-span-4 flex justify-end">
-             <button 
-  type="submit" 
-  disabled={isSubmitting}
-  className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#004d40] hover:bg-[#003d33] text-white cursor-pointer'}`}
->
-  {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen')}
-</button>
+              <div className="md:col-span-4 flex justify-end">
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#004d40] hover:bg-[#003d33] text-white cursor-pointer'}`}
+                >
+                  {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen')}
+                </button>
               </div>
             </form>
           </div>
@@ -1172,10 +1151,7 @@ const renderInformesAuditoria = () => {
                     )}
                     {isAdmin && (
                       <div className="flex justify-center items-center space-x-2 pt-1">
-                      {/* BOTÓN EDITAR (PÚBLICO) */}
                       <button onClick={() => {setEditInformeAuditoria(inf); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏ Editar</button>
-                      
-                      {/* 👇 BOTÓN ELIMINAR (SOLO ADMINS) 👇 */}
                       {isAdmin && (
                         <>
                           <span className="text-slate-200">|</span>
@@ -1194,7 +1170,7 @@ const renderInformesAuditoria = () => {
     );
   };
 
-const renderConfiguracion = () => (
+  const renderConfiguracion = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4">
         <h2 className="text-2xl font-black text-slate-800">⚙️ Configuración y Cargas Masivas</h2>
@@ -1214,8 +1190,6 @@ const renderConfiguracion = () => (
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* NUEVO BOTON PARA IMPORTAR MATRIZ RIESGOS DESDE EXCEL */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-600">
           <h3 className="font-black text-emerald-700 uppercase tracking-widest text-sm mb-4">📊 Cargar Matriz de Riesgos (Excel)</h3>
           <p className="text-xs text-slate-600 mb-6">Sube un archivo .xlsx para actualizar masivamente <b>solo la Matriz de Riesgos</b>. Asegúrate de usar la plantilla descargada previamente.</p>
@@ -1267,7 +1241,8 @@ const renderConfiguracion = () => (
       />
     );
   };
-    const renderDashboardRiesgos = () => {
+
+  const renderDashboardRiesgos = () => {
     return (
       <DashboardRiesgos 
         tipoMatriz={tipoMatriz}
@@ -1287,7 +1262,8 @@ const renderConfiguracion = () => (
       />
     );
   };
-const renderPlanAnual = () => {
+
+  const renderPlanAnual = () => {
     return (
       <PlanAnual 
         isAdmin={isAdmin}
@@ -1314,6 +1290,7 @@ const renderPlanAnual = () => {
       />
     );
   };  
+
   const renderRiesgos = () => {
     return (
       <Riesgos 
@@ -1337,7 +1314,8 @@ const renderPlanAnual = () => {
       />
     );
   };
-const renderApetito = () => {
+
+  const renderApetito = () => {
     return (
       <Apetito 
         isAdmin={isAdmin}
@@ -1361,13 +1339,14 @@ const renderApetito = () => {
       />
     );
   };
+
   const renderEvaluaciones = () => {
     return (
       <Evaluaciones 
         isAdmin={isAdmin}
         editEvaluacion={editEvaluacion}
         setEditEvaluacion={setEditEvaluacion}
-        handleAuthorizationSubmit={handleEvaluacionSubmit} // Asegura que invoque handleEvaluacionSubmit
+        handleAuthorizationSubmit={handleEvaluacionSubmit} 
         handleEvaluacionSubmit={handleEvaluacionSubmit}
         safeRiesgos={safeRiesgos}
         user={user}
@@ -1386,6 +1365,7 @@ const renderApetito = () => {
       />
     );
   };
+
   const renderHallazgos = () => {
     return (
       <Hallazgos 
@@ -1407,7 +1387,7 @@ const renderApetito = () => {
     );
   };
 
-const renderPlanes = () => {
+  const renderPlanes = () => {
     return (
       <Planes 
         isAdmin={isAdmin}
@@ -1452,24 +1432,22 @@ const renderPlanes = () => {
             setEditPlan(planModificado);
             setFormResetKey(Date.now());
 
-            // 📧 DISPARADOR DE EMAILJS AUTOMÁTICO
             if (nuevoEstadoWorkflow === 'En Revisión') {
-              // Notificamos al administrador principal
               const emailParams = {
                 ref_consecutivo: `PLAN-${id}`,
                 titulo_informe: 'Alerta: Plan de Acción listo para revisión',
                 proceso_auditado: planModificado.accion.substring(0, 50) + '...',
                 enlace_pdf: 'Revisa la plataforma GCM Auditor',
                 enlace_acta: 'N/A',
-                destinatarios: 'controlinterno@termales.com.co' // Correo del administrador
+                destinatarios: 'controlinterno@termales.com.co' 
               };
 
-fetch('https://api.emailjs.com/api/v1.0/email/send', {
+              fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
-                  template_id: "template_dwr658j", // <-- AQUÍ PEGAMOS TU NUEVO ID
+                  template_id: "template_dwr658j", 
                   user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, 
                   accessToken: import.meta.env.VITE_EMAILJS_PRIVATE_KEY, 
                   template_params: emailParams
@@ -1477,7 +1455,6 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
               }).catch(e => console.error("Error silencioso EmailJS:", e));
             }
 
-            // Mensaje de éxito en pantalla
             if (nuevoEstadoWorkflow === 'En Revisión') {
                showNotification("Plan enviado a revisión y administrador notificado.");
             } else {
@@ -1492,6 +1469,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       />
     );
   };
+
   const renderIncidentes = () => {
     return (
       <Incidentes 
@@ -1513,6 +1491,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       />
     );
   };
+
   const renderInforme = () => {
     return (
       <Trazabilidad 
@@ -1524,6 +1503,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       />
     );
   };
+
   const renderRCSAPortal = () => (
     <div className="min-h-screen bg-slate-100 font-sans text-xs flex flex-col items-center justify-center p-8">
       <div className="bg-white p-12 rounded-3xl shadow-xl max-w-lg text-center border-t-8 border-[#004d40]">
@@ -1542,24 +1522,31 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       </div>
     </div>
   );
-  }
 
+  // 🔐 FORMULARIO DE LOGIN RESTAURADO
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
-        {/* ... código del login ... */}
+        <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
+          <div className="text-center"><span className="text-5xl block animate-bounce">🛡️</span><h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2><p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p></div>
+          <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
+            {authError && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-medium">⚠️ {authError}</div>}
+            <div className="space-y-3">
+              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Correo</label><input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="tu_correo@termales.com.co" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
+              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label><input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••••" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
+            </div>
+            <button type="submit" className="w-full flex justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-xs font-bold text-white shadow-md">{isRegistering ? 'Crear Cuenta' : 'Ingresar al Portal'}</button>
+          </form>
+          <div className="text-center pt-2 border-t"><button onClick={() => {setIsRegistering(!isRegistering); setAuthError('');}} className="text-xs font-bold text-blue-600">{isRegistering ? '¿Ya tiene cuenta? Iniciar Sesión' : '¿No tiene acceso? Regístrese aquí'}</button></div>
+        </div>
       </div>
     );
   }
 
-  // 👇 AQUÍ ES EL LUGAR CORRECTO 👇
+  // 🚧 MOSTRAR EL LOBBY SI NO ES ADMIN Y AÚN NO HA HECHO CLIC EN INGRESAR
   if (!isAdmin && inLobby) return renderRCSAPortal();
   
-  if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
-
-  return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      {/* ... aquí ya empieza a dibujar el menú lateral y la app principal ... */}
+  // ☁️ PANTALLA DE CARGA
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
   return (
@@ -1575,11 +1562,11 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
         </button>
       )}
 
-      {/* SIDEBAR */}
+      {/* SIDEBAR CON FILTRO REPARADO */}
       <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
         
-<nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
@@ -1594,7 +1581,6 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
             { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
             { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
           ]
-          /* 👇 ESTE FILTRO MAGICO OCULTA OPCIONES A LOS NO-ADMINS 👇 */
           .filter(tab => isAdmin || ['tablero', 'riesgos', 'hallazgos', 'planes', 'incidentes', 'apetito', 'informes_auditoria'].includes(tab.id))
           .map((tab, index) => (
             <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
@@ -1636,13 +1622,12 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
             {activeTab === 'planes' && renderPlanes()}
             {activeTab === 'incidentes' && renderIncidentes()}
             {activeTab === 'informe' && renderInforme()}
-                            {activeTab === 'informes_auditoria' && renderInformesAuditoria()}
+            {activeTab === 'informes_auditoria' && renderInformesAuditoria()}
             {activeTab === 'config' && renderConfiguracion()}
           </div>
         </main>
       </div>
 
-      {/* CÓDIGO AÑADIDO: Renderizado del Modal de Inteligencia Artificial */}
       {aiModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
@@ -1661,7 +1646,6 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                   <span>🔗</span> <span>Ver Evidencia</span>
                 </a>
               )}
-
               <button onClick={() => setAiModal(null)} className="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-700 transition-colors">
                 Cerrar Análisis
               </button>
@@ -1669,7 +1653,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
           </div>
         </div>
       )}
-{/* 📊 MODAL DE INFORME DETALLADO POR PUNTO DE GRÁFICA */}
+
       {chartDetail && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
@@ -1696,8 +1680,8 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                           <div className="text-[9px] text-slate-400 font-mono font-bold mt-2 uppercase tracking-wide">Vinculado a Riesgo: #{item.idRiesgo} • Reporta: {item.reportadoPor}</div>
                         </div>
                        <div className="font-mono font-black text-red-600 text-right text-sm whitespace-nowrap bg-red-50 px-3 py-1 rounded-lg border border-red-100">
-  ${Number(item.costo || 0).toLocaleString('es-CO')}
-</div>
+                          ${Number(item.costo || 0).toLocaleString('es-CO')}
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -1729,7 +1713,8 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
           </div>
         </div>
       )}
-{notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
+      
+      {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
   );
 }
