@@ -840,7 +840,12 @@ const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisi
   };
 
 const handleDeleteItem = async (listType, id) => {
-    if (!isAdmin) return;
+    // 👇 ESCUDO DE SEGURIDAD PARA BLOQUEAR ELIMINACIONES 👇
+    if (!isAdmin) {
+      showNotification("Acceso denegado: Solo el Administrador puede eliminar registros.", "error");
+      return;
+    }
+    
     if (!window.confirm('¿Seguro que desea eliminar este registro permanentemente?')) return;
     
     let updated;
@@ -851,11 +856,12 @@ const handleDeleteItem = async (listType, id) => {
     if (listType === 'incidentes') { updated = safeIncidentes.filter(i => i.id !== id); setIncidentes(updated); }
     if (listType === 'cronograma') { updated = safeCronograma.filter(c => c.id !== id); setCronograma(updated); }
     if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
-    if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); } // <--- LÍNEA CORREGIDA
+    if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); } 
     
     await saveToCloud({ [listType]: updated });
     showNotification("Registro eliminado.", "success");
   };
+
   const handleMonitoreoSubmit = async (e) => {
     e.preventDefault(); 
     if (!isAdmin) return;
@@ -1163,10 +1169,17 @@ const renderInformesAuditoria = () => {
                     )}
                     {isAdmin && (
                       <div className="flex justify-center items-center space-x-2 pt-1">
-                        <button onClick={() => {setEditInformeAuditoria(inf); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏ Editar</button>
-                        <span className="text-slate-200">|</span>
-                        <button onClick={() => handleDeleteItem('informesAuditoria', inf.id)} className="text-slate-400 hover:text-red-600 text-xs font-bold">🗑 Eliminar</button>
-                      </div>
+                      {/* BOTÓN EDITAR (PÚBLICO) */}
+                      <button onClick={() => {setEditInformeAuditoria(inf); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏ Editar</button>
+                      
+                      {/* 👇 BOTÓN ELIMINAR (SOLO ADMINS) 👇 */}
+                      {isAdmin && (
+                        <>
+                          <span className="text-slate-200">|</span>
+                          <button onClick={() => handleDeleteItem('informesAuditoria', inf.id)} className="text-slate-400 hover:text-red-600 text-xs font-bold">🗑 Eliminar</button>
+                        </>
+                      )}
+                    </div>
                     )}
                   </td>
                 </tr>
