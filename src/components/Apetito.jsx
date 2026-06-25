@@ -94,6 +94,7 @@ export default function Apetito({
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <h4 className="font-black text-slate-700 uppercase tracking-widest mb-3 border-b pb-2">1. Límites Base (KRI)</h4>
                 
+                {/* TOOLTIP: POSTURA ESTRATÉGICA */}
                 <div className={`mb-1 flex items-center w-max relative ${activeTooltip === 'postura' ? 'z-[100]' : 'z-10'}`}>
                   <label className="font-bold text-gray-700">Postura Estratégica</label>
                   <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'postura' ? null : 'postura')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
@@ -103,10 +104,9 @@ export default function Apetito({
                         <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: Postura Estratégica</span>
                         <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
                       </div>
-                      <div className="mb-3">
-                        <b className="text-blue-300 text-xs block mb-1">¿Qué significa este conceptó?</b>
-                        Define la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico.
-                      </div>
+                      <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Define la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico.</div>
+                      <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Si elegimos "Averso" en temas de seguridad industrial, significa que no se escatimarán gastos en EPPS para evitar accidentes.</div>
+                      <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Alinea la toma de decisiones del área con la voluntad de la Gerencia General.</div>
                     </div>
                   )}
                 </div>
@@ -117,9 +117,21 @@ export default function Apetito({
                   <option value="Buscador">Buscador (Alta aceptación para innovar)</option>
                 </select>
 
+                {/* TOOLTIP: KRI */}
                 <div className={`mb-1 flex items-center w-max relative ${activeTooltip === 'kri' ? 'z-[100]' : 'z-10'}`}>
                   <label className="font-bold text-gray-700">KRI: Puntaje Residual Máx</label>
                   <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'kri' ? null : 'kri')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                  {activeTooltip === 'kri' && (
+                    <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700">
+                      <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                        <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: KRI (Puntaje Máximo)</span>
+                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                      </div>
+                      <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Es el límite de tolerancia aceptable para la calificación residual en la matriz 5x5.</div>
+                      <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Si pones un KRI de 9, y tras evaluar los controles el riesgo queda en 12 (Alto), el sistema reportará una "Ruptura de KRI".</div>
+                      <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Automatiza las banderas rojas en el tablero cuando los controles no están mitigando el riesgo lo suficiente.</div>
+                    </div>
+                  )}
                 </div>
                 <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm relative z-0" />
               </div>
@@ -127,31 +139,64 @@ export default function Apetito({
               <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                 <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
                 
-                {/* 1. CAPACIDAD DE RIESGO */}
-                <div className="relative group mb-4">
-                  <label className="font-black text-red-700 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1">
+                {/* TOOLTIP: CAPACIDAD DE RIESGO */}
+                <div className={`relative group mb-4 ${activeTooltip === 'capacidad' ? 'z-[100]' : 'z-10'}`}>
+                  <label className="font-black text-red-700 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1 w-max relative">
                     <span>🛑 Capacidad de Riesgo (Límite)</span>
-                    <span className="text-red-400 cursor-help text-sm" title="Nivel MÁXIMO absoluto de riesgo que la empresa puede soportar antes de quebrar o fallar catastróficamente.">ℹ️</span>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'capacidad' ? null : 'capacidad')} className="ml-1 text-[12px] text-red-500 hover:scale-125 transition-transform bg-red-50 rounded-full px-1.5 py-0.5 border border-red-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    {activeTooltip === 'capacidad' && (
+                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-red-400 uppercase tracking-widest text-[9px]">Ayuda: Capacidad de Riesgo</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
+                        <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> El nivel MÁXIMO absoluto de riesgo que la empresa puede soportar antes de irse a la quiebra o fallar catastróficamente.</div>
+                        <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Si Termales pierde $500 millones en demandas, no podría pagar nómina ni operar. Esa es su "Capacidad" límite.</div>
+                        <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Marca la "frontera de muerte". Sirve como techo absoluto; ningún otro valor puede ser mayor a este.</div>
+                      </div>
+                    )}
                   </label>
                   <p className="text-[9px] text-slate-500 mb-1 leading-tight">Límite de supervivencia (Ej: Pérdida {">"} $500M = Quiebra).</p>
                   <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Ej: 50000000" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
                 </div>
 
-                {/* 2. TOLERANCIA FINANCIERA */}
-                <div className="relative group mb-4">
-                  <label className="font-black text-amber-700 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1">
+                {/* TOOLTIP: TOLERANCIA FINANCIERA */}
+                <div className={`relative group mb-4 ${activeTooltip === 'tolerancia' ? 'z-[100]' : 'z-10'}`}>
+                  <label className="font-black text-amber-700 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1 w-max relative">
                     <span>⚠️ Tolerancia Financiera (Desv. Máx)</span>
-                    <span className="text-amber-500 cursor-help text-sm" title="Límite de desviación aceptable frente a los objetivos estratégicos. Debe ser MENOR a la Capacidad.">ℹ️</span>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'tolerancia' ? null : 'tolerancia')} className="ml-1 text-[12px] text-amber-600 hover:scale-125 transition-transform bg-amber-50 rounded-full px-1.5 py-0.5 border border-amber-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    {activeTooltip === 'tolerancia' && (
+                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-amber-400 uppercase tracking-widest text-[9px]">Ayuda: Tolerancia Financiera</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
+                        <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Límite de desviación aceptable. Es una "alerta roja gerencial" que indica que se está acercando al desastre.</div>
+                        <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> El presupuesto acepta sobrecostos de hasta $30 millones. Si se pasa de ahí, se frena el proyecto aunque la empresa no quiebre.</div>
+                        <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Define el punto donde la Gerencia debe intervenir de urgencia. (Debe ser MENOR a la Capacidad).</div>
+                      </div>
+                    )}
                   </label>
                   <p className="text-[9px] text-slate-500 mb-1 leading-tight">Desviación máxima permitida (Alerta Roja Gerencial).</p>
                   <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Ej: 30000000" className="w-full border border-amber-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
                 </div>
 
-                {/* 3. APETITO FINANCIERO */}
-                <div className="relative group">
-                  <label className="font-black text-blue-900 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1">
+                {/* TOOLTIP: APETITO FINANCIERO */}
+                <div className={`relative group mb-4 ${activeTooltip === 'apetito' ? 'z-[100]' : 'z-10'}`}>
+                  <label className="font-black text-blue-900 block mb-1 text-[11px] uppercase tracking-widest flex items-center gap-1 w-max relative">
                     <span>🎯 Apetito Financiero (Deseado)</span>
-                    <span className="text-blue-500 cursor-help text-sm" title="El nivel de riesgo que Termales está dispuesto a aceptar ACTIVAMENTE para generar valor. Debe ser MENOR a la Tolerancia.">ℹ️</span>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'apetito' ? null : 'apetito')} className="ml-1 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    {activeTooltip === 'apetito' && (
+                      <div className="absolute top-full left-0 mt-3 w-[450px] max-h-80 overflow-y-auto p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: Apetito Financiero</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                        </div>
+                        <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> El nivel de riesgo que Termales está dispuesto a aceptar ACTIVAMENTE en el día a día para generar valor (Zona Verde).</div>
+                        <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Aceptamos riesgo de pérdida por $10 millones en insumos operacionales para mantener alta disponibilidad en el hotel de cara a los clientes.</div>
+                        <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Establece el rango de trabajo normal para los Jefes de Área. (Debe ser MENOR a la Tolerancia).</div>
+                      </div>
+                    )}
                   </label>
                   <p className="text-[9px] text-slate-500 mb-1 leading-tight">Riesgo ideal a asumir (Zona Verde de Operación).</p>
                   <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Ej: 10000000" className="w-full border border-blue-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
