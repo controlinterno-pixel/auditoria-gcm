@@ -1550,7 +1550,6 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
     );
   }
 
-  if (!isAdmin) return renderRCSAPortal();
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
   return (
@@ -1569,7 +1568,8 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       {/* SIDEBAR */}
       <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+        
+<nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
@@ -1581,14 +1581,16 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
             { id: 'informe', icon: '📜', label: 'Trazabilidad' },
-                             { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
+            { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
             { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
-          ].map((tab, index) => (
+          ]
+          /* 👇 ESTE FILTRO MAGICO OCULTA OPCIONES A LOS NO-ADMINS 👇 */
+          .filter(tab => isAdmin || ['tablero', 'riesgos', 'hallazgos', 'planes', 'incidentes', 'apetito', 'informes_auditoria'].includes(tab.id))
+          .map((tab, index) => (
             <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
               <div className="flex items-center space-x-2">
                 <span>{tab.icon}</span><span>{tab.label}</span>
               </div>
-              {/* BURBUJA ROJA DE NOTIFICACIÓN PARA PLANES */}
               {tab.id === 'planes' && isAdmin && pendingPlansCount > 0 && (
                 <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
                   {pendingPlansCount}
