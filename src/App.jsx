@@ -1504,47 +1504,39 @@ export default function App() {
     );
   };
 
-  const renderRCSAPortal = () => (
+  const renderLobbyBienvenida = () => (
     <div className="min-h-screen bg-slate-100 font-sans text-xs flex flex-col items-center justify-center p-8">
-      <div className="bg-white p-12 rounded-3xl shadow-xl max-w-lg text-center border-t-8 border-[#004d40]">
-        <h1 className="text-2xl font-black mb-4 text-slate-800">Portal RCSA Jefes de Área</h1>
+      <div className={`bg-white p-12 rounded-3xl shadow-xl max-w-lg text-center border-t-8 ${isAdmin ? 'border-slate-900' : 'border-[#004d40]'}`}>
+        
+        {/* Ícono dinámico */}
+        <div className="text-5xl mb-4">{isAdmin ? '👑' : '🛡️'}</div>
+
+        {/* Título dinámico */}
+        <h1 className="text-2xl font-black mb-4 text-slate-800">
+          {isAdmin ? 'Centro de Mando GRC' : 'Portal RCSA Jefes de Área'}
+        </h1>
+        
+        {/* Mensaje dinámico */}
         <p className="text-slate-500 mb-8 text-sm leading-relaxed">
-          Bienvenido a la vista de Primera Línea de Defensa. A través de este portal, usted podrá gestionar y reportar avances sobre sus Planes de Acción, documentar Eventos de Pérdida y revisar la Matriz de Riesgos correspondiente a su proceso.
+          {isAdmin 
+            ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global de Termales.'
+            : 'Bienvenido a la vista de Primera Línea de Defensa. A través de este portal, usted podrá gestionar y reportar avances sobre sus Planes de Acción, documentar Eventos de Pérdida y revisar la Matriz de Riesgos correspondiente a su proceso.'}
         </p>
+        
         <div className="space-y-4">
-          <button onClick={() => setInLobby(false)} className="bg-[#004d40] text-white px-8 py-3 rounded-xl font-black w-full uppercase tracking-widest hover:bg-[#003d33] transition-colors shadow-md">
-            Ingresar al Sistema
+          <button onClick={() => setInLobby(false)} className={`${isAdmin ? 'bg-slate-900 hover:bg-slate-800' : 'bg-[#004d40] hover:bg-[#003d33]'} text-white px-8 py-3 rounded-xl font-black w-full uppercase tracking-widest transition-colors shadow-md`}>
+            {isAdmin ? 'Acceder al Tablero de Control' : 'Ingresar al Sistema'}
           </button>
           <button onClick={handleLogout} className="bg-slate-100 text-slate-600 border border-slate-200 px-8 py-3 rounded-xl font-bold w-full uppercase tracking-widest hover:bg-slate-200 transition-colors">
             Cerrar Sesión
           </button>
         </div>
+
       </div>
     </div>
   );
-
-  // 🔐 FORMULARIO DE LOGIN RESTAURADO
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
-        <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
-          <div className="text-center"><span className="text-5xl block animate-bounce">🛡️</span><h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2><p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p></div>
-          <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
-            {authError && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-medium">⚠️ {authError}</div>}
-            <div className="space-y-3">
-              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Correo</label><input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="tu_correo@termales.com.co" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
-              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label><input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••••" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
-            </div>
-            <button type="submit" className="w-full flex justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-xs font-bold text-white shadow-md">{isRegistering ? 'Crear Cuenta' : 'Ingresar al Portal'}</button>
-          </form>
-          <div className="text-center pt-2 border-t"><button onClick={() => {setIsRegistering(!isRegistering); setAuthError('');}} className="text-xs font-bold text-blue-600">{isRegistering ? '¿Ya tiene cuenta? Iniciar Sesión' : '¿No tiene acceso? Regístrese aquí'}</button></div>
-        </div>
-      </div>
-    );
-  }
-
-  // 🚧 MOSTRAR EL LOBBY SI NO ES ADMIN Y AÚN NO HA HECHO CLIC EN INGRESAR
-  if (!isAdmin && inLobby) return renderRCSAPortal();
+ // 🚧 MOSTRAR EL LOBBY DE BIENVENIDA A TODOS LOS USUARIOS AL INICIAR SESIÓN
+  if (inLobby) return renderLobbyBienvenida();
   
   // ☁️ PANTALLA DE CARGA
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
