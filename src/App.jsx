@@ -1515,126 +1515,216 @@ useEffect(() => {
       />
     );
   };
+// =====================================================================
+  // 🚧 RECTORÍA DEL LOBBY DE BIENVENIDA (ADMINISTRADOR O JEFE DE ÁREA)
+  // =====================================================================
+  const renderLobbyBienvenida = () => {
+    const isUserAdmin = ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user?.email?.toLowerCase().trim());
+    
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 relative overflow-hidden font-sans text-xs">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(30,41,59,0.5),transparent_70%)] pointer-events-none" />
+        <div className="w-full max-w-xl space-y-8 bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl relative z-10 text-center">
+          <div>
+            <span className="text-6xl block animate-pulse">🏨</span>
+            <h1 className="mt-6 text-4xl font-black text-white tracking-tight">¡Bienvenido al Lobby!</h1>
+            <p className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-2">Sistema Gestión de Riesgos Termales</p>
+          </div>
 
-  const renderLobbyBienvenida = () => (
-    <div className="min-h-screen bg-slate-100 font-sans text-xs flex flex-col items-center justify-center p-8">
-      <div className={`bg-white p-12 rounded-3xl shadow-xl max-w-lg text-center border-t-8 ${isAdmin ? 'border-slate-900' : 'border-[#004d40]'}`}>
-        
-        {/* Ícono dinámico */}
-        <div className="text-5xl mb-4">{isAdmin ? '👑' : '🛡️'}</div>
+          <div className="bg-slate-850/50 border border-slate-800 rounded-2xl p-6 text-left space-y-4">
+            <div className="flex items-center space-x-4">
+              <div className="h-12 w-12 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner border border-slate-700">👤</div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Usuario Autenticado</p>
+                <p className="text-sm font-bold text-slate-200">{user?.email}</p>
+              </div>
+            </div>
 
-        {/* Título dinámico */}
-        <h1 className="text-2xl font-black mb-4 text-slate-800">
-          {isAdmin ? 'Centro de Mando GRC' : 'Portal RCSA Jefes de Área'}
-        </h1>
+            <div className="flex items-center space-x-4 pt-3 border-t border-slate-800/60">
+              <div className="h-12 w-12 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner border border-slate-700">
+                {isUserAdmin ? '🔑' : '📋'}
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Perfil Asignado</p>
+                <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider mt-1 ${
+                  isUserAdmin ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                }`}>
+                  {isUserAdmin ? 'Administrador General' : 'Jefe de Área / Auditor'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
+            {isUserAdmin 
+              ? 'Tiene acceso total para modificar matrices, parametrizar la severidad y auditar todos los procesos de la organización.' 
+              : 'Su perfil le permite visualizar tableros, registrar incidentes y dar seguimiento a los planes de acción asignados.'}
+          </p>
+
+          <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+            <button onClick={() => setInLobby(false)} className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-6 py-3.5 text-xs font-black text-white uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98]">
+              Ingresar a la Plataforma ⚡
+            </button>
+            <button onClick={() => signOut(auth)} className="rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-6 py-3.5 text-xs font-black text-slate-300 uppercase tracking-widest transition-all">
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // =====================================================================
+  // 🔐 CONTROL DE ACCESO INTERNO (ESCALERA LÓGICA DE FILTROS)
+  // =====================================================================
+
+  // 1️⃣ FILTRO 1: Si no hay sesión iniciada, muestra el formulario de Login de inmediato
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12 font-sans text-xs">
+        <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
+          <div className="text-center">
+            <span className="text-5xl block animate-bounce">🛡️</span>
+            <h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2>
+            <p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p>
+          </div>
+          <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
+            {authError && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-medium">⚠️ {authError}</div>}
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Correo Electrónico</label>
+                <input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="tu_correo@termales.com.co" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label>
+                <input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••••" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/>
+              </div>
+            </div>
+            <button type="submit" className="w-full flex justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-xs font-bold text-white shadow-md">
+              {isRegistering ? 'Crear Cuenta' : 'Ingresar al Portal'}
+            </button>
+          </form>
+          <div className="text-center pt-2 border-t">
+            <button onClick={() => {setIsRegistering(!isRegistering); setAuthError('');}} className="text-xs font-bold text-blue-600">
+              {isRegistering ? '¿Ya tiene cuenta? Iniciar Sesión' : '¿No tiene acceso? Regístrese aquí'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2️⃣ FILTRO 2: Si ya se inició sesión, pero Firebase está descargando los datos, muestra el cargador
+  if (!isCloudLoaded) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4 font-sans text-xs">
+        <span className="text-6xl animate-bounce">☁️</span>
+        <h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2>
+      </div>
+    );
+  }
+
+  // 3️⃣ FILTRO 3: Si los datos están listos, pero sigue en el Lobby, renderiza el letrero de bienvenida
+  if (inLobby) {
+    return renderLobbyBienvenida();
+  }
+
+  // =====================================================================
+  // 🌟 RENDER PRINCIPAL DE LA PLATAFORMA (Solo si superó los 3 filtros)
+  // =====================================================================
+  return (
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden text-xs text-slate-700">
+      {/* SIDEBAR / MENU LATERAL */}
+      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0 select-none">
+        <div className="p-6 border-b border-slate-800 flex items-center space-x-3 bg-slate-950/40">
+          <span className="text-2xl">🌋</span>
+          <div>
+            <h1 className="text-sm font-black tracking-wider text-white uppercase">Termales GRC</h1>
+            <p className="text-[9px] text-blue-400 font-bold tracking-widest uppercase mt-0.5">Auditoría v5.2</p>
+          </div>
+        </div>
         
-        {/* Mensaje dinámico */}
-        <p className="text-slate-500 mb-8 text-sm leading-relaxed">
-          {isAdmin 
-            ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global de Termales.'
-            : 'Bienvenido a la vista de Primera Línea de Defensa. A través de este portal, usted podrá gestionar y reportar avances sobre sus Planes de Acción, documentar Eventos de Pérdida y revisar la Matriz de Riesgos correspondiente a su proceso.'}
-        </p>
-        
-        <div className="space-y-4">
-          <button onClick={() => setInLobby(false)} className={`${isAdmin ? 'bg-slate-900 hover:bg-slate-800' : 'bg-[#004d40] hover:bg-[#003d33]'} text-white px-8 py-3 rounded-xl font-black w-full uppercase tracking-widest transition-colors shadow-md`}>
-            {isAdmin ? 'Acceder al Tablero de Control' : 'Ingresar al Sistema'}
-          </button>
-          <button onClick={handleLogout} className="bg-slate-100 text-slate-600 border border-slate-200 px-8 py-3 rounded-xl font-bold w-full uppercase tracking-widest hover:bg-slate-200 transition-colors">
-            Cerrar Sesión
+        <div className="p-4 border-b border-slate-800/60 bg-slate-950/20">
+          <div className="flex items-center space-x-3">
+            <div className="h-8 w-8 rounded-lg bg-slate-800 flex items-center justify-center text-xs border border-slate-700 shadow-inner">👤</div>
+            <div className="truncate flex-1">
+              <p className="text-[10px] font-bold text-slate-400 truncate">{user?.email}</p>
+              <p className="text-[8px] font-black tracking-widest text-blue-400 uppercase mt-0.5">
+                {isAdmin ? 'Administrador' : 'Jefe de Área'}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => signOut(auth)} className="w-full mt-3 flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 border border-slate-700/50 text-[9px] font-black uppercase tracking-widest transition-all">
+            <span>Cerrar Sesión</span>
           </button>
         </div>
 
-      </div>
-    </div>
-  );
-// 1️⃣ PRIMERO: ☁️ PANTALLA DE CARGA (Para que descargue todo de fondo)
-  if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
-
-  // 2️⃣ SEGUNDO: 🚧 MOSTRAR EL LOBBY DE BIENVENIDA AL TERMINAR DE CARGAR
-  if (inLobby) return renderLobbyBienvenida();
-
-  return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      
-      {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
-      {isPresentationMode && (
-        <button 
-          onClick={() => setIsPresentationMode(false)} 
-          className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 flex items-center space-x-2 border-2 border-slate-700 animate-in slide-in-from-bottom-10"
-        >
-          <span>✖</span><span>Salir de Presentación</span>
-        </button>
-      )}
-
-      {/* SIDEBAR CON FILTRO REPARADO */}
-      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
-        <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-        
-        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+        <nav className="flex-1 overflow-y-auto p-4 space-y-1.5">
           {[
-            { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
-            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
-            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
-            { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
-            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
-            { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
-            { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
-            { id: 'planes', icon: '✅', label: 'Planes de Acción' },
-            { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
-            { id: 'informe', icon: '📜', label: 'Trazabilidad' },
-            { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
-            { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
-          ]
-          .filter(tab => isAdmin || ['tablero', 'riesgos', 'hallazgos', 'planes', 'incidentes', 'apetito', 'informes_auditoria'].includes(tab.id))
-          .map((tab, index) => (
-            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-              <div className="flex items-center space-x-2">
-                <span>{tab.icon}</span><span>{tab.label}</span>
-              </div>
-              {tab.id === 'planes' && isAdmin && pendingPlansCount > 0 && (
-                <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-                  {pendingPlansCount}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
-      </div>
-      
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* HEADER SUPERIOR */}
-        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresentationMode ? 'hidden' : 'flex'}`}>
-          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
-          <button 
-            onClick={() => setIsPresentationMode(true)} 
-            className="bg-slate-800 text-white hover:bg-slate-700 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-2 shadow"
-          >
-            <span>📺</span><span>Modo Presentación</span>
-          </button>
-        </header>
-        
-        <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 scroll-smooth relative`}>
-          <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
-            {activeTab === 'tablero' && renderTablero()}
-            {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
-            {activeTab === 'plan_anual' && renderPlanAnual()}
-            {activeTab === 'riesgos' && renderRiesgos()}
-            {activeTab === 'apetito' && renderApetito()}
-            {activeTab === 'evaluaciones' && renderEvaluaciones()}
-            {activeTab === 'hallazgos' && renderHallazgos()}
-            {activeTab === 'planes' && renderPlanes()}
-            {activeTab === 'incidentes' && renderIncidentes()}
-            {activeTab === 'informe' && renderInforme()}
-            {activeTab === 'informes_auditoria' && renderInformesAuditoria()}
-            {activeTab === 'config' && renderConfiguracion()}
-          </div>
-        </main>
-      </div>
+            { id: 'tablero', label: 'Tablero de Control', icon: '📊' },
+            { id: 'dashboard_riesgos', label: 'Dashboard de Riesgos', icon: '📈' },
+            { id: 'riesgos', label: 'Matriz de Riesgos', icon: '⚡' },
+            { id: 'apetito', label: 'Estructura de Apetito', icon: '🎯' },
+            { id: 'evaluaciones', label: 'Evaluaciones de Control', icon: '🛡️' },
+            { id: 'hallazgos', label: 'Hallazgos de Auditoría', icon: '🔍' },
+            { id: 'planes', label: 'Planes de Acción', icon: '📋' },
+            { id: 'incidentes', label: 'Registro de Incidentes', icon: '🚨' },
+            { id: 'cronograma', label: 'Plan Anual de Auditoría', icon: '📅' },
+            { id: 'monitoreo', label: 'Monitoreo de Indicadores', icon: '👁️' },
+            { id: 'informes', label: 'Informes Realizados', icon: '📂' }
+          ].map(item => {
+            const isAdminComponent = ['apetito', 'cronograma'].includes(item.id);
+            if (isAdminComponent && !isAdmin) return null;
 
+            return (
+              <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                activeTab === item.id 
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/10 font-black' 
+                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'
+              }`}>
+                <span className="text-sm shrink-0">{item.icon}</span>
+                <span className="truncate">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* CONTENEDOR DE COMPONENTES DE LA APLICACIÓN */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 shadow-sm relative z-20">
+          <div className="flex items-center space-x-3">
+            <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">
+              Sistema de Gestión Integral GRC
+            </h2>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <p className="text-[10px] font-black text-slate-800 uppercase tracking-wide">{user?.email}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Conectado Seguramente</p>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto bg-slate-50 p-8">
+          {activeTab === 'tablero' && renderTablero()}
+          {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
+          {activeTab === 'riesgos' && renderRiesgos()}
+          {activeTab === 'apetito' && renderApetito()}
+          {activeTab === 'evaluaciones' && renderEvaluaciones()}
+          {activeTab === 'hallazgos' && renderHallazgos()}
+          {activeTab === 'planes' && renderPlanes()}
+          {activeTab === 'incidentes' && renderIncidentes()}
+          {activeTab === 'cronograma' && renderPlanAnual()}
+          {activeTab === 'informes' && renderInformesAuditoria()}
+        </div>
+      </main>
+
+      {/* 🤖 PORTAL DE RENDERIZADO DEL MODAL DE IA (BIEN UBICADO ADENTRO) */}
       {aiModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden">
             <div className="bg-purple-600 p-4 flex justify-between items-center text-white">
               <h3 className="font-black text-sm uppercase tracking-widest flex items-center space-x-2">
                 <span>🤖</span> <span>{aiModal.titulo}</span>
@@ -1644,12 +1734,7 @@ useEffect(() => {
             <div className="p-6 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed border-b border-slate-100">
               {aiModal.contenido}
             </div>
-            <div className="bg-slate-50 p-4 flex justify-between items-center">
-              {aiModal.url && (
-                <a href={aiModal.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-purple-600 hover:text-purple-800 flex items-center space-x-1">
-                  <span>🔗</span> <span>Ver Evidencia</span>
-                </a>
-              )}
+            <div className="bg-slate-50 p-4 flex justify-end">
               <button onClick={() => setAiModal(null)} className="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-700 transition-colors">
                 Cerrar Análisis
               </button>
@@ -1657,68 +1742,6 @@ useEffect(() => {
           </div>
         </div>
       )}
-
-      {chartDetail && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
-              <h3 className="font-black text-xs uppercase tracking-widest flex items-center space-x-2">
-                <span>📈</span> <span>Foco de Control: {chartDetail.tipo} — {chartDetail.mesCompleto.toUpperCase()}</span>
-              </h3>
-              <button onClick={() => setChartDetail(null)} className="hover:text-slate-300 font-bold text-lg">✖</button>
-            </div>
-            
-            <div className="p-6 max-h-[380px] overflow-y-auto text-xs">
-              {chartDetail.items.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-wider border border-dashed border-slate-200 rounded-2xl bg-slate-50">
-                  🚫 No se encontraron eventos ni novedades en este periodo.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden p-2 bg-white">
-                  {chartDetail.tipo === 'Incidentes Financiados' ? (
-                    chartDetail.items.map((item, idx) => (
-                      <div key={`modal-inc-${idx}`} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-start space-x-4">
-                        <div>
-                          <div className="font-black text-slate-800 text-sm">{item.titulo}</div>
-                          <div className="text-slate-500 mt-1 font-medium leading-relaxed">{item.descripcion}</div>
-                          <div className="text-[9px] text-slate-400 font-mono font-bold mt-2 uppercase tracking-wide">Vinculado a Riesgo: #{item.idRiesgo} • Reporta: {item.reportadoPor}</div>
-                        </div>
-                       <div className="font-mono font-black text-red-600 text-right text-sm whitespace-nowrap bg-red-50 px-3 py-1 rounded-lg border border-red-100">
-                          ${Number(item.costo || 0).toLocaleString('es-CO')}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    chartDetail.items.map((item, idx) => (
-                      <div key={`modal-hal-${idx}`} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-start space-x-4">
-                        <div>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="font-black text-slate-900 text-sm">{item.ref}</span>
-                            <span className="px-2 py-0.5 bg-slate-800 text-white font-bold text-[8px] rounded uppercase tracking-wider">{item.proceso}</span>
-                          </div>
-                          <div className="text-slate-600 font-semibold leading-relaxed">{item.titulo}</div>
-                          <div className="text-[9px] text-slate-400 font-bold mt-2 uppercase tracking-wide">Sede: {item.sede} • Dueño de Proceso: {item.responsable}</div>
-                        </div>
-                        <span className={`px-2.5 py-1 rounded-full font-black text-[9px] uppercase tracking-widest border shrink-0 ${
-                          item.severidad === 'Crítico' || item.severidad === 'Alto' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>{item.severidad}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-            
-            <div className="bg-slate-50 px-6 py-4 flex justify-end border-t">
-              <button onClick={() => setChartDetail(null)} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-colors shadow-md">
-                Cerrar Análisis
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
   );
 }
