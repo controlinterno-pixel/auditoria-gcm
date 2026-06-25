@@ -308,14 +308,21 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
- useEffect(() => {
+useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
+
+    // 👇 AQUÍ SE INCLUYEN LAS LÍNEAS NUEVAS (EL CRONÓMETRO) 👇
+    const timeoutId = setTimeout(() => {
+      console.warn("⚠️ Firebase tardó demasiado. Forzando entrada al sistema...");
+      setIsCloudLoaded(true);
+    }, 4000);
+
     const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
     
-    // 🔥 Conexión blindada con manejo de errores
     const unsubscribe = onSnapshot(docRef, 
       (docSnap) => {
+        clearTimeout(timeoutId); // 🛑 Si Firebase responde, apagamos el cronómetro
         if (docSnap.exists()) {
           const data = docSnap.data() || {};
           setRiesgos(data.riesgos || defaultRiesgos);
@@ -331,18 +338,21 @@ export default function App() {
              setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [] });
           }
         }
-        setIsCloudLoaded(true); // Apaga el cargador con éxito
+        setIsCloudLoaded(true);
       },
       (error) => {
+        clearTimeout(timeoutId); // 🛑 Si hay error, también apagamos el cronómetro
         console.error("🔥 Error silencioso de Firebase:", error);
-        setIsCloudLoaded(true); // Fuerza el apagado del cargador para no trabar la app
-        alert("Aviso: Hubo una interrupción en la conexión o permisos de lectura con la base de datos.");
+        setIsCloudLoaded(true); 
       }
     );
     
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, [user]);
-
+ 
   const handleAuthSubmit = async (e) => {
     e.preventDefault(); 
     setAuthError('');
