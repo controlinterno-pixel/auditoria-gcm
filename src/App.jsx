@@ -308,38 +308,40 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
+ useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
     const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
-    return onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data() || {};
-        setRiesgos(data.riesgos || defaultRiesgos);
-        setHallazgos(data.hallazgos || defaultHallazgos);
-        setPlanes(data.planes || defaultPlanes);
-        setIncidentes(data.incidentes || defaultIncidentes);
-        setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
-        setCronograma(data.cronograma || defaultCronograma);
-        setMonitoreo(data.monitoreo || defaultMonitoreo);
-        setInformesAuditoria(data.informesAuditoria || []);
-      } else {
-        if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
-           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [] });
+    
+    // 🔥 Conexión blindada con manejo de errores
+    const unsubscribe = onSnapshot(docRef, 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() || {};
+          setRiesgos(data.riesgos || defaultRiesgos);
+          setHallazgos(data.hallazgos || defaultHallazgos);
+          setPlanes(data.planes || defaultPlanes);
+          setIncidentes(data.incidentes || defaultIncidentes);
+          setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
+          setCronograma(data.cronograma || defaultCronograma);
+          setMonitoreo(data.monitoreo || defaultMonitoreo);
+          setInformesAuditoria(data.informesAuditoria || []);
+        } else {
+          if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
+             setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [] });
+          }
         }
+        setIsCloudLoaded(true); // Apaga el cargador con éxito
+      },
+      (error) => {
+        console.error("🔥 Error silencioso de Firebase:", error);
+        setIsCloudLoaded(true); // Fuerza el apagado del cargador para no trabar la app
+        alert("Aviso: Hubo una interrupción en la conexión o permisos de lectura con la base de datos.");
       }
-      setIsCloudLoaded(true);
-    });
+    );
+    
+    return () => unsubscribe();
   }, [user]);
-
-  useEffect(() => {
-    if (window.XLSX) { setXlsxLoaded(true); return; }
-    const script = document.createElement('script');
-    script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-    script.async = true;
-    script.onload = () => setXlsxLoaded(true);
-    document.head.appendChild(script);
-  }, []);
 
   const handleAuthSubmit = async (e) => {
     e.preventDefault(); 
@@ -1535,11 +1537,11 @@ export default function App() {
       </div>
     </div>
   );
- // 🚧 MOSTRAR EL LOBBY DE BIENVENIDA A TODOS LOS USUARIOS AL INICIAR SESIÓN
-  if (inLobby) return renderLobbyBienvenida();
-  
-  // ☁️ PANTALLA DE CARGA
+// 1️⃣ PRIMERO: ☁️ PANTALLA DE CARGA (Para que descargue todo de fondo)
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
+
+  // 2️⃣ SEGUNDO: 🚧 MOSTRAR EL LOBBY DE BIENVENIDA AL TERMINAR DE CARGAR
+  if (inLobby) return renderLobbyBienvenida();
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
