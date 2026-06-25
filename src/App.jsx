@@ -6,6 +6,7 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
+// 🔥 NUEVA CONEXIÓN MODULAR A FIREBASE
 import { auth, db } from './services/firebase';
 import { obtenerSugerenciaIA, obtenerAnalisisEvidenciaIA } from './services/gemini';
 import { 
@@ -25,8 +26,11 @@ import PlanAnual from './components/PlanAnual';
 import Tablero from './components/Tablero';
 import DashboardRiesgos from './components/DashboardRiesgos';
 
+// =====================================================================
+// 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
+// =====================================================================
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
+// --- CONTROL DE ACCESO (ROLES) ---
 const ADMIN_EMAILS = [
   "controlinterno@termales.com.co",
   "auditoria@termales.com.co",
@@ -34,6 +38,11 @@ const ADMIN_EMAILS = [
   "analista.controlinterno@termales.com.co"
 ];
 
+// =====================================================================
+// 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
+// =====================================================================
+
+// --- COMPONENTES VISUALES ---
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
   let color = "bg-red-500";
@@ -134,6 +143,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
   );
 };
 
+// --- DATOS POR DEFECTO ACTUALIZADOS DE LA IMAGEN (20 PROCESOS) ---
 const defaultCronograma = [
   { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] },
   { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 100, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },
@@ -206,14 +216,13 @@ export default function App() {
   const [aiModal, setAiModal] = useState(null);
   const [chartDetail, setChartDetail] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const [inLobby, setInLobby] = useState(true);
-
+// 🔐 ESTADOS DE AUTENTICACIÓN
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
 
+  // ✏️ ESTADOS DE EDICIÓN Y COMPONENTES
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editPlan, setEditPlan] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
@@ -223,10 +232,13 @@ export default function App() {
   const [editApetito, setEditApetito] = useState(null);
   const [editMonitoreo, setEditMonitoreo] = useState(null);
   const [activeTooltip, setActiveTooltip] = useState(null);
-
+// --- NUEVOS ESTADOS PARA INFORMES DE AUDITORÍA ---
   const [informesAuditoria, setInformesAuditoria] = useState([]);
   const [editInformeAuditoria, setEditInformeAuditoria] = useState(null);
 
+ // =====================================================================
+  // ⚙️ ENTIDADES PRINCIPALES (ESTADOS DE BASE DE DATOS)
+  // =====================================================================
   const [riesgos, setRiesgos] = useState([]);
   const [hallazgos, setHallazgos] = useState([]);
   const [planes, setPlanes] = useState([]);
@@ -243,23 +255,30 @@ export default function App() {
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
 
+  // =====================================================================
+  // 🗓️ FILTROS DE PERIODICIDAD INTELIGENTES Y ABIERTOS
+  // =====================================================================
   const [periodFilters, setPeriodFilters] = useState({});
 
+  // 🔥 ESCÁNER DINÁMICO: Encuentra automáticamente todos los años con datos + año actual
   const defaultAnios = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1]); 
+    const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1]); // Asegura histórico, actual y futuro próximo
 
+    // Extrae dinámicamente cualquier año registrado en tus módulos
     safeRiesgos.forEach(r => r.anio && yearsSet.add(Number(r.anio)));
     safeHallazgos.forEach(h => h.anio && yearsSet.add(Number(h.anio)));
     safePlanes.forEach(p => p.anio && yearsSet.add(Number(p.anio)));
     safeIncidentes.forEach(i => i.anio && yearsSet.add(Number(i.anio)));
     safeCronograma.forEach(c => c.anio && yearsSet.add(Number(c.anio)));
 
+    // Devuelve la lista ordenada de menor a mayor
     return Array.from(yearsSet).sort((a, b) => a - b);
   }, [safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma]);
 
   const defaultMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
+  // El sistema lee la pestaña activa y saca su filtro correspondiente
   const selectedAnios = periodFilters[activeTab]?.anios || defaultAnios;
   const selectedMeses = periodFilters[activeTab]?.meses || defaultMeses;
 
@@ -277,6 +296,7 @@ export default function App() {
     });
   };
 
+  // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
     setSearchTerm('');
     setColumnFilters({});
@@ -308,80 +328,52 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-useEffect(() => {
+  useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
-
-    // 👇 AQUÍ SE INCLUYEN LAS LÍNEAS NUEVAS (EL CRONÓMETRO) 👇
-    const timeoutId = setTimeout(() => {
-      console.warn("⚠️ Firebase tardó demasiado. Forzando entrada al sistema...");
-      setIsCloudLoaded(true);
-    }, 4000);
-
     const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
-    
-    const unsubscribe = onSnapshot(docRef, 
-      (docSnap) => {
-        clearTimeout(timeoutId); // 🛑 Si Firebase responde, apagamos el cronómetro
-        if (docSnap.exists()) {
-          const data = docSnap.data() || {};
-          setRiesgos(data.riesgos || defaultRiesgos);
-          setHallazgos(data.hallazgos || defaultHallazgos);
-          setPlanes(data.planes || defaultPlanes);
-          setIncidentes(data.incidentes || defaultIncidentes);
-          setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
-          setCronograma(data.cronograma || defaultCronograma);
-          setMonitoreo(data.monitoreo || defaultMonitoreo);
-          setInformesAuditoria(data.informesAuditoria || []);
-        } else {
-          if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
-             setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [] });
-          }
-        }
-        setIsCloudLoaded(true);
-      },
-      (error) => {
-        clearTimeout(timeoutId); // 🛑 Si hay error, también apagamos el cronómetro
-        console.error("🔥 Error silencioso de Firebase:", error);
-        setIsCloudLoaded(true); 
-      }
-    );
-    
-    return () => {
-      clearTimeout(timeoutId);
-      unsubscribe();
-    };
-  }, [user]);
- 
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault(); 
-    setAuthError('');
-    try {
-      if (isRegistering) { 
-        await createUserWithEmailAndPassword(auth, authEmail, authPassword); 
-      } else { 
-        await signInWithEmailAndPassword(auth, authEmail, authPassword); 
-      }
-    } catch (error) { 
-      console.error("Error de Auth Firebase:", error.code);
-      if (error.code === 'auth/email-already-in-use') {
-        setAuthError('Este correo ya está registrado. Cambie a "Iniciar Sesión".');
-      } else if (error.code === 'auth/weak-password') {
-        setAuthError('La contraseña es muy débil. Debe tener mínimo 6 caracteres.');
-      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
-        setAuthError('Correo o contraseña incorrectos. Verifique sus datos.');
-      } else if (error.code === 'auth/user-not-found') {
-        setAuthError('No existe una cuenta con este correo.');
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() || {};
+        setRiesgos(data.riesgos || defaultRiesgos);
+        setHallazgos(data.hallazgos || defaultHallazgos);
+        setPlanes(data.planes || defaultPlanes);
+        setIncidentes(data.incidentes || defaultIncidentes);
+        setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
+        setCronograma(data.cronograma || defaultCronograma);
+        setMonitoreo(data.monitoreo || defaultMonitoreo);
+setInformesAuditoria(data.informesAuditoria || []);
       } else {
-        setAuthError('Error: No se pudo autenticar. Verifique su conexión.');
+        if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
+           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [] });
+        }
       }
-    }
+      setIsCloudLoaded(true);
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (window.XLSX) { setXlsxLoaded(true); return; }
+    const script = document.createElement('script');
+    script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    script.async = true;
+    script.onload = () => setXlsxLoaded(true);
+    document.head.appendChild(script);
+  }, []);
+
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault(); setAuthError('');
+    try {
+      if (isRegistering) { await createUserWithEmailAndPassword(auth, authEmail, authPassword); }
+      else { await signInWithEmailAndPassword(auth, authEmail, authPassword); }
+    } catch (error) { setAuthError('Error en credenciales.'); }
   };
 
   const handleLogout = async () => { await signOut(auth); };
   const saveToCloud = async (partialData) => { await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
+  // SOLUCIÓN AL SCROLL DE EDICIÓN: Búsqueda precisa del contenedor central para evitar el salto
   const scrollToForm = () => {
     setTimeout(() => {
       const formEl = document.getElementById('edit-form');
@@ -549,8 +541,8 @@ useEffect(() => {
         prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
       }
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-        method: 'POST',
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+       method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
@@ -596,7 +588,7 @@ useEffect(() => {
       Se acaba de adjuntar un archivo de evidencia (Foto o PDF o Enlace) para el siguiente ${tipoItem}: "${contextoItem}".
       Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -618,6 +610,7 @@ useEffect(() => {
     }
   };
 
+  // --- FILTRADO GLOBAL COMPACTO (AÑOS Y MESES MÚLTIPLES) ---
   const filterByGlobalPeriod = (item) => {
     const a = getItemAnio(item);
     const m = getItemMesText(item);
@@ -643,7 +636,7 @@ useEffect(() => {
   }, [pFiltrados]);
 
   const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
-  const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisión').length;
+const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisión').length;
   const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
   const pTotal = pFiltrados.length;
   const pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
@@ -655,6 +648,9 @@ useEffect(() => {
     return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
   }, [safeEvaluaciones, selectedAnios, selectedMeses]);
 
+// =====================================================================
+  // --- SUBMITS DE ACCIONES CON TRAZABILIDAD DE AUTOR COMPLETA ---
+  // =====================================================================
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -827,6 +823,7 @@ useEffect(() => {
       apetitoFinanciero: apetito,
       toleranciaFinanciera: tolerancia,
       capacidadRiesgo: capacidad,
+      // --- NUEVAS DIMENSIONES COSO ERM ---
       impactoOperativo: formData.get('impactoOperativo') || 'No definido',
       impactoReputacional: formData.get('impactoReputacional') || 'No definido',
       impactoLegal: formData.get('impactoLegal') || 'No definido',
@@ -842,7 +839,8 @@ useEffect(() => {
     scrollToForm();
   };
 
-  const handleDeleteItem = async (listType, id) => {
+const handleDeleteItem = async (listType, id) => {
+    // 👇 ESCUDO DE SEGURIDAD PARA BLOQUEAR ELIMINACIONES 👇
     if (!isAdmin) {
       showNotification("Acceso denegado: Solo el Administrador puede eliminar registros.", "error");
       return;
@@ -899,9 +897,9 @@ useEffect(() => {
     e.target.reset();
   };
 
-  const handleInformeAuditoriaSubmit = async (e) => {
+const handleInformeAuditoriaSubmit = async (e) => {
     e.preventDefault(); 
-    setIsSubmitting(true); 
+    setIsSubmitting(true); // 🛑 PRENDEMOS EL ESTADO DE CARGA Y BLOQUEAMOS BOTÓN
     console.log("🚀 Ejecución global V4 (Con Loading State)...");
     
     try {
@@ -935,6 +933,7 @@ useEffect(() => {
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf);
         setEditInformeAuditoria(null);
       } else {
+        // 🛡️ Lógica robusta: Busca el número más alto usado para no repetir consecutivos
         const ultimo = Math.max(
           ...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)),
           0
@@ -951,6 +950,7 @@ useEffect(() => {
         updated = [nuevo, ...safeInformes];
       }
 
+      // 📧 DISPARADOR GLOBAL DE EMAILJS CON ESPERA (AWAIT)
       if (correosNotificacionOut !== '') {
         console.log("📡 Disparando Fetch hacia la API de EmailJS para: " + correosNotificacionOut);
         const emailParams = {
@@ -979,6 +979,7 @@ useEffect(() => {
         console.log("⚠️ No hay correos en la casilla, omitiendo EmailJS.");
       }   
 
+      // Guardado final
       setInformesAuditoria(updated);    
       await saveToCloud({ informesAuditoria: updated });
       e.target.reset();
@@ -988,11 +989,10 @@ useEffect(() => {
       console.error("Error crítico al procesar informe:", error);
       showNotification("Hubo un error al procesar la solicitud.", "error");
     } finally {
-      setIsSubmitting(false); 
+      setIsSubmitting(false); // ✅ APAGAMOS EL ESTADO DE CARGA Y DESBLOQUEAMOS BOTÓN (Incluso si falló)
     }
   };  
-
-  const renderHeaderFiltros = (titulo, subtitulo) => (
+const renderHeaderFiltros = (titulo, subtitulo) => (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
       <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1033,7 +1033,11 @@ useEffect(() => {
     </div>
   );
 
-  const renderInformesAuditoria = () => {
+  // =====================================================================
+  // RENDERS DE VISTAS (ADMIN INTERFACE)
+  // =====================================================================
+
+const renderInformesAuditoria = () => {
     const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
     
     return (
@@ -1068,17 +1072,19 @@ useEffect(() => {
               
               <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Líderes y convocados)</label><input name="socializadoCon" defaultValue={editInformeAuditoria?.socializadoCon||''} placeholder="Ej: Comité de Auditoría, Gerencia General, Jefe de Compras..." className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
 
-              <div className="md:col-span-4 bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
-                <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 Distribución por Correo Electrónico (Notificación Inmediata)</label>
-                <input 
-                  name="correosNotificacionInput" 
-                  type="text" 
-                  placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" 
-                  className="w-full border border-blue-300 bg-white rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700" 
-                />
-                <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
-              </div>
+              {/* 📬 CASILLA: PROTOCOLO DE DISTRIBUCIÓN DE CORREOS */}
+<div className="md:col-span-4 bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
+  <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 Distribución por Correo Electrónico (Notificación Inmediata)</label>
+  <input 
+    name="correosNotificacionInput" // <--- ASEGÚRATE DE QUE ESTA LÍNEA ESTÉ EXACTAMENTE ASÍ
+    type="text" 
+    placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" 
+    className="w-full border border-blue-300 bg-white rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700" 
+  />
+  <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
+</div>
 
+              {/* REPOSITORIO DE CARGA DRIVE / ONEDRIVE AMPLIADO (INFORME + ACTA) */}
               <div className="md:col-span-4 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2 flex justify-between items-center border-b pb-2 border-slate-200">
                   <div>
@@ -1100,14 +1106,14 @@ useEffect(() => {
                 </div>
               </div>
 
-              <div className="md:col-span-4 flex justify-end">
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#004d40] hover:bg-[#003d33] text-white cursor-pointer'}`}
-                >
-                  {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen')}
-                </button>
+           <div className="md:col-span-4 flex justify-end">
+             <button 
+  type="submit" 
+  disabled={isSubmitting}
+  className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#004d40] hover:bg-[#003d33] text-white cursor-pointer'}`}
+>
+  {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'Radicar, Archivar y Enviar Dictamen')}
+</button>
               </div>
             </form>
           </div>
@@ -1163,7 +1169,10 @@ useEffect(() => {
                     )}
                     {isAdmin && (
                       <div className="flex justify-center items-center space-x-2 pt-1">
+                      {/* BOTÓN EDITAR (PÚBLICO) */}
                       <button onClick={() => {setEditInformeAuditoria(inf); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏ Editar</button>
+                      
+                      {/* 👇 BOTÓN ELIMINAR (SOLO ADMINS) 👇 */}
                       {isAdmin && (
                         <>
                           <span className="text-slate-200">|</span>
@@ -1182,7 +1191,7 @@ useEffect(() => {
     );
   };
 
-  const renderConfiguracion = () => (
+const renderConfiguracion = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4">
         <h2 className="text-2xl font-black text-slate-800">⚙️ Configuración y Cargas Masivas</h2>
@@ -1202,6 +1211,8 @@ useEffect(() => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* NUEVO BOTON PARA IMPORTAR MATRIZ RIESGOS DESDE EXCEL */}
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-600">
           <h3 className="font-black text-emerald-700 uppercase tracking-widest text-sm mb-4">📊 Cargar Matriz de Riesgos (Excel)</h3>
           <p className="text-xs text-slate-600 mb-6">Sube un archivo .xlsx para actualizar masivamente <b>solo la Matriz de Riesgos</b>. Asegúrate de usar la plantilla descargada previamente.</p>
@@ -1253,8 +1264,7 @@ useEffect(() => {
       />
     );
   };
-
-  const renderDashboardRiesgos = () => {
+    const renderDashboardRiesgos = () => {
     return (
       <DashboardRiesgos 
         tipoMatriz={tipoMatriz}
@@ -1274,8 +1284,7 @@ useEffect(() => {
       />
     );
   };
-
-  const renderPlanAnual = () => {
+const renderPlanAnual = () => {
     return (
       <PlanAnual 
         isAdmin={isAdmin}
@@ -1302,7 +1311,6 @@ useEffect(() => {
       />
     );
   };  
-
   const renderRiesgos = () => {
     return (
       <Riesgos 
@@ -1326,8 +1334,7 @@ useEffect(() => {
       />
     );
   };
-
-  const renderApetito = () => {
+const renderApetito = () => {
     return (
       <Apetito 
         isAdmin={isAdmin}
@@ -1351,14 +1358,13 @@ useEffect(() => {
       />
     );
   };
-
   const renderEvaluaciones = () => {
     return (
       <Evaluaciones 
         isAdmin={isAdmin}
         editEvaluacion={editEvaluacion}
         setEditEvaluacion={setEditEvaluacion}
-        handleAuthorizationSubmit={handleEvaluacionSubmit} 
+        handleAuthorizationSubmit={handleEvaluacionSubmit} // Asegura que invoque handleEvaluacionSubmit
         handleEvaluacionSubmit={handleEvaluacionSubmit}
         safeRiesgos={safeRiesgos}
         user={user}
@@ -1377,7 +1383,6 @@ useEffect(() => {
       />
     );
   };
-
   const renderHallazgos = () => {
     return (
       <Hallazgos 
@@ -1399,7 +1404,7 @@ useEffect(() => {
     );
   };
 
-  const renderPlanes = () => {
+const renderPlanes = () => {
     return (
       <Planes 
         isAdmin={isAdmin}
@@ -1444,22 +1449,24 @@ useEffect(() => {
             setEditPlan(planModificado);
             setFormResetKey(Date.now());
 
+            // 📧 DISPARADOR DE EMAILJS AUTOMÁTICO
             if (nuevoEstadoWorkflow === 'En Revisión') {
+              // Notificamos al administrador principal
               const emailParams = {
                 ref_consecutivo: `PLAN-${id}`,
                 titulo_informe: 'Alerta: Plan de Acción listo para revisión',
                 proceso_auditado: planModificado.accion.substring(0, 50) + '...',
                 enlace_pdf: 'Revisa la plataforma GCM Auditor',
                 enlace_acta: 'N/A',
-                destinatarios: 'controlinterno@termales.com.co' 
+                destinatarios: 'controlinterno@termales.com.co' // Correo del administrador
               };
 
-              fetch('https://api.emailjs.com/api/v1.0/email/send', {
+fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
-                  template_id: "template_dwr658j", 
+                  template_id: "template_dwr658j", // <-- AQUÍ PEGAMOS TU NUEVO ID
                   user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, 
                   accessToken: import.meta.env.VITE_EMAILJS_PRIVATE_KEY, 
                   template_params: emailParams
@@ -1467,6 +1474,7 @@ useEffect(() => {
               }).catch(e => console.error("Error silencioso EmailJS:", e));
             }
 
+            // Mensaje de éxito en pantalla
             if (nuevoEstadoWorkflow === 'En Revisión') {
                showNotification("Plan enviado a revisión y administrador notificado.");
             } else {
@@ -1481,7 +1489,6 @@ useEffect(() => {
       />
     );
   };
-
   const renderIncidentes = () => {
     return (
       <Incidentes 
@@ -1503,7 +1510,6 @@ useEffect(() => {
       />
     );
   };
-
   const renderInforme = () => {
     return (
       <Trazabilidad 
@@ -1515,216 +1521,119 @@ useEffect(() => {
       />
     );
   };
-// =====================================================================
-  // 🚧 RECTORÍA DEL LOBBY DE BIENVENIDA (ADMINISTRADOR O JEFE DE ÁREA)
-  // =====================================================================
-  const renderLobbyBienvenida = () => {
-    const isUserAdmin = ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user?.email?.toLowerCase().trim());
-    
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-12 relative overflow-hidden font-sans text-xs">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(30,41,59,0.5),transparent_70%)] pointer-events-none" />
-        <div className="w-full max-w-xl space-y-8 bg-slate-900 border border-slate-800 p-10 rounded-3xl shadow-2xl relative z-10 text-center">
-          <div>
-            <span className="text-6xl block animate-pulse">🏨</span>
-            <h1 className="mt-6 text-4xl font-black text-white tracking-tight">¡Bienvenido al Lobby!</h1>
-            <p className="text-xs text-blue-400 font-bold uppercase tracking-widest mt-2">Sistema Gestión de Riesgos Termales</p>
-          </div>
-
-          <div className="bg-slate-850/50 border border-slate-800 rounded-2xl p-6 text-left space-y-4">
-            <div className="flex items-center space-x-4">
-              <div className="h-12 w-12 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner border border-slate-700">👤</div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Usuario Autenticado</p>
-                <p className="text-sm font-bold text-slate-200">{user?.email}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4 pt-3 border-t border-slate-800/60">
-              <div className="h-12 w-12 rounded-xl bg-slate-800 flex items-center justify-center text-xl shadow-inner border border-slate-700">
-                {isUserAdmin ? '🔑' : '📋'}
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Perfil Asignado</p>
-                <span className={`inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider mt-1 ${
-                  isUserAdmin ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                }`}>
-                  {isUserAdmin ? 'Administrador General' : 'Jefe de Área / Auditor'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
-            {isUserAdmin 
-              ? 'Tiene acceso total para modificar matrices, parametrizar la severidad y auditar todos los procesos de la organización.' 
-              : 'Su perfil le permite visualizar tableros, registrar incidentes y dar seguimiento a los planes de acción asignados.'}
-          </p>
-
-          <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-            <button onClick={() => setInLobby(false)} className="flex-1 rounded-xl bg-blue-600 hover:bg-blue-500 px-6 py-3.5 text-xs font-black text-white uppercase tracking-widest shadow-lg shadow-blue-600/20 transition-all active:scale-[0.98]">
-              Ingresar a la Plataforma ⚡
-            </button>
-            <button onClick={() => signOut(auth)} className="rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-6 py-3.5 text-xs font-black text-slate-300 uppercase tracking-widest transition-all">
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
+  const renderRCSAPortal = () => (
+    <div className="min-h-screen bg-slate-100 font-sans text-xs flex flex-col items-center justify-center p-8">
+      <div className="bg-white p-12 rounded-3xl shadow-xl max-w-lg text-center border-t-8 border-[#004d40]">
+        <h1 className="text-2xl font-black mb-4">Portal RCSA Jefes de Área</h1>
+        <p className="text-slate-500 mb-8 text-sm">Bienvenido a la vista de Primera Línea de Defensa. Actualmente la parametrización de auto-reportes de % de avance se encuentra en configuración por el equipo de Control Interno.</p>
+        <button onClick={handleLogout} className="bg-red-600 text-white px-8 py-3 rounded-xl font-bold w-full uppercase tracking-widest">Cerrar Sesión</button>
       </div>
-    );
-  };
+    </div>
+  );
 
-  // =====================================================================
-  // 🔐 CONTROL DE ACCESO INTERNO (ESCALERA LÓGICA DE FILTROS)
-  // =====================================================================
-
-  // 1️⃣ FILTRO 1: Si no hay sesión iniciada, muestra el formulario de Login de inmediato
   if (!user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12 font-sans text-xs">
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
         <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
-          <div className="text-center">
-            <span className="text-5xl block animate-bounce">🛡️</span>
-            <h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2>
-            <p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p>
-          </div>
+          <div className="text-center"><span className="text-5xl block animate-bounce">🛡️</span><h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2><p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p></div>
           <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
             {authError && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-medium">⚠️ {authError}</div>}
             <div className="space-y-3">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Correo Electrónico</label>
-                <input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="tu_correo@termales.com.co" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/>
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label>
-                <input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••••" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/>
-              </div>
+              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Correo</label><input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="tu_correo@termales.com.co" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
+              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label><input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••••" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
             </div>
-            <button type="submit" className="w-full flex justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-xs font-bold text-white shadow-md">
-              {isRegistering ? 'Crear Cuenta' : 'Ingresar al Portal'}
-            </button>
+            <button type="submit" className="w-full flex justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-xs font-bold text-white shadow-md">{isRegistering ? 'Crear Cuenta' : 'Ingresar al Portal'}</button>
           </form>
-          <div className="text-center pt-2 border-t">
-            <button onClick={() => {setIsRegistering(!isRegistering); setAuthError('');}} className="text-xs font-bold text-blue-600">
-              {isRegistering ? '¿Ya tiene cuenta? Iniciar Sesión' : '¿No tiene acceso? Regístrese aquí'}
-            </button>
-          </div>
+          <div className="text-center pt-2 border-t"><button onClick={() => {setIsRegistering(!isRegistering); setAuthError('');}} className="text-xs font-bold text-blue-600">{isRegistering ? '¿Ya tiene cuenta? Iniciar Sesión' : '¿No tiene acceso? Regístrese aquí'}</button></div>
         </div>
       </div>
     );
   }
 
-  // 2️⃣ FILTRO 2: Si ya se inició sesión, pero Firebase está descargando los datos, muestra el cargador
-  if (!isCloudLoaded) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4 font-sans text-xs">
-        <span className="text-6xl animate-bounce">☁️</span>
-        <h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2>
-      </div>
-    );
-  }
+  if (!isAdmin) return renderRCSAPortal();
+  if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 
-  // 3️⃣ FILTRO 3: Si los datos están listos, pero sigue en el Lobby, renderiza el letrero de bienvenida
-  if (inLobby) {
-    return renderLobbyBienvenida();
-  }
-
-  // =====================================================================
-  // 🌟 RENDER PRINCIPAL DE LA PLATAFORMA (Solo si superó los 3 filtros)
-  // =====================================================================
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden text-xs text-slate-700">
-      {/* SIDEBAR / MENU LATERAL */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0 select-none">
-        <div className="p-6 border-b border-slate-800 flex items-center space-x-3 bg-slate-950/40">
-          <span className="text-2xl">🌋</span>
-          <div>
-            <h1 className="text-sm font-black tracking-wider text-white uppercase">Termales GRC</h1>
-            <p className="text-[9px] text-blue-400 font-bold tracking-widest uppercase mt-0.5">Auditoría v5.2</p>
-          </div>
-        </div>
-        
-        <div className="p-4 border-b border-slate-800/60 bg-slate-950/20">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-lg bg-slate-800 flex items-center justify-center text-xs border border-slate-700 shadow-inner">👤</div>
-            <div className="truncate flex-1">
-              <p className="text-[10px] font-bold text-slate-400 truncate">{user?.email}</p>
-              <p className="text-[8px] font-black tracking-widest text-blue-400 uppercase mt-0.5">
-                {isAdmin ? 'Administrador' : 'Jefe de Área'}
-              </p>
-            </div>
-          </div>
-          <button onClick={() => signOut(auth)} className="w-full mt-3 flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-red-950/30 hover:text-red-400 hover:border-red-900/50 border border-slate-700/50 text-[9px] font-black uppercase tracking-widest transition-all">
-            <span>Cerrar Sesión</span>
-          </button>
-        </div>
+    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+      
+      {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
+      {isPresentationMode && (
+        <button 
+          onClick={() => setIsPresentationMode(false)} 
+          className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 flex items-center space-x-2 border-2 border-slate-700 animate-in slide-in-from-bottom-10"
+        >
+          <span>✖</span><span>Salir de Presentación</span>
+        </button>
+      )}
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1.5">
+      {/* SIDEBAR */}
+      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
+        <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
+        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
-            { id: 'tablero', label: 'Tablero de Control', icon: '📊' },
-            { id: 'dashboard_riesgos', label: 'Dashboard de Riesgos', icon: '📈' },
-            { id: 'riesgos', label: 'Matriz de Riesgos', icon: '⚡' },
-            { id: 'apetito', label: 'Estructura de Apetito', icon: '🎯' },
-            { id: 'evaluaciones', label: 'Evaluaciones de Control', icon: '🛡️' },
-            { id: 'hallazgos', label: 'Hallazgos de Auditoría', icon: '🔍' },
-            { id: 'planes', label: 'Planes de Acción', icon: '📋' },
-            { id: 'incidentes', label: 'Registro de Incidentes', icon: '🚨' },
-            { id: 'cronograma', label: 'Plan Anual de Auditoría', icon: '📅' },
-            { id: 'monitoreo', label: 'Monitoreo de Indicadores', icon: '👁️' },
-            { id: 'informes', label: 'Informes Realizados', icon: '📂' }
-          ].map(item => {
-            const isAdminComponent = ['apetito', 'cronograma'].includes(item.id);
-            if (isAdminComponent && !isAdmin) return null;
-
-            return (
-              <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                activeTab === item.id 
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/10 font-black' 
-                  : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'
-              }`}>
-                <span className="text-sm shrink-0">{item.icon}</span>
-                <span className="truncate">{item.label}</span>
-              </button>
-            );
-          })}
+            { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
+            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
+            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
+            { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
+            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
+            { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
+            { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
+            { id: 'planes', icon: '✅', label: 'Planes de Acción' },
+            { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
+            { id: 'informe', icon: '📜', label: 'Trazabilidad' },
+                             { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
+            { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
+          ].map((tab, index) => (
+            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+              <div className="flex items-center space-x-2">
+                <span>{tab.icon}</span><span>{tab.label}</span>
+              </div>
+              {/* BURBUJA ROJA DE NOTIFICACIÓN PARA PLANES */}
+              {tab.id === 'planes' && isAdmin && pendingPlansCount > 0 && (
+                <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
+                  {pendingPlansCount}
+                </span>
+              )}
+            </button>
+          ))}
         </nav>
-      </aside>
-
-      {/* CONTENEDOR DE COMPONENTES DE LA APLICACIÓN */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 shadow-sm relative z-20">
-          <div className="flex items-center space-x-3">
-            <h2 className="text-sm font-black text-slate-800 uppercase tracking-wider">
-              Sistema de Gestión Integral GRC
-            </h2>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <p className="text-[10px] font-black text-slate-800 uppercase tracking-wide">{user?.email}</p>
-              <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Conectado Seguramente</p>
-            </div>
-          </div>
+        <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
+      </div>
+      
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* HEADER SUPERIOR */}
+        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresentationMode ? 'hidden' : 'flex'}`}>
+          <span className="bg-slate-100 text-slate-700 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold uppercase tracking-wider">Termales de Santa Rosa de Cabal — Sistema de Gestión Integral</span>
+          <button 
+            onClick={() => setIsPresentationMode(true)} 
+            className="bg-slate-800 text-white hover:bg-slate-700 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-2 shadow"
+          >
+            <span>📺</span><span>Modo Presentación</span>
+          </button>
         </header>
+        
+        <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 scroll-smooth relative`}>
+          <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
+            {activeTab === 'tablero' && renderTablero()}
+            {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
+            {activeTab === 'plan_anual' && renderPlanAnual()}
+            {activeTab === 'riesgos' && renderRiesgos()}
+            {activeTab === 'apetito' && renderApetito()}
+            {activeTab === 'evaluaciones' && renderEvaluaciones()}
+            {activeTab === 'hallazgos' && renderHallazgos()}
+            {activeTab === 'planes' && renderPlanes()}
+            {activeTab === 'incidentes' && renderIncidentes()}
+            {activeTab === 'informe' && renderInforme()}
+                            {activeTab === 'informes_auditoria' && renderInformesAuditoria()}
+            {activeTab === 'config' && renderConfiguracion()}
+          </div>
+        </main>
+      </div>
 
-        <div className="flex-1 overflow-y-auto bg-slate-50 p-8">
-          {activeTab === 'tablero' && renderTablero()}
-          {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
-          {activeTab === 'riesgos' && renderRiesgos()}
-          {activeTab === 'apetito' && renderApetito()}
-          {activeTab === 'evaluaciones' && renderEvaluaciones()}
-          {activeTab === 'hallazgos' && renderHallazgos()}
-          {activeTab === 'planes' && renderPlanes()}
-          {activeTab === 'incidentes' && renderIncidentes()}
-          {activeTab === 'cronograma' && renderPlanAnual()}
-          {activeTab === 'informes' && renderInformesAuditoria()}
-        </div>
-      </main>
-
-      {/* 🤖 PORTAL DE RENDERIZADO DEL MODAL DE IA (BIEN UBICADO ADENTRO) */}
+      {/* CÓDIGO AÑADIDO: Renderizado del Modal de Inteligencia Artificial */}
       {aiModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="bg-purple-600 p-4 flex justify-between items-center text-white">
               <h3 className="font-black text-sm uppercase tracking-widest flex items-center space-x-2">
                 <span>🤖</span> <span>{aiModal.titulo}</span>
@@ -1734,7 +1643,13 @@ useEffect(() => {
             <div className="p-6 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed border-b border-slate-100">
               {aiModal.contenido}
             </div>
-            <div className="bg-slate-50 p-4 flex justify-end">
+            <div className="bg-slate-50 p-4 flex justify-between items-center">
+              {aiModal.url && (
+                <a href={aiModal.url} target="_blank" rel="noreferrer" className="text-xs font-bold text-purple-600 hover:text-purple-800 flex items-center space-x-1">
+                  <span>🔗</span> <span>Ver Evidencia</span>
+                </a>
+              )}
+
               <button onClick={() => setAiModal(null)} className="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold hover:bg-slate-700 transition-colors">
                 Cerrar Análisis
               </button>
@@ -1742,7 +1657,67 @@ useEffect(() => {
           </div>
         </div>
       )}
+{/* 📊 MODAL DE INFORME DETALLADO POR PUNTO DE GRÁFICA */}
+      {chartDetail && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-slate-900 p-4 flex justify-between items-center text-white">
+              <h3 className="font-black text-xs uppercase tracking-widest flex items-center space-x-2">
+                <span>📈</span> <span>Foco de Control: {chartDetail.tipo} — {chartDetail.mesCompleto.toUpperCase()}</span>
+              </h3>
+              <button onClick={() => setChartDetail(null)} className="hover:text-slate-300 font-bold text-lg">✖</button>
+            </div>
+            
+            <div className="p-6 max-h-[380px] overflow-y-auto text-xs">
+              {chartDetail.items.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 font-bold uppercase tracking-wider border border-dashed border-slate-200 rounded-2xl bg-slate-50">
+                  🚫 No se encontraron eventos ni novedades en este periodo.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden p-2 bg-white">
+                  {chartDetail.tipo === 'Incidentes Financiados' ? (
+                    chartDetail.items.map((item, idx) => (
+                      <div key={`modal-inc-${idx}`} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-start space-x-4">
+                        <div>
+                          <div className="font-black text-slate-800 text-sm">{item.titulo}</div>
+                          <div className="text-slate-500 mt-1 font-medium leading-relaxed">{item.descripcion}</div>
+                          <div className="text-[9px] text-slate-400 font-mono font-bold mt-2 uppercase tracking-wide">Vinculado a Riesgo: #{item.idRiesgo} • Reporta: {item.reportadoPor}</div>
+                        </div>
+                       <div className="font-mono font-black text-red-600 text-right text-sm whitespace-nowrap bg-red-50 px-3 py-1 rounded-lg border border-red-100">
+  ${Number(item.costo || 0).toLocaleString('es-CO')}
+</div>
+                      </div>
+                    ))
+                  ) : (
+                    chartDetail.items.map((item, idx) => (
+                      <div key={`modal-hal-${idx}`} className="p-4 hover:bg-slate-50 transition-colors flex justify-between items-start space-x-4">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-black text-slate-900 text-sm">{item.ref}</span>
+                            <span className="px-2 py-0.5 bg-slate-800 text-white font-bold text-[8px] rounded uppercase tracking-wider">{item.proceso}</span>
+                          </div>
+                          <div className="text-slate-600 font-semibold leading-relaxed">{item.titulo}</div>
+                          <div className="text-[9px] text-slate-400 font-bold mt-2 uppercase tracking-wide">Sede: {item.sede} • Dueño de Proceso: {item.responsable}</div>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full font-black text-[9px] uppercase tracking-widest border shrink-0 ${
+                          item.severidad === 'Crítico' || item.severidad === 'Alto' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>{item.severidad}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+            
+            <div className="bg-slate-50 px-6 py-4 flex justify-end border-t">
+              <button onClick={() => setChartDetail(null)} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-800 transition-colors shadow-md">
+                Cerrar Análisis
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+{notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
     </div>
   );
 }
-
