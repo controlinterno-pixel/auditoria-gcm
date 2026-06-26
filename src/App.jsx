@@ -397,7 +397,7 @@ setInformesAuditoria(data.informesAuditoria || []);
   };
 
  // =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (SINCRONIZACIÓN PERFECTA CON PANTALLA)
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CALIBRACIÓN MATEMÁTICA CON LA DONA DE AVANCE)
   // =====================================================================
   const handleAuditorSubmit = async (e) => {
     e.preventDefault();
@@ -416,68 +416,71 @@ setInformesAuditoria(data.informesAuditoria || []);
     try {
       const hoy = new Date();
 
-      // 🔥 TRUCO MAESTRO: Aplicamos los mismos filtros (búsqueda y columnas) que ves en pantalla
-      const riesgosEnPantalla = applyFilters(rFiltrados, searchTerm, columnFilters);
-      const hallazgosEnPantalla = applyFilters(hFiltrados, searchTerm, columnFilters);
-      const planesEnPantalla = applyFilters(pFiltrados, searchTerm, columnFilters);
-      const incidentesEnPantalla = applyFilters(incFiltrados, searchTerm, columnFilters);
-      const cronogramaEnPantalla = applyFilters(cFiltrados, searchTerm, columnFilters);
+      // 🛑 1. Datos de los módulos usando el filtro base (Sincronizado con tus botones de Año/Mes)
+      const riesgosBase = rFiltrados;
+      const hallazgosBase = hFiltrados;
+      const planesBase = pFiltrados;
+      const incidentesBase = incFiltrados;
+      const cronogramaBase = cFiltrados; // <-- Este es el que contiene los datos del año 2026 seleccionado
 
       // 🛑 MÓDULO 1: MATRIX DE RIESGOS
-      const totalRiesgos = riesgosEnPantalla.length;
+      const totalRiesgos = riesgosBase.length;
       let criticosTotal = 0;
       try {
-        criticosTotal = riesgosEnPantalla.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
+        criticosTotal = riesgosBase.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
       } catch(err) {}
 
       // 📄 MÓDULO 2 & 3: HALLAZGOS Y PLANES
-      const totalHallazgos = hallazgosEnPantalla.length;
-      const hallazgosAbiertos = hallazgosEnPantalla.filter(h => h.estado === 'Abierto').length;
-      const totalPlanes = planesEnPantalla.length;
-      const planesVencidos = planesEnPantalla.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
-      const avancePlanesGlobal = totalPlanes > 0 ? Math.round(planesEnPantalla.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / totalPlanes) : 0;
+      const totalHallazgos = hallazgosBase.length;
+      const hallazgosAbiertos = hallazgosBase.filter(h => h.estado === 'Abierto').length;
+      const totalPlanes = planesBase.length;
+      const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
+      const avancePlanesGlobal = totalPlanes > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / totalPlanes) : 0;
 
       // 🚨 MÓDULO 4: INCIDENTES
-      const lossesAcumuladas = incidentesEnPantalla.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
+      const lossesAcumuladas = incidentesBase.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
 
-      // 🗓️ MÓDULO 6: PLAN ANUAL DE AUDITORÍA (CRONOGRAMA) - ALINEADO AL 100% CON LA PANTALLA
-      const totalCronograma = cronogramaEnPantalla.length;
+      // 🗓️ MÓDULO 6: PLAN ANUAL DE AUDITORÍA (Sincronizado milimétricamente con tu gráfica del 93%)
+      const totalCronograma = cronogramaBase.length;
       
-      // Cálculo exacto del promedio que ves en la gráfica superior (Ej: 93%)
+      // Cálculo idéntico al componente visual de la dona
       const avanceCronogramaGlobal = totalCronograma > 0 
-        ? Math.round(cronogramaEnPantalla.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / totalCronograma) 
+        ? Math.round(cronogramaBase.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / totalCronograma) 
         : 0;
         
-      // Lista de lo que falta para decirlo en texto
-      const listadoPendientesCronograma = cronogramaEnPantalla.filter(c => c.cumplimiento < 100).map(c => c.proceso).join(', ');
+      // Listado real de procesos que están por debajo del 100% en los años seleccionados
+      const pendientesArray = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) < 100).map(c => c.proceso);
+      const listadoPendientesCronograma = pendientesArray.length > 0 ? pendientesArray.join(', ') : 'Ninguno (100% de ejecución)';
 
-      // 2. CONSTRUCCIÓN DE LA SÚPER BASE DE CONOCIMIENTO (ÓRDENES ESTRICTAS)
+      // 2. CONSTRUCCIÓN DEL CONTEXTO CON LÓGICA BLINDADA
       const megaContexto = `
-        Eres el "Auditor IA", un asistente experto y muy directo de Termales de Santa Rosa de Cabal.
-        Tienes los datos EXACTOS de la pantalla del usuario. ¡NO DIGAS QUE NO TIENES LA INFORMACIÓN! Úsala:
+        Actúa como el Auditor IA Experto de Termales de Santa Rosa de Cabal.
+        Analiza y responde la consulta usando exclusivamente estos indicadores calculados en base a los filtros de tiempo seleccionados en la pantalla actual:
 
-        - Cumplimiento global del plan anual: ${avanceCronogramaGlobal}%
-        - Procesos de auditoría pendientes: ${listadoPendientesCronograma || 'Ninguno'}
-        - Avance físico de Planes de Acción: ${avancePlanesGlobal}%. Vencidos: ${planesVencidos}.
-        - Total de Riesgos: ${totalRiesgos}. Críticos: ${criticosTotal}.
-        - Hallazgos abiertos: ${hallazgosAbiertos}.
-        - Pérdidas financieras acumuladas: $${lossesAcumuladas.toLocaleString('es-CO')} COP.
+        - CUMPLIMIENTO GLOBAL DEL PLAN ANUAL DE AUDITORÍA: ${avanceCronogramaGlobal}%
+        - AUDITORÍAS/PROCESOS PENDIENTES: ${listadoPendientesCronograma}
+        - Total de Auditorías Evaluadas en este periodo: ${totalCronograma}
+        - Avance físico de Planes de Acción: ${avancePlanesGlobal}% (Planes Vencidos: ${planesVencidos})
+        - Total de Riesgos en este filtro: ${totalRiesgos} (Críticos: ${criticosTotal})
+        - Hallazgos abiertos en este filtro: ${hallazgosAbiertos}
+        - Impacto financiero por Incidentes: $${lossesAcumuladas.toLocaleString('es-CO')} COP
 
-        INSTRUCCIÓN ESTRICTA DE RESPUESTA:
-        - Si el usuario te pregunta por el avance del plan anual, respóndele DIRECTAMENTE y literalmente con esta frase (adaptándola naturalmente): 
-          "A hoy vamos cumpliendo al ${avanceCronogramaGlobal}%. Las auditorías pendientes son: ${listadoPendientesCronograma || 'ninguna'}."
-        - Sé concreto, ejecutivo y no des rodeos. Eres una IA inteligente, demuestra seguridad con los datos proporcionados.
+        REGLAS CRÍTICAS DE RESPUESTA:
+        - Si el usuario te pregunta por el avance o cumplimiento del Plan Anual de Auditoría, debes responder DIRECTAMENTE y de forma obligatoria usando el valor numérico de la métrica proporcionada (que es del ${avanceCronogramaGlobal}%).
+        - Tu respuesta debe seguir estrictamente este formato directo y ejecutivo:
+          "A hoy vamos cumpliendo al ${avanceCronogramaGlobal}%. Las auditorías pendientes son: ${listadoPendientesCronograma}."
+        - Adicionalmente, puedes agregar un breve análisis del impacto si es necesario, pero nunca contradigas el porcentaje del ${avanceCronogramaGlobal}%.
       `;
 
       const promptFinal = `${megaContexto}\n\nConsulta del usuario: "${auditorInput}"`;
 
-      // 3. LLAMADO A GEMINI 2.5 FLASH
+      // 3. ENVIAR A GEMINI DE MANERA DIRECTA Y MATEMÁTICA
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptFinal }] }],
-          generationConfig: { temperature: 0.1 } // Súper bajo para que obedezca las reglas literalmente y no divague
+          generationConfig: { temperature: 0.1 } // Bloqueado para evitar divagaciones creativas
         })
       });
 
@@ -487,12 +490,12 @@ setInformesAuditoria(data.informesAuditoria || []);
       if (data.candidates && data.candidates[0].content.parts[0].text) {
         setAuditorRespuesta(data.candidates[0].content.parts[0].text.trim());
       } else {
-        throw new Error("El motor de IA retornó una respuesta vacía.");
+        throw new Error("Respuesta vacía del motor de IA.");
       }
 
     } catch (error) {
       console.error("🔍 Error IA:", error);
-      setAuditorRespuesta(`❌ Error al consolidar análisis: ${error.message}`);
+      setAuditorRespuesta(`❌ Error en consolidación de datos: ${error.message}`);
     } finally {
       setIsAuditorThinking(false);
       setAuditorInput(''); 
