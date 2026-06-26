@@ -126,36 +126,33 @@ export default function AuditorIA({
                    </div>
                  </div>
 
-                 {/* Subtítulo Sugerencias */}
+{/* Subtítulo Sugerencias */}
                  <div className="text-blue-400 font-black text-[9px] tracking-wider uppercase flex items-center space-x-1 pt-1.5 border-t border-slate-800/40">
-                   <span>⚡</span><span>Sugerencias Rápidas</span>
+                   <span>⚡</span><span>¿Qué deseas analizar hoy?</span>
                  </div>
 
-                 {/* Lista de Botones de Preguntas Rápidas */}
-                 <div className="flex flex-col space-y-1.5">
+                 {/* Menú de Botones Rápidos en Cuadrícula (Grid) */}
+                 <div className="grid grid-cols-2 gap-2 mt-2">
                    {[
-                     { text: '¿Cuántas facturas fueron rechazadas hoy?', icon: '❌' },
-                     { text: 'Mostrar clientes con mayor riesgo', icon: '⚠️' },
-                     { text: '¿Qué usuarios tienen más anulaciones?', icon: '👤' },
-                     { text: 'Resumen de eventos DIAN del mes', icon: '📑' }
+                     { text: 'Dashboard Ejecutivo', icon: '📊', query: 'Dame un resumen ejecutivo general del estado actual de la plataforma.' },
+                     { text: 'Riesgos', icon: '⚠️', query: 'Haz un análisis de la matriz de riesgos registrados.' },
+                     { text: 'Controles', icon: '✔', query: '¿Cuál es el estado de la efectividad de los controles?' },
+                     { text: 'Informes Emitidos', icon: '📄', query: 'Hazme un resumen de los informes de auditoría emitidos.' },
+                     { text: 'Hallazgos', icon: '🔎', query: 'Dame un reporte de los hallazgos actuales y su estado.' },
+                     { text: 'Indicadores', icon: '📈', query: '¿Cómo están los indicadores de monitoreo corporativo?' },
+                     { text: 'Planes de Mejoramiento', icon: '📝', query: '¿Cuál es el avance físico de los planes de mejoramiento?' }
                    ].map((sug, idx) => (
                      <button 
                        key={`sug-${idx}`}
                        type="button"
-                       onClick={() => setAuditorInput(sug.text)}
-                       className="w-full bg-[#050a14]/90 border border-slate-800/80 hover:border-blue-500/40 hover:bg-[#0a1122] px-3 py-2 rounded-xl flex items-center justify-between text-left transition-all duration-200 group"
+                       onClick={() => setAuditorInput(sug.query)}
+                       className={`w-full bg-[#050a14]/90 border border-slate-800/80 hover:border-blue-500/40 hover:bg-[#0a1122] px-3 py-2 rounded-xl flex items-center space-x-2 text-left transition-all duration-200 group ${idx === 0 ? 'col-span-2 justify-center' : ''}`}
                      >
-                       <div className="flex items-center space-x-2.5 text-slate-300 text-[11px] font-medium truncate pr-2">
-                         <span className="text-xs shrink-0">{sug.icon}</span>
-                         <span className="truncate group-hover:text-slate-100">{sug.text}</span>
-                       </div>
-                       <span className="text-slate-500 group-hover:text-blue-400 text-[10px] font-bold transition-colors pl-1 shrink-0">➔</span>
+                       <span className="text-xs shrink-0">{sug.icon}</span>
+                       <span className="text-slate-300 group-hover:text-slate-100 text-[10px] font-bold truncate">{sug.text}</span>
                      </button>
                    ))}
                  </div>
-               </>
-             )}
-           </div>
 
            {/* 5. INPUT DE ENTRADA CON BOTÓN DE ENVIAR */}
            <form onSubmit={handleAuditorSubmit} className="w-full relative pt-0.5">
