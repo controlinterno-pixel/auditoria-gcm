@@ -397,7 +397,7 @@ setInformesAuditoria(data.informesAuditoria || []);
   };
 
  // =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (SINCRONIZACIÓN MILIMÉTRICA AL 93%)
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (INTELIGENCIA CONTEXTUAL Y ENFOQUE MODULAR)
   // =====================================================================
   const handleAuditorSubmit = async (e) => {
     e.preventDefault();
@@ -416,16 +416,19 @@ setInformesAuditoria(data.informesAuditoria || []);
     try {
       const hoy = new Date();
 
-      // 🛑 APLICACIÓN DE FILTROS BASE EN PANTALLA
+      // 🛑 EXTRACCIÓN DE DATOS FILTRADOS POR EL PERIODO SELECCIONADO
       const riesgosBase = rFiltrados;
       const hallazgosBase = hFiltrados;
       const planesBase = pFiltrados;
       const incidentesBase = incFiltrados;
       const cronogramaBase = cFiltrados;
 
-      // 🛑 MÓDULO 1: MATRIX DE RIESGOS
+      // 🛑 MÓDULO 1: MATRIZ DE RIESGOS
       const totalRiesgos = riesgosBase.length;
       let criticosTotal = 0;
+      let riesgosOperativos = riesgosBase.filter(r => r.categoria === 'Operativo').length;
+      let riesgosEstrategicos = riesgosBase.filter(r => r.categoria === 'Estratégico').length;
+      let riesgosTecnologicos = riesgosBase.filter(r => r.categoria === 'Tecnológico').length;
       try {
         criticosTotal = riesgosBase.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
       } catch(err) {}
@@ -433,52 +436,71 @@ setInformesAuditoria(data.informesAuditoria || []);
       // 📄 MÓDULO 2 & 3: HALLAZGOS Y PLANES
       const totalHallazgos = hallazgosBase.length;
       const hallazgosAbiertos = hallazgosBase.filter(h => h.estado === 'Abierto').length;
+      const hallazgosCerrados = totalHallazgos - hallazgosAbiertos;
       const totalPlanes = planesBase.length;
       const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
       const avancePlanesGlobal = totalPlanes > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / totalPlanes) : 0;
 
-      // 🚨 MÓDULO 4: INCIDENTES
+      // 🚨 MÓDULO 4: INCIDENTES Y PÉRDIDAS
+      const totalIncidentes = incidentesBase.length;
       const lossesAcumuladas = incidentesBase.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
 
+      // 🔬 MÓDULO 5: AUDITORÍA DE CONTROLES
+      const evalFiltradas = safeEvaluaciones.filter(filterByGlobalPeriod);
+      const totalEvaluaciones = evalFiltradas.length;
+      const controlesEficaces = evalFiltradas.filter(ev => ev.calificacion === 100).length;
+      const efectividadControlesGlobal = totalEvaluaciones > 0 ? Math.round((controlesEficaces / totalEvaluaciones) * 100) : 0;
+
       // 🗓️ MÓDULO 6: PLAN ANUAL DE AUDITORÍA (Fórmula espejo calibrada al 93%)
-      // Filtramos solo los procesos que ya iniciaron (cumplimiento > 0) tal como lo hace la dona visual
+      const totalCronograma = cronogramaBase.length;
       const cronogramaIniciados = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) > 0);
-      
       const avanceCronogramaGlobal = cronogramaIniciados.length > 0 
         ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) 
         : 0;
-        
-      // Listamos los procesos que están pendientes por llegar al 100% de ejecución
       const pendientesArray = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) < 100).map(c => c.proceso);
-      const listadoPendientesCronograma = pendientesArray.length > 0 ? pendientesArray.join(', ') : 'Ninguno (100% ejecutado)';
+      const listadoPendientesCronograma = pendientesArray.length > 0 ? pendientesArray.join(', ') : 'Ninguno (100% de ejecución)';
 
-      // 2. CONSTRUCCIÓN DEL CONTEXTO DE CONOCIMIENTO SINOPSIS
+      // 2. RE-ESTRUCTURACIÓN DEL PROMPT PARA MÁXIMA CONTUNDENCIA OPERATIVA
       const megaContexto = `
-        Eres el "Auditor IA", un asistente analítico experto en el sistema de gestión de Termales de Santa Rosa de Cabal.
-        Responde al usuario utilizando de forma obligatoria los siguientes datos sincronizados con su vista actual:
+        Actúas como el "Auditor IA", un asistente senior hiper-contundente, ejecutivo y experto en GRC para Termales de Santa Rosa de Cabal.
+        Analiza la pregunta del usuario y responde utilizando únicamente esta radiografía matemática filtrada del sistema:
 
-        - CUMPLIMIENTO GLOBAL DEL PLAN ANUAL DE AUDITORÍA: ${avanceCronogramaGlobal}%
-        - AUDITORÍAS PENDIENTES DE CONCLUIR COMPLETAMENTE: ${listadoPendientesCronograma}
-        - Avance físico de Planes de Acción: ${avancePlanesGlobal}% (Vencidos: ${planesVencidos})
-        - Total de Riesgos analizados: ${totalRiesgos} (Críticos: ${criticosTotal})
-        - Hallazgos abiertos en plataforma: ${hallazgosAbiertos}
-        - Pérdidas financieras acumuladas: $${lossesAcumuladas.toLocaleString('es-CO')} COP
+        [DATOS DE MATRIZ DE RIESGOS]
+        - Total Riesgos Identificados: ${totalRiesgos}
+        - Riesgos Críticos o Extremos (Zona Roja): ${criticosTotal}
+        - Clasificación: Operativos (${riesgosOperativos}), Estratégicos (${riesgosEstrategicos}), Tecnológicos (${riesgosTecnologicos}).
 
-        REGLA DE ORO DE RESPUESTA:
-        - Debes iniciar tu respuesta de forma directa, concisa y usando la siguiente estructura exacta:
-          "A hoy vamos cumpliendo al ${avanceCronogramaGlobal}%. Las auditorías pendientes son: ${listadoPendientesCronograma}."
-        - Sé sumamente ejecutivo y elegante, evitando discursos genéricos o contradictorios.
+        [DATOS DEL PLAN ANUAL DE AUDITORÍA]
+        - CUMPLIMIENTO GLOBAL DE EJECUCIÓN: ${avanceCronogramaGlobal}%
+        - Total Procesos Programados: ${totalCronograma}
+        - Procesos pendientes de completar al 100%: [ ${listadoPendientesCronograma} ]
+
+        [DATOS DE PLANES DE ACCIÓN Y GOBERNANZA]
+        - Avance Físico Global de Planes: ${avancePlanesGlobal}%
+        - Planes de Acción Asignados: ${totalPlanes} (Vencidos Críticos: ${planesVencidos})
+        - Hallazgos/Desviaciones Abiertas: ${hallazgosAbiertos} (Cerrados: ${hallazgosCerrados})
+
+        [DATOS DE EVENTOS DE PÉRDIDA]
+        - Total Incidentes Materializados: ${totalIncidentes}
+        - Impacto Financiero Acumulado: $${lossesAcumuladas.toLocaleString('es-CO')} COP
+        - Efectividad General de Controles: ${efectividadControlesGlobal}%
+
+        REGLAS DE ORO DE CONTUNDENCIA (OBLIGATORIAS):
+        1. RESPONDE EXCLUSIVAMENTE SOBRE EL TEMA DE LA PREGUNTA. Si te preguntan por riesgos, habla SOLO de riesgos. Si te preguntan por el Plan Anual, habla SOLO del plan anual. NO mezcles métricas de otros módulos a menos que te lo pidan.
+        2. COMIENZA RESPONDIENDO AL GRANO. La primera línea de tu respuesta debe contener la métrica exacta de forma contundente y sin saludos largos. (Ej: "A hoy contamos con un total de ${totalRiesgos} riesgos registrados..." o "A hoy el Plan Anual de Auditoría registra un cumplimiento global del ${avanceCronogramaGlobal}%...").
+        3. REALIZA UN ANÁLISIS DE ALTO NIVEL. Después de dar el dato numérico directo, añade un breve párrafo analítico con criterio de Auditor Senior evaluando si la gestión va bien o si hay alarmas críticas basándote en los datos.
+        4. Usa un formato limpio, ejecutivo y viñetas elegantes si es necesario desglosar información.
       `;
 
-      const promptFinal = `${megaContexto}\n\nConsulta: "${auditorInput}"`;
+      const promptFinal = `${megaContexto}\n\nConsulta del Líder: "${auditorInput}"`;
 
-      // 3. EJECUCIÓN DEL LLAMADO A GEMINI
+      // 3. LLAMADO DE BAJA TEMPERATURA A GEMINI 2.5 FLASH
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptFinal }] }],
-          generationConfig: { temperature: 0.1 } // Fijado al mínimo para respuestas matemáticas e hiper-precisas
+          generationConfig: { temperature: 0.1 } // Súper rígido y matemático para garantizar que obedezca las reglas de enfoque
         })
       });
 
@@ -493,7 +515,7 @@ setInformesAuditoria(data.informesAuditoria || []);
 
     } catch (error) {
       console.error("🔍 Error IA:", error);
-      setAuditorRespuesta(`❌ Error: ${error.message}`);
+      setAuditorRespuesta(`❌ Error en consolidación de datos: ${error.message}`);
     } finally {
       setIsAuditorThinking(false);
       setAuditorInput(''); 
