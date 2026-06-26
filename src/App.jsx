@@ -472,6 +472,58 @@ setInformesAuditoria(data.informesAuditoria || []);
       setAuditorInput(''); 
     }
   };
+// =====================================================================
+  // 📥 FUNCIONES DE EXPORTACIÓN (EXCEL Y JSON)
+  // =====================================================================
+  const exportToExcel = (dataArray, fileName) => {
+    if (!xlsxLoaded || !window.XLSX) {
+      showNotification("La librería de exportación aún está cargando.", "error");
+      return;
+    }
+    const cleanData = dataArray.map(item => {
+      const { historialCambios, ...rest } = item;
+      return rest;
+    });
+    
+    const ws = window.XLSX.utils.json_to_sheet(cleanData);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
+    window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    showNotification(`Archivo ${fileName} exportado con éxito.`);
+  };
+
+  const exportToJSON = () => {
+    const data = { riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "GCM_Backup_" + new Date().toISOString().split('T')[0] + ".json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const handleImportJSON = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const parsedData = JSON.parse(event.target.result);
+        if(window.confirm("⚠️ ALERTA: Esto sobrescribirá TODA la base de datos actual con los datos del archivo. ¿Estás seguro?")) {
+          setIsCloudLoaded(false); 
+          await saveToCloud(parsedData);
+          showNotification("Base de datos actualizada masivamente con éxito.", "success");
+          setIsCloudLoaded(true);
+        }
+      } catch(error) {
+        showNotification("Error: El archivo no tiene un formato JSON válido.", "error");
+      }
+      e.target.value = null; 
+    };
+    reader.readAsText(file);
+  };
+
   const handleImportExcelRiesgos = (e) => {
     if (!window.XLSX) {
       showNotification("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.", "error");
