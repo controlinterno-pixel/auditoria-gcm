@@ -397,7 +397,7 @@ setInformesAuditoria(data.informesAuditoria || []);
   };
 
 // =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CEREBRO GEMINI) - VERSIÓN SEGURA UNIVERSAL
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CEREBRO GEMINI) - MODELO ACTUALIZADO
   // =====================================================================
   const handleAuditorSubmit = async (e) => {
     e.preventDefault();
@@ -443,8 +443,8 @@ setInformesAuditoria(data.informesAuditoria || []);
 
       const promptFinal = `${contextoData}\n\nPregunta: "${auditorInput}"`;
 
-      // 3. Petición a Gemini (USAMOS 'gemini-pro' QUE ES 100% COMPATIBLE UNIVERSALMENTE)
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+      // 3. Petición a Gemini (USAMOS 'gemini-2.5-flash' QUE ES EL MODELO VIGENTE SOPORTADO)
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: promptFinal }] }], generationConfig: { temperature: 0.2 } })
@@ -452,7 +452,7 @@ setInformesAuditoria(data.informesAuditoria || []);
 
       const data = await response.json();
       
-      // Si Google nos devuelve un error
+      // Manejo de errores de la API de Google
       if (!response.ok || data.error) {
         throw new Error(data.error?.message || `Error HTTP ${response.status}`);
       }
