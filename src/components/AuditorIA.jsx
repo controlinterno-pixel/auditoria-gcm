@@ -34,44 +34,67 @@ export default function AuditorIA({
              </button>
            </div>
            
-           {/* 2. RECUADRO SUPERIOR: ROBOT Y ONDA CYAN */}
-           <div className="bg-[#0a1122] border border-blue-500/15 rounded-2xl p-4 flex flex-col items-center justify-center relative h-[170px] overflow-hidden shadow-inner">
-             <div className="absolute w-40 h-40 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+           {/* 2. RECUADRO SUPERIOR: VISOR CIBERNÉTICO DE ALTA FIDELIDAD */}
+           <div className="bg-[#060b16] border-2 border-cyan-500/50 rounded-2xl p-4 flex flex-col items-center justify-center relative h-[170px] overflow-hidden shadow-[0_0_20px_rgba(34,211,238,0.15)]">
              
-             <div className="relative z-10 w-24 h-24 flex items-center justify-center drop-shadow-[0_8px_16px_rgba(0,0,0,0.6)]">
+             {/* Destello de luz de fondo */}
+             <div className="absolute w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+             
+             {/* Patrón de barras verticales sutiles (Efecto tecnológico de fondo) */}
+             <div className="absolute inset-0 opacity-40 flex items-center justify-between px-4">
+               {[...Array(10)].map((_, i) => (
+                 <div key={i} className="w-[2px] h-20 bg-gradient-to-b from-transparent via-cyan-500/20 to-transparent"></div>
+               ))}
+             </div>
+             
+             {/* Robot Glossy Mejorado (Diseño final) */}
+             <div className="relative z-10 w-28 h-28 flex items-center justify-center drop-shadow-[0_12px_15px_rgba(0,0,0,0.8)]">
                <svg viewBox="0 0 100 100" className="w-full h-full">
                  <defs>
                    <linearGradient id="helmGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                      <stop offset="0%" stopColor="#ffffff" />
-                     <stop offset="45%" stopColor="#f8fafc" />
-                     <stop offset="100%" stopColor="#cbd5e1" />
+                     <stop offset="55%" stopColor="#e2e8f0" />
+                     <stop offset="100%" stopColor="#94a3b8" />
                    </linearGradient>
                    <linearGradient id="screenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                     <stop offset="0%" stopColor="#0a0f1d" />
+                     <stop offset="0%" stopColor="#020617" />
                      <stop offset="100%" stopColor="#1e293b" />
                    </linearGradient>
                    <radialGradient id="neonGlow" cx="50%" cy="50%" r="50%">
-                     <stop offset="0%" stopColor="#38bdf8" />
-                     <stop offset="40%" stopColor="#0284c7" />
-                     <stop offset="100%" stopColor="#0a1122" />
+                     <stop offset="0%" stopColor="#22d3ee" />
+                     <stop offset="50%" stopColor="#0ea5e9" />
+                     <stop offset="100%" stopColor="transparent" />
                    </radialGradient>
                  </defs>
-                 <path d="M24,36 L15,23 L24,19 Z" fill="#ef4444" />
-                 <path d="M76,36 L85,23 L76,19 Z" fill="#ef4444" />
-                 <rect x="16" y="36" width="6" height="18" rx="3" fill="#475569" />
-                 <rect x="78" y="36" width="6" height="18" rx="3" fill="#475569" />
-                 <circle cx="50" cy="45" r="28" fill="url(#helmGrad)" stroke="#94a3b8" strokeWidth="0.5" />
-                 <rect x="28" y="31" width="44" height="28" rx="14" fill="url(#screenGrad)" stroke="#2563eb" strokeWidth="1" />
-                 <circle cx="40" cy="45" r="3.5" fill="url(#neonGlow)" className="animate-pulse" />
-                 <circle cx="60" cy="45" r="3.5" fill="url(#neonGlow)" className="animate-pulse" />
-                 <path d="M42,72 L58,72 L55,83 L45,83 Z" fill="#94a3b8" />
-                 <circle cx="50" cy="77" r="2.5" fill="#38bdf8" />
+                 
+                 {/* Antenas rojas flotantes (Estilo angular) */}
+                 <path d="M16,34 L6,20 L24,26 Z" fill="#ff3366" />
+                 <path d="M84,34 L94,20 L76,26 Z" fill="#ff3366" />
+                 
+                 {/* Conectores grises laterales */}
+                 <rect x="12" y="40" width="6" height="18" rx="3" fill="#64748b" />
+                 <rect x="82" y="40" width="6" height="18" rx="3" fill="#64748b" />
+                 
+                 {/* Cabeza circular principal */}
+                 <circle cx="50" cy="48" r="30" fill="url(#helmGrad)" />
+                 
+                 {/* Visor oscuro */}
+                 <rect x="26" y="35" width="48" height="26" rx="13" fill="url(#screenGrad)" stroke="#38bdf8" strokeWidth="0.8" />
+                 
+                 {/* Ojos cian con pulso orgánico */}
+                 <circle cx="38" cy="48" r="4.5" fill="url(#neonGlow)" className="animate-[pulse_3s_ease-in-out_infinite]" />
+                 <circle cx="62" cy="48" r="4.5" fill="url(#neonGlow)" className="animate-[pulse_3s_ease-in-out_infinite]" />
+                 
+                 {/* Base inferior / Cuello */}
+                 <path d="M43,77 L57,77 L54,87 L46,87 Z" fill="#cbd5e1" />
+                 <circle cx="50" cy="82" r="2.5" fill="#22d3ee" className="animate-pulse" />
                </svg>
              </div>
 
-             <div className="absolute inset-x-0 bottom-2 h-16 pointer-events-none z-0 opacity-90 flex items-center">
-               <svg viewBox="0 0 100 20" className="w-full h-full text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]" preserveAspectRatio="none">
-                 <path d="M0,10 Q8,10 12,2 T24,18 T36,10 T46,1 T56,19 T66,10 T76,2 T86,17 L100,10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+             {/* ÚNICA Onda Cyan Simple y Brillante (Animada con pulso sutil) */}
+             <div className="absolute inset-x-0 bottom-4 h-16 pointer-events-none z-0 flex items-center">
+               <svg viewBox="0 0 100 20" className="w-full h-full text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,1)] opacity-100" preserveAspectRatio="none">
+                 <path d="M0,12 Q12,2 25,12 T50,12 T75,4 T100,15" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="animate-[pulse_4s_ease-in-out_infinite]" />
                </svg>
              </div>
            </div>
