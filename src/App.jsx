@@ -397,7 +397,7 @@ setInformesAuditoria(data.informesAuditoria || []);
   };
 
   // =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CEREBRO GEMINI TOTAL MULTI-MÓDULO)
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (Sincronizada con los Filtros Visuales)
   // =====================================================================
   const handleAuditorSubmit = async (e) => {
     e.preventDefault();
@@ -416,108 +416,87 @@ setInformesAuditoria(data.informesAuditoria || []);
     try {
       const hoy = new Date();
 
-      // 🛑 MÓDULO 1: MATRIX DE RIESGOS (Resumen Estructurado)
-      const totalRiesgos = safeRiesgos.length;
+      // 🔥 CAMBIO CLAVE: AHORA USAMOS LAS VARIABLES FILTRADAS QUE ALIMENTAN TU PANTALLA
+
+      // 🛑 MÓDULO 1: MATRIX DE RIESGOS
+      const totalRiesgos = rFiltrados.length;
       let criticosTotal = 0;
-      let riesgosOperativos = safeRiesgos.filter(r => r.categoria === 'Operativo').length;
-      let riesgosEstrategicos = safeRiesgos.filter(r => r.categoria === 'Estratégico').length;
-      let riesgosTecnologicos = safeRiesgos.filter(r => r.categoria === 'Tecnológico').length;
+      let riesgosOperativos = rFiltrados.filter(r => r.categoria === 'Operativo').length;
+      let riesgosEstrategicos = rFiltrados.filter(r => r.categoria === 'Estratégico').length;
+      let riesgosTecnologicos = rFiltrados.filter(r => r.categoria === 'Tecnológico').length;
       try {
-        criticosTotal = safeRiesgos.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
+        criticosTotal = rFiltrados.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
       } catch(err) {}
 
       // 📄 MÓDULO 2: HALLAZGOS / DESVIACIONES
-      const totalHallazgos = safeHallazgos.length;
-      const hallazgosAbiertos = safeHallazgos.filter(h => h.estado === 'Abierto').length;
+      const totalHallazgos = hFiltrados.length;
+      const hallazgosAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
       const hallazgosCerrados = totalHallazgos - hallazgosAbiertos;
 
       // ✅ MÓDULO 3: PLANES DE ACCIÓN
-      const totalPlanes = safePlanes.length;
-      const planesCerrados = safePlanes.filter(p => p.estado === 'Cerrado').length;
+      const totalPlanes = pFiltrados.length;
+      const planesCerrados = pFiltrados.filter(p => p.estado === 'Cerrado').length;
       const planesEnProceso = totalPlanes - planesCerrados;
-      const planesVencidos = safePlanes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
-      const avancePlanesGlobal = totalPlanes > 0 ? Math.round(safePlanes.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / totalPlanes) : 0;
+      const planesVencidos = pFiltrados.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
+      const avancePlanesGlobal = totalPlanes > 0 ? Math.round(pFiltrados.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / totalPlanes) : 0;
 
       // 🚨 MÓDULO 4: EVENTOS DE PÉRDIDA / INCIDENTES
-      const totalIncidentes = safeIncidentes.length;
-      const lossesAcumuladas = safeIncidentes.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
+      const totalIncidentes = incFiltrados.length;
+      const lossesAcumuladas = incFiltrados.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
 
       // 🔬 MÓDULO 5: AUDITORÍA Y EVALUACIÓN DE CONTROLES
-      const totalEvaluaciones = safeEvaluaciones.length;
-      const controlesEficaces = safeEvaluaciones.filter(ev => ev.calificacion === 100).length;
+      const evalFiltradas = safeEvaluaciones.filter(filterByGlobalPeriod);
+      const totalEvaluaciones = evalFiltradas.length;
+      const controlesEficaces = evalFiltradas.filter(ev => ev.calificacion === 100).length;
       const controlesInadecuados = totalEvaluaciones - controlesEficaces;
       const efectividadControlesGlobal = totalEvaluaciones > 0 ? Math.round((controlesEficaces / totalEvaluaciones) * 100) : 0;
 
-      // 🗓️ MÓDULO 6: PLAN ANUAL DE AUDITORÍA (CRONOGRAMA)
-      const totalCronograma = safeCronograma.length;
-      const cronogramaCompletado = safeCronograma.filter(c => c.cumplimiento === 100).length;
+      // 🗓️ MÓDULO 6: PLAN ANUAL DE AUDITORÍA (CRONOGRAMA) - ¡AHORA SÍ USA EL 93%!
+      const totalCronograma = cFiltrados.length;
+      const cronogramaCompletado = cFiltrados.filter(c => c.cumplimiento === 100).length;
       const cronogramaPendiente = totalCronograma - cronogramaCompletado;
-      const avanceCronogramaGlobal = totalCronograma > 0 ? Math.round(safeCronograma.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / totalCronograma) : 0;
-      const listadoPendientesCronograma = safeCronograma.filter(c => c.cumplimiento < 100).map(c => `${c.codigo}-${c.proceso}`).join(' / ');
+      const avanceCronogramaGlobal = totalCronograma > 0 ? Math.round(cFiltrados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / totalCronograma) : 0;
+      const listadoPendientesCronograma = cFiltrados.filter(c => c.cumplimiento < 100).map(c => `${c.codigo}-${c.proceso}`).join(' / ');
 
       // ⚙️ MÓDULO 7: MONITOREO DE INDICADORES / KRIs / KPIs
       const totalKPIs = safeMonitoreo.length;
-      const kpisTexto = safeMonitoreo.map(m => `• [${m.proceso}] ${m.indicador}: Valor actual ${m.valor} (Límite máximo tolerado: ${m.limite}) Tendencia: ${m.tendencia}`).join('\n');
 
       // 📁 MÓDULO 8: REPOSITORIO DE INFORMES EMITIDOS
       const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
       const totalInformes = safeInformes.length;
-      const informesTexto = safeInformes.slice(0, 5).map(inf => `• Consecutivo: ${inf.ref} | Proceso: ${inf.proceso} | Título: ${inf.titulo} | Socializado: ${inf.socializado}`).join('\n');
 
-      // 2. CONSTRUCCIÓN DE LA SÚPER BASE DE CONOCIMIENTO EN TIEMPO REAL
+      // 2. CONSTRUCCIÓN DE LA SÚPER BASE DE CONOCIMIENTO (LO QUE VE EL USUARIO)
       const megaContexto = `
-        Eres el "Auditor IA", un asistente inteligente de nivel experto en Gobierno, Riesgo y Cumplimiento (GRC) para Termales de Santa Rosa de Cabal.
-        Tienes acceso total y en tiempo real a los 8 módulos de la aplicación. Responde la consulta del usuario basándote exclusivamente en esta radiografía del sistema:
+        Eres el "Auditor IA", un asistente inteligente de nivel experto en GRC para Termales de Santa Rosa de Cabal.
+        ESTA ES LA RADIOGRAFÍA EXACTA DE LO QUE EL USUARIO ESTÁ VIENDO EN PANTALLA AHORA MISMO (Filtros activos: Años [${selectedAnios.join(', ')}] / Meses [${selectedMeses.join(', ')}]):
 
-        1. MATRIZ DE RIESGOS:
-           - Total Riesgos: ${totalRiesgos} (Operativos: ${riesgosOperativos}, Estratégicos: ${riesgosEstrategicos}, Tecnológicos: ${riesgosTecnologicos}).
-           - Riesgos en Zona Crítica/Extrema (Puntaje > 16): ${criticosTotal}.
-
-        2. HALLAZGOS Y DESVIACIONES:
-           - Total Hallazgos Documentados: ${totalHallazgos} (Abiertos: ${hallazgosAbiertos}, Cerrados de manera conforme: ${hallazgosCerrados}).
-
-        3. PLANES DE ACCIÓN (GOBERNANZA):
-           - Total Planes Asignados: ${totalPlanes} (En Proceso: ${planesEnProceso}, Completados/Cerrados: ${planesCerrados}).
-           - Planes VENCIDOS Críticos (Fecha expirada sin cierre): ${planesVencidos}.
-           - Porcentaje de Avance Físico Global de los Planes: ${avancePlanesGlobal}%.
-
-        4. EVENTOS DE PÉRDIDA (INCIDENTES):
-           - Total Incidentes Materializados: ${totalIncidentes}.
-           - Impacto Financiero / Pérdidas Económicas Totales: $${lossesAcumuladas.toLocaleString('es-CO')} COP.
-
-        5. AUDITORÍA DE CONTROLES:
-           - Total Controles Evaluados: ${totalEvaluaciones} (Eficaces: ${controlesEficaces}, Inadecuados/Fallidos: ${controlesInadecuados}).
-           - Índice de Efectividad Global del Entorno de Control: ${efectividadControlesGlobal}%.
-
-        6. PLAN ANUAL DE AUDITORÍA (CRONOGRAMA):
+        1. MATRIZ DE RIESGOS: Total: ${totalRiesgos} (Críticos: ${criticosTotal}).
+        2. HALLAZGOS Y DESVIACIONES: Total: ${totalHallazgos} (Abiertos: ${hallazgosAbiertos}, Cerrados: ${hallazgosCerrados}).
+        3. PLANES DE ACCIÓN: Total: ${totalPlanes} (En Proceso: ${planesEnProceso}, Vencidos: ${planesVencidos}). Avance Físico: ${avancePlanesGlobal}%.
+        4. EVENTOS DE PÉRDIDA: Total: ${totalIncidentes}. Impacto: $${lossesAcumuladas.toLocaleString('es-CO')} COP.
+        5. AUDITORÍA DE CONTROLES: Efectividad global: ${efectividadControlesGlobal}%.
+        6. PLAN ANUAL DE AUDITORÍA (CRONOGRAMA): 
            - Total Procesos Programados: ${totalCronograma} auditorías.
-           - Cumplimiento de Ejecución del Plan Anual: ${avanceCronogramaGlobal}%.
-           - Auditorías Concluidas: ${cronogramaCompletado} | Auditorías Pendientes: ${cronogramaPendiente}.
-           - Procesos aún pendientes de Auditoría: [ ${listadoPendientesCronograma || 'Ninguno, Plan ejecutado al 100%'} ].
-
-        7. MONITOREO DE INDICADORES OPERATIVOS (KPI/KRI):
-           - Total Métricas en Tablero: ${totalKPIs}.
-           Métricas Actuales:\n${kpisTexto || 'No hay indicadores configurados.'}
-
-        8. HISTÓRICO DE INFORMES FORMALES EMITIDOS:
-           - Total Informes Radicados: ${totalInformes}.
-           Últimos Informes Emitidos en Plataforma:\n${informesTexto || 'No hay informes archivados aún.'}
+           - CUMPLIMIENTO GLOBAL DE EJECUCIÓN: ${avanceCronogramaGlobal}%.
+           - Pendientes (${cronogramaPendiente}): [ ${listadoPendientesCronograma || 'Ninguno'} ].
+        7. INDICADORES (KPIs): Total Métricas: ${totalKPIs}.
+        8. INFORMES EMITIDOS: Total: ${totalInformes}.
 
         REGLAS DE RESPUESTA:
-        - Sé claro, conciso, amable y habla como un Auditor Senior Corporativo.
-        - Usa porcentajes y métricas exactas cuando te pregunten "cómo vamos", "dame un resumen", o por algún módulo en específico.
-        - Si el usuario te pregunta por datos específicos que no están aquí listados, indícale amablemente los datos macro que tienes a disposición.
+        - Basa tus respuestas estrictamente en estos datos exactos que reflejan lo que el usuario ve en su tablero de control con los filtros aplicados.
+        - Si el usuario te pregunta "cómo vamos en el plan anual", dile explícitamente que el cumplimiento global es del ${avanceCronogramaGlobal}%.
+        - Habla siempre de forma ejecutiva, técnica, amable y resolutiva.
       `;
 
-      const promptFinal = `${megaContexto}\n\nConsulta del Líder/Auditor: "${auditorInput}"`;
+      const promptFinal = `${megaContexto}\n\nConsulta: "${auditorInput}"`;
 
-      // 3. LLAMADO DE ALTA VELOCIDAD A GEMINI 2.5 FLASH
+      // 3. LLAMADO A GEMINI
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptFinal }] }],
-          generationConfig: { temperature: 0.2 }
+          generationConfig: { temperature: 0.1 } // Bajé la temperatura a 0.1 para que sea más matemático y no divague
         })
       });
 
@@ -527,12 +506,12 @@ setInformesAuditoria(data.informesAuditoria || []);
       if (data.candidates && data.candidates[0].content.parts[0].text) {
         setAuditorRespuesta(data.candidates[0].content.parts[0].text.trim());
       } else {
-        throw new Error("El motor de IA retornó una respuesta estructurada vacía.");
+        throw new Error("El motor de IA retornó una respuesta vacía.");
       }
 
     } catch (error) {
-      console.error("🔍 Error de auditoría en datos:", error);
-      setAuditorRespuesta(`❌ Error al consolidar análisis: ${error.message}`);
+      console.error("🔍 Error IA:", error);
+      setAuditorRespuesta(`❌ Error: ${error.message}`);
     } finally {
       setIsAuditorThinking(false);
       setAuditorInput(''); 
