@@ -397,7 +397,7 @@ setInformesAuditoria(data.informesAuditoria || []);
   };
 
 // =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CEREBRO GEMINI) - VERSIÓN SEGURA
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CEREBRO GEMINI) - VERSIÓN SEGURA UNIVERSAL
   // =====================================================================
   const handleAuditorSubmit = async (e) => {
     e.preventDefault();
@@ -407,7 +407,7 @@ setInformesAuditoria(data.informesAuditoria || []);
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_API_KEY;
 
     if (!apiKey) {
-      setAuditorRespuesta("⚠️ Error: No se encontró la API Key (VITE_GEMINI_API_KEY) en tu archivo .env local o en Vercel.");
+      setAuditorRespuesta("⚠️ Error: No se encontró la API Key en tu archivo .env local o en Vercel.");
       return;
     }
 
@@ -415,7 +415,7 @@ setInformesAuditoria(data.informesAuditoria || []);
     setAuditorRespuesta('');
 
     try {
-      // 1. Cálculos ultra-seguros (evitamos que la app se rompa si un dato viene vacío)
+      // 1. Cálculos ultra-seguros
       const hoy = new Date();
       const planesVencidos = safePlanes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
       const perdidasTotal = safeIncidentes.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
@@ -443,8 +443,8 @@ setInformesAuditoria(data.informesAuditoria || []);
 
       const promptFinal = `${contextoData}\n\nPregunta: "${auditorInput}"`;
 
-      // 3. Petición a Gemini
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      // 3. Petición a Gemini (USAMOS 'gemini-pro' QUE ES 100% COMPATIBLE UNIVERSALMENTE)
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: promptFinal }] }], generationConfig: { temperature: 0.2 } })
@@ -452,7 +452,7 @@ setInformesAuditoria(data.informesAuditoria || []);
 
       const data = await response.json();
       
-      // Si Google nos devuelve un error (ej. API Key vencida o mala)
+      // Si Google nos devuelve un error
       if (!response.ok || data.error) {
         throw new Error(data.error?.message || `Error HTTP ${response.status}`);
       }
@@ -466,7 +466,6 @@ setInformesAuditoria(data.informesAuditoria || []);
 
     } catch (error) {
       console.error("🔍 Error detallado del Auditor IA:", error);
-      // 🔥 AHORA SÍ: MOSTRAMOS EL ERROR REAL EN PANTALLA PARA SABER QUÉ PASA
       setAuditorRespuesta(`❌ Falló la conexión: ${error.message}`);
     } finally {
       setIsAuditorThinking(false);
