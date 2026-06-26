@@ -1754,70 +1754,84 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       </div>
 
 {/* ===================================================================== */}
-      {/* 🤖 UI DEL AUDITOR IA - RÉPLICA EXACTA DE ALTA FIDELIDAD CON TARJETAS  */}
+      {/* 🤖 UI DEL AUDITOR IA - VERSIÓN DE ALTA FIDELIDAD PREMIUM CALIBRADA   */}
       {/* ===================================================================== */}
       {!isPresentationMode && isAdmin && (
         <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end font-sans">
            {showAuditorIA && (
-             <div className="mb-4 w-85 sm:w-[380px] bg-[#070d19] rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.8)] border-2 border-blue-500/40 overflow-hidden animate-in slide-in-from-bottom-5 p-4 space-y-3">
+             <div className="mb-4 w-85 sm:w-[380px] bg-[#070d19] rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.85)] border-2 border-blue-500/30 overflow-hidden animate-in slide-in-from-bottom-5 p-4 space-y-3.5">
                
-               {/* 1. CABECERA CON PILA "ONLINE" Y TÍTULOS */}
+               {/* 1. CABECERA CON PILL "ONLINE" E INDICADORES */}
                <div className="flex justify-between items-center pb-1">
-                 {/* Pill Online */}
                  <div className="flex items-center space-x-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">
                    <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse"></div>
                    <span className="text-[10px] text-emerald-400 font-black tracking-wider uppercase">Online</span>
                  </div>
-                 {/* Títulos Centrales */}
                  <div className="text-center flex-1 pr-6">
-                   <h3 className="font-black text-sm tracking-widest text-slate-200">AUDITOR IA</h3>
+                   <h3 className="font-black text-sm tracking-widest text-slate-100">AUDITOR IA</h3>
                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Asistente Inteligente</p>
                  </div>
-                 {/* Botón Cerrar */}
                  <button onClick={() => setShowAuditorIA(false)} className="text-slate-400 hover:text-white font-bold text-lg transition-colors px-1">✕</button>
                </div>
                
-               {/* 2. RECUADRO SUPERIOR: ROBOT ESTILIZADO DE OJOS AZULES Y ONDA CYAN */}
-               <div className="bg-[#0b1325] border border-blue-500/20 rounded-2xl p-4 flex flex-col items-center justify-center relative min-h-[170px] overflow-hidden shadow-inner">
-                 <div className="absolute w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+               {/* 2. RECUADRO SUPERIOR: ROBOT 3D GRADIENT Y ONDA CYAN EN EL FONDO */}
+               <div className="bg-[#0b1325] border border-blue-500/20 rounded-2xl p-4 flex flex-col items-center justify-center relative min-h-[180px] overflow-hidden shadow-inner">
+                 <div className="absolute w-40 h-40 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
                  
-                 {/* Robot en Vector Inline */}
-                 <div className="relative z-10 w-24 h-24 flex items-center justify-center">
-                   <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-                     {/* Antenas cónicas rojas */}
-                     <path d="M22,42 L16,30 L22,26 Z" fill="#ef4444" />
-                     <path d="M78,42 L84,30 L78,26 Z" fill="#ef4444" />
-                     {/* Orejeras */}
-                     <rect x="18" y="40" width="6" height="16" rx="2" fill="#475569" />
-                     <rect x="76" y="40" width="6" height="16" rx="2" fill="#475569" />
-                     {/* Estructura Cabeza */}
-                     <rect x="22" y="22" width="56" height="52" rx="26" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
-                     {/* Pantalla/Visor Oscuro */}
-                     <rect x="28" y="34" width="44" height="28" rx="14" fill="#0f172a" />
-                     {/* Ojos Azules Brillantes Ciber */}
-                     <ellipse cx="41" cy="48" rx="6" ry="4" fill="#00d2ff" className="animate-pulse" />
-                     <ellipse cx="59" cy="48" rx="6" ry="4" fill="#00d2ff" className="animate-pulse" />
-                     {/* Cuello y Base */}
-                     <path d="M38,74 L62,74 L58,86 L42,86 Z" fill="#cbd5e1" />
-                     <circle cx="50" cy="80" r="3" fill="#00d2ff" />
+                 {/* Robot Estilizado de Alta Gama con Sombras y Brillos */}
+                 <div className="relative z-10 w-24 h-24 flex items-center justify-center drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]">
+                   <svg viewBox="0 0 100 100" className="w-full h-full">
+                     <defs>
+                       {/* Luces y degradados metálicos para la cabeza */}
+                       <linearGradient id="robotBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                         <stop offset="0%" stopColor="#ffffff" />
+                         <stop offset="40%" stopColor="#f1f5f9" />
+                         <stop offset="100%" stopColor="#cbd5e1" />
+                       </linearGradient>
+                       {/* Profundidad del visor oscuro */}
+                       <linearGradient id="visorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                         <stop offset="0%" stopColor="#090f1d" />
+                         <stop offset="100%" stopColor="#1e293b" />
+                       </linearGradient>
+                       {/* Brillo de los ojos ciber */}
+                       <radialGradient id="cyberEye" cx="50%" cy="50%" r="50%">
+                         <stop offset="0%" stopColor="#38bdf8" />
+                         <stop offset="30%" stopColor="#0284c7" />
+                         <stop offset="100%" stopColor="#0f172a" />
+                       </radialGradient>
+                     </defs>
+                     {/* Antenas estilizadas */}
+                     <path d="M24,38 L15,24 L24,20 Z" fill="#ef4444" />
+                     <path d="M76,38 L85,24 L76,20 Z" fill="#ef4444" />
+                     {/* Conectores orejas */}
+                     <rect x="16" y="38" width="6" height="18" rx="3" fill="#475569" />
+                     <rect x="78" y="38" width="6" height="18" rx="3" fill="#475569" />
+                     {/* Casco Principal */}
+                     <circle cx="50" cy="46" r="28" fill="url(#robotBodyGrad)" stroke="#94a3b8" strokeWidth="1" />
+                     {/* Visor Digital Inteligente */}
+                     <rect x="28" y="32" width="44" height="28" rx="14" fill="url(#visorGrad)" stroke="#3b82f6" strokeWidth="1" />
+                     {/* Ojos de Neón Rediseñados */}
+                     <ellipse cx="40" cy="46" rx="6" ry="4" fill="url(#cyberEye)" className="animate-pulse" />
+                     <ellipse cx="60" cy="46" rx="6" ry="4" fill="url(#cyberEye)" className="animate-pulse" />
+                     {/* Base del cuello */}
+                     <path d="M42,72 L58,72 L55,84 L45,84 Z" fill="#94a3b8" />
+                     <circle cx="50" cy="78" r="3" fill="#38bdf8" />
                    </svg>
                  </div>
 
-                 {/* Onda de sonido de alta fidelidad */}
-                 <div className="absolute bottom-6 left-0 right-0 h-10 overflow-hidden flex items-center justify-center pointer-events-none z-20 opacity-90">
-                   <svg viewBox="0 0 100 20" className="w-full h-full text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]" preserveAspectRatio="none">
-                     <path d="M0,10 Q8,10 12,3 T20,16 T28,10 T38,2 T48,18 T58,10 T68,4 T78,15 T86,10 L100,10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                 {/* Onda de sonido colocada de fondo, estilizada y delgada */}
+                 <div className="absolute bottom-4 left-0 right-0 h-12 overflow-hidden flex items-center justify-center pointer-events-none z-0 opacity-80">
+                   <svg viewBox="0 0 100 20" className="w-full h-full text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]" preserveAspectRatio="none">
+                     <path d="M0,10 Q10,10 15,2 T25,18 T35,10 T45,1 T55,19 T65,10 T75,3 T85,16 L100,10" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="blur-[0.5px]" />
                    </svg>
                  </div>
                </div>
 
-               {/* 3. RECUADRO INTERMEDIO: ASIGNACIÓN DE COMPAÑÍA Y ROL INSTITUCIONAL */}
+               {/* 3. RECUADRO INTERMEDIO: ENCUADRE CORPORATIVO AJUSTADO */}
                <div className="bg-[#0b1325] border border-blue-500/20 p-3.5 rounded-2xl flex items-center space-x-3 shadow-inner">
-                 {/* Icono de Mini Robot */}
-                 <div className="w-9 h-9 bg-[#070d19] rounded-xl flex items-center justify-center border border-blue-500/20 shadow-md">
+                 <div className="w-9 h-9 bg-[#070d19] rounded-xl flex items-center justify-center border border-blue-500/20 shadow-md shrink-0">
                    <span className="text-xl">🤖</span>
                  </div>
-                 {/* Textos Corporativos */}
                  <div className="flex-1 space-y-0.5">
                    <div className="font-black text-slate-100 text-[11px] tracking-wide uppercase">
                      TERMALES DE SANTA ROSA
@@ -1829,10 +1843,10 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                  </div>
                </div>
 
-               {/* 4. HISTORIAL Y BURBUJAS DE TEXTO */}
-               <div className="w-full relative z-10">
+               {/* 4. HISTORIAL Y CONVERSACIÓN */}
+               <div className="w-full relative">
                  {auditorRespuesta ? (
-                   <div className="bg-[#0b1325] border border-slate-800 text-slate-200 p-4 rounded-2xl text-[11px] leading-relaxed shadow-inner max-h-36 overflow-y-auto whitespace-pre-wrap font-medium">
+                   <div className="bg-[#0b1325] border border-slate-800 text-slate-200 p-4 rounded-2xl text-[11px] leading-relaxed shadow-inner max-h-36 overflow-y-auto whitespace-pre-wrap font-medium border-l-4 border-l-blue-500">
                      {auditorRespuesta}
                    </div>
                  ) : (
@@ -1844,7 +1858,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                  )}
                </div>
 
-               {/* 5. ZONA DE ENTRADA / INPUT BAR */}
+               {/* 5. INPUT BAR / CAJA DE TEXTO */}
                <form onSubmit={handleAuditorSubmit} className="w-full relative">
                  <input 
                    type="text" 
@@ -1874,7 +1888,8 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
              {showAuditorIA ? '✕' : '🤖'}
            </button>
         </div>
-      )}      
+      )}
+
       {/* CÓDIGO AÑADIDO: Renderizado del Modal de Inteligencia Artificial */}
       {aiModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
