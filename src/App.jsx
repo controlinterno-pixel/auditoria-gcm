@@ -397,7 +397,7 @@ setInformesAuditoria(data.informesAuditoria || []);
   };
 
  // =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (INTELIGENCIA CONTEXTUAL Y ENFOQUE MODULAR)
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (ENFOQUE DE CONTROL INTERNO)
   // =====================================================================
   const handleAuditorSubmit = async (e) => {
     e.preventDefault();
@@ -462,18 +462,18 @@ setInformesAuditoria(data.informesAuditoria || []);
 
       // 2. RE-ESTRUCTURACIÓN DEL PROMPT PARA MÁXIMA CONTUNDENCIA OPERATIVA
       const megaContexto = `
-        Actúas como el "Auditor IA", un asistente senior hiper-contundente, ejecutivo y experto en GRC para Termales de Santa Rosa de Cabal.
-        Analiza la pregunta del usuario y responde utilizando únicamente esta radiografía matemática filtrada del sistema:
-
-        [DATOS DE MATRIZ DE RIESGOS]
-        - Total Riesgos Identificados: ${totalRiesgos}
-        - Riesgos Críticos o Extremos (Zona Roja): ${criticosTotal}
-        - Clasificación: Operativos (${riesgosOperativos}), Estratégicos (${riesgosEstrategicos}), Tecnológicos (${riesgosTecnologicos}).
+        Actúas como el "Auditor IA", un asistente senior del equipo de CONTROL INTERNO de TERMALES DE SANTA ROSA.
+        Eres directo, ejecutivo y experto en GRC. Responde utilizando únicamente esta radiografía matemática filtrada del sistema:
 
         [DATOS DEL PLAN ANUAL DE AUDITORÍA]
         - CUMPLIMIENTO GLOBAL DE EJECUCIÓN: ${avanceCronogramaGlobal}%
         - Total Procesos Programados: ${totalCronograma}
         - Procesos pendientes de completar al 100%: [ ${listadoPendientesCronograma} ]
+
+        [DATOS DE MATRIZ DE RIESGOS]
+        - Total Riesgos Identificados: ${totalRiesgos}
+        - Riesgos Críticos o Extremos (Zona Roja): ${criticosTotal}
+        - Clasificación: Operativos (${riesgosOperativos}), Estratégicos (${riesgosEstrategicos}), Tecnológicos (${riesgosTecnologicos}).
 
         [DATOS DE PLANES DE ACCIÓN Y GOBERNANZA]
         - Avance Físico Global de Planes: ${avancePlanesGlobal}%
@@ -485,11 +485,10 @@ setInformesAuditoria(data.informesAuditoria || []);
         - Impacto Financiero Acumulado: $${lossesAcumuladas.toLocaleString('es-CO')} COP
         - Efectividad General de Controles: ${efectividadControlesGlobal}%
 
-        REGLAS DE ORO DE CONTUNDENCIA (OBLIGATORIAS):
+        REGLAS OBLIGATORIAS DE RESPUESTA:
         1. RESPONDE EXCLUSIVAMENTE SOBRE EL TEMA DE LA PREGUNTA. Si te preguntan por riesgos, habla SOLO de riesgos. Si te preguntan por el Plan Anual, habla SOLO del plan anual. NO mezcles métricas de otros módulos a menos que te lo pidan.
-        2. COMIENZA RESPONDIENDO AL GRANO. La primera línea de tu respuesta debe contener la métrica exacta de forma contundente y sin saludos largos. (Ej: "A hoy contamos con un total de ${totalRiesgos} riesgos registrados..." o "A hoy el Plan Anual de Auditoría registra un cumplimiento global del ${avanceCronogramaGlobal}%...").
-        3. REALIZA UN ANÁLISIS DE ALTO NIVEL. Después de dar el dato numérico directo, añade un breve párrafo analítico con criterio de Auditor Senior evaluando si la gestión va bien o si hay alarmas críticas basándote en los datos.
-        4. Usa un formato limpio, ejecutivo y viñetas elegantes si es necesario desglosar información.
+        2. COMIENZA RESPONDIENDO AL GRANO. La primera línea de tu respuesta debe contener la métrica exacta de forma contundente y sin saludos largos. (Ej: "A hoy el Plan Anual de Auditoría registra un cumplimiento global del ${avanceCronogramaGlobal}%..." o "A hoy contamos con un total de ${totalRiesgos} riesgos registrados...").
+        3. SÉ UN CONSULTOR DE CONTROL INTERNO. Añade un breve párrafo analítico con criterio corporativo senior evaluando si la gestión va bien o si hay alarmas críticas basándote en los datos.
       `;
 
       const promptFinal = `${megaContexto}\n\nConsulta del Líder: "${auditorInput}"`;
@@ -500,7 +499,7 @@ setInformesAuditoria(data.informesAuditoria || []);
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: promptFinal }] }],
-          generationConfig: { temperature: 0.1 } // Súper rígido y matemático para garantizar que obedezca las reglas de enfoque
+          generationConfig: { temperature: 0.1 }
         })
       });
 
@@ -1755,29 +1754,47 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       </div>
 
 {/* ===================================================================== */}
-      {/* 🤖 UI DEL AUDITOR IA (EL BOTÓN FLOTANTE Y EL PANEL OSCURO)            */}
+      {/* 🤖 UI DEL AUDITOR IA (EL BOTÓN FLOTANTE Y EL PANEL OSCURO INTEGRADO)  */}
       {/* ===================================================================== */}
       {!isPresentationMode && isAdmin && (
         <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end">
            {showAuditorIA && (
-             <div className="mb-4 w-80 sm:w-96 bg-[#0b1121] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-slate-700/50 overflow-hidden animate-in slide-in-from-bottom-5">
+             <div className="mb-4 w-80 sm:w-96 bg-[#0b1121] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-blue-500/50 overflow-hidden animate-in slide-in-from-bottom-5">
+               
+               {/* Cabecera del Panel */}
                <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#0b1121]/90 backdrop-blur-md">
-                 <div>
+                 <div className="flex items-center space-x-2">
                    <h3 className="font-black text-sm tracking-widest text-blue-400">AUDITOR IA</h3>
-                   <p className="text-[10px] text-blue-300/60 font-bold uppercase">Asistente Inteligente</p>
+                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                   <span className="text-[10px] text-emerald-500 font-bold uppercase">Online</span>
                  </div>
                  <button onClick={() => setShowAuditorIA(false)} className="text-slate-500 hover:text-white font-black text-lg transition-colors">✖</button>
                </div>
                
+               {/* Cuerpo: Avatar y Chat */}
                <div className="p-6 flex flex-col items-center relative overflow-hidden bg-gradient-to-b from-[#0b1121] to-slate-900 min-h-[300px]">
                  <div className="absolute top-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
-                 <div className="w-24 h-24 bg-[#080d1a] rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.2)] border border-blue-500/20 relative z-10 transition-all duration-700">
-                   <span className={`text-6xl drop-shadow-[0_0_15px_rgba(59,130,246,0.8)] ${isAuditorThinking ? 'animate-pulse' : ''}`}>🤖</span>
+                 
+                 {/* Avatar Glowing */}
+                 <div className="w-24 h-24 bg-[#080d1a] rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.3)] border border-blue-500/20 relative z-10">
+                    <div className={`relative ${isAuditorThinking ? 'animate-pulse' : ''}`}>
+                      <div className="absolute top-[-6px] left-[-4px] w-[6px] h-[6px] rounded-full bg-red-600 shadow-[0_0_8px_#dc2626]"></div>
+                      <div className="absolute top-[-6px] right-[-4px] w-[6px] h-[6px] rounded-full bg-red-600 shadow-[0_0_8px_#dc2626]"></div>
+                      <span className="text-6xl drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]">🤖</span>
+                    </div>
                  </div>
 
+                 {/* Onda de sonido azul brillante */}
+                 <div className="absolute bottom-20 left-0 right-0 h-8 overflow-hidden flex items-center justify-center pointer-events-none opacity-40">
+                   <svg viewBox="0 0 100 10" className="w-full h-6 text-blue-500">
+                     <path d="M0,5 L10,5 L15,2 L20,8 L25,5 L35,5 L40,1 L45,9 L50,5 L60,5 L65,3 L70,7 L75,5 L85,5 L90,2 L95,8 L100,5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                   </svg>
+                 </div>
+
+                 {/* Respuestas del Chat */}
                  <div className="w-full relative z-10 flex-grow flex flex-col justify-end">
                    {auditorRespuesta ? (
-                     <div className="bg-slate-800/80 text-blue-50 p-4 rounded-2xl text-[11px] leading-relaxed border border-slate-700 shadow-inner mb-2 animate-in fade-in max-h-48 overflow-y-auto">
+                     <div className="bg-slate-800/80 text-blue-50 p-4 rounded-2xl text-[11px] leading-relaxed border border-slate-700 shadow-inner mb-2 max-h-48 overflow-y-auto">
                        {auditorRespuesta}
                      </div>
                    ) : (
@@ -1787,26 +1804,41 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                    )}
                  </div>
 
+                 {/* Input de Texto */}
                  <form onSubmit={handleAuditorSubmit} className="w-full relative z-10 mt-2">
                    <input 
                      type="text" 
                      value={auditorInput}
                      onChange={(e) => setAuditorInput(e.target.value)}
-                     placeholder="Ej: ¿Cuántos planes están vencidos?"
+                     placeholder="Ej: ¿Cuántos riesgos tengo registrados?"
                      disabled={isAuditorThinking}
-                     className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50"
+                     className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                    />
-                   <button type="submit" disabled={isAuditorThinking || !auditorInput.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-400 p-2 disabled:opacity-30">
+                   <button type="submit" disabled={isAuditorThinking || !auditorInput.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-400 p-2">
                      ➤
                    </button>
                  </form>
                </div>
+
+               {/* 🏢 PIE DE PÁGINA ACTUALIZADO: INSTITUCIONAL Y MODERNO */}
+               <div className="bg-[#0d1527] border-t border-slate-800 p-4 text-[10px] space-y-1 text-slate-400 font-medium">
+                 <div className="font-black text-slate-100 text-xs flex items-center space-x-2 tracking-wide">
+                   <span>🏢</span> 
+                   <span>TERMALES DE SANTA ROSA</span>
+                 </div>
+                 <div className="flex items-center space-x-1 text-blue-400 font-black uppercase tracking-widest text-[9px] pt-1">
+                   <span className="text-amber-500 text-xs">👑</span>
+                   <span>CONTROL INTERNO</span>
+                 </div>
+               </div>
+
              </div>
            )}
 
+           {/* Botón flotante */}
            <button 
              onClick={() => setShowAuditorIA(!showAuditorIA)} 
-             className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl transition-all duration-300 border-2 ${showAuditorIA ? 'bg-slate-800 border-slate-700 text-white scale-90' : 'bg-blue-600 border-blue-400 text-white hover:scale-110 hover:shadow-[0_0_20px_rgba(59,130,246,0.6)]'}`}
+             className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl transition-all duration-300 border-2 ${showAuditorIA ? 'bg-slate-800 border-slate-700 text-white scale-90' : 'bg-blue-600 border-blue-400 text-white hover:scale-110'}`}
            >
              {showAuditorIA ? '✖' : '🤖'}
            </button>
