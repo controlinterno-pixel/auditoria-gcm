@@ -397,13 +397,17 @@ setInformesAuditoria(data.informesAuditoria || []);
   };
 
 // =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CEREBRO GEMINI)
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CEREBRO GEMINI) - VERSIÓN SEGURA
   // =====================================================================
   const handleAuditorSubmit = async (e) => {
     e.preventDefault();
     if (!auditorInput.trim()) return;
-    if (!GEMINI_API_KEY) {
-      setAuditorRespuesta("⚠️ Error crítico: La llave API de Gemini no está configurada.");
+
+    // Intentamos tomar la llave de varias formas por si tiene otro nombre en tu .env
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_API_KEY;
+
+    if (!apiKey) {
+      setAuditorRespuesta("⚠️ Error: No se encontró la API Key (VITE_GEMINI_API_KEY) en tu archivo .env local o en Vercel.");
       return;
     }
 
@@ -411,94 +415,64 @@ setInformesAuditoria(data.informesAuditoria || []);
     setAuditorRespuesta('');
 
     try {
+      // 1. Cálculos ultra-seguros (evitamos que la app se rompa si un dato viene vacío)
       const hoy = new Date();
-      const planesVencidos = safePlanes.filter(p => p.estado !== 'Cerrado' && new Date(p.fecha) < hoy).length;
+      const planesVencidos = safePlanes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
       const perdidasTotal = safeIncidentes.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
-      const criticosTotal = safeRiesgos.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
+      
+      let criticosTotal = 0;
+      try {
+        criticosTotal = safeRiesgos.filter(r => {
+          if(!r.probabilidadResidual || !r.impactoResidual) return false;
+          return calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16;
+        }).length;
+      } catch(e) { console.log("Aviso menor calculando críticos:", e); }
 
+      // 2. Contexto inyectado a la IA
       const contextoData = `
-        Actúa como el "Auditor IA", el asistente inteligente y experto en gestión de riesgos de Termales de Santa Rosa de Cabal.
-        Responde a la pregunta del usuario basándote ESTRICTAMENTE en estos datos en tiempo real:
+        Actúa como el "Auditor IA" de Termales de Santa Rosa de Cabal.
+        Responde basándote SOLO en estos datos:
         - Riesgos Registrados: ${safeRiesgos.length}
-        - Riesgos Críticos (Puntaje > 16): ${criticosTotal}
+        - Riesgos Críticos: ${criticosTotal}
         - Hallazgos Abiertos: ${safeHallazgos.filter(h => h.estado === 'Abierto').length}
         - Planes de Acción Totales: ${safePlanes.length}
-        - Planes de Acción VENCIDOS: ${planesVencidos}
+        - Planes Vencidos: ${planesVencidos}
         - Incidentes: ${safeIncidentes.length}
-        - Pérdidas Financieras: $${perdidasTotal.toLocaleString('es-CO')} COP
-
-        Reglas: Responde de forma ejecutiva, concisa y amable.
+        - Pérdidas: $${perdidasTotal} COP
       `;
 
       const promptFinal = `${contextoData}\n\nPregunta: "${auditorInput}"`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      // 3. Petición a Gemini
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: promptFinal }] }], generationConfig: { temperature: 0.2 } })
       });
 
       const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
       
-      setAuditorRespuesta(data.candidates[0].content.parts[0].text.trim());
+      // Si Google nos devuelve un error (ej. API Key vencida o mala)
+      if (!response.ok || data.error) {
+        throw new Error(data.error?.message || `Error HTTP ${response.status}`);
+      }
+      
+      // Verificamos que la respuesta venga bien formateada
+      if (data.candidates && data.candidates[0].content.parts[0].text) {
+        setAuditorRespuesta(data.candidates[0].content.parts[0].text.trim());
+      } else {
+        throw new Error("Gemini respondió con un formato vacío o inesperado.");
+      }
+
     } catch (error) {
-      console.error(error);
-      setAuditorRespuesta("❌ Hubo un error al conectar con Gemini.");
+      console.error("🔍 Error detallado del Auditor IA:", error);
+      // 🔥 AHORA SÍ: MOSTRAMOS EL ERROR REAL EN PANTALLA PARA SABER QUÉ PASA
+      setAuditorRespuesta(`❌ Falló la conexión: ${error.message}`);
     } finally {
       setIsAuditorThinking(false);
       setAuditorInput(''); 
     }
   };
-  const exportToExcel = (dataArray, fileName) => {
-    if (!xlsxLoaded || !window.XLSX) {
-      showNotification("La librería de exportación aún está cargando.", "error");
-      return;
-    }
-    const cleanData = dataArray.map(item => {
-      const { historialCambios, ...rest } = item;
-      return rest;
-    });
-    
-    const ws = window.XLSX.utils.json_to_sheet(cleanData);
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-    window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
-    showNotification(`Archivo ${fileName} exportado con éxito.`);
-  };
-
-  const exportToJSON = () => {
-    const data = { riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "GCM_Backup_" + new Date().toISOString().split('T')[0] + ".json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
-  const handleImportJSON = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const parsedData = JSON.parse(event.target.result);
-        if(window.confirm("⚠️ ALERTA: Esto sobrescribirá TODA la base de datos actual con los datos del archivo. ¿Estás seguro?")) {
-          setIsCloudLoaded(false); 
-          await saveToCloud(parsedData);
-          showNotification("Base de datos actualizada masivamente con éxito.", "success");
-          setIsCloudLoaded(true);
-        }
-      } catch(error) {
-        showNotification("Error: El archivo no tiene un formato JSON válido.", "error");
-      }
-      e.target.value = null; 
-    };
-    reader.readAsText(file);
-  };
-
   const handleImportExcelRiesgos = (e) => {
     if (!window.XLSX) {
       showNotification("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.", "error");
