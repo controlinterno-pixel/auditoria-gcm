@@ -1874,8 +1874,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
              {showAuditorIA ? '✕' : '🤖'}
            </button>
         </div>
-      )}
-      
+      )}      
       {/* CÓDIGO AÑADIDO: Renderizado del Modal de Inteligencia Artificial */}
       {aiModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
