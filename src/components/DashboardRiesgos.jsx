@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 // --- SUBCOMPONENTE DE GRÁFICOS INTEGRADO DE FORMA SEGURA ---
 const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick }) => {
@@ -91,6 +91,23 @@ export default function DashboardRiesgos({
   });
 
   const chartTitleLabel = selectedAnios.length === 0 ? 'TODOS LOS AÑOS' : selectedAnios.length <= 2 ? selectedAnios.join(' y ') : `${selectedAnios.length} AÑOS`;
+
+  // 🚀 MAGIA DEL SCROLL: Cuando cambia el filtroHeatMap (hace clic en un recuadro), baja suavemente
+  useEffect(() => {
+    if (filtroHeatMap) {
+      setTimeout(() => {
+        const elemento = document.getElementById('detalle-heatmap');
+        const mainArea = document.getElementById('main-scroll-area'); // Busca el contenedor con scroll que tenemos en App.jsx
+        
+        if (elemento && mainArea) {
+           mainArea.scrollTo({ top: elemento.offsetTop - 20, behavior: 'smooth' });
+        } else if (elemento) {
+           // Fallback si no encuentra el contenedor específico
+           elemento.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 150); // Pequeño retraso para dar tiempo a que la tabla aparezca en pantalla
+    }
+  }, [filtroHeatMap]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
