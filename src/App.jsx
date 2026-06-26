@@ -216,6 +216,14 @@ export default function App() {
   const [aiModal, setAiModal] = useState(null);
   const [chartDetail, setChartDetail] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+// =========================================================
+  // 🤖 NUEVOS ESTADOS: AUDITOR IA (PANEL OSCURO FLOTANTE)
+  // =========================================================
+  const [showAuditorIA, setShowAuditorIA] = useState(false);
+  const [auditorInput, setAuditorInput] = useState('');
+  const [auditorRespuesta, setAuditorRespuesta] = useState('');
+  const [isAuditorThinking, setIsAuditorThinking] = useState(false);
+
 // 🔐 ESTADOS DE AUTENTICACIÓN
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -388,6 +396,60 @@ setInformesAuditoria(data.informesAuditoria || []);
     }, 100);
   };
 
+// =====================================================================
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CEREBRO GEMINI)
+  // =====================================================================
+  const handleAuditorSubmit = async (e) => {
+    e.preventDefault();
+    if (!auditorInput.trim()) return;
+    if (!GEMINI_API_KEY) {
+      setAuditorRespuesta("⚠️ Error crítico: La llave API de Gemini no está configurada.");
+      return;
+    }
+
+    setIsAuditorThinking(true);
+    setAuditorRespuesta('');
+
+    try {
+      const hoy = new Date();
+      const planesVencidos = safePlanes.filter(p => p.estado !== 'Cerrado' && new Date(p.fecha) < hoy).length;
+      const perdidasTotal = safeIncidentes.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
+      const criticosTotal = safeRiesgos.filter(r => calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
+
+      const contextoData = `
+        Actúa como el "Auditor IA", el asistente inteligente y experto en gestión de riesgos de Termales de Santa Rosa de Cabal.
+        Responde a la pregunta del usuario basándote ESTRICTAMENTE en estos datos en tiempo real:
+        - Riesgos Registrados: ${safeRiesgos.length}
+        - Riesgos Críticos (Puntaje > 16): ${criticosTotal}
+        - Hallazgos Abiertos: ${safeHallazgos.filter(h => h.estado === 'Abierto').length}
+        - Planes de Acción Totales: ${safePlanes.length}
+        - Planes de Acción VENCIDOS: ${planesVencidos}
+        - Incidentes: ${safeIncidentes.length}
+        - Pérdidas Financieras: $${perdidasTotal.toLocaleString('es-CO')} COP
+
+        Reglas: Responde de forma ejecutiva, concisa y amable.
+      `;
+
+      const promptFinal = `${contextoData}\n\nPregunta: "${auditorInput}"`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: promptFinal }] }], generationConfig: { temperature: 0.2 } })
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error.message);
+      
+      setAuditorRespuesta(data.candidates[0].content.parts[0].text.trim());
+    } catch (error) {
+      console.error(error);
+      setAuditorRespuesta("❌ Hubo un error al conectar con Gemini.");
+    } finally {
+      setIsAuditorThinking(false);
+      setAuditorInput(''); 
+    }
+  };
   const exportToExcel = (dataArray, fileName) => {
     if (!xlsxLoaded || !window.XLSX) {
       showNotification("La librería de exportación aún está cargando.", "error");
@@ -1617,6 +1679,65 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
         </main>
       </div>
 
+{/* ===================================================================== */}
+      {/* 🤖 UI DEL AUDITOR IA (EL BOTÓN FLOTANTE Y EL PANEL OSCURO)            */}
+      {/* ===================================================================== */}
+      {!isPresentationMode && isAdmin && (
+        <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end">
+           {showAuditorIA && (
+             <div className="mb-4 w-80 sm:w-96 bg-[#0b1121] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-slate-700/50 overflow-hidden animate-in slide-in-from-bottom-5">
+               <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#0b1121]/90 backdrop-blur-md">
+                 <div>
+                   <h3 className="font-black text-sm tracking-widest text-blue-400">AUDITOR IA</h3>
+                   <p className="text-[10px] text-blue-300/60 font-bold uppercase">Asistente Inteligente</p>
+                 </div>
+                 <button onClick={() => setShowAuditorIA(false)} className="text-slate-500 hover:text-white font-black text-lg transition-colors">✖</button>
+               </div>
+               
+               <div className="p-6 flex flex-col items-center relative overflow-hidden bg-gradient-to-b from-[#0b1121] to-slate-900 min-h-[300px]">
+                 <div className="absolute top-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                 <div className="w-24 h-24 bg-[#080d1a] rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.2)] border border-blue-500/20 relative z-10 transition-all duration-700">
+                   <span className={`text-6xl drop-shadow-[0_0_15px_rgba(59,130,246,0.8)] ${isAuditorThinking ? 'animate-pulse' : ''}`}>🤖</span>
+                 </div>
+
+                 <div className="w-full relative z-10 flex-grow flex flex-col justify-end">
+                   {auditorRespuesta ? (
+                     <div className="bg-slate-800/80 text-blue-50 p-4 rounded-2xl text-[11px] leading-relaxed border border-slate-700 shadow-inner mb-2 animate-in fade-in max-h-48 overflow-y-auto">
+                       {auditorRespuesta}
+                     </div>
+                   ) : (
+                     <p className="text-center text-slate-300 font-medium text-sm mb-4">
+                       {isAuditorThinking ? 'Analizando base de datos...' : '¿Qué deseas analizar hoy?'}
+                     </p>
+                   )}
+                 </div>
+
+                 <form onSubmit={handleAuditorSubmit} className="w-full relative z-10 mt-2">
+                   <input 
+                     type="text" 
+                     value={auditorInput}
+                     onChange={(e) => setAuditorInput(e.target.value)}
+                     placeholder="Ej: ¿Cuántos planes están vencidos?"
+                     disabled={isAuditorThinking}
+                     className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-50"
+                   />
+                   <button type="submit" disabled={isAuditorThinking || !auditorInput.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-400 p-2 disabled:opacity-30">
+                     ➤
+                   </button>
+                 </form>
+               </div>
+             </div>
+           )}
+
+           <button 
+             onClick={() => setShowAuditorIA(!showAuditorIA)} 
+             className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl transition-all duration-300 border-2 ${showAuditorIA ? 'bg-slate-800 border-slate-700 text-white scale-90' : 'bg-blue-600 border-blue-400 text-white hover:scale-110 hover:shadow-[0_0_20px_rgba(59,130,246,0.6)]'}`}
+           >
+             {showAuditorIA ? '✖' : '🤖'}
+           </button>
+        </div>
+      )}
+      
       {/* CÓDIGO AÑADIDO: Renderizado del Modal de Inteligencia Artificial */}
       {aiModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
