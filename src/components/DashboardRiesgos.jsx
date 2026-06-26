@@ -92,20 +92,21 @@ export default function DashboardRiesgos({
 
   const chartTitleLabel = selectedAnios.length === 0 ? 'TODOS LOS AÑOS' : selectedAnios.length <= 2 ? selectedAnios.join(' y ') : `${selectedAnios.length} AÑOS`;
 
-  // 🚀 MAGIA DEL SCROLL: Cuando cambia el filtroHeatMap (hace clic en un recuadro), baja suavemente
+  // 🚀 MAGIA DEL SCROLL DEFINITIVA: Fuerza a la pantalla a bajar hasta el fondo
   useEffect(() => {
     if (filtroHeatMap) {
       setTimeout(() => {
+        const mainArea = document.getElementById('main-scroll-area');
         const elemento = document.getElementById('detalle-heatmap');
-        const mainArea = document.getElementById('main-scroll-area'); // Busca el contenedor con scroll que tenemos en App.jsx
         
-        if (elemento && mainArea) {
-           mainArea.scrollTo({ top: elemento.offsetTop - 20, behavior: 'smooth' });
+        if (mainArea) {
+           // Obliga al contenedor a ir a su límite máximo inferior de manera suave
+           mainArea.scrollTo({ top: mainArea.scrollHeight, behavior: 'smooth' });
         } else if (elemento) {
-           // Fallback si no encuentra el contenedor específico
-           elemento.scrollIntoView({ behavior: 'smooth', block: 'start' });
+           // Respaldo por si el contenedor falla
+           elemento.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
-      }, 150); // Pequeño retraso para dar tiempo a que la tabla aparezca en pantalla
+      }, 250); // 250ms garantiza que la tabla ya se abrió completamente
     }
   }, [filtroHeatMap]);
 
