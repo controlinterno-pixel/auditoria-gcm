@@ -1754,93 +1754,124 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       </div>
 
 {/* ===================================================================== */}
-      {/* 🤖 UI DEL AUDITOR IA (EL BOTÓN FLOTANTE Y EL PANEL OSCURO INTEGRADO)  */}
+      {/* 🤖 UI DEL AUDITOR IA - RÉPLICA EXACTA DE ALTA FIDELIDAD CON TARJETAS  */}
       {/* ===================================================================== */}
       {!isPresentationMode && isAdmin && (
-        <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end">
+        <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end font-sans">
            {showAuditorIA && (
-             <div className="mb-4 w-80 sm:w-96 bg-[#0b1121] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-blue-500/50 overflow-hidden animate-in slide-in-from-bottom-5">
+             <div className="mb-4 w-85 sm:w-[380px] bg-[#070d19] rounded-3xl shadow-[0_0_60px_rgba(0,0,0,0.8)] border-2 border-blue-500/40 overflow-hidden animate-in slide-in-from-bottom-5 p-4 space-y-3">
                
-               {/* Cabecera del Panel */}
-               <div className="flex justify-between items-center p-4 border-b border-slate-800 bg-[#0b1121]/90 backdrop-blur-md">
-                 <div className="flex items-center space-x-2">
-                   <h3 className="font-black text-sm tracking-widest text-blue-400">AUDITOR IA</h3>
-                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                   <span className="text-[10px] text-emerald-500 font-bold uppercase">Online</span>
+               {/* 1. CABECERA CON PILA "ONLINE" Y TÍTULOS */}
+               <div className="flex justify-between items-center pb-1">
+                 {/* Pill Online */}
+                 <div className="flex items-center space-x-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-xl">
+                   <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse"></div>
+                   <span className="text-[10px] text-emerald-400 font-black tracking-wider uppercase">Online</span>
                  </div>
-                 <button onClick={() => setShowAuditorIA(false)} className="text-slate-500 hover:text-white font-black text-lg transition-colors">✖</button>
+                 {/* Títulos Centrales */}
+                 <div className="text-center flex-1 pr-6">
+                   <h3 className="font-black text-sm tracking-widest text-slate-200">AUDITOR IA</h3>
+                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Asistente Inteligente</p>
+                 </div>
+                 {/* Botón Cerrar */}
+                 <button onClick={() => setShowAuditorIA(false)} className="text-slate-400 hover:text-white font-bold text-lg transition-colors px-1">✕</button>
                </div>
                
-               {/* Cuerpo: Avatar y Chat */}
-               <div className="p-6 flex flex-col items-center relative overflow-hidden bg-gradient-to-b from-[#0b1121] to-slate-900 min-h-[300px]">
-                 <div className="absolute top-10 w-40 h-40 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+               {/* 2. RECUADRO SUPERIOR: ROBOT ESTILIZADO DE OJOS AZULES Y ONDA CYAN */}
+               <div className="bg-[#0b1325] border border-blue-500/20 rounded-2xl p-4 flex flex-col items-center justify-center relative min-h-[170px] overflow-hidden shadow-inner">
+                 <div className="absolute w-32 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
                  
-                 {/* Avatar Glowing */}
-                 <div className="w-24 h-24 bg-[#080d1a] rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(59,130,246,0.3)] border border-blue-500/20 relative z-10">
-                    <div className={`relative ${isAuditorThinking ? 'animate-pulse' : ''}`}>
-                      <div className="absolute top-[-6px] left-[-4px] w-[6px] h-[6px] rounded-full bg-red-600 shadow-[0_0_8px_#dc2626]"></div>
-                      <div className="absolute top-[-6px] right-[-4px] w-[6px] h-[6px] rounded-full bg-red-600 shadow-[0_0_8px_#dc2626]"></div>
-                      <span className="text-6xl drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]">🤖</span>
-                    </div>
-                 </div>
-
-                 {/* Onda de sonido azul brillante */}
-                 <div className="absolute bottom-20 left-0 right-0 h-8 overflow-hidden flex items-center justify-center pointer-events-none opacity-40">
-                   <svg viewBox="0 0 100 10" className="w-full h-6 text-blue-500">
-                     <path d="M0,5 L10,5 L15,2 L20,8 L25,5 L35,5 L40,1 L45,9 L50,5 L60,5 L65,3 L70,7 L75,5 L85,5 L90,2 L95,8 L100,5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                 {/* Robot en Vector Inline */}
+                 <div className="relative z-10 w-24 h-24 flex items-center justify-center">
+                   <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
+                     {/* Antenas cónicas rojas */}
+                     <path d="M22,42 L16,30 L22,26 Z" fill="#ef4444" />
+                     <path d="M78,42 L84,30 L78,26 Z" fill="#ef4444" />
+                     {/* Orejeras */}
+                     <rect x="18" y="40" width="6" height="16" rx="2" fill="#475569" />
+                     <rect x="76" y="40" width="6" height="16" rx="2" fill="#475569" />
+                     {/* Estructura Cabeza */}
+                     <rect x="22" y="22" width="56" height="52" rx="26" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="1.5" />
+                     {/* Pantalla/Visor Oscuro */}
+                     <rect x="28" y="34" width="44" height="28" rx="14" fill="#0f172a" />
+                     {/* Ojos Azules Brillantes Ciber */}
+                     <ellipse cx="41" cy="48" rx="6" ry="4" fill="#00d2ff" className="animate-pulse" />
+                     <ellipse cx="59" cy="48" rx="6" ry="4" fill="#00d2ff" className="animate-pulse" />
+                     {/* Cuello y Base */}
+                     <path d="M38,74 L62,74 L58,86 L42,86 Z" fill="#cbd5e1" />
+                     <circle cx="50" cy="80" r="3" fill="#00d2ff" />
                    </svg>
                  </div>
 
-                 {/* Respuestas del Chat */}
-                 <div className="w-full relative z-10 flex-grow flex flex-col justify-end">
-                   {auditorRespuesta ? (
-                     <div className="bg-slate-800/80 text-blue-50 p-4 rounded-2xl text-[11px] leading-relaxed border border-slate-700 shadow-inner mb-2 max-h-48 overflow-y-auto">
-                       {auditorRespuesta}
-                     </div>
-                   ) : (
-                     <p className="text-center text-slate-300 font-medium text-sm mb-4">
-                       {isAuditorThinking ? 'Analizando base de datos...' : '¿Qué deseas analizar hoy?'}
+                 {/* Onda de sonido de alta fidelidad */}
+                 <div className="absolute bottom-6 left-0 right-0 h-10 overflow-hidden flex items-center justify-center pointer-events-none z-20 opacity-90">
+                   <svg viewBox="0 0 100 20" className="w-full h-full text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]" preserveAspectRatio="none">
+                     <path d="M0,10 Q8,10 12,3 T20,16 T28,10 T38,2 T48,18 T58,10 T68,4 T78,15 T86,10 L100,10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                   </svg>
+                 </div>
+               </div>
+
+               {/* 3. RECUADRO INTERMEDIO: ASIGNACIÓN DE COMPAÑÍA Y ROL INSTITUCIONAL */}
+               <div className="bg-[#0b1325] border border-blue-500/20 p-3.5 rounded-2xl flex items-center space-x-3 shadow-inner">
+                 {/* Icono de Mini Robot */}
+                 <div className="w-9 h-9 bg-[#070d19] rounded-xl flex items-center justify-center border border-blue-500/20 shadow-md">
+                   <span className="text-xl">🤖</span>
+                 </div>
+                 {/* Textos Corporativos */}
+                 <div className="flex-1 space-y-0.5">
+                   <div className="font-black text-slate-100 text-[11px] tracking-wide uppercase">
+                     TERMALES DE SANTA ROSA
+                   </div>
+                   <div className="flex items-center space-x-1 text-blue-400 font-black uppercase tracking-widest text-[9px]">
+                     <span className="text-amber-500 text-xs">👑</span>
+                     <span>CONTROL INTERNO</span>
+                   </div>
+                 </div>
+               </div>
+
+               {/* 4. HISTORIAL Y BURBUJAS DE TEXTO */}
+               <div className="w-full relative z-10">
+                 {auditorRespuesta ? (
+                   <div className="bg-[#0b1325] border border-slate-800 text-slate-200 p-4 rounded-2xl text-[11px] leading-relaxed shadow-inner max-h-36 overflow-y-auto whitespace-pre-wrap font-medium">
+                     {auditorRespuesta}
+                   </div>
+                 ) : (
+                   <div className="bg-[#0b1325]/40 border border-dashed border-slate-800/60 text-center py-4 rounded-2xl">
+                     <p className="text-slate-400 font-medium text-xs">
+                       {isAuditorThinking ? '🔄 Analizando base de datos en tiempo real...' : '¿Qué deseas consultar hoy con Control Interno?'}
                      </p>
-                   )}
-                 </div>
-
-                 {/* Input de Texto */}
-                 <form onSubmit={handleAuditorSubmit} className="w-full relative z-10 mt-2">
-                   <input 
-                     type="text" 
-                     value={auditorInput}
-                     onChange={(e) => setAuditorInput(e.target.value)}
-                     placeholder="Ej: ¿Cuántos riesgos tengo registrados?"
-                     disabled={isAuditorThinking}
-                     className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                   />
-                   <button type="submit" disabled={isAuditorThinking || !auditorInput.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-400 p-2">
-                     ➤
-                   </button>
-                 </form>
+                   </div>
+                 )}
                </div>
 
-               {/* 🏢 PIE DE PÁGINA ACTUALIZADO: INSTITUCIONAL Y MODERNO */}
-               <div className="bg-[#0d1527] border-t border-slate-800 p-4 text-[10px] space-y-1 text-slate-400 font-medium">
-                 <div className="font-black text-slate-100 text-xs flex items-center space-x-2 tracking-wide">
-                   <span>🏢</span> 
-                   <span>TERMALES DE SANTA ROSA</span>
-                 </div>
-                 <div className="flex items-center space-x-1 text-blue-400 font-black uppercase tracking-widest text-[9px] pt-1">
-                   <span className="text-amber-500 text-xs">👑</span>
-                   <span>CONTROL INTERNO</span>
-                 </div>
-               </div>
+               {/* 5. ZONA DE ENTRADA / INPUT BAR */}
+               <form onSubmit={handleAuditorSubmit} className="w-full relative">
+                 <input 
+                   type="text" 
+                   value={auditorInput}
+                   onChange={(e) => setAuditorInput(e.target.value)}
+                   placeholder="Ej: ¿Cuántos riesgos tengo registrados?"
+                   disabled={isAuditorThinking}
+                   className="w-full bg-[#0b1325] border border-slate-800 rounded-xl pl-4 pr-10 py-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
+                 />
+                 <button 
+                   type="submit" 
+                   disabled={isAuditorThinking || !auditorInput.trim()} 
+                   className="absolute right-2 top-1/2 -translate-y-1/2 text-blue-500 hover:text-blue-400 p-2 disabled:opacity-30 transition-colors"
+                 >
+                   ➤
+                 </button>
+               </form>
 
              </div>
            )}
 
-           {/* Botón flotante */}
+           {/* Botón flotante circular */}
            <button 
              onClick={() => setShowAuditorIA(!showAuditorIA)} 
-             className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl transition-all duration-300 border-2 ${showAuditorIA ? 'bg-slate-800 border-slate-700 text-white scale-90' : 'bg-blue-600 border-blue-400 text-white hover:scale-110'}`}
+             className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center text-2xl transition-all duration-300 border-2 ${showAuditorIA ? 'bg-slate-800 border-slate-700 text-white scale-90' : 'bg-blue-600 border-blue-400 text-white hover:scale-110 hover:shadow-[0_0_25px_rgba(59,130,246,0.6)]'}`}
            >
-             {showAuditorIA ? '✖' : '🤖'}
+             {showAuditorIA ? '✕' : '🤖'}
            </button>
         </div>
       )}
