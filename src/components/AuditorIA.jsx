@@ -121,12 +121,12 @@ export default function AuditorIA({
                  <div className="flex items-start space-x-2.5">
                    <div className="w-6 h-6 bg-blue-500/10 rounded-full flex items-center justify-center border border-blue-500/20 text-xs shadow-sm mt-0.5">🤖</div>
                    <div className="text-slate-300 text-[11px] leading-relaxed font-semibold">
-                     ¡Hola Juan! 👋 <br />
+                     ¡Hola! 👋 <br />
                      Soy tu asistente de auditoría inteligente. Puedo ayudarte con análisis, riesgos, alertas, cumplimientos y mucho más.
                    </div>
                  </div>
 
-{/* Subtítulo Sugerencias */}
+                 {/* Subtítulo Sugerencias */}
                  <div className="text-blue-400 font-black text-[9px] tracking-wider uppercase flex items-center space-x-1 pt-1.5 border-t border-slate-800/40">
                    <span>⚡</span><span>¿Qué deseas analizar hoy?</span>
                  </div>
@@ -153,6 +153,9 @@ export default function AuditorIA({
                      </button>
                    ))}
                  </div>
+               </>
+             )}
+           </div>
 
            {/* 5. INPUT DE ENTRADA CON BOTÓN DE ENVIAR */}
            <form onSubmit={handleAuditorSubmit} className="w-full relative pt-0.5">
