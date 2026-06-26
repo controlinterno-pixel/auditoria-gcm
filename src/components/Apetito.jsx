@@ -98,17 +98,29 @@ export default function Apetito({
                 <div className="mb-4 relative">
                   <div className="flex items-center mb-1">
                     <label className="font-bold text-gray-700">Postura Estratégica</label>
-                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'postura' ? null : 'postura')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'postura' ? null : 'postura')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Explicación Técnica</button>
                   </div>
                   {activeTooltip === 'postura' && (
-                    <div className="mt-2 mb-3 w-full p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 animate-in slide-in-from-top-2">
-                      <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
-                        <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: Postura Estratégica</span>
-                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                    <div className="absolute top-full left-0 mt-2 z-[100] w-full md:w-[500px] max-h-[400px] overflow-y-auto p-6 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 animate-in slide-in-from-top-2">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                        <span className="font-black text-blue-400 uppercase tracking-widest text-[10px]">Postura Estratégica</span>
+                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖ Cerrar</button>
                       </div>
-                      <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Define la "personalidad" o la actitud que la gerencia decide tomar frente a este riesgo específico.</div>
-                      <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Si elegimos "Averso" en temas de mantenimiento de piscinas, significa que no se escatimarán gastos para evitar accidentes. El riesgo no se negocia.</div>
-                      <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Alinea las decisiones del Jefe de Área con la voluntad de la Gerencia General de Termales.</div>
+                      <div className="mb-4">
+                        <b className="text-blue-300 block mb-1 text-xs">¿Qué es?</b>
+                        Define la "personalidad" o la actitud que la Alta Gerencia decide tomar frente a este riesgo en específico.
+                      </div>
+                      <div className="mb-4">
+                        <b className="text-emerald-300 block mb-1 text-xs">Ejemplos Prácticos</b>
+                        <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                          <li>Si elegimos <b>"Averso"</b> en temas de mantenimiento de piscinas o higiene en el restaurante, significa que el riesgo no se negocia: no se escatimarán gastos para evitar un accidente.</li>
+                          <li>Si elegimos <b>"Buscador"</b> en campañas de marketing, significa que aceptamos el riesgo de una campaña audaz o atrevida porque buscamos ganar más participación de mercado.</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <b className="text-amber-300 block mb-1 text-xs">¿Por qué diligenciarlo?</b>
+                        Alinea las decisiones operativas del Jefe de Área con la voluntad de los dueños y la Gerencia General, evitando que un área sea demasiado conservadora donde se necesita innovar, o demasiado arriesgada donde se requiere seguridad total.
+                      </div>
                     </div>
                   )}
                   <select name="posturaEstrategica" defaultValue={editApetito.posturaEstrategica || 'Cauto'} className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm">
@@ -123,17 +135,26 @@ export default function Apetito({
                 <div className="mb-4 relative">
                   <div className="flex items-center mb-1">
                     <label className="font-bold text-gray-700">KRI: Puntaje Residual Máx</label>
-                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'kri' ? null : 'kri')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'kri' ? null : 'kri')} className="ml-1.5 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Explicación Técnica</button>
                   </div>
                   {activeTooltip === 'kri' && (
-                    <div className="mt-2 mb-3 w-full p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 animate-in slide-in-from-top-2">
-                      <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
-                        <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: KRI (Puntaje Máximo)</span>
-                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                    <div className="absolute top-full left-0 mt-2 z-[100] w-full md:w-[500px] max-h-[400px] overflow-y-auto p-6 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 animate-in slide-in-from-top-2">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                        <span className="font-black text-blue-400 uppercase tracking-widest text-[10px]">KRI (Key Risk Indicator)</span>
+                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖ Cerrar</button>
                       </div>
-                      <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Es el límite de tolerancia aceptable para la calificación residual en la matriz 5x5 de GCM.</div>
-                      <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Si pones un KRI de 9, y tras evaluar los controles el riesgo queda en 12 (Alto), el sistema reportará una "Ruptura de KRI".</div>
-                      <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Automatiza las banderas rojas en el tablero cuando los controles no están mitigando el riesgo lo suficiente.</div>
+                      <div className="mb-4">
+                        <b className="text-blue-300 block mb-1 text-xs">¿Qué es?</b>
+                        Es el límite de tolerancia aceptable para la calificación residual dentro de la matriz de calor 5x5. Representa el puntaje máximo tolerado para este riesgo.
+                      </div>
+                      <div className="mb-4">
+                        <b className="text-emerald-300 block mb-1 text-xs">Ejemplo Práctico</b>
+                        Si defines un KRI de 9 (riesgo Moderado), y tras la auditoría descubrimos que los controles fallaron elevando el puntaje a 12 (riesgo Alto), el sistema reportará automáticamente una "Ruptura de KRI".
+                      </div>
+                      <div>
+                        <b className="text-amber-300 block mb-1 text-xs">¿Por qué diligenciarlo?</b>
+                        Automatiza las banderas rojas en el tablero de control. Le avisa al Oficial de Cumplimiento que los controles actuales no son suficientes para mantener el riesgo en la zona de confort.
+                      </div>
                     </div>
                   )}
                   <input type="number" min="1" max="25" name="kriScore" defaultValue={editApetito.kriScore || ''} required placeholder="Ej: 9 (Puntos de Matriz 5x5)" className="w-full border border-slate-300 rounded-lg p-2 bg-white shadow-sm" />
@@ -147,17 +168,26 @@ export default function Apetito({
                 <div className="mb-4 relative">
                   <div className="flex items-center gap-1 mb-1">
                     <label className="font-black text-red-700 text-[11px] uppercase tracking-widest">🛑 Capacidad de Riesgo (Límite)</label>
-                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'capacidad' ? null : 'capacidad')} className="ml-1 text-[12px] text-red-500 hover:scale-125 transition-transform bg-red-50 rounded-full px-1.5 py-0.5 border border-red-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'capacidad' ? null : 'capacidad')} className="ml-1 text-[12px] text-red-500 hover:scale-125 transition-transform bg-red-50 rounded-full px-1.5 py-0.5 border border-red-200 shadow-sm cursor-pointer font-bold">ℹ️ Explicación Técnica</button>
                   </div>
                   {activeTooltip === 'capacidad' && (
-                    <div className="mt-2 mb-3 w-full p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
-                      <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
-                        <span className="font-black text-red-400 uppercase tracking-widest text-[9px]">Ayuda: Capacidad de Riesgo</span>
-                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                    <div className="absolute top-full right-0 mt-2 z-[100] w-full md:w-[500px] max-h-[400px] overflow-y-auto p-6 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                        <span className="font-black text-red-400 uppercase tracking-widest text-[10px]">La Frontera de la Muerte (Capacidad)</span>
+                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖ Cerrar</button>
                       </div>
-                      <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> El nivel MÁXIMO absoluto de riesgo que la empresa puede soportar antes de irse a la quiebra o paralizar la operación por completo.</div>
-                      <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Un daño estructural en las piscinas del balneario o una demanda que cueste $5,000 millones. Si pasa esto, Termales no podría operar ni pagar nómina. Es el límite catastrófico.</div>
-                      <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Marca la "frontera de muerte". Sirve como techo absoluto; ningún otro valor puede ser mayor a este.</div>
+                      <div className="mb-4">
+                        <b className="text-blue-300 block mb-1 text-xs">¿Qué es?</b>
+                        Es el nivel MÁXIMO absoluto de riesgo que la empresa puede soportar antes de entrar en insolvencia financiera, incumplir obligaciones insalvables o verse obligada a paralizar por completo su operación.
+                      </div>
+                      <div className="mb-4">
+                        <b className="text-emerald-300 block mb-1 text-xs">Ejemplo Práctico en Termales</b>
+                        Imagina una falla geológica que destruya la infraestructura principal de las piscinas o una demanda por $5.000 millones tras una emergencia no controlada. Si un evento de esta magnitud ocurre, Termales no tendría flujo de caja para pagar nómina; es un evento de quiebra o cierre total.
+                      </div>
+                      <div>
+                        <b className="text-amber-300 block mb-1 text-xs">¿Por qué diligenciarlo?</b>
+                        La Gerencia necesita saber cuál es el "punto de no retorno". Al parametrizar este valor, le dices al sistema: "Cualquier evento que se acerque a esta cifra no es un problema operativo, es una crisis existencial". Ningún otro valor puede ser mayor a este número.
+                      </div>
                     </div>
                   )}
                   <p className="text-[9px] text-slate-500 mb-1 leading-tight">Límite de supervivencia (Ej: Pérdida {">"} $500M = Quiebra).</p>
@@ -168,17 +198,26 @@ export default function Apetito({
                 <div className="mb-4 relative">
                   <div className="flex items-center gap-1 mb-1">
                     <label className="font-black text-amber-700 text-[11px] uppercase tracking-widest">⚠️ Tolerancia Financiera (Desv. Máx)</label>
-                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'tolerancia' ? null : 'tolerancia')} className="ml-1 text-[12px] text-amber-600 hover:scale-125 transition-transform bg-amber-50 rounded-full px-1.5 py-0.5 border border-amber-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'tolerancia' ? null : 'tolerancia')} className="ml-1 text-[12px] text-amber-600 hover:scale-125 transition-transform bg-amber-50 rounded-full px-1.5 py-0.5 border border-amber-200 shadow-sm cursor-pointer font-bold">ℹ️ Explicación Técnica</button>
                   </div>
                   {activeTooltip === 'tolerancia' && (
-                    <div className="mt-2 mb-3 w-full p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
-                      <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
-                        <span className="font-black text-amber-400 uppercase tracking-widest text-[9px]">Ayuda: Tolerancia Financiera</span>
-                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                    <div className="absolute top-full right-0 mt-2 z-[100] w-full md:w-[500px] max-h-[400px] overflow-y-auto p-6 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                        <span className="font-black text-amber-400 uppercase tracking-widest text-[10px]">La Alerta Roja Gerencial (Tolerancia)</span>
+                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖ Cerrar</button>
                       </div>
-                      <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Límite de desviación aceptable. Una "alerta roja gerencial" que indica que se está saliendo de control.</div>
-                      <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Presupuestamos pérdidas menores. Pero si el robo o daño de TOALLAS y batas en el Ecoparque supera los $50 millones al mes, se enciende la Alerta Roja. No quebramos, pero la Gerencia debe intervenir.</div>
-                      <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Define el punto donde la Gerencia debe frenar y auditar de urgencia. (Debe ser MENOR a la Capacidad).</div>
+                      <div className="mb-4">
+                        <b className="text-blue-300 block mb-1 text-xs">¿Qué es?</b>
+                        Es el límite de desviación aceptable frente a los objetivos estratégicos. El umbral donde el riesgo deja de ser el "costo normal de hacer negocios" y se convierte en una amenaza directa a la rentabilidad (EBITDA).
+                      </div>
+                      <div className="mb-4">
+                        <b className="text-emerald-300 block mb-1 text-xs">Ejemplo Práctico en Termales</b>
+                        Es normal perder cosas, pero si al hacer inventario el robo o daño de batas y toallas en el Ecoparque supera los $50 millones, se enciende la Alerta Roja. Perder $50 millones no va a quebrar a Termales (no supera la Capacidad), pero sí destruye la rentabilidad del trimestre.
+                      </div>
+                      <div>
+                        <b className="text-amber-300 block mb-1 text-xs">¿Por qué diligenciarlo?</b>
+                        Para establecer los "frenos de emergencia". Si pones este límite, el sistema sabrá cuándo escalar el problema a un Comité Extraordinario de Gerencia antes de que se convierta en un desastre incontrolable. (Debe ser menor a la Capacidad).
+                      </div>
                     </div>
                   )}
                   <p className="text-[9px] text-slate-500 mb-1 leading-tight">Desviación máxima permitida (Alerta Roja Gerencial).</p>
@@ -189,17 +228,26 @@ export default function Apetito({
                 <div className="mb-2 relative">
                   <div className="flex items-center gap-1 mb-1">
                     <label className="font-black text-blue-900 text-[11px] uppercase tracking-widest">🎯 Apetito Financiero (Deseado)</label>
-                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'apetito' ? null : 'apetito')} className="ml-1 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Info</button>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'apetito' ? null : 'apetito')} className="ml-1 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Explicación Técnica</button>
                   </div>
                   {activeTooltip === 'apetito' && (
-                    <div className="mt-2 mb-3 w-full p-5 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
-                      <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
-                        <span className="font-black text-blue-400 uppercase tracking-widest text-[9px]">Ayuda: Apetito Financiero</span>
-                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                    <div className="absolute top-full right-0 mt-2 z-[100] w-full md:w-[500px] max-h-[400px] overflow-y-auto p-6 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                        <span className="font-black text-blue-400 uppercase tracking-widest text-[10px]">La Zona Verde de Operación (Apetito)</span>
+                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖ Cerrar</button>
                       </div>
-                      <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> El nivel de riesgo que Termales está dispuesto a aceptar ACTIVAMENTE en el día a día para generar valor.</div>
-                      <div className="mb-2"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Aceptamos dar de baja $5 millones en TOALLAS al mes. Es un "riesgo" que asumimos con gusto para que la operación fluya rápido, el turista esté feliz y no hacer filas eternas en la entrada revisando cada toalla. (Zona Verde).</div>
-                      <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Establece el rango de trabajo normal para que los Jefes de Área operen tranquilos. (Debe ser MENOR a la Tolerancia).</div>
+                      <div className="mb-4">
+                        <b className="text-blue-300 block mb-1 text-xs">¿Qué es?</b>
+                        La cantidad de riesgo que la empresa está dispuesta a aceptar ACTIVAMENTE y con gusto en su día a día para poder generar valor, ser competitiva y cumplir sus objetivos.
+                      </div>
+                      <div className="mb-4">
+                        <b className="text-emerald-300 block mb-1 text-xs">Ejemplo Práctico en Termales</b>
+                        Entregamos toallas VIP a miles de turistas. Sabemos que cada mes se dañarán o "perderán" toallas por un valor de $5 millones. Aceptamos este riesgo voluntariamente porque la alternativa (poner guardias a requisar las maletas a la salida) haría filas eternas y arruinaría la experiencia. Preferimos asumir esos $5M para garantizar la felicidad del turista.
+                      </div>
+                      <div>
+                        <b className="text-amber-300 block mb-1 text-xs">¿Por qué diligenciarlo?</b>
+                        ¡Es la protección del Jefe de Área! Al definir el Apetito, estableces tu rango de trabajo normal. Si se pierden $4 millones en toallas, auditoría no te va a sancionar, porque esa pérdida ya estaba aceptada por Gerencia. (Debe ser menor a la Tolerancia).
+                      </div>
                     </div>
                   )}
                   <p className="text-[9px] text-slate-500 mb-1 leading-tight">Riesgo ideal a asumir (Zona Verde de Operación).</p>
@@ -215,16 +263,17 @@ export default function Apetito({
                   <div className="relative">
                     <div className="flex items-center gap-1 mb-1">
                       <label className="font-bold text-purple-900 text-[10px] uppercase">⚙️ Límite Operativo</label>
-                      <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'operativo' ? null : 'operativo')} className="ml-1 text-[10px] text-purple-500 hover:scale-125 transition-transform bg-purple-100 rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️</button>
+                      <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'operativo' ? null : 'operativo')} className="ml-1 text-[10px] text-purple-500 hover:scale-125 transition-transform bg-purple-100 rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️ Detalles</button>
                     </div>
                     {activeTooltip === 'operativo' && (
-                      <div className="mt-2 mb-3 w-full p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2 absolute z-50 left-0 top-full">
-                        <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
-                          <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Límite Operativo</span>
-                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                      <div className="absolute top-full left-0 mt-2 z-[100] w-[300px] md:w-[400px] max-h-[400px] overflow-y-auto p-5 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Límite Operativo</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖</button>
                         </div>
-                        <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> El tiempo máximo aceptable que un proceso puede estar interrumpido.</div>
-                        <div><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Si falla el bombeo de agua termal: Aceptamos 2 horas de caída (Apetito), nos alerta 1 día (Tolerancia), cerramos el balneario si dura 1 semana (Capacidad).</div>
+                        <div className="mb-3"><b className="text-blue-300 block mb-1">¿Qué es?</b> El tiempo máximo aceptable que un proceso crítico puede estar interrumpido o degradado antes de generar un impacto inaceptable.</div>
+                        <div className="mb-3"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Si falla la bomba de agua termal: Nuestro "Apetito" acepta estar sin bombeo máximo 2 horas. Si pasa a 1 día, es "Tolerancia" (tenemos que devolver dinero). Si es 1 semana, es "Capacidad" (cierre del hotel).</div>
+                        <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Ayuda a dimensionar los planes de contingencia (BCP) y priorizar los recursos de mantenimiento preventivo.</div>
                       </div>
                     )}
                     <input name="impactoOperativo" defaultValue={editApetito.impactoOperativo || ''} required placeholder="Ej: Máx 2 hrs de caída" className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-0" />
@@ -234,16 +283,17 @@ export default function Apetito({
                   <div className="relative">
                     <div className="flex items-center gap-1 mb-1">
                       <label className="font-bold text-purple-900 text-[10px] uppercase">🗣️ Límite Reputacional</label>
-                      <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'reputacional' ? null : 'reputacional')} className="ml-1 text-[10px] text-purple-500 hover:scale-125 transition-transform bg-purple-100 rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️</button>
+                      <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'reputacional' ? null : 'reputacional')} className="ml-1 text-[10px] text-purple-500 hover:scale-125 transition-transform bg-purple-100 rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️ Detalles</button>
                     </div>
                     {activeTooltip === 'reputacional' && (
-                      <div className="mt-2 mb-3 w-full p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2 absolute z-50 left-0 top-full">
-                        <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
-                          <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Límite Reputacional</span>
-                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[100] w-[300px] md:w-[400px] max-h-[400px] overflow-y-auto p-5 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Límite Reputacional</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖</button>
                         </div>
-                        <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Nivel de daño aceptable a la imagen pública de Termales.</div>
-                        <div><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Aceptamos una mala queja aislada en TripAdvisor por una toalla (Apetito), pero NO toleramos un escándalo por intoxicación publicado en medios nacionales (Capacidad).</div>
+                        <div className="mb-3"><b className="text-blue-300 block mb-1">¿Qué es?</b> El nivel de daño aceptable a la imagen pública de Termales frente a clientes, comunidad y medios de comunicación.</div>
+                        <div className="mb-3"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Aceptamos una mala reseña aislada en Google Reviews por una comida fría (Apetito). Pero tenemos cero tolerancia a que un video de intoxicación masiva en el restaurante se vuelva viral en medios nacionales (Capacidad).</div>
+                        <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Indica si el evento se puede manejar con servicio al cliente local, o si requiere contratar una agencia de Relaciones Públicas de urgencia.</div>
                       </div>
                     )}
                     <select name="impactoReputacional" defaultValue={editApetito.impactoReputacional || 'Quejas Locales'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-0">
@@ -257,16 +307,17 @@ export default function Apetito({
                   <div className="relative">
                     <div className="flex items-center gap-1 mb-1">
                       <label className="font-bold text-purple-900 text-[10px] uppercase">⚖️ Límite Legal / Normativo</label>
-                      <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'legal' ? null : 'legal')} className="ml-1 text-[10px] text-purple-500 hover:scale-125 transition-transform bg-purple-100 rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️</button>
+                      <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'legal' ? null : 'legal')} className="ml-1 text-[10px] text-purple-500 hover:scale-125 transition-transform bg-purple-100 rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️ Detalles</button>
                     </div>
                     {activeTooltip === 'legal' && (
-                      <div className="mt-2 mb-3 w-[150%] right-0 p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2 absolute z-50 top-full">
-                        <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
-                          <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Límite Legal</span>
-                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                      <div className="absolute top-full right-0 mt-2 z-[100] w-[300px] md:w-[400px] max-h-[400px] overflow-y-auto p-5 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
+                        <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                          <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Límite Legal / Normativo</span>
+                          <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖</button>
                         </div>
-                        <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Exposición máxima a multas o sanciones normativas.</div>
-                        <div><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Tenemos "Cero Tolerancia" a incumplir normas de salubridad de la Secretaría de Salud en las piscinas, pero somos "Flexibles" asumiendo el riesgo de demandas laborales menores.</div>
+                        <div className="mb-3"><b className="text-blue-300 block mb-1">¿Qué es?</b> Exposición máxima a multas, sanciones normativas o litigios que la empresa está dispuesta a enfrentar.</div>
+                        <div className="mb-3"><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Tenemos "Cero Tolerancia" a incumplir normas de salubridad de la Secretaría de Salud (podrían sellar el balneario), pero somos "Flexibles" asumiendo el riesgo de demandas laborales menores que se pueden conciliar con los abogados.</div>
+                        <div><b className="text-amber-300 block mb-1">¿Por qué diligenciarlo?</b> Guía al área jurídica y de cumplimiento sobre dónde concentrar las auditorías preventivas y qué normativas son innegociables.</div>
                       </div>
                     )}
                     <select name="impactoLegal" defaultValue={editApetito.impactoLegal || 'Cero Tolerancia'} className="w-full border border-purple-200 rounded-lg p-2 bg-white shadow-sm relative z-0">
@@ -280,16 +331,26 @@ export default function Apetito({
                 <div className="mt-4 pt-4 border-t border-purple-200 flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4 relative">
                   <div className="flex items-center gap-1">
                     <label className="font-black text-purple-900 block">🚨 ¿A quién escalar en caso de alerta?</label>
-                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'escalamiento' ? null : 'escalamiento')} className="ml-1 text-[10px] text-purple-500 hover:scale-125 transition-transform bg-purple-100 rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️</button>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'escalamiento' ? null : 'escalamiento')} className="ml-1 text-[10px] text-purple-500 hover:scale-125 transition-transform bg-purple-100 rounded-full px-1.5 py-0.5 border border-purple-300 shadow-sm cursor-pointer font-bold">ℹ️ Explicar Protocolo</button>
                   </div>
                   {activeTooltip === 'escalamiento' && (
-                    <div className="mt-2 mb-3 w-[400px] left-0 p-4 bg-slate-900 text-white text-[10px] rounded-xl shadow-inner border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2 absolute z-50 top-full">
-                      <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
-                        <span className="font-black text-purple-400 uppercase tracking-widest text-[9px]">Ayuda: Protocolo de Escalamiento</span>
-                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white hover:bg-red-500 bg-red-500 font-bold text-xs px-2 py-0.5 rounded transition-colors">✖</button>
+                    <div className="absolute top-full left-0 mt-2 z-[100] w-full md:w-[500px] max-h-[400px] overflow-y-auto p-6 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
+                      <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
+                        <span className="font-black text-purple-400 uppercase tracking-widest text-[10px]">Protocolo de Escalamiento</span>
+                        <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖ Cerrar</button>
                       </div>
-                      <div className="mb-2"><b className="text-blue-300 block mb-1">¿Qué es?</b> Define quién debe enterarse y tomar decisiones según la gravedad del evento.</div>
-                      <div><b className="text-emerald-300 block mb-1">Ejemplo Práctico</b> Si se pierden toallas (Apetito), lo soluciona el Jefe de Área. Si hay un conato de incendio o accidente grave (Tolerancia/Capacidad), se debe escalar de inmediato a la Junta Directiva.</div>
+                      <div className="mb-4">
+                        <b className="text-blue-300 block mb-1 text-xs">¿Qué es?</b>
+                        Define quién debe enterarse obligatoriamente y tomar el control del problema, dependiendo de la gravedad del riesgo materializado.
+                      </div>
+                      <div className="mb-4">
+                        <b className="text-emerald-300 block mb-1 text-xs">Ejemplo Práctico</b>
+                        Si se pierden toallas (Apetito), lo soluciona internamente el Jefe de Área. Pero si hay un conato de incendio o un accidente grave con lesionados (Tolerancia/Capacidad), se debe escalar de inmediato a la Junta Directiva y Gerencia.
+                      </div>
+                      <div>
+                        <b className="text-amber-300 block mb-1 text-xs">¿Por qué diligenciarlo?</b>
+                        Elimina la ambigüedad en medio de una crisis. Define una cadena de mando clara para que nadie asuma responsabilidades que superan su nivel de cargo.
+                      </div>
                     </div>
                   )}
                   <select name="escalamiento" defaultValue={editApetito.escalamiento || 'Comité de Gerencia'} className="w-full md:w-1/2 border border-purple-300 rounded-lg p-2 bg-white font-bold text-slate-800 shadow-sm relative z-0">
