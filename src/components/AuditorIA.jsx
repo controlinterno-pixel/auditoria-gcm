@@ -34,7 +34,8 @@ export default function AuditorIA({
              </button>
            </div>
            
-           {/* 2. RECUADRO SUPERIOR: VISOR CIBERNÉTICO DE ALTA FIDELIDAD */}
+          
+{/* 2. RECUADRO SUPERIOR: VISOR CIBERNÉTICO DE ALTA FIDELIDAD */}
            <div className="bg-[#060b16] border-2 border-cyan-500/50 rounded-2xl p-4 flex flex-col items-center justify-center relative h-[170px] overflow-hidden shadow-[0_0_20px_rgba(34,211,238,0.15)]">
              
              {/* Destello de luz de fondo */}
