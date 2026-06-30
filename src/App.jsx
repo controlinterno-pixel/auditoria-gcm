@@ -218,6 +218,7 @@ export default function App() {
   const [chartDetail, setChartDetail] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [matrizFiltro, setMatrizFiltro] = useState(null);
 
 // =========================================================
   // 🤖 NUEVOS ESTADOS: AUDITOR IA (PANEL OSCURO FLOTANTE)
@@ -1399,8 +1400,7 @@ const renderConfiguracion = () => (
   // =====================================================================
   const renderTableroAnalitico = () => {
     // 1. Estados locales (Corrección: usamos useState directamente)
-    const [matrizFiltro, setMatrizFiltro] = useState(null); 
-    const [alertaSeleccionada, setAlertaSeleccionada] = useState(null);
+ 
 
     const hoy = new Date();
 
