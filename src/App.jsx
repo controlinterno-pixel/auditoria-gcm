@@ -217,7 +217,7 @@ export default function App() {
   const [aiModal, setAiModal] = useState(null);
   const [chartDetail, setChartDetail] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAdminWelcome, setShowAdminWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(true);
 
 // =========================================================
   // 🤖 NUEVOS ESTADOS: AUDITOR IA (PANEL OSCURO FLOTANTE)
@@ -1662,21 +1662,26 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       />
     );
   };
+
 // =====================================================================
-  // PANTALLA DE BIENVENIDA EXCLUSIVA PARA ADMINISTRADORES (CENTRO DE MANDO)
+  // PANTALLA DE BIENVENIDA DINÁMICA (ADMINISTRADORES Y JEFES DE ÁREA)
   // =====================================================================
-  const renderAdminWelcome = () => (
+  const renderWelcomeScreen = () => (
     <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center p-8 font-sans">
-      <div className="bg-white p-10 rounded-2xl shadow-xl max-w-md w-full text-center border-t-8 border-slate-900 animate-in fade-in zoom-in-95 duration-300">
-        <div className="text-5xl mb-3">👑</div>
-        <h1 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Centro de Mando GRC</h1>
+      <div className={`bg-white p-10 rounded-2xl shadow-xl max-w-md w-full text-center border-t-8 ${isAdmin ? 'border-slate-900' : 'border-blue-600'} animate-in fade-in zoom-in-95 duration-300`}>
+        <div className="text-5xl mb-3">{isAdmin ? '👑' : '🛡️'}</div>
+        <h1 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">
+          {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
+        </h1>
         <p className="text-slate-500 text-xs leading-relaxed mb-8 px-2 font-medium">
-          Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global de Termales.
+          {isAdmin 
+            ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global de Termales.'
+            : 'Bienvenido, Líder de Proceso. Desde aquí podrá visualizar los tableros analíticos, reportar el avance de sus planes de acción y registrar eventos de pérdida operativos.'}
         </p>
         <div className="space-y-3">
           <button 
-            onClick={() => setShowAdminWelcome(false)} 
-            className="w-full bg-[#111827] hover:bg-black text-white font-bold text-[11px] uppercase tracking-widest py-4 rounded-xl transition-all shadow-md active:scale-95"
+            onClick={() => setShowWelcome(false)} 
+            className={`w-full ${isAdmin ? 'bg-[#111827] hover:bg-black' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold text-[11px] uppercase tracking-widest py-4 rounded-xl transition-all shadow-md active:scale-95`}
           >
             Acceder al Tablero de Control
           </button>
@@ -1690,94 +1695,6 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       </div>
     </div>
   );
-
- // =====================================================================
-  // 🛡️ PORTAL RCSA (PRIMERA LÍNEA DE DEFENSA - JEFES DE ÁREA)
-  // =====================================================================
-  const renderRCSAPortal = () => {
-    // Cálculos rápidos para sus KPIs operativos
-    const planesActivos = pFiltrados.filter(p => p.estado !== 'Cerrado');
-    const planesCerrados = pFiltrados.filter(p => p.estado === 'Cerrado');
-
-    return (
-      <div className="min-h-screen bg-slate-100 font-sans flex flex-col animate-in fade-in duration-500">
-        {/* Barra de Navegación Superior */}
-        <header className="bg-slate-900 text-white h-16 px-8 flex justify-between items-center shadow-md flex-shrink-0 z-10">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl drop-shadow-md">🛡️</span>
-            <div>
-              <h1 className="text-sm font-black tracking-widest uppercase">Portal GRC | Jefes de Área</h1>
-              <p className="text-[10px] text-blue-400 font-mono mt-0.5">{user?.email}</p>
-            </div>
-          </div>
-          <button 
-            onClick={handleLogout} 
-            className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-colors shadow-sm"
-          >
-            Cerrar Sesión
-          </button>
-        </header>
-
-        {/* Contenido Principal */}
-        <main className="flex-1 p-8 max-w-6xl mx-auto w-full space-y-8 overflow-y-auto pb-16">
-          
-          {/* Banner de Bienvenida */}
-          <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-60 pointer-events-none"></div>
-            <div className="relative z-10">
-              <h2 className="text-2xl font-black text-slate-800">Hola, Primera Línea de Defensa 👋</h2>
-              <p className="text-slate-500 font-medium mt-3 max-w-3xl text-sm leading-relaxed">
-                Este es tu centro de gestión operativo. Como líder de proceso, tu responsabilidad principal es reportar el <b>avance físico de los Planes de Mejoramiento</b> asignados a tu área y registrar de manera oportuna cualquier <b>Evento de Pérdida o Incidente</b> que afecte la operación.
-              </p>
-            </div>
-          </div>
-
-          {/* Tarjetas de KPIs Operativos */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-4 border-l-amber-500 hover:shadow-md transition-shadow">
-              <div className="text-amber-500 text-3xl mb-2">⚡</div>
-              <div className="text-4xl font-black text-slate-800">{planesActivos.length}</div>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Planes Pendientes</div>
-            </div>
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-4 border-l-emerald-500 hover:shadow-md transition-shadow">
-              <div className="text-emerald-500 text-3xl mb-2">✅</div>
-              <div className="text-4xl font-black text-slate-800">{planesCerrados.length}</div>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Planes Cerrados</div>
-            </div>
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-l-4 border-l-red-500 hover:shadow-md transition-shadow">
-              <div className="text-red-500 text-3xl mb-2">🚨</div>
-              <div className="text-4xl font-black text-slate-800">{incFiltrados.length}</div>
-              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Incidentes Reportados</div>
-            </div>
-          </div>
-
-          {/* Módulos Inyectados (Con permisos de solo-reporte) */}
-          <div className="space-y-8">
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="bg-slate-50 px-8 py-4 border-b border-slate-200">
-                <h3 className="text-lg font-black text-slate-800">📝 Mis Planes de Acción</h3>
-                <p className="text-xs text-slate-500 font-medium">Actualiza el % de progreso y adjunta las evidencias (Links de Drive) para revisión de Auditoría.</p>
-              </div>
-              <div className="p-8">
-                {renderPlanes()}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-              <div className="bg-slate-50 px-8 py-4 border-b border-slate-200">
-                <h3 className="text-lg font-black text-slate-800">🚨 Reporte de Incidentes</h3>
-                <p className="text-xs text-slate-500 font-medium">Si se materializa un riesgo en tu área, repórtalo aquí para la trazabilidad de Control Interno.</p>
-              </div>
-              <div className="p-8">
-                {renderIncidentes()}
-              </div>
-            </div>
-          </div>
-
-        </main>
-      </div>
-    );
-  };
 
   if (!user) {
     return (
@@ -1798,9 +1715,8 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
     );
   }
 
-  if (!isAdmin) return renderRCSAPortal();
-  if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
-if (showAdminWelcome) return renderAdminWelcome();
+if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
+  if (showWelcome) return renderWelcomeScreen();
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       
@@ -1817,7 +1733,8 @@ if (showAdminWelcome) return renderAdminWelcome();
       {/* SIDEBAR */}
       <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
         <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
-        <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
+        
+<nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
           {[
             { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
             { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
@@ -1828,9 +1745,12 @@ if (showAdminWelcome) return renderAdminWelcome();
             { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
-            { id: 'informe', icon: '📜', label: 'Trazabilidad' },
-                             { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
-            { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
+            // 👇 ESTAS 3 PESTAÑAS SOLO APARECEN SI ERES ADMIN 👇
+            ...(isAdmin ? [
+               { id: 'informe', icon: '📜', label: 'Trazabilidad' },
+               { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
+               { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
+            ] : [])
           ].map((tab, index) => (
             <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
               <div className="flex items-center space-x-2">
