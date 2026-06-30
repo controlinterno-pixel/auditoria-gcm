@@ -1662,7 +1662,6 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       />
     );
   };
-
 // =====================================================================
   // PANTALLA DE BIENVENIDA DINÁMICA (ADMINISTRADORES Y JEFES DE ÁREA)
   // =====================================================================
