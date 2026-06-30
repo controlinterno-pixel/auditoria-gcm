@@ -217,6 +217,8 @@ export default function App() {
   const [aiModal, setAiModal] = useState(null);
   const [chartDetail, setChartDetail] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAdminWelcome, setShowAdminWelcome] = useState(true);
+
 // =========================================================
   // 🤖 NUEVOS ESTADOS: AUDITOR IA (PANEL OSCURO FLOTANTE)
   // =========================================================
@@ -1660,6 +1662,35 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       />
     );
   };
+// =====================================================================
+  // PANTALLA DE BIENVENIDA EXCLUSIVA PARA ADMINISTRADORES (CENTRO DE MANDO)
+  // =====================================================================
+  const renderAdminWelcome = () => (
+    <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center p-8 font-sans">
+      <div className="bg-white p-10 rounded-2xl shadow-xl max-w-md w-full text-center border-t-8 border-slate-900 animate-in fade-in zoom-in-95 duration-300">
+        <div className="text-5xl mb-3">👑</div>
+        <h1 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">Centro de Mando GRC</h1>
+        <p className="text-slate-500 text-xs leading-relaxed mb-8 px-2 font-medium">
+          Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global de Termales.
+        </p>
+        <div className="space-y-3">
+          <button 
+            onClick={() => setShowAdminWelcome(false)} 
+            className="w-full bg-[#111827] hover:bg-black text-white font-bold text-[11px] uppercase tracking-widest py-4 rounded-xl transition-all shadow-md active:scale-95"
+          >
+            Acceder al Tablero de Control
+          </button>
+          <button 
+            onClick={handleLogout} 
+            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-widest py-4 rounded-xl transition-all active:scale-95"
+          >
+            Cerrar Sesión
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderRCSAPortal = () => (
     <div className="min-h-screen bg-slate-100 font-sans text-xs flex flex-col items-center justify-center p-8">
       <div className="bg-white p-12 rounded-3xl shadow-xl max-w-lg text-center border-t-8 border-[#004d40]">
@@ -1691,7 +1722,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
 
   if (!isAdmin) return renderRCSAPortal();
   if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
-
+if (showAdminWelcome) return renderAdminWelcome();
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       
