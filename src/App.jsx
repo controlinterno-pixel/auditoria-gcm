@@ -1469,20 +1469,55 @@ const renderConfiguracion = () => (
     return (
       <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none">
         
-        {/* ─── ENCABEZADO PREMIUM ─── */}
-        <div className="flex justify-between items-center bg-[#0a1122] border border-blue-500/10 p-4 rounded-2xl shadow-md">
-          <div>
-            <h2 className="text-xl font-black tracking-wide text-white">Dashboard Ejecutivo</h2>
-            <p className="text-xs text-slate-400 font-medium">Resumen general del Sistema de Control Interno y Gestión Integral del Riesgo</p>
+        {/* ─── ENCABEZADO PREMIUM Y FILTROS INTEGRADOS ─── */}
+        <div className="bg-[#0a1122] border border-blue-500/10 p-5 rounded-2xl shadow-md space-y-4 mb-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800/80 pb-4 gap-4">
+            <div>
+              <h2 className="text-xl font-black tracking-wide text-white">Dashboard Ejecutivo</h2>
+              <p className="text-xs text-slate-400 font-medium">Resumen general del Sistema de Control Interno y Gestión Integral del Riesgo</p>
+            </div>
+            <div className="flex items-center space-x-3 shrink-0">
+              <div className="bg-[#111c35] border border-slate-700/50 px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 flex items-center space-x-2">
+                <span>📅</span> 
+                {/* FECHA DINÁMICA: Toma el día, mes y año real de tu PC/Servidor */}
+                <span>{`${String(hoy.getDate()).padStart(2, '0')} / ${defaultMeses[hoy.getMonth()]} / ${hoy.getFullYear()}`}</span>
+              </div>
+              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase flex items-center space-x-1.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                <span>En Línea</span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <div className="bg-[#111c35] border border-slate-700/50 px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 flex items-center space-x-2">
-              <span>📅</span> <span>06 / Mayo / 2025</span>
+
+          {/* Panel de Filtros Modo Oscuro */}
+          <div className="flex flex-col md:flex-row gap-4 pt-1 items-start md:items-end">
+            <div className="flex flex-col">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Años de Análisis</label>
+              <div className="flex flex-wrap gap-2">
+                {defaultAnios.map(anio => (
+                  <button key={`tablero-anio-${anio}`} onClick={() => toggleAnio(anio)} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm border ${selectedAnios.includes(anio) ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}>
+                    {anio}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase flex items-center space-x-1.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-              <span>En Línea</span>
+            <div className="flex flex-col">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Meses de Análisis</label>
+              <div className="flex flex-wrap gap-1.5">
+                {defaultMeses.map(mes => (
+                  <button key={`tablero-mes-${mes}`} onClick={() => toggleMes(mes)} className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border shadow-sm notranslate ${selectedMeses.includes(mes) ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`} translate="no" title={mes}>
+                    {mes.substring(0,3)}
+                  </button>
+                ))}
+              </div>
             </div>
+            {(selectedAnios.length > 0 || selectedMeses.length > 0) && (
+              <div className="flex items-end mt-2 md:mt-0 md:ml-auto">
+                <button onClick={() => { setSelectedAnios([]); setSelectedMeses([]); }} className="h-[30px] px-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-lg text-[10px] font-bold transition-colors uppercase tracking-wider">
+                  Limpiar Filtros
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
