@@ -1,5 +1,47 @@
 import React from 'react';
 
+// 📚 LISTAS MAESTRAS EXTRAÍDAS DE LOS MANUALES OFICIALES DE TERMALES
+const AUDITORES_OFICIALES = [
+  "Rodolfo González González",
+  "Yehison Javier Pineda Martinez",
+  "Angelica Fernanda Hernandez",
+  "Luz Angela Chico Tique"
+];
+
+const PROCESOS_OFICIALES = [
+  "Alimentos y Bebidas (AYB)", "Canales Alternos", "Compensaciones", "Compras", "Control Inventarios",
+  "Cumplimiento Normativo", "Financiera", "Formación y Desarrollo", "Gestión Ambiental",
+  "Gestión Clientes", "Gestión Contable", "Gestión de Crédito y Cartera", "Gestión de tecnologías de la información",
+  "Gestión de Tesoreria", "Mantenimiento de Infraestructura", "Mercadeo", "Operaciones Alojamiento y recreación.",
+  "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación"
+];
+
+// Organigrama unificado de Hotel, Balneario y Estructura Administrativa
+const CARGOS_OFICIALES = [
+  "Agente contact Center", "Almacenista", "Ama de Llaves", "Analista Ambiental", "Analista de auditoría", 
+  "Analista de Cartera", "Analista de Compras", "Analista de Contabilidad", "Analista de costos e inventarios", 
+  "Analista de Mejora continua", "Analista de nómina", "Analista de Sistemas", "Analista de Talento Humano", 
+  "Analista de Tesorería", "Asistente de Gerencia", "Auditor Nocturno", "Auditoría Interna", "Auxiliar Administrativa y Contable de Socios", 
+  "Auxiliar Administrativa y Labor social", "Auxiliar Administrativo y Logístico", "Auxiliar Comercial SRC", "Auxiliar Comercial Taquilla", 
+  "Auxiliar de Almacén", "Auxiliar de barra", "Auxiliar de Cocina", "Auxiliar de despensa", "Auxiliar de enfermería", 
+  "Auxiliar de Inventarios", "Auxiliar de lavandería", "Auxiliar de parqueadero - Botones", "Auxiliar de Portería", 
+  "Auxiliar de Servicio al Cliente", "Auxiliar de Servicios Generales", "Auxiliar Gestión Documental", "Auxiliar mantenimiento", 
+  "Auxiliar mantenimiento carretera", "Auxiliar Porcionador", "Auxiliar PTAP", "Auxiliar PTAR", "Auxiliar supernumerario", 
+  "Auxiliares de Tics", "Barista", "Cajero", "Cajero Ay B", "Cajero recreación balneario", "Camareras", "Chef Hotel", 
+  "Contador", "Contadora de Socios", "Coordinación Administrativa Family Office", "Coordinación Comercial y Contact Center", 
+  "Coordinación de Mercadeo y Comunicaciones", "Coordinación de recepción", "Coordinación Seguridad Y Salud en el trabajo", 
+  "Coordinación SPA", "Coordinador de Mantenimiento", "Coordinador de Marketing digital", "Coordinador de Servicio al Cliente", 
+  "Coordinador Operaciones", "Creativo Gráfico", "Desarrollador Junior", "Dirección Administrativa y Financiera", "Dirección Comercial", 
+  "Dirección de Mercadeo y Comunicaciones", "Dirección Talento Humano", "Director de TICS", "Ejecutivo Comercial", 
+  "Gerente Administrativa y Judicial", "Guía Turístico y de experiencia natural", "Jardinero", "Jefe de Cocina", "Líder Administrativa", 
+  "Líder de Compras y Almacen", "Líder de Contabilidad", "Líder de Costos y Presupuestos", "Líder de Gestión Ambiental", 
+  "Líder de Proceso de alimentos y bebidas", "Líder de Tesorería y Cartera", "Lider Tactico de Infraestructura Tecnológica", 
+  "Líder Táctico de mejora Continua", "Líder Táctico desarrollo de Software", "Líder táctico de alimentos y bebidas", 
+  "Mensajero", "Mesero", "Porcionador", "Primer Cocinero (a)", "Recepcionista", "Salvavidas", "Steward", "Subdirección de Operaciones Balneario", 
+  "Subdirector de Operaciones Hotel", "Supervisor (a) de operaciones", "Supervisor (a) mesa y servicio", "Supervisor Operaciones", 
+  "Supervisor Ruta Ecológica", "Técnico de mantenimiento", "Terapeuta SPA"
+];
+
 export default function Hallazgos({
   isAdmin,
   editHallazgo,
@@ -16,6 +58,22 @@ export default function Hallazgos({
   handleColFilterChange,
   FilterInput
 }) {
+
+  // 🧠 GENERADOR DE ID AUTOMÁTICO
+  const anioActual = new Date().getFullYear();
+  let nextIdVal = "";
+
+  if (editHallazgo) {
+    nextIdVal = editHallazgo.ref; // Si está editando, deja el ID quieto
+  } else {
+    // Si es nuevo, busca todos los hallazgos de este año, saca el mayor número y le suma 1
+    const consecutivos = hFiltrados
+      .filter(h => h.ref && h.ref.includes(anioActual.toString()))
+      .map(h => parseInt(h.ref.split('-')[2]) || 0);
+    const maxConsecutivo = consecutivos.length > 0 ? Math.max(...consecutivos) : 0;
+    nextIdVal = `HAL-${anioActual}-${String(maxConsecutivo + 1).padStart(3, '0')}`;
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4 flex justify-between items-end">
@@ -25,7 +83,6 @@ export default function Hallazgos({
         </div>
       </div>
 
-      {/* 🔓 EL FORMULARIO YA NO TIENE CANDADO */}
       <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
         <div className="flex justify-between items-center border-b pb-3">
           <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest">{editHallazgo ? `✏️ Editando Hallazgo: ${editHallazgo.ref}` : '➕ DOCUMENTAR NUEVA DESVIACIÓN'}</h3>
@@ -33,17 +90,62 @@ export default function Hallazgos({
         </div>
 
         <form onSubmit={handleHallazgoSubmit} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
-          <div><label className="font-bold text-gray-600 block mb-1">ID / Código (Manual)</label><input name="ref" defaultValue={editHallazgo?.ref||''} required placeholder="Ej: HAL-2026-01" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+          
+          {/* 🔒 ID AUTOMÁTICO BLOQUEADO */}
+          <div>
+            <label className="font-bold text-gray-600 block mb-1">ID / Código (Automático)</label>
+            <input 
+              name="ref" 
+              value={nextIdVal} 
+              readOnly 
+              className="w-full border border-slate-200 bg-slate-100 text-slate-500 font-black rounded-lg p-2 cursor-not-allowed outline-none focus:ring-0" 
+              title="Este consecutivo se genera automáticamente"
+            />
+          </div>
+
           <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
-          <div><label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label><input name="proceso" defaultValue={editHallazgo?.proceso||''} required className="w-full border border-slate-300 rounded-lg p-2" /></div>
+          
+          {/* 🔍 BUSCADOR DE PROCESOS (DATALIST) */}
+          <div>
+            <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
+            <input 
+              name="proceso" 
+              list="lista-procesos" 
+              defaultValue={editHallazgo?.proceso||''} 
+              required 
+              placeholder="Escribe o selecciona..." 
+              className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" 
+            />
+            <datalist id="lista-procesos">
+              {PROCESOS_OFICIALES.map(proc => <option key={proc} value={proc} />)}
+            </datalist>
+          </div>
+          
           <div><label className="font-bold text-gray-600 block mb-1">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
           
-          <div><label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label><input name="auditor" defaultValue={editHallazgo?.auditor||''} required placeholder="Quien levantó el hallazgo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
-          <div><label className="font-bold text-gray-600 block mb-1">Dueño del Proceso</label><input name="responsable" defaultValue={editHallazgo?.responsable||''} required placeholder="Responsable a cargo" className="w-full border border-slate-300 rounded-lg p-2" /></div>
+          {/* 👥 DESPLEGABLE DE AUDITORES */}
+          <div>
+            <label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label>
+            <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="">-- Seleccione un Auditor --</option>
+              {AUDITORES_OFICIALES.map(aud => <option key={aud} value={aud}>{aud}</option>)}
+            </select>
+          </div>
+
+          {/* 👔 DESPLEGABLE DE CARGOS OFICIALES */}
+          <div>
+            <label className="font-bold text-gray-600 block mb-1">Dueño del Proceso (Cargo)</label>
+            <select name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+              <option value="">-- Seleccione el Cargo --</option>
+              {CARGOS_OFICIALES.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
+            </select>
+          </div>
+
           <div className="md:col-span-2">
             <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
-            <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2" />
+            <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
           </div>            
+          
           <div className="md:col-span-4 bg-rose-50/50 p-4 rounded-xl border border-rose-100 shadow-sm">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-rose-100 pb-3">
               <div>
@@ -69,7 +171,7 @@ export default function Hallazgos({
           </div>
           
           <div className="md:col-span-4 flex justify-end items-end">
-            <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-md transition-all w-full md:w-auto">
+            <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all w-full md:w-auto">
               {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
             </button>
           </div>
@@ -145,16 +247,14 @@ export default function Hallazgos({
                     </span>
                     
                     <div className="flex justify-center items-center space-x-2 border-t border-slate-100 pt-3">
-                      {/* 🔓 EL BOTÓN EDITAR YA NO TIENE CANDADO */}
-                      <button onClick={() => {setEditHallazgo(h); setFormResetKey(Date.now()); scrollToForm();}} className="text-slate-500 hover:text-blue-600 transition-colors" title="Editar">
+                      <button onClick={() => {setEditHallazgo(h); setFormResetKey(Date.now()); scrollToForm();}} className="text-slate-500 hover:text-blue-600 transition-colors font-bold" title="Editar">
                         ✏️ Editar
                       </button>
                       
-                      {/* 🔒 EL BOTÓN ELIMINAR SIGUE BLOQUEADO PARA JEFES DE ÁREA */}
                       {isAdmin && (
                         <>
                           <span className="text-slate-300">|</span>
-                          <button onClick={() => handleDeleteItem('hallazgos', h.id)} className="text-slate-500 hover:text-red-600 transition-colors" title="Eliminar">
+                          <button onClick={() => handleDeleteItem('hallazgos', h.id)} className="text-slate-500 hover:text-red-600 transition-colors font-bold" title="Eliminar">
                             🗑️ Eliminar
                           </button>
                         </>
