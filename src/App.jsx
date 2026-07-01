@@ -1860,11 +1860,28 @@ const renderConfiguracion = () => (
     );
   };  
 
-    const renderDashboardRiesgos = () => {
+const renderDashboardRiesgos = () => {
+    // ✨ 1. Función limpiadora de texto a número puro
+    const extraerNumeroPuro = (valor) => {
+      if (!valor) return 0;
+      const stringValor = String(valor).trim();
+      return parseInt(stringValor.charAt(0), 10) || 0;
+    };
+
+    // ✨ 2. Creamos una copia de los riesgos pero con los números limpios
+    const riesgosLimpiosParaMatriz = (rFiltrados || []).map(r => ({
+      ...r,
+      probabilidadResidual: extraerNumeroPuro(r.probabilidadResidual),
+      impactoResidual: extraerNumeroPuro(r.impactoResidual),
+      probabilidadInherente: extraerNumeroPuro(r.probabilidadInherente),
+      impactoInherente: extraerNumeroPuro(r.impactoInherente)
+    }));
+
+    // ✨ 3. Renderizamos el componente manteniendo todos tus props intactos
     return (
       <DashboardRiesgos 
         tipoMatriz={tipoMatriz}
-        rFiltrados={rFiltrados}
+        rFiltrados={riesgosLimpiosParaMatriz} 
         incFiltrados={incFiltrados}
         hFiltrados={hFiltrados}
         calcularMatriz5x5={calcularMatriz5x5}
@@ -1880,6 +1897,7 @@ const renderConfiguracion = () => (
       />
     );
   };
+    
 const renderPlanAnual = () => {
     return (
       <PlanAnual 
