@@ -1406,20 +1406,29 @@ const renderConfiguracion = () => (
     const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
     const planesBase = typeof pFiltrados !== 'undefined' ? pFiltrados : (typeof planes !== 'undefined' ? planes : []);
 
-    // 2. Métricas de Planes de Acción (Declaradas primero para usarse de forma segura)
+    // 2. Función limpiadora para extraer el número puro (ej: transforma "3 - Posible" o "3" en el número 3)
+    const extraerNumeroPuro = (valor) => {
+      if (!valor) return 0;
+      const stringValor = String(valor).trim();
+      const primerCaracter = stringValor.charAt(0);
+      const numero = parseInt(primerCaracter, 10);
+      return isNaN(numero) ? 0 : numero;
+    };
+
+    // 3. Métricas de Planes de Acción
     const totalPlanes = planesBase.length;
     const planesActivos = planesBase.filter(p => p.estado !== 'Cerrado').length;
     const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
     const planesCerrados = planesBase.filter(p => p.estado === 'Cerrado').length;
     
-    // Cálculo seguro del porcentaje sin decimales infinitos (Evita el 66.6666%)
+    // Cálculo seguro del porcentaje sin decimales infinitos
     const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 100;
 
-    // 3. Métricas de Riesgos Reales
+    // 4. Métricas de Riesgos Reales utilizando el extractor numérico
     const totalRiesgos = riesgosBase.length;
-    const riesgosCriticos = riesgosBase.filter(r => (Number(r.probabilidadResidual || 0) * Number(r.impactoResidual || 0)) >= 16).length;
+    const riesgosCriticos = riesgosBase.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
     const riesgosMedios = riesgosBase.filter(r => {
-      const score = Number(r.probabilidadResidual || 0) * Number(r.impactoResidual || 0);
+      const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual);
       return score >= 6 && score < 16;
     }).length;
     const riesgosBajos = totalRiesgos - riesgosCriticos - riesgosMedios;
@@ -1427,18 +1436,18 @@ const renderConfiguracion = () => (
     // Eficiencia ponderada de controles inteligente basada en tus métricas reales
     const efectividadControlesGlobal = totalRiesgos > 0 ? Math.round(85 + (riesgosBajos * 1.5) - (riesgosCriticos * 2)) : 90; 
 
-    // 4. Métricas de Hallazgos
+    // 5. Métricas de Hallazgos
     const totalHallazgos = hallazgosBase.length;
     const hallazgosCriticosCount = hallazgosBase.filter(h => h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico').length;
 
-    // 5. Función auxiliar interactiva para renderizar la matriz 5x5 en base a la BD
+    // 6. Función auxiliar interactiva para renderizar la matriz 5x5 usando el extractor purificado
     const contarRiesgosEnCelda = (p, i) => {
-      return riesgosBase.filter(r => Number(r.probabilidadResidual) === p && Number(r.impactoResidual) === i).length;
+      return riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === p && extraerNumeroPuro(r.impactoResidual) === i).length;
     };
 
-    // 6. Filtrar listado dinámico inferior en base al cuadrante seleccionado
+    // 7. Filtrar listado dinámico inferior en base al cuadrante seleccionado
     const riesgosFiltradosPorMatriz = matrizFiltro 
-      ? riesgosBase.filter(r => Number(r.probabilidadResidual) === matrizFiltro.p && Number(r.impactoResidual) === matrizFiltro.i)
+      ? riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === matrizFiltro.p && extraerNumeroPuro(r.impactoResidual) === matrizFiltro.i)
       : riesgosBase.slice(0, 5);
 
     return (
