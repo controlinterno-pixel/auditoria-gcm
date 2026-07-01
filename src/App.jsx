@@ -1396,12 +1396,10 @@ const renderConfiguracion = () => (
   );
 
 // =====================================================================
+// =====================================================================
   // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
   // =====================================================================
   const renderTableroAnalitico = () => {
-    // 1. Estados locales (Corrección: usamos useState directamente)
- 
-
     const hoy = new Date();
 
     // 2. Extracción segura (Si alguna no existe, usa un arreglo vacío para no romper la app)
@@ -1418,14 +1416,14 @@ const renderConfiguracion = () => (
     }).length;
     const riesgosBajos = totalRiesgos - riesgosCriticos - riesgosMedios;
 
-    // Métricas: Controles (Usamos tu variable existente)
+    // Métricas: Controles
     const efectividadControlesGlobal = typeof rendimientoControles !== 'undefined' ? rendimientoControles : 86; 
 
     // Métricas: Hallazgos
     const totalHallazgos = hallazgosBase.length;
     const hallazgosCriticosCount = hallazgosBase.filter(h => h.severidad === 'Crítica' || h.severidad === 'Alta').length;
 
-    // Métricas: Planes de Acción (Usamos tu variable existente)
+    // Métricas: Planes de Acción
     const totalPlanes = planesBase.length;
     const planesActivos = planesBase.filter(p => p.estado !== 'Cerrado').length;
     const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
@@ -1624,7 +1622,7 @@ const renderConfiguracion = () => (
               </div>
             </div>
 
-         {/* Distribución por Proceso REAL Y DINÁMICA */}
+            {/* Distribución por Proceso REAL Y DINÁMICA */}
             <div className="border-t border-slate-800/80 pt-3 mt-3">
               <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Distribución por Proceso</h4>
               <div className="flex items-center justify-between space-x-4">
@@ -1660,8 +1658,11 @@ const renderConfiguracion = () => (
                 </div>
               </div>
             </div>
-       
-{/* ─── ALERTAS INTELIGENTES (IA) EN TIEMPO REAL CONECTADAS A LA BASE DE DATOS REAL ─── */}
+          </div>
+
+        </div>
+
+        {/* ─── ALERTAS INTELIGENTES (IA) EN TIEMPO REAL CONECTADAS A LA BASE DE DATOS REAL ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 flex items-center">
@@ -1794,7 +1795,8 @@ const renderConfiguracion = () => (
           </div>
 
         </div>
-{/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD (REGISTROS REALES DESDE LA BD) ─── */}
+
+        {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD (REGISTROS REALES DESDE LA BD) ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left">
           <div className="flex justify-between items-center mb-3">
             <div>
@@ -1845,7 +1847,7 @@ const renderConfiguracion = () => (
 
       </div>
     );
-  };
+  };  
 
     const renderDashboardRiesgos = () => {
     return (
