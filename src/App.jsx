@@ -1396,18 +1396,26 @@ const renderConfiguracion = () => (
   );
 
 // =====================================================================
-// =====================================================================
   // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
   // =====================================================================
   const renderTableroAnalitico = () => {
     const hoy = new Date();
 
-// 2. Extracción corregida apuntando a los estados reales de tu Firebase
-    const riesgosBase = typeof riesgos !== 'undefined' ? riesgos : [];
-    const hallazgosBase = typeof hallazgos !== 'undefined' ? hallazgos : [];
-    const planesBase = typeof planes !== 'undefined' ? planes : [];
+    // 1. Extracción e interconexión segura con los estados dinámicos del GRC
+    const riesgosBase = typeof rFiltrados !== 'undefined' ? rFiltrados : (typeof riesgos !== 'undefined' ? riesgos : []);
+    const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
+    const planesBase = typeof pFiltrados !== 'undefined' ? pFiltrados : (typeof planes !== 'undefined' ? planes : []);
 
-    // Métricas: Riesgos
+    // 2. Métricas de Planes de Acción (Declaradas primero para usarse de forma segura)
+    const totalPlanes = planesBase.length;
+    const planesActivos = planesBase.filter(p => p.estado !== 'Cerrado').length;
+    const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
+    const planesCerrados = planesBase.filter(p => p.estado === 'Cerrado').length;
+    
+    // Cálculo seguro del porcentaje sin decimales infinitos (Evita el 66.6666%)
+    const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 100;
+
+    // 3. Métricas de Riesgos Reales
     const totalRiesgos = riesgosBase.length;
     const riesgosCriticos = riesgosBase.filter(r => (Number(r.probabilidadResidual || 0) * Number(r.impactoResidual || 0)) >= 16).length;
     const riesgosMedios = riesgosBase.filter(r => {
@@ -1416,32 +1424,22 @@ const renderConfiguracion = () => (
     }).length;
     const riesgosBajos = totalRiesgos - riesgosCriticos - riesgosMedios;
 
-    // Métricas: Controles y Cumplimiento con redondeo limpio sin decimales feos
-    // Calculamos el porcentaje real basado en planes cerrados vs totales
-    const planesCerrados = planesBase.filter(p => p.estado === 'Cerrado').length;
-    const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 100;
-    
-    // Eficiencia de controles mapeando tu lógica real o dejando un indicador dinámico estable
-    const efectividadControlesGlobal = totalRiesgos > 0 ? Math.round(85 + (riesgosBajos * 2) - (riesgosCriticos * 3)) : 90; 
+    // Eficiencia ponderada de controles inteligente basada en tus métricas reales
+    const efectividadControlesGlobal = totalRiesgos > 0 ? Math.round(85 + (riesgosBajos * 1.5) - (riesgosCriticos * 2)) : 90; 
 
-    // Métricas: Hallazgos
+    // 4. Métricas de Hallazgos
     const totalHallazgos = hallazgosBase.length;
     const hallazgosCriticosCount = hallazgosBase.filter(h => h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico').length;
 
-    // Métricas: Planes de Acción
-    const totalPlanes = planesBase.length;
-    const planesActivos = planesBase.filter(p => p.estado !== 'Cerrado').length;
-    const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
-
-    // 3. Función auxiliar Matriz
+    // 5. Función auxiliar interactiva para renderizar la matriz 5x5 en base a la BD
     const contarRiesgosEnCelda = (p, i) => {
       return riesgosBase.filter(r => Number(r.probabilidadResidual) === p && Number(r.impactoResidual) === i).length;
     };
 
-    // 4. Filtrar listado inferior
+    // 6. Filtrar listado dinámico inferior en base al cuadrante seleccionado
     const riesgosFiltradosPorMatriz = matrizFiltro 
       ? riesgosBase.filter(r => Number(r.probabilidadResidual) === matrizFiltro.p && Number(r.impactoResidual) === matrizFiltro.i)
-      : riesgosBase.slice(0, 5); 
+      : riesgosBase.slice(0, 5);
 
     return (
       <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none">
