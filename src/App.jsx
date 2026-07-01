@@ -904,6 +904,23 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     e.target.reset(); 
     showNotification("Evaluación registrada exitosamente.");
   };
+const handleHallazgoSubmit = async (e) => {
+    e.preventDefault(); const formData = new FormData(e.target);
+    const ts = new Date().toLocaleString();
+    
+    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
+
+    let updated;
+    if (editHallazgo) {
+      const mod = { ...editHallazgo, sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] };
+      updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
+      setEditHallazgo(null);
+    } else {
+      const nuevo = { id: Date.now(), sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] };
+      updated = [...safeHallazgos, nuevo];
+    }
+    setHallazgos(updated); await saveToCloud({ hallazgos: updated }); e.target.reset(); showNotification("Desviación documentada.");
+  };
 
 const handleComiteSubmit = async (e) => {
     e.preventDefault();
