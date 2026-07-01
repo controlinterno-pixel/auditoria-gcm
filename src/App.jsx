@@ -1807,19 +1807,30 @@ const renderConfiguracion = () => (
 
         </div>
 
-        {/* ─── ALERTAS INTELIGENTES (IA) EN TIEMPO REAL CONECTADAS A LA BASE DE DATOS REAL ─── */}
+{/* ─── ALERTAS INTELIGENTES (IA) EN TIEMPO REAL CONECTADAS A LA BASE DE DATOS REAL ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 flex items-center">
-              <span className="text-base mr-1.5">🤖</span> Alertas y Recomendaciones Inteligentes (IA)
+              <span className="text-base mr-1.5">🤖</span> Alertas y Recomendaciones IA
             </h3>
             <span className="text-[9px] font-black uppercase text-blue-400 cursor-pointer hover:underline">Monitoreo en vivo</span>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-left">
             
-            {/* Alerta 1: Riesgos Críticos Reales */}
-            <div className="bg-[#1c0d15] border border-red-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-red-500/40 transition-colors">
+            {/* Alerta 1: Riesgos Críticos Reales (Alineado a la Izquierda) */}
+            <div className="bg-[#1c0d15] border border-red-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-red-500/40 transition-colors relative overflow-visible">
+              {/* Tooltip Hacia Arriba */}
+              <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-red-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-0 mb-3 pointer-events-none">
+                <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Riesgos Críticos Activos</div>
+                <div className="space-y-1.5 leading-relaxed">
+                  <p><span className="text-blue-400 font-bold">Origen:</span> Matriz de Riesgos Corporativa.</p>
+                  <p><span className="text-emerald-400 font-bold">Cálculo:</span> Riesgos cuyo Score Residual (Impacto × Probabilidad) es ≥ 16.</p>
+                  <p><span className="text-amber-400 font-bold">Importancia:</span> Advierte a la gerencia sobre vulnerabilidades extremas que requieren planes de choque inmediatos.</p>
+                </div>
+                <div className="absolute -bottom-1.5 left-8 w-3 h-3 bg-[#0d1627] border-b border-r border-red-500/30 transform rotate-45"></div>
+              </div>
+
               <div className="text-red-400 text-lg bg-red-500/10 p-1.5 rounded-lg">⚠️</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-red-400">{riesgosCriticos} Riesgos Críticos Activos</h4>
@@ -1828,8 +1839,19 @@ const renderConfiguracion = () => (
               </div>
             </div>
 
-            {/* Alerta 2: Planes Vencidos Reales */}
-            <div className="bg-[#1c140d] border border-amber-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-amber-500/40 transition-colors">
+            {/* Alerta 2: Planes Vencidos Reales (Centrado) */}
+            <div className="bg-[#1c140d] border border-amber-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-amber-500/40 transition-colors relative overflow-visible">
+              {/* Tooltip Hacia Arriba */}
+              <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-amber-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
+                <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Planes de Acción Vencidos</div>
+                <div className="space-y-1.5 leading-relaxed">
+                  <p><span className="text-blue-400 font-bold">Origen:</span> Módulo de Planes de Mejoramiento.</p>
+                  <p><span className="text-emerald-400 font-bold">Cálculo:</span> Planes activos cuya fecha límite programada ya fue superada por la fecha actual.</p>
+                  <p><span className="text-amber-400 font-bold">Importancia:</span> Revela cuellos de botella y falta de diligencia en la mitigación de hallazgos de auditoría.</p>
+                </div>
+                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-amber-500/30 transform rotate-45"></div>
+              </div>
+
               <div className="text-amber-400 text-lg bg-amber-500/10 p-1.5 rounded-lg">📝</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-amber-400">{planesVencidos} Planes de Acción Vencidos</h4>
@@ -1838,8 +1860,19 @@ const renderConfiguracion = () => (
               </div>
             </div>
 
-            {/* Alerta 3: Hallazgos Críticos Reales */}
-            <div className="bg-[#0d1624] border border-blue-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-blue-500/40 transition-colors">
+            {/* Alerta 3: Hallazgos Críticos Reales (Centrado) */}
+            <div className="bg-[#0d1624] border border-blue-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-blue-500/40 transition-colors relative overflow-visible">
+              {/* Tooltip Hacia Arriba */}
+              <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-blue-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
+                <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Hallazgos Críticos/Altos</div>
+                <div className="space-y-1.5 leading-relaxed">
+                  <p><span className="text-blue-400 font-bold">Origen:</span> Desviaciones de Control Interno.</p>
+                  <p><span className="text-emerald-400 font-bold">Cálculo:</span> Conteo de registros clasificados manualmente como severidad 'Crítica' o 'Alta'.</p>
+                  <p><span className="text-amber-400 font-bold">Importancia:</span> Indica focos de riesgo materializado que la empresa debe remediar forzosamente para evitar sanciones.</p>
+                </div>
+                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-blue-500/30 transform rotate-45"></div>
+              </div>
+
               <div className="text-blue-400 text-lg bg-blue-500/10 p-1.5 rounded-lg">🔬</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-blue-400">{hallazgosCriticosCount} Hallazgos Críticos/Altos</h4>
@@ -1848,8 +1881,19 @@ const renderConfiguracion = () => (
               </div>
             </div>
 
-            {/* Alerta 4: Estado de Salud del Sistema */}
-            <div className="bg-[#091819] border border-cyan-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-cyan-500/40 transition-colors">
+            {/* Alerta 4: Estado de Salud del Sistema (Alineado a la Derecha) */}
+            <div className="bg-[#091819] border border-cyan-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-cyan-500/40 transition-colors relative overflow-visible">
+              {/* Tooltip Hacia Arriba */}
+              <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-cyan-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full right-0 mb-3 pointer-events-none">
+                <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Eficiencia Global</div>
+                <div className="space-y-1.5 leading-relaxed">
+                  <p><span className="text-blue-400 font-bold">Origen:</span> Auditoría de Controles Mitigantes.</p>
+                  <p><span className="text-emerald-400 font-bold">Cálculo:</span> Algoritmo ponderado que evalúa la calificación del diseño y ejecución frente a los riesgos materializados.</p>
+                  <p><span className="text-amber-400 font-bold">Importancia:</span> Es el termómetro definitivo sobre qué tan blindada se encuentra la organización ante amenazas.</p>
+                </div>
+                <div className="absolute -bottom-1.5 right-8 w-3 h-3 bg-[#0d1627] border-b border-r border-cyan-500/30 transform rotate-45"></div>
+              </div>
+
               <div className="text-cyan-400 text-lg bg-cyan-500/10 p-1.5 rounded-lg">💡</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-cyan-400">Eficiencia Global: {efectividadControlesGlobal}%</h4>
