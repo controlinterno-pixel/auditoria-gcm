@@ -1751,61 +1751,122 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
-            <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Tendencia Histórica</h3>
-            <div className="w-full h-36 mt-2 relative">
-              <svg viewBox="0 0 100 40" className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                <line x1="0" y1="10" x2="100" y2="10" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
-                <line x1="0" y1="20" x2="100" y2="20" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
-                <line x1="0" y1="30" x2="100" y2="30" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
-                <path d="M0,25 L16,23 L32,24 L48,22 L64,26 L80,21 L100,24" fill="none" stroke="#ff4444" strokeWidth="1" strokeLinecap="round" />
-                <path d="M0,15 L16,18 L32,14 L48,16 L64,13 L80,17 L100,12" fill="none" stroke="#fbbf24" strokeWidth="1" strokeLinecap="round" />
-                <path d="M0,32 L16,30 L32,33 L48,31 L64,32 L80,29 L100,31" fill="none" stroke="#10b981" strokeWidth="1" strokeLinecap="round" />
-              </svg>
-              <div className="flex justify-between text-[8px] font-bold text-slate-500 mt-2 px-1 uppercase">
-                <span>Ene</span><span>Feb</span><span>Mar</span><span>Abr</span><span>May</span><span>Jun</span><span>Jul</span>
-              </div>
-            </div>
+          {/* ─── TARJETA LATERAL: TENDENCIA HISTÓRICA Y DISTRIBUCIÓN ─── */}
+          {(() => {
+            // 🧠 1. MOTOR DINÁMICO: TENDENCIA HISTÓRICA (Últimos 6 meses)
+            const mesesCortos = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+            const currentMonthIdx = hoy.getMonth();
+            const ultimos6Meses = Array.from({length: 6}, (_, i) => {
+                let m = currentMonthIdx - 5 + i;
+                if (m < 0) m += 12;
+                return { idx: m, nombre: mesesCortos[m], nombreLargo: defaultMeses[m] };
+            });
 
-            {/* Distribución por Proceso REAL Y DINÁMICA */}
-            <div className="border-t border-slate-800/80 pt-3 mt-3">
-              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Distribución por Proceso</h4>
-              <div className="flex items-center justify-between space-x-4">
-                <div className="w-16 h-16 rounded-full border-8 border-slate-800 border-t-blue-500 border-r-emerald-500 flex items-center justify-center flex-shrink-0">
-                  <span className="text-[9px] font-black text-white">{totalRiesgos} R</span>
+            const trendData = ultimos6Meses.map(mInfo => {
+               const riesgosMes = riesgosBase.filter(r => r.mes === mInfo.nombreLargo);
+               const crit = riesgosMes.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
+               const med = riesgosMes.filter(r => {
+                 const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual);
+                 return score >= 6 && score < 16;
+               }).length;
+               const baj = riesgosMes.length - crit - med;
+               return { mes: mInfo.nombre, crit, med, baj };
+            });
+
+            const maxVal = Math.max(1, ...trendData.flatMap(d => [d.crit, d.med, d.baj]));
+            const getY = (val) => 35 - ((val / maxVal) * 25); 
+            const getX = (idx) => (idx * (100 / 5)); 
+
+            const pathCriticos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.crit)}`).join(' ');
+            const pathMedios = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.med)}`).join(' ');
+            const pathBajos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.baj)}`).join(' ');
+
+            // 🧠 2. MOTOR DINÁMICO: DISTRIBUCIÓN POR PROCESO
+            const procesosCount = Object.entries(
+              riesgosBase.reduce((acc, r) => {
+                const proc = r.proceso || 'General / Otros';
+                acc[proc] = (acc[proc] || 0) + 1;
+                return acc;
+              }, {})
+            );
+            
+            const coloresMini = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899'];
+            let offsetCirculo = 0;
+
+            return (
+              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible">
+                
+                {/* Tooltip Explicativo */}
+                <div className="absolute z-[100] w-72 p-4 bg-[#0d1627] border border-slate-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 top-4 right-full mr-3 pointer-events-none">
+                  <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Análisis Histórico y Distribución</div>
+                  <div className="space-y-1.5 leading-relaxed">
+                    <p><span className="text-blue-400 font-bold">Tendencia:</span> Curvas calculadas en tiempo real agrupando los riesgos creados en los últimos 6 meses. (<span className="text-red-400">Rojo: Críticos</span>, <span className="text-amber-400">Amarillo: Medios</span>, <span className="text-emerald-400">Verde: Bajos</span>).</p>
+                    <p><span className="text-emerald-400 font-bold">Distribución:</span> Gráfica proporcional generada a partir de los procesos mapeados en los {totalRiesgos} riesgos actuales.</p>
+                    <p><span className="text-amber-400 font-bold">Importancia:</span> Identifica qué mes tuvo picos de exposición y qué proceso es el "cuello de botella".</p>
+                  </div>
+                  <div className="absolute top-4 -right-1.5 w-3 h-3 bg-[#0d1627] border-t border-r border-slate-500/30 transform rotate-45"></div>
                 </div>
-                <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400 overflow-y-auto max-h-20 scrollbar-none">
-                  {totalRiesgos === 0 ? (
-                    <div className="text-slate-500 italic text-[8px]">No hay riesgos registrados</div>
-                  ) : (
-                    Object.entries(
-                      riesgosBase.reduce((acc, r) => {
-                        const proc = r.proceso || 'General / Otros';
-                        acc[proc] = (acc[proc] || 0) + 1;
-                        return acc;
-                      }, {})
-                    ).map(([procesoNombre, cantidad], idx) => {
-                      const porcentaje = Math.round((cantidad / totalRiesgos) * 100);
-                      const coloresMini = ['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-cyan-500'];
-                      const colorActual = coloresMini[idx % coloresMini.length];
-                      
-                      return (
-                        <div key={`proc-dist-${idx}`} className="flex justify-between items-center">
-                          <span className="flex items-center truncate max-w-[140px]">
-                            <span className={`w-1.5 h-1.5 ${colorActual} rounded-full mr-1.5 flex-shrink-0`}></span>
-                            {procesoNombre}
-                          </span>
-                          <span className="text-white ml-2">{porcentaje}% ({cantidad})</span>
-                        </div>
-                      );
-                    })
-                  )}
+
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Tendencia Histórica</h3>
+                <div className="w-full h-36 mt-2 relative">
+                  <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                    <line x1="0" y1="10" x2="100" y2="10" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
+                    <line x1="0" y1="20" x2="100" y2="20" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
+                    <line x1="0" y1="30" x2="100" y2="30" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
+                    <path d={pathCriticos} fill="none" stroke="#ff4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d={pathMedios} fill="none" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d={pathBajos} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <div className="flex justify-between text-[8px] font-bold text-slate-500 mt-2 px-1 uppercase">
+                    {trendData.map((d, i) => <span key={`mes-${i}`}>{d.mes}</span>)}
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-800/80 pt-3 mt-3">
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Distribución por Proceso</h4>
+                  <div className="flex items-center justify-between space-x-4">
+                    <div className="w-16 h-16 relative shrink-0">
+                      <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                        <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
+                        {totalRiesgos > 0 && procesosCount.map(([proc, cant], idx) => {
+                          const p = (cant / totalRiesgos) * 100;
+                          const color = coloresMini[idx % coloresMini.length];
+                          const dash = `${p} 100`;
+                          const off = `-${offsetCirculo}`;
+                          offsetCirculo += p;
+                          return <circle key={`circ-${idx}`} cx="18" cy="18" r="15.915" fill="none" stroke={color} strokeWidth="4" strokeDasharray={dash} strokeDashoffset={off} className="transition-all duration-1000"/>;
+                        })}
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                         <span className="text-[10px] font-black text-white leading-none">{totalRiesgos}</span>
+                         <span className="text-[7px] text-slate-400 font-bold leading-none mt-0.5">Total</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400 overflow-y-auto max-h-20 scrollbar-none">
+                      {totalRiesgos === 0 ? (
+                        <div className="text-slate-500 italic text-[8px]">No hay riesgos registrados</div>
+                      ) : (
+                        procesosCount.map(([procesoNombre, cantidad], idx) => {
+                          const porcentaje = Math.round((cantidad / totalRiesgos) * 100);
+                          const colorActual = coloresMini[idx % coloresMini.length];
+                          return (
+                            <div key={`proc-dist-${idx}`} className="flex justify-between items-center hover:bg-slate-800/50 p-0.5 rounded transition-colors">
+                              <span className="flex items-center truncate max-w-[140px]" title={procesoNombre}>
+                                <span className="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0" style={{ backgroundColor: colorActual }}></span>
+                                {procesoNombre}
+                              </span>
+                              <span className="text-white ml-2 shrink-0">{porcentaje}% ({cantidad})</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-        </div>
+            );
+          })()}
 
 {/* ─── ALERTAS INTELIGENTES (IA) EN TIEMPO REAL CONECTADAS A LA BASE DE DATOS REAL ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
