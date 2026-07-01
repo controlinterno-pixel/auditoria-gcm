@@ -1867,6 +1867,7 @@ const renderConfiguracion = () => (
               </div>
             );
           })()}
+</div>
 
 {/* ─── ALERTAS INTELIGENTES (IA) EN TIEMPO REAL CONECTADAS A LA BASE DE DATOS REAL ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
