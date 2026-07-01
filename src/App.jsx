@@ -1624,25 +1624,99 @@ const renderConfiguracion = () => (
               </div>
             </div>
 
+         {/* Distribución por Proceso REAL Y DINÁMICA */}
             <div className="border-t border-slate-800/80 pt-3 mt-3">
-              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Distribución</h4>
+              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Distribución por Proceso</h4>
               <div className="flex items-center justify-between space-x-4">
                 <div className="w-16 h-16 rounded-full border-8 border-slate-800 border-t-blue-500 border-r-emerald-500 flex items-center justify-center flex-shrink-0">
-                  <span className="text-[9px] font-black text-white">GRC</span>
+                  <span className="text-[9px] font-black text-white">{totalRiesgos} R</span>
                 </div>
-                <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400">
-                  <div className="flex justify-between"><span className="flex items-center"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1.5"></span>Gestión</span><span className="text-white">26%</span></div>
-                  <div className="flex justify-between"><span className="flex items-center"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5"></span>Talento</span><span className="text-white">21%</span></div>
-                  <div className="flex justify-between"><span className="flex items-center"><span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-1.5"></span>Compras</span><span className="text-white">18%</span></div>
+                <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400 overflow-y-auto max-h-20 scrollbar-none">
+                  {totalRiesgos === 0 ? (
+                    <div className="text-slate-500 italic text-[8px]">No hay riesgos registrados</div>
+                  ) : (
+                    Object.entries(
+                      riesgosBase.reduce((acc, r) => {
+                        const proc = r.proceso || 'General / Otros';
+                        acc[proc] = (acc[proc] || 0) + 1;
+                        return acc;
+                      }, {})
+                    ).map(([procesoNombre, cantidad], idx) => {
+                      const porcentaje = Math.round((cantidad / totalRiesgos) * 100);
+                      const coloresMini = ['bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-cyan-500'];
+                      const colorActual = coloresMini[idx % coloresMini.length];
+                      
+                      return (
+                        <div key={`proc-dist-${idx}`} className="flex justify-between items-center">
+                          <span className="flex items-center truncate max-w-[140px]">
+                            <span className={`w-1.5 h-1.5 ${colorActual} rounded-full mr-1.5 flex-shrink-0`}></span>
+                            {procesoNombre}
+                          </span>
+                          <span className="text-white ml-2">{porcentaje}% ({cantidad})</span>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
+       
+{/* ─── ALERTAS INTELIGENTES (IA) EN TIEMPO REAL CONECTADAS A LA BASE DE DATOS REAL ─── */}
+        <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+            <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 flex items-center">
+              <span className="text-base mr-1.5">🤖</span> Alertas y Recomendaciones Inteligentes (IA)
+            </h3>
+            <span className="text-[9px] font-black uppercase text-blue-400 cursor-pointer hover:underline">Monitoreo en vivo</span>
           </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-left">
+            
+            {/* Alerta 1: Riesgos Críticos Reales */}
+            <div className="bg-[#1c0d15] border border-red-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-red-500/40 transition-colors">
+              <div className="text-red-400 text-lg bg-red-500/10 p-1.5 rounded-lg">⚠️</div>
+              <div className="space-y-0.5">
+                <h4 className="text-[11px] font-black text-red-400">{riesgosCriticos} Riesgos Críticos Activos</h4>
+                <p className="text-[9px] text-slate-400 font-medium">Requieren priorización de controles inmediata</p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Monitoreo en vivo</p>
+              </div>
+            </div>
 
+            {/* Alerta 2: Planes Vencidos Reales */}
+            <div className="bg-[#1c140d] border border-amber-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-amber-500/40 transition-colors">
+              <div className="text-amber-400 text-lg bg-amber-500/10 p-1.5 rounded-lg">📝</div>
+              <div className="space-y-0.5">
+                <h4 className="text-[11px] font-black text-amber-400">{planesVencidos} Planes de Acción Vencidos</h4>
+                <p className="text-[9px] text-slate-400 font-medium">Planes retrasados fuera de la fecha límite establecida</p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Alerta de Auditoría</p>
+              </div>
+            </div>
+
+            {/* Alerta 3: Hallazgos Críticos Reales */}
+            <div className="bg-[#0d1624] border border-blue-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-blue-500/40 transition-colors">
+              <div className="text-blue-400 text-lg bg-blue-500/10 p-1.5 rounded-lg">🔬</div>
+              <div className="space-y-0.5">
+                <h4 className="text-[11px] font-black text-blue-400">{hallazgosCriticosCount} Hallazgos Críticos/Altos</h4>
+                <p className="text-[9px] text-slate-400 font-medium">Pendientes de apertura de Plan de Acción formal</p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Control Interno</p>
+              </div>
+            </div>
+
+            {/* Alerta 4: Estado de Salud del Sistema */}
+            <div className="bg-[#091819] border border-cyan-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-cyan-500/40 transition-colors">
+              <div className="text-cyan-400 text-lg bg-cyan-500/10 p-1.5 rounded-lg">💡</div>
+              <div className="space-y-0.5">
+                <h4 className="text-[11px] font-black text-cyan-400">Eficiencia Global: {efectividadControlesGlobal}%</h4>
+                <p className="text-[9px] text-slate-400 font-medium">Efectividad ponderada de la matriz de controles mitigantes</p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Salud del Negocio</p>
+              </div>
+            </div>
+
+          </div>
         </div>
 
-        {/* ─── BLOQUE INFERIOR DE ACCIÓN ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ─── BLOQUE INFERIOR DE ACCIÓN (MÉTRICAS METAS) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
           
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
@@ -1721,8 +1795,8 @@ const renderConfiguracion = () => (
 
         </div>
 
-        {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD ─── */}
-        <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl">
+        {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD (REGISTROS REALES DESDE LA BD) ─── */}
+        <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left">
           <div className="flex justify-between items-center mb-3">
             <div>
               <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">
@@ -1743,16 +1817,23 @@ const renderConfiguracion = () => (
                 return (
                   <div key={`risk-row-${idx}`} className="bg-[#060b16] border border-slate-800/80 p-3 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-slate-700 transition-all">
                     <div className="flex items-start space-x-3">
-                      <span className="bg-blue-600/10 text-blue-400 px-2 py-1 rounded-lg font-mono text-[10px] font-black border border-blue-500/10">RSG-{idx + 101}</span>
+                      <span className="bg-blue-600/10 text-blue-400 px-2 py-1 rounded-lg font-mono text-[10px] font-black border border-blue-500/10">
+                        {r.id ? `RSG-${r.id}` : `RSG-${idx + 101}`}
+                      </span>
                       <div>
-                        <h4 className="text-xs font-black text-slate-200">{r.proceso || 'Proceso General'} — <span className="font-semibold text-slate-400">{r.riesgo || r.descripcion || 'Riesgo Operativo'}</span></h4>
+                        <h4 className="text-xs font-black text-slate-200">
+                          {r.proceso || 'Proceso No Asignado'} — <span className="font-semibold text-slate-400">{r.riesgo || r.descripcion || 'Riesgo sin descripción'}</span>
+                        </h4>
+                        <p className="text-[9px] text-slate-500 font-medium mt-0.5">
+                          Factor/Causa: {r.factorRiesgo || r.causa || 'No especificada'} | Clasificación: {r.clasificacion || r.categoria || 'Operativo'}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-4 text-right self-end sm:self-auto">
                       <div className="text-[10px] font-bold text-slate-400">
-                        P: <span className="text-slate-200">{r.probabilidadResidual || 3}</span> / I: <span className="text-slate-200">{r.impactoResidual || 3}</span>
+                        P: <span className="text-slate-200">{r.probabilidadResidual || 1}</span> / I: <span className="text-slate-200">{r.impactoResidual || 1}</span>
                       </div>
-                      <span className={`text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase ${score >= 16 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
+                      <span className={`text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase ${score >= 16 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : score >= 10 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
                         Score {score}
                       </span>
                     </div>
