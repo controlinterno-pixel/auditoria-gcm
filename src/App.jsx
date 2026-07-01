@@ -26,6 +26,7 @@ import PlanAnual from './components/PlanAnual';
 import Tablero from './components/Tablero';
 import DashboardRiesgos from './components/DashboardRiesgos';
 import AuditorIA from './components/AuditorIA';
+import Comites from './components/Comites';
 
 // =====================================================================
 // 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
@@ -247,6 +248,8 @@ export default function App() {
 // --- NUEVOS ESTADOS PARA INFORMES DE AUDITORÍA ---
   const [informesAuditoria, setInformesAuditoria] = useState([]);
   const [editInformeAuditoria, setEditInformeAuditoria] = useState(null);
+const [comites, setComites] = useState([]);
+const [editComite, setEditComite] = useState(null);
 
  // =====================================================================
   // ⚙️ ENTIDADES PRINCIPALES (ESTADOS DE BASE DE DATOS)
@@ -266,6 +269,7 @@ export default function App() {
   const safeEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
+  const safeComites = Array.isArray(comites) ? comites : [];
 
   // =====================================================================
   // 🗓️ FILTROS DE PERIODICIDAD INTELIGENTES Y ABIERTOS
@@ -355,9 +359,10 @@ export default function App() {
         setCronograma(data.cronograma || defaultCronograma);
         setMonitoreo(data.monitoreo || defaultMonitoreo);
 setInformesAuditoria(data.informesAuditoria || []);
+setComites(data.comites || []);
       } else {
         if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
-           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [] });
+           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [], comites: [] });
         }
       }
       setIsCloudLoaded(true);
@@ -776,10 +781,11 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     return passAnio && passMes;
   };
 
-  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, selectedAnios, selectedMeses]);
-  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, selectedAnios, selectedMeses]);
-  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, selectedAnios, selectedMeses]);
-  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
+const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
+  
+  // ✨ LA LÍNEA DE COMITÉS DEBE IR AQUÍ, AFUERA:
+  const comitesFiltrados = useMemo(() => safeComites.filter(filterByGlobalPeriod), [safeComites, selectedAnios, selectedMeses]);
+  
   const cFiltrados = useMemo(() => safeCronograma.filter(c => {
     const anio = Number(c.anio) || new Date().getFullYear();
     return selectedAnios.length === 0 || selectedAnios.includes(anio);
@@ -893,7 +899,47 @@ const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisi
     }
     setHallazgos(updated); await saveToCloud({ hallazgos: updated }); e.target.reset(); showNotification("Desviación documentada.");
   };
+const handleComiteSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const ts = new Date().toLocaleString();
+    let updated;
 
+    if (editComite) {
+      const mod = {
+        ...editComite,
+        nombre: formData.get('nombre'),
+        tipo: formData.get('tipo'),
+        fecha: formData.get('fecha'),
+        presentacionUrl: formData.get('presentacionUrl'),
+        actaUrl: formData.get('actaUrl'),
+        compromisos: formData.get('compromisos'),
+        historialCambios: [...(editComite.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Modificado' }]
+      };
+      updated = safeComites.map(c => c.id === editComite.id ? mod : c);
+      setEditComite(null);
+    } else {
+      const fechaCorte = new Date(formData.get('fecha') + 'T00:00:00');
+      const nuevo = {
+        id: Date.now(),
+        nombre: formData.get('nombre'),
+        tipo: formData.get('tipo'),
+        fecha: formData.get('fecha'),
+        presentacionUrl: formData.get('presentacionUrl'),
+        actaUrl: formData.get('actaUrl'),
+        compromisos: formData.get('compromisos'),
+        anio: fechaCorte.getFullYear(),
+        mes: defaultMeses[fechaCorte.getMonth()],
+        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Radicado sesión' }]
+      };
+      updated = [nuevo, ...safeComites];
+    }
+
+    setComites(updated);
+    await saveToCloud({ comites: updated });
+    e.target.reset();
+    showNotification("Sesión de comité guardada con éxito.");
+  };
   const handleIncidenteSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -1007,6 +1053,7 @@ const handleDeleteItem = async (listType, id) => {
     if (listType === 'cronograma') { updated = safeCronograma.filter(c => c.id !== id); setCronograma(updated); }
     if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
     if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); } // <--- LÍNEA CORREGIDA
+if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); setComites(updated); }
     
     await saveToCloud({ [listType]: updated });
     showNotification("Registro eliminado.", "success");
@@ -2537,6 +2584,7 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
             { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
             { id: 'planes', icon: '✅', label: 'Planes de Acción' },
             { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
+            { id: 'comites', icon: '👥', label: 'Comités y Actas' },
             // 👇 ESTAS 3 PESTAÑAS SOLO APARECEN SI ERES ADMIN 👇
             ...(isAdmin ? [
                { id: 'informe', icon: '📜', label: 'Trazabilidad' },
@@ -2583,6 +2631,24 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
             {activeTab === 'hallazgos' && renderHallazgos()}
             {activeTab === 'planes' && renderPlanes()}
             {activeTab === 'incidentes' && renderIncidentes()}
+{activeTab === 'comites' && (
+  <Comites 
+    isAdmin={isAdmin}
+    editComite={editComite}
+    setEditComite={setEditComite}
+    handleComiteSubmit={handleComiteSubmit}
+    setFormResetKey={setFormResetKey}
+    scrollToForm={scrollToForm}
+    handleDeleteItem={handleDeleteItem}
+    applyFilters={applyFilters}
+    comitesFiltrados={comitesFiltrados}
+    searchTerm={searchTerm}
+    setSearchTerm={setSearchTerm}
+    columnFilters={columnFilters}
+    handleColFilterChange={handleColFilterChange}
+    FilterInput={FilterInput}
+  />
+)}
             {activeTab === 'informe' && renderInforme()}
                             {activeTab === 'informes_auditoria' && renderInformesAuditoria()}
             {activeTab === 'config' && renderConfiguracion()}
