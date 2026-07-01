@@ -1594,7 +1594,7 @@ const renderConfiguracion = () => (
                         {impactoLvl} {etiquetasY[impactoLvl]}
                       </span>
                       
-                      {[1, 2, 3, 4, 5].map((probLvl) => {
+{[1, 2, 3, 4, 5].map((probLvl) => {
                         const cant = contarRiesgosEnCelda(probLvl, impactoLvl);
                         let colorCelda = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"; 
                         const score = probLvl * impactoLvl;
@@ -1607,14 +1607,35 @@ const renderConfiguracion = () => (
                         return (
                           <button
                             key={`cell-${probLvl}-${impactoLvl}`}
-                            onClick={() => setMatrizFiltro({ p: probLvl, i: impactoLvl })}
+                            onClick={() => {
+                              // 1. Filtra abajo (comportamiento original)
+                              setMatrizFiltro({ p: probLvl, i: impactoLvl });
+                              
+                              // 2. Dispara el Modal de detalles si hay datos
+                              const riesgosCelda = riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === probLvl && extraerNumeroPuro(r.impactoResidual) === impactoLvl);
+                              
+                              if (riesgosCelda.length > 0) {
+                                setChartDetail({
+                                  tipo: `Riesgos en Cuadrante (P:${probLvl} x I:${impactoLvl})`,
+                                  mesCompleto: 'Detalle de Matriz 5x5',
+                                  items: riesgosCelda.map(r => ({
+                                     ref: r.id ? `RSG-${r.id}` : 'N/A',
+                                     proceso: r.proceso || 'Proceso General',
+                                     titulo: r.descripcion || r.riesgo || 'Riesgo sin descripción',
+                                     sede: r.sede || 'No definida',
+                                     responsable: r.responsable || 'Sin asignar',
+                                     severidad: score >= 16 ? 'Crítico' : (score >= 10 ? 'Alto' : 'Medio')
+                                  }))
+                                });
+                              }
+                            }}
                             className={`flex-1 h-full rounded-lg border flex flex-col items-center justify-center font-black text-sm transition-all relative ${colorCelda} ${isSelected ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-[#060b16] scale-95 shadow-[0_0_15px_rgba(34,211,238,0.4)]' : ''}`}
                           >
                             <span>{cant}</span>
-                            {cant > 0 && <span className="absolute bottom-0.5 right-1 text-[8px] opacity-40">👁️</span>}
+                            {cant > 0 && <span className="absolute bottom-0.5 right-1 text-[12px] opacity-70 animate-pulse">🖱️</span>}
                           </button>
                         );
-                      })}
+                      })}                      
                     </div>
                   );
                 })}
