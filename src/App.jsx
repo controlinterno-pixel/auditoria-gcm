@@ -1486,10 +1486,22 @@ const renderConfiguracion = () => (
           </div>
         </div>
 
-        {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
+       {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative overflow-hidden group">
+          {/* Tarjeta 1: Cumplimiento Global */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+            {/* Tooltip Premium */}
+            <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-blue-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
+              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Cumplimiento Global</div>
+              <div className="space-y-1.5 leading-relaxed">
+                <p><span className="text-blue-400 font-bold">Origen:</span> Módulo de Planes de Acción.</p>
+                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Porcentaje de planes en estado 'Cerrado' versus el total histórico.</p>
+                <p><span className="text-amber-400 font-bold">Importancia:</span> Mide la capacidad real de Termales para corregir brechas y resolver auditorías.</p>
+              </div>
+              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-blue-500/30 transform rotate-45"></div>
+            </div>
+
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
               <span className="text-lg">🎯</span>
@@ -1505,7 +1517,19 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative overflow-hidden">
+          {/* Tarjeta 2: Riesgos Activos */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+            {/* Tooltip Premium */}
+            <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-red-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
+              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Riesgos Activos</div>
+              <div className="space-y-1.5 leading-relaxed">
+                <p><span className="text-blue-400 font-bold">Origen:</span> Matriz de Riesgos Corporativa.</p>
+                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Conteo total de eventos clasificados por su Score Residual (Prob. × Impacto).</p>
+                <p><span className="text-amber-400 font-bold">Importancia:</span> Proporciona visibilidad inmediata sobre la exposición al riesgo del negocio hoy.</p>
+              </div>
+              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-red-500/30 transform rotate-45"></div>
+            </div>
+
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
               <span className="text-lg">🔥</span>
@@ -1520,7 +1544,19 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg group">
+          {/* Tarjeta 3: Controles Auditados */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+            {/* Tooltip Premium */}
+            <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-cyan-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
+              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Controles Auditados</div>
+              <div className="space-y-1.5 leading-relaxed">
+                <p><span className="text-blue-400 font-bold">Origen:</span> Evaluaciones y Auditoría de Controles.</p>
+                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Ponderación matemática mitigante restando puntos por riesgos críticos activos.</p>
+                <p><span className="text-amber-400 font-bold">Importancia:</span> Define si las barreras de defensa de la empresa realmente están funcionando.</p>
+              </div>
+              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-cyan-500/30 transform rotate-45"></div>
+            </div>
+
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
               <span className="text-lg">🛡️</span>
@@ -1536,7 +1572,19 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg">
+          {/* Tarjeta 4: Hallazgos Abiertos */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+             {/* Tooltip Premium */}
+             <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-purple-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
+              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Hallazgos Abiertos</div>
+              <div className="space-y-1.5 leading-relaxed">
+                <p><span className="text-blue-400 font-bold">Origen:</span> Desviaciones de Auditoría Interna/Externa.</p>
+                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Conteo neto de hallazgos que no han sido cerrados formalmente.</p>
+                <p><span className="text-amber-400 font-bold">Importancia:</span> Actúa como semáforo sobre las no conformidades vivas que requieren planes de choque.</p>
+              </div>
+              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-purple-500/30 transform rotate-45"></div>
+            </div>
+
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
               <span className="text-lg">🔎</span>
@@ -1549,7 +1597,19 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg">
+          {/* Tarjeta 5: Planes en Ejecución */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+            {/* Tooltip Premium */}
+            <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-amber-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
+              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Planes en Ejecución</div>
+              <div className="space-y-1.5 leading-relaxed">
+                <p><span className="text-blue-400 font-bold">Origen:</span> Compromisos de mejora de jefes de área.</p>
+                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Planes activos. Calcula vencimientos cruzando la fecha límite con la fecha de hoy ({hoy.toLocaleDateString()}).</p>
+                <p><span className="text-amber-400 font-bold">Importancia:</span> Monitorea el flujo de trabajo correctivo y expone retrasos gerenciales.</p>
+              </div>
+              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-amber-500/30 transform rotate-45"></div>
+            </div>
+
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
               <span className="text-lg">📝</span>
