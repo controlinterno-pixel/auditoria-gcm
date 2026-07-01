@@ -856,43 +856,55 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     showNotification("Progreso del plan guardado correctamente.");
   };
 
-  const handleEvaluacionSubmit = async (e) => {
+ const handleEvaluacionSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);
     const calif = (formData.get('diseno') === 'Eficaz' && formData.get('ejecucion') === 'Eficaz') ? 100 : 0;
     const ts = new Date().toLocaleString();
     
     let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editEvaluacion?.evidenciaUrl || '';
+    const idRiesgoVal = parseInt(formData.get('idRiesgo'));
+    const noControlVal = formData.get('noControl') || ''; // 🆕 Capturamos el Control seleccionado
 
     let updatedList;
     if (editEvaluacion && isAdmin) {
-      const mod = { ...editEvaluacion, idRiesgo: parseInt(formData.get('idRiesgo')), diseño: formData.get('diseno'), ejecucion: formData.get('ejecucion'), calificacion: calif, comentarios: formData.get('comentarios'), evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editEvaluacion.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evaluación modificada' }] };
+      const mod = { 
+        ...editEvaluacion, 
+        idRiesgo: idRiesgoVal, 
+        noControl: noControlVal, // 🆕 Guardamos el control en la edición
+        diseño: formData.get('diseno'), 
+        ejecucion: formData.get('ejecucion'), 
+        calificacion: calif, 
+        comentarios: formData.get('comentarios'), 
+        evidenciaUrl: evidenciaUrlOut, 
+        historialCambios: [...(editEvaluacion.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evaluación modificada' }] 
+      };
       updatedList = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? mod : ev);
       setEditEvaluacion(null);
     } else {
-      const nuevo = { id: Date.now(), idRiesgo: parseInt(formData.get('idRiesgo')), fecha: new Date().toISOString().split('T')[0], diseño: formData.get('diseno'), ejecucion: formData.get('ejecucion'), calificacion: calif, comentarios: formData.get('comentarios'), auditor: user.email, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evaluación de control registrada' }] };
+      const nuevo = { 
+        id: Date.now(), 
+        idRiesgo: idRiesgoVal, 
+        noControl: noControlVal, // 🆕 Guardamos el control en el registro nuevo
+        fecha: new Date().toISOString().split('T')[0], 
+        diseño: formData.get('diseno'), 
+        ejecucion: formData.get('ejecucion'), 
+        calificacion: calif, 
+        comentarios: formData.get('comentarios'), 
+        auditor: user.email, 
+        anio: 2026, 
+        mes: "Junio", 
+        evidenciaUrl: evidenciaUrlOut, 
+        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evaluación de control registrada' }] 
+      };
       updatedList = [...safeEvaluaciones, nuevo];
     }
-    setEvaluaciones(updatedList); await saveToCloud({ evaluaciones: updatedList }); e.target.reset(); showNotification("Evaluación registrada exitosamente.");
+    setEvaluaciones(updatedList); 
+    await saveToCloud({ evaluaciones: updatedList }); 
+    e.target.reset(); 
+    showNotification("Evaluación registrada exitosamente.");
   };
 
-  const handleHallazgoSubmit = async (e) => {
-    e.preventDefault(); const formData = new FormData(e.target);
-    const ts = new Date().toLocaleString();
-    
-    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
-
-    let updated;
-    if (editHallazgo) {
-      const mod = { ...editHallazgo, sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] };
-      updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
-      setEditHallazgo(null);
-    } else {
-      const nuevo = { id: Date.now(), sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] };
-      updated = [...safeHallazgos, nuevo];
-    }
-    setHallazgos(updated); await saveToCloud({ hallazgos: updated }); e.target.reset(); showNotification("Desviación documentada.");
-  };
 const handleComiteSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);

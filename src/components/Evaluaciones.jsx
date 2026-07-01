@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function Evaluaciones({
   isAdmin,
@@ -22,6 +22,14 @@ export default function Evaluaciones({
 }) {
   const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
 
+  // 1. Estado local para manejar el Riesgo seleccionado y filtrar los controles
+  const [riesgoSeleccionadoId, setRiesgoSeleccionadoId] = useState('');
+
+  // 2. Efecto para cargar el riesgo automáticamente cuando le damos a "Editar"
+  useEffect(() => {
+    setRiesgoSeleccionadoId(editEvaluacion?.idRiesgo || '');
+  }, [editEvaluacion]);
+
   return (
     <div className="space-y-6">
       <div className="border-b pb-4">
@@ -34,22 +42,56 @@ export default function Evaluaciones({
             {editEvaluacion ? '✏️ Editar Test' : '➕ Nuevo Test de Control'}
           </h3>
           <form onSubmit={handleEvaluacionSubmit} key={editEvaluacion?.id || 'nueva-evaluacion'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
+            
+            {/* NUEVO: Selector de Riesgo */}
             <div className="md:col-span-2">
-              <label className="font-bold text-gray-600">Riesgo / Control</label>
-              <select name="idRiesgo" defaultValue={editEvaluacion?.idRiesgo||''} required className="w-full border rounded-lg p-2 mt-1 bg-white">
+              <label className="font-bold text-gray-600 block mb-1">🎯 Seleccionar Riesgo a Auditar</label>
+              <select 
+                name="idRiesgo" 
+                required 
+                value={riesgoSeleccionadoId}
+                onChange={(e) => setRiesgoSeleccionadoId(e.target.value)}
+                className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800"
+              >
+                <option value="">-- Seleccione un Riesgo --</option>
                 {safeRiesgos.map((r, index) => (
-                  <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>[{r.noControl}] {r.proceso}</option>
+                  <option key={`opt-riesgo-${r.id}-${index}`} value={r.id}>
+                    RSG-{r.id} | {r.proceso} - {r.descripcion?.substring(0, 60)}...
+                  </option>
                 ))}
               </select>
             </div>
-            <div>
+
+            {/* NUEVO: Selector de Control Dependiente */}
+            <div className="md:col-span-2">
+              <label className="font-bold text-gray-600 block mb-1">🛡️ Seleccionar Control Asociado</label>
+              <select 
+                name="noControl" 
+                required 
+                defaultValue={editEvaluacion?.noControl || ''}
+                className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-indigo-500 outline-none font-medium text-slate-800"
+              >
+                <option value="">-- Seleccione el Control --</option>
+                {safeRiesgos
+                  .filter(r => String(r.id) === String(riesgoSeleccionadoId))
+                  .map((r, index) => (
+                    <option key={`opt-control-${r.noControl}-${index}`} value={r.noControl}>
+                      {r.noControl} | {r.descripcionControl?.substring(0, 80)}...
+                    </option>
+                  ))
+                }
+              </select>
+            </div>
+
+            {/* Ajusté las columnas de Diseño y Ejecución para que queden simétricas */}
+            <div className="md:col-span-2">
               <label className="font-bold text-gray-600">Diseño</label>
               <select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white">
                 <option>Eficaz</option>
                 <option>Inadecuado</option>
               </select>
             </div>
-            <div>
+            <div className="md:col-span-2">
               <label className="font-bold text-gray-600">Ejecución</label>
               <select name="ejecucion" defaultValue={editEvaluacion?.ejecucion||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white">
                 <option>Eficaz</option>
@@ -57,7 +99,7 @@ export default function Evaluaciones({
               </select>
             </div>
             
-            <div className="md:col-span-4 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 shadow-sm">
+            <div className="md:col-span-4 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 shadow-sm mt-2">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-indigo-100 pb-3">
                 <div>
                   <label className="font-black text-indigo-800 uppercase tracking-widest text-[10px]">Paso 1: Busca y copia el enlace</label>
@@ -123,14 +165,22 @@ export default function Evaluaciones({
           <tbody className="divide-y">
             {applyFilters(evaluacionesData, searchTerm, columnFilters).map((ev, index) => (
               <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
-                <td className="p-3 font-mono text-slate-400">#TEST-{ev.id}</td>
+                <td className="p-3">
+                  <div className="font-mono text-slate-400 font-bold mb-1">#TEST-{ev.id}</div>
+                  {/* Pequeño detalle: Muestro el Control en la tabla para mejor visibilidad */}
+                  {ev.noControl && (
+                    <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-indigo-100">
+                      {ev.noControl}
+                    </span>
+                  )}
+                </td>
                 <td className="p-3">
                   <div className="font-bold">{ev.fechaVal}</div>
                   <div className="text-[9px] text-slate-500 mt-1 uppercase truncate w-32" title={ev.auditor}>{ev.auditor}</div>
                 </td>
                 <td>D: {ev.diseño} / E: {ev.ejecucion}</td>
                 <td className="p-3">
-                  <span className="px-2 py-0.5 rounded font-black bg-green-100 text-green-800 notranslate" translate="no">
+                  <span className={`px-2 py-0.5 rounded font-black notranslate ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`} translate="no">
                     {ev.calificacion}%
                   </span>
                 </td>
