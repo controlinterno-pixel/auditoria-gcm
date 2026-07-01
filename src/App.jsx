@@ -783,31 +783,29 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
 
 const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
   
-  // ✨ LA LÍNEA DE COMITÉS DEBE IR AQUÍ, AFUERA:
-  const comitesFiltrados = useMemo(() => safeComites.filter(filterByGlobalPeriod), [safeComites, selectedAnios, selectedMeses]);
-  
+  const incFiltrados = useMemo(() => safeIncidentes.filter(inc => {
+    const anio = Number(inc.anio) || new Date().getFullYear();
+    const mes = inc.mes || '';
+    const cumpleAnio = selectedAnios.length === 0 || selectedAnios.includes(anio);
+    const cumpleMes = selectedMeses.length === 0 || selectedMeses.includes(mes);
+    return cumpleAnio && cumpleMes;
+  }), [safeIncidentes, selectedAnios, selectedMeses]);
+
+  // ✨ ESTA ES LA VERSIÓN REAL Y AUTOMÁTICA PARA TUS COMITÉS:
+  const comitesFiltrados = useMemo(() => {
+    return safeComites.filter(c => {
+      const anioComite = Number(c.anio) || new Date().getFullYear();
+      const mesComite = c.mes || '';
+      const cumpleAnio = selectedAnios.length === 0 || selectedAnios.includes(anioComite);
+      const cumpleMes = selectedMeses.length === 0 || selectedMeses.includes(mesComite);
+      return cumpleAnio && cumpleMes;
+    });
+  }, [safeComites, selectedAnios, selectedMeses]);
+
   const cFiltrados = useMemo(() => safeCronograma.filter(c => {
     const anio = Number(c.anio) || new Date().getFullYear();
     return selectedAnios.length === 0 || selectedAnios.includes(anio);
   }), [safeCronograma, selectedAnios]);
-
-  const avanceGlobal = useMemo(() => {
-    if (pFiltrados.length === 0) return 0;
-    return pFiltrados.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / pFiltrados.length;
-  }, [pFiltrados]);
-
-  const hAbiertos = hFiltrados.filter(h => h.estado === 'Abierto').length;
-const pendingPlansCount = pFiltrados.filter(p => p.estadoWorkflow === 'En Revisión').length;
-  const hCerrados = hFiltrados.filter(h => h.estado === 'Cerrado').length;
-  const pTotal = pFiltrados.length;
-  const pAbiertos = pFiltrados.filter(p => p.estado !== 'Cerrado').length;
-  const pCerrados = pFiltrados.filter(p => p.estado === 'Cerrado').length;
-
-  const rendimientoControles = useMemo(() => {
-    const evalFiltradas = safeEvaluaciones.filter(filterByGlobalPeriod);
-    if (evalFiltradas.length === 0) return 0;
-    return (evalFiltradas.filter(e => e.calificacion === 100).length / evalFiltradas.length) * 100;
-  }, [safeEvaluaciones, selectedAnios, selectedMeses]);
 
 // =====================================================================
   // --- SUBMITS DE ACCIONES CON TRAZABILIDAD DE AUTOR COMPLETA ---
