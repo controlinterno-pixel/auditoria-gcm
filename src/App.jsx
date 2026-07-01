@@ -781,15 +781,11 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     return passAnio && passMes;
   };
 
-const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
-  
-  const incFiltrados = useMemo(() => safeIncidentes.filter(inc => {
-    const anio = Number(inc.anio) || new Date().getFullYear();
-    const mes = inc.mes || '';
-    const cumpleAnio = selectedAnios.length === 0 || selectedAnios.includes(anio);
-    const cumpleMes = selectedMeses.length === 0 || selectedMeses.includes(mes);
-    return cumpleAnio && cumpleMes;
-  }), [safeIncidentes, selectedAnios, selectedMeses]);
+// --- FILTROS GLOBALES OPTIMIZADOS ---
+  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
+  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, selectedAnios, selectedMeses]);
+  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, selectedAnios, selectedMeses]);
+  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, selectedAnios, selectedMeses]);
 
   // ✨ ESTA ES LA VERSIÓN REAL Y AUTOMÁTICA PARA TUS COMITÉS:
   const comitesFiltrados = useMemo(() => {
