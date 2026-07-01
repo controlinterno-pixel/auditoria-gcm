@@ -1401,18 +1401,34 @@ const renderConfiguracion = () => (
   const renderTableroAnalitico = () => {
     const hoy = new Date();
 
-    // 1. Extracción e interconexión segura con los estados dinámicos del GRC
     const riesgosBase = typeof rFiltrados !== 'undefined' ? rFiltrados : (typeof riesgos !== 'undefined' ? riesgos : []);
     const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
     const planesBase = typeof pFiltrados !== 'undefined' ? pFiltrados : (typeof planes !== 'undefined' ? planes : []);
 
-    // 2. Función limpiadora para extraer el número puro (ej: transforma "3 - Posible" o "3" en el número 3)
+    // ✨ EL NUEVO TRADUCTOR INTELIGENTE (PALABRA -> NÚMERO)
     const extraerNumeroPuro = (valor) => {
       if (!valor) return 0;
-      const stringValor = String(valor).trim();
-      const primerCaracter = stringValor.charAt(0);
-      const numero = parseInt(primerCaracter, 10);
-      return isNaN(numero) ? 0 : numero;
+      const str = String(valor).toLowerCase().trim();
+      
+      // Si trae un número explícito
+      const num = parseInt(str.charAt(0), 10);
+      if (!isNaN(num)) return num;
+      
+      // Traducción de Probabilidad
+      if (str === 'rara' || str === 'rara vez') return 1;
+      if (str === 'improbable') return 2;
+      if (str === 'posible') return 3;
+      if (str === 'probable') return 4;
+      if (str === 'casi seguro') return 5;
+      
+      // Traducción de Impacto
+      if (str === 'insignificante') return 1;
+      if (str === 'menor') return 2;
+      if (str === 'moderado' || str === 'medio') return 3;
+      if (str === 'mayor' || str === 'alto') return 4;
+      if (str === 'catastrófico' || str === 'crítico') return 5;
+      
+      return 0;
     };
 
     // 3. Métricas de Planes de Acción
@@ -1861,14 +1877,30 @@ const renderConfiguracion = () => (
   };  
 
 const renderDashboardRiesgos = () => {
-    // ✨ 1. Función limpiadora de texto a número puro
+    // ✨ EL NUEVO TRADUCTOR INTELIGENTE PARA EL DASHBOARD GRIS
     const extraerNumeroPuro = (valor) => {
       if (!valor) return 0;
-      const stringValor = String(valor).trim();
-      return parseInt(stringValor.charAt(0), 10) || 0;
+      const str = String(valor).toLowerCase().trim();
+      
+      const num = parseInt(str.charAt(0), 10);
+      if (!isNaN(num)) return num;
+      
+      if (str === 'rara' || str === 'rara vez') return 1;
+      if (str === 'improbable') return 2;
+      if (str === 'posible') return 3;
+      if (str === 'probable') return 4;
+      if (str === 'casi seguro') return 5;
+      
+      if (str === 'insignificante') return 1;
+      if (str === 'menor') return 2;
+      if (str === 'moderado' || str === 'medio') return 3;
+      if (str === 'mayor' || str === 'alto') return 4;
+      if (str === 'catastrófico' || str === 'crítico') return 5;
+      
+      return 0;
     };
 
-    // ✨ 2. Creamos una copia de los riesgos pero con los números limpios
+    // Copia de los riesgos con los números traducidos
     const riesgosLimpiosParaMatriz = (rFiltrados || []).map(r => ({
       ...r,
       probabilidadResidual: extraerNumeroPuro(r.probabilidadResidual),
@@ -1877,7 +1909,6 @@ const renderDashboardRiesgos = () => {
       impactoInherente: extraerNumeroPuro(r.impactoInherente)
     }));
 
-    // ✨ 3. Renderizamos el componente manteniendo todos tus props intactos
     return (
       <DashboardRiesgos 
         tipoMatriz={tipoMatriz}
