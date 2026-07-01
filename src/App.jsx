@@ -2528,7 +2528,8 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       </div>
     </div>
   );
-
+// 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
+  const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
