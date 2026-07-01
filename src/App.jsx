@@ -1905,85 +1905,150 @@ const renderConfiguracion = () => (
           </div>
         </div>
 
-        {/* ─── BLOQUE INFERIOR DE ACCIÓN (MÉTRICAS METAS) ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
+      {/* ─── BLOQUE INFERIOR DE ACCIÓN (MÉTRICAS METAS Y KPI REALES) ─── */}
+        {(() => {
+          // 🧠 1. MOTOR DE CÁLCULO EN TIEMPO REAL PARA HALLAZGOS
+          const totalHallazgosReal = hallazgosBase.length || 1; 
+          const hCrit = hallazgosBase.filter(h => h.severidad === 'Crítico' || h.severidad === 'Crítica').length;
+          const hAlt = hallazgosBase.filter(h => h.severidad === 'Alto' || h.severidad === 'Alta').length;
+          const hMed = hallazgosBase.filter(h => h.severidad === 'Medio' || h.severidad === 'Media').length;
+          const hBaj = hallazgosBase.filter(h => h.severidad === 'Bajo' || h.severidad === 'Baja').length;
           
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
-            <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
-            <div className="flex items-center justify-around h-32">
-              <div className="w-24 h-24 relative">
-                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
-                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ff4444" strokeWidth="4" strokeDasharray="33 100" strokeDashoffset="0" />
-                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#fbbf24" strokeWidth="4" strokeDasharray="33 100" strokeDashoffset="-33" />
-                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#3b82f6" strokeWidth="4" strokeDasharray="25 100" strokeDashoffset="-66" />
-                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray="9 100" strokeDashoffset="-91" />
-                </svg>
-              </div>
-              <div className="text-[10px] font-bold text-slate-400 space-y-1">
-                <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-red-500 mr-1.5"></span>Críticos</span><span>4 (33%)</span></div>
-                <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span>Altos</span><span>4 (33%)</span></div>
-                <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>Medios</span><span>3 (25%)</span></div>
-                <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Bajos</span><span>1 (9%)</span></div>
-              </div>
-            </div>
-          </div>
+          const pCrit = Math.round((hCrit / totalHallazgosReal) * 100) || 0;
+          const pAlt = Math.round((hAlt / totalHallazgosReal) * 100) || 0;
+          const pMed = Math.round((hMed / totalHallazgosReal) * 100) || 0;
+          const pBaj = Math.round((hBaj / totalHallazgosReal) * 100) || 0;
 
-          <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
-            <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Métricas de Planes</h3>
-            <div className="space-y-3 font-bold text-xs text-slate-400">
-              <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center">
-                <span className="flex items-center">📈 Cumplimiento</span>
-                <span className="text-white font-black text-sm">{avancePlanesGlobal}%</span>
-              </div>
-              <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center">
-                <span className="flex items-center">📂 Abiertos</span>
-                <span className="text-cyan-400 font-black">{planesActivos}</span>
-              </div>
-              <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center">
-                <span className="flex items-center">🚨 Vencidos</span>
-                <span className="text-red-400 font-black">{planesVencidos}</span>
-              </div>
-            </div>
-          </div>
+          // 🧠 2. MOTOR DE CÁLCULO PARA KPIs (Cronograma y Oportunidad)
+          const cronogramaBase = typeof cFiltrados !== 'undefined' ? cFiltrados : (typeof cronograma !== 'undefined' ? cronograma : []);
+          const cronogramaIniciados = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) > 0);
+          const kpiPlanAnual = cronogramaIniciados.length > 0 
+            ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) 
+            : 0;
+          // Oportunidad: Porcentaje de planes que NO están vencidos
+          const kpiOportunidad = totalPlanes > 0 ? Math.round(((totalPlanes - planesVencidos) / totalPlanes) * 100) : 100;
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
-            <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Indicadores (KPI)</h3>
-            <div className="overflow-x-auto w-full flex-1">
-              <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-[9px]">
-                    <th className="py-2 font-black">Indicador</th>
-                    <th className="py-2 font-black text-center">Valor</th>
-                    <th className="py-2 font-black text-center">Meta</th>
-                    <th className="py-2 font-black text-right">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  <tr>
-                    <td className="py-2 text-white truncate max-w-[120px]">Plan Anual</td>
-                    <td className="py-2 text-center text-slate-200">91%</td>
-                    <td className="py-2 text-center">85%</td>
-                    <td className="py-2 text-right text-emerald-400">✅</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 text-white truncate max-w-[120px]">Eficiencia</td>
-                    <td className="py-2 text-center text-slate-200">{efectividadControlesGlobal}%</td>
-                    <td className="py-2 text-center">80%</td>
-                    <td className="py-2 text-right text-emerald-400">✅</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 text-white truncate max-w-[120px]">Oportunidad</td>
-                    <td className="py-2 text-center text-slate-200">78%</td>
-                    <td className="py-2 text-center">85%</td>
-                    <td className="py-2 text-right text-amber-500">⚠️</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
+              
+              {/* 🎯 TARJETA 1: SEVERIDAD DE HALLAZGOS */}
+              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible">
+                
+                {/* Tooltip Hacia Arriba */}
+                <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-slate-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-0 mb-3 pointer-events-none">
+                  <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Distribución de Hallazgos</div>
+                  <div className="space-y-1.5 leading-relaxed">
+                    <p><span className="text-blue-400 font-bold">Origen:</span> Base de datos viva del Módulo de Hallazgos.</p>
+                    <p><span className="text-emerald-400 font-bold">Cálculo:</span> Gráfica matemática generada a partir de la severidad (Crítica, Alta, Media, Baja) de los {hallazgosBase.length} registros del periodo filtrado.</p>
+                    <p><span className="text-amber-400 font-bold">Importancia:</span> Expone de manera gráfica la carga de riesgo operativo materializado que la empresa debe remediar.</p>
+                  </div>
+                  <div className="absolute -bottom-1.5 left-8 w-3 h-3 bg-[#0d1627] border-b border-r border-slate-500/30 transform rotate-45"></div>
+                </div>
 
-        </div>
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
+                <div className="flex items-center justify-around h-32">
+                  <div className="w-24 h-24 relative">
+                    {/* SVG Dinámico que dibuja los colores según los porcentajes reales */}
+                    <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90 drop-shadow-md">
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
+                      {pCrit > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ff4444" strokeWidth="4" strokeDasharray={`${pCrit} 100`} strokeDashoffset="0" className="transition-all duration-1000" />}
+                      {pAlt > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#fbbf24" strokeWidth="4" strokeDasharray={`${pAlt} 100`} strokeDashoffset={`-${pCrit}`} className="transition-all duration-1000" />}
+                      {pMed > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#3b82f6" strokeWidth="4" strokeDasharray={`${pMed} 100`} strokeDashoffset={`-${pCrit + pAlt}`} className="transition-all duration-1000" />}
+                      {pBaj > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray={`${pBaj} 100`} strokeDashoffset={`-${pCrit + pAlt + pMed}`} className="transition-all duration-1000" />}
+                    </svg>
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-400 space-y-1">
+                    <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-red-500 mr-1.5"></span>Críticos</span><span className="text-white">{hCrit} ({pCrit}%)</span></div>
+                    <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span>Altos</span><span className="text-white">{hAlt} ({pAlt}%)</span></div>
+                    <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>Medios</span><span className="text-white">{hMed} ({pMed}%)</span></div>
+                    <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Bajos</span><span className="text-white">{hBaj} ({pBaj}%)</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 🎯 TARJETA 2: MÉTRICAS DE PLANES */}
+              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible">
+                
+                {/* Tooltip Hacia Arriba (Centrado) */}
+                <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-slate-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
+                  <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Métricas de Planes</div>
+                  <div className="space-y-1.5 leading-relaxed">
+                    <p><span className="text-blue-400 font-bold">Origen:</span> Base de Planes de Acción.</p>
+                    <p><span className="text-emerald-400 font-bold">Cálculo:</span> Cruza los planes terminados vs planes con fecha límite superada.</p>
+                    <p><span className="text-amber-400 font-bold">Importancia:</span> Evalúa de forma tajante el compromiso gerencial para subsanar los errores auditados.</p>
+                  </div>
+                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-slate-500/30 transform rotate-45"></div>
+                </div>
+
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Métricas de Planes</h3>
+                <div className="space-y-3 font-bold text-xs text-slate-400">
+                  <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-blue-500/30 transition-colors">
+                    <span className="flex items-center">📈 Cumplimiento</span>
+                    <span className="text-white font-black text-sm">{avancePlanesGlobal}%</span>
+                  </div>
+                  <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-cyan-500/30 transition-colors">
+                    <span className="flex items-center">📂 Abiertos</span>
+                    <span className="text-cyan-400 font-black">{planesActivos}</span>
+                  </div>
+                  <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-red-500/30 transition-colors">
+                    <span className="flex items-center">🚨 Vencidos</span>
+                    <span className="text-red-400 font-black">{planesVencidos}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 🎯 TARJETA 3: INDICADORES (KPI) */}
+              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible">
+                
+                {/* Tooltip Hacia Arriba (Alineado a la Derecha) */}
+                <div className="absolute z-[100] w-72 p-4 bg-[#0d1627] border border-slate-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full right-0 mb-3 pointer-events-none">
+                  <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Indicadores Clave (KPI)</div>
+                  <div className="space-y-1.5 leading-relaxed">
+                    <p><span className="text-blue-400 font-bold">Plan Anual:</span> Promedio de ejecución física de las auditorías programadas en el cronograma.</p>
+                    <p><span className="text-emerald-400 font-bold">Eficiencia:</span> Ponderación de controles calificados como eficaces vs riesgos materializados.</p>
+                    <p><span className="text-amber-400 font-bold">Oportunidad:</span> Porcentaje de Planes de Acción gestionados sin sobrepasar su fecha de vencimiento.</p>
+                  </div>
+                  <div className="absolute -bottom-1.5 right-8 w-3 h-3 bg-[#0d1627] border-b border-r border-slate-500/30 transform rotate-45"></div>
+                </div>
+
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Indicadores (KPI)</h3>
+                <div className="overflow-x-auto w-full flex-1">
+                  <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-[9px]">
+                        <th className="py-2 font-black">Indicador</th>
+                        <th className="py-2 font-black text-center">Valor Real</th>
+                        <th className="py-2 font-black text-center">Meta</th>
+                        <th className="py-2 font-black text-right">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      <tr className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2 text-white truncate max-w-[120px]">Ejecución Plan Anual</td>
+                        <td className="py-2 text-center text-slate-200">{kpiPlanAnual}%</td>
+                        <td className="py-2 text-center text-slate-500">85%</td>
+                        <td className="py-2 text-right">{kpiPlanAnual >= 85 ? '✅' : (kpiPlanAnual >= 60 ? '⚠️' : '🚨')}</td>
+                      </tr>
+                      <tr className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2 text-white truncate max-w-[120px]">Eficiencia de Controles</td>
+                        <td className="py-2 text-center text-slate-200">{efectividadControlesGlobal}%</td>
+                        <td className="py-2 text-center text-slate-500">80%</td>
+                        <td className="py-2 text-right">{efectividadControlesGlobal >= 80 ? '✅' : (efectividadControlesGlobal >= 60 ? '⚠️' : '🚨')}</td>
+                      </tr>
+                      <tr className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2 text-white truncate max-w-[120px]">Oportunidad Planes</td>
+                        <td className="py-2 text-center text-slate-200">{kpiOportunidad}%</td>
+                        <td className="py-2 text-center text-slate-500">85%</td>
+                        <td className="py-2 text-right">{kpiOportunidad >= 85 ? '✅' : (kpiOportunidad >= 60 ? '⚠️' : '🚨')}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
 
         {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD (REGISTROS REALES DESDE LA BD) ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left">
