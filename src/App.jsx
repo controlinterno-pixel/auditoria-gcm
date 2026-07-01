@@ -1794,8 +1794,7 @@ const renderConfiguracion = () => (
           </div>
 
         </div>
-
-        {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD (REGISTROS REALES DESDE LA BD) ─── */}
+{/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD (REGISTROS REALES DESDE LA BD) ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left">
           <div className="flex justify-between items-center mb-3">
             <div>
@@ -1847,6 +1846,7 @@ const renderConfiguracion = () => (
       </div>
     );
   };
+
     const renderDashboardRiesgos = () => {
     return (
       <DashboardRiesgos 
