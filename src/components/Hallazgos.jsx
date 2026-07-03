@@ -44,6 +44,7 @@ const CARGOS_OFICIALES = [
 
 export default function Hallazgos({
   isAdmin,
+  informesAuditoria = [], // 🟢 Recibimos la lista de informes
   editHallazgo,
   setEditHallazgo,
   handleHallazgoSubmit,
@@ -91,7 +92,7 @@ export default function Hallazgos({
 
         <form onSubmit={handleHallazgoSubmit} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
           
-          {/* 🔒 ID AUTOMÁTICO BLOQUEADO */}
+         {/* 🔒 ID AUTOMÁTICO BLOQUEADO */}
           <div>
             <label className="font-bold text-gray-600 block mb-1">ID / Código (Automático)</label>
             <input 
@@ -103,7 +104,31 @@ export default function Hallazgos({
             />
           </div>
 
-          <div><label className="font-bold text-gray-600 block mb-1">Sede</label><select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Hotel</option><option>Ecoparque</option><option>Administrativo</option></select></div>
+          {/* 🏢 SEDE */}
+          <div>
+            <label className="font-bold text-gray-600 block mb-1">Sede</label>
+            <select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white">
+              <option>Hotel</option>
+              <option>Ecoparque</option>
+              <option>Administrativo</option>
+            </select>
+          </div>
+
+          {/* 📁 CASILLA VINCULACIÓN AL INFORME EMISOR */}
+          <div className="md:col-span-2">
+            <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
+            <select 
+              name="idInforme" 
+              defaultValue={editHallazgo?.idInforme||''} 
+              required
+              className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700"
+            >
+              <option value="">-- Seleccione el Informe Radicado --</option>
+              {informesAuditoria.map((inf) => (
+                <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
+              ))}
+            </select>
+          </div>
           
           {/* 🔍 BUSCADOR DE PROCESOS (DATALIST) */}
           <div>
@@ -121,7 +146,46 @@ export default function Hallazgos({
             </datalist>
           </div>
           
-          <div><label className="font-bold text-gray-600 block mb-1">Severidad</label><select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="w-full border border-slate-300 rounded-lg p-2 bg-white"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select></div>
+          {/* 🔍 BUSCADOR DE PROCESOS (DATALIST) */}
+          <div>
+            <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
+            <input 
+              name="proceso" 
+              list="lista-procesos" 
+              defaultValue={editHallazgo?.proceso||''} 
+              required 
+              placeholder="Escribe o selecciona..." 
+              className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" 
+            />
+            <datalist id="lista-procesos">
+              {PROCESOS_OFICIALES.map(proc => <option key={proc} value={proc} />)}
+            </datalist>
+          </div>
+          
+          <div>
+            <label className="font-bold text-gray-600 block mb-1">Sede</label>
+            <select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white">
+              <option>Hotel</option>
+              <option>Ecoparque</option>
+              <option>Administrativo</option>
+            </select>
+          </div>
+
+          {/* 📁 Selector de Informe de Auditoría Origen */}
+          <div className="md:col-span-2">
+            <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
+            <select 
+              name="idInforme" 
+              defaultValue={editHallazgo?.idInforme||''} 
+              required
+              className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700"
+            >
+              <option value="">-- Seleccione el Informe Radicado --</option>
+              {informesAuditoria.map((inf) => (
+                <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
+              ))}
+            </select>
+          </div>
           
           {/* 👥 DESPLEGABLE DE AUDITORES */}
           <div>

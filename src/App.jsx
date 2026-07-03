@@ -912,60 +912,63 @@ const handlePlanSubmit = async (e) => {
     showNotification("Evaluación registrada exitosamente.");
   };
 const handleHallazgoSubmit = async (e) => {
-    e.preventDefault(); 
-    const formData = new FormData(e.target);
-    const ts = new Date().toLocaleString();
-    
-    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
+  e.preventDefault(); 
+  const formData = new FormData(e.target);
+  const ts = new Date().toLocaleString();
 
-    // 🟢 CAMPOS CONECTADOS PARA EL PROCESAMIENTO DEL PDF 12 COLUMNAS
-    const causaVal = formData.get('causa') || '';
-    const claseObservacionVal = formData.get('claseObservacion') || 'Oportunidad de Mejora';
+  let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
+  const causaVal = formData.get('causa') || '';
+  const claseObservacionVal = formData.get('claseObservacion') || 'Oportunidad de Mejora';
 
-    let updated;
-    if (editHallazgo) {
-      const mod = { 
-        ...editHallazgo, 
-        sede: formData.get('sede'), 
-        ref: formData.get('ref'), 
-        proceso: formData.get('proceso'), 
-        responsable: formData.get('responsable'), 
-        auditor: formData.get('auditor'), 
-        titulo: formData.get('titulo'), 
-        severidad: formData.get('severidad'), 
-        evidenciaUrl: evidenciaUrlOut, 
-        causa: causaVal, 
-        claseObservacion: claseObservacionVal, 
-        historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
-      };
-      updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
-      setEditHallazgo(null);
-    } else {
-      const nuevo = { 
-        id: Date.now(), 
-        sede: formData.get('sede'), 
-        ref: formData.get('ref'), 
-        proceso: formData.get('proceso'), 
-        responsable: formData.get('responsable'), 
-        auditor: formData.get('auditor'), 
-        titulo: formData.get('titulo'), 
-        severidad: formData.get('severidad'), 
-        estado: 'Abierto', 
-        fecha: new Date().toISOString().split('T')[0], 
-        anio: 2026, 
-        mes: "Junio", 
-        evidenciaUrl: evidenciaUrlOut, 
-        causa: causaVal, 
-        claseObservacion: claseObservacionVal, 
-        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] 
-      };
-      updated = [...safeHallazgos, nuevo];
-    }
-    setHallazgos(updated); 
-    await saveToCloud({ hallazgos: updated }); 
-    e.target.reset(); 
-    showNotification("Desviación documentada con análisis de causa.");
-  };
+  // 🔗 Captura del ID del informe seleccionado
+  const idInformeVal = formData.get('idInforme') || '';
+
+  let updated;
+  if (editHallazgo) {
+    const mod = { 
+      ...editHallazgo, 
+      idInforme: idInformeVal, 
+      sede: formData.get('sede'), 
+      ref: formData.get('ref'), 
+      proceso: formData.get('proceso'), 
+      responsable: formData.get('responsable'), 
+      auditor: formData.get('auditor'), 
+      titulo: formData.get('titulo'), 
+      severidad: formData.get('severidad'), 
+      evidenciaUrl: evidenciaUrlOut, 
+      causa: causaVal, 
+      claseObservacion: claseObservacionVal, 
+      historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
+    };
+    updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
+    setEditHallazgo(null);
+  } else {
+    const nuevo = { 
+      id: Date.now(), 
+      idInforme: idInformeVal, 
+      sede: formData.get('sede'), 
+      ref: formData.get('ref'), 
+      proceso: formData.get('proceso'), 
+      responsable: formData.get('responsable'), 
+      auditor: formData.get('auditor'), 
+      titulo: formData.get('titulo'), 
+      severidad: formData.get('severidad'), 
+      estado: 'Abierto', 
+      fecha: new Date().toISOString().split('T')[0], 
+      anio: 2026, 
+      mes: "Junio", 
+      evidenciaUrl: evidenciaUrlOut, 
+      causa: causaVal, 
+      claseObservacion: claseObservacionVal, 
+      historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] 
+    };
+    updated = [...safeHallazgos, nuevo];
+  }
+  setHallazgos(updated); 
+  await saveToCloud({ hallazgos: updated }); 
+  e.target.reset(); 
+  showNotification("Desviación conectada al informe de origen correctamente.");
+};
 const handleComiteSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -2431,26 +2434,28 @@ const renderApetito = () => {
       />
     );
   };
-  const renderHallazgos = () => {
-    return (
-      <Hallazgos 
-        isAdmin={isAdmin}
-        editHallazgo={editHallazgo}
-        setEditHallazgo={setEditHallazgo}
-        handleHallazgoSubmit={handleHallazgoSubmit}
-        setFormResetKey={setFormResetKey}
-        scrollToForm={scrollToForm}
-        handleDeleteItem={handleDeleteItem}
-        applyFilters={applyFilters}
-        hFiltrados={hFiltrados}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        columnFilters={columnFilters}
-        handleColFilterChange={handleColFilterChange}
-        FilterInput={FilterInput}
-      />
-    );
-  };
+  
+const renderHallazgos = () => {
+  return (
+    <Hallazgos 
+      isAdmin={isAdmin}
+      informesAuditoria={informesAuditoria} // 🟢 Envía los informes a la vista
+      editHallazgo={editHallazgo}
+      setEditHallazgo={setEditHallazgo}
+      handleHallazgoSubmit={handleHallazgoSubmit}
+      setFormResetKey={setFormResetKey}
+      scrollToForm={scrollToForm}
+      handleDeleteItem={handleDeleteItem}
+      applyFilters={applyFilters}
+      hFiltrados={hFiltrados}
+      searchTerm={searchTerm}
+      setSearchTerm={setSearchTerm}
+      columnFilters={columnFilters}
+      handleColFilterChange={handleColFilterChange}
+      FilterInput={FilterInput}
+    />
+  );
+};
 
 const renderPlanes = () => {
     return (
@@ -2472,6 +2477,7 @@ const renderPlanes = () => {
         setSearchTerm={setSearchTerm}
         columnFilters={columnFilters}
         handleColFilterChange={handleColFilterChange}
+        informesAuditoria={informesAuditoria} // 🟢 Conexión activada con éxito
         onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
           try {
             const ts = new Date().toLocaleString();

@@ -1,6 +1,4 @@
-import React from 'react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import React, { useState } from 'react';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -39,13 +37,26 @@ export default function Planes({
   setSearchTerm,
   columnFilters,
   handleColFilterChange,
-  onUpdateItemStatus 
+  onUpdateItemStatus,
+  informesAuditoria = [] // 🟢 Recibimos el repositorio de informes para activar la trazabilidad total
 }) {
-  const planesData = pFiltrados.map(p => ({ 
+  const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  // Mapeamos los planes inyectando estados workflow por defecto
+  let planesData = pFiltrados.map(p => ({ 
     ...p, 
     fechaVal: formatSafeDate(p.fecha),
     estadoWorkflow: p.estadoWorkflow || 'Borrador' 
   }));
+
+  // 🔗 FILTRADO MAESTRO INTERACTIVO: Vinculación automática Plan -> Hallazgo -> Informe Origen
+  if (selectedInformeFilter) {
+    planesData = planesData.filter(plan => {
+      const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
+      return String(hallazgo.idInforme) === String(selectedInformeFilter);
+    });
+  }
 
   const getWorkflowBadgeClass = (status) => {
     switch (status) {
@@ -56,33 +67,89 @@ export default function Planes({
       default: return 'bg-slate-100 text-slate-700';
     }
   };
-// =====================================================================
-  // 🖨️ MOTOR DE EXPORTACIÓN PDF: PLAN DE MEJORAMIENTO OFICIAL (CORREGIDO)
+
   // =====================================================================
-  const exportarPlanMejoramientoPDF = () => {
+  // 🖨️ MOTOR DE EXPORTACIÓN PDF: CARGA ASÍNCRONA INTEGRAL (12 COLUMNAS)
+  // =====================================================================
+  const exportarPlanMejoramientoPDF = async () => {
+    setIsGeneratingPdf(true);
     try {
+      // Carga en caliente de jsPDF desde CDN oficial
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          script.onload = () => {
+            if (window.jspdf && !window.jsPDF) window.jsPDF = window.jspdf.jsPDF;
+            resolve();
+          };
+          script.onerror = () => reject(new Error('Fallo al descargar jsPDF desde el nodo central.'));
+          document.head.appendChild(script);
+        });
+      } else if (window.jspdf && !window.jsPDF) {
+        window.jsPDF = window.jspdf.jsPDF;
+      }
+
+      // Carga en caliente del plug-in autotable
+      if (!window.autoTable && !(window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable)) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Fallo al descargar autotable desde el nodo central.'));
+          document.head.appendChild(script);
+        });
+      }
+
+      const { jsPDF } = window.jspdf;
       const doc = new jsPDF('landscape', 'pt', 'legal');
       
-      // Títulos y Encabezados
+      // Inicialización de cabeceras dinámicas basadas en la trazabilidad del informe seleccionado
+      let fechaSuscripcion = new Date().toLocaleDateString();
+      let fuentePlan = 'Auditoría Interna';
+      let objetivoGeneral = 'Fortalecer los procesos de control mediante la alineación estratégica de planes correctivos.';
+      let descripcionPlan = 'Plan de mejoramiento estructurado para dar cierre oportuno a los hallazgos y desviaciones.';
+      let informeRef = 'Consolidado General';
+
+      if (selectedInformeFilter) {
+        const informeSeleccionado = informesAuditoria.find(inf => String(inf.id) === String(selectedInformeFilter));
+        if (informeSeleccionado) {
+          fechaSuscripcion = formatSafeDate(informeSeleccionado.fecha) || fechaSuscripcion;
+          fuentePlan = `Auditoría Interna - Ref: ${informeSeleccionado.ref}`;
+          objetivoGeneral = `Fortalecer el proceso de [${informeSeleccionado.proceso}] mediante la mitigación de fallas y mejora operativa.`;
+          descripcionPlan = informeSeleccionado.titulo;
+          informeRef = informeSeleccionado.ref;
+        }
+      }
+
+      // Títulos y Marquetería Corporativa
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("TERMALES SANTA ROSA DE CABAL", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
       doc.text("PLAN DE MEJORAMIENTO", doc.internal.pageSize.getWidth() / 2, 60, { align: "center" });
 
-      // Tabla de Información General
-      autoTable(doc, {
+      const callAutoTable = (docInst, config) => {
+        if (typeof docInst.autoTable === 'function') {
+          docInst.autoTable(config);
+        } else if (typeof window.autoTable === 'function') {
+          window.autoTable(docInst, config);
+        }
+      };
+
+      // Tabla 1: Información General Institucional
+      callAutoTable(doc, {
         startY: 80,
         theme: 'grid',
         headStyles: { fillColor: [41, 122, 56], textColor: 255, fontStyle: 'bold', fontSize: 9 },
         bodyStyles: { fontSize: 8, textColor: 50 },
         body: [
-          ['Fecha De Suscripción:', new Date().toLocaleDateString(), 'Fuente Del Plan De Mejora:', 'Auditoría Interna'],
-          ['Objetivo General:', 'Fortalecer los procesos mediante el plan correctivo.', 'Período Evaluado:', 'Semestre Actual'],
-          ['Tipo De Plan:', 'De proceso', 'Descripción:', 'Plan de mejoramiento para dar cierre a los hallazgos identificados.']
+          ['Fecha De Suscripción:', fechaSuscripcion, 'Fuente Del Plan De Mejora:', fuentePlan],
+          ['Objetivo General:', objetivoGeneral, 'Periodo Evaluado / Informe:', `Año 2026 • ${informeRef}`],
+          ['Tipo De Plan:', 'De proceso', 'Descripción del Informe:', descripcionPlan]
         ]
       });
 
-      // 🔄 Cruzar datos con los nuevos campos de las 12 columnas
+      // Procesamiento de filas cruzando la información nativa para conformar las 12 columnas exactas de la auditoría
       const tableData = planesData.map((plan, index) => {
         const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
         return [
@@ -95,33 +162,54 @@ export default function Planes({
           plan.mecanismo || 'Revisión Documental', 
           plan.responsable, 
           `${plan.progreso || plan.avance || 0}%`, 
-          plan.fechaInicio || 'N/A', 
+          plan.fechaInicio ? formatSafeDate(plan.fechaInicio) : 'N/A', 
           plan.fechaVal || 'No definida', 
           plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente' 
         ];
       });
 
-      // Tabla Principal de Acciones (12 Columnas)
-      autoTable(doc, {
-        startY: doc.lastAutoTable.finalY + 20,
+      const firstTableY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 180;
+
+      // Tabla 2: Matriz de Control de 12 Columnas en formato Legal Horizontal
+      callAutoTable(doc, {
+        startY: firstTableY + 20,
         theme: 'grid',
         headStyles: { fillColor: [11, 42, 54], textColor: 255, fontSize: 7, halign: 'center', valign: 'middle' },
-        bodyStyles: { fontSize: 6, valign: 'middle' },
+        bodyStyles: { fontSize: 6.5, valign: 'middle' },
         columnStyles: {
-          1: { cellWidth: 100 }, // Descripción Hallazgo
-          2: { cellWidth: 90 },  // Causa
-          5: { cellWidth: 110 }  // Acción
+          0: { cellWidth: 25 },   // NO
+          1: { cellWidth: 110 },  // HALLAZGO
+          2: { cellWidth: 100 },  // CAUSAS
+          3: { cellWidth: 65 },   // CLASE
+          4: { cellWidth: 70 },   // PROCESO
+          5: { cellWidth: 115 },  // ACCIONES
+          6: { cellWidth: 95 },   // MECANISMO
+          7: { cellWidth: 75 },   // RESPONSABLE
+          8: { cellWidth: 40 },   // AVANCE
+          9: { cellWidth: 50 },   // INICIO
+          10: { cellWidth: 50 },  // TERMINACIÓN
+          11: { cellWidth: 50 }   // OBSERVACIÓN
         },
         head: [[
-          'NO', 'DESCRIPCIÓN HALLAZGO', 'CAUSAS', 'CLASE DE OBSERVACIÓN', 
-          'PROCESOS VINCULADOS', 'ACCIONES DE MEJORA', 'MECANISMO DE SEGUIMIENTO', 
-          'RESPONSABLE', 'META / AVANCE', 'FECHA INICIO', 'FECHA TERMINACIÓN', 'OBSERVACIÓN'
+          'NO', 
+          'DESCRIPCIÓN HALLAZGO Y/O OBSERVACIÓN', 
+          'CAUSAS RAÍZ', 
+          'CLASE DE OBS.', 
+          'PROCESOS VINCULADOS', 
+          'ACCIONES DE MEJORAMIENTO', 
+          'MECANISMO DE SEGUIMIENTO', 
+          'RESPONSABLE', 
+          'AVANCE', 
+          'FECHA INICIO', 
+          'FECHA LÍMITE', 
+          'ESTADO'
         ]],
         body: tableData,
       });
 
-      // Firmas
-      const finalY = doc.lastAutoTable.finalY + 50;
+      const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 50 : 450;
+
+      // Líneas de firmas oficiales de Control Interno
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("__________________________________________", 100, finalY);
@@ -132,26 +220,27 @@ export default function Planes({
 
       doc.save(`Plan_de_Mejoramiento_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
-      console.error("Error al generar PDF:", error);
-      alert("Error al generar PDF. Revisa la consola.");
+      console.error("Error crítico en renderizador de PDF:", error);
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
-return (
+  return (
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-black text-slate-800">✅ Planes de Acción Remediales</h2>
-        {/* BOTÓN MÁGICO DE PDF */}
+        {/* BOTÓN OFICIAL CON CONTROL DE SPAM */}
         <button 
           onClick={exportarPlanMejoramientoPDF} 
-          className="bg-[#297A38] hover:bg-[#1f5c2a] text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-md transition-all flex items-center space-x-2 border border-[#1f5c2a]"
+          disabled={isGeneratingPdf}
+          className="bg-[#297A38] hover:bg-[#1f5c2a] disabled:bg-slate-400 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-md transition-all flex items-center space-x-2 border border-[#1f5c2a]"
         >
-          <span className="text-sm">📄</span>
-          <span>Generar PDF Oficial</span>
+          <span className="text-sm">{isGeneratingPdf ? '⏳' : '📄'}</span>
+          <span>{isGeneratingPdf ? 'Generando...' : 'Generar PDF Oficial'}</span>
         </button>
       </div>  
       
-      {/* 🔓 EL FORMULARIO YA NO TIENE CANDADO */}
       <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
         <div className="flex justify-between items-center border-b pb-2">
           <h3 className="text-xs font-bold text-slate-700 uppercase">
@@ -182,7 +271,7 @@ return (
             </select>
           </div>
           
-<div className="md:col-span-2">
+          <div className="md:col-span-2">
             <label className="font-bold text-gray-600 block mb-1">Acción de Choque / Mitigación</label>
             <input 
               name="accion" 
@@ -278,14 +367,12 @@ return (
                   {editPlan.estadoWorkflow === 'Borrador' && (
                     <button type="button" onClick={() => onUpdateItemStatus('planes', editPlan.id, 'En Revisión')} className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded font-bold text-[11px] uppercase tracking-wider shadow-sm">🚀 Enviar a Revisión</button>
                   )}
-                  {/* 🔒 LOS BOTONES DE APROBAR/RECHAZAR SON SOLO PARA ADMINS */}
                   {isAdmin && editPlan.estadoWorkflow === 'En Revisión' && (
                     <>
                       <button type="button" onClick={() => onUpdateItemStatus('planes', editPlan.id, 'Aprobado')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded font-bold text-[11px] uppercase tracking-wider shadow-sm">✅ Aprobar y Publicar</button>
                       <button type="button" onClick={() => onUpdateItemStatus('planes', editPlan.id, 'Borrador')} className="bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-2 rounded font-bold text-[11px] uppercase tracking-wider">❌ Rechazar (Devolver)</button>
                     </>
                   )}
-                  {/* 🔒 EL BOTÓN DE CERRAR DEFINITIVO ES SOLO PARA ADMINS */}
                   {isAdmin && editPlan.estadoWorkflow === 'Aprobado' && (Number(editPlan.progreso) === 100 || Number(editPlan.avance) === 100) && (
                     <button type="button" onClick={() => onUpdateItemStatus('planes', editPlan.id, 'Cerrado')} className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded font-black text-[11px] uppercase tracking-wider shadow-md border border-slate-700">🔒 Cerrar Plan Definitivo</button>
                   )}
@@ -304,11 +391,26 @@ return (
 
       {/* TABLA DE SEGUIMIENTO */}
       <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+        <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes de Acción</h3>
-           <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-              <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+           
+           <div className="flex flex-col md:flex-row gap-3">
+              {/* 📂 SELECTOR FILTRADOR DE INFORMES ORIGEN */}
+              <select
+                value={selectedInformeFilter}
+                onChange={(e) => setSelectedInformeFilter(e.target.value)}
+                className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white font-bold text-slate-700 shadow-sm w-64"
+              >
+                <option value="">📂 Todos los Informes de Origen</option>
+                {informesAuditoria.map(inf => (
+                  <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
+                ))}
+              </select>
+
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+              </div>
            </div>
         </div>
         <table className="w-full text-xs text-left divide-y">
@@ -335,10 +437,23 @@ return (
                     </span>
                   </td>
 
-                  <td className="p-3 text-red-600 font-bold">#HAL-{p.idHallazgo}<span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-1">{hallazgoAsociado?.sede || 'Hotel'}</span></td>
+                  <td className="p-3 text-red-600 font-bold">
+                    #HAL-{p.idHallazgo}
+                    <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-1">
+                      {hallazgoAsociado?.sede || 'Hotel'}
+                    </span>
+                  </td>
                   <td className="p-3 text-slate-800 font-medium">
                     <div className="font-black text-slate-900">{p.accion}</div>
-                    <span className="text-[10px] text-slate-400 block font-normal mt-1">Resp: <b>{p.responsable}</b> • Límite: <b className="text-slate-600">{p.fechaVal}</b></span>
+                    
+                    {/* Bloque Informativo de Trazabilidad */}
+                    <div className="text-[10px] text-slate-500 font-medium space-y-0.5 mt-1.5 bg-slate-50 p-2 rounded border border-slate-100">
+                      <div>👤 Resp: <b className="text-slate-700">{p.responsable}</b></div>
+                      {p.fechaInicio && <div>📅 Inicio: <b className="text-slate-700">{formatSafeDate(p.fechaInicio)}</b></div>}
+                      {p.mecanismo && <div className="truncate max-w-[280px]">⚙️ Mecanismo: <b className="text-slate-700">{p.mecanismo}</b></div>}
+                      <div>🕒 Límite: <b className="text-slate-600">{p.fechaVal}</b></div>
+                    </div>
+
                     {p.evidenciaUrl ? (
                       <div className="flex items-center space-x-2 mt-2">
                         <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
@@ -351,7 +466,6 @@ return (
                   </td>
                   <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
-                    {/* 🔓 EL BOTÓN FORMULAR/GESTIONAR AHORA ESTÁ LIBRE PARA TODOS */}
                     <button 
                       onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToForm();}} 
                       className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px] hover:bg-amber-200 transition-colors"
@@ -359,7 +473,6 @@ return (
                       {p.estadoWorkflow === 'Borrador' ? '✏️ Formular' : '⚙️ Gestionar'}
                     </button>
                     
-                    {/* 🔒 EL BOTÓN ELIMINAR SIGUE BLOQUEADO PARA JEFES DE ÁREA */}
                     {isAdmin && (
                       <button 
                         onClick={() => handleDeleteItem('planes', p.id)} 
