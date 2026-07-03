@@ -824,7 +824,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     setRiesgos(updated); await saveToCloud({ riesgos: updated }); e.target.reset(); showNotification("Riesgo estructurado.");
   };
 
-  const handlePlanSubmit = async (e) => {
+const handlePlanSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -833,9 +833,13 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     const progresoVal = parseInt(formData.get('progreso') || 0);
     const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
 
+    // 🟢 CAMPOS CONECTADOS PARA EL PDF OFICIAL
+    const fechaInicioVal = formData.get('fechaInicio') || '';
+    const mecanismoVal = formData.get('mecanismo') || '';
+
     let updatedList;
     if (editPlan && isAdmin) {
-      const modificado = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan actualizado' }] };
+      const modificado = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan actualizado' }] };
       updatedList = safePlanes.map(p => p.id === editPlan.id ? modificado : p);
       setEditPlan(null);
     } else if (!isAdmin) {
@@ -843,14 +847,14 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
       const planToUpdate = safePlanes.find(p => p.idHallazgo === idHallazgo);
       
       if (planToUpdate) {
-        const mod = { ...planToUpdate, progreso: progresoVal, estado: estadoVal, evidenciaUrl: evidenciaUrlOut, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Avance reportado por Jefe de área' }] };
+        const mod = { ...planToUpdate, progreso: progresoVal, estado: estadoVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Avance reportado por Jefe de área' }] };
         updatedList = safePlanes.map(p => p.id === planToUpdate.id ? mod : p);
       } else {
         showNotification("Error: No se encontró el plan asociado a este hallazgo.", "error");
         return;
       }
     } else {
-      const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan asignado' }] };
+      const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan asignado' }] };
       updatedList = [...safePlanes, nuevo];
     }
     
@@ -859,7 +863,6 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     e.target.reset(); 
     showNotification("Progreso del plan guardado correctamente.");
   };
-
  const handleEvaluacionSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);

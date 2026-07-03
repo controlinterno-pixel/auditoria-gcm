@@ -1,6 +1,6 @@
 import React from 'react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -57,74 +57,84 @@ export default function Planes({
     }
   };
 // =====================================================================
-  // 🖨️ MOTOR DE EXPORTACIÓN PDF: PLAN DE MEJORAMIENTO OFICIAL
+  // 🖨️ MOTOR DE EXPORTACIÓN PDF: PLAN DE MEJORAMIENTO OFICIAL (CORREGIDO)
   // =====================================================================
   const exportarPlanMejoramientoPDF = () => {
-    const doc = new jsPDF('landscape', 'pt', 'legal');
-    
-    // Títulos y Encabezados
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("TERMALES SANTA ROSA DE CABAL", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
-    doc.text("PLAN DE MEJORAMIENTO", doc.internal.pageSize.getWidth() / 2, 60, { align: "center" });
-
-    // Tabla de Información General
-    doc.autoTable({
-      startY: 80,
-      theme: 'grid',
-      headStyles: { fillColor: [41, 122, 56], textColor: 255, fontStyle: 'bold', fontSize: 9 }, // Verde Termales
-      bodyStyles: { fontSize: 8, textColor: 50 },
-      body: [
-        ['Fecha De Suscripción:', new Date().toLocaleDateString(), 'Fuente Del Plan De Mejora:', 'Auditoría Interna'],
-        ['Objetivo General:', 'Fortalecer el proceso mediante la alineación de sus estrategias.', 'Período Evaluado:', 'Semestre Actual'],
-        ['Tipo De Plan:', 'De proceso', 'Descripción:', 'Plan de mejoramiento para dar cierre a los hallazgos identificados.']
-      ]
-    });
-
-    // Cruzar los datos (Usamos planesData de tu componente)
-    const tableData = planesData.map((plan, index) => {
-      const hallazgoAsociado = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
+    try {
+      const doc = new jsPDF('landscape', 'pt', 'legal');
       
-      return [
-        index + 1, 
-        hallazgoAsociado.titulo || 'Sin descripción', 
-        hallazgoAsociado.proceso || 'General', 
-        plan.accion, 
-        plan.estadoWorkflow || 'Borrador', 
-        plan.responsable, 
-        `${plan.progreso || plan.avance || 0}%`, 
-        plan.fechaVal || 'No definida', 
-        plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente' 
-      ];
-    });
+      // Títulos y Encabezados
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("TERMALES SANTA ROSA DE CABAL", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
+      doc.text("PLAN DE MEJORAMIENTO", doc.internal.pageSize.getWidth() / 2, 60, { align: "center" });
 
-    // Tabla Principal de Acciones
-    doc.autoTable({
-      startY: doc.lastAutoTable.finalY + 20,
-      theme: 'grid',
-      headStyles: { fillColor: [11, 42, 54], textColor: 255, fontSize: 8, halign: 'center' }, // Azul Oscuro Termales
-      bodyStyles: { fontSize: 7, valign: 'middle' },
-      columnStyles: {
-        1: { cellWidth: 150 }, 
-        3: { cellWidth: 150 }  
-      },
-      head: [[
-        'NO', 'DESCRIPCIÓN HALLAZGO', 'PROCESOS VINCULADOS', 'ACCIONES DE MEJORAMIENTO', 
-        'ESTADO ACTUAL', 'RESPONSABLE', 'AVANCE', 'FECHA LÍMITE', 'OBSERVACIÓN'
-      ]],
-      body: tableData,
-    });
-    // Firmas
-    const finalY = doc.lastAutoTable.finalY + 50;
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("__________________________________________", 100, finalY);
-    doc.text("Elaborado por: LÍDER DE PROCESO", 100, finalY + 15);
-    
-    doc.text("__________________________________________", 600, finalY);
-    doc.text("Aprobado por: CONTROL INTERNO", 600, finalY + 15);
+      // Tabla de Información General
+      autoTable(doc, {
+        startY: 80,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 122, 56], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 8, textColor: 50 },
+        body: [
+          ['Fecha De Suscripción:', new Date().toLocaleDateString(), 'Fuente Del Plan De Mejora:', 'Auditoría Interna'],
+          ['Objetivo General:', 'Fortalecer los procesos mediante el plan correctivo.', 'Período Evaluado:', 'Semestre Actual'],
+          ['Tipo De Plan:', 'De proceso', 'Descripción:', 'Plan de mejoramiento para dar cierre a los hallazgos identificados.']
+        ]
+      });
 
-    doc.save(`Plan_de_Mejoramiento_${new Date().toISOString().split('T')[0]}.pdf`);
+      // 🔄 Cruzar datos con los nuevos campos de las 12 columnas
+      const tableData = planesData.map((plan, index) => {
+        const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
+        return [
+          index + 1, 
+          hallazgo.titulo || 'Sin descripción', 
+          hallazgo.causa || 'N/A', 
+          hallazgo.claseObservacion || 'Oportunidad de Mejora', 
+          hallazgo.proceso || 'General', 
+          plan.accion, 
+          plan.mecanismo || 'Revisión Documental', 
+          plan.responsable, 
+          `${plan.progreso || plan.avance || 0}%`, 
+          plan.fechaInicio || 'N/A', 
+          plan.fechaVal || 'No definida', 
+          plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente' 
+        ];
+      });
+
+      // Tabla Principal de Acciones (12 Columnas)
+      autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 20,
+        theme: 'grid',
+        headStyles: { fillColor: [11, 42, 54], textColor: 255, fontSize: 7, halign: 'center', valign: 'middle' },
+        bodyStyles: { fontSize: 6, valign: 'middle' },
+        columnStyles: {
+          1: { cellWidth: 100 }, // Descripción Hallazgo
+          2: { cellWidth: 90 },  // Causa
+          5: { cellWidth: 110 }  // Acción
+        },
+        head: [[
+          'NO', 'DESCRIPCIÓN HALLAZGO', 'CAUSAS', 'CLASE DE OBSERVACIÓN', 
+          'PROCESOS VINCULADOS', 'ACCIONES DE MEJORA', 'MECANISMO DE SEGUIMIENTO', 
+          'RESPONSABLE', 'META / AVANCE', 'FECHA INICIO', 'FECHA TERMINACIÓN', 'OBSERVACIÓN'
+        ]],
+        body: tableData,
+      });
+
+      // Firmas
+      const finalY = doc.lastAutoTable.finalY + 50;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("__________________________________________", 100, finalY);
+      doc.text("Elaborado por: LÍDER DE PROCESO", 100, finalY + 15);
+      
+      doc.text("__________________________________________", 600, finalY);
+      doc.text("Aprobado por: CONTROL INTERNO", 600, finalY + 15);
+
+      doc.save(`Plan_de_Mejoramiento_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      alert("Error al generar PDF. Revisa la consola.");
+    }
   };
 
 return (
@@ -172,7 +182,7 @@ return (
             </select>
           </div>
           
-          <div className="md:col-span-2">
+<div className="md:col-span-2">
             <label className="font-bold text-gray-600 block mb-1">Acción de Choque / Mitigación</label>
             <input 
               name="accion" 
@@ -194,7 +204,29 @@ return (
               className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-medium" 
             />
           </div>
-          
+
+          <div>
+            <label className="font-bold text-gray-600">Fecha de Inicio</label>
+            <input 
+              name="fechaInicio" 
+              type="date" 
+              defaultValue={editPlan?.fechaInicio||''} 
+              disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
+              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-bold mt-1" 
+            />
+          </div>
+
+          <div className="md:col-span-3">
+            <label className="font-bold text-gray-600">Mecanismo de Seguimiento</label>
+            <input 
+              name="mecanismo" 
+              placeholder="Ej: Inclusión en informe mensual, Pareto trimestral..."
+              defaultValue={editPlan?.mecanismo||''} 
+              disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
+              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-medium mt-1" 
+            />
+          </div>
+
           <div>
             <label className="font-bold text-gray-600">Fecha Límite / Compromiso</label>
             <input 
@@ -203,7 +235,7 @@ return (
               defaultValue={formatSafeDate(editPlan?.fecha)||''} 
               required 
               disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
-              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-bold" 
+              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-bold mt-1" 
             />
           </div>
 
