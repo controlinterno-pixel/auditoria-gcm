@@ -90,9 +90,9 @@ export default function Hallazgos({
           {editHallazgo && <button onClick={() => setEditHallazgo(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">✖ Cancelar Edición</button>}
         </div>
 
-        <form onSubmit={handleHallazgoSubmit} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+<form onSubmit={handleHallazgoSubmit} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
           
-         {/* 🔒 ID AUTOMÁTICO BLOQUEADO */}
+          {/* 🔒 ID AUTOMÁTICO */}
           <div>
             <label className="font-bold text-gray-600 block mb-1">ID / Código (Automático)</label>
             <input 
@@ -100,7 +100,6 @@ export default function Hallazgos({
               value={nextIdVal} 
               readOnly 
               className="w-full border border-slate-200 bg-slate-100 text-slate-500 font-black rounded-lg p-2 cursor-not-allowed outline-none focus:ring-0" 
-              title="Este consecutivo se genera automáticamente"
             />
           </div>
 
@@ -114,7 +113,7 @@ export default function Hallazgos({
             </select>
           </div>
 
-          {/* 📁 CASILLA VINCULACIÓN AL INFORME EMISOR */}
+          {/* 📁 INFORME ORIGEN */}
           <div className="md:col-span-2">
             <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
             <select 
@@ -130,7 +129,7 @@ export default function Hallazgos({
             </select>
           </div>
           
-          {/* 🔍 BUSCADOR DE PROCESOS (DATALIST) */}
+          {/* 🔍 PROCESO AUDITADO */}
           <div>
             <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
             <input 
@@ -139,74 +138,33 @@ export default function Hallazgos({
               defaultValue={editHallazgo?.proceso||''} 
               required 
               placeholder="Escribe o selecciona..." 
-              className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" 
+              className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-medium" 
             />
             <datalist id="lista-procesos">
               {PROCESOS_OFICIALES.map(proc => <option key={proc} value={proc} />)}
             </datalist>
           </div>
           
-          {/* 🔍 BUSCADOR DE PROCESOS (DATALIST) */}
-          <div>
-            <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
-            <input 
-              name="proceso" 
-              list="lista-procesos" 
-              defaultValue={editHallazgo?.proceso||''} 
-              required 
-              placeholder="Escribe o selecciona..." 
-              className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" 
-            />
-            <datalist id="lista-procesos">
-              {PROCESOS_OFICIALES.map(proc => <option key={proc} value={proc} />)}
-            </datalist>
-          </div>
-          
-          <div>
-            <label className="font-bold text-gray-600 block mb-1">Sede</label>
-            <select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white">
-              <option>Hotel</option>
-              <option>Ecoparque</option>
-              <option>Administrativo</option>
-            </select>
-          </div>
-
-          {/* 📁 Selector de Informe de Auditoría Origen */}
-          <div className="md:col-span-2">
-            <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
-            <select 
-              name="idInforme" 
-              defaultValue={editHallazgo?.idInforme||''} 
-              required
-              className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-700"
-            >
-              <option value="">-- Seleccione el Informe Radicado --</option>
-              {informesAuditoria.map((inf) => (
-                <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
-              ))}
-            </select>
-          </div>
-          
-          {/* 👥 DESPLEGABLE DE AUDITORES */}
+          {/* 👥 AUDITOR RESPONSABLE */}
           <div>
             <label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label>
-            <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
               <option value="">-- Seleccione un Auditor --</option>
               {AUDITORES_OFICIALES.map(aud => <option key={aud} value={aud}>{aud}</option>)}
             </select>
           </div>
 
-          {/* 👔 DESPLEGABLE DE CARGOS OFICIALES */}
+          {/* 👔 DUEÑO DEL PROCESO */}
           <div>
             <label className="font-bold text-gray-600 block mb-1">Dueño del Proceso (Cargo)</label>
-            <select name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            <select name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
               <option value="">-- Seleccione el Cargo --</option>
               {CARGOS_OFICIALES.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
             </select>
           </div>
 
-          {/* 🔍 CLASE DE OBSERVACIÓN */}
-          <div className="md:col-span-2">
+          {/* ⚖️ CLASE DE OBSERVACIÓN */}
+          <div>
             <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
             <select 
               name="claseObservacion" 
@@ -219,7 +177,7 @@ export default function Hallazgos({
             </select>
           </div>
 
-          {/* 📝 TÍTULO EXPANDIDO */}
+          {/* 📝 TÍTULO / DESCRIPCIÓN */}
           <div className="md:col-span-4">
             <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
             <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-medium" />
@@ -237,6 +195,7 @@ export default function Hallazgos({
             />
           </div>            
           
+          {/* 📂 GESTOR DE EVIDENCIAS */}
           <div className="md:col-span-4 bg-rose-50/50 p-4 rounded-xl border border-rose-100 shadow-sm">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-rose-100 pb-3">
               <div>
@@ -261,6 +220,7 @@ export default function Hallazgos({
             )}
           </div>
           
+          {/* 🔘 BOTÓN */}
           <div className="md:col-span-4 flex justify-end items-end">
             <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all w-full md:w-auto">
               {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
