@@ -1,4 +1,6 @@
 import React from 'react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -54,12 +56,91 @@ export default function Planes({
       default: return 'bg-slate-100 text-slate-700';
     }
   };
+// =====================================================================
+  // 🖨️ MOTOR DE EXPORTACIÓN PDF: PLAN DE MEJORAMIENTO OFICIAL
+  // =====================================================================
+  const exportarPlanMejoramientoPDF = () => {
+    const doc = new jsPDF('landscape', 'pt', 'legal');
+    
+    // Títulos y Encabezados
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("TERMALES SANTA ROSA DE CABAL", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
+    doc.text("PLAN DE MEJORAMIENTO", doc.internal.pageSize.getWidth() / 2, 60, { align: "center" });
 
-  return (
+    // Tabla de Información General
+    doc.autoTable({
+      startY: 80,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 122, 56], textColor: 255, fontStyle: 'bold', fontSize: 9 }, // Verde Termales
+      bodyStyles: { fontSize: 8, textColor: 50 },
+      body: [
+        ['Fecha De Suscripción:', new Date().toLocaleDateString(), 'Fuente Del Plan De Mejora:', 'Auditoría Interna'],
+        ['Objetivo General:', 'Fortalecer el proceso mediante la alineación de sus estrategias.', 'Período Evaluado:', 'Semestre Actual'],
+        ['Tipo De Plan:', 'De proceso', 'Descripción:', 'Plan de mejoramiento para dar cierre a los hallazgos identificados.']
+      ]
+    });
+
+    // Cruzar los datos (Usamos planesData de tu componente)
+    const tableData = planesData.map((plan, index) => {
+      const hallazgoAsociado = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
+      
+      return [
+        index + 1, 
+        hallazgoAsociado.titulo || 'Sin descripción', 
+        hallazgoAsociado.proceso || 'General', 
+        plan.accion, 
+        plan.estadoWorkflow || 'Borrador', 
+        plan.responsable, 
+        `${plan.progreso || plan.avance || 0}%`, 
+        plan.fechaVal || 'No definida', 
+        plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente' 
+      ];
+    });
+
+    // Tabla Principal de Acciones
+    doc.autoTable({
+      startY: doc.lastAutoTable.finalY + 20,
+      theme: 'grid',
+      headStyles: { fillColor: [11, 42, 54], textColor: 255, fontSize: 8, halign: 'center' }, // Azul Oscuro Termales
+      bodyStyles: { fontSize: 7, valign: 'middle' },
+      columnStyles: {
+        1: { cellWidth: 150 }, 
+        3: { cellWidth: 150 }  
+      },
+      head: [[
+        'NO', 'DESCRIPCIÓN HALLAZGO', 'PROCESOS VINCULADOS', 'ACCIONES DE MEJORAMIENTO', 
+        'ESTADO ACTUAL', 'RESPONSABLE', 'AVANCE', 'FECHA LÍMITE', 'OBSERVACIÓN'
+      ]],
+      body: tableData,
+    });
+
+    // Firmas
+    const finalY = doc.lastAutoTable.finalY + 50;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("__________________________________________", 100, finalY);
+    doc.text("Elaborado por: LÍDER DE PROCESO", 100, finalY + 15);
+    
+    doc.text("__________________________________________", 600, finalY);
+    doc.text("Aprobado por: CONTROL INTERNO", 600, finalY + 15);
+
+    doc.save(`Plan_de_Mejoramiento_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+return (
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-black text-slate-800">✅ Planes de Acción Remediales</h2>
-      </div>
+        {/* BOTÓN MÁGICO DE PDF */}
+        <button 
+          onClick={exportarPlanMejoramientoPDF} 
+          className="bg-[#297A38] hover:bg-[#1f5c2a] text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-md transition-all flex items-center space-x-2 border border-[#1f5c2a]"
+        >
+          <span className="text-sm">📄</span>
+          <span>Generar PDF Oficial</span>
+        </button>
+      </div>  
       
       {/* 🔓 EL FORMULARIO YA NO TIENE CANDADO */}
       <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
