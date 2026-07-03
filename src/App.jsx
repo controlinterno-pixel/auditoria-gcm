@@ -4,7 +4,7 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged 
-} from 'firebase/auth';
+} from 'firebase/auth'; 
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 // 🔥 NUEVA CONEXIÓN MODULAR A FIREBASE
 import { auth, db } from './services/firebase';

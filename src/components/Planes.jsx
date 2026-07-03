@@ -114,7 +114,6 @@ export default function Planes({
       ]],
       body: tableData,
     });
-
     // Firmas
     const finalY = doc.lastAutoTable.finalY + 50;
     doc.setFontSize(9);
