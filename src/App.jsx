@@ -2526,37 +2526,37 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
     );
   };
 // =====================================================================
-  // PANTALLA DE BIENVENIDA DINÁMICA (ADMINISTRADORES Y JEFES DE ÁREA)
-  // =====================================================================
-  const renderWelcomeScreen = () => (
-    <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center p-8 font-sans">
-      <div className={`bg-white p-10 rounded-2xl shadow-xl max-w-md w-full text-center border-t-8 ${isAdmin ? 'border-slate-900' : 'border-blue-600'} animate-in fade-in zoom-in-95 duration-300`}>
-        <div className="text-5xl mb-3">{isAdmin ? '👑' : '🛡️'}</div>
-        <h1 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">
-          {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
-        </h1>
-        <p className="text-slate-500 text-xs leading-relaxed mb-8 px-2 font-medium">
-          {isAdmin 
-            ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global de Termales.'
-            : 'Bienvenido, Líder de Proceso. Desde aquí podrá visualizar los tableros analíticos, reportar el avance de sus planes de acción y registrar eventos de pérdida operativos.'}
-        </p>
-        <div className="space-y-3">
-          <button 
-            onClick={() => setShowWelcome(false)} 
-            className={`w-full ${isAdmin ? 'bg-[#111827] hover:bg-black' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold text-[11px] uppercase tracking-widest py-4 rounded-xl transition-all shadow-md active:scale-95`}
-          >
-            Acceder al Tablero de Control
-          </button>
-          <button 
-            onClick={handleLogout} 
-            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-widest py-4 rounded-xl transition-all active:scale-95"
-          >
-            Cerrar Sesión
-          </button>
-        </div>
+// PANTALLA DE BIENVENIDA DINÁMICA (ADMINISTRADORES Y JEFES DE ÁREA)
+// =====================================================================
+const renderWelcomeScreen = () => (
+  <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center p-8 font-sans">
+    <div className={`bg-white p-10 rounded-2xl shadow-xl max-w-md w-full text-center border-t-8 ${isAdmin ? 'border-slate-900' : 'border-blue-600'} animate-in fade-in zoom-in-95 duration-300`}>
+      <div className="text-5xl mb-3">{isAdmin ? '👑' : '🛡️'}</div>
+      <h1 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">
+        {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
+      </h1>
+      <p className="text-slate-500 text-xs leading-relaxed mb-8 px-2 font-medium">
+        {isAdmin 
+          ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global de Termales.'
+          : 'Bienvenido, Líder de Proceso. Desde aquí podrá visualizar los tableros analíticos, reportar el avance de sus planes de acción y registrar eventos de pérdida operativos.'}
+      </p>
+      <div className="space-y-3">
+        <button 
+          onClick={() => setShowWelcome(false)} 
+          className="w-full ${isAdmin ? 'bg-[#111827] hover:bg-black' : 'bg-blue-600 hover:bg-blue-700'} text-white font-bold text-[11px] uppercase tracking-widest py-4 rounded-xl transition-all shadow-md active:scale-95"
+        >
+          Acceder al Tablero de Control
+        </button>
+        <button 
+          onClick={handleLogout} 
+          className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] uppercase tracking-widest py-4 rounded-xl transition-all active:scale-95"
+        >
+          Cerrar Sesión
+        </button>
       </div>
     </div>
-  );
+  </div>
+);
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
   if (!user) {
