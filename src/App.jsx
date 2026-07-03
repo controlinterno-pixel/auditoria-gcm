@@ -2526,12 +2526,13 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
     );
   };
 // =====================================================================
+// =====================================================================
   // PANTALLA DE BIENVENIDA DINÁMICA (ADMINISTRADORES Y JEFES DE ÁREA)
   // =====================================================================
   const renderWelcomeScreen = () => {
     // Logo Vectorial (SVG Puro)
     const LogoTermales = () => (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 drop-shadow-sm">
+      <svg viewBox="0 0 100 100" className="w-16 h-16 drop-shadow-sm shrink-0">
         <circle cx="16" cy="45" r="2" fill="#4E6C7C" />
         <circle cx="12" cy="49" r="1.5" fill="#4E6C7C" />
         <circle cx="18" cy="52" r="1.2" fill="#4E6C7C" />
@@ -2557,115 +2558,130 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
         {/* FONDOS DIVIDIDOS */}
         <div className="absolute inset-0 flex">
           
-          {/* Lado Izquierdo: Naturaleza (SIN CAPAS OSCURAS PARA QUE SE VEA BIEN) */}
-          {/* NOTA: Cambia esta URL de Unsplash por la ruta de tu foto real, ej: url('/cascada.jpg') */}
+          {/* Lado Izquierdo: Naturaleza (IMAGEN LOCAL) */}
           <div 
-            className="w-1/2 h-full bg-cover bg-center bg-no-repeat relative border-r border-emerald-100"
-            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1600861194942-f884de60f830?q=80&w=1200&auto=format&fit=crop')" }}
+            className="w-1/2 h-full bg-cover bg-center bg-no-repeat relative"
+            style={{ backgroundImage: "url('/cascada.jpg'), linear-gradient(to right, #0A1A12, #11322A)" }}
           >
-            {/* Difuminado sutil solo en el borde derecho para transición al blanco */}
-            <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white to-transparent opacity-30"></div>
+            {/* Gradiente oscuro inferior izquierdo tipo 'tecnológico' */}
+            <div className="absolute bottom-0 left-0 w-full h-2/3 bg-gradient-to-tr from-emerald-600/30 via-transparent to-transparent"></div>
           </div>
 
-          {/* Lado Derecho: Tecnología / Blanco */}
-          <div className="w-1/2 h-full bg-white relative overflow-hidden">
-            <svg className="absolute top-0 right-0 w-full h-full opacity-40 pointer-events-none" viewBox="0 0 800 1000" preserveAspectRatio="xMaxYMid slice">
-              <path d="M600,200 L700,300 L700,500 L500,700 L300,700" fill="none" stroke="#297A38" strokeWidth="1.5" strokeDasharray="5,5" />
-              <circle cx="700" cy="300" r="4" fill="#297A38" />
-              <circle cx="500" cy="700" r="4" fill="#297A38" />
-              <polygon points="650,350 675,365 675,395 650,410 625,395 625,365" fill="none" stroke="#297A38" strokeWidth="1" />
-              <polygon points="720,400 735,410 735,430 720,440 705,430 705,410" fill="none" stroke="#297A38" strokeWidth="1" />
-              <polygon points="610,650 625,660 625,680 610,690 595,680 595,660" fill="none" stroke="#297A38" strokeWidth="1" />
-              <polygon points="640,680 655,690 655,710 640,720 625,710 625,690" fill="none" stroke="#297A38" strokeWidth="1" />
+          {/* Lado Derecho: Blanco Tecnológico */}
+          <div className="w-1/2 h-full bg-[#fcfdfd] relative overflow-hidden">
+            {/* Hexágonos y líneas copiados de tu diseño */}
+            <svg className="absolute top-0 right-0 w-full h-full opacity-60 pointer-events-none" viewBox="0 0 800 1000" preserveAspectRatio="xMaxYMid slice">
+              <path d="M600,200 L750,350 L750,600 L550,800 L300,800" fill="none" stroke="#64A338" strokeWidth="1" strokeDasharray="6,6" />
+              <circle cx="750" cy="350" r="3" fill="#64A338" />
+              <circle cx="550" cy="800" r="3" fill="#64A338" />
+              <polygon points="700,450 725,465 725,495 700,510 675,495 675,465" fill="none" stroke="#64A338" strokeWidth="1.2" />
+              <polygon points="760,500 775,510 775,530 760,540 745,530 745,510" fill="none" stroke="#64A338" strokeWidth="1.2" />
+              <polygon points="630,730 645,740 645,760 630,770 615,760 615,740" fill="none" stroke="#64A338" strokeWidth="1.2" />
             </svg>
           </div>
         </div>
 
         {/* TARJETA CENTRAL */}
         <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8 z-10 animate-in zoom-in-95 duration-700">
-          <div className="relative w-full max-w-2xl"> {/* Tarjeta un poco más ancha */}
-            {/* Aura verde vibrante idéntica a tu maqueta */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-emerald-200 rounded-[3rem] blur-xl opacity-60"></div>
+          <div className="relative w-full max-w-[650px]">
             
-            <div className="relative bg-white rounded-[2.5rem] shadow-2xl p-12 sm:p-16 overflow-hidden border border-white">
+            {/* Resplandor verde de fondo (Aura) */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-emerald-400 to-emerald-100 rounded-[3.5rem] blur-xl opacity-50"></div>
+            
+            {/* Tarjeta Principal */}
+            <div className="relative bg-white rounded-[3rem] shadow-2xl p-10 sm:p-14 overflow-hidden">
               
-              {/* Esquinas decorativas */}
-              <div className="absolute top-6 left-6 w-6 h-6 border-t-2 border-l-2 border-slate-300 rounded-tl-xl"></div>
-              <div className="absolute top-6 right-6 grid grid-cols-3 gap-1 opacity-40">
-                {[...Array(9)].map((_, i) => <div key={i} className="w-1 h-1 bg-slate-400 rounded-full"></div>)}
-              </div>
-              <div className="absolute bottom-6 right-6 w-6 h-6 border-b-2 border-r-2 border-slate-300 rounded-br-xl"></div>
+              {/* --- MARCO INTERNO TECNOLÓGICO --- */}
+              <div className="absolute inset-3 border-[1.5px] border-emerald-50 rounded-[2.5rem] pointer-events-none z-0"></div>
 
-              {/* LOGO */}
-              <div className="flex flex-col items-center mb-8">
-                <div className="flex items-center space-x-2">
-                  <LogoTermales />
-                  <div className="flex flex-col leading-none ml-1">
-                    <h1 className="text-[36px] font-black text-[#0B2A36] tracking-tight mt-1" style={{ fontFamily: 'Arial, sans-serif' }}>
-                      TERMALES
-                    </h1>
-                    <p className="text-[18px] font-bold text-[#64A338] -mt-1 tracking-wide">
-                      Santa Rosa de Cabal
-                    </p>
+              {/* Esquina superior izquierda */}
+              <div className="absolute top-7 left-7 w-6 h-6 border-t-2 border-l-2 border-slate-300 rounded-tl-xl z-10"></div>
+              
+              {/* Puntos esquina superior derecha (Más visibles) */}
+              <div className="absolute top-8 right-8 grid grid-cols-3 gap-1.5 opacity-60 z-10">
+                {[...Array(9)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-slate-300 rounded-full"></div>)}
+              </div>
+              
+              {/* Esquina inferior derecha */}
+              <div className="absolute bottom-7 right-7 w-6 h-6 border-b-2 border-r-2 border-slate-300 rounded-br-xl z-10"></div>
+
+              {/* Contenido (Aseguramos que esté por encima del marco) */}
+              <div className="relative z-10">
+                
+                {/* LOGO */}
+                <div className="flex flex-col items-center mb-8">
+                  <div className="flex items-center space-x-2">
+                    <LogoTermales />
+                    <div className="flex flex-col leading-none ml-2">
+                      <h1 className="text-[34px] font-black text-[#0B2A36] tracking-tight mt-1" style={{ fontFamily: 'Arial, sans-serif' }}>
+                        TERMALES
+                      </h1>
+                      <p className="text-[17px] font-bold text-[#64A338] -mt-1 tracking-wide">
+                        Santa Rosa de Cabal
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="text-center mb-6">
-                <h2 className="text-[28px] font-black text-[#11322A] tracking-tight">
-                  {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
-                </h2>
-                <div className="flex items-center justify-center my-4 opacity-70">
-                  <div className="h-[1px] bg-slate-300 w-12"></div>
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-700 mx-2"></div>
-                  <div className="h-[1px] bg-slate-300 w-12"></div>
+                {/* TÍTULO Y SEPARADOR */}
+                <div className="text-center mb-6">
+                  <h2 className="text-[26px] font-black text-[#0A3B32] tracking-tight">
+                    {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
+                  </h2>
+                  <div className="flex items-center justify-center my-4 opacity-70">
+                    <div className="h-[1px] bg-slate-300 w-10"></div>
+                    <div className="w-2 h-2 rounded-full bg-[#64A338] mx-2"></div>
+                    <div className="h-[1px] bg-slate-300 w-10"></div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="text-center mb-10 px-6">
-                <p className="text-[15px] text-slate-600 leading-relaxed font-medium">
-                  {isAdmin
-                    ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global.'
-                    : 'Bienvenido, Líder de Proceso. Desde aquí podrá visualizar los tableros analíticos, reportar el avance de sus planes de acción y registrar eventos de pérdida operativos.'}
-                </p>
-              </div>
+                {/* TEXTO DESCRIPTIVO */}
+                <div className="text-center mb-10 px-8">
+                  <p className="text-[15px] text-[#4A5D66] leading-relaxed font-medium">
+                    {isAdmin
+                      ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global.'
+                      : 'Bienvenido, Líder de Proceso. Desde aquí podrá visualizar los tableros analíticos, reportar el avance de sus planes de acción y registrar eventos de pérdida operativos.'}
+                  </p>
+                </div>
 
-              <div className="space-y-4 max-w-md mx-auto">
-                <button 
-                  onClick={() => setShowWelcome(false)} 
-                  className="w-full bg-[#0A3B32] hover:bg-[#062620] text-white py-4 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center justify-center space-x-3 active:scale-95 group"
-                >
-                  {/* Icono de cuadritos idéntico a tu diseño */}
-                  <svg className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                  <span>Acceder al Tablero de Control</span>
-                </button>
+                {/* BOTONES EXACTOS */}
+                <div className="space-y-4 max-w-[420px] mx-auto">
+                  <button 
+                    onClick={() => setShowWelcome(false)} 
+                    className="w-full bg-[#0A3B32] hover:bg-[#062620] text-white py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center justify-center space-x-3 active:scale-95 group"
+                  >
+                    <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                    <span>Acceder al Tablero de Control</span>
+                  </button>
 
-                <button 
-                  onClick={handleLogout} 
-                  className="w-full bg-white border border-[#A5D6A7] hover:bg-emerald-50 text-[#388E3C] py-4 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center space-x-3 active:scale-95 group"
-                >
-                  {/* Icono de salida idéntico a tu diseño */}
-                  <svg className="w-5 h-5 text-[#4CAF50] group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  <span>Cerrar Sesión</span>
-                </button>
-              </div>
-              
-              <div className="flex justify-center items-center space-x-1.5 mt-10">
-                <div className="w-2 h-2 rounded-full border border-emerald-600 bg-transparent"></div>
-                <div className="w-2 h-2 rounded-full border border-emerald-600 bg-transparent"></div>
-                <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
-                <div className="w-2 h-2 rounded-full bg-emerald-600"></div>
+                  <button 
+                    onClick={handleLogout} 
+                    className="w-full bg-white border border-[#A5D6A7] hover:bg-emerald-50 text-[#388E3C] py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center space-x-3 active:scale-95 group"
+                  >
+                    <svg className="w-5 h-5 text-[#64A338]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span>Cerrar Sesión</span>
+                  </button>
+                </div>
+                
+                {/* PUNTOS INFERIORES */}
+                <div className="flex justify-center items-center space-x-2 mt-10">
+                  <div className="w-2.5 h-2.5 rounded-full border-2 border-emerald-600 bg-transparent"></div>
+                  <div className="w-2.5 h-2.5 rounded-full border-2 border-emerald-600 bg-transparent"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-600"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-600"></div>
+                </div>
+
               </div>
             </div>
           </div>
         </div>
       </div>
     );
-  };
+  };  
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
