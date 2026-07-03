@@ -2525,14 +2525,14 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       />
     );
   };
-// =====================================================================
+
 // =====================================================================
   // PANTALLA DE BIENVENIDA DINÁMICA (ADMINISTRADORES Y JEFES DE ÁREA)
   // =====================================================================
   const renderWelcomeScreen = () => {
     // Logo Vectorial (SVG Puro)
     const LogoTermales = () => (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 drop-shadow-sm shrink-0">
+      <svg viewBox="0 0 100 100" className="w-16 h-16 drop-shadow-md shrink-0">
         <circle cx="16" cy="45" r="2" fill="#4E6C7C" />
         <circle cx="12" cy="49" r="1.5" fill="#4E6C7C" />
         <circle cx="18" cy="52" r="1.2" fill="#4E6C7C" />
@@ -2558,22 +2558,22 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
         {/* FONDOS DIVIDIDOS */}
         <div className="absolute inset-0 flex">
           
-          {/* Lado Izquierdo: Naturaleza (IMAGEN LOCAL) */}
+          {/* Lado Izquierdo: Naturaleza (CON IMAGEN FUNCIONAL EN VIVO) */}
           <div 
             className="w-1/2 h-full bg-cover bg-center bg-no-repeat relative"
-            style={{ backgroundImage: "url('/cascada.jpg'), linear-gradient(to right, #0A1A12, #11322A)" }}
+            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1574958269340-fa927503f3da?q=80&w=1200&auto=format&fit=crop')" }}
           >
-            {/* Gradiente oscuro inferior izquierdo tipo 'tecnológico' */}
-            <div className="absolute bottom-0 left-0 w-full h-2/3 bg-gradient-to-tr from-emerald-600/30 via-transparent to-transparent"></div>
+            {/* Filtro sutil para que empate perfecto con el blanco */}
+            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white to-transparent opacity-80"></div>
           </div>
 
           {/* Lado Derecho: Blanco Tecnológico */}
-          <div className="w-1/2 h-full bg-[#fcfdfd] relative overflow-hidden">
-            {/* Hexágonos y líneas copiados de tu diseño */}
+          <div className="w-1/2 h-full bg-[#f8fbfa] relative overflow-hidden">
             <svg className="absolute top-0 right-0 w-full h-full opacity-60 pointer-events-none" viewBox="0 0 800 1000" preserveAspectRatio="xMaxYMid slice">
-              <path d="M600,200 L750,350 L750,600 L550,800 L300,800" fill="none" stroke="#64A338" strokeWidth="1" strokeDasharray="6,6" />
-              <circle cx="750" cy="350" r="3" fill="#64A338" />
-              <circle cx="550" cy="800" r="3" fill="#64A338" />
+              <path d="M600,200 L750,350 L750,600 L550,800 L300,800" fill="none" stroke="#64A338" strokeWidth="1.2" strokeDasharray="6,6" />
+              <circle cx="750" cy="350" r="4" fill="#64A338" opacity="0.8" />
+              <circle cx="550" cy="800" r="4" fill="#64A338" opacity="0.8" />
               <polygon points="700,450 725,465 725,495 700,510 675,495 675,465" fill="none" stroke="#64A338" strokeWidth="1.2" />
               <polygon points="760,500 775,510 775,530 760,540 745,530 745,510" fill="none" stroke="#64A338" strokeWidth="1.2" />
               <polygon points="630,730 645,740 645,760 630,770 615,760 615,740" fill="none" stroke="#64A338" strokeWidth="1.2" />
@@ -2583,40 +2583,35 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
 
         {/* TARJETA CENTRAL */}
         <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8 z-10 animate-in zoom-in-95 duration-700">
-          <div className="relative w-full max-w-[650px]">
+          <div className="relative w-full max-w-[620px]">
             
-            {/* Resplandor verde de fondo (Aura) */}
-            <div className="absolute -inset-2 bg-gradient-to-r from-emerald-400 to-emerald-100 rounded-[3.5rem] blur-xl opacity-50"></div>
+            {/* Resplandor verde de fondo MÁS INTENSO */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-emerald-400 to-emerald-200/50 rounded-[3.5rem] blur-2xl opacity-70"></div>
             
             {/* Tarjeta Principal */}
-            <div className="relative bg-white rounded-[3rem] shadow-2xl p-10 sm:p-14 overflow-hidden">
+            <div className="relative bg-white/95 backdrop-blur-xl rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-emerald-50 p-10 sm:p-14 overflow-hidden">
               
-              {/* --- MARCO INTERNO TECNOLÓGICO --- */}
-              <div className="absolute inset-3 border-[1.5px] border-emerald-50 rounded-[2.5rem] pointer-events-none z-0"></div>
-
-              {/* Esquina superior izquierda */}
-              <div className="absolute top-7 left-7 w-6 h-6 border-t-2 border-l-2 border-slate-300 rounded-tl-xl z-10"></div>
+              {/* --- ESQUINAS ESTILO HUD --- */}
+              <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-[#b0c8b9] rounded-tl-2xl z-10"></div>
               
-              {/* Puntos esquina superior derecha (Más visibles) */}
-              <div className="absolute top-8 right-8 grid grid-cols-3 gap-1.5 opacity-60 z-10">
-                {[...Array(9)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-slate-300 rounded-full"></div>)}
+              <div className="absolute top-8 right-8 grid grid-cols-3 gap-1.5 opacity-40 z-10">
+                {[...Array(9)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-[#4A5D66] rounded-full"></div>)}
               </div>
               
-              {/* Esquina inferior derecha */}
-              <div className="absolute bottom-7 right-7 w-6 h-6 border-b-2 border-r-2 border-slate-300 rounded-br-xl z-10"></div>
+              <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-[#b0c8b9] rounded-br-2xl z-10"></div>
 
-              {/* Contenido (Aseguramos que esté por encima del marco) */}
+              {/* Contenido Central */}
               <div className="relative z-10">
                 
                 {/* LOGO */}
-                <div className="flex flex-col items-center mb-8">
+                <div className="flex flex-col items-center mb-6">
                   <div className="flex items-center space-x-2">
                     <LogoTermales />
                     <div className="flex flex-col leading-none ml-2">
-                      <h1 className="text-[34px] font-black text-[#0B2A36] tracking-tight mt-1" style={{ fontFamily: 'Arial, sans-serif' }}>
+                      <h1 className="text-[36px] font-black text-[#0B2A36] tracking-tighter mt-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
                         TERMALES
                       </h1>
-                      <p className="text-[17px] font-bold text-[#64A338] -mt-1 tracking-wide">
+                      <p className="text-[17px] font-bold text-[#64A338] -mt-0.5 tracking-wide">
                         Santa Rosa de Cabal
                       </p>
                     </div>
@@ -2624,20 +2619,20 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 </div>
 
                 {/* TÍTULO Y SEPARADOR */}
-                <div className="text-center mb-6">
+                <div className="text-center mb-5">
                   <h2 className="text-[26px] font-black text-[#0A3B32] tracking-tight">
                     {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
                   </h2>
                   <div className="flex items-center justify-center my-4 opacity-70">
-                    <div className="h-[1px] bg-slate-300 w-10"></div>
+                    <div className="h-[1px] bg-slate-300 w-12"></div>
                     <div className="w-2 h-2 rounded-full bg-[#64A338] mx-2"></div>
-                    <div className="h-[1px] bg-slate-300 w-10"></div>
+                    <div className="h-[1px] bg-slate-300 w-12"></div>
                   </div>
                 </div>
 
-                {/* TEXTO DESCRIPTIVO */}
-                <div className="text-center mb-10 px-8">
-                  <p className="text-[15px] text-[#4A5D66] leading-relaxed font-medium">
+                {/* TEXTO DESCRIPTIVO (Más estrecho para forzar el salto de línea como en tu imagen) */}
+                <div className="text-center mb-10 px-2">
+                  <p className="text-[14px] text-[#4A5D66] leading-relaxed font-medium max-w-sm mx-auto">
                     {isAdmin
                       ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global.'
                       : 'Bienvenido, Líder de Proceso. Desde aquí podrá visualizar los tableros analíticos, reportar el avance de sus planes de acción y registrar eventos de pérdida operativos.'}
@@ -2645,12 +2640,12 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 </div>
 
                 {/* BOTONES EXACTOS */}
-                <div className="space-y-4 max-w-[420px] mx-auto">
+                <div className="space-y-4 max-w-[400px] mx-auto">
                   <button 
                     onClick={() => setShowWelcome(false)} 
-                    className="w-full bg-[#0A3B32] hover:bg-[#062620] text-white py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center justify-center space-x-3 active:scale-95 group"
+                    className="w-full bg-[#0A3B32] hover:bg-[#062620] text-white py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-[0_8px_20px_rgba(10,59,50,0.25)] transition-all flex items-center justify-center space-x-3 active:scale-95 group"
                   >
-                    <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-emerald-400 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                     </svg>
                     <span>Acceder al Tablero de Control</span>
@@ -2658,7 +2653,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
 
                   <button 
                     onClick={handleLogout} 
-                    className="w-full bg-white border border-[#A5D6A7] hover:bg-emerald-50 text-[#388E3C] py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center space-x-3 active:scale-95 group"
+                    className="w-full bg-white border border-[#b0c8b9] hover:bg-emerald-50 text-[#388E3C] py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center space-x-3 active:scale-95 group shadow-sm"
                   >
                     <svg className="w-5 h-5 text-[#64A338]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -2667,12 +2662,12 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                   </button>
                 </div>
                 
-                {/* PUNTOS INFERIORES */}
+                {/* PUNTOS INFERIORES IDENTICOS */}
                 <div className="flex justify-center items-center space-x-2 mt-10">
-                  <div className="w-2.5 h-2.5 rounded-full border-2 border-emerald-600 bg-transparent"></div>
-                  <div className="w-2.5 h-2.5 rounded-full border-2 border-emerald-600 bg-transparent"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-600"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-600"></div>
+                  <div className="w-2 h-2 rounded-full border-[1.5px] border-[#64A338] bg-transparent"></div>
+                  <div className="w-2 h-2 rounded-full border-[1.5px] border-[#64A338] bg-transparent"></div>
+                  <div className="w-2 h-2 rounded-full bg-[#64A338]"></div>
+                  <div className="w-2 h-2 rounded-full bg-[#64A338]"></div>
                 </div>
 
               </div>
@@ -2681,7 +2676,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
         </div>
       </div>
     );
-  };  
+  }; 
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
