@@ -2593,20 +2593,27 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
           <path d="M280,70 L280,90 M270,80 L290,80" stroke="#eab308" strokeWidth="1" filter="url(#glow-dot)" opacity="0.6"/>
         </svg>
 
-        {/* B. Esquina Inferior Izquierda (Circuito/Láser neón) */}
-        <svg className="absolute bottom-0 left-0 w-[400px] h-[400px] z-10 pointer-events-none" viewBox="0 0 400 400">
+        {/* B. Esquina Inferior Izquierda (Polígono oscuro con borde neón exacto a la maqueta) */}
+        <svg className="absolute bottom-0 left-0 w-[250px] h-[250px] z-10 pointer-events-none" viewBox="0 0 250 250">
           <defs>
-            <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
+            <linearGradient id="grad-bottom-left" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0%" stopColor="#051f15" />
+              <stop offset="100%" stopColor="#0a3b2a" />
+            </linearGradient>
+            <filter id="glow-green-bl" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
           </defs>
-          {/* Línea de circuito diagonal exacta */}
-          <polyline points="-50,350 150,150 180,180" fill="none" stroke="#00FF87" strokeWidth="2.5" filter="url(#glow-cyan)" />
-          {/* Nodos del circuito */}
-          <circle cx="150" cy="150" r="4" fill="#00FF87" filter="url(#glow-cyan)" />
-          <circle cx="180" cy="180" r="2" fill="#00FF87" />
-          <circle cx="50" cy="250" r="2" fill="#00FF87" opacity="0.8"/>
+          {/* Forma oscura anclada a la esquina */}
+          <polygon points="0,100 150,250 0,250" fill="url(#grad-bottom-left)" />
+          {/* Línea láser verde brillante en el borde diagonal */}
+          <line x1="0" y1="100" x2="150" y2="250" stroke="#00FF87" strokeWidth="3" filter="url(#glow-green-bl)" />
+          {/* Pequeños nodos decorativos de conexión */}
+          <circle cx="75" cy="175" r="2.5" fill="#00FF87" filter="url(#glow-green-bl)" />
+          <line x1="75" y1="175" x2="110" y2="175" stroke="#00FF87" strokeWidth="1" filter="url(#glow-green-bl)" opacity="0.5"/>
+          <line x1="110" y1="175" x2="125" y2="190" stroke="#00FF87" strokeWidth="1" filter="url(#glow-green-bl)" opacity="0.5"/>
+          <circle cx="125" cy="190" r="1.5" fill="#00FF87" opacity="0.8"/>
         </svg>
 
         {/* C. Fondo Tecnológico Derecho (Hexágonos y Líneas de puntos exactas) */}
