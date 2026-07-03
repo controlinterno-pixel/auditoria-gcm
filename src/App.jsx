@@ -2532,86 +2532,102 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
   const renderWelcomeScreen = () => {
     // Logo Vectorial (SVG Puro)
     const LogoTermales = () => (
-      <svg viewBox="0 0 100 100" className="w-16 h-16 drop-shadow-md shrink-0">
-        <circle cx="16" cy="45" r="2" fill="#4E6C7C" />
-        <circle cx="12" cy="49" r="1.5" fill="#4E6C7C" />
-        <circle cx="18" cy="52" r="1.2" fill="#4E6C7C" />
-        <circle cx="85" cy="42" r="1.8" fill="#4E6C7C" />
-        <circle cx="92" cy="45" r="2.5" fill="#4E6C7C" />
-        <circle cx="90" cy="50" r="1.5" fill="#4E6C7C" />
-        <circle cx="84" cy="54" r="1.2" fill="#4E6C7C" />
-        <path d="M 68 28 C 76 20, 88 22, 90 28 C 82 32, 72 32, 68 28 Z" fill="#297A38" />
-        <path d="M 63 15 C 68 8, 76 10, 78 14 C 72 17, 65 18, 63 15 Z" fill="#297A38" />
-        <path d="M 32 72 C 24 80, 12 78, 10 72 C 18 68, 28 68, 32 72 Z" fill="#297A38" />
-        <path d="M 37 85 C 32 92, 24 90, 22 86 C 28 83, 35 82, 37 85 Z" fill="#297A38" />
-        <circle cx="50" cy="50" r="25" stroke="#4E6C7C" strokeWidth="11" fill="none" />
-        <circle cx="43" cy="55" r="7" stroke="#4E6C7C" strokeWidth="3.5" fill="none" />
-        <circle cx="58" cy="62" r="4.5" stroke="#4E6C7C" strokeWidth="2.5" fill="none" />
-        <circle cx="59" cy="48" r="2.2" fill="#4E6C7C" />
-        <circle cx="53" cy="45" r="1.5" fill="#4E6C7C" />
+      <svg viewBox="0 0 100 100" className="w-[70px] h-[70px] drop-shadow-sm shrink-0">
+        <circle cx="16" cy="45" r="2" fill="#203d4a" />
+        <circle cx="12" cy="49" r="1.5" fill="#203d4a" />
+        <circle cx="18" cy="52" r="1.2" fill="#203d4a" />
+        <circle cx="85" cy="42" r="1.8" fill="#203d4a" />
+        <circle cx="92" cy="45" r="2.5" fill="#203d4a" />
+        <circle cx="90" cy="50" r="1.5" fill="#203d4a" />
+        <circle cx="84" cy="54" r="1.2" fill="#203d4a" />
+        <path d="M 68 28 C 76 20, 88 22, 90 28 C 82 32, 72 32, 68 28 Z" fill="#4CAF50" />
+        <path d="M 63 15 C 68 8, 76 10, 78 14 C 72 17, 65 18, 63 15 Z" fill="#4CAF50" />
+        <path d="M 32 72 C 24 80, 12 78, 10 72 C 18 68, 28 68, 32 72 Z" fill="#4CAF50" />
+        <path d="M 37 85 C 32 92, 24 90, 22 86 C 28 83, 35 82, 37 85 Z" fill="#4CAF50" />
+        <circle cx="50" cy="50" r="25" stroke="#203d4a" strokeWidth="11" fill="none" />
+        <circle cx="43" cy="55" r="7" stroke="#203d4a" strokeWidth="3.5" fill="none" />
+        <circle cx="58" cy="62" r="4.5" stroke="#203d4a" strokeWidth="2.5" fill="none" />
+        <circle cx="59" cy="48" r="2.2" fill="#203d4a" />
+        <circle cx="53" cy="45" r="1.5" fill="#203d4a" />
       </svg>
     );
 
     return (
-      <div className="relative flex min-h-screen w-full bg-white font-sans overflow-hidden">
+      <div className="relative flex min-h-screen w-full bg-[#f8fbfa] font-sans overflow-hidden">
         
-        {/* FONDOS DIVIDIDOS */}
-        <div className="absolute inset-0 flex">
-          
-          {/* Lado Izquierdo: Naturaleza (CON IMAGEN FUNCIONAL EN VIVO) */}
-          <div 
-            className="w-1/2 h-full bg-cover bg-center bg-no-repeat relative"
-            style={{ backgroundImage: "url('https://images.unsplash.com/photo-1574958269340-fa927503f3da?q=80&w=1200&auto=format&fit=crop')" }}
-          >
-            {/* Filtro sutil para que empate perfecto con el blanco */}
-            <div className="absolute inset-0 bg-black/10"></div>
-            <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-white to-transparent opacity-80"></div>
-          </div>
-
-          {/* Lado Derecho: Blanco Tecnológico */}
-          <div className="w-1/2 h-full bg-[#f8fbfa] relative overflow-hidden">
-            <svg className="absolute top-0 right-0 w-full h-full opacity-60 pointer-events-none" viewBox="0 0 800 1000" preserveAspectRatio="xMaxYMid slice">
-              <path d="M600,200 L750,350 L750,600 L550,800 L300,800" fill="none" stroke="#64A338" strokeWidth="1.2" strokeDasharray="6,6" />
-              <circle cx="750" cy="350" r="4" fill="#64A338" opacity="0.8" />
-              <circle cx="550" cy="800" r="4" fill="#64A338" opacity="0.8" />
-              <polygon points="700,450 725,465 725,495 700,510 675,495 675,465" fill="none" stroke="#64A338" strokeWidth="1.2" />
-              <polygon points="760,500 775,510 775,530 760,540 745,530 745,510" fill="none" stroke="#64A338" strokeWidth="1.2" />
-              <polygon points="630,730 645,740 645,760 630,770 615,760 615,740" fill="none" stroke="#64A338" strokeWidth="1.2" />
-            </svg>
-          </div>
+        {/* ================= FONDOS Y GEOMETRÍA ================= */}
+        
+        {/* 1. Lado Izquierdo: Cascada (Apunta a la imagen local que subiste a /public) */}
+        <div 
+          className="absolute left-0 top-0 w-1/2 h-full bg-cover bg-center z-0"
+          style={{ backgroundImage: "url('/cascada.jpg'), linear-gradient(to right, #0A1A12, #11322A)" }}
+        >
+          {/* Sombra de transición hacia el blanco */}
+          <div className="absolute inset-y-0 right-0 w-48 bg-gradient-to-l from-[#f8fbfa] via-[#f8fbfa]/80 to-transparent z-10"></div>
         </div>
 
-        {/* TARJETA CENTRAL */}
-        <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8 z-10 animate-in zoom-in-95 duration-700">
-          <div className="relative w-full max-w-[620px]">
-            
-            {/* Resplandor verde de fondo MÁS INTENSO */}
-            <div className="absolute -inset-2 bg-gradient-to-r from-emerald-400 to-emerald-200/50 rounded-[3.5rem] blur-2xl opacity-70"></div>
-            
-            {/* Tarjeta Principal */}
-            <div className="relative bg-white/95 backdrop-blur-xl rounded-[3rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-emerald-50 p-10 sm:p-14 overflow-hidden">
-              
-              {/* --- ESQUINAS ESTILO HUD --- */}
-              <div className="absolute top-6 left-6 w-8 h-8 border-t-2 border-l-2 border-[#b0c8b9] rounded-tl-2xl z-10"></div>
-              
-              <div className="absolute top-8 right-8 grid grid-cols-3 gap-1.5 opacity-40 z-10">
-                {[...Array(9)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-[#4A5D66] rounded-full"></div>)}
-              </div>
-              
-              <div className="absolute bottom-6 right-6 w-8 h-8 border-b-2 border-r-2 border-[#b0c8b9] rounded-br-2xl z-10"></div>
+        {/* 2. Geometría Tecnológica Derecha (Líneas y Hexágonos) */}
+        <div className="absolute right-0 top-0 w-1/2 h-full z-0 overflow-hidden">
+          <svg className="absolute inset-0 w-full h-full opacity-50" viewBox="0 0 800 1000" preserveAspectRatio="xMaxYMid slice">
+            <path d="M400,100 L700,400 L700,700 L500,900" fill="none" stroke="#64A338" strokeWidth="1" strokeDasharray="4,4" />
+            <circle cx="700" cy="400" r="4" fill="#64A338" opacity="0.6" />
+            <circle cx="500" cy="900" r="4" fill="#64A338" opacity="0.6" />
+            {/* Hexágonos */}
+            <polygon points="650,450 675,465 675,495 650,510 625,495 625,465" fill="none" stroke="#64A338" strokeWidth="1" />
+            <polygon points="730,520 745,530 745,550 730,560 715,550 715,530" fill="none" stroke="#64A338" strokeWidth="1" />
+          </svg>
+        </div>
 
-              {/* Contenido Central */}
-              <div className="relative z-10">
+        {/* 3. Esquina Superior Derecha (Bloque Diagonal Oscuro con destello) */}
+        <div className="absolute top-[-15%] right-[-5%] w-[450px] h-[300px] bg-gradient-to-br from-[#062620] to-[#0A3B32] transform rotate-[-35deg] border-b-[6px] border-[#4CAF50] shadow-[0_0_40px_rgba(76,175,80,0.5)] z-10"></div>
+
+        {/* 4. Esquina Inferior Izquierda (Láser diagonal neón) */}
+        <div className="absolute bottom-[10%] left-[-10%] w-[400px] h-[3px] bg-[#00FF87] transform rotate-[-45deg] shadow-[0_0_20px_#00FF87] z-10"></div>
+
+        {/* ================= TARJETA CENTRAL ================= */}
+        <div className="absolute inset-0 flex items-center justify-center p-4 z-20">
+          
+          <div className="relative w-full max-w-[650px] animate-in zoom-in-95 duration-700">
+            
+            {/* Resplandor Neon Verde EXACTO debajo de la tarjeta */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-green-300 rounded-[3rem] blur-xl opacity-60"></div>
+            
+            {/* Contenedor Blanco Principal */}
+            <div className="relative bg-white rounded-[2.5rem] shadow-2xl p-3 overflow-hidden">
+              
+              {/* LA CÁPSULA (Línea gris interna que define la forma tecnológica) */}
+              <div className="relative border border-gray-200/80 rounded-[2rem] p-10 sm:p-12">
+                
+                {/* Decoraciones del marco interno (Tapas blancas sobre la línea gris para crear los huecos) */}
+                
+                {/* Hueco esquina superior izquierda */}
+                <div className="absolute top-[-2px] left-8 w-12 h-1 bg-white"></div>
+                <div className="absolute top-8 left-[-2px] w-1 h-12 bg-white"></div>
+                <div className="absolute top-6 left-6 w-5 h-5 border-t-2 border-l-2 border-gray-300 rounded-tl-xl pointer-events-none"></div>
+
+                {/* Puntos esquina superior derecha */}
+                <div className="absolute top-[-2px] right-8 w-16 h-1 bg-white"></div>
+                <div className="absolute top-8 right-[-2px] w-1 h-12 bg-white"></div>
+                <div className="absolute top-6 right-6 grid grid-cols-3 gap-1.5 opacity-40 bg-white p-1">
+                  {[...Array(9)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-gray-500 rounded-full"></div>)}
+                </div>
+
+                {/* Hueco esquina inferior derecha */}
+                <div className="absolute bottom-[-2px] right-8 w-12 h-1 bg-white"></div>
+                <div className="absolute bottom-8 right-[-2px] w-1 h-12 bg-white"></div>
+                <div className="absolute bottom-6 right-6 w-5 h-5 border-b-2 border-r-2 border-gray-300 rounded-br-xl pointer-events-none"></div>
+
+                {/* ---------------- CONTENIDO ---------------- */}
                 
                 {/* LOGO */}
-                <div className="flex flex-col items-center mb-6">
+                <div className="flex flex-col items-center mb-6 mt-2">
                   <div className="flex items-center space-x-2">
                     <LogoTermales />
                     <div className="flex flex-col leading-none ml-2">
-                      <h1 className="text-[36px] font-black text-[#0B2A36] tracking-tighter mt-1" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+                      <h1 className="text-[34px] font-black text-[#0B2A36] tracking-tight mt-1" style={{ fontFamily: 'Arial, sans-serif' }}>
                         TERMALES
                       </h1>
-                      <p className="text-[17px] font-bold text-[#64A338] -mt-0.5 tracking-wide">
+                      <p className="text-[17px] font-bold text-[#64A338] -mt-1 tracking-wide">
                         Santa Rosa de Cabal
                       </p>
                     </div>
@@ -2619,20 +2635,20 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 </div>
 
                 {/* TÍTULO Y SEPARADOR */}
-                <div className="text-center mb-5">
+                <div className="text-center mb-6">
                   <h2 className="text-[26px] font-black text-[#0A3B32] tracking-tight">
                     {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
                   </h2>
-                  <div className="flex items-center justify-center my-4 opacity-70">
-                    <div className="h-[1px] bg-slate-300 w-12"></div>
-                    <div className="w-2 h-2 rounded-full bg-[#64A338] mx-2"></div>
-                    <div className="h-[1px] bg-slate-300 w-12"></div>
+                  <div className="flex items-center justify-center my-4 opacity-80">
+                    <div className="h-[1px] bg-gray-300 w-12"></div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#64A338] mx-2"></div>
+                    <div className="h-[1px] bg-gray-300 w-12"></div>
                   </div>
                 </div>
 
-                {/* TEXTO DESCRIPTIVO (Más estrecho para forzar el salto de línea como en tu imagen) */}
-                <div className="text-center mb-10 px-2">
-                  <p className="text-[14px] text-[#4A5D66] leading-relaxed font-medium max-w-sm mx-auto">
+                {/* TEXTO DESCRIPTIVO */}
+                <div className="text-center mb-10 px-4">
+                  <p className="text-[14px] text-gray-500 leading-relaxed font-medium max-w-sm mx-auto">
                     {isAdmin
                       ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global.'
                       : 'Bienvenido, Líder de Proceso. Desde aquí podrá visualizar los tableros analíticos, reportar el avance de sus planes de acción y registrar eventos de pérdida operativos.'}
@@ -2643,7 +2659,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 <div className="space-y-4 max-w-[400px] mx-auto">
                   <button 
                     onClick={() => setShowWelcome(false)} 
-                    className="w-full bg-[#0A3B32] hover:bg-[#062620] text-white py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-[0_8px_20px_rgba(10,59,50,0.25)] transition-all flex items-center justify-center space-x-3 active:scale-95 group"
+                    className="w-full bg-[#0A3B32] hover:bg-[#062620] text-white py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center justify-center space-x-3 active:scale-95 group"
                   >
                     <svg className="w-4 h-4 text-emerald-400 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -2653,7 +2669,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
 
                   <button 
                     onClick={handleLogout} 
-                    className="w-full bg-white border border-[#b0c8b9] hover:bg-emerald-50 text-[#388E3C] py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center space-x-3 active:scale-95 group shadow-sm"
+                    className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-[#64A338] py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center space-x-3 active:scale-95 group shadow-sm"
                   >
                     <svg className="w-5 h-5 text-[#64A338]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -2662,12 +2678,12 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                   </button>
                 </div>
                 
-                {/* PUNTOS INFERIORES IDENTICOS */}
-                <div className="flex justify-center items-center space-x-2 mt-10">
-                  <div className="w-2 h-2 rounded-full border-[1.5px] border-[#64A338] bg-transparent"></div>
-                  <div className="w-2 h-2 rounded-full border-[1.5px] border-[#64A338] bg-transparent"></div>
-                  <div className="w-2 h-2 rounded-full bg-[#64A338]"></div>
-                  <div className="w-2 h-2 rounded-full bg-[#64A338]"></div>
+                {/* PUNTOS INFERIORES */}
+                <div className="flex justify-center items-center space-x-2 mt-8">
+                  <div className="w-2.5 h-2.5 rounded-full border-[1.5px] border-[#64A338] bg-transparent"></div>
+                  <div className="w-2.5 h-2.5 rounded-full border-[1.5px] border-[#64A338] bg-transparent"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#64A338]"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#64A338]"></div>
                 </div>
 
               </div>
