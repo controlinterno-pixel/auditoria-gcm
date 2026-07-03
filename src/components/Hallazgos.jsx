@@ -141,9 +141,36 @@ export default function Hallazgos({
             </select>
           </div>
 
+          {/* 🔍 CLASE DE OBSERVACIÓN */}
           <div className="md:col-span-2">
+            <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
+            <select 
+              name="claseObservacion" 
+              defaultValue={editHallazgo?.claseObservacion||'Oportunidad de Mejora'} 
+              className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700"
+            >
+              <option value="Oportunidad de Mejora">Oportunidad de Mejora</option>
+              <option value="No Conformidad">No Conformidad</option>
+              <option value="Observación">Observación</option>
+            </select>
+          </div>
+
+          {/* 📝 TÍTULO EXPANDIDO */}
+          <div className="md:col-span-4">
             <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
-            <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+            <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-medium" />
+          </div>            
+
+          {/* 🧠 ANÁLISIS DE CAUSAS RAÍZ */}
+          <div className="md:col-span-4">
+            <label className="font-bold text-gray-600 block mb-1">Análisis de Causas (Causa Raíz)</label>
+            <input 
+              name="causa" 
+              defaultValue={editHallazgo?.causa||''} 
+              required
+              placeholder="Ej: Ausencia de una herramienta que permita consolidar la satisfacción del cliente..." 
+              className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700" 
+            />
           </div>            
           
           <div className="md:col-span-4 bg-rose-50/50 p-4 rounded-xl border border-rose-100 shadow-sm">

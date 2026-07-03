@@ -912,23 +912,60 @@ const handlePlanSubmit = async (e) => {
     showNotification("Evaluación registrada exitosamente.");
   };
 const handleHallazgoSubmit = async (e) => {
-    e.preventDefault(); const formData = new FormData(e.target);
+    e.preventDefault(); 
+    const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     
     let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
 
+    // 🟢 CAMPOS CONECTADOS PARA EL PROCESAMIENTO DEL PDF 12 COLUMNAS
+    const causaVal = formData.get('causa') || '';
+    const claseObservacionVal = formData.get('claseObservacion') || 'Oportunidad de Mejora';
+
     let updated;
     if (editHallazgo) {
-      const mod = { ...editHallazgo, sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), evidenciaUrl: evidenciaUrlOut, historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] };
+      const mod = { 
+        ...editHallazgo, 
+        sede: formData.get('sede'), 
+        ref: formData.get('ref'), 
+        proceso: formData.get('proceso'), 
+        responsable: formData.get('responsable'), 
+        auditor: formData.get('auditor'), 
+        titulo: formData.get('titulo'), 
+        severidad: formData.get('severidad'), 
+        evidenciaUrl: evidenciaUrlOut, 
+        causa: causaVal, 
+        claseObservacion: claseObservacionVal, 
+        historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
+      };
       updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
       setEditHallazgo(null);
     } else {
-      const nuevo = { id: Date.now(), sede: formData.get('sede'), ref: formData.get('ref'), proceso: formData.get('proceso'), responsable: formData.get('responsable'), auditor: formData.get('auditor'), titulo: formData.get('titulo'), severidad: formData.get('severidad'), estado: 'Abierto', fecha: new Date().toISOString().split('T')[0], anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] };
+      const nuevo = { 
+        id: Date.now(), 
+        sede: formData.get('sede'), 
+        ref: formData.get('ref'), 
+        proceso: formData.get('proceso'), 
+        responsable: formData.get('responsable'), 
+        auditor: formData.get('auditor'), 
+        titulo: formData.get('titulo'), 
+        severidad: formData.get('severidad'), 
+        estado: 'Abierto', 
+        fecha: new Date().toISOString().split('T')[0], 
+        anio: 2026, 
+        mes: "Junio", 
+        evidenciaUrl: evidenciaUrlOut, 
+        causa: causaVal, 
+        claseObservacion: claseObservacionVal, 
+        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] 
+      };
       updated = [...safeHallazgos, nuevo];
     }
-    setHallazgos(updated); await saveToCloud({ hallazgos: updated }); e.target.reset(); showNotification("Desviación documentada.");
+    setHallazgos(updated); 
+    await saveToCloud({ hallazgos: updated }); 
+    e.target.reset(); 
+    showNotification("Desviación documentada con análisis de causa.");
   };
-
 const handleComiteSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
