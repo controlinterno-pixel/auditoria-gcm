@@ -2532,7 +2532,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
   const renderWelcomeScreen = () => {
     // Logo Vectorial (SVG Puro)
     const LogoTermales = () => (
-      <svg viewBox="0 0 100 100" className="w-[70px] h-[70px] drop-shadow-sm shrink-0">
+      <svg viewBox="0 0 100 100" className="w-[75px] h-[75px] drop-shadow-sm shrink-0">
         <circle cx="16" cy="45" r="2" fill="#203d4a" />
         <circle cx="12" cy="49" r="1.5" fill="#203d4a" />
         <circle cx="18" cy="52" r="1.2" fill="#203d4a" />
@@ -2555,72 +2555,116 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
     return (
       <div className="relative flex min-h-screen w-full bg-[#f8fbfa] font-sans overflow-hidden">
         
-        {/* ================= FONDOS Y GEOMETRÍA ================= */}
+        {/* ================= 1. FONDOS PRINCIPALES ================= */}
         
-        {/* 1. Lado Izquierdo: Cascada (Apunta a la imagen local que subiste a /public) */}
+        {/* Lado Izquierdo: Cascada */}
         <div 
-          className="absolute left-0 top-0 w-1/2 h-full bg-cover bg-center z-0"
+          className="absolute left-0 top-0 w-[45%] h-full bg-cover bg-center z-0"
           style={{ backgroundImage: "url('/cascada.jpg'), linear-gradient(to right, #0A1A12, #11322A)" }}
         >
-          {/* Sombra de transición hacia el blanco */}
-          <div className="absolute inset-y-0 right-0 w-48 bg-gradient-to-l from-[#f8fbfa] via-[#f8fbfa]/80 to-transparent z-10"></div>
+          {/* Difuminado suave hacia el centro */}
+          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#f8fbfa] to-transparent z-10"></div>
         </div>
 
-        {/* 2. Geometría Tecnológica Derecha (Líneas y Hexágonos) */}
-        <div className="absolute right-0 top-0 w-1/2 h-full z-0 overflow-hidden">
-          <svg className="absolute inset-0 w-full h-full opacity-50" viewBox="0 0 800 1000" preserveAspectRatio="xMaxYMid slice">
-            <path d="M400,100 L700,400 L700,700 L500,900" fill="none" stroke="#64A338" strokeWidth="1" strokeDasharray="4,4" />
-            <circle cx="700" cy="400" r="4" fill="#64A338" opacity="0.6" />
-            <circle cx="500" cy="900" r="4" fill="#64A338" opacity="0.6" />
-            {/* Hexágonos */}
-            <polygon points="650,450 675,465 675,495 650,510 625,495 625,465" fill="none" stroke="#64A338" strokeWidth="1" />
-            <polygon points="730,520 745,530 745,550 730,560 715,550 715,530" fill="none" stroke="#64A338" strokeWidth="1" />
-          </svg>
-        </div>
+        {/* ================= 2. GEOMETRÍA Y VECTORES EXACTOS (HUD) ================= */}
+        
+        {/* A. Esquina Superior Derecha (Polígono verde oscuro con láser) */}
+        <svg className="absolute top-0 right-0 w-[400px] h-[400px] z-10 pointer-events-none" viewBox="0 0 400 400">
+          <defs>
+            <linearGradient id="grad-top-right" x1="1" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#051f15" />
+              <stop offset="100%" stopColor="#0a3b2a" />
+            </linearGradient>
+            <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+            <filter id="glow-dot" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+          {/* Forma oscura */}
+          <polygon points="120,0 400,0 400,280" fill="url(#grad-top-right)" />
+          {/* Línea láser verde brillante en el borde diagonal */}
+          <line x1="120" y1="0" x2="400" y2="280" stroke="#00FF87" strokeWidth="4" filter="url(#glow-green)" />
+          {/* Destello/Estrella cerca del borde */}
+          <circle cx="280" cy="80" r="2.5" fill="#eab308" filter="url(#glow-dot)" />
+          <path d="M280,70 L280,90 M270,80 L290,80" stroke="#eab308" strokeWidth="1" filter="url(#glow-dot)" opacity="0.6"/>
+        </svg>
 
-        {/* 3. Esquina Superior Derecha (Bloque Diagonal Oscuro con destello) */}
-        <div className="absolute top-[-15%] right-[-5%] w-[450px] h-[300px] bg-gradient-to-br from-[#062620] to-[#0A3B32] transform rotate-[-35deg] border-b-[6px] border-[#4CAF50] shadow-[0_0_40px_rgba(76,175,80,0.5)] z-10"></div>
+        {/* B. Esquina Inferior Izquierda (Circuito/Láser neón) */}
+        <svg className="absolute bottom-0 left-0 w-[400px] h-[400px] z-10 pointer-events-none" viewBox="0 0 400 400">
+          <defs>
+            <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="4" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+          {/* Línea de circuito diagonal exacta */}
+          <polyline points="-50,350 150,150 180,180" fill="none" stroke="#00FF87" strokeWidth="2.5" filter="url(#glow-cyan)" />
+          {/* Nodos del circuito */}
+          <circle cx="150" cy="150" r="4" fill="#00FF87" filter="url(#glow-cyan)" />
+          <circle cx="180" cy="180" r="2" fill="#00FF87" />
+          <circle cx="50" cy="250" r="2" fill="#00FF87" opacity="0.8"/>
+        </svg>
 
-        {/* 4. Esquina Inferior Izquierda (Láser diagonal neón) */}
-        <div className="absolute bottom-[10%] left-[-10%] w-[400px] h-[3px] bg-[#00FF87] transform rotate-[-45deg] shadow-[0_0_20px_#00FF87] z-10"></div>
+        {/* C. Fondo Tecnológico Derecho (Hexágonos y Líneas de puntos exactas) */}
+        <svg className="absolute top-0 right-0 w-full h-full opacity-60 z-0 pointer-events-none" viewBox="0 0 1000 1000" preserveAspectRatio="xMaxYMid slice">
+          {/* Línea segmentada principal */}
+          <path d="M550,-50 L850,250 L850,600 L600,850 L200,850" fill="none" stroke="#64A338" strokeWidth="1.2" strokeDasharray="8,8" />
+          {/* Nodos de intersección */}
+          <circle cx="850" cy="250" r="4" fill="#64A338" />
+          <circle cx="850" cy="600" r="4" fill="#64A338" />
+          <circle cx="600" cy="850" r="4" fill="#64A338" />
+          
+          {/* Grupo de Hexágonos */}
+          <g stroke="#64A338" strokeWidth="1.2" fill="none">
+            {/* Hexágono Centro-Derecha */}
+            <polygon points="760,400 785,415 785,445 760,460 735,445 735,415" />
+            {/* Hexágono Pequeño anidado */}
+            <polygon points="820,470 835,480 835,500 820,510 805,500 805,480" />
+            {/* Hexágono Inferior */}
+            <polygon points="680,700 700,712 700,736 680,748 660,736 660,712" />
+          </g>
+        </svg>
 
-        {/* ================= TARJETA CENTRAL ================= */}
+        {/* ================= 3. TARJETA CENTRAL ================= */}
         <div className="absolute inset-0 flex items-center justify-center p-4 z-20">
           
-          <div className="relative w-full max-w-[650px] animate-in zoom-in-95 duration-700">
+          <div className="relative w-full max-w-[620px] animate-in zoom-in-95 duration-700">
             
-            {/* Resplandor Neon Verde EXACTO debajo de la tarjeta */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-green-300 rounded-[3rem] blur-xl opacity-60"></div>
+            {/* Resplandor Neon Verde debajo de la tarjeta */}
+            <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-400 to-green-200 rounded-[3rem] blur-xl opacity-50"></div>
             
             {/* Contenedor Blanco Principal */}
             <div className="relative bg-white rounded-[2.5rem] shadow-2xl p-3 overflow-hidden">
               
-              {/* LA CÁPSULA (Línea gris interna que define la forma tecnológica) */}
-              <div className="relative border border-gray-200/80 rounded-[2rem] p-10 sm:p-12">
+              {/* --- EL MARCO TECNOLÓGICO INTERNO (Idéntico a tu maqueta) --- */}
+              <div className="relative border-[1.5px] border-gray-200 rounded-[2rem] p-10 sm:p-14">
                 
-                {/* Decoraciones del marco interno (Tapas blancas sobre la línea gris para crear los huecos) */}
-                
-                {/* Hueco esquina superior izquierda */}
-                <div className="absolute top-[-2px] left-8 w-12 h-1 bg-white"></div>
-                <div className="absolute top-8 left-[-2px] w-1 h-12 bg-white"></div>
-                <div className="absolute top-6 left-6 w-5 h-5 border-t-2 border-l-2 border-gray-300 rounded-tl-xl pointer-events-none"></div>
+                {/* Ocultadores para hacer los "cortes" del marco */}
+                {/* Corte superior izquierdo */}
+                <div className="absolute top-[-2px] left-10 w-8 h-1 bg-white"></div>
+                <div className="absolute top-10 left-[-2px] w-1 h-8 bg-white"></div>
+                <div className="absolute top-5 left-5 w-5 h-5 border-t-2 border-l-2 border-gray-300 rounded-tl-xl pointer-events-none"></div>
 
-                {/* Puntos esquina superior derecha */}
-                <div className="absolute top-[-2px] right-8 w-16 h-1 bg-white"></div>
-                <div className="absolute top-8 right-[-2px] w-1 h-12 bg-white"></div>
-                <div className="absolute top-6 right-6 grid grid-cols-3 gap-1.5 opacity-40 bg-white p-1">
-                  {[...Array(9)].map((_, i) => <div key={i} className="w-1.5 h-1.5 bg-gray-500 rounded-full"></div>)}
+                {/* Corte superior derecho (con los 9 puntos) */}
+                <div className="absolute top-[-2px] right-10 w-16 h-1 bg-white"></div>
+                <div className="absolute top-10 right-[-2px] w-1 h-12 bg-white"></div>
+                <div className="absolute top-6 right-6 grid grid-cols-3 gap-[4px] opacity-40 bg-white p-1">
+                  {[...Array(9)].map((_, i) => <div key={i} className="w-[5px] h-[5px] bg-[#4A5D66] rounded-full"></div>)}
                 </div>
 
-                {/* Hueco esquina inferior derecha */}
-                <div className="absolute bottom-[-2px] right-8 w-12 h-1 bg-white"></div>
-                <div className="absolute bottom-8 right-[-2px] w-1 h-12 bg-white"></div>
-                <div className="absolute bottom-6 right-6 w-5 h-5 border-b-2 border-r-2 border-gray-300 rounded-br-xl pointer-events-none"></div>
+                {/* Corte inferior derecho */}
+                <div className="absolute bottom-[-2px] right-10 w-8 h-1 bg-white"></div>
+                <div className="absolute bottom-10 right-[-2px] w-1 h-8 bg-white"></div>
+                <div className="absolute bottom-5 right-5 w-5 h-5 border-b-2 border-r-2 border-gray-300 rounded-br-xl pointer-events-none"></div>
 
                 {/* ---------------- CONTENIDO ---------------- */}
                 
                 {/* LOGO */}
-                <div className="flex flex-col items-center mb-6 mt-2">
+                <div className="flex flex-col items-center mb-6 mt-1">
                   <div className="flex items-center space-x-2">
                     <LogoTermales />
                     <div className="flex flex-col leading-none ml-2">
@@ -2640,14 +2684,14 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                     {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
                   </h2>
                   <div className="flex items-center justify-center my-4 opacity-80">
-                    <div className="h-[1px] bg-gray-300 w-12"></div>
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#64A338] mx-2"></div>
-                    <div className="h-[1px] bg-gray-300 w-12"></div>
+                    <div className="h-[1px] bg-gray-300 w-10"></div>
+                    <div className="w-[5px] h-[5px] rounded-full bg-[#64A338] mx-2"></div>
+                    <div className="h-[1px] bg-gray-300 w-10"></div>
                   </div>
                 </div>
 
                 {/* TEXTO DESCRIPTIVO */}
-                <div className="text-center mb-10 px-4">
+                <div className="text-center mb-10 px-2">
                   <p className="text-[14px] text-gray-500 leading-relaxed font-medium max-w-sm mx-auto">
                     {isAdmin
                       ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global.'
@@ -2655,8 +2699,8 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                   </p>
                 </div>
 
-                {/* BOTONES EXACTOS */}
-                <div className="space-y-4 max-w-[400px] mx-auto">
+                {/* BOTONES */}
+                <div className="space-y-4 max-w-[400px] mx-auto relative z-20">
                   <button 
                     onClick={() => setShowWelcome(false)} 
                     className="w-full bg-[#0A3B32] hover:bg-[#062620] text-white py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center justify-center space-x-3 active:scale-95 group"
@@ -2671,7 +2715,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                     onClick={handleLogout} 
                     className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-[#64A338] py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center space-x-3 active:scale-95 group shadow-sm"
                   >
-                    <svg className="w-5 h-5 text-[#64A338]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-[#64A338]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
                     <span>Cerrar Sesión</span>
@@ -2680,10 +2724,10 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 
                 {/* PUNTOS INFERIORES */}
                 <div className="flex justify-center items-center space-x-2 mt-8">
-                  <div className="w-2.5 h-2.5 rounded-full border-[1.5px] border-[#64A338] bg-transparent"></div>
-                  <div className="w-2.5 h-2.5 rounded-full border-[1.5px] border-[#64A338] bg-transparent"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#64A338]"></div>
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#64A338]"></div>
+                  <div className="w-[7px] h-[7px] rounded-full border border-[#64A338] bg-transparent"></div>
+                  <div className="w-[7px] h-[7px] rounded-full border border-[#64A338] bg-transparent"></div>
+                  <div className="w-[7px] h-[7px] rounded-full bg-[#64A338]"></div>
+                  <div className="w-[7px] h-[7px] rounded-full bg-[#64A338]"></div>
                 </div>
 
               </div>
@@ -2692,7 +2736,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
         </div>
       </div>
     );
-  }; 
+  };
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
