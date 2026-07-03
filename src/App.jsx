@@ -331,7 +331,7 @@ const [editComite, setEditComite] = useState(null);
     setSelectedMeses(prev => prev.includes(mes) ? prev.filter(m => m !== mes) : [...prev, mes]);
   };
 
-  useEffect(() => {
+ useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -339,6 +339,7 @@ const [editComite, setEditComite] = useState(null);
         setIsAdmin(ADMIN_EMAILS.includes(emailNorm));
       } else {
         setIsAdmin(false);
+        setShowWelcome(true); // 🛡️ ¡LÍNEA NUEVA! Cada vez que se cierre sesión, reinicia la bienvenida a true
       }
     });
     return () => unsubscribe();
@@ -386,7 +387,10 @@ setComites(data.comites || []);
     } catch (error) { setAuthError('Error en credenciales.'); }
   };
 
-  const handleLogout = async () => { await signOut(auth); };
+const handleLogout = async () => { 
+    await signOut(auth); 
+    setShowWelcome(true); // 🛡️ Asegura que al dar clic al botón se active la pantalla de nuevo
+  };
   const saveToCloud = async (partialData) => { await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
