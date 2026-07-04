@@ -43,7 +43,7 @@ export default function Planes({
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // 🟢 ENRIQUECIMIENTO MAESTRO: Unimos el Plan con textos de sus padres para la búsqueda
+  // 🟢 ENRIQUECIMIENTO MAESTRO: Cruzamos el Plan con textos de sus padres (Hallazgo e Informe)
   let planesData = pFiltrados.map(p => {
     const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
     const informe = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme)) || {};
@@ -53,14 +53,17 @@ export default function Planes({
       fechaVal: formatSafeDate(p.fecha),
       estadoWorkflow: p.estadoWorkflow || 'Borrador',
       
-      // Inyectamos campos ocultos de texto para que el buscador general los escanee:
-      textoHallazgoSede: hallazgo.sede || '',
-      textoHallazgoProceso: hallazgo.proceso || '',
-      textoHallazgoTitulo: hallazgo.titulo || '',
-      textoInformeRef: informe.ref || '',
-      textoInformeTitulo: informe.titulo || ''
+      // Campos de texto formateados para búsquedas exactas con o sin el símbolo '#'
+      planRefTexto: `#PLAN-${p.id} PLAN-${p.id}`,
+      hallazgoRefTexto: `#HAL-${p.idHallazgo} HAL-${p.idHallazgo} ${hallazgo.proceso || ''} ${hallazgo.sede || ''}`,
+      
+      // Propiedades mapeadas directamente para que las columnas las puedan leer e indexar
+      proceso: hallazgo.proceso || 'General',
+      sede: hallazgo.sede || 'Hotel',
+      accionTexto: `${p.accion} ${p.responsable || ''} ${p.mecanismo || ''}`
     };
   });
+
   // 🔗 FILTRADO MAESTRO INTERACTIVO: Vinculación automática Plan -> Hallazgo -> Informe Origen
   if (selectedInformeFilter) {
     planesData = planesData.filter(plan => {
@@ -68,7 +71,6 @@ export default function Planes({
       return String(hallazgo.idInforme) === String(selectedInformeFilter);
     });
   }
-
   const getWorkflowBadgeClass = (status) => {
     switch (status) {
       case 'Borrador': return 'bg-slate-100 text-slate-700 border-slate-300';
@@ -425,16 +427,33 @@ export default function Planes({
            </div>
         </div>
         <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
+<thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
             <tr>
-              <th className="p-3">ID Plan</th>
-              <th className="p-3">Gobernanza (Fase)</th>
-              <th className="p-3">Hallazgo Raíz</th>
-              <th className="p-3">Acción Remedial Programada</th>
-              <th className="p-3 w-40">% Avance</th>
-              <th className="p-3 text-center">Gestión</th>
+              <th className="p-3">
+                <div>ID Plan</div>
+                <FilterInput colKey="planRefTexto" placeholder="Ej: PLAN-1..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+              </th>
+              <th className="p-3">
+                <div>Gobernanza (Fase)</div>
+                <FilterInput colKey="estadoWorkflow" placeholder="Fase..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+              </th>
+              <th className="p-3">
+                <div>Hallazgo / Proceso</div>
+                <FilterInput colKey="hallazgoRefTexto" placeholder="Ej: HAL-1 o Proceso..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+              </th>
+              <th className="p-3">
+                <div>Acción Remedial Programada</div>
+                <FilterInput colKey="accionTexto" placeholder="Filtrar por Acción..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+              </th>
+              <th className="p-3 w-40">
+                <div>% Avance</div>
+                <FilterInput colKey="progreso" placeholder="Progreso %..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+              </th>
+              <th className="p-3 text-center">
+                <div className="mb-8">Gestión</div>
+              </th>
             </tr>
-          </thead>
+          </thead>         
           <tbody className="divide-y text-slate-700">
             {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
               const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
@@ -448,12 +467,15 @@ export default function Planes({
                     </span>
                   </td>
 
-                  <td className="p-3 text-red-600 font-bold">
+                 <td className="p-3 text-red-600 font-bold">
                     #HAL-{p.idHallazgo}
-                    <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-1">
-                      {hallazgoAsociado?.sede || 'Hotel'}
+                    <span className="text-[9px] uppercase tracking-widest text-slate-600 font-black block mt-0.5">
+                      💼 {hallazgoAsociado?.proceso || 'General'}
                     </span>
-                  </td>
+                    <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-0.5">
+                      📍 {hallazgoAsociado?.sede || 'Hotel'}
+                    </span>
+                  </td> 
                   <td className="p-3 text-slate-800 font-medium">
                     <div className="font-black text-slate-900">{p.accion}</div>
                     
