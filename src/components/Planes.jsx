@@ -43,13 +43,24 @@ export default function Planes({
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // Mapeamos los planes inyectando estados workflow por defecto
-  let planesData = pFiltrados.map(p => ({ 
-    ...p, 
-    fechaVal: formatSafeDate(p.fecha),
-    estadoWorkflow: p.estadoWorkflow || 'Borrador' 
-  }));
-
+  // 🟢 ENRIQUECIMIENTO MAESTRO: Unimos el Plan con textos de sus padres para la búsqueda
+  let planesData = pFiltrados.map(p => {
+    const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
+    const informe = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme)) || {};
+    
+    return { 
+      ...p, 
+      fechaVal: formatSafeDate(p.fecha),
+      estadoWorkflow: p.estadoWorkflow || 'Borrador',
+      
+      // Inyectamos campos ocultos de texto para que el buscador general los escanee:
+      textoHallazgoSede: hallazgo.sede || '',
+      textoHallazgoProceso: hallazgo.proceso || '',
+      textoHallazgoTitulo: hallazgo.titulo || '',
+      textoInformeRef: informe.ref || '',
+      textoInformeTitulo: informe.titulo || ''
+    };
+  });
   // 🔗 FILTRADO MAESTRO INTERACTIVO: Vinculación automática Plan -> Hallazgo -> Informe Origen
   if (selectedInformeFilter) {
     planesData = planesData.filter(plan => {

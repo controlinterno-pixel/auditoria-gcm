@@ -71,24 +71,33 @@ export const calcularMatriz5x5 = (probabilidad, impacto) => {
   return { score, apetito, accion, color, borderSemaforo };
 };
 
-export const applyFilters = (dataArray, globalTerm, colFilters = {}) => {
-  let result = dataArray;
-  if (globalTerm) {
-    const lowerTerm = globalTerm.toLowerCase();
-    result = result.filter(item => 
-      Object.values(item).some(val => val !== null && val !== undefined && String(val).toLowerCase().includes(lowerTerm))
-    );
+export const applyFilters = (dataArray, query, columnFilters = {}) => {
+  if (!Array.isArray(dataArray)) return [];
+  
+  let result = [...dataArray];
+
+  // 1. Procesar la barra de Búsqueda General (Texto libre)
+  if (query && query.trim() !== "") {
+    const lowQuery = query.toLowerCase().trim();
+    result = result.filter(item => {
+      return Object.values(item).some(val => 
+        val !== null && val !== undefined && String(val).toLowerCase().includes(lowQuery)
+      );
+    });
   }
-  if (colFilters && Object.keys(colFilters).length > 0) {
-    Object.entries(colFilters).forEach(([key, filterValue]) => {
-      if (filterValue) {
-        const lowerFilter = filterValue.toLowerCase();
-        result = result.filter(item => {
-          const val = item[key];
-          return val !== null && val !== undefined && String(val).toLowerCase().includes(lowerFilter);
-        });
+
+  // 2. Procesar los Filtros Avanzados por Columnas individuales
+  if (columnFilters && Object.keys(columnFilters).length > 0) {
+    Object.keys(columnFilters).forEach(key => {
+      const filterValue = columnFilters[key];
+      if (filterValue && String(filterValue).trim() !== "") {
+        const lowFilter = String(filterValue).toLowerCase().trim();
+        result = result.filter(item => 
+          item[key] !== null && item[key] !== undefined && String(item[key]).toLowerCase().includes(lowFilter)
+        );
       }
     });
   }
+
   return result;
 };
