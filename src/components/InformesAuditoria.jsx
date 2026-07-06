@@ -39,7 +39,7 @@ export default function InformesAuditoria({
   };
 
   // ============================================================================
-  // 🖨️ MOTOR PDF GRÁFICO AVANZADO (CORS FIX)
+  // 🖨️ MOTOR PDF GRÁFICO (CON FIX PARA COLORES OKLCH DE TAILWIND V4)
   // ============================================================================
   const generarPDFEjecutivo = async () => {
     if (!selectedInforme) return;
@@ -73,7 +73,6 @@ export default function InformesAuditoria({
         const pageElement = document.getElementById(paginas[i]);
         if (!pageElement) continue;
 
-        // 🛡️ allowTaint y useCORS evitan que el navegador bloquee fotos de Drive
         const canvas = await window.html2canvas(pageElement, { 
           scale: 2, 
           useCORS: true, 
@@ -94,7 +93,7 @@ export default function InformesAuditoria({
       
     } catch (error) {
       console.error("Error generando PDF:", error);
-      alert("Hubo un error al compilar el PDF. Verifica que las URLs de las fotos sean públicas.");
+      alert("Hubo un error al compilar el PDF. Comunícate con soporte técnico.");
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -112,104 +111,103 @@ export default function InformesAuditoria({
         
         {/* ============================================================
             PLANTILLA HTML OCULTA PARA EL MOTOR HTML2CANVAS 
-            (Fijada y oculta sin romper la lectura del DOM)
+            (Usamos variables estilo React para forzar códigos HEX y saltar error OKLCH)
         ============================================================= */}
-        <div className="fixed top-0 left-[-10000px] z-[-100] opacity-0 pointer-events-none">
+        <div style={{ position: 'fixed', top: 0, left: '-10000px', zIndex: -100, opacity: 0, pointerEvents: 'none' }}>
           
           {/* PÁGINA 1: PORTADA */}
-          <div id="pdf-pag-1" className="w-[816px] h-[1056px] bg-white relative overflow-hidden font-sans flex">
-            <div className="w-[280px] h-full bg-[#042f2e] text-white p-10 flex flex-col justify-between">
+          <div id="pdf-pag-1" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', display: 'flex', fontFamily: 'sans-serif', overflow: 'hidden' }}>
+            <div style={{ width: '280px', height: '100%', backgroundColor: '#042f2e', color: '#ffffff', padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
-                <div className="flex items-center space-x-2 mb-16">
-                  <div className="w-10 h-10 bg-white rounded-full flex justify-center items-center text-xl shadow-lg">💧</div>
-                  <div><h1 className="text-xl font-black leading-none">TERMALES</h1><p className="text-[10px] text-emerald-300">Santa Rosa de Cabal</p></div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '64px' }}>
+                  <div style={{ width: '40px', height: '40px', backgroundColor: '#ffffff', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>💧</div>
+                  <div style={{ marginLeft: '8px' }}><h1 style={{ fontSize: '20px', fontWeight: 900, margin: 0, lineHeight: 1 }}>TERMALES</h1><p style={{ fontSize: '10px', color: '#6ee7b7', margin: 0 }}>Santa Rosa de Cabal</p></div>
                 </div>
-                <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold mb-2">Centro de Mando GRC</p>
-                <h2 className="text-4xl font-black leading-tight mb-2">INFORME DE<br/>AUDITORÍA</h2>
-                <h3 className="text-3xl font-black text-emerald-400 mb-8">{selectedInforme.ref}</h3>
+                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '2px', color: '#34d399', fontWeight: 'bold', marginBottom: '8px' }}>Centro de Mando GRC</p>
+                <h2 style={{ fontSize: '36px', fontWeight: 900, lineHeight: 1.1, margin: '0 0 8px 0' }}>INFORME DE<br/>AUDITORÍA</h2>
+                <h3 style={{ fontSize: '30px', fontWeight: 900, color: '#34d399', margin: '0 0 32px 0' }}>{selectedInforme.ref}</h3>
                 
-                <div className="space-y-6">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                   <div>
-                    <p className="text-[9px] text-emerald-200 uppercase tracking-widest mb-1">Proceso Auditado</p>
-                    <p className="font-bold text-sm uppercase">{selectedInforme.proceso}</p>
+                    <p style={{ fontSize: '9px', color: '#a7f3d0', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px 0' }}>Proceso Auditado</p>
+                    <p style={{ fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase', margin: 0 }}>{selectedInforme.proceso}</p>
                   </div>
                   <div>
-                    <p className="text-[9px] text-emerald-200 uppercase tracking-widest mb-1">Fecha de Emisión</p>
-                    <p className="font-bold text-sm">{formatSafeDate(selectedInforme.fecha)}</p>
+                    <p style={{ fontSize: '9px', color: '#a7f3d0', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px 0' }}>Fecha de Emisión</p>
+                    <p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{formatSafeDate(selectedInforme.fecha)}</p>
                   </div>
                   <div>
-                    <p className="text-[9px] text-emerald-200 uppercase tracking-widest mb-1">Auditor Responsable</p>
-                    <p className="font-bold text-sm">{selectedInforme.elaboradoPor}</p>
+                    <p style={{ fontSize: '9px', color: '#a7f3d0', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px 0' }}>Auditor Responsable</p>
+                    <p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{selectedInforme.elaboradoPor}</p>
                   </div>
                 </div>
               </div>
-              <div className="border-t border-emerald-800 pt-6">
-                 <p className="text-[9px] font-black uppercase text-emerald-300 mb-2">Estado del Informe</p>
-                 <div className="bg-emerald-500 text-white font-black uppercase text-xs px-4 py-2 inline-block rounded">
+              <div style={{ borderTop: '1px solid #065f46', paddingTop: '24px' }}>
+                 <p style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', color: '#6ee7b7', margin: '0 0 8px 0' }}>Estado del Informe</p>
+                 <div style={{ backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, textTransform: 'uppercase', fontSize: '12px', padding: '8px 16px', display: 'inline-block', borderRadius: '4px' }}>
                    {selectedInforme.socializado === 'Sí' ? 'EMITIDO Y SOCIALIZADO' : 'INFORME EMITIDO'}
                  </div>
               </div>
             </div>
             
-            {/* Contenido Derecha Portada (Textura removida para evitar Error CORS) */}
-            <div className="flex-1 h-full bg-slate-50 flex items-center justify-center p-12 relative">
-               <div className="relative z-10 text-center">
-                 <h1 className="text-4xl font-black text-slate-800 uppercase leading-snug">{selectedInforme.titulo}</h1>
-                 <div className="w-24 h-2 bg-emerald-500 mx-auto mt-6 rounded-full"></div>
+            <div style={{ flex: 1, height: '100%', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', position: 'relative' }}>
+               <div style={{ position: 'relative', zIndex: 10, textAlign: 'center' }}>
+                 <h1 style={{ fontSize: '36px', fontWeight: 900, color: '#1e293b', textTransform: 'uppercase', lineHeight: 1.4 }}>{selectedInforme.titulo}</h1>
+                 <div style={{ width: '96px', height: '8px', backgroundColor: '#10b981', margin: '24px auto 0', borderRadius: '9999px' }}></div>
                </div>
             </div>
           </div>
 
           {/* PÁGINA 2: RESUMEN Y HALLAZGOS */}
-          <div id="pdf-pag-2" className="w-[816px] h-[1056px] bg-white relative font-sans p-12 flex flex-col">
-            <div className="border-b-4 border-[#042f2e] pb-4 mb-8 flex justify-between items-end">
-              <h2 className="text-2xl font-black text-[#042f2e] uppercase tracking-widest">Resumen Ejecutivo</h2>
-              <div className="flex items-center space-x-2"><div className="w-6 h-6 bg-[#042f2e] rounded-full text-white flex items-center justify-center text-[10px]">💧</div><span className="font-bold text-slate-600 text-xs uppercase">Termales</span></div>
+          <div id="pdf-pag-2" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'sans-serif', padding: '48px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ borderBottom: '4px solid #042f2e', paddingBottom: '16px', marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Resumen Ejecutivo</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div style={{ width: '24px', height: '24px', backgroundColor: '#042f2e', borderRadius: '50%', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>💧</div><span style={{ fontWeight: 'bold', color: '#475569', fontSize: '12px', textTransform: 'uppercase' }}>Termales</span></div>
             </div>
             
-            <div className="grid grid-cols-2 gap-8 mb-8">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
               <div>
-                <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Objetivo</h3>
-                <p className="text-sm text-slate-600 text-justify">{selectedInforme.objetivo || 'Evaluar la eficacia de los controles, la continuidad del negocio y la gestión de riesgos.'}</p>
+                <h3 style={{ fontSize: '12px', fontWeight: 900, color: '#059669', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Objetivo</h3>
+                <p style={{ fontSize: '14px', color: '#475569', textAlign: 'justify', margin: 0 }}>{selectedInforme.objetivo || 'Evaluar la eficacia de los controles, la continuidad del negocio y la gestión de riesgos.'}</p>
               </div>
               <div>
-                <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Alcance</h3>
-                <p className="text-sm text-slate-600 text-justify">{selectedInforme.alcance || 'La auditoría cubre los procesos y sistemas descritos en la matriz de riesgos oficial.'}</p>
+                <h3 style={{ fontSize: '12px', fontWeight: 900, color: '#059669', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Alcance</h3>
+                <p style={{ fontSize: '14px', color: '#475569', textAlign: 'justify', margin: 0 }}>{selectedInforme.alcance || 'La auditoría cubre los procesos y sistemas descritos en la matriz de riesgos oficial.'}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 mb-10">
-              <div className="border-2 border-slate-100 bg-slate-50 rounded-xl p-4 text-center">
-                <p className="text-[10px] font-black uppercase text-slate-500 mb-2 tracking-widest">Hallazgos</p>
-                <p className="text-4xl font-black text-slate-800">{hInfo.length}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '40px' }}>
+              <div style={{ border: '2px solid #f1f5f9', backgroundColor: '#f8fafc', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: '#64748b', marginBottom: '8px', letterSpacing: '1px' }}>Hallazgos</p>
+                <p style={{ fontSize: '36px', fontWeight: 900, color: '#1e293b', margin: 0 }}>{hInfo.length}</p>
               </div>
-              <div className="border-2 border-red-100 bg-red-50 rounded-xl p-4 text-center">
-                <p className="text-[10px] font-black uppercase text-red-600 mb-2 tracking-widest">Críticos</p>
-                <p className="text-4xl font-black text-red-600">{hCrit}</p>
+              <div style={{ border: '2px solid #fee2e2', backgroundColor: '#fef2f2', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: '#dc2626', marginBottom: '8px', letterSpacing: '1px' }}>Críticos</p>
+                <p style={{ fontSize: '36px', fontWeight: 900, color: '#dc2626', margin: 0 }}>{hCrit}</p>
               </div>
-              <div className="border-2 border-blue-100 bg-blue-50 rounded-xl p-4 text-center">
-                <p className="text-[10px] font-black uppercase text-blue-700 mb-2 tracking-widest">Planes</p>
-                <p className="text-4xl font-black text-blue-700">{pInfo.length}</p>
+              <div style={{ border: '2px solid #dbeafe', backgroundColor: '#eff6ff', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: '#1d4ed8', marginBottom: '8px', letterSpacing: '1px' }}>Planes</p>
+                <p style={{ fontSize: '36px', fontWeight: 900, color: '#1d4ed8', margin: 0 }}>{pInfo.length}</p>
               </div>
-              <div className="border-2 border-emerald-100 bg-emerald-50 rounded-xl p-4 text-center">
-                <p className="text-[10px] font-black uppercase text-emerald-700 mb-2 tracking-widest">Cumplimiento</p>
-                <p className="text-4xl font-black text-emerald-600">{avance}%</p>
+              <div style={{ border: '2px solid #d1fae5', backgroundColor: '#ecfdf5', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: '#047857', marginBottom: '8px', letterSpacing: '1px' }}>Cumplimiento</p>
+                <p style={{ fontSize: '36px', fontWeight: 900, color: '#059669', margin: 0 }}>{avance}%</p>
               </div>
             </div>
 
-            <h3 className="text-sm font-black text-[#042f2e] uppercase tracking-widest mb-4">Matriz de Hallazgos Detectados</h3>
-            <table className="w-full text-xs text-left mb-auto">
-              <thead className="bg-[#042f2e] text-white font-bold uppercase">
-                <tr><th className="p-3">ID</th><th className="p-3">Descripción</th><th className="p-3 text-center">Criticidad</th></tr>
+            <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', margin: 0 }}>Matriz de Hallazgos Detectados</h3>
+            <table style={{ width: '100%', fontSize: '12px', textAlign: 'left', marginBottom: 'auto', borderCollapse: 'collapse' }}>
+              <thead style={{ backgroundColor: '#042f2e', color: '#ffffff', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                <tr><th style={{ padding: '12px' }}>ID</th><th style={{ padding: '12px' }}>Descripción</th><th style={{ padding: '12px', textAlign: 'center' }}>Criticidad</th></tr>
               </thead>
-              <tbody className="divide-y divide-slate-200">
-                {hInfo.length === 0 ? <tr><td colSpan="3" className="p-4 text-center text-slate-500">Ningún hallazgo reportado.</td></tr> : 
+              <tbody>
+                {hInfo.length === 0 ? <tr><td colSpan="3" style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Ningún hallazgo reportado.</td></tr> : 
                  hInfo.slice(0, 10).map((h, i) => (
-                  <tr key={i} className="bg-slate-50">
-                    <td className="p-3 font-bold">{h.ref}</td>
-                    <td className="p-3">{h.titulo}</td>
-                    <td className="p-3 text-center">
-                      <span className={`px-2 py-1 rounded font-black text-[9px] uppercase text-white ${h.severidad==='Crítico'||h.severidad==='Alto'?'bg-red-600':'bg-amber-500'}`}>{h.severidad}</span>
+                  <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#f8fafc' : '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '12px', fontWeight: 'bold' }}>{h.ref}</td>
+                    <td style={{ padding: '12px' }}>{h.titulo}</td>
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <span style={{ padding: '4px 8px', borderRadius: '4px', fontWeight: 900, fontSize: '9px', textTransform: 'uppercase', color: '#ffffff', backgroundColor: (h.severidad==='Crítico'||h.severidad==='Alto') ? '#dc2626' : '#f59e0b' }}>{h.severidad}</span>
                     </td>
                   </tr>
                 ))}
@@ -218,43 +216,43 @@ export default function InformesAuditoria({
           </div>
 
           {/* PÁGINA 3: GALERÍA, CONCLUSIONES Y FIRMAS */}
-          <div id="pdf-pag-3" className="w-[816px] h-[1056px] bg-white relative font-sans p-12 flex flex-col">
-            <div className="border-b-4 border-[#042f2e] pb-4 mb-8 flex justify-between items-end">
-              <h2 className="text-2xl font-black text-[#042f2e] uppercase tracking-widest">Evidencias y Firmas</h2>
-              <div className="flex items-center space-x-2"><div className="w-6 h-6 bg-[#042f2e] rounded-full text-white flex items-center justify-center text-[10px]">💧</div><span className="font-bold text-slate-600 text-xs uppercase">Termales</span></div>
+          <div id="pdf-pag-3" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'sans-serif', padding: '48px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ borderBottom: '4px solid #042f2e', paddingBottom: '16px', marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Evidencias y Firmas</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div style={{ width: '24px', height: '24px', backgroundColor: '#042f2e', borderRadius: '50%', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>💧</div><span style={{ fontWeight: 'bold', color: '#475569', fontSize: '12px', textTransform: 'uppercase' }}>Termales</span></div>
             </div>
 
-            <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest mb-4">Registro Fotográfico / Evidencias</h3>
-            <div className="grid grid-cols-2 gap-4 mb-10">
+            <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#059669', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', margin: 0 }}>Registro Fotográfico / Evidencias</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '40px' }}>
                {[1,2,3,4].map(num => {
                  const url = selectedInforme[`img${num}Url`];
                  const desc = selectedInforme[`img${num}Desc`];
                  return url ? (
-                   <div key={num} className="border border-slate-200 p-2 rounded-lg bg-slate-50 flex flex-col items-center justify-center">
-                     <img src={url} alt="Evidencia" className="max-h-32 object-contain mb-2 rounded" crossOrigin="anonymous" onError={(e)=>{e.target.style.display='none'}} />
-                     <p className="text-[10px] font-bold text-slate-600 text-center">{desc || `Evidencia ${num}`}</p>
+                   <div key={num} style={{ border: '1px solid #e2e8f0', padding: '8px', borderRadius: '8px', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                     {/* Imagen Proxy: Si la URL falla, muestra un fallback */}
+                     <img src={url} alt="Evidencia" style={{ maxHeight: '128px', objectFit: 'contain', marginBottom: '8px', borderRadius: '4px' }} crossOrigin="anonymous" onError={(e)=>{e.target.style.display='none'}} />
+                     <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#475569', textAlign: 'center', margin: 0 }}>{desc || `Evidencia ${num}`}</p>
                    </div>
                  ) : null;
                })}
-               {!selectedInforme.img1Url && !selectedInforme.img2Url && <div className="col-span-2 text-sm italic text-slate-500">Sin registro fotográfico adjunto.</div>}
+               {!selectedInforme.img1Url && !selectedInforme.img2Url && <div style={{ gridColumn: 'span 2', fontSize: '14px', fontStyle: 'italic', color: '#64748b' }}>Sin registro fotográfico adjunto.</div>}
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl mb-auto">
-              <h3 className="text-sm font-black text-[#042f2e] uppercase tracking-widest mb-2">Conclusión General</h3>
-              <p className="text-xs text-slate-600 mb-6 whitespace-pre-wrap">{selectedInforme.conclusion || 'Se emitieron planes de acción para mitigar los hallazgos descritos en este informe.'}</p>
+            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', padding: '24px', borderRadius: '16px', marginBottom: 'auto' }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', margin: 0 }}>Conclusión General</h3>
+              <p style={{ fontSize: '12px', color: '#475569', marginBottom: '24px', whiteSpace: 'pre-wrap' }}>{selectedInforme.conclusion || 'Se emitieron planes de acción para mitigar los hallazgos descritos en este informe.'}</p>
               
-              <h3 className="text-sm font-black text-[#042f2e] uppercase tracking-widest mb-2">Fortalezas del Proceso</h3>
-              <p className="text-xs text-slate-600 whitespace-pre-wrap">{selectedInforme.fortalezas || '1. Disposición del personal auditado.'}</p>
+              <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', margin: 0 }}>Fortalezas del Proceso</h3>
+              <p style={{ fontSize: '12px', color: '#475569', whiteSpace: 'pre-wrap', margin: 0 }}>{selectedInforme.fortalezas || '1. Disposición del personal auditado.'}</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-6 mt-10">
-              <div className="text-center"><div className="border-b border-black w-40 mx-auto mb-2"></div><p className="font-bold text-sm">{selectedInforme.elaboradoPor}</p><p className="text-[10px] text-slate-500 uppercase">Elaboró</p></div>
-              <div className="text-center"><div className="border-b border-black w-40 mx-auto mb-2"></div><p className="font-bold text-sm">{selectedInforme.revisadoPor}</p><p className="text-[10px] text-slate-500 uppercase">Revisó</p></div>
-              <div className="text-center"><div className="border-b border-black w-40 mx-auto mb-2"></div><p className="font-bold text-sm">{selectedInforme.aprobadoPor}</p><p className="text-[10px] text-slate-500 uppercase">Aprobó</p></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px', marginTop: '40px' }}>
+              <div style={{ textAlign: 'center' }}><div style={{ borderBottom: '1px solid #000000', width: '160px', margin: '0 auto 8px' }}></div><p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{selectedInforme.elaboradoPor}</p><p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', margin: 0 }}>Elaboró</p></div>
+              <div style={{ textAlign: 'center' }}><div style={{ borderBottom: '1px solid #000000', width: '160px', margin: '0 auto 8px' }}></div><p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{selectedInforme.revisadoPor}</p><p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', margin: 0 }}>Revisó</p></div>
+              <div style={{ textAlign: 'center' }}><div style={{ borderBottom: '1px solid #000000', width: '160px', margin: '0 auto 8px' }}></div><p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{selectedInforme.aprobadoPor}</p><p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', margin: 0 }}>Aprobó</p></div>
             </div>
           </div>
         </div>
-
         {/* ============================================================
             FIN DE PLANTILLA OCULTA 
         ============================================================= */}
