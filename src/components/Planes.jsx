@@ -207,13 +207,6 @@ export default function Planes({
     };
   });
 
-  if (selectedInformeFilter) {
-    planesData = planesData.filter(plan => {
-      const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
-      return String(hallazgo.idInforme) === String(selectedInformeFilter);
-    });
-  }
-
   const getWorkflowBadgeClass = (status) => {
     switch (status) {
       case 'Borrador': return 'bg-slate-100 text-slate-700 border-slate-300';
@@ -225,12 +218,14 @@ export default function Planes({
   };
 
   // =====================================================================
-  // 🖨️ MOTOR DE EXPORTACIÓN PDF CON FILTRO OBLIGATORIO PREVIO
+  // 🖨️ MOTOR DE EXPORTACIÓN PDF CON ENLACE INTELIGENTE HÍBRIDO
   // =====================================================================
   const exportarPlanMejoramientoPDF = async () => {
-    // 🛑 CANDADO DE VALIDACIÓN ASESORADO
-    if (!selectedInformeFilter) {
-      alert("📋 Por favor, primero elija un 'Informe de Origen' en el menú desplegable de la tabla de seguimiento. Así el sistema sabrá exactamente qué plan y qué actividades amarradas debe imprimir.");
+    // 🧠 MEJORA: Detecta de forma híbrida cuál de los dos selectores está activo
+    const targetInformeId = selectedInformeFilter || formInformeId;
+
+    if (!targetInformeId) {
+      alert("📋 Por favor, seleccione un informe (ya sea arriba en el formulario de registro o abajo en el filtro de la tabla) para saber exactamente qué actividades procesar en el PDF.");
       return;
     }
 
@@ -270,7 +265,7 @@ export default function Planes({
       let descripcionPlan = 'Plan de mejoramiento estructurado para dar cierre oportuno a los hallazgos y desviaciones.';
       let informeRef = 'Consolidado General';
 
-      const informeSeleccionado = informesAuditoria.find(inf => String(inf.id) === String(selectedInformeFilter));
+      const informeSeleccionado = informesAuditoria.find(inf => String(inf.id) === String(targetInformeId));
       if (informeSeleccionado) {
         fechaSuscripcion = formatSafeDate(informeSeleccionado.fecha) || fechaSuscripcion;
         fuentePlan = `Auditoría Interna - Ref: ${informeSeleccionado.ref}`;
@@ -304,7 +299,11 @@ export default function Planes({
         ]
       });
 
-      const tableData = planesData.map((plan, index) => {
+      // 🧠 FILTRADO DINÁMICO EN CALIENTE: Extraemos los hallazgos del informe seleccionado para armar la tabla del PDF
+      const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(targetInformeId)).map(h => h.id);
+      const pdfPlanesFiltrados = pFiltrados.filter(plan => reportFindingsIds.includes(plan.idHallazgo));
+
+      const tableData = pdfPlanesFiltrados.map((plan, index) => {
         const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
         return [
           index + 1, 
@@ -317,7 +316,7 @@ export default function Planes({
           plan.responsable, 
           `${plan.progreso || plan.avance || 0}%`, 
           plan.fechaInicio ? formatSafeDate(plan.fechaInicio) : 'N/A', 
-          plan.fechaVal || 'No definida', 
+          formatSafeDate(plan.fecha) || 'No definida', 
           plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente' 
         ];
       });
@@ -377,6 +376,15 @@ export default function Planes({
       setIsGeneratingPdf(false);
     }
   };
+
+  // Filtrado visual de la tabla inferior
+  let tableFilteredData = planesData;
+  if (selectedInformeFilter) {
+    tableFilteredData = tableFilteredData.filter(plan => {
+      const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
+      return String(hallazgo.idInforme) === String(selectedInformeFilter);
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -625,7 +633,7 @@ export default function Planes({
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
-            {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
+            {applyFilters(tableFilteredData, searchTerm, columnFilters).map((p, index) => {
               const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
               return (
                 <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50 transition-colors">
@@ -633,7 +641,7 @@ export default function Planes({
                   
                   <td className="p-3">
                     <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase border tracking-wider ${getWorkflowBadgeClass(p.estadoWorkflow)}`}>
-                      {p.estadoWorkflow}
+                      {p.workflowFase || p.estadoWorkflow || 'Borrador'}
                     </span>
                   </td>
 
