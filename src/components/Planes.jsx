@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -46,7 +46,142 @@ export default function Planes({
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // 🟢 ENRIQUECIMIENTO DE INDEXACIÓN: Cruzamos los datos de los padres para que los filtros de títulos y búsqueda general funcionen al 100%
+  // 🛠️ ESTADOS EXCLUSIVOS PARA LA NUEVA MATRIZ COMPUESTA DE TRABAJO
+  const [formInformeId, setFormInformeId] = useState('');
+  const [matrixState, setMatrixState] = useState({});
+
+  // Sincroniza y carga los hallazgos y actividades existentes al cambiar de informe
+  const handleInformeChange = (informeId) => {
+    setFormInformeId(informeId);
+    if (!informeId) {
+      setMatrixState({});
+      return;
+    }
+
+    const reportFindings = safeHallazgos.filter(h => String(h.idInforme) === String(informeId));
+    const newState = {};
+
+    reportFindings.forEach(h => {
+      const existingActivities = safePlanes.filter(p => p.idHallazgo === h.id);
+      if (existingActivities.length > 0) {
+        newState[h.id] = {
+          aplica: true,
+          actividades: existingActivities.map(p => ({ ...p }))
+        };
+      } else {
+        newState[h.id] = {
+          aplica: true,
+          actividades: [{ id: 'new-' + Math.random(), accion: '', responsable: '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }]
+        };
+      }
+    });
+    setMatrixState(newState);
+  };
+
+  // Si se presiona el botón "Gestionar" de la tabla, abre la matriz del informe correspondiente automáticamente
+  useEffect(() => {
+    if (editPlan) {
+      const hallazgo = safeHallazgos.find(h => h.id === editPlan.idHallazgo);
+      if (hallazgo && hallazgo.idInforme) {
+        handleInformeChange(hallazgo.idInforme);
+      }
+    }
+  }, [editPlan, safeHallazgos]);
+
+  // Funciones de gestión interna de la matriz dinámica
+  const handleToggleAplica = (hallazgoId, value) => {
+    setMatrixState(prev => ({
+      ...prev,
+      [hallazgoId]: { ...prev[hallazgoId], aplica: value }
+    }));
+  };
+
+  const handleAddActivity = (hallazgoId) => {
+    setMatrixState(prev => ({
+      ...prev,
+      [hallazgoId]: {
+        ...prev[hallazgoId],
+        actividades: [
+          ...prev[hallazgoId].actividades,
+          { id: 'new-' + Math.random(), accion: '', responsable: '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }
+        ]
+      }
+    }));
+  };
+
+  const handleRemoveActivity = (hallazgoId, index) => {
+    setMatrixState(prev => {
+      const currentActividades = [...prev[hallazgoId].actividades];
+      currentActividades.splice(index, 1);
+      return {
+        ...prev,
+        [hallazgoId]: { ...prev[hallazgoId], actividades: currentActividades }
+      };
+    });
+  };
+
+  const handleUpdateActivityField = (hallazgoId, index, field, value) => {
+    setMatrixState(prev => {
+      const currentActividades = prev[hallazgoId].actividades.map((act, idx) => {
+        if (idx === index) {
+          return { ...act, [field]: value };
+        }
+        return act;
+      });
+      return {
+        ...prev,
+        [hallazgoId]: { ...prev[hallazgoId], actividades: currentActividades }
+      };
+    });
+  };
+
+  // Guardado masivo y estructurado en la Base de Datos
+  const handleMasterMatrixSubmit = async (e) => {
+    e.preventDefault();
+    if (!formInformeId) return;
+
+    let compiledPlanes = [];
+    const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map(h => h.id);
+
+    Object.keys(matrixState).forEach(hallazgoId => {
+      const stateNode = matrixState[hallazgoId];
+      if (stateNode.aplica) {
+        stateNode.actividades.forEach(act => {
+          if (act.accion && act.accion.trim() !== '') {
+            compiledPlanes.push({
+              id: String(act.id).startsWith('new-') ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
+              idHallazgo: Number(hallazgoId),
+              accion: act.accion,
+              responsable: act.responsable || 'Por asignar',
+              fechaInicio: act.fechaInicio || '',
+              fecha: act.fecha || '',
+              progreso: Math.min(Math.max(parseInt(act.progreso || 0), 0), 100),
+              estado: parseInt(act.progreso || 0) === 100 ? 'Cerrado' : 'En Proceso',
+              evidenciaUrl: act.evidenciaUrl || '',
+              estadoWorkflow: act.estadoWorkflow || 'Borrador',
+              historialCambios: act.historialCambios || [{ fecha: new Date().toLocaleString(), accion: 'Actividad registrada en matriz masiva' }]
+            });
+          }
+        });
+      }
+    });
+
+    // Filtramos los planes de otros informes para no borrarlos, y unimos los nuevos actualizados
+    const cleanOtherPlanes = safePlanes.filter(p => !reportFindingsIds.includes(p.idHallazgo));
+    const finalGlobalPlanes = [...cleanOtherPlanes, ...compiledPlanes];
+
+    setPlanes(finalGlobalPlanes);
+    await saveToCloud({ planes: finalGlobalPlanes });
+    
+    // Resetear formulario
+    setFormInformeId('');
+    setMatrixState({});
+    setEditPlan(null);
+    setFormResetKey(Date.now());
+    alert("¡Matriz de planes de acción procesada y guardada en Firebase exitosamente!");
+  };
+
+  // Indexación y cruce de datos para filtros de tablas y motor de búsqueda
   let planesData = pFiltrados.map(p => {
     const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
     const informe = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme)) || {};
@@ -55,20 +190,15 @@ export default function Planes({
       ...p, 
       fechaVal: formatSafeDate(p.fecha),
       estadoWorkflow: p.estadoWorkflow || 'Borrador',
-      
-      // Mapeo de términos con y sin '#' para coincidir exactamente con el input del auditor
       planRefTexto: `#PLAN-${p.id} PLAN-${p.id}`,
       hallazgoRefTexto: `#HAL-${p.idHallazgo} HAL-${p.idHallazgo} ${hallazgo.proceso || ''} ${hallazgo.sede || ''}`,
-      accionTexto: `${p.accion} ${p.responsable || ''} ${p.mecanismo || ''}`,
-      
-      // Inyección de textos adicionales de soporte para la Búsqueda General libre
+      accionTexto: `${p.accion} ${p.responsable || ''}`,
       textoHallazgoTitulo: hallazgo.titulo || '',
       textoInformeRef: informe.ref || '',
       textoInformeTitulo: informe.titulo || ''
     };
   });
 
-  // 🔗 FILTRADO DE COMPORTAMIENTO: Vinculación interactiva Plan -> Hallazgo -> Informe Origen
   if (selectedInformeFilter) {
     planesData = planesData.filter(plan => {
       const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
@@ -100,7 +230,7 @@ export default function Planes({
             if (window.jspdf && !window.jsPDF) window.jsPDF = window.jspdf.jsPDF;
             resolve();
           };
-          script.onerror = () => reject(new Error('Fallo al descargar jsPDF desde el CDN central.'));
+          script.onerror = () => reject(new Error('Fallo al descargar jsPDF.'));
           document.head.appendChild(script);
         });
       } else if (window.jspdf && !window.jsPDF) {
@@ -112,7 +242,7 @@ export default function Planes({
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
           script.onload = () => resolve();
-          script.onerror = () => reject(new Error('Fallo al descargar la extensión autotable.'));
+          script.onerror = () => reject(new Error('Fallo al descargar autotable.'));
           document.head.appendChild(script);
         });
       }
@@ -239,7 +369,7 @@ export default function Planes({
   return (
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
-        <h2 className="text-2xl font-black text-slate-800">✅ Planes de Acción Remediales</h2>
+        <h2 className="text-2xl font-black text-slate-800">✅ Matriz de Planes de Acción Gerenciales</h2>
         <button 
           onClick={exportarPlanMejoramientoPDF} 
           disabled={isGeneratingPdf}
@@ -250,158 +380,192 @@ export default function Planes({
         </button>
       </div>  
       
-      <div id="edit-form" className="bg-white p-6 rounded-2xl shadow-sm border space-y-4">
-        <div className="flex justify-between items-center border-b pb-2">
-          <h3 className="text-xs font-bold text-slate-700 uppercase">
-            {editPlan ? `✏️ Panel de Gestión del Plan #PLAN-${editPlan.id}` : '➕ Asignar Nuevo Plan de Acción'}
+      {/* 🚀 NUEVA INTERFAZ PREMIUM: GESTOR DE MATRICES MASIVAS POR INFORME */}
+      <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
+        <div className="border-b pb-3 flex justify-between items-center">
+          <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+            ➕ Formular Acciones por Informe Emitido
           </h3>
-          {editPlan && (
-            <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border ${getWorkflowBadgeClass(editPlan.estadoWorkflow || 'Borrador')}`}>
-              Fase: {editPlan.estadoWorkflow || 'Borrador'}
-            </span>
+          {formInformeId && (
+            <button onClick={() => handleInformeChange('')} className="text-[10px] text-red-500 font-bold uppercase hover:underline">
+              ✖️ Limpiar Matriz
+            </button>
           )}
         </div>
-        
-        <form onSubmit={handlePlanSubmit} key={editPlan?.id || 'nuevo-plan'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
-          
-          <div className="md:col-span-4">
-            <label className="font-bold text-gray-600">Hallazgo Vinculado</label>
-            <select 
-              name="idHallazgo" 
-              defaultValue={editPlan?.idHallazgo||''} 
-              required 
-              disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
-              className="w-full border rounded-lg p-2 mt-1 bg-white disabled:bg-slate-100 disabled:text-slate-500 font-medium"
-            >
-              <option value="">-- Seleccione el hallazgo raíz --</option>
-              {safeHallazgos.map((h, index) => (
-                <option key={`opt-hallz-${h.id}-${index}`} value={h.id}>[#HAL-{h.id}] {h.titulo}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="md:col-span-2">
-            <label className="font-bold text-gray-600 block mb-1">Acción de Choque / Mitigación</label>
-            <input 
-              name="accion" 
-              defaultValue={editPlan?.accion||''} 
-              required 
-              placeholder="Describa la acción correctiva..." 
-              disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
-              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-medium" 
-            />
-          </div>
 
-          <div>
-            <label className="font-bold text-gray-600">Responsable de Ejecución</label>
-            <input 
-              name="responsable" 
-              defaultValue={editPlan?.responsable||''} 
-              required 
-              disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
-              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-medium" 
-            />
-          </div>
+        <div className="w-full">
+          <label className="font-black text-gray-700 block mb-1.5 text-xs">1. Seleccione el Informe Emitido Evaluado</label>
+          <select 
+            value={formInformeId} 
+            onChange={(e) => handleInformeChange(e.target.value)}
+            className="w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm"
+          >
+            <option value="">-- Seleccione el Informe de Auditoría Radicado --</option>
+            {informesAuditoria.map((inf) => (
+              <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo} — ({inf.proceso})</option>
+            ))}
+          </select>
+        </div>
 
-          <div>
-            <label className="font-bold text-gray-600">Fecha de Inicio</label>
-            <input 
-              name="fechaInicio" 
-              type="date" 
-              defaultValue={editPlan?.fechaInicio||''} 
-              disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
-              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-bold mt-1" 
-            />
-          </div>
-
-          <div className="md:col-span-3">
-            <label className="font-bold text-gray-600">Mecanismo de Seguimiento</label>
-            <input 
-              name="mecanismo" 
-              placeholder="Ej: Inclusión en informe mensual, Pareto trimestral..."
-              defaultValue={editPlan?.mecanismo||''} 
-              disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
-              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-medium mt-1" 
-            />
-          </div>
-
-          <div>
-            <label className="font-bold text-gray-600">Fecha Límite / Compromiso</label>
-            <input 
-              name="fecha" 
-              type="date" 
-              defaultValue={formatSafeDate(editPlan?.fecha)||''} 
-              required 
-              disabled={editPlan && editPlan.estadoWorkflow !== 'Borrador'}
-              className="w-full border p-2 rounded disabled:bg-slate-100 disabled:text-slate-500 font-bold mt-1" 
-            />
-          </div>
-
-          <div className="bg-blue-50/30 p-4 rounded-xl border border-blue-100 md:col-span-4 grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
-            <div className="md:col-span-4 border-b pb-1 mb-1">
-              <span className="text-[10px] font-black text-blue-800 uppercase tracking-wider">🗂️ Registro de Avances y Entregables (Abierto en fase Ejecución)</span>
-            </div>
-            
-            <div>
-              <label className="font-bold text-blue-700 block mb-1">% Avance Real</label>
-              <input 
-                type="number" 
-                name="progreso" 
-                min="0" 
-                max="100" 
-                defaultValue={editPlan?.progreso || editPlan?.avance || 0} 
-                disabled={editPlan && editPlan.estadoWorkflow === 'Cerrado'}
-                placeholder="Ej: 45" 
-                className="w-full border p-2 bg-blue-50 border-blue-200 rounded font-black text-blue-700 disabled:bg-slate-100" 
-              />
+        {formInformeId && (
+          <form onSubmit={handleMasterMatrixSubmit} className="space-y-6">
+            <div className="text-xs font-black text-blue-800 uppercase tracking-widest bg-blue-50/50 border border-blue-100 p-3 rounded-xl">
+              📝 Desglose de hallazgos encontrados para este informe:
             </div>
 
-            <div className="md:col-span-3">
-              <label className="font-black text-blue-700 block mb-1">Pega el enlace del soporte / acta / foto aquí</label>
-              <input 
-                type="url" 
-                name="evidenciaUrlInput" 
-                defaultValue={editPlan?.evidenciaUrl||''} 
-                disabled={editPlan && editPlan.estadoWorkflow === 'Cerrado'}
-                placeholder="Ej: https://drive.google.com/file/d/..." 
-                className="w-full border border-blue-200 bg-white rounded-lg p-2 text-xs shadow-inner focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-slate-100" 
-              />
-            </div>
-          </div>
-          
-          <div className="md:col-span-4 flex justify-between items-center pt-4 border-t border-slate-100 mt-2">
-            <div>
-              {editPlan && onUpdateItemStatus && (
-                <div className="flex space-x-2">
-                  {editPlan.estadoWorkflow === 'Borrador' && (
-                    <button type="button" onClick={() => onUpdateItemStatus('planes', editPlan.id, 'En Revisión')} className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 rounded font-bold text-[11px] uppercase tracking-wider shadow-sm">🚀 Enviar a Revisión</button>
-                  )}
-                  {isAdmin && editPlan.estadoWorkflow === 'En Revisión' && (
-                    <>
-                      <button type="button" onClick={() => onUpdateItemStatus('planes', editPlan.id, 'Aprobado')} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded font-bold text-[11px] uppercase tracking-wider shadow-sm">✅ Aprobar y Publicar</button>
-                      <button type="button" onClick={() => onUpdateItemStatus('planes', editPlan.id, 'Borrador')} className="bg-rose-100 text-rose-700 hover:bg-rose-200 px-3 py-2 rounded font-bold text-[11px] uppercase tracking-wider">❌ Rechazar (Devolver)</button>
-                    </>
-                  )}
-                  {isAdmin && editPlan.estadoWorkflow === 'Aprobado' && (Number(editPlan.progreso) === 100 || Number(editPlan.avance) === 100) && (
-                    <button type="button" onClick={() => onUpdateItemStatus('planes', editPlan.id, 'Cerrado')} className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded font-black text-[11px] uppercase tracking-wider shadow-md border border-slate-700">🔒 Cerrar Plan Definitivo</button>
-                  )}
-                </div>
-              )}
-            </div>
+            {safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).length === 0 ? (
+              <div className="text-center p-6 text-slate-400 font-bold italic border rounded-xl bg-slate-50">
+                No se registran hallazgos vinculados a este informe en el sistema. Vaya al módulo de Hallazgos primero.
+              </div>
+            ) : (
+              safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
+                const node = matrixState[h.id] || { aplica: true, actividades: [] };
+                return (
+                  <div key={`matrix-card-${h.id}`} className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 space-y-4 shadow-sm">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-3 gap-2">
+                      <div>
+                        <span className="px-2 py-0.5 bg-red-100 text-red-800 font-black rounded text-[9px] uppercase tracking-wider">
+                          {h.ref}
+                        </span>
+                        <h4 className="text-xs font-black text-slate-900 mt-1">{h.titulo}</h4>
+                        <p className="text-[10px] text-slate-500 font-medium">Proceso: <b>{h.proceso}</b> | Causa Raíz: <i>{h.causa || 'No descrita'}</i></p>
+                      </div>
+                      
+                      {/* Botonera de Aplicabilidad */}
+                      <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
+                        <button 
+                          type="button" 
+                          onClick={() => handleToggleAplica(h.id, true)}
+                          className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-wider transition-all ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}
+                        >
+                          Sí Aplica
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => handleToggleAplica(h.id, false)}
+                          className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-wider transition-all ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}
+                        >
+                          No Aplica
+                        </button>
+                      </div>
+                    </div>
 
-            <div className="flex space-x-2">
-              <button type="submit" disabled={editPlan && editPlan.estadoWorkflow === 'Cerrado'} className="bg-[#004d40] text-white px-6 py-2 rounded font-black uppercase tracking-widest hover:bg-[#003d33] shadow-md disabled:bg-slate-300 disabled:cursor-not-allowed">
-                {editPlan ? '💾 Actualizar Datos' : '➕ Publicar como Borrador'}
+                    {node.aplica && (
+                      <div className="space-y-4">
+                        {node.actividades.map((act, index) => (
+                          <div key={`act-row-${index}`} className="bg-white border rounded-xl p-4 shadow-sm space-y-3 relative">
+                            <div className="flex justify-between items-center border-b pb-1">
+                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actividad #{index + 1}</span>
+                              {node.actividades.length > 1 && (
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleRemoveActivity(h.id, index)}
+                                  className="text-red-500 font-bold hover:text-red-700 text-[10px] uppercase"
+                                >
+                                  🗑️ Quitar
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                              <div className="md:col-span-2">
+                                <label className="font-bold text-gray-500 block mb-0.5">Acción o Actividad Correctiva</label>
+                                <input 
+                                  type="text"
+                                  value={act.accion}
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)}
+                                  placeholder="Describa la tarea mitigante..."
+                                  className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="font-bold text-gray-500 block mb-0.5">Responsable Ejecución</label>
+                                <input 
+                                  type="text"
+                                  value={act.responsable}
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)}
+                                  placeholder="Cargo o nombre..."
+                                  className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className="font-bold text-gray-500 block mb-0.5">Avance Real ({act.progreso}%)</label>
+                                <input 
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={act.progreso}
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)}
+                                  className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50/50"
+                                />
+                              </div>
+                              <div>
+                                <label className="font-bold text-gray-500 block mb-0.5">Fecha de Inicio</label>
+                                <input 
+                                  type="date"
+                                  value={act.fechaInicio}
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)}
+                                  className="w-full border p-1.5 rounded-lg font-bold"
+                                />
+                              </div>
+                              <div>
+                                <label className="font-bold text-gray-500 block mb-0.5">Fecha de Compromiso</label>
+                                <input 
+                                  type="date"
+                                  value={formatSafeDate(act.fecha)}
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'fecha', e.target.value)}
+                                  className="w-full border p-1.5 rounded-lg font-bold"
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="font-bold text-gray-500 block mb-0.5">Link de la Evidencia / Soporte Digital</label>
+                                <input 
+                                  type="url"
+                                  value={act.evidenciaUrl}
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'evidenciaUrl', e.target.value)}
+                                  placeholder="https://drive.google.com/..."
+                                  className="w-full border p-2 rounded-lg text-xs"
+                                />
+                              </div>
+                            </div>
+                            <div className="pt-1">
+                              <ProgressBar progress={act.progreso} />
+                            </div>
+                          </div>
+                        ))}
+
+                        <button 
+                          type="button"
+                          onClick={() => handleAddActivity(h.id)}
+                          className="bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider shadow-sm transition-all"
+                        >
+                          ➕ Agregar Otra Actividad para este Hallazgo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+
+            <div className="pt-4 border-t flex justify-end">
+              <button 
+                type="submit"
+                className="bg-[#004d40] hover:bg-[#003d33] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest shadow-md transition-all text-xs"
+              >
+                💾 Guardar Matriz de Mejoramiento Completa
               </button>
             </div>
-          </div>
-        </form>
+          </form>
+        )}
       </div>
 
       {/* TABLA DE SEGUIMIENTO CON FILTROS INTEGRADOS POR TÍTULO */}
       <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
-           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes de Acción</h3>
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Actividades / Planes</h3>
            
            <div className="flex flex-col md:flex-row gap-3">
               <select
@@ -474,11 +638,9 @@ export default function Planes({
                   <td className="p-3 text-slate-800 font-medium">
                     <div className="font-black text-slate-900">{p.accion}</div>
                     
-                    {/* Bloque Informativo de Trazabilidad */}
                     <div className="text-[10px] text-slate-500 font-medium space-y-0.5 mt-1.5 bg-slate-50 p-2 rounded border border-slate-100">
                       <div>👤 Resp: <b className="text-slate-700">{p.responsable}</b></div>
                       {p.fechaInicio && <div>📅 Inicio: <b className="text-slate-700">{formatSafeDate(p.fechaInicio)}</b></div>}
-                      {p.mecanismo && <div className="truncate max-w-[280px]">⚙️ Mecanismo: <b className="text-slate-700">{p.mecanismo}</b></div>}
                       <div>🕒 Límite: <b className="text-slate-600">{p.fechaVal}</b></div>
                     </div>
 
@@ -498,7 +660,7 @@ export default function Planes({
                       onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToForm();}} 
                       className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px] hover:bg-amber-200 transition-colors"
                     >
-                      {p.estadoWorkflow === 'Borrador' ? '✏️ Formular' : '⚙️ Gestionar'}
+                      Gestionar
                     </button>
                     
                     {isAdmin && (
@@ -506,7 +668,7 @@ export default function Planes({
                         onClick={() => handleDeleteItem('planes', p.id)} 
                         disabled={p.estadoWorkflow !== 'Borrador'}
                         className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px] disabled:opacity-20 disabled:cursor-not-allowed hover:bg-red-100 transition-colors"
-                        title={p.estadoWorkflow !== 'Borrador' ? "No se puede eliminar un plan en revisión o publicado" : "Eliminar borrador"}
+                        title={p.estadoWorkflow !== 'Borrador' ? "No se puede eliminar un plan publicado" : "Eliminar borrador"}
                       >
                         🗑️
                       </button>
