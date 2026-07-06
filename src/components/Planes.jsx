@@ -46,7 +46,7 @@ export default function Planes({
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // 🛠️ ESTADOS EXCLUSIVOS PARA LA NUEVA MATRIZ COMPUESTA DE TRABAJO
+  // 🛠️ ESTADOS EXCLUSIVOS PARA LA MATRIZ COMPUESTA DE TRABAJO
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
 
@@ -148,7 +148,6 @@ export default function Planes({
       if (stateNode.aplica) {
         stateNode.actividades.forEach(act => {
           if (act.accion && act.accion.trim() !== '') {
-            // 🧠 Extrayemos el año y mes real de la fecha elegida para sincronizar con el filtro superior
             const fechaDiligenciada = act.fecha || new Date().toISOString().split('T')[0];
             const partes = fechaDiligenciada.split('-'); 
             const anioVal = Number(partes[0]) || 2026;
@@ -168,8 +167,8 @@ export default function Planes({
               estado: parseInt(act.progreso || 0) === 100 ? 'Cerrado' : 'En Proceso',
               evidenciaUrl: act.evidenciaUrl || '',
               estadoWorkflow: act.estadoWorkflow || 'Borrador',
-              anio: anioVal, // 🟢 Propiedad forzada para alineación de filtros
-              mes: mesVal,   // 🟢 Propiedad forzada para alineación de filtros
+              anio: anioVal, 
+              mes: mesVal,   
               historialCambios: act.historialCambios || [{ fecha: new Date().toLocaleString(), accion: 'Actividad registrada en matriz masiva' }]
             });
           }
@@ -177,14 +176,12 @@ export default function Planes({
       }
     });
 
-    // Filtramos los planes de otros informes para no borrarlos, y unimos los nuevos actualizados
     const cleanOtherPlanes = safePlanes.filter(p => !reportFindingsIds.includes(p.idHallazgo));
     const finalGlobalPlanes = [...cleanOtherPlanes, ...compiledPlanes];
 
     setPlanes(finalGlobalPlanes);
     await saveToCloud({ planes: finalGlobalPlanes });
     
-    // Resetear formulario
     setFormInformeId('');
     setMatrixState({});
     setEditPlan(null);
@@ -228,9 +225,15 @@ export default function Planes({
   };
 
   // =====================================================================
-  // 🖨️ MOTOR DE EXPORTACIÓN PDF: CARGA ASÍNCRONA INTEGRAL (12 COLUMNAS)
+  // 🖨️ MOTOR DE EXPORTACIÓN PDF CON FILTRO OBLIGATORIO PREVIO
   // =====================================================================
   const exportarPlanMejoramientoPDF = async () => {
+    // 🛑 CANDADO DE VALIDACIÓN ASESORADO
+    if (!selectedInformeFilter) {
+      alert("📋 Por favor, primero elija un 'Informe de Origen' en el menú desplegable de la tabla de seguimiento. Así el sistema sabrá exactamente qué plan y qué actividades amarradas debe imprimir.");
+      return;
+    }
+
     setIsGeneratingPdf(true);
     try {
       if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -267,15 +270,13 @@ export default function Planes({
       let descripcionPlan = 'Plan de mejoramiento estructurado para dar cierre oportuno a los hallazgos y desviaciones.';
       let informeRef = 'Consolidado General';
 
-      if (selectedInformeFilter) {
-        const informeSeleccionado = informesAuditoria.find(inf => String(inf.id) === String(selectedInformeFilter));
-        if (informeSeleccionado) {
-          fechaSuscripcion = formatSafeDate(informeSeleccionado.fecha) || fechaSuscripcion;
-          fuentePlan = `Auditoría Interna - Ref: ${informeSeleccionado.ref}`;
-          objetivoGeneral = `Fortalecer el proceso de [${informeSeleccionado.proceso}] mediante la mitigación de fallas y mejora operativa.`;
-          descripcionPlan = informeSeleccionado.titulo;
-          informeRef = informeSeleccionado.ref;
-        }
+      const informeSeleccionado = informesAuditoria.find(inf => String(inf.id) === String(selectedInformeFilter));
+      if (informeSeleccionado) {
+        fechaSuscripcion = formatSafeDate(informeSeleccionado.fecha) || fechaSuscripcion;
+        fuentePlan = `Auditoría Interna - Ref: ${informeSeleccionado.ref}`;
+        objetivoGeneral = `Fortalecer el proceso de [${informeSeleccionado.proceso}] mediante la mitigación de fallas y mejora operativa.`;
+        descripcionPlan = informeSeleccionado.titulo;
+        informeRef = informeSeleccionado.ref;
       }
 
       doc.setFontSize(16);
@@ -369,7 +370,7 @@ export default function Planes({
       doc.text("__________________________________________", 600, finalY);
       doc.text("Aprobado por: CONTROL INTERNO", 600, finalY + 15);
 
-      doc.save(`Plan_de_Mejoramiento_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Plan_de_Mejoramiento_${informeRef}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error("Error crítico en renderizador de PDF:", error);
     } finally {
