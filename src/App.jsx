@@ -1165,8 +1165,8 @@ if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); se
 
 const handleInformeAuditoriaSubmit = async (e) => {
     e.preventDefault(); 
-    setIsSubmitting(true); // 🛑 PRENDEMOS EL ESTADO DE CARGA Y BLOQUEAMOS BOTÓN
-    console.log("🚀 Ejecución global V4 (Con Loading State)...");
+    setIsSubmitting(true); 
+    console.log("🚀 Ejecución global V5 (Con Campos PDF Big-4)...");
     
     try {
       const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
@@ -1185,6 +1185,22 @@ const handleInformeAuditoriaSubmit = async (e) => {
       const socializadoVal = formData.get('socializado') || editInformeAuditoria?.socializado || 'No';
       const socializadoConVal = formData.get('socializadoCon') || editInformeAuditoria?.socializadoCon || '';
 
+      // 🌟 NUEVOS CAMPOS EDITORIALES PARA EL PDF
+      const objetivoVal = formData.get('objetivo') || editInformeAuditoria?.objetivo || 'Evaluar la eficacia de los controles y la gestión de riesgos...';
+      const alcanceVal = formData.get('alcance') || editInformeAuditoria?.alcance || 'La auditoría cubre los procesos y sistemas...';
+      const conclusionVal = formData.get('conclusion') || editInformeAuditoria?.conclusion || '';
+      const fortalezasVal = formData.get('fortalezas') || editInformeAuditoria?.fortalezas || '';
+      
+      // 🖼️ NUEVOS CAMPOS DE GALERÍA DE EVIDENCIAS
+      const img1Url = formData.get('img1Url') || editInformeAuditoria?.img1Url || '';
+      const img1Desc = formData.get('img1Desc') || editInformeAuditoria?.img1Desc || '';
+      const img2Url = formData.get('img2Url') || editInformeAuditoria?.img2Url || '';
+      const img2Desc = formData.get('img2Desc') || editInformeAuditoria?.img2Desc || '';
+      const img3Url = formData.get('img3Url') || editInformeAuditoria?.img3Url || '';
+      const img3Desc = formData.get('img3Desc') || editInformeAuditoria?.img3Desc || '';
+      const img4Url = formData.get('img4Url') || editInformeAuditoria?.img4Url || '';
+      const img4Desc = formData.get('img4Desc') || editInformeAuditoria?.img4Desc || '';
+
       let updated;
       let refConsecutivoFinal = '';
 
@@ -1194,16 +1210,14 @@ const handleInformeAuditoriaSubmit = async (e) => {
           ...editInformeAuditoria, titulo: tituloVal, proceso: procesoVal, fecha: fechaVal,
           elaboradoPor: elaboradoPorVal, revisadoPor: revisadoPorVal, aprobadoPor: aprobadoPorVal,
           socializado: socializadoVal, socializadoCon: socializadoConVal,
-          evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut
+          evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut,
+          objetivo: objetivoVal, alcance: alcanceVal, conclusion: conclusionVal, fortalezas: fortalezasVal,
+          img1Url, img1Desc, img2Url, img2Desc, img3Url, img3Desc, img4Url, img4Desc
         };
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf);
         setEditInformeAuditoria(null);
       } else {
-        // 🛡️ Lógica robusta: Busca el número más alto usado para no repetir consecutivos
-        const ultimo = Math.max(
-          ...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)),
-          0
-        );
+        const ultimo = Math.max(...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)), 0);
         const idx = ultimo + 1;
 
         refConsecutivoFinal = `INF-2026-${String(idx).padStart(3, '0')}`;
@@ -1211,14 +1225,14 @@ const handleInformeAuditoriaSubmit = async (e) => {
           id: crypto.randomUUID(), ref: refConsecutivoFinal, titulo: tituloVal, proceso: procesoVal,
           fecha: fechaVal, elaboradoPor: elaboradoPorVal, revisadoPor: revisadoPorVal,
           aprobadoPor: aprobadoPorVal, socializado: socializadoVal, socializadoCon: socializadoConVal,
-          evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut
+          evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut,
+          objetivo: objetivoVal, alcance: alcanceVal, conclusion: conclusionVal, fortalezas: fortalezasVal,
+          img1Url, img1Desc, img2Url, img2Desc, img3Url, img3Desc, img4Url, img4Desc
         };
         updated = [nuevo, ...safeInformes];
       }
 
-      // 📧 DISPARADOR GLOBAL DE EMAILJS CON ESPERA (AWAIT)
       if (correosNotificacionOut !== '') {
-        console.log("📡 Disparando Fetch hacia la API de EmailJS para: " + correosNotificacionOut);
         const emailParams = {
           ref_consecutivo: refConsecutivoFinal, titulo_informe: tituloVal, proceso_auditado: procesoVal,
           enlace_pdf: evidenciaUrlOut, enlace_acta: actaSocializacionUrlOut || 'No adjunta', destinatarios: correosNotificacionOut
@@ -1236,16 +1250,9 @@ const handleInformeAuditoriaSubmit = async (e) => {
           })
         });
 
-        if (res.ok) {
-          showNotification("Notificación electrónica enviada con éxito.");
-        } else {
-          console.error("❌ EmailJS rechazó la petición. Verifica tus llaves en el .env");
-        }
-      } else {
-        console.log("⚠️ No hay correos en la casilla, omitiendo EmailJS.");
-      }   
+        if (res.ok) showNotification("Notificación electrónica enviada con éxito.");
+      }
 
-      // Guardado final
       setInformesAuditoria(updated);    
       await saveToCloud({ informesAuditoria: updated });
       e.target.reset();
@@ -1255,9 +1262,9 @@ const handleInformeAuditoriaSubmit = async (e) => {
       console.error("Error crítico al procesar informe:", error);
       showNotification("Hubo un error al procesar la solicitud.", "error");
     } finally {
-      setIsSubmitting(false); // ✅ APAGAMOS EL ESTADO DE CARGA Y DESBLOQUEAMOS BOTÓN (Incluso si falló)
+      setIsSubmitting(false); 
     }
-  };  
+  };
 const renderHeaderFiltros = (titulo, subtitulo) => (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
