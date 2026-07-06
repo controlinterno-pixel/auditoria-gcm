@@ -2730,21 +2730,27 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
             {activeTab === 'informe' && renderInforme()}
 {activeTab === 'informes_auditoria' && (
               <InformesAuditoria 
-                isAdmin={isAdmin}
-                user={user}
                 informesAuditoria={informesAuditoria}
                 setInformesAuditoria={setInformesAuditoria}
-                safeRiesgos={safeRiesgos}
-                safeHallazgos={safeHallazgos}
-                safePlanes={safePlanes}
-                safeEvaluaciones={safeEvaluaciones}
-                saveToCloud={saveToCloud}
-                formatSafeDate={formatSafeDate}
+                editInformeAuditoria={editInformeAuditoria}
+                setEditInformeAuditoria={setEditInformeAuditoria}
+                isAdmin={isAdmin}
+                user={user}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 columnFilters={columnFilters}
                 handleColFilterChange={handleColFilterChange}
+                exportToExcel={exportToExcel}
+                handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit}
+                isSubmitting={isSubmitting}
+                setFormResetKey={setFormResetKey}
+                scrollToForm={scrollToForm}
+                handleDeleteItem={handleDeleteItem}
+                applyFilters={applyFilters}
                 FilterInput={FilterInput}
+                safeHallazgos={safeHallazgos}
+                safePlanes={safePlanes}
+                formatSafeDate={formatSafeDate}
               />
             )}
             {activeTab === 'config' && renderConfiguracion()}
