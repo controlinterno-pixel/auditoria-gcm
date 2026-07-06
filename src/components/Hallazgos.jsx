@@ -90,7 +90,7 @@ export default function Hallazgos({
           {editHallazgo && <button onClick={() => setEditHallazgo(null)} className="text-xs text-slate-500 hover:text-red-600 font-bold">✖ Cancelar Edición</button>}
         </div>
 
-<form onSubmit={handleHallazgoSubmit} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+        <form onSubmit={handleHallazgoSubmit} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
           
           {/* 🔒 ID AUTOMÁTICO */}
           <div>
@@ -163,40 +163,36 @@ export default function Hallazgos({
             </select>
           </div>
 
-          {/* ⚖️ CLASE DE OBSERVACIÓN */}
+          {/* ⚖️ CLASE DE OBSERVACIÓN (ACTUALIZADO) */}
           <div>
             <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
             <select 
               name="claseObservacion" 
-              defaultValue={editHallazgo?.claseObservacion||'Oportunidad de Mejora'} 
+              defaultValue={editHallazgo?.claseObservacion||'Hallazgo'} 
               className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700"
             >
-              <option value="Oportunidad de Mejora">Oportunidad de Mejora</option>
+              <option value="Hallazgo">Hallazgo</option>
               <option value="No Conformidad">No Conformidad</option>
+              <option value="Oportunidad de Mejora">Oportunidad de Mejora</option>
               <option value="Observación">Observación</option>
             </select>
           </div>
 
-          {/* 📝 TÍTULO / DESCRIPCIÓN */}
+          {/* 📝 TÍTULO / DESCRIPCIÓN (AMPLIADO A TEXTAREA) */}
           <div className="md:col-span-4">
             <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
-            <input name="titulo" defaultValue={editHallazgo?.titulo||''} required placeholder="Describa el hallazgo brevemente..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-medium" />
-          </div>            
-
-          {/* 🧠 ANÁLISIS DE CAUSAS RAÍZ */}
-          <div className="md:col-span-4">
-            <label className="font-bold text-gray-600 block mb-1">Análisis de Causas (Causa Raíz)</label>
-            <input 
-              name="causa" 
-              defaultValue={editHallazgo?.causa||''} 
-              required
-              placeholder="Ej: Ausencia de una herramienta que permita consolidar la satisfacción del cliente..." 
-              className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-medium text-slate-700" 
+            <textarea 
+              name="titulo" 
+              defaultValue={editHallazgo?.titulo||''} 
+              required 
+              rows="5"
+              placeholder="Describa el hallazgo detalladamente..." 
+              className="w-full border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none font-medium resize-y shadow-inner" 
             />
           </div>            
           
           {/* 📂 GESTOR DE EVIDENCIAS */}
-          <div className="md:col-span-4 bg-rose-50/50 p-4 rounded-xl border border-rose-100 shadow-sm">
+          <div className="md:col-span-4 bg-rose-50/50 p-4 rounded-xl border border-rose-100 shadow-sm mt-2">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-rose-100 pb-3">
               <div>
                 <label className="font-black text-rose-800 uppercase tracking-widest text-[10px]">Paso 1: Busca y copia el enlace de soporte</label>
@@ -221,7 +217,7 @@ export default function Hallazgos({
           </div>
           
           {/* 🔘 BOTÓN */}
-          <div className="md:col-span-4 flex justify-end items-end">
+          <div className="md:col-span-4 flex justify-end items-end pt-2">
             <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all w-full md:w-auto">
               {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
             </button>
