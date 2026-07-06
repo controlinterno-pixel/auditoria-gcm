@@ -2472,6 +2472,7 @@ const renderPlanes = () => {
         FilterInput={FilterInput}
         pFiltrados={pFiltrados}
         safeHallazgos={safeHallazgos}
+   setHallazgos={setHallazgos}
         safePlanes={safePlanes} // 🟢 Envía la lista completa para sincronización
         setPlanes={setPlanes}   // 🟢 Permite actualizar de forma masiva
         saveToCloud={saveToCloud} // 🟢 Permite guardar directo en Firebase

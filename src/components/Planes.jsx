@@ -32,6 +32,7 @@ export default function Planes({
   FilterInput,
   pFiltrados,
   safeHallazgos,
+  setHallazgos, // 🟢 Recibimos el poder de modificar los hallazgos
   safePlanes,
   setPlanes,
   saveToCloud,
@@ -46,11 +47,9 @@ export default function Planes({
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // 🛠️ ESTADOS EXCLUSIVOS PARA LA MATRIZ COMPUESTA DE TRABAJO
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
 
-  // Sincroniza y carga los hallazgos y actividades existentes al cambiar de informe
   const handleInformeChange = (informeId) => {
     setFormInformeId(informeId);
     if (!informeId) {
@@ -69,8 +68,10 @@ export default function Planes({
           actividades: existingActivities.map(p => ({ ...p }))
         };
       } else {
+        // 🧠 MEJORA: Si un hallazgo estaba cerrado pero no tenía planes, asumimos que fue marcado como "No Aplica" antes
+        const asumeAplica = h.estado !== 'Cerrado';
         newState[h.id] = {
-          aplica: true,
+          aplica: asumeAplica,
           actividades: [{ id: 'new-' + Math.random(), accion: '', responsable: '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }]
         };
       }
@@ -78,7 +79,6 @@ export default function Planes({
     setMatrixState(newState);
   };
 
-  // Si se presiona el botón "Gestionar" de la tabla, abre la matriz del informe correspondiente automáticamente
   useEffect(() => {
     if (editPlan) {
       const hallazgo = safeHallazgos.find(h => h.id === editPlan.idHallazgo);
@@ -88,7 +88,6 @@ export default function Planes({
     }
   }, [editPlan, safeHallazgos]);
 
-  // Funciones de gestión interna de la matriz dinámica
   const handleToggleAplica = (hallazgoId, value) => {
     setMatrixState(prev => ({
       ...prev,
@@ -135,7 +134,7 @@ export default function Planes({
     });
   };
 
-  // Guardado masivo y estructurado en la Base de Datos
+  // 🚀 GUARDADO MASIVO Y AUTOMATIZACIÓN DE ESTADOS
   const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
@@ -151,7 +150,6 @@ export default function Planes({
             const fechaDiligenciada = act.fecha || new Date().toISOString().split('T')[0];
             const partes = fechaDiligenciada.split('-'); 
             const anioVal = Number(partes[0]) || 2026;
-            
             const mesesArray = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
             const mesIdx = parseInt(partes[1], 10) - 1;
             const mesVal = mesesArray[mesIdx] || "Julio";
@@ -179,21 +177,67 @@ export default function Planes({
     const cleanOtherPlanes = safePlanes.filter(p => !reportFindingsIds.includes(p.idHallazgo));
     const finalGlobalPlanes = [...cleanOtherPlanes, ...compiledPlanes];
 
+    // 🟢 CEREBRO AUTOMATIZADOR DE HALLAZGOS
+    let updatedHallazgos = [...safeHallazgos];
+    let hallazgosModificados = false;
+
+    Object.keys(matrixState).forEach(hallazgoId => {
+      const stateNode = matrixState[hallazgoId];
+      const hIndex = updatedHallazgos.findIndex(h => String(h.id) === String(hallazgoId));
+
+      if (hIndex !== -1) {
+        let nuevoEstado = 'Abierto';
+
+        if (!stateNode.aplica) {
+          // Si marcan "No Aplica", cerramos el hallazgo de inmediato
+          nuevoEstado = 'Cerrado';
+        } else {
+          // Si Aplica, cruzamos las actividades para ver si ya están todas al 100%
+          const actividadesDeEsteHallazgo = compiledPlanes.filter(p => String(p.idHallazgo) === String(hallazgoId));
+          
+          if (actividadesDeEsteHallazgo.length > 0) {
+            const todasCompletadas = actividadesDeEsteHallazgo.every(act => Number(act.progreso) === 100);
+            if (todasCompletadas) {
+              nuevoEstado = 'Cerrado'; // ¡Todas las tareas al 100%!
+            }
+          }
+        }
+
+        // Si el estado debe cambiar, lo actualizamos y guardamos en su historial
+        if (updatedHallazgos[hIndex].estado !== nuevoEstado) {
+          updatedHallazgos[hIndex] = {
+            ...updatedHallazgos[hIndex],
+            estado: nuevoEstado,
+            historialCambios: [
+              ...(updatedHallazgos[hIndex].historialCambios || []),
+              { fecha: new Date().toLocaleString(), accion: `Estado automatizado a ${nuevoEstado} (Validación de Planes)` }
+            ]
+          };
+          hallazgosModificados = true;
+        }
+      }
+    });
+
+    // Subida sincronizada a Firebase
     setPlanes(finalGlobalPlanes);
-    await saveToCloud({ planes: finalGlobalPlanes });
+    if (hallazgosModificados && setHallazgos) {
+      setHallazgos(updatedHallazgos);
+      await saveToCloud({ planes: finalGlobalPlanes, hallazgos: updatedHallazgos });
+      alert("¡Guardado exitoso! Los hallazgos se han cerrado o abierto automáticamente según el avance de sus tareas.");
+    } else {
+      await saveToCloud({ planes: finalGlobalPlanes });
+      alert("¡Matriz de planes guardada exitosamente!");
+    }
     
     setFormInformeId('');
     setMatrixState({});
     setEditPlan(null);
     setFormResetKey(Date.now());
-    alert("¡Matriz de planes de acción procesada y guardada en Firebase exitosamente!");
   };
 
-  // Indexación y cruce de datos para filtros de tablas y motor de búsqueda
   let planesData = pFiltrados.map(p => {
     const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
     const informe = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme)) || {};
-    
     return { 
       ...p, 
       fechaVal: formatSafeDate(p.fecha),
@@ -217,11 +261,7 @@ export default function Planes({
     }
   };
 
-  // =====================================================================
-  // 🖨️ MOTOR DE EXPORTACIÓN PDF CON ENLACE INTELIGENTE HÍBRIDO
-  // =====================================================================
   const exportarPlanMejoramientoPDF = async () => {
-    // 🧠 MEJORA: Detecta de forma híbrida cuál de los dos selectores está activo
     const targetInformeId = selectedInformeFilter || formInformeId;
 
     if (!targetInformeId) {
@@ -299,7 +339,6 @@ export default function Planes({
         ]
       });
 
-      // 🧠 FILTRADO DINÁMICO EN CALIENTE: Extraemos los hallazgos del informe seleccionado para armar la tabla del PDF
       const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(targetInformeId)).map(h => h.id);
       const pdfPlanesFiltrados = pFiltrados.filter(plan => reportFindingsIds.includes(plan.idHallazgo));
 
@@ -377,7 +416,6 @@ export default function Planes({
     }
   };
 
-  // Filtrado visual de la tabla inferior
   let tableFilteredData = planesData;
   if (selectedInformeFilter) {
     tableFilteredData = tableFilteredData.filter(plan => {
@@ -400,7 +438,6 @@ export default function Planes({
         </button>
       </div>  
       
-      {/* 🚀 GESTOR DE MATRICES MASIVAS POR INFORME */}
       <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
         <div className="border-b pb-3 flex justify-between items-center">
           <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
@@ -441,9 +478,9 @@ export default function Planes({
               safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
                 const node = matrixState[h.id] || { aplica: true, actividades: [] };
                 return (
-                  <div key={`matrix-card-${h.id}`} className="border border-slate-200 rounded-2xl p-5 bg-slate-50/50 space-y-4 shadow-sm">
+                  <div key={`matrix-card-${h.id}`} className={`border rounded-2xl p-5 shadow-sm space-y-4 transition-all ${node.aplica ? 'border-blue-200 bg-slate-50/50' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-3 gap-2">
-                      <div>
+                      <div className={!node.aplica ? 'line-through decoration-slate-400' : ''}>
                         <span className="px-2 py-0.5 bg-red-100 text-red-800 font-black rounded text-[9px] uppercase tracking-wider">
                           {h.ref}
                         </span>
@@ -574,14 +611,13 @@ export default function Planes({
                 type="submit"
                 className="bg-[#004d40] hover:bg-[#003d33] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest shadow-md transition-all text-xs"
               >
-                💾 Guardar Matriz de Mejoramiento Completa
+                💾 Guardar Matriz y Sincronizar Estados
               </button>
             </div>
           </form>
         )}
       </div>
 
-      {/* TABLA DE SEGUIMIENTO CON FILTROS INTEGRADOS POR TÍTULO */}
       <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Actividades / Planes</h3>
