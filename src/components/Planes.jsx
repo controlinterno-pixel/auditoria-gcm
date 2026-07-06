@@ -143,29 +143,40 @@ export default function Planes({
     let compiledPlanes = [];
     const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map(h => h.id);
 
-    Object.keys(matrixState).forEach(hallazgoId => {
-      const stateNode = matrixState[hallazgoId];
-      if (stateNode.aplica) {
-        stateNode.actividades.forEach(act => {
-          if (act.accion && act.accion.trim() !== '') {
-            compiledPlanes.push({
-              id: String(act.id).startsWith('new-') ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
-              idHallazgo: Number(hallazgoId),
-              accion: act.accion,
-              responsable: act.responsable || 'Por asignar',
-              fechaInicio: act.fechaInicio || '',
-              fecha: act.fecha || '',
-              progreso: Math.min(Math.max(parseInt(act.progreso || 0), 0), 100),
-              estado: parseInt(act.progreso || 0) === 100 ? 'Cerrado' : 'En Proceso',
-              evidenciaUrl: act.evidenciaUrl || '',
-              estadoWorkflow: act.estadoWorkflow || 'Borrador',
-              historialCambios: act.historialCambios || [{ fecha: new Date().toLocaleString(), accion: 'Actividad registrada en matriz masiva' }]
-            });
-          }
+    // PEGA ESTO EN SU LUGAR:
+Object.keys(matrixState).forEach(hallazgoId => {
+  const stateNode = matrixState[hallazgoId];
+  if (stateNode.aplica) {
+    stateNode.actividades.forEach(act => {
+      if (act.accion && act.accion.trim() !== '') {
+        // 🧠 Extrayemos el año y mes real de la fecha elegida para sincronizar con el filtro superior
+        const fechaDiligenciada = act.fecha || new Date().toISOString().split('T')[0];
+        const partes = fechaDiligenciada.split('-'); 
+        const anioVal = Number(partes[0]) || 2026;
+        
+        const mesesArray = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const mesIdx = parseInt(partes[1], 10) - 1;
+        const mesVal = mesesArray[mesIdx] || "Julio";
+
+        compiledPlanes.push({
+          id: String(act.id).startsWith('new-') ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
+          idHallazgo: Number(hallazgoId),
+          accion: act.accion,
+          responsable: act.responsable || 'Por asignar',
+          fechaInicio: act.fechaInicio || '',
+          fecha: act.fecha || '',
+          progreso: Math.min(Math.max(parseInt(act.progreso || 0), 0), 100),
+          estado: parseInt(act.progreso || 0) === 100 ? 'Cerrado' : 'En Proceso',
+          evidenciaUrl: act.evidenciaUrl || '',
+          estadoWorkflow: act.estadoWorkflow || 'Borrador',
+          anio: anioVal, // 🟢 Propiedad forzada para alineación de filtros
+          mes: mesVal,   // 🟢 Propiedad forzada para alineación de filtros
+          historialCambios: act.historialCambios || [{ fill: new Date().toLocaleString(), accion: 'Actividad registrada en matriz masiva' }]
         });
       }
     });
-
+  }
+});
     // Filtramos los planes de otros informes para no borrarlos, y unimos los nuevos actualizados
     const cleanOtherPlanes = safePlanes.filter(p => !reportFindingsIds.includes(p.idHallazgo));
     const finalGlobalPlanes = [...cleanOtherPlanes, ...compiledPlanes];
