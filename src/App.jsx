@@ -1515,6 +1515,9 @@ const renderConfiguracion = () => (
 // =====================================================================
   // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
   // =====================================================================
+   // =====================================================================
+  // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
+  // =====================================================================
   const renderTableroAnalitico = () => {
     const hoy = new Date();
 
@@ -1522,42 +1525,30 @@ const renderConfiguracion = () => (
     const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
     const planesBase = typeof pFiltrados !== 'undefined' ? pFiltrados : (typeof planes !== 'undefined' ? planes : []);
 
-    // ✨ EL NUEVO TRADUCTOR INTELIGENTE (PALABRA -> NÚMERO)
     const extraerNumeroPuro = (valor) => {
       if (!valor) return 0;
       const str = String(valor).toLowerCase().trim();
-      
-      // Si trae un número explícito
       const num = parseInt(str.charAt(0), 10);
       if (!isNaN(num)) return num;
-      
-      // Traducción de Probabilidad
       if (str === 'rara' || str === 'rara vez') return 1;
       if (str === 'improbable') return 2;
       if (str === 'posible') return 3;
       if (str === 'probable') return 4;
       if (str === 'casi seguro') return 5;
-      
-      // Traducción de Impacto
       if (str === 'insignificante') return 1;
       if (str === 'menor') return 2;
       if (str === 'moderado' || str === 'medio') return 3;
       if (str === 'mayor' || str === 'alto') return 4;
       if (str === 'catastrófico' || str === 'crítico') return 5;
-      
       return 0;
     };
 
-    // 3. Métricas de Planes de Acción
     const totalPlanes = planesBase.length;
     const planesActivos = planesBase.filter(p => p.estado !== 'Cerrado').length;
     const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
     const planesCerrados = planesBase.filter(p => p.estado === 'Cerrado').length;
-    
-    // Cálculo seguro del porcentaje sin decimales infinitos
     const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 100;
 
-    // 4. Métricas de Riesgos Reales utilizando el extractor numérico
     const totalRiesgos = riesgosBase.length;
     const riesgosCriticos = riesgosBase.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
     const riesgosMedios = riesgosBase.filter(r => {
@@ -1566,22 +1557,64 @@ const renderConfiguracion = () => (
     }).length;
     const riesgosBajos = totalRiesgos - riesgosCriticos - riesgosMedios;
 
-    // Eficiencia ponderada de controles inteligente basada en tus métricas reales
     const efectividadControlesGlobal = totalRiesgos > 0 ? Math.round(85 + (riesgosBajos * 1.5) - (riesgosCriticos * 2)) : 90; 
 
-    // 5. Métricas de Hallazgos
     const totalHallazgos = hallazgosBase.length;
     const hallazgosCriticosCount = hallazgosBase.filter(h => h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico').length;
 
-    // 6. Función auxiliar interactiva para renderizar la matriz 5x5 usando el extractor purificado
     const contarRiesgosEnCelda = (p, i) => {
       return riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === p && extraerNumeroPuro(r.impactoResidual) === i).length;
     };
 
-    // 7. Filtrar listado dinámico inferior en base al cuadrante seleccionado
     const riesgosFiltradosPorMatriz = matrizFiltro 
       ? riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === matrizFiltro.p && extraerNumeroPuro(r.impactoResidual) === matrizFiltro.i)
       : riesgosBase.slice(0, 5);
+
+    // 🚀 MOTORES DE DATOS PARA LOS NUEVOS WIDGETS
+    const planesVencidosList = planesBase
+      .filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy)
+      .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+      .slice(0, 5);
+
+    const cronogramaBase = typeof cFiltrados !== 'undefined' ? cFiltrados : (typeof cronograma !== 'undefined' ? cronograma : []);
+    const proximasAuditorias = cronogramaBase
+      .filter(c => (Number(c.cumplimiento) || 0) < 100)
+      .slice(0, 4);
+
+    let allActivity = [];
+    const parseDateStr = (dateStr) => {
+      try {
+        const [datePart, timePart] = dateStr.split(', ');
+        const [d, m, y] = datePart.split(/[\/\-]/);
+        if (d && m && y) return new Date(`${y}-${m}-${d}T${timePart || '00:00:00'}`).getTime();
+        return new Date(dateStr).getTime();
+      } catch(e) { return 0; }
+    };
+
+    const addAct = (items, type, icon, colorClass) => {
+      items.forEach(item => {
+        if (item.historialCambios && item.historialCambios.length > 0) {
+          const last = item.historialCambios[item.historialCambios.length - 1];
+          allActivity.push({
+             timestamp: parseDateStr(last.fecha),
+             fechaStr: last.fecha,
+             accion: last.accion,
+             usuario: last.usuario || 'Sistema',
+             ref: item.ref || (item.id ? `${type.substring(0,3).toUpperCase()}-${String(item.id).substring(0,5)}` : 'N/A'),
+             proceso: item.proceso || 'General',
+             type, icon, colorClass
+          });
+        }
+      });
+    };
+    
+    addAct(planesBase, 'Plan', '✅', 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30');
+    addAct(hallazgosBase, 'Hallazgo', '⚠️', 'bg-amber-500/20 text-amber-400 border border-amber-500/30');
+    addAct(riesgosBase, 'Riesgo', '🛡️', 'bg-red-500/20 text-red-400 border border-red-500/30');
+    addAct(typeof informesAuditoria !== 'undefined' ? informesAuditoria : [], 'Informe', '📄', 'bg-blue-500/20 text-blue-400 border border-blue-500/30');
+    
+    allActivity.sort((a, b) => b.timestamp - a.timestamp);
+    const recentActivityList = allActivity.slice(0, 4);
 
     return (
       <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none">
@@ -1596,7 +1629,6 @@ const renderConfiguracion = () => (
             <div className="flex items-center space-x-3 shrink-0">
               <div className="bg-[#111c35] border border-slate-700/50 px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 flex items-center space-x-2">
                 <span>📅</span> 
-                {/* FECHA DINÁMICA: Toma el día, mes y año real de tu PC/Servidor */}
                 <span>{`${String(hoy.getDate()).padStart(2, '0')} / ${defaultMeses[hoy.getMonth()]} / ${hoy.getFullYear()}`}</span>
               </div>
               <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-2 rounded-xl text-xs font-black tracking-widest uppercase flex items-center space-x-1.5">
@@ -1638,23 +1670,10 @@ const renderConfiguracion = () => (
           </div>
         </div>
 
-      {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
+        {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           
-          {/* Tarjeta 1: Cumplimiento Global (Alineado a la Izquierda) */}
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
-            {/* Tooltip Premium (Hacia abajo) */}
-            <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-blue-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 top-full left-0 mt-3 pointer-events-none">
-              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Cumplimiento Global</div>
-              <div className="space-y-1.5 leading-relaxed">
-                <p><span className="text-blue-400 font-bold">Origen:</span> Módulo de Planes de Acción.</p>
-                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Porcentaje de planes en estado 'Cerrado' versus el total histórico.</p>
-                <p><span className="text-amber-400 font-bold">Importancia:</span> Mide la capacidad real de Termales para corregir brechas y resolver auditorías.</p>
-              </div>
-              {/* Triángulo apuntando hacia arriba */}
-              <div className="absolute -top-1.5 left-8 w-3 h-3 bg-[#0d1627] border-t border-l border-blue-500/30 transform rotate-45"></div>
-            </div>
-
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
               <span className="text-lg">🎯</span>
@@ -1670,19 +1689,7 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          {/* Tarjeta 2: Riesgos Activos (Centrado) */}
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
-            {/* Tooltip Premium (Hacia abajo) */}
-            <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-red-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 top-full left-1/2 -translate-x-1/2 mt-3 pointer-events-none">
-              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Riesgos Activos</div>
-              <div className="space-y-1.5 leading-relaxed">
-                <p><span className="text-blue-400 font-bold">Origen:</span> Matriz de Riesgos Corporativa.</p>
-                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Conteo total de eventos clasificados por su Score Residual (Prob. × Impacto).</p>
-                <p><span className="text-amber-400 font-bold">Importancia:</span> Proporciona visibilidad inmediata sobre la exposición al riesgo del negocio hoy.</p>
-              </div>
-              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-t border-l border-red-500/30 transform rotate-45"></div>
-            </div>
-
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
               <span className="text-lg">🔥</span>
@@ -1697,19 +1704,7 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          {/* Tarjeta 3: Controles Auditados (Centrado) */}
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
-            {/* Tooltip Premium (Hacia abajo) */}
-            <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-cyan-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 top-full left-1/2 -translate-x-1/2 mt-3 pointer-events-none">
-              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Controles Auditados</div>
-              <div className="space-y-1.5 leading-relaxed">
-                <p><span className="text-blue-400 font-bold">Origen:</span> Evaluaciones y Auditoría de Controles.</p>
-                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Ponderación matemática mitigante restando puntos por riesgos críticos activos.</p>
-                <p><span className="text-amber-400 font-bold">Importancia:</span> Define si las barreras de defensa de la empresa realmente están funcionando.</p>
-              </div>
-              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-t border-l border-cyan-500/30 transform rotate-45"></div>
-            </div>
-
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
               <span className="text-lg">🛡️</span>
@@ -1725,19 +1720,7 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          {/* Tarjeta 4: Hallazgos Abiertos (Centrado) */}
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
-             {/* Tooltip Premium (Hacia abajo) */}
-             <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-purple-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 top-full left-1/2 -translate-x-1/2 mt-3 pointer-events-none">
-              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Hallazgos Abiertos</div>
-              <div className="space-y-1.5 leading-relaxed">
-                <p><span className="text-blue-400 font-bold">Origen:</span> Desviaciones de Auditoría Interna/Externa.</p>
-                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Conteo neto de hallazgos que no han sido cerrados formalmente.</p>
-                <p><span className="text-amber-400 font-bold">Importancia:</span> Actúa como semáforo sobre las no conformidades vivas que requieren planes de choque.</p>
-              </div>
-              <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-t border-l border-purple-500/30 transform rotate-45"></div>
-            </div>
-
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
               <span className="text-lg">🔎</span>
@@ -1750,20 +1733,7 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          {/* Tarjeta 5: Planes en Ejecución (Alineado a la Derecha) */}
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
-            {/* Tooltip Premium (Hacia abajo) */}
-            <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-amber-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 top-full right-0 mt-3 pointer-events-none">
-              <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Planes en Ejecución</div>
-              <div className="space-y-1.5 leading-relaxed">
-                <p><span className="text-blue-400 font-bold">Origen:</span> Compromisos de mejora de jefes de área.</p>
-                <p><span className="text-emerald-400 font-bold">Cálculo:</span> Planes activos. Calcula vencimientos cruzando la fecha límite con la fecha de hoy.</p>
-                <p><span className="text-amber-400 font-bold">Importancia:</span> Monitorea el flujo de trabajo correctivo y expone retrasos gerenciales.</p>
-              </div>
-              {/* Triángulo apuntando hacia arriba, pegado a la derecha */}
-              <div className="absolute -top-1.5 right-8 w-3 h-3 bg-[#0d1627] border-t border-l border-amber-500/30 transform rotate-45"></div>
-            </div>
-
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
               <span className="text-lg">📝</span>
@@ -1780,7 +1750,6 @@ const renderConfiguracion = () => (
 
         {/* ─── CUADRÍCULA PRINCIPAL CENTRAL ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
           <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Mapa de Riesgos (Matriz 5x5)</h3>
@@ -1808,7 +1777,7 @@ const renderConfiguracion = () => (
                         {impactoLvl} {etiquetasY[impactoLvl]}
                       </span>
                       
-{[1, 2, 3, 4, 5].map((probLvl) => {
+                      {[1, 2, 3, 4, 5].map((probLvl) => {
                         const cant = contarRiesgosEnCelda(probLvl, impactoLvl);
                         let colorCelda = "bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"; 
                         const score = probLvl * impactoLvl;
@@ -1822,10 +1791,7 @@ const renderConfiguracion = () => (
                           <button
                             key={`cell-${probLvl}-${impactoLvl}`}
                             onClick={() => {
-                              // 1. Filtra abajo (comportamiento original)
                               setMatrizFiltro({ p: probLvl, i: impactoLvl });
-                              
-                              // 2. Dispara el Modal de detalles si hay datos
                               const riesgosCelda = riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === probLvl && extraerNumeroPuro(r.impactoResidual) === impactoLvl);
                               
                               if (riesgosCelda.length > 0) {
@@ -1868,9 +1834,7 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          {/* ─── TARJETA LATERAL: TENDENCIA HISTÓRICA Y DISTRIBUCIÓN ─── */}
           {(() => {
-            // 🧠 1. MOTOR DINÁMICO: TENDENCIA HISTÓRICA (Últimos 6 meses)
             const mesesCortos = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
             const currentMonthIdx = hoy.getMonth();
             const ultimos6Meses = Array.from({length: 6}, (_, i) => {
@@ -1898,7 +1862,6 @@ const renderConfiguracion = () => (
             const pathMedios = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.med)}`).join(' ');
             const pathBajos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.baj)}`).join(' ');
 
-            // 🧠 2. MOTOR DINÁMICO: DISTRIBUCIÓN POR PROCESO
             const procesosCount = Object.entries(
               riesgosBase.reduce((acc, r) => {
                 const proc = r.proceso || 'General / Otros';
@@ -1912,18 +1875,6 @@ const renderConfiguracion = () => (
 
             return (
               <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible">
-                
-                {/* Tooltip Explicativo */}
-                <div className="absolute z-[100] w-72 p-4 bg-[#0d1627] border border-slate-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 top-4 right-full mr-3 pointer-events-none">
-                  <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Análisis Histórico y Distribución</div>
-                  <div className="space-y-1.5 leading-relaxed">
-                    <p><span className="text-blue-400 font-bold">Tendencia:</span> Curvas calculadas en tiempo real agrupando los riesgos creados en los últimos 6 meses. (<span className="text-red-400">Rojo: Críticos</span>, <span className="text-amber-400">Amarillo: Medios</span>, <span className="text-emerald-400">Verde: Bajos</span>).</p>
-                    <p><span className="text-emerald-400 font-bold">Distribución:</span> Gráfica proporcional generada a partir de los procesos mapeados en los {totalRiesgos} riesgos actuales.</p>
-                    <p><span className="text-amber-400 font-bold">Importancia:</span> Identifica qué mes tuvo picos de exposición y qué proceso es el "cuello de botella".</p>
-                  </div>
-                  <div className="absolute top-4 -right-1.5 w-3 h-3 bg-[#0d1627] border-t border-r border-slate-500/30 transform rotate-45"></div>
-                </div>
-
                 <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Tendencia Histórica</h3>
                 <div className="w-full h-36 mt-2 relative">
                   <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
@@ -1984,9 +1935,9 @@ const renderConfiguracion = () => (
               </div>
             );
           })()}
-</div>
+        </div>
 
-{/* ─── ALERTAS INTELIGENTES (IA) EN TIEMPO REAL CONECTADAS A LA BASE DE DATOS REAL ─── */}
+        {/* ─── ALERTAS INTELIGENTES (IA) ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 flex items-center">
@@ -1996,97 +1947,42 @@ const renderConfiguracion = () => (
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-left">
-            
-            {/* Alerta 1: Riesgos Críticos Reales (Alineado a la Izquierda) */}
             <div className="bg-[#1c0d15] border border-red-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-red-500/40 transition-colors relative overflow-visible">
-              {/* Tooltip Hacia Arriba */}
-              <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-red-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-0 mb-3 pointer-events-none">
-                <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Riesgos Críticos Activos</div>
-                <div className="space-y-1.5 leading-relaxed">
-                  <p><span className="text-blue-400 font-bold">Origen:</span> Matriz de Riesgos Corporativa.</p>
-                  <p><span className="text-emerald-400 font-bold">Cálculo:</span> Riesgos cuyo Score Residual (Impacto × Probabilidad) es ≥ 16.</p>
-                  <p><span className="text-amber-400 font-bold">Importancia:</span> Advierte a la gerencia sobre vulnerabilidades extremas que requieren planes de choque inmediatos.</p>
-                </div>
-                <div className="absolute -bottom-1.5 left-8 w-3 h-3 bg-[#0d1627] border-b border-r border-red-500/30 transform rotate-45"></div>
-              </div>
-
               <div className="text-red-400 text-lg bg-red-500/10 p-1.5 rounded-lg">⚠️</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-red-400">{riesgosCriticos} Riesgos Críticos Activos</h4>
                 <p className="text-[9px] text-slate-400 font-medium">Requieren priorización de controles inmediata</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Monitoreo en vivo</p>
               </div>
             </div>
 
-            {/* Alerta 2: Planes Vencidos Reales (Centrado) */}
             <div className="bg-[#1c140d] border border-amber-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-amber-500/40 transition-colors relative overflow-visible">
-              {/* Tooltip Hacia Arriba */}
-              <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-amber-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
-                <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Planes de Acción Vencidos</div>
-                <div className="space-y-1.5 leading-relaxed">
-                  <p><span className="text-blue-400 font-bold">Origen:</span> Módulo de Planes de Mejoramiento.</p>
-                  <p><span className="text-emerald-400 font-bold">Cálculo:</span> Planes activos cuya fecha límite programada ya fue superada por la fecha actual.</p>
-                  <p><span className="text-amber-400 font-bold">Importancia:</span> Revela cuellos de botella y falta de diligencia en la mitigación de hallazgos de auditoría.</p>
-                </div>
-                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-amber-500/30 transform rotate-45"></div>
-              </div>
-
               <div className="text-amber-400 text-lg bg-amber-500/10 p-1.5 rounded-lg">📝</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-amber-400">{planesVencidos} Planes de Acción Vencidos</h4>
                 <p className="text-[9px] text-slate-400 font-medium">Planes retrasados fuera de la fecha límite establecida</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Alerta de Auditoría</p>
               </div>
             </div>
 
-            {/* Alerta 3: Hallazgos Críticos Reales (Centrado) */}
             <div className="bg-[#0d1624] border border-blue-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-blue-500/40 transition-colors relative overflow-visible">
-              {/* Tooltip Hacia Arriba */}
-              <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-blue-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
-                <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Hallazgos Críticos/Altos</div>
-                <div className="space-y-1.5 leading-relaxed">
-                  <p><span className="text-blue-400 font-bold">Origen:</span> Desviaciones de Control Interno.</p>
-                  <p><span className="text-emerald-400 font-bold">Cálculo:</span> Conteo de registros clasificados manualmente como severidad 'Crítica' o 'Alta'.</p>
-                  <p><span className="text-amber-400 font-bold">Importancia:</span> Indica focos de riesgo materializado que la empresa debe remediar forzosamente para evitar sanciones.</p>
-                </div>
-                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-blue-500/30 transform rotate-45"></div>
-              </div>
-
               <div className="text-blue-400 text-lg bg-blue-500/10 p-1.5 rounded-lg">🔬</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-blue-400">{hallazgosCriticosCount} Hallazgos Críticos/Altos</h4>
                 <p className="text-[9px] text-slate-400 font-medium">Pendientes de apertura de Plan de Acción formal</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Control Interno</p>
               </div>
             </div>
 
-            {/* Alerta 4: Estado de Salud del Sistema (Alineado a la Derecha) */}
             <div className="bg-[#091819] border border-cyan-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-cyan-500/40 transition-colors relative overflow-visible">
-              {/* Tooltip Hacia Arriba */}
-              <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-cyan-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full right-0 mb-3 pointer-events-none">
-                <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Eficiencia Global</div>
-                <div className="space-y-1.5 leading-relaxed">
-                  <p><span className="text-blue-400 font-bold">Origen:</span> Auditoría de Controles Mitigantes.</p>
-                  <p><span className="text-emerald-400 font-bold">Cálculo:</span> Algoritmo ponderado que evalúa la calificación del diseño y ejecución frente a los riesgos materializados.</p>
-                  <p><span className="text-amber-400 font-bold">Importancia:</span> Es el termómetro definitivo sobre qué tan blindada se encuentra la organización ante amenazas.</p>
-                </div>
-                <div className="absolute -bottom-1.5 right-8 w-3 h-3 bg-[#0d1627] border-b border-r border-cyan-500/30 transform rotate-45"></div>
-              </div>
-
               <div className="text-cyan-400 text-lg bg-cyan-500/10 p-1.5 rounded-lg">💡</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-cyan-400">Eficiencia Global: {efectividadControlesGlobal}%</h4>
                 <p className="text-[9px] text-slate-400 font-medium">Efectividad ponderada de la matriz de controles mitigantes</p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase mt-1">Salud del Negocio</p>
               </div>
             </div>
-
           </div>
         </div>
 
-      {/* ─── BLOQUE INFERIOR DE ACCIÓN (MÉTRICAS METAS Y KPI REALES) ─── */}
+        {/* ─── BLOQUE INFERIOR DE ACCIÓN (MÉTRICAS METAS Y KPI REALES) ─── */}
         {(() => {
-          // 🧠 1. MOTOR DE CÁLCULO EN TIEMPO REAL PARA HALLAZGOS
           const totalHallazgosReal = hallazgosBase.length || 1; 
           const hCrit = hallazgosBase.filter(h => h.severidad === 'Crítico' || h.severidad === 'Crítica').length;
           const hAlt = hallazgosBase.filter(h => h.severidad === 'Alto' || h.severidad === 'Alta').length;
@@ -2098,36 +1994,19 @@ const renderConfiguracion = () => (
           const pMed = Math.round((hMed / totalHallazgosReal) * 100) || 0;
           const pBaj = Math.round((hBaj / totalHallazgosReal) * 100) || 0;
 
-          // 🧠 2. MOTOR DE CÁLCULO PARA KPIs (Cronograma y Oportunidad)
-          const cronogramaBase = typeof cFiltrados !== 'undefined' ? cFiltrados : (typeof cronograma !== 'undefined' ? cronograma : []);
           const cronogramaIniciados = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) > 0);
           const kpiPlanAnual = cronogramaIniciados.length > 0 
             ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) 
             : 0;
-          // Oportunidad: Porcentaje de planes que NO están vencidos
           const kpiOportunidad = totalPlanes > 0 ? Math.round(((totalPlanes - planesVencidos) / totalPlanes) * 100) : 100;
 
           return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
               
-              {/* 🎯 TARJETA 1: SEVERIDAD DE HALLAZGOS */}
-              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible">
-                
-                {/* Tooltip Hacia Arriba */}
-                <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-slate-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-0 mb-3 pointer-events-none">
-                  <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Distribución de Hallazgos</div>
-                  <div className="space-y-1.5 leading-relaxed">
-                    <p><span className="text-blue-400 font-bold">Origen:</span> Base de datos viva del Módulo de Hallazgos.</p>
-                    <p><span className="text-emerald-400 font-bold">Cálculo:</span> Gráfica matemática generada a partir de la severidad (Crítica, Alta, Media, Baja) de los {hallazgosBase.length} registros del periodo filtrado.</p>
-                    <p><span className="text-amber-400 font-bold">Importancia:</span> Expone de manera gráfica la carga de riesgo operativo materializado que la empresa debe remediar.</p>
-                  </div>
-                  <div className="absolute -bottom-1.5 left-8 w-3 h-3 bg-[#0d1627] border-b border-r border-slate-500/30 transform rotate-45"></div>
-                </div>
-
+              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
                 <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
                 <div className="flex items-center justify-around h-32">
                   <div className="w-24 h-24 relative">
-                    {/* SVG Dinámico que dibuja los colores según los porcentajes reales */}
                     <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90 drop-shadow-md">
                       <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
                       {pCrit > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ff4444" strokeWidth="4" strokeDasharray={`${pCrit} 100`} strokeDashoffset="0" className="transition-all duration-1000" />}
@@ -2145,20 +2024,7 @@ const renderConfiguracion = () => (
                 </div>
               </div>
 
-              {/* 🎯 TARJETA 2: MÉTRICAS DE PLANES */}
-              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible">
-                
-                {/* Tooltip Hacia Arriba (Centrado) */}
-                <div className="absolute z-[100] w-64 p-4 bg-[#0d1627] border border-slate-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none">
-                  <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Métricas de Planes</div>
-                  <div className="space-y-1.5 leading-relaxed">
-                    <p><span className="text-blue-400 font-bold">Origen:</span> Base de Planes de Acción.</p>
-                    <p><span className="text-emerald-400 font-bold">Cálculo:</span> Cruza los planes terminados vs planes con fecha límite superada.</p>
-                    <p><span className="text-amber-400 font-bold">Importancia:</span> Evalúa de forma tajante el compromiso gerencial para subsanar los errores auditados.</p>
-                  </div>
-                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0d1627] border-b border-r border-slate-500/30 transform rotate-45"></div>
-                </div>
-
+              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
                 <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Métricas de Planes</h3>
                 <div className="space-y-3 font-bold text-xs text-slate-400">
                   <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-blue-500/30 transition-colors">
@@ -2176,20 +2042,7 @@ const renderConfiguracion = () => (
                 </div>
               </div>
 
-              {/* 🎯 TARJETA 3: INDICADORES (KPI) */}
-              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible">
-                
-                {/* Tooltip Hacia Arriba (Alineado a la Derecha) */}
-                <div className="absolute z-[100] w-72 p-4 bg-[#0d1627] border border-slate-500/30 rounded-xl shadow-2xl text-[10px] text-slate-300 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 bottom-full right-0 mb-3 pointer-events-none">
-                  <div className="font-black text-white text-[11px] mb-2 border-b border-slate-700/80 pb-1">Indicadores Clave (KPI)</div>
-                  <div className="space-y-1.5 leading-relaxed">
-                    <p><span className="text-blue-400 font-bold">Plan Anual:</span> Promedio de ejecución física de las auditorías programadas en el cronograma.</p>
-                    <p><span className="text-emerald-400 font-bold">Eficiencia:</span> Ponderación de controles calificados como eficaces vs riesgos materializados.</p>
-                    <p><span className="text-amber-400 font-bold">Oportunidad:</span> Porcentaje de Planes de Acción gestionados sin sobrepasar su fecha de vencimiento.</p>
-                  </div>
-                  <div className="absolute -bottom-1.5 right-8 w-3 h-3 bg-[#0d1627] border-b border-r border-slate-500/30 transform rotate-45"></div>
-                </div>
-
+              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
                 <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Indicadores (KPI)</h3>
                 <div className="overflow-x-auto w-full flex-1">
                   <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
@@ -2224,10 +2077,118 @@ const renderConfiguracion = () => (
                   </table>
                 </div>
               </div>
-
             </div>
           );
         })()}
+
+        {/* ─── NUEVO: PANEL DE CONTROL OPERATIVO (WIDGETS DE ESTADO EN TIEMPO REAL) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          
+          {/* 1. Planes Vencidos */}
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+            <div className="flex items-center space-x-3 mb-4">
+              <h3 className="text-sm font-black text-slate-200">Planes Vencidos</h3>
+              <span className="bg-red-500/20 text-red-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{planesVencidosList.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
+              <table className="w-full text-left text-[10px]">
+                <thead className="text-slate-500 border-b border-slate-800">
+                  <tr>
+                    <th className="pb-2 font-bold">Plan</th>
+                    <th className="pb-2 font-bold">Proceso</th>
+                    <th className="pb-2 font-bold">Vencimiento</th>
+                    <th className="pb-2 font-bold">Responsable</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {planesVencidosList.map((p, i) => {
+                    const hallazgoAsociado = hallazgosBase.find(h => h.id === p.idHallazgo) || {};
+                    return (
+                    <tr key={`venc-${i}`} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2.5 flex items-center space-x-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+                        <span className="font-bold text-slate-300">PLAN-{p.id}</span>
+                      </td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={hallazgoAsociado.proceso || 'N/A'}>{hallazgoAsociado.proceso || 'N/A'}</td>
+                      <td className="py-2.5 text-slate-400">{formatSafeDate(p.fecha)}</td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={p.responsable}>{p.responsable}</td>
+                    </tr>
+                  )})}
+                  {planesVencidosList.length === 0 && (
+                    <tr><td colSpan="4" className="py-4 text-center text-slate-500 italic">No hay planes vencidos registrados</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
+               <button onClick={() => setActiveTab('planes')} className="text-red-400 text-[10px] font-bold hover:underline transition-colors">Ver todos los planes vencidos →</button>
+            </div>
+          </div>
+
+          {/* 2. Próximas Auditorías */}
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+            <div className="flex items-center space-x-3 mb-4">
+              <h3 className="text-sm font-black text-slate-200">Próximas Auditorías</h3>
+              <span className="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{proximasAuditorias.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
+               <table className="w-full text-left text-[10px]">
+                <thead className="text-slate-500 border-b border-slate-800">
+                  <tr>
+                    <th className="pb-2 font-bold">Auditoría</th>
+                    <th className="pb-2 font-bold">Proceso</th>
+                    <th className="pb-2 font-bold">Periodo</th>
+                    <th className="pb-2 font-bold">Auditor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {proximasAuditorias.map((c, i) => (
+                    <tr key={`aud-${i}`} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2.5 font-bold text-slate-300">AUD-{c.codigo || `2026-${i+1}`}</td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={c.proceso}>{c.proceso}</td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[70px]">{c.periodo}</td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={c.responsable}>{c.responsable}</td>
+                    </tr>
+                  ))}
+                   {proximasAuditorias.length === 0 && (
+                    <tr><td colSpan="4" className="py-4 text-center text-slate-500 italic">No hay auditorías pendientes en cronograma</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
+               <button onClick={() => setActiveTab('plan_anual')} className="text-blue-400 text-[10px] font-bold hover:underline transition-colors">Ver calendario completo →</button>
+            </div>
+          </div>
+
+          {/* 3. Actividad Reciente */}
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+             <div className="flex items-center space-x-3 mb-4">
+              <h3 className="text-sm font-black text-slate-200">Actividad Reciente</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin space-y-4">
+                {recentActivityList.map((act, i) => (
+                  <div key={`act-${i}`} className="flex items-start space-x-3">
+                    <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${act.colorClass} shrink-0`}>
+                      {act.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-slate-300 leading-snug">
+                        <span className="font-bold text-white">{act.type} {act.ref}</span> {String(act.accion).toLowerCase()}
+                      </p>
+                      <p className="text-[9px] text-slate-500 truncate mt-0.5">Por: {act.usuario}</p>
+                    </div>
+                    <div className="text-[9px] text-slate-500 shrink-0 text-right whitespace-nowrap">
+                      {act.fechaStr.split(',')[0]}
+                    </div>
+                  </div>
+                ))}
+                 {recentActivityList.length === 0 && (
+                    <div className="py-4 text-center text-slate-500 italic text-[10px]">No hay actividad reciente registrada en sistema</div>
+                  )}
+            </div>
+          </div>
+        </div>
 
         {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD (REGISTROS REALES DESDE LA BD) ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left">
@@ -2280,8 +2241,7 @@ const renderConfiguracion = () => (
 
       </div>
     );
-  };  
-
+  };
 const renderDashboardRiesgos = () => {
     // ✨ EL NUEVO TRADUCTOR INTELIGENTE PARA EL DASHBOARD GRIS
     const extraerNumeroPuro = (valor) => {
