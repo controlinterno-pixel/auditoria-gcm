@@ -38,10 +38,66 @@ export default function InformesAuditoria({
     setActiveTab('resumen');
   };
 
+  // ============================================================================
+  // 🖨️ MOTOR PDF GRÁFICO AVANZADO (HTML2CANVAS + JSPDF)
+  // ============================================================================
   const generarPDFEjecutivo = async () => {
-    alert("Pronto activaremos el motor HTML2Canvas aquí en el Paso 3. Por ahora, ¡llena los datos!");
+    if (!selectedInforme) return;
+    setIsGeneratingPdf(true);
+
+    try {
+      // 1. Cargar librerías dinámicamente si no existen
+      if (!window.jspdf) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+          script.onload = resolve; document.head.appendChild(script);
+        });
+      }
+      if (!window.html2canvas) {
+        await new Promise((resolve) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          script.onload = resolve; document.head.appendChild(script);
+        });
+      }
+
+      const { jsPDF } = window.jspdf;
+      // Creamos un PDF tamaño Carta (Letter)
+      const pdf = new jsPDF('p', 'mm', 'letter');
+      
+      // Capturamos las páginas ocultas que hemos dibujado en el DOM
+      const paginas = ['pdf-pag-1', 'pdf-pag-2', 'pdf-pag-3'];
+      
+      for (let i = 0; i < paginas.length; i++) {
+        const pageElement = document.getElementById(paginas[i]);
+        if (!pageElement) continue;
+
+        // Tomar "foto" de alta resolución (scale: 2)
+        const canvas = await window.html2canvas(pageElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        
+        // Dimensiones carta en mm: 215.9 x 279.4
+        const pdfWidth = 215.9;
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      pdf.save(`Informe_Ejecutivo_${selectedInforme.ref}.pdf`);
+      
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+      alert("Hubo un error al generar el PDF gráfico. Asegúrate de tener conexión a internet.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
+  // ============================================================================
+  // VISTA 1: CENTRO EJECUTIVO (Con la Plantilla Oculta para el PDF)
+  // ============================================================================
   if (viewMode === 'executive' && selectedInforme) {
     const hInfo = safeHallazgos.filter(h => String(h.idInforme) === String(selectedInforme.id));
     const hCrit = hInfo.filter(h => h.severidad === 'Crítico' || h.severidad === 'Alto').length;
@@ -50,18 +106,171 @@ export default function InformesAuditoria({
     const avance = pInfo.length > 0 ? Math.round(pInfo.reduce((a, b) => a + (b.progreso||0), 0) / pInfo.length) : 0;
 
     return (
-      <div className="space-y-6 animate-in slide-in-from-right-8 duration-500">
+      <div className="space-y-6 animate-in slide-in-from-right-8 duration-500 relative">
+        
+        {/* ============================================================
+            PLANTILLA HTML OCULTA PARA EL MOTOR HTML2CANVAS 
+            Se renderiza fuera de la pantalla (left: -9999px)
+        ============================================================= */}
+        <div className="absolute left-[-9999px] top-0 bg-gray-100">
+          
+          {/* PÁGINA 1: PORTADA */}
+          <div id="pdf-pag-1" className="w-[816px] h-[1056px] bg-white relative overflow-hidden font-sans flex">
+            {/* Barra Izquierda Verde */}
+            <div className="w-[280px] h-full bg-[#042f2e] text-white p-10 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center space-x-2 mb-16">
+                  <div className="w-10 h-10 bg-white rounded-full flex justify-center items-center text-xl shadow-lg">💧</div>
+                  <div><h1 className="text-xl font-black leading-none">TERMALES</h1><p className="text-[10px] text-emerald-300">Santa Rosa de Cabal</p></div>
+                </div>
+                <p className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold mb-2">Centro de Mando GRC</p>
+                <h2 className="text-4xl font-black leading-tight mb-2">INFORME DE<br/>AUDITORÍA</h2>
+                <h3 className="text-3xl font-black text-emerald-400 mb-8">{selectedInforme.ref}</h3>
+                
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-[9px] text-emerald-200 uppercase tracking-widest mb-1">Proceso Auditado</p>
+                    <p className="font-bold text-sm uppercase">{selectedInforme.proceso}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-emerald-200 uppercase tracking-widest mb-1">Fecha de Emisión</p>
+                    <p className="font-bold text-sm">{formatSafeDate(selectedInforme.fecha)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-emerald-200 uppercase tracking-widest mb-1">Auditor Responsable</p>
+                    <p className="font-bold text-sm">{selectedInforme.elaboradoPor}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="border-t border-emerald-800 pt-6">
+                 <p className="text-[9px] font-black uppercase text-emerald-300 mb-2">Estado del Informe</p>
+                 <div className="bg-emerald-500 text-white font-black uppercase text-xs px-4 py-2 inline-block rounded">
+                   {selectedInforme.socializado === 'Sí' ? 'EMITIDO Y SOCIALIZADO' : 'INFORME EMITIDO'}
+                 </div>
+              </div>
+            </div>
+            {/* Contenido Derecha Portada */}
+            <div className="flex-1 h-full bg-slate-50 flex items-center justify-center p-12 relative">
+               <div className="absolute top-0 right-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+               <div className="relative z-10 text-center">
+                 <h1 className="text-4xl font-black text-slate-800 uppercase leading-snug">{selectedInforme.titulo}</h1>
+                 <div className="w-24 h-2 bg-emerald-500 mx-auto mt-6 rounded-full"></div>
+               </div>
+            </div>
+          </div>
+
+          {/* PÁGINA 2: RESUMEN Y HALLAZGOS */}
+          <div id="pdf-pag-2" className="w-[816px] h-[1056px] bg-white relative font-sans p-12 flex flex-col">
+            <div className="border-b-4 border-[#042f2e] pb-4 mb-8 flex justify-between items-end">
+              <h2 className="text-2xl font-black text-[#042f2e] uppercase tracking-widest">Resumen Ejecutivo</h2>
+              <div className="flex items-center space-x-2"><div className="w-6 h-6 bg-[#042f2e] rounded-full text-white flex items-center justify-center text-[10px]">💧</div><span className="font-bold text-slate-600 text-xs uppercase">Termales</span></div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-8 mb-8">
+              <div>
+                <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Objetivo</h3>
+                <p className="text-sm text-slate-600 text-justify">{selectedInforme.objetivo || 'Evaluar la eficacia de los controles, la continuidad del negocio y la gestión de riesgos.'}</p>
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Alcance</h3>
+                <p className="text-sm text-slate-600 text-justify">{selectedInforme.alcance || 'La auditoría cubre los procesos y sistemas descritos en la matriz de riesgos oficial.'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-4 mb-10">
+              <div className="border-2 border-slate-100 bg-slate-50 rounded-xl p-4 text-center">
+                <p className="text-[10px] font-black uppercase text-slate-500 mb-2 tracking-widest">Hallazgos</p>
+                <p className="text-4xl font-black text-slate-800">{hInfo.length}</p>
+              </div>
+              <div className="border-2 border-red-100 bg-red-50 rounded-xl p-4 text-center">
+                <p className="text-[10px] font-black uppercase text-red-600 mb-2 tracking-widest">Críticos</p>
+                <p className="text-4xl font-black text-red-600">{hCrit}</p>
+              </div>
+              <div className="border-2 border-blue-100 bg-blue-50 rounded-xl p-4 text-center">
+                <p className="text-[10px] font-black uppercase text-blue-700 mb-2 tracking-widest">Planes</p>
+                <p className="text-4xl font-black text-blue-700">{pInfo.length}</p>
+              </div>
+              <div className="border-2 border-emerald-100 bg-emerald-50 rounded-xl p-4 text-center">
+                <p className="text-[10px] font-black uppercase text-emerald-700 mb-2 tracking-widest">Cumplimiento</p>
+                <p className="text-4xl font-black text-emerald-600">{avance}%</p>
+              </div>
+            </div>
+
+            <h3 className="text-sm font-black text-[#042f2e] uppercase tracking-widest mb-4">Matriz de Hallazgos Detectados</h3>
+            <table className="w-full text-xs text-left mb-auto">
+              <thead className="bg-[#042f2e] text-white font-bold uppercase">
+                <tr><th className="p-3">ID</th><th className="p-3">Descripción</th><th className="p-3 text-center">Criticidad</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {hInfo.length === 0 ? <tr><td colSpan="3" className="p-4 text-center text-slate-500">Ningún hallazgo reportado.</td></tr> : 
+                 hInfo.slice(0, 10).map((h, i) => (
+                  <tr key={i} className="bg-slate-50">
+                    <td className="p-3 font-bold">{h.ref}</td>
+                    <td className="p-3">{h.titulo}</td>
+                    <td className="p-3 text-center">
+                      <span className={`px-2 py-1 rounded font-black text-[9px] uppercase text-white ${h.severidad==='Crítico'||h.severidad==='Alto'?'bg-red-600':'bg-amber-500'}`}>{h.severidad}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* PÁGINA 3: GALERÍA, CONCLUSIONES Y FIRMAS */}
+          <div id="pdf-pag-3" className="w-[816px] h-[1056px] bg-white relative font-sans p-12 flex flex-col">
+            <div className="border-b-4 border-[#042f2e] pb-4 mb-8 flex justify-between items-end">
+              <h2 className="text-2xl font-black text-[#042f2e] uppercase tracking-widest">Evidencias y Firmas</h2>
+              <div className="flex items-center space-x-2"><div className="w-6 h-6 bg-[#042f2e] rounded-full text-white flex items-center justify-center text-[10px]">💧</div><span className="font-bold text-slate-600 text-xs uppercase">Termales</span></div>
+            </div>
+
+            <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest mb-4">Registro Fotográfico / Evidencias</h3>
+            <div className="grid grid-cols-2 gap-4 mb-10">
+               {[1,2,3,4].map(num => {
+                 const url = selectedInforme[`img${num}Url`];
+                 const desc = selectedInforme[`img${num}Desc`];
+                 return url ? (
+                   <div key={num} className="border border-slate-200 p-2 rounded-lg bg-slate-50 flex flex-col items-center justify-center">
+                     {/* Imagen Proxy: Si la URL falla, muestra un fallback */}
+                     <img src={url} alt="Evidencia" className="max-h-32 object-contain mb-2 rounded" crossOrigin="anonymous" onError={(e)=>{e.target.style.display='none'}} />
+                     <p className="text-[10px] font-bold text-slate-600 text-center">{desc || `Evidencia ${num}`}</p>
+                   </div>
+                 ) : null;
+               })}
+               {!selectedInforme.img1Url && !selectedInforme.img2Url && <div className="col-span-2 text-sm italic text-slate-500">Sin registro fotográfico adjunto.</div>}
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl mb-auto">
+              <h3 className="text-sm font-black text-[#042f2e] uppercase tracking-widest mb-2">Conclusión General</h3>
+              <p className="text-xs text-slate-600 mb-6 whitespace-pre-wrap">{selectedInforme.conclusion || 'Se emitieron planes de acción para mitigar los hallazgos descritos en este informe.'}</p>
+              
+              <h3 className="text-sm font-black text-[#042f2e] uppercase tracking-widest mb-2">Fortalezas del Proceso</h3>
+              <p className="text-xs text-slate-600 whitespace-pre-wrap">{selectedInforme.fortalezas || '1. Disposición del personal auditado.'}</p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6 mt-10">
+              <div className="text-center"><div className="border-b border-black w-40 mx-auto mb-2"></div><p className="font-bold text-sm">{selectedInforme.elaboradoPor}</p><p className="text-[10px] text-slate-500 uppercase">Elaboró</p></div>
+              <div className="text-center"><div className="border-b border-black w-40 mx-auto mb-2"></div><p className="font-bold text-sm">{selectedInforme.revisadoPor}</p><p className="text-[10px] text-slate-500 uppercase">Revisó</p></div>
+              <div className="text-center"><div className="border-b border-black w-40 mx-auto mb-2"></div><p className="font-bold text-sm">{selectedInforme.aprobadoPor}</p><p className="text-[10px] text-slate-500 uppercase">Aprobó</p></div>
+            </div>
+          </div>
+        </div>
+        {/* ============================================================
+            FIN DE PLANTILLA OCULTA 
+        ============================================================= */}
+
+
         <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
           <button onClick={() => setViewMode('list')} className="text-slate-500 hover:text-slate-800 font-bold flex items-center space-x-2 transition-colors">
-            <span>←</span> <span>Volver a Formulario de Registro</span>
+            <span>←</span> <span>Volver al Repositorio</span>
           </button>
           <div className="flex space-x-3">
             <button onClick={generarPDFEjecutivo} disabled={isGeneratingPdf} className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center space-x-2 shadow-md transition-all">
-              <span>{isGeneratingPdf ? '⏳' : '📥'}</span> <span>{isGeneratingPdf ? 'Generando...' : 'Descargar PDF Ejecutivo'}</span>
+              <span>{isGeneratingPdf ? '⏳' : '📥'}</span> <span>{isGeneratingPdf ? 'Compilando...' : 'Descargar PDF Ejecutivo'}</span>
             </button>
           </div>
         </div>
 
+        {/* VISTA EN PANTALLA (Para leer) */}
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="lg:w-1/3 shrink-0">
             <div className="bg-gradient-to-b from-[#0A3B32] to-[#115e59] rounded-3xl shadow-xl overflow-hidden text-white p-8 aspect-[1/1.4] flex flex-col justify-between relative border-4 border-white ring-1 ring-slate-200">
@@ -157,7 +366,7 @@ export default function InformesAuditoria({
   }
 
   // ============================================================================
-  // VISTA 2: FORMULARIO Y LISTADO
+  // VISTA 2: FORMULARIO Y LISTADO ORIGINAL
   // ============================================================================
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -192,7 +401,6 @@ export default function InformesAuditoria({
               <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Líderes y convocados)</label><input name="socializadoCon" defaultValue={editInformeAuditoria?.socializadoCon||''} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" /></div>
             </div>
 
-            {/* 📝 NUEVA SECCIÓN EDITORIAL */}
             <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <h4 className="font-black text-emerald-800 uppercase tracking-widest text-[10px] mb-4">📖 Textos Editoriales (Se imprimirán en el PDF)</h4>
@@ -215,7 +423,6 @@ export default function InformesAuditoria({
               </div>
             </div>
 
-            {/* 📸 NUEVA SECCIÓN DE GALERÍA DE IMÁGENES */}
             <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
               <h4 className="font-black text-slate-700 uppercase tracking-widest text-[10px] mb-1">📸 Galería Fotográfica / Evidencias (Página 6 del PDF)</h4>
               <p className="text-[9px] text-slate-500 mb-4">Pega los enlaces directos a las imágenes (ej. Google Drive, Imgur, OneDrive) que documenten los hallazgos principales.</p>
