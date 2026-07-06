@@ -39,7 +39,7 @@ export default function InformesAuditoria({
   };
 
   // ============================================================================
-  // 🖨️ MOTOR PDF GRÁFICO (CON FIX PARA COLORES OKLCH DE TAILWIND V4)
+  // 🖨️ MOTOR PDF GRÁFICO (CON PORTADA FIEL AL BOCETO ORIGINAL)
   // ============================================================================
   const generarPDFEjecutivo = async () => {
     if (!selectedInforme) return;
@@ -114,75 +114,94 @@ export default function InformesAuditoria({
         ============================================================= */}
         <div style={{ position: 'fixed', top: 0, left: '-10000px', zIndex: -100, opacity: 0, pointerEvents: 'none' }}>
           
-          {/* PÁGINA 1: PORTADA */}
+          {/* PÁGINA 1: PORTADA CORREGIDA FIEL AL BOCETO */}
           <div id="pdf-pag-1" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', display: 'flex', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box', position: 'relative' }}>
             
-            {/* PANEL IZQUIERDO BLANCO */}
-            <div style={{ width: '330px', height: '100%', backgroundColor: '#ffffff', padding: '60px 40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+            {/* PANEL IZQUIERDO BLANCO CONTENEDOR */}
+            <div style={{ width: '360px', height: '100%', backgroundColor: '#ffffff', padding: '50px 35px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyBetween: 'space-between', zIndex: 10, position: 'relative' }}>
               
-              {/* Logo */}
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '80px' }}>
-                <div style={{ width: '40px', height: '40px', backgroundColor: '#042f2e', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', color: 'white' }}>💧</div>
-                <div style={{ marginLeft: '12px' }}>
-                  <h1 style={{ fontSize: '22px', fontWeight: '900', margin: '0', color: '#042f2e', lineHeight: '1' }}>TERMALES</h1>
-                  <p style={{ fontSize: '10px', margin: '0', color: '#475569', fontWeight: 'bold' }}>Santa Rosa de Cabal</p>
+              <div>
+                {/* Logo */}
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '65px' }}>
+                  <div style={{ width: '38px', height: '38px', backgroundColor: '#042f2e', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '18px', color: 'white' }}>💧</div>
+                  <div style={{ marginLeft: '12px' }}>
+                    <h1 style={{ fontSize: '20px', fontWeight: '900', margin: '0', color: '#042f2e', lineHeight: '1', letterSpacing: '0.5px' }}>TERMALES</h1>
+                    <p style={{ fontSize: '10px', margin: '0', color: '#475569', fontWeight: 'bold' }}>Santa Rosa de Cabal</p>
+                  </div>
+                </div>
+
+                {/* Títulos Principales */}
+                <div style={{ marginBottom: '45px' }}>
+                  <p style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '1.5px', marginBottom: '10px', color: '#059669', textTransform: 'uppercase' }}>Centro de Mando GRC</p>
+                  <h2 style={{ fontSize: '34px', fontWeight: '900', margin: '0 0 8px 0', lineHeight: '1.1', color: '#042f2e', letterSpacing: '-0.5px' }}>INFORME DE<br/>AUDITORÍA</h2>
+                  <h3 style={{ fontSize: '24px', fontWeight: '900', margin: '0', color: '#059669' }}>{selectedInforme.ref}</h3>
                 </div>
               </div>
 
-              {/* Títulos */}
-              <div style={{ marginBottom: '60px' }}>
-                <p style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '12px', color: '#059669', textTransform: 'uppercase' }}>Centro de Mando GRC</p>
-                <h2 style={{ fontSize: '36px', fontWeight: '900', margin: '0 0 10px 0', lineHeight: '1.1', color: '#042f2e' }}>INFORME DE<br/>AUDITORÍA</h2>
-                <h3 style={{ fontSize: '24px', fontWeight: '900', margin: '0', color: '#059669' }}>{selectedInforme.ref}</h3>
-                <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginTop: '10px' }}>{selectedInforme.proceso}</p>
-              </div>
-
-              {/* Metadatos */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
-                  <div style={{ fontSize: '20px', marginTop: '-2px' }}>📅</div>
+              {/* Metadatos Estructurados (Evita amontonamiento de textos largos) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', flex: 1, justifyContent: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ fontSize: '18px', width: '24px' }}>📅</div>
                   <div>
-                    <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Fecha de Emisión</p>
+                    <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 3px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fecha de Emisión</p>
                     <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', color: '#0f172a' }}>{formatSafeDate(selectedInforme.fecha)}</p>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
-                  <div style={{ fontSize: '20px', marginTop: '-2px' }}>👤</div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ fontSize: '18px', width: '24px' }}>👤</div>
                   <div>
-                    <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Auditor Responsable</p>
-                    <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', color: '#0f172a' }}>{selectedInforme.elaboradoPor}</p>
-                    <p style={{ fontSize: '10px', margin: '2px 0 0 0', color: '#64748b' }}>Auditor Líder</p>
+                    <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 3px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Auditor Responsable</p>
+                    <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', color: '#0f172a', lineHeight: '1.3' }}>{selectedInforme.elaboradoPor}</p>
+                    <p style={{ fontSize: '10px', margin: '1px 0 0 0', color: '#64748b', fontWeight: '500' }}>Auditor de Control Interno</p>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
-                   <div style={{ fontSize: '20px', marginTop: '-2px' }}>✅</div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ fontSize: '18px', width: '24px' }}>💼</div>
+                  <div>
+                    <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 3px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Proceso Correspondiente</p>
+                    <p style={{ fontSize: '11px', fontWeight: '800', margin: '0', color: '#042f2e', textTransform: 'uppercase', lineHeight: '1.4', maxWidth: '260px', wordBreak: 'break-word' }}>
+                      {selectedInforme.proceso}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                   <div style={{ fontSize: '18px', width: '24px' }}>✨</div>
                    <div>
-                     <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Estado</p>
-                     <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', color: '#0f172a' }}>{selectedInforme.socializado === 'Sí' ? 'EMITIDO Y SOCIALIZADO' : 'INFORME EMITIDO'}</p>
+                     <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 3px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Estado Actual</p>
+                     <p style={{ fontSize: '11px', fontWeight: 'bold', margin: '0', color: '#0f172a' }}>{selectedInforme.socializado === 'Sí' ? 'EMITIDO Y SOCIALIZADO' : 'INFORME EMITIDO'}</p>
                    </div>
                 </div>
               </div>
+
+              {/* Espacio base */}
+              <div style={{ height: '40px' }}></div>
             </div>
 
-            {/* PANEL DERECHO CON IMAGEN CASCADA Y CURVA SVG CORREGIDA */}
-            <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden' }}>
+            {/* PANEL DERECHO: FOTO DE FONDO + DICTAMEN INTEGRADO */}
+            <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden', backgroundColor: '#042f2e' }}>
               <img src="/cascada.jpg" alt="Fondo Cascada" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0, zIndex: 1 }} />
-              <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(4, 47, 46, 0.4)', zIndex: 2 }}></div>
+              <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(4, 47, 46, 0.45)', zIndex: 2 }}></div>
 
-              <div style={{ position: 'absolute', zIndex: 3, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '85%' }}>
-                 <h1 style={{ fontSize: '42px', fontWeight: '900', color: '#ffffff', textTransform: 'uppercase', lineHeight: '1.2', margin: '0', textShadow: '2px 2px 8px rgba(0,0,0,0.6)' }}>{selectedInforme.titulo}</h1>
-                 <div style={{ width: '80px', height: '6px', backgroundColor: '#10b981', margin: '24px auto 0', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}></div>
+              {/* Título o Dictamen sobre la cascada */}
+              <div style={{ position: 'absolute', zIndex: 4, top: '50%', left: '52%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '80%' }}>
+                 <h1 style={{ fontSize: '38px', fontWeight: '900', color: '#ffffff', textTransform: 'uppercase', lineHeight: '1.2', margin: '0', textShadow: '2px 4px 10px rgba(0,0,0,0.7)', letterSpacing: '0.5px' }}>
+                   {selectedInforme.titulo}
+                 </h1>
+                 <div style={{ width: '70px', height: '5px', backgroundColor: '#10b981', margin: '20px auto 0', borderRadius: '3px', boxShadow: '0 2px 5px rgba(0,0,0,0.4)' }}></div>
               </div>
 
-              {/* CURVA SVG BLANCA SUAVIZADA EN ARCO S CON DOS PUNTOS DE CONTROL BÉZIER */}
-              <svg style={{ position: 'absolute', left: '-1px', top: 0, height: '100%', width: '160px', zIndex: 5 }} viewBox="0 0 100 100" preserveAspectRatio="none">
-                 <path d="M 0,0 C 30,20 100,35 100,50 C 100,65 30,80 0,100 Z" fill="#ffffff" />
+              {/* CURVA SVG INVERTIDA (Alineada 100% fiel al dibujo de tu boceto original) */}
+              <svg style={{ position: 'absolute', left: '-1px', top: 0, height: '100%', width: '150px', zIndex: 3 }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                 <path d="M 0,0 L 100,0 C 40,25 0,40 0,50 C 0,60 40,75 100,100 L 0,100 Z" fill="#ffffff" />
               </svg>
             </div>
 
-            {/* BARRA VERDE INFERIOR */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '50px', backgroundColor: '#042f2e', zIndex: 20, display: 'flex', alignItems: 'center', padding: '0 40px', boxSizing: 'border-box' }}>
-               <p style={{ color: '#ffffff', fontSize: '11px', margin: 0, fontWeight: 'bold' }}>🛡️ Integridad • Transparencia • Excelencia</p>
+            {/* BARRA DE CIERRE DE MARCA INFERIOR */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '45px', backgroundColor: '#042f2e', zIndex: 20, display: 'flex', alignItems: 'center', padding: '0 35px', boxSizing: 'border-box' }}>
+               <p style={{ color: '#ffffff', fontSize: '10px', margin: 0, fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase' }}>🛡️ Integridad • Transparencia • Excelencia</p>
             </div>
           </div>
 
@@ -473,7 +492,7 @@ export default function InformesAuditoria({
               </div>
               <div>
                 <label className="font-bold text-gray-600 block mb-1">Alcance y Periodo</label>
-                <textarea name="alcance" rows="2" defaultValue={editInformeAuditoria?.alcance||'La auditoría cubre los procesos y sistemas desde el 01 de Enero al 30 de Junio de 2026...'} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                <textarea name="alcance" rows="2" defaultValue={editInformeAuditoria?.alcance||'La auditoría cubre los procesos y sistemas desde el 01 de Enero al 30 de Jiuio de 2026...'} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
               </div>
               <div>
                 <label className="font-bold text-gray-600 block mb-1">Conclusión General (Dictamen)</label>
