@@ -32,18 +32,21 @@ export default function Planes({
   FilterInput,
   pFiltrados,
   safeHallazgos,
+  safePlanes,
+  setPlanes,
+  saveToCloud,
   formatSafeDate,
   searchTerm,
   setSearchTerm,
   columnFilters,
   handleColFilterChange,
   onUpdateItemStatus,
-  informesAuditoria = [] // 🟢 Recibimos el repositorio de informes para activar la trazabilidad total
+  informesAuditoria = []
 }) {
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // 🟢 ENRIQUECIMIENTO MAESTRO: Cruzamos el Plan con textos de sus padres (Hallazgo e Informe)
+  // 🟢 ENRIQUECIMIENTO DE INDEXACIÓN: Cruzamos los datos de los padres para que los filtros de títulos y búsqueda general funcionen al 100%
   let planesData = pFiltrados.map(p => {
     const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
     const informe = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme)) || {};
@@ -53,24 +56,26 @@ export default function Planes({
       fechaVal: formatSafeDate(p.fecha),
       estadoWorkflow: p.estadoWorkflow || 'Borrador',
       
-      // Campos de texto formateados para búsquedas exactas con o sin el símbolo '#'
+      // Mapeo de términos con y sin '#' para coincidir exactamente con el input del auditor
       planRefTexto: `#PLAN-${p.id} PLAN-${p.id}`,
       hallazgoRefTexto: `#HAL-${p.idHallazgo} HAL-${p.idHallazgo} ${hallazgo.proceso || ''} ${hallazgo.sede || ''}`,
+      accionTexto: `${p.accion} ${p.responsable || ''} ${p.mecanismo || ''}`,
       
-      // Propiedades mapeadas directamente para que las columnas las puedan leer e indexar
-      proceso: hallazgo.proceso || 'General',
-      sede: hallazgo.sede || 'Hotel',
-      accionTexto: `${p.accion} ${p.responsable || ''} ${p.mecanismo || ''}`
+      // Inyección de textos adicionales de soporte para la Búsqueda General libre
+      textoHallazgoTitulo: hallazgo.titulo || '',
+      textoInformeRef: informe.ref || '',
+      textoInformeTitulo: informe.titulo || ''
     };
   });
 
-  // 🔗 FILTRADO MAESTRO INTERACTIVO: Vinculación automática Plan -> Hallazgo -> Informe Origen
+  // 🔗 FILTRADO DE COMPORTAMIENTO: Vinculación interactiva Plan -> Hallazgo -> Informe Origen
   if (selectedInformeFilter) {
     planesData = planesData.filter(plan => {
       const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
       return String(hallazgo.idInforme) === String(selectedInformeFilter);
     });
   }
+
   const getWorkflowBadgeClass = (status) => {
     switch (status) {
       case 'Borrador': return 'bg-slate-100 text-slate-700 border-slate-300';
@@ -87,7 +92,6 @@ export default function Planes({
   const exportarPlanMejoramientoPDF = async () => {
     setIsGeneratingPdf(true);
     try {
-      // Carga en caliente de jsPDF desde CDN oficial
       if (!window.jspdf || !window.jspdf.jsPDF) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
@@ -96,20 +100,19 @@ export default function Planes({
             if (window.jspdf && !window.jsPDF) window.jsPDF = window.jspdf.jsPDF;
             resolve();
           };
-          script.onerror = () => reject(new Error('Fallo al descargar jsPDF desde el nodo central.'));
+          script.onerror = () => reject(new Error('Fallo al descargar jsPDF desde el CDN central.'));
           document.head.appendChild(script);
         });
       } else if (window.jspdf && !window.jsPDF) {
         window.jsPDF = window.jspdf.jsPDF;
       }
 
-      // Carga en caliente del plug-in autotable
       if (!window.autoTable && !(window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable)) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
           script.onload = () => resolve();
-          script.onerror = () => reject(new Error('Fallo al descargar autotable desde el nodo central.'));
+          script.onerror = () => reject(new Error('Fallo al descargar la extensión autotable.'));
           document.head.appendChild(script);
         });
       }
@@ -117,7 +120,6 @@ export default function Planes({
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF('landscape', 'pt', 'legal');
       
-      // Inicialización de cabeceras dinámicas basadas en la trazabilidad del informe seleccionado
       let fechaSuscripcion = new Date().toLocaleDateString();
       let fuentePlan = 'Auditoría Interna';
       let objetivoGeneral = 'Fortalecer los procesos de control mediante la alineación estratégica de planes correctivos.';
@@ -135,7 +137,6 @@ export default function Planes({
         }
       }
 
-      // Títulos y Marquetería Corporativa
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("TERMALES SANTA ROSA DE CABAL", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
@@ -149,7 +150,6 @@ export default function Planes({
         }
       };
 
-      // Tabla 1: Información General Institucional
       callAutoTable(doc, {
         startY: 80,
         theme: 'grid',
@@ -162,7 +162,6 @@ export default function Planes({
         ]
       });
 
-      // Procesamiento de filas cruzando la información nativa para conformar las 12 columnas exactas de la auditoría
       const tableData = planesData.map((plan, index) => {
         const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
         return [
@@ -183,25 +182,24 @@ export default function Planes({
 
       const firstTableY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 180;
 
-      // Tabla 2: Matriz de Control de 12 Columnas en formato Legal Horizontal
       callAutoTable(doc, {
         startY: firstTableY + 20,
         theme: 'grid',
         headStyles: { fillColor: [11, 42, 54], textColor: 255, fontSize: 7, halign: 'center', valign: 'middle' },
         bodyStyles: { fontSize: 6.5, valign: 'middle' },
         columnStyles: {
-          0: { cellWidth: 25 },   // NO
-          1: { cellWidth: 110 },  // HALLAZGO
-          2: { cellWidth: 100 },  // CAUSAS
-          3: { cellWidth: 65 },   // CLASE
-          4: { cellWidth: 70 },   // PROCESO
-          5: { cellWidth: 115 },  // ACCIONES
-          6: { cellWidth: 95 },   // MECANISMO
-          7: { cellWidth: 75 },   // RESPONSABLE
-          8: { cellWidth: 40 },   // AVANCE
-          9: { cellWidth: 50 },   // INICIO
-          10: { cellWidth: 50 },  // TERMINACIÓN
-          11: { cellWidth: 50 }   // OBSERVACIÓN
+          0: { cellWidth: 25 },   
+          1: { cellWidth: 110 },  
+          2: { cellWidth: 100 },  
+          3: { cellWidth: 65 },   
+          4: { cellWidth: 70 },   
+          5: { cellWidth: 115 },  
+          6: { cellWidth: 95 },   
+          7: { cellWidth: 75 },   
+          8: { cellWidth: 40 },   
+          9: { cellWidth: 50 },   
+          10: { cellWidth: 50 },  
+          11: { cellWidth: 50 }   
         },
         head: [[
           'NO', 
@@ -222,7 +220,6 @@ export default function Planes({
 
       const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 50 : 450;
 
-      // Líneas de firmas oficiales de Control Interno
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("__________________________________________", 100, finalY);
@@ -243,7 +240,6 @@ export default function Planes({
     <div className="space-y-6">
       <div className="border-b pb-4 flex justify-between items-center">
         <h2 className="text-2xl font-black text-slate-800">✅ Planes de Acción Remediales</h2>
-        {/* BOTÓN OFICIAL CON CONTROL DE SPAM */}
         <button 
           onClick={exportarPlanMejoramientoPDF} 
           disabled={isGeneratingPdf}
@@ -402,13 +398,12 @@ export default function Planes({
         </form>
       </div>
 
-      {/* TABLA DE SEGUIMIENTO */}
+      {/* TABLA DE SEGUIMIENTO CON FILTROS INTEGRADOS POR TÍTULO */}
       <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Planes de Acción</h3>
            
            <div className="flex flex-col md:flex-row gap-3">
-              {/* 📂 SELECTOR FILTRADOR DE INFORMES ORIGEN */}
               <select
                 value={selectedInformeFilter}
                 onChange={(e) => setSelectedInformeFilter(e.target.value)}
@@ -427,11 +422,11 @@ export default function Planes({
            </div>
         </div>
         <table className="w-full text-xs text-left divide-y">
-<thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
+          <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
             <tr>
               <th className="p-3">
                 <div>ID Plan</div>
-                <FilterInput colKey="planRefTexto" placeholder="Ej: PLAN-1..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                <FilterInput colKey="planRefTexto" placeholder="Filtrar por ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
               </th>
               <th className="p-3">
                 <div>Gobernanza (Fase)</div>
@@ -439,21 +434,21 @@ export default function Planes({
               </th>
               <th className="p-3">
                 <div>Hallazgo / Proceso</div>
-                <FilterInput colKey="hallazgoRefTexto" placeholder="Ej: HAL-1 o Proceso..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                <FilterInput colKey="hallazgoRefTexto" placeholder="Filtrar Hallazgo/Proceso..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
               </th>
               <th className="p-3">
                 <div>Acción Remedial Programada</div>
-                <FilterInput colKey="accionTexto" placeholder="Filtrar por Acción..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                <FilterInput colKey="accionTexto" placeholder="Filtrar por Acción/Resp..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
               </th>
               <th className="p-3 w-40">
                 <div>% Avance</div>
-                <FilterInput colKey="progreso" placeholder="Progreso %..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                <FilterInput colKey="progreso" placeholder="Progreso..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
               </th>
               <th className="p-3 text-center">
                 <div className="mb-8">Gestión</div>
               </th>
             </tr>
-          </thead>         
+          </thead>
           <tbody className="divide-y text-slate-700">
             {applyFilters(planesData, searchTerm, columnFilters).map((p, index) => {
               const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
@@ -467,7 +462,7 @@ export default function Planes({
                     </span>
                   </td>
 
-                 <td className="p-3 text-red-600 font-bold">
+                  <td className="p-3 text-red-600 font-bold">
                     #HAL-{p.idHallazgo}
                     <span className="text-[9px] uppercase tracking-widest text-slate-600 font-black block mt-0.5">
                       💼 {hallazgoAsociado?.proceso || 'General'}
@@ -475,7 +470,7 @@ export default function Planes({
                     <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-0.5">
                       📍 {hallazgoAsociado?.sede || 'Hotel'}
                     </span>
-                  </td> 
+                  </td>
                   <td className="p-3 text-slate-800 font-medium">
                     <div className="font-black text-slate-900">{p.accion}</div>
                     

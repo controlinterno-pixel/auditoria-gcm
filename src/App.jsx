@@ -2472,12 +2472,15 @@ const renderPlanes = () => {
         FilterInput={FilterInput}
         pFiltrados={pFiltrados}
         safeHallazgos={safeHallazgos}
+        safePlanes={safePlanes} // 🟢 Envía la lista completa para sincronización
+        setPlanes={setPlanes}   // 🟢 Permite actualizar de forma masiva
+        saveToCloud={saveToCloud} // 🟢 Permite guardar directo en Firebase
         formatSafeDate={formatSafeDate}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         columnFilters={columnFilters}
         handleColFilterChange={handleColFilterChange}
-        informesAuditoria={informesAuditoria} // 🟢 Conexión activada con éxito
+        informesAuditoria={informesAuditoria} // 🟢 Conexión de informes
         onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
           try {
             const ts = new Date().toLocaleString();
@@ -2503,24 +2506,22 @@ const renderPlanes = () => {
             setEditPlan(planModificado);
             setFormResetKey(Date.now());
 
-            // 📧 DISPARADOR DE EMAILJS AUTOMÁTICO
             if (nuevoEstadoWorkflow === 'En Revisión') {
-              // Notificamos al administrador principal
               const emailParams = {
                 ref_consecutivo: `PLAN-${id}`,
                 titulo_informe: 'Alerta: Plan de Acción listo para revisión',
                 proceso_auditado: planModificado.accion.substring(0, 50) + '...',
                 enlace_pdf: 'Revisa la plataforma GCM Auditor',
                 enlace_acta: 'N/A',
-                destinatarios: 'controlinterno@termales.com.co' // Correo del administrador
+                destinatarios: 'controlinterno@termales.com.co'
               };
 
-fetch('https://api.emailjs.com/api/v1.0/email/send', {
+              fetch('https://api.emailjs.com/api/v1.0/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
-                  template_id: "template_dwr658j", // <-- AQUÍ PEGAMOS TU NUEVO ID
+                  template_id: "template_dwr658j", 
                   user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, 
                   accessToken: import.meta.env.VITE_EMAILJS_PRIVATE_KEY, 
                   template_params: emailParams
@@ -2528,7 +2529,6 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
               }).catch(e => console.error("Error silencioso EmailJS:", e));
             }
 
-            // Mensaje de éxito en pantalla
             if (nuevoEstadoWorkflow === 'En Revisión') {
                showNotification("Plan enviado a revisión y administrador notificado.");
             } else {
@@ -2543,6 +2543,7 @@ fetch('https://api.emailjs.com/api/v1.0/email/send', {
       />
     );
   };
+
   const renderIncidentes = () => {
     return (
       <Incidentes 
