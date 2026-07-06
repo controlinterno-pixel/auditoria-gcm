@@ -39,46 +39,51 @@ export default function InformesAuditoria({
   };
 
   // ============================================================================
-  // 🖨️ MOTOR PDF GRÁFICO AVANZADO (HTML2CANVAS + JSPDF)
+  // 🖨️ MOTOR PDF GRÁFICO AVANZADO (CORS FIX)
   // ============================================================================
   const generarPDFEjecutivo = async () => {
     if (!selectedInforme) return;
     setIsGeneratingPdf(true);
 
     try {
-      // 1. Cargar librerías dinámicamente si no existen
       if (!window.jspdf) {
-        await new Promise((resolve) => {
+        await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-          script.onload = resolve; document.head.appendChild(script);
+          script.onload = resolve; 
+          script.onerror = reject;
+          document.head.appendChild(script);
         });
       }
       if (!window.html2canvas) {
-        await new Promise((resolve) => {
+        await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-          script.onload = resolve; document.head.appendChild(script);
+          script.onload = resolve; 
+          script.onerror = reject;
+          document.head.appendChild(script);
         });
       }
 
       const { jsPDF } = window.jspdf;
-      // Creamos un PDF tamaño Carta (Letter)
       const pdf = new jsPDF('p', 'mm', 'letter');
-      
-      // Capturamos las páginas ocultas que hemos dibujado en el DOM
       const paginas = ['pdf-pag-1', 'pdf-pag-2', 'pdf-pag-3'];
       
       for (let i = 0; i < paginas.length; i++) {
         const pageElement = document.getElementById(paginas[i]);
         if (!pageElement) continue;
 
-        // Tomar "foto" de alta resolución (scale: 2)
-        const canvas = await window.html2canvas(pageElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+        // 🛡️ allowTaint y useCORS evitan que el navegador bloquee fotos de Drive
+        const canvas = await window.html2canvas(pageElement, { 
+          scale: 2, 
+          useCORS: true, 
+          allowTaint: true,
+          logging: false,
+          backgroundColor: '#ffffff' 
+        });
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         
-        // Dimensiones carta en mm: 215.9 x 279.4
-        const pdfWidth = 215.9;
+        const pdfWidth = 215.9; // Carta en mm
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         
         if (i > 0) pdf.addPage();
@@ -89,15 +94,12 @@ export default function InformesAuditoria({
       
     } catch (error) {
       console.error("Error generando PDF:", error);
-      alert("Hubo un error al generar el PDF gráfico. Asegúrate de tener conexión a internet.");
+      alert("Hubo un error al compilar el PDF. Verifica que las URLs de las fotos sean públicas.");
     } finally {
       setIsGeneratingPdf(false);
     }
   };
 
-  // ============================================================================
-  // VISTA 1: CENTRO EJECUTIVO (Con la Plantilla Oculta para el PDF)
-  // ============================================================================
   if (viewMode === 'executive' && selectedInforme) {
     const hInfo = safeHallazgos.filter(h => String(h.idInforme) === String(selectedInforme.id));
     const hCrit = hInfo.filter(h => h.severidad === 'Crítico' || h.severidad === 'Alto').length;
@@ -110,13 +112,12 @@ export default function InformesAuditoria({
         
         {/* ============================================================
             PLANTILLA HTML OCULTA PARA EL MOTOR HTML2CANVAS 
-            Se renderiza fuera de la pantalla (left: -9999px)
+            (Fijada y oculta sin romper la lectura del DOM)
         ============================================================= */}
-        <div className="absolute left-[-9999px] top-0 bg-gray-100">
+        <div className="fixed top-0 left-[-10000px] z-[-100] opacity-0 pointer-events-none">
           
           {/* PÁGINA 1: PORTADA */}
           <div id="pdf-pag-1" className="w-[816px] h-[1056px] bg-white relative overflow-hidden font-sans flex">
-            {/* Barra Izquierda Verde */}
             <div className="w-[280px] h-full bg-[#042f2e] text-white p-10 flex flex-col justify-between">
               <div>
                 <div className="flex items-center space-x-2 mb-16">
@@ -149,9 +150,9 @@ export default function InformesAuditoria({
                  </div>
               </div>
             </div>
-            {/* Contenido Derecha Portada */}
+            
+            {/* Contenido Derecha Portada (Textura removida para evitar Error CORS) */}
             <div className="flex-1 h-full bg-slate-50 flex items-center justify-center p-12 relative">
-               <div className="absolute top-0 right-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                <div className="relative z-10 text-center">
                  <h1 className="text-4xl font-black text-slate-800 uppercase leading-snug">{selectedInforme.titulo}</h1>
                  <div className="w-24 h-2 bg-emerald-500 mx-auto mt-6 rounded-full"></div>
@@ -230,7 +231,6 @@ export default function InformesAuditoria({
                  const desc = selectedInforme[`img${num}Desc`];
                  return url ? (
                    <div key={num} className="border border-slate-200 p-2 rounded-lg bg-slate-50 flex flex-col items-center justify-center">
-                     {/* Imagen Proxy: Si la URL falla, muestra un fallback */}
                      <img src={url} alt="Evidencia" className="max-h-32 object-contain mb-2 rounded" crossOrigin="anonymous" onError={(e)=>{e.target.style.display='none'}} />
                      <p className="text-[10px] font-bold text-slate-600 text-center">{desc || `Evidencia ${num}`}</p>
                    </div>
@@ -254,6 +254,7 @@ export default function InformesAuditoria({
             </div>
           </div>
         </div>
+
         {/* ============================================================
             FIN DE PLANTILLA OCULTA 
         ============================================================= */}
@@ -265,7 +266,7 @@ export default function InformesAuditoria({
           </button>
           <div className="flex space-x-3">
             <button onClick={generarPDFEjecutivo} disabled={isGeneratingPdf} className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center space-x-2 shadow-md transition-all">
-              <span>{isGeneratingPdf ? '⏳' : '📥'}</span> <span>{isGeneratingPdf ? 'Compilando...' : 'Descargar PDF Ejecutivo'}</span>
+              <span>{isGeneratingPdf ? '⏳' : '📥'}</span> <span>{isGeneratingPdf ? 'Compilando Documento...' : 'Descargar PDF Ejecutivo'}</span>
             </button>
           </div>
         </div>
@@ -401,6 +402,7 @@ export default function InformesAuditoria({
               <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Líderes y convocados)</label><input name="socializadoCon" defaultValue={editInformeAuditoria?.socializadoCon||''} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" /></div>
             </div>
 
+            {/* 📝 NUEVA SECCIÓN EDITORIAL */}
             <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <h4 className="font-black text-emerald-800 uppercase tracking-widest text-[10px] mb-4">📖 Textos Editoriales (Se imprimirán en el PDF)</h4>
@@ -423,6 +425,7 @@ export default function InformesAuditoria({
               </div>
             </div>
 
+            {/* 📸 NUEVA SECCIÓN DE GALERÍA DE IMÁGENES */}
             <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
               <h4 className="font-black text-slate-700 uppercase tracking-widest text-[10px] mb-1">📸 Galería Fotográfica / Evidencias (Página 6 del PDF)</h4>
               <p className="text-[9px] text-slate-500 mb-4">Pega los enlaces directos a las imágenes (ej. Google Drive, Imgur, OneDrive) que documenten los hallazgos principales.</p>
