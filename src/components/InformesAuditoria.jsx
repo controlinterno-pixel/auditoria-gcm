@@ -39,7 +39,7 @@ export default function InformesAuditoria({
   };
 
   // ============================================================================
-  // 🖨️ MOTOR PDF GRÁFICO (CON FIX PARA COLORES OKLCH DE TAILWIND V4)
+  // 🖨️ MOTOR PDF GRÁFICO AVANZADO (ARTESANÍA INLINE CSS)
   // ============================================================================
   const generarPDFEjecutivo = async () => {
     if (!selectedInforme) return;
@@ -50,29 +50,28 @@ export default function InformesAuditoria({
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-          script.onload = resolve; 
-          script.onerror = reject;
-          document.head.appendChild(script);
+          script.onload = resolve; document.head.appendChild(script);
         });
       }
       if (!window.html2canvas) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-          script.onload = resolve; 
-          script.onerror = reject;
-          document.head.appendChild(script);
+          script.onload = resolve; document.head.appendChild(script);
         });
       }
 
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF('p', 'mm', 'letter');
-      const paginas = ['pdf-pag-1', 'pdf-pag-2', 'pdf-pag-3'];
+      
+      // Capturamos las 4 páginas que hemos diseñado
+      const paginas = ['pdf-pag-1', 'pdf-pag-2', 'pdf-pag-3', 'pdf-pag-4'];
       
       for (let i = 0; i < paginas.length; i++) {
         const pageElement = document.getElementById(paginas[i]);
         if (!pageElement) continue;
 
+        // Obligamos al navegador a tomar una foto HD
         const canvas = await window.html2canvas(pageElement, { 
           scale: 2, 
           useCORS: true, 
@@ -80,20 +79,20 @@ export default function InformesAuditoria({
           logging: false,
           backgroundColor: '#ffffff' 
         });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         
-        const pdfWidth = 215.9; // Carta en mm
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        const pdfWidth = 215.9; // mm
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         
         if (i > 0) pdf.addPage();
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
-      pdf.save(`Informe_Ejecutivo_${selectedInforme.ref}.pdf`);
+      pdf.save(`Informe_${selectedInforme.ref}.pdf`);
       
     } catch (error) {
       console.error("Error generando PDF:", error);
-      alert("Hubo un error al compilar el PDF. Comunícate con soporte técnico.");
+      alert("Hubo un error al compilar el PDF. Verifica la consola.");
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -109,105 +108,169 @@ export default function InformesAuditoria({
     return (
       <div className="space-y-6 animate-in slide-in-from-right-8 duration-500 relative">
         
-        {/* ============================================================
-            PLANTILLA HTML OCULTA PARA EL MOTOR HTML2CANVAS 
-            (Usamos variables estilo React para forzar códigos HEX y saltar error OKLCH)
-        ============================================================= */}
-        <div style={{ position: 'fixed', top: 0, left: '-10000px', zIndex: -100, opacity: 0, pointerEvents: 'none' }}>
+        {/* ====================================================================
+            🎨 PLANTILLA HTML OCULTA (CSS PURO, 0% TAILWIND)
+        ===================================================================== */}
+        <div style={{ position: 'fixed', top: '-10000px', left: '-10000px', zIndex: -100 }}>
           
-          {/* PÁGINA 1: PORTADA */}
-          <div id="pdf-pag-1" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', display: 'flex', fontFamily: 'sans-serif', overflow: 'hidden' }}>
-            <div style={{ width: '280px', height: '100%', backgroundColor: '#042f2e', color: '#ffffff', padding: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '64px' }}>
-                  <div style={{ width: '40px', height: '40px', backgroundColor: '#ffffff', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px' }}>💧</div>
-                  <div style={{ marginLeft: '8px' }}><h1 style={{ fontSize: '20px', fontWeight: 900, margin: 0, lineHeight: 1 }}>TERMALES</h1><p style={{ fontSize: '10px', color: '#6ee7b7', margin: 0 }}>Santa Rosa de Cabal</p></div>
-                </div>
-                <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '2px', color: '#34d399', fontWeight: 'bold', marginBottom: '8px' }}>Centro de Mando GRC</p>
-                <h2 style={{ fontSize: '36px', fontWeight: 900, lineHeight: 1.1, margin: '0 0 8px 0' }}>INFORME DE<br/>AUDITORÍA</h2>
-                <h3 style={{ fontSize: '30px', fontWeight: 900, color: '#34d399', margin: '0 0 32px 0' }}>{selectedInforme.ref}</h3>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  <div>
-                    <p style={{ fontSize: '9px', color: '#a7f3d0', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px 0' }}>Proceso Auditado</p>
-                    <p style={{ fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase', margin: 0 }}>{selectedInforme.proceso}</p>
-                  </div>
-                  <div>
-                    <p style={{ fontSize: '9px', color: '#a7f3d0', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px 0' }}>Fecha de Emisión</p>
-                    <p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{formatSafeDate(selectedInforme.fecha)}</p>
-                  </div>
-                  <div>
-                    <p style={{ fontSize: '9px', color: '#a7f3d0', textTransform: 'uppercase', letterSpacing: '1px', margin: '0 0 4px 0' }}>Auditor Responsable</p>
-                    <p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{selectedInforme.elaboradoPor}</p>
-                  </div>
+{/* --- PÁGINA 1: PORTADA EXACTA A LA MAQUETA --- */}
+          <div id="pdf-pag-1" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', display: 'flex', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box', position: 'relative' }}>
+            
+            {/* PANEL IZQUIERDO BLANCO */}
+            <div style={{ width: '330px', height: '100%', backgroundColor: '#ffffff', padding: '60px 40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+              
+              {/* Logo */}
+              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '80px' }}>
+                <div style={{ width: '40px', height: '40px', backgroundColor: '#042f2e', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '20px', color: 'white' }}>💧</div>
+                <div style={{ marginLeft: '12px' }}>
+                  <h1 style={{ fontSize: '22px', fontWeight: '900', margin: '0', color: '#042f2e', lineHeight: '1' }}>TERMALES</h1>
+                  <p style={{ fontSize: '10px', margin: '0', color: '#475569', fontWeight: 'bold' }}>Santa Rosa de Cabal</p>
                 </div>
               </div>
-              <div style={{ borderTop: '1px solid #065f46', paddingTop: '24px' }}>
-                 <p style={{ fontSize: '9px', fontWeight: 900, textTransform: 'uppercase', color: '#6ee7b7', margin: '0 0 8px 0' }}>Estado del Informe</p>
-                 <div style={{ backgroundColor: '#10b981', color: '#ffffff', fontWeight: 900, textTransform: 'uppercase', fontSize: '12px', padding: '8px 16px', display: 'inline-block', borderRadius: '4px' }}>
-                   {selectedInforme.socializado === 'Sí' ? 'EMITIDO Y SOCIALIZADO' : 'INFORME EMITIDO'}
-                 </div>
+
+              {/* Títulos */}
+              <div style={{ marginBottom: '60px' }}>
+                <p style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px', marginBottom: '12px', color: '#059669', textTransform: 'uppercase' }}>Centro de Mando GRC</p>
+                <h2 style={{ fontSize: '36px', fontWeight: '900', margin: '0 0 10px 0', lineHeight: '1.1', color: '#042f2e' }}>INFORME DE<br/>AUDITORÍA</h2>
+                <h3 style={{ fontSize: '24px', fontWeight: '900', margin: '0', color: '#059669' }}>{selectedInforme.ref}</h3>
+                <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginTop: '10px' }}>{selectedInforme.proceso}</p>
+              </div>
+
+              {/* Metadatos (Iconos y Textos) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
+                  <div style={{ fontSize: '20px', marginTop: '-2px' }}>📅</div>
+                  <div>
+                    <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Fecha de Emisión</p>
+                    <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', color: '#0f172a' }}>{formatSafeDate(selectedInforme.fecha)}</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
+                  <div style={{ fontSize: '20px', marginTop: '-2px' }}>👤</div>
+                  <div>
+                    <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Auditor Responsable</p>
+                    <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', color: '#0f172a' }}>{selectedInforme.elaboradoPor}</p>
+                    <p style={{ fontSize: '10px', margin: '2px 0 0 0', color: '#64748b' }}>Auditor Líder</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
+                   <div style={{ fontSize: '20px', marginTop: '-2px' }}>✅</div>
+                   <div>
+                     <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', margin: '0 0 4px 0', textTransform: 'uppercase' }}>Estado</p>
+                     <p style={{ fontSize: '12px', fontWeight: 'bold', margin: '0', color: '#0f172a' }}>{selectedInforme.socializado === 'Sí' ? 'EMITIDO Y SOCIALIZADO' : 'INFORME EMITIDO'}</p>
+                   </div>
+                </div>
               </div>
             </div>
-            
-            <div style={{ flex: 1, height: '100%', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', position: 'relative' }}>
-               <div style={{ position: 'relative', zIndex: 10, textAlign: 'center' }}>
-                 <h1 style={{ fontSize: '36px', fontWeight: 900, color: '#1e293b', textTransform: 'uppercase', lineHeight: 1.4 }}>{selectedInforme.titulo}</h1>
-                 <div style={{ width: '96px', height: '8px', backgroundColor: '#10b981', margin: '24px auto 0', borderRadius: '9999px' }}></div>
-               </div>
+
+            {/* PANEL DERECHO CON IMAGEN CASCADA Y CURVA SVG */}
+            <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden' }}>
+              
+              {/* Contenedor de la imagen (apunta a tu carpeta public/cascada.jpg) */}
+              <img src="/cascada.jpg" alt="Fondo Cascada" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0, zIndex: 1 }} />
+              
+              {/* Filtro oscuro elegante sobre la foto */}
+              <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(4, 47, 46, 0.4)', zIndex: 2 }}></div>
+
+              {/* Título superpuesto en la foto */}
+              <div style={{ position: 'absolute', zIndex: 3, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '85%' }}>
+                 <h1 style={{ fontSize: '42px', fontWeight: '900', color: '#ffffff', textTransform: 'uppercase', lineHeight: '1.2', margin: '0', textShadow: '2px 2px 8px rgba(0,0,0,0.6)' }}>{selectedInforme.titulo}</h1>
+                 <div style={{ width: '80px', height: '6px', backgroundColor: '#10b981', margin: '24px auto 0', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}></div>
+              </div>
+
+              {/* CURVA SVG BLANCA (Para fusionar el panel izquierdo y derecho suavemente) */}
+              <svg style={{ position: 'absolute', left: '-2px', top: '-10%', height: '120%', width: '150px', zIndex: 5 }} preserveAspectRatio="none" viewBox="0 0 100 100">
+                 <path d="M0,0 Q100,50 0,100 Z" fill="#ffffff" />
+              </svg>
+            </div>
+
+            {/* BARRA VERDE INFERIOR (FOOTER DE PORTADA) */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '50px', backgroundColor: '#042f2e', zIndex: 20, display: 'flex', alignItems: 'center', padding: '0 40px', boxSizing: 'border-box' }}>
+               <p style={{ color: '#ffffff', fontSize: '11px', margin: 0, fontWeight: 'bold' }}>🛡️ Integridad • Transparencia • Excelencia</p>
+            </div>
+          </div>          
+
+          {/* --- PÁGINA 2: RESUMEN EJECUTIVO --- */}
+          <div id="pdf-pag-2" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif', padding: '50px', boxSizing: 'border-box' }}>
+            {/* Header Página */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '3px solid #042f2e', paddingBottom: '15px', marginBottom: '30px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#042f2e', margin: '0', letterSpacing: '1px' }}>2 | RESUMEN EJECUTIVO</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '20px', backgroundColor: '#042f2e', borderRadius: '50%', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>💧</div>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>TERMALES</span>
+              </div>
+            </div>
+
+            {/* Objetivo y Alcance */}
+            <div style={{ display: 'flex', gap: '30px', marginBottom: '30px' }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', textTransform: 'uppercase' }}>Objetivo</h3>
+                <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.5', margin: '0', textAlign: 'justify' }}>{selectedInforme.objetivo}</p>
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', textTransform: 'uppercase' }}>Alcance</h3>
+                <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.5', margin: '0', textAlign: 'justify' }}>{selectedInforme.alcance}</p>
+              </div>
+            </div>
+
+            {/* KPIs (4 Cajas) */}
+            <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '15px', textTransform: 'uppercase' }}>Indicadores Clave</h3>
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '40px' }}>
+              <div style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', padding: '15px', textAlign: 'center', borderTop: '4px solid #3b82f6' }}>
+                <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', marginBottom: '10px' }}>Hallazgos Identificados</p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#0f172a', margin: '0' }}>{hInfo.length}</p>
+              </div>
+              <div style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', padding: '15px', textAlign: 'center', borderTop: '4px solid #ef4444' }}>
+                <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', marginBottom: '10px' }}>Hallazgos Críticos</p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#ef4444', margin: '0' }}>{hCrit}</p>
+              </div>
+              <div style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', padding: '15px', textAlign: 'center', borderTop: '4px solid #10b981' }}>
+                <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', marginBottom: '10px' }}>Cumplimiento Global</p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#10b981', margin: '0' }}>{avance}%</p>
+              </div>
+              <div style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', padding: '15px', textAlign: 'center', borderTop: '4px solid #f59e0b' }}>
+                <p style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', marginBottom: '10px' }}>Planes en Ejecución</p>
+                <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#0f172a', margin: '0' }}>{pInfo.length}</p>
+              </div>
+            </div>
+
+            {/* Conclusión General */}
+            <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', textTransform: 'uppercase' }}>Conclusión General</h3>
+              <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.5', margin: '0', whiteSpace: 'pre-wrap' }}>{selectedInforme.conclusion || 'Sin conclusión redactada.'}</p>
             </div>
           </div>
 
-          {/* PÁGINA 2: RESUMEN Y HALLAZGOS */}
-          <div id="pdf-pag-2" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'sans-serif', padding: '48px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ borderBottom: '4px solid #042f2e', paddingBottom: '16px', marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Resumen Ejecutivo</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div style={{ width: '24px', height: '24px', backgroundColor: '#042f2e', borderRadius: '50%', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>💧</div><span style={{ fontWeight: 'bold', color: '#475569', fontSize: '12px', textTransform: 'uppercase' }}>Termales</span></div>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
-              <div>
-                <h3 style={{ fontSize: '12px', fontWeight: 900, color: '#059669', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Objetivo</h3>
-                <p style={{ fontSize: '14px', color: '#475569', textAlign: 'justify', margin: 0 }}>{selectedInforme.objetivo || 'Evaluar la eficacia de los controles, la continuidad del negocio y la gestión de riesgos.'}</p>
-              </div>
-              <div>
-                <h3 style={{ fontSize: '12px', fontWeight: 900, color: '#059669', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Alcance</h3>
-                <p style={{ fontSize: '14px', color: '#475569', textAlign: 'justify', margin: 0 }}>{selectedInforme.alcance || 'La auditoría cubre los procesos y sistemas descritos en la matriz de riesgos oficial.'}</p>
+          {/* --- PÁGINA 3: HALLAZGOS --- */}
+          <div id="pdf-pag-3" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif', padding: '50px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '3px solid #042f2e', paddingBottom: '15px', marginBottom: '30px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#042f2e', margin: '0', letterSpacing: '1px' }}>3 | HALLAZGOS IDENTIFICADOS</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '20px', backgroundColor: '#042f2e', borderRadius: '50%', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>💧</div>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>TERMALES</span>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '40px' }}>
-              <div style={{ border: '2px solid #f1f5f9', backgroundColor: '#f8fafc', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: '#64748b', marginBottom: '8px', letterSpacing: '1px' }}>Hallazgos</p>
-                <p style={{ fontSize: '36px', fontWeight: 900, color: '#1e293b', margin: 0 }}>{hInfo.length}</p>
-              </div>
-              <div style={{ border: '2px solid #fee2e2', backgroundColor: '#fef2f2', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: '#dc2626', marginBottom: '8px', letterSpacing: '1px' }}>Críticos</p>
-                <p style={{ fontSize: '36px', fontWeight: 900, color: '#dc2626', margin: 0 }}>{hCrit}</p>
-              </div>
-              <div style={{ border: '2px solid #dbeafe', backgroundColor: '#eff6ff', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: '#1d4ed8', marginBottom: '8px', letterSpacing: '1px' }}>Planes</p>
-                <p style={{ fontSize: '36px', fontWeight: 900, color: '#1d4ed8', margin: 0 }}>{pInfo.length}</p>
-              </div>
-              <div style={{ border: '2px solid #d1fae5', backgroundColor: '#ecfdf5', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
-                <p style={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: '#047857', marginBottom: '8px', letterSpacing: '1px' }}>Cumplimiento</p>
-                <p style={{ fontSize: '36px', fontWeight: 900, color: '#059669', margin: 0 }}>{avance}%</p>
-              </div>
-            </div>
-
-            <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', margin: 0 }}>Matriz de Hallazgos Detectados</h3>
-            <table style={{ width: '100%', fontSize: '12px', textAlign: 'left', marginBottom: 'auto', borderCollapse: 'collapse' }}>
-              <thead style={{ backgroundColor: '#042f2e', color: '#ffffff', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                <tr><th style={{ padding: '12px' }}>ID</th><th style={{ padding: '12px' }}>Descripción</th><th style={{ padding: '12px', textAlign: 'center' }}>Criticidad</th></tr>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid #cbd5e1' }}>
+                  <th style={{ padding: '10px 0', textAlign: 'left', width: '15%', color: '#0f172a' }}>ID</th>
+                  <th style={{ padding: '10px 0', textAlign: 'left', width: '65%', color: '#0f172a' }}>DESCRIPCIÓN DEL HALLAZGO</th>
+                  <th style={{ padding: '10px 0', textAlign: 'center', width: '20%', color: '#0f172a' }}>CRITICIDAD</th>
+                </tr>
               </thead>
               <tbody>
-                {hInfo.length === 0 ? <tr><td colSpan="3" style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>Ningún hallazgo reportado.</td></tr> : 
-                 hInfo.slice(0, 10).map((h, i) => (
-                  <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#f8fafc' : '#ffffff', borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '12px', fontWeight: 'bold' }}>{h.ref}</td>
-                    <td style={{ padding: '12px' }}>{h.titulo}</td>
-                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                      <span style={{ padding: '4px 8px', borderRadius: '4px', fontWeight: 900, fontSize: '9px', textTransform: 'uppercase', color: '#ffffff', backgroundColor: (h.severidad==='Crítico'||h.severidad==='Alto') ? '#dc2626' : '#f59e0b' }}>{h.severidad}</span>
+                {hInfo.slice(0, 15).map((h, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '12px 0', fontWeight: 'bold', color: '#475569' }}>{h.ref}</td>
+                    <td style={{ padding: '12px 10px 12px 0', color: '#334155' }}>{h.titulo}</td>
+                    <td style={{ padding: '12px 0', textAlign: 'center' }}>
+                      <span style={{ 
+                        padding: '4px 8px', borderRadius: '4px', fontSize: '9px', fontWeight: 'bold', color: '#ffffff', textTransform: 'uppercase',
+                        backgroundColor: h.severidad === 'Crítico' ? '#dc2626' : h.severidad === 'Alto' ? '#ea580c' : '#10b981' 
+                      }}>
+                        {h.severidad}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -215,61 +278,74 @@ export default function InformesAuditoria({
             </table>
           </div>
 
-          {/* PÁGINA 3: GALERÍA, CONCLUSIONES Y FIRMAS */}
-          <div id="pdf-pag-3" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'sans-serif', padding: '48px', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ borderBottom: '4px solid #042f2e', paddingBottom: '16px', marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', margin: 0 }}>Evidencias y Firmas</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><div style={{ width: '24px', height: '24px', backgroundColor: '#042f2e', borderRadius: '50%', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>💧</div><span style={{ fontWeight: 'bold', color: '#475569', fontSize: '12px', textTransform: 'uppercase' }}>Termales</span></div>
+          {/* --- PÁGINA 4: MATRIZ DE RIESGOS --- */}
+          <div id="pdf-pag-4" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif', padding: '50px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '3px solid #042f2e', paddingBottom: '15px', marginBottom: '40px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#042f2e', margin: '0', letterSpacing: '1px' }}>4 | MATRIZ DE RIESGOS</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '20px', height: '20px', backgroundColor: '#042f2e', borderRadius: '50%', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>💧</div>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>TERMALES</span>
+              </div>
             </div>
 
-            <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#059669', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '16px', margin: 0 }}>Registro Fotográfico / Evidencias</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '40px' }}>
-               {[1,2,3,4].map(num => {
-                 const url = selectedInforme[`img${num}Url`];
-                 const desc = selectedInforme[`img${num}Desc`];
-                 return url ? (
-                   <div key={num} style={{ border: '1px solid #e2e8f0', padding: '8px', borderRadius: '8px', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                     {/* Imagen Proxy: Si la URL falla, muestra un fallback */}
-                     <img src={url} alt="Evidencia" style={{ maxHeight: '128px', objectFit: 'contain', marginBottom: '8px', borderRadius: '4px' }} crossOrigin="anonymous" onError={(e)=>{e.target.style.display='none'}} />
-                     <p style={{ fontSize: '10px', fontWeight: 'bold', color: '#475569', textAlign: 'center', margin: 0 }}>{desc || `Evidencia ${num}`}</p>
+            <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '20px', textTransform: 'uppercase' }}>Mapa de Calor (Probabilidad vs Impacto)</h3>
+            
+            {/* Dibujo de la Matriz 5x5 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '50px' }}>
+               <div style={{ transform: 'rotate(-90deg)', fontSize: '10px', fontWeight: 'bold', color: '#64748b', letterSpacing: '2px', marginRight: '10px' }}>PROBABILIDAD</div>
+               
+               <div style={{ display: 'flex', flexDirection: 'column' }}>
+                 {[5,4,3,2,1].map((y) => (
+                   <div key={`y-${y}`} style={{ display: 'flex' }}>
+                     <div style={{ width: '60px', paddingRight: '10px', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: '10px', color: '#64748b' }}>
+                        {y === 5 ? 'Casi Seguro' : y === 4 ? 'Probable' : y === 3 ? 'Posible' : y === 2 ? 'Improbable' : 'Rara Vez'}
+                     </div>
+                     {[1,2,3,4,5].map((x) => {
+                        const score = x * y;
+                        let bg = '#10b981'; // Verde
+                        if (score >= 6) bg = '#eab308'; // Amarillo
+                        if (score >= 10) bg = '#f97316'; // Naranja
+                        if (score >= 16) bg = '#ef4444'; // Rojo
+
+                        return (
+                          <div key={`x-${x}-y-${y}`} style={{ width: '80px', height: '60px', backgroundColor: bg, border: '1px solid #ffffff' }}></div>
+                        )
+                     })}
                    </div>
-                 ) : null;
-               })}
-               {!selectedInforme.img1Url && !selectedInforme.img2Url && <div style={{ gridColumn: 'span 2', fontSize: '14px', fontStyle: 'italic', color: '#64748b' }}>Sin registro fotográfico adjunto.</div>}
+                 ))}
+                 <div style={{ display: 'flex', marginLeft: '60px', marginTop: '10px' }}>
+                    {['Insignif.', 'Menor', 'Moderado', 'Mayor', 'Catastróf.'].map((lbl, idx) => (
+                      <div key={idx} style={{ width: '80px', textAlign: 'center', fontSize: '10px', color: '#64748b' }}>{lbl}</div>
+                    ))}
+                 </div>
+                 <div style={{ textAlign: 'center', fontSize: '10px', fontWeight: 'bold', color: '#64748b', letterSpacing: '2px', marginTop: '15px', marginLeft: '60px' }}>IMPACTO</div>
+               </div>
             </div>
 
-            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', padding: '24px', borderRadius: '16px', marginBottom: 'auto' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', margin: 0 }}>Conclusión General</h3>
-              <p style={{ fontSize: '12px', color: '#475569', marginBottom: '24px', whiteSpace: 'pre-wrap' }}>{selectedInforme.conclusion || 'Se emitieron planes de acción para mitigar los hallazgos descritos en este informe.'}</p>
-              
-              <h3 style={{ fontSize: '14px', fontWeight: 900, color: '#042f2e', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px', margin: 0 }}>Fortalezas del Proceso</h3>
-              <p style={{ fontSize: '12px', color: '#475569', whiteSpace: 'pre-wrap', margin: 0 }}>{selectedInforme.fortalezas || '1. Disposición del personal auditado.'}</p>
+            <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', textTransform: 'uppercase' }}>Fortalezas Observadas</h3>
+              <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.5', margin: '0', whiteSpace: 'pre-wrap' }}>{selectedInforme.fortalezas || 'Sin fortalezas redactadas.'}</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px', marginTop: '40px' }}>
-              <div style={{ textAlign: 'center' }}><div style={{ borderBottom: '1px solid #000000', width: '160px', margin: '0 auto 8px' }}></div><p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{selectedInforme.elaboradoPor}</p><p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', margin: 0 }}>Elaboró</p></div>
-              <div style={{ textAlign: 'center' }}><div style={{ borderBottom: '1px solid #000000', width: '160px', margin: '0 auto 8px' }}></div><p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{selectedInforme.revisadoPor}</p><p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', margin: 0 }}>Revisó</p></div>
-              <div style={{ textAlign: 'center' }}><div style={{ borderBottom: '1px solid #000000', width: '160px', margin: '0 auto 8px' }}></div><p style={{ fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{selectedInforme.aprobadoPor}</p><p style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', margin: 0 }}>Aprobó</p></div>
-            </div>
           </div>
+
         </div>
-        {/* ============================================================
-            FIN DE PLANTILLA OCULTA 
-        ============================================================= */}
+        {/* ====================================================================
+            FIN DE PLANTILLA OCULTA
+        ===================================================================== */}
 
-
+        {/* ---------------- VISTA EN PANTALLA PARA EL USUARIO ---------------- */}
         <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
           <button onClick={() => setViewMode('list')} className="text-slate-500 hover:text-slate-800 font-bold flex items-center space-x-2 transition-colors">
-            <span>←</span> <span>Volver al Repositorio</span>
+            <span>←</span> <span>Volver a Formulario de Registro</span>
           </button>
           <div className="flex space-x-3">
             <button onClick={generarPDFEjecutivo} disabled={isGeneratingPdf} className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2 rounded-xl font-bold text-xs uppercase tracking-widest flex items-center space-x-2 shadow-md transition-all">
-              <span>{isGeneratingPdf ? '⏳' : '📥'}</span> <span>{isGeneratingPdf ? 'Compilando Documento...' : 'Descargar PDF Ejecutivo'}</span>
+              <span>{isGeneratingPdf ? '⏳' : '📥'}</span> <span>{isGeneratingPdf ? 'Construyendo Documento HD...' : 'Descargar PDF Ejecutivo'}</span>
             </button>
           </div>
         </div>
 
-        {/* VISTA EN PANTALLA (Para leer) */}
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="lg:w-1/3 shrink-0">
             <div className="bg-gradient-to-b from-[#0A3B32] to-[#115e59] rounded-3xl shadow-xl overflow-hidden text-white p-8 aspect-[1/1.4] flex flex-col justify-between relative border-4 border-white ring-1 ring-slate-200">
@@ -365,7 +441,7 @@ export default function InformesAuditoria({
   }
 
   // ============================================================================
-  // VISTA 2: FORMULARIO Y LISTADO ORIGINAL
+  // VISTA 2: FORMULARIO ORIGINAL
   // ============================================================================
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
