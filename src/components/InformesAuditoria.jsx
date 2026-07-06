@@ -39,7 +39,7 @@ export default function InformesAuditoria({
   };
 
   // ============================================================================
-  // 🖨️ MOTOR PDF GRÁFICO AVANZADO (ARTESANÍA INLINE CSS)
+  // 🖨️ MOTOR PDF GRÁFICO (CON FIX PARA COLORES OKLCH DE TAILWIND V4)
   // ============================================================================
   const generarPDFEjecutivo = async () => {
     if (!selectedInforme) return;
@@ -50,28 +50,29 @@ export default function InformesAuditoria({
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-          script.onload = resolve; document.head.appendChild(script);
+          script.onload = resolve; 
+          script.onerror = reject;
+          document.head.appendChild(script);
         });
       }
       if (!window.html2canvas) {
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-          script.onload = resolve; document.head.appendChild(script);
+          script.onload = resolve; 
+          script.onerror = reject;
+          document.head.appendChild(script);
         });
       }
 
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF('p', 'mm', 'letter');
-      
-      // Capturamos las 4 páginas que hemos diseñado
       const paginas = ['pdf-pag-1', 'pdf-pag-2', 'pdf-pag-3', 'pdf-pag-4'];
       
       for (let i = 0; i < paginas.length; i++) {
         const pageElement = document.getElementById(paginas[i]);
         if (!pageElement) continue;
 
-        // Obligamos al navegador a tomar una foto HD
         const canvas = await window.html2canvas(pageElement, { 
           scale: 2, 
           useCORS: true, 
@@ -79,20 +80,20 @@ export default function InformesAuditoria({
           logging: false,
           backgroundColor: '#ffffff' 
         });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         
-        const imgData = canvas.toDataURL('image/jpeg', 1.0);
-        const pdfWidth = 215.9; // mm
+        const pdfWidth = 215.9; // Carta en mm
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         
         if (i > 0) pdf.addPage();
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
-      pdf.save(`Informe_${selectedInforme.ref}.pdf`);
+      pdf.save(`Informe_Ejecutivo_${selectedInforme.ref}.pdf`);
       
     } catch (error) {
       console.error("Error generando PDF:", error);
-      alert("Hubo un error al compilar el PDF. Verifica la consola.");
+      alert("Hubo un error al compilar el PDF. Comunícate con soporte técnico.");
     } finally {
       setIsGeneratingPdf(false);
     }
@@ -108,12 +109,12 @@ export default function InformesAuditoria({
     return (
       <div className="space-y-6 animate-in slide-in-from-right-8 duration-500 relative">
         
-        {/* ====================================================================
-            🎨 PLANTILLA HTML OCULTA (CSS PURO, 0% TAILWIND)
-        ===================================================================== */}
-        <div style={{ position: 'fixed', top: '-10000px', left: '-10000px', zIndex: -100 }}>
+        {/* ============================================================
+            PLANTILLA HTML OCULTA PARA EL MOTOR HTML2CANVAS 
+        ============================================================= */}
+        <div style={{ position: 'fixed', top: 0, left: '-10000px', zIndex: -100, opacity: 0, pointerEvents: 'none' }}>
           
-{/* --- PÁGINA 1: PORTADA EXACTA A LA MAQUETA --- */}
+          {/* PÁGINA 1: PORTADA */}
           <div id="pdf-pag-1" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', display: 'flex', fontFamily: 'Arial, sans-serif', boxSizing: 'border-box', position: 'relative' }}>
             
             {/* PANEL IZQUIERDO BLANCO */}
@@ -136,7 +137,7 @@ export default function InformesAuditoria({
                 <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', textTransform: 'uppercase', marginTop: '10px' }}>{selectedInforme.proceso}</p>
               </div>
 
-              {/* Metadatos (Iconos y Textos) */}
+              {/* Metadatos */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
                   <div style={{ fontSize: '20px', marginTop: '-2px' }}>📅</div>
@@ -163,36 +164,30 @@ export default function InformesAuditoria({
               </div>
             </div>
 
-            {/* PANEL DERECHO CON IMAGEN CASCADA Y CURVA SVG */}
+            {/* PANEL DERECHO CON IMAGEN CASCADA Y CURVA SVG CORREGIDA */}
             <div style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden' }}>
-              
-              {/* Contenedor de la imagen (apunta a tu carpeta public/cascada.jpg) */}
               <img src="/cascada.jpg" alt="Fondo Cascada" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', top: 0, left: 0, zIndex: 1 }} />
-              
-              {/* Filtro oscuro elegante sobre la foto */}
               <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(4, 47, 46, 0.4)', zIndex: 2 }}></div>
 
-              {/* Título superpuesto en la foto */}
               <div style={{ position: 'absolute', zIndex: 3, top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '85%' }}>
                  <h1 style={{ fontSize: '42px', fontWeight: '900', color: '#ffffff', textTransform: 'uppercase', lineHeight: '1.2', margin: '0', textShadow: '2px 2px 8px rgba(0,0,0,0.6)' }}>{selectedInforme.titulo}</h1>
                  <div style={{ width: '80px', height: '6px', backgroundColor: '#10b981', margin: '24px auto 0', borderRadius: '3px', boxShadow: '0 2px 4px rgba(0,0,0,0.3)' }}></div>
               </div>
 
-              {/* CURVA SVG BLANCA (Para fusionar el panel izquierdo y derecho suavemente) */}
-              <svg style={{ position: 'absolute', left: '-2px', top: '-10%', height: '120%', width: '150px', zIndex: 5 }} preserveAspectRatio="none" viewBox="0 0 100 100">
-                 <path d="M0,0 Q100,50 0,100 Z" fill="#ffffff" />
+              {/* CURVA SVG BLANCA SUAVIZADA EN ARCO S CON DOS PUNTOS DE CONTROL BÉZIER */}
+              <svg style={{ position: 'absolute', left: '-1px', top: 0, height: '100%', width: '160px', zIndex: 5 }} viewBox="0 0 100 100" preserveAspectRatio="none">
+                 <path d="M 0,0 C 30,20 100,35 100,50 C 100,65 30,80 0,100 Z" fill="#ffffff" />
               </svg>
             </div>
 
-            {/* BARRA VERDE INFERIOR (FOOTER DE PORTADA) */}
+            {/* BARRA VERDE INFERIOR */}
             <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '50px', backgroundColor: '#042f2e', zIndex: 20, display: 'flex', alignItems: 'center', padding: '0 40px', boxSizing: 'border-box' }}>
                <p style={{ color: '#ffffff', fontSize: '11px', margin: 0, fontWeight: 'bold' }}>🛡️ Integridad • Transparencia • Excelencia</p>
             </div>
-          </div>          
+          </div>
 
-          {/* --- PÁGINA 2: RESUMEN EJECUTIVO --- */}
+          {/* PÁGINA 2: RESUMEN Y KPIs */}
           <div id="pdf-pag-2" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif', padding: '50px', boxSizing: 'border-box' }}>
-            {/* Header Página */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '3px solid #042f2e', paddingBottom: '15px', marginBottom: '30px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#042f2e', margin: '0', letterSpacing: '1px' }}>2 | RESUMEN EJECUTIVO</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -200,8 +195,7 @@ export default function InformesAuditoria({
                 <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>TERMALES</span>
               </div>
             </div>
-
-            {/* Objetivo y Alcance */}
+            
             <div style={{ display: 'flex', gap: '30px', marginBottom: '30px' }}>
               <div style={{ flex: 1 }}>
                 <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', textTransform: 'uppercase' }}>Objetivo</h3>
@@ -213,7 +207,6 @@ export default function InformesAuditoria({
               </div>
             </div>
 
-            {/* KPIs (4 Cajas) */}
             <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '15px', textTransform: 'uppercase' }}>Indicadores Clave</h3>
             <div style={{ display: 'flex', gap: '15px', marginBottom: '40px' }}>
               <div style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '8px', padding: '15px', textAlign: 'center', borderTop: '4px solid #3b82f6' }}>
@@ -234,14 +227,13 @@ export default function InformesAuditoria({
               </div>
             </div>
 
-            {/* Conclusión General */}
             <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', textTransform: 'uppercase' }}>Conclusión General</h3>
               <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.5', margin: '0', whiteSpace: 'pre-wrap' }}>{selectedInforme.conclusion || 'Sin conclusión redactada.'}</p>
             </div>
           </div>
 
-          {/* --- PÁGINA 3: HALLAZGOS --- */}
+          {/* PÁGINA 3: HALLAZGOS */}
           <div id="pdf-pag-3" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif', padding: '50px', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '3px solid #042f2e', paddingBottom: '15px', marginBottom: '30px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#042f2e', margin: '0', letterSpacing: '1px' }}>3 | HALLAZGOS IDENTIFICADOS</h2>
@@ -278,7 +270,7 @@ export default function InformesAuditoria({
             </table>
           </div>
 
-          {/* --- PÁGINA 4: MATRIZ DE RIESGOS --- */}
+          {/* PÁGINA 4: MATRIZ */}
           <div id="pdf-pag-4" style={{ width: '816px', height: '1056px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif', padding: '50px', boxSizing: 'border-box' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '3px solid #042f2e', paddingBottom: '15px', marginBottom: '40px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#042f2e', margin: '0', letterSpacing: '1px' }}>4 | MATRIZ DE RIESGOS</h2>
@@ -290,7 +282,6 @@ export default function InformesAuditoria({
 
             <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '20px', textTransform: 'uppercase' }}>Mapa de Calor (Probabilidad vs Impacto)</h3>
             
-            {/* Dibujo de la Matriz 5x5 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '50px' }}>
                <div style={{ transform: 'rotate(-90deg)', fontSize: '10px', fontWeight: 'bold', color: '#64748b', letterSpacing: '2px', marginRight: '10px' }}>PROBABILIDAD</div>
                
@@ -302,10 +293,10 @@ export default function InformesAuditoria({
                      </div>
                      {[1,2,3,4,5].map((x) => {
                         const score = x * y;
-                        let bg = '#10b981'; // Verde
-                        if (score >= 6) bg = '#eab308'; // Amarillo
-                        if (score >= 10) bg = '#f97316'; // Naranja
-                        if (score >= 16) bg = '#ef4444'; // Rojo
+                        let bg = '#10b981'; 
+                        if (score >= 6) bg = '#eab308'; 
+                        if (score >= 10) bg = '#f97316'; 
+                        if (score >= 16) bg = '#ef4444'; 
 
                         return (
                           <div key={`x-${x}-y-${y}`} style={{ width: '80px', height: '60px', backgroundColor: bg, border: '1px solid #ffffff' }}></div>
@@ -326,15 +317,11 @@ export default function InformesAuditoria({
               <h3 style={{ fontSize: '12px', fontWeight: 'bold', color: '#0f172a', marginBottom: '8px', textTransform: 'uppercase' }}>Fortalezas Observadas</h3>
               <p style={{ fontSize: '12px', color: '#475569', lineHeight: '1.5', margin: '0', whiteSpace: 'pre-wrap' }}>{selectedInforme.fortalezas || 'Sin fortalezas redactadas.'}</p>
             </div>
-
           </div>
 
         </div>
-        {/* ====================================================================
-            FIN DE PLANTILLA OCULTA
-        ===================================================================== */}
 
-        {/* ---------------- VISTA EN PANTALLA PARA EL USUARIO ---------------- */}
+        {/* ---------------- VISTA INTERFAZ DE USUARIO ---------------- */}
         <div className="flex justify-between items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
           <button onClick={() => setViewMode('list')} className="text-slate-500 hover:text-slate-800 font-bold flex items-center space-x-2 transition-colors">
             <span>←</span> <span>Volver a Formulario de Registro</span>
@@ -441,7 +428,7 @@ export default function InformesAuditoria({
   }
 
   // ============================================================================
-  // VISTA 2: FORMULARIO ORIGINAL
+  // VISTA 2: FORMULARIO Y LISTADO ORIGINAL
   // ============================================================================
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -476,7 +463,6 @@ export default function InformesAuditoria({
               <div className="md:col-span-4"><label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Líderes y convocados)</label><input name="socializadoCon" defaultValue={editInformeAuditoria?.socializadoCon||''} className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" /></div>
             </div>
 
-            {/* 📝 NUEVA SECCIÓN EDITORIAL */}
             <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <h4 className="font-black text-emerald-800 uppercase tracking-widest text-[10px] mb-4">📖 Textos Editoriales (Se imprimirán en el PDF)</h4>
@@ -499,7 +485,6 @@ export default function InformesAuditoria({
               </div>
             </div>
 
-            {/* 📸 NUEVA SECCIÓN DE GALERÍA DE IMÁGENES */}
             <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl">
               <h4 className="font-black text-slate-700 uppercase tracking-widest text-[10px] mb-1">📸 Galería Fotográfica / Evidencias (Página 6 del PDF)</h4>
               <p className="text-[9px] text-slate-500 mb-4">Pega los enlaces directos a las imágenes (ej. Google Drive, Imgur, OneDrive) que documenten los hallazgos principales.</p>
