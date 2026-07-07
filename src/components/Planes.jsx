@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -32,7 +32,7 @@ export default function Planes({
   FilterInput,
   pFiltrados,
   safeHallazgos,
-  setHallazgos, // 🟢 Recibimos el poder de modificar los hallazgos
+  setHallazgos, 
   safePlanes,
   setPlanes,
   saveToCloud,
@@ -49,6 +49,11 @@ export default function Planes({
 
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
+
+  // 📝 NUEVO: Obtener el objeto completo del informe seleccionado
+  const informeSeleccionadoObj = useMemo(() => {
+    return informesAuditoria.find(inf => String(inf.id) === String(formInformeId));
+  }, [formInformeId, informesAuditoria]);
 
   const handleInformeChange = (informeId) => {
     setFormInformeId(informeId);
@@ -68,11 +73,20 @@ export default function Planes({
           actividades: existingActivities.map(p => ({ ...p }))
         };
       } else {
-        // 🧠 MEJORA: Si un hallazgo estaba cerrado pero no tenía planes, asumimos que fue marcado como "No Aplica" antes
         const asumeAplica = h.estado !== 'Cerrado';
         newState[h.id] = {
           aplica: asumeAplica,
-          actividades: [{ id: 'new-' + Math.random(), accion: '', responsable: '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }]
+          actividades: [{ 
+            id: 'new-' + Math.random(), 
+            accion: '', 
+            responsable: '', 
+            auditorAsignado: '', // 📝 NUEVO CAMPO
+            fechaInicio: '', 
+            fecha: '', 
+            progreso: 0, 
+            evidenciaUrl: '', 
+            estadoWorkflow: 'Borrador' 
+          }]
         };
       }
     });
@@ -102,7 +116,7 @@ export default function Planes({
         ...prev[hallazgoId],
         actividades: [
           ...prev[hallazgoId].actividades,
-          { id: 'new-' + Math.random(), accion: '', responsable: '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }
+          { id: 'new-' + Math.random(), accion: '', responsable: '', auditorAsignado: '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }
         ]
       }
     }));
@@ -134,7 +148,6 @@ export default function Planes({
     });
   };
 
-  // 🚀 GUARDADO MASIVO Y AUTOMATIZACIÓN DE ESTADOS
   const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
@@ -149,20 +162,25 @@ export default function Planes({
           if (act.accion && act.accion.trim() !== '') {
             const fechaDiligenciada = act.fecha || new Date().toISOString().split('T')[0];
             const partes = fechaDiligenciada.split('-'); 
-            const anioVal = Number(partes[0]) || 2026;
+            const anioVal = Number(partes[0]) || new Date().getFullYear();
             const mesesArray = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
             const mesIdx = parseInt(partes[1], 10) - 1;
             const mesVal = mesesArray[mesIdx] || "Julio";
+
+            // 🧠 LOGICA ESTRICTA: SI PROGRESO == 100, ES CERRADO
+            const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
+            const estadoCalculado = progresoEntero === 100 ? 'Cerrado' : 'En Proceso';
 
             compiledPlanes.push({
               id: String(act.id).startsWith('new-') ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
               idHallazgo: Number(hallazgoId),
               accion: act.accion,
               responsable: act.responsable || 'Por asignar',
+              auditorAsignado: act.auditorAsignado || 'No Asignado', // 📝 SE GUARDA
               fechaInicio: act.fechaInicio || '',
               fecha: act.fecha || '',
-              progreso: Math.min(Math.max(parseInt(act.progreso || 0), 0), 100),
-              estado: parseInt(act.progreso || 0) === 100 ? 'Cerrado' : 'En Proceso',
+              progreso: progresoEntero,
+              estado: estadoCalculado,
               evidenciaUrl: act.evidenciaUrl || '',
               estadoWorkflow: act.estadoWorkflow || 'Borrador',
               anio: anioVal, 
@@ -177,7 +195,6 @@ export default function Planes({
     const cleanOtherPlanes = safePlanes.filter(p => !reportFindingsIds.includes(p.idHallazgo));
     const finalGlobalPlanes = [...cleanOtherPlanes, ...compiledPlanes];
 
-    // 🟢 CEREBRO AUTOMATIZADOR DE HALLAZGOS
     let updatedHallazgos = [...safeHallazgos];
     let hallazgosModificados = false;
 
@@ -189,21 +206,18 @@ export default function Planes({
         let nuevoEstado = 'Abierto';
 
         if (!stateNode.aplica) {
-          // Si marcan "No Aplica", cerramos el hallazgo de inmediato
           nuevoEstado = 'Cerrado';
         } else {
-          // Si Aplica, cruzamos las actividades para ver si ya están todas al 100%
           const actividadesDeEsteHallazgo = compiledPlanes.filter(p => String(p.idHallazgo) === String(hallazgoId));
           
           if (actividadesDeEsteHallazgo.length > 0) {
             const todasCompletadas = actividadesDeEsteHallazgo.every(act => Number(act.progreso) === 100);
             if (todasCompletadas) {
-              nuevoEstado = 'Cerrado'; // ¡Todas las tareas al 100%!
+              nuevoEstado = 'Cerrado'; 
             }
           }
         }
 
-        // Si el estado debe cambiar, lo actualizamos y guardamos en su historial
         if (updatedHallazgos[hIndex].estado !== nuevoEstado) {
           updatedHallazgos[hIndex] = {
             ...updatedHallazgos[hIndex],
@@ -218,7 +232,6 @@ export default function Planes({
       }
     });
 
-    // Subida sincronizada a Firebase
     setPlanes(finalGlobalPlanes);
     if (hallazgosModificados && setHallazgos) {
       setHallazgos(updatedHallazgos);
@@ -235,16 +248,38 @@ export default function Planes({
     setFormResetKey(Date.now());
   };
 
-  let planesData = pFiltrados.map(p => {
+  // 📝 PREPARACIÓN DE DATOS PARA LA TABLA
+  let tableFilteredData = pFiltrados;
+  if (selectedInformeFilter) {
+    tableFilteredData = tableFilteredData.filter(plan => {
+      const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
+      return String(hallazgo.idInforme) === String(selectedInformeFilter);
+    });
+  }
+
+  // 🧠 ORDENAR POR AÑO Y FECHA CREACIÓN PARA CALCULAR EL CONSECUTIVO (PLA-YYYY-XXX)
+  const groupedByYear = {};
+  const sortedPlanes = [...tableFilteredData].sort((a, b) => a.id - b.id);
+  
+  const planesDataConConsecutivo = sortedPlanes.map(p => {
+    const anioPlan = p.anio || new Date().getFullYear();
+    if (!groupedByYear[anioPlan]) groupedByYear[anioPlan] = 1;
+    else groupedByYear[anioPlan]++;
+
+    const consecutivo = groupedByYear[anioPlan];
+    const codigoPlanOficial = `PLA-${anioPlan}-${String(consecutivo).padStart(3, '0')}`;
+
     const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
     const informe = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme)) || {};
+    
     return { 
-      ...p, 
+      ...p,
+      codigoPlanOficial, // 🟢 NUEVO ID
       fechaVal: formatSafeDate(p.fecha),
       estadoWorkflow: p.estadoWorkflow || 'Borrador',
-      planRefTexto: `#PLAN-${p.id} PLAN-${p.id}`,
+      planRefTexto: `${codigoPlanOficial} PLAN-${p.id}`,
       hallazgoRefTexto: `#HAL-${p.idHallazgo} HAL-${p.idHallazgo} ${hallazgo.proceso || ''} ${hallazgo.sede || ''}`,
-      accionTexto: `${p.accion} ${p.responsable || ''}`,
+      accionTexto: `${p.accion} ${p.responsable || ''} ${p.auditorAsignado || ''}`,
       textoHallazgoTitulo: hallazgo.titulo || '',
       textoInformeRef: informe.ref || '',
       textoInformeTitulo: informe.titulo || ''
@@ -334,7 +369,7 @@ export default function Planes({
         bodyStyles: { fontSize: 8, textColor: 50 },
         body: [
           ['Fecha De Suscripción:', fechaSuscripcion, 'Fuente Del Plan De Mejora:', fuentePlan],
-          ['Objetivo General:', objetivoGeneral, 'Periodo Evaluado / Informe:', `Año 2026 • ${informeRef}`],
+          ['Objetivo General:', objetivoGeneral, 'Periodo Evaluado / Informe:', `Año ${new Date().getFullYear()} • ${informeRef}`],
           ['Tipo De Plan:', 'De proceso', 'Descripción del Informe:', descripcionPlan]
         ]
       });
@@ -342,21 +377,35 @@ export default function Planes({
       const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(targetInformeId)).map(h => h.id);
       const pdfPlanesFiltrados = pFiltrados.filter(plan => reportFindingsIds.includes(plan.idHallazgo));
 
-      const tableData = pdfPlanesFiltrados.map((plan, index) => {
+      // 📝 ORDENAR Y CALCULAR CONSECUTIVOS PARA EL PDF
+      const groupAnioPdf = {};
+      const sortedPdfPlanes = [...pdfPlanesFiltrados].sort((a, b) => a.id - b.id);
+      const tableData = sortedPdfPlanes.map((plan) => {
+        const anioP = plan.anio || new Date().getFullYear();
+        if (!groupAnioPdf[anioP]) groupAnioPdf[anioP] = 1; else groupAnioPdf[anioP]++;
+        const consecutivoPdf = groupAnioPdf[anioP];
+        const codigoPdf = `PLA-${anioP}-${String(consecutivoPdf).padStart(3, '0')}`;
+
         const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
+        
+        // 🧠 LÓGICA ESTADO "CERRADO"
+        const progresoReal = Number(plan.progreso || plan.avance || 0);
+        let estadoMostrar = plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente';
+        if (progresoReal >= 100) estadoMostrar = 'Cerrado / Cumplido';
+
         return [
-          index + 1, 
+          codigoPdf, 
           hallazgo.titulo || 'Sin descripción', 
           hallazgo.causa || 'N/A', 
           hallazgo.claseObservacion || 'Oportunidad de Mejora', 
           hallazgo.proceso || 'General', 
           plan.accion, 
-          plan.mecanismo || 'Revisión Documental', 
+          plan.auditorAsignado || 'Sin Asignar', // 📝 Muestra Auditor Asignado en lugar de mecanismo
           plan.responsable, 
-          `${plan.progreso || plan.avance || 0}%`, 
+          `${progresoReal}%`, 
           plan.fechaInicio ? formatSafeDate(plan.fechaInicio) : 'N/A', 
           formatSafeDate(plan.fecha) || 'No definida', 
-          plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente' 
+          estadoMostrar
         ];
       });
 
@@ -368,13 +417,13 @@ export default function Planes({
         headStyles: { fillColor: [11, 42, 54], textColor: 255, fontSize: 7, halign: 'center', valign: 'middle' },
         bodyStyles: { fontSize: 6.5, valign: 'middle' },
         columnStyles: {
-          0: { cellWidth: 25 },   
-          1: { cellWidth: 110 },  
+          0: { cellWidth: 45 },   
+          1: { cellWidth: 100 },  
           2: { cellWidth: 100 },  
           3: { cellWidth: 65 },   
           4: { cellWidth: 70 },   
           5: { cellWidth: 115 },  
-          6: { cellWidth: 95 },   
+          6: { cellWidth: 75 },   
           7: { cellWidth: 75 },   
           8: { cellWidth: 40 },   
           9: { cellWidth: 50 },   
@@ -382,13 +431,13 @@ export default function Planes({
           11: { cellWidth: 50 }   
         },
         head: [[
-          'NO', 
+          'CÓDIGO', 
           'DESCRIPCIÓN HALLAZGO Y/O OBSERVACIÓN', 
           'CAUSAS RAÍZ', 
           'CLASE DE OBS.', 
           'PROCESOS VINCULADOS', 
           'ACCIONES DE MEJORAMIENTO', 
-          'MECANISMO DE SEGUIMIENTO', 
+          'AUDITOR ASIGNADO', 
           'RESPONSABLE', 
           'AVANCE', 
           'FECHA INICIO', 
@@ -415,14 +464,6 @@ export default function Planes({
       setIsGeneratingPdf(false);
     }
   };
-
-  let tableFilteredData = planesData;
-  if (selectedInformeFilter) {
-    tableFilteredData = tableFilteredData.filter(plan => {
-      const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
-      return String(hallazgo.idInforme) === String(selectedInformeFilter);
-    });
-  }
 
   return (
     <div className="space-y-6">
@@ -463,6 +504,23 @@ export default function Planes({
             ))}
           </select>
         </div>
+
+        {/* 📄 VISTA DEL INFORME SELECCIONADO */}
+        {informeSeleccionadoObj && (
+          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm">
+            <div>
+              <span className="text-[10px] font-black uppercase text-emerald-800 tracking-widest block mb-1">Informe Base de Auditoría</span>
+              <p className="text-sm font-bold text-slate-900">{informeSeleccionadoObj.titulo}</p>
+            </div>
+            {informeSeleccionadoObj.evidenciaUrl ? (
+              <a href={informeSeleccionadoObj.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-emerald-600 text-white font-black px-4 py-2 rounded-lg text-xs hover:bg-emerald-700 transition-colors shadow-md">
+                📄 Ver Informe PDF
+              </a>
+            ) : (
+              <span className="text-xs text-slate-400 font-bold italic bg-white px-3 py-1.5 rounded-lg border border-dashed">Sin Documento Cargado</span>
+            )}
+          </div>
+        )}
 
         {formInformeId && (
           <form onSubmit={handleMasterMatrixSubmit} className="space-y-6">
@@ -523,7 +581,7 @@ export default function Planes({
                               )}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
                               <div className="md:col-span-2">
                                 <label className="font-bold text-gray-500 block mb-0.5">Acción o Actividad Correctiva</label>
                                 <input 
@@ -546,6 +604,22 @@ export default function Planes({
                                   required
                                 />
                               </div>
+                              {/* 📝 NUEVO CAMPO: AUDITOR ASIGNADO */}
+                              <div className="md:col-span-2">
+                                <label className="font-bold text-blue-600 block mb-0.5">Auditor de Enlace Asignado</label>
+                                <select 
+                                  value={act.auditorAsignado}
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'auditorAsignado', e.target.value)}
+                                  className="w-full border p-2 rounded-lg font-black text-slate-700 bg-blue-50 focus:bg-white"
+                                >
+                                  <option value="">-- Asignar Auditor --</option>
+                                  <option value="Rodolfo González">Rodolfo González</option>
+                                  <option value="Yehison Pineda">Yehison Pineda</option>
+                                  <option value="Angelica Hernandez">Angelica Hernandez</option>
+                                  <option value="Luz Angela Chico">Luz Angela Chico</option>
+                                </select>
+                              </div>
+
                               <div>
                                 <label className="font-bold text-gray-500 block mb-0.5">Avance Real ({act.progreso}%)</label>
                                 <input 
@@ -669,11 +743,16 @@ export default function Planes({
             </tr>
           </thead>
           <tbody className="divide-y text-slate-700">
-            {applyFilters(tableFilteredData, searchTerm, columnFilters).map((p, index) => {
+            {applyFilters(planesDataConConsecutivo, searchTerm, columnFilters).map((p, index) => {
               const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
               return (
                 <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50 transition-colors">
-                  <td className="p-3 font-bold">#PLAN-{p.id}</td>
+                  
+                  {/* 🟢 ID CORPORATIVO VISUAL (CONSECUTIVO POR AÑO) */}
+                  <td className="p-3">
+                    <div className="font-black text-slate-900 text-sm">{p.codigoPlanOficial}</div>
+                    <div className="text-[8px] text-slate-400 font-mono mt-0.5">INT: #{p.id}</div>
+                  </td>
                   
                   <td className="p-3">
                     <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase border tracking-wider ${getWorkflowBadgeClass(p.estadoWorkflow)}`}>
@@ -682,7 +761,7 @@ export default function Planes({
                   </td>
 
                   <td className="p-3 text-red-600 font-bold">
-                    #HAL-{p.idHallazgo}
+                    {hallazgoAsociado?.ref || `#HAL-${p.idHallazgo}`}
                     <span className="text-[9px] uppercase tracking-widest text-slate-600 font-black block mt-0.5">
                       💼 {hallazgoAsociado?.proceso || 'General'}
                     </span>
@@ -691,10 +770,11 @@ export default function Planes({
                     </span>
                   </td>
                   <td className="p-3 text-slate-800 font-medium">
-                    <div className="font-black text-slate-900">{p.accion}</div>
+                    <div className="font-black text-slate-900 leading-tight">{p.accion}</div>
                     
-                    <div className="text-[10px] text-slate-500 font-medium space-y-0.5 mt-1.5 bg-slate-50 p-2 rounded border border-slate-100">
-                      <div>👤 Resp: <b className="text-slate-700">{p.responsable}</b></div>
+                    <div className="text-[10px] text-slate-500 font-medium space-y-0.5 mt-1.5 bg-slate-50 p-2 rounded border border-slate-100 grid grid-cols-2 gap-1">
+                      <div>👤 Ejecutor: <b className="text-slate-700">{p.responsable}</b></div>
+                      <div>🛡️ Auditor: <b className="text-blue-600">{p.auditorAsignado || 'N/A'}</b></div>
                       {p.fechaInicio && <div>📅 Inicio: <b className="text-slate-700">{formatSafeDate(p.fechaInicio)}</b></div>}
                       <div>🕒 Límite: <b className="text-slate-600">{p.fechaVal}</b></div>
                     </div>
@@ -709,7 +789,16 @@ export default function Planes({
                       <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
                     )}
                   </td>
-                  <td className="p-3"><ProgressBar progress={p.progreso || p.avance || 0} /></td>
+                  <td className="p-3">
+                    <ProgressBar progress={p.progreso || p.avance || 0} />
+                    {Number(p.progreso || 0) === 100 && (
+                      <div className="text-center mt-1.5">
+                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest">
+                          ✓ Cerrado
+                        </span>
+                      </div>
+                    )}
+                  </td>
                   <td className="p-3 text-center whitespace-nowrap space-x-1">
                     <button 
                       onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToForm();}} 
