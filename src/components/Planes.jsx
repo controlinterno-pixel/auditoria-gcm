@@ -45,14 +45,18 @@ export default function Planes({
   informesAuditoria = [],
   
   // VARIABLES DEL FILTRO GLOBAL TEMPORAL
-  defaultAnios = [],
+defaultAnios = [],
   defaultMeses = [],
   selectedAnios = [],
   selectedMeses = [],
   toggleAnio,
   toggleMes,
   setSelectedAnios,
-  setSelectedMeses
+  setSelectedMeses,
+  selectAllAnios,
+  clearAllAnios,
+  selectAllMeses,
+  clearAllMeses  
 }) {
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -529,24 +533,32 @@ export default function Planes({
               <span className="text-[10px] ml-2 text-slate-400">{showAnioDropdown ? '▲' : '▼'}</span>
             </button>
             
-            {showAnioDropdown && (
-              <div className="absolute top-[105%] left-0 w-full sm:w-72 bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[150] ...">
-                {defaultAnios.map(anio => {
-                  const activo = selectedAnios.includes(anio);
-                  return (
-                    <button
-                      key={`drop-anio-${anio}`}
-                      type="button"
-                      onClick={() => toggleAnio(anio)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${activo ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <span>{anio}</span>
-                      {activo && <span className="text-[10px]">✓</span>}
-                    </button>
-                  );
-                })}
+          {showMesDropdown && (
+              <div className="absolute top-[105%] left-0 w-full sm:w-72 bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[200] animate-in fade-in zoom-in-95 duration-150">
+                {/* ⚡ BOTONES MASIVOS DE MES */}
+                <div className="col-span-2 flex justify-between items-center border-b border-slate-800 pb-1.5 mb-2 px-1 w-full">
+                  <button type="button" onClick={selectAllMeses} className="text-[10px] font-black text-emerald-400 hover:text-emerald-300 uppercase tracking-wider">Marcar Todos</button>
+                  <button type="button" onClick={clearAllMeses} className="text-[10px] font-black text-slate-400 hover:text-slate-300 uppercase tracking-wider">Limpiar</button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1">
+                  {defaultMeses.map(mes => {
+                    const activo = selectedMeses.includes(mes);
+                    return (
+                      <button
+                        key={`drop-mes-${mes}`}
+                        type="button"
+                        onClick={() => toggleMes(mes)}
+                        className={`text-left px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-between ${activo ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}
+                      >
+                        <span className="truncate">{mes}</span>
+                        {activo && <span className="text-[9px]">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
+            )} 
           </div>
 
           {/* 🟢 DROPDOWN DE MESES */}

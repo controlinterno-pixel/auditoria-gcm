@@ -2458,6 +2458,10 @@ const renderPlanes = () => {
         toggleMes={toggleMes}
         setSelectedAnios={setSelectedAnios}
         setSelectedMeses={setSelectedMeses}
+selectAllAnios={() => setSelectedAnios([...defaultAnios])}
+        clearAllAnios={() => setSelectedAnios([])}
+        selectAllMeses={() => setSelectedMeses([...defaultMeses])}
+        clearAllMeses={() => setSelectedMeses([])}
         onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
           try {
             const ts = new Date().toLocaleString();
