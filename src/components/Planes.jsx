@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -44,7 +44,7 @@ export default function Planes({
   onUpdateItemStatus,
   informesAuditoria = [],
   
-  // 🟢 FILTROS DE PERIODICIDAD CONECTADOS DESDE EL PRINCIPAL
+  // VARIABLES DEL FILTRO GLOBAL TEMPORAL
   defaultAnios = [],
   defaultMeses = [],
   selectedAnios = [],
@@ -60,7 +60,23 @@ export default function Planes({
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
 
-  // 📄 Obtener el objeto completo del informe seleccionado en el formulario
+  // 🔌 Estados locales para controlar la apertura de los menús desplegables
+  const [showAnioDropdown, setShowAnioDropdown] = useState(false);
+  const [showMesDropdown, setShowMesDropdown] = useState(false);
+
+  // Referencias para cerrar los dropdowns si haces clic afuera
+  const anioRef = useRef(null);
+  const mesRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (anioRef.current && !anioRef.current.contains(event.target)) setShowAnioDropdown(false);
+      if (mesRef.current && !mesRef.current.contains(event.target)) setShowMesDropdown(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const informeSeleccionadoObj = useMemo(() => {
     return informesAuditoria.find(inf => String(inf.id) === String(formInformeId));
   }, [formInformeId, informesAuditoria]);
@@ -257,7 +273,6 @@ export default function Planes({
     setFormResetKey(Date.now());
   };
 
-  // 📝 PREPARACIÓN Y FILTRADO DE LA TABLA DE SEGUIMIENTO
   let tableFilteredData = pFiltrados;
   if (selectedInformeFilter) {
     tableFilteredData = tableFilteredData.filter(plan => {
@@ -266,11 +281,9 @@ export default function Planes({
     });
   }
 
-  // 🧠 CONSECUTIVO GLOBAL ININTERRUMPIDO (Diciembre 31 salta al siguiente sin resetear a 001)
   const mapaConsecutivos = useMemo(() => {
     const mapa = {};
     let contadorGeneral = 1;
-    // Evaluamos sobre safePlanes completo (toda la BD sin filtros temporales) para congelar el ID único
     [...safePlanes].sort((a, b) => a.id - b.id).forEach((p) => {
       const anioP = p.anio || new Date().getFullYear();
       mapa[p.id] = `PLA-${anioP}-${String(contadorGeneral).padStart(3, '0')}`;
@@ -312,7 +325,7 @@ export default function Planes({
     const targetInformeId = selectedInformeFilter || formInformeId;
 
     if (!targetInformeId) {
-      alert("📋 Por favor, seleccione un informe (ya sea arriba en el formulario de registro o abajo en el filtro de la tabla) para saber exactamente qué actividades procesar en el PDF.");
+      alert("📋 Por favor, seleccione un informe para saber exactamente qué actividades procesar en el PDF.");
       return;
     }
 
@@ -393,11 +406,8 @@ export default function Planes({
       const tableData = sortedPdfPlanes.map((plan) => {
         const codigoPdf = mapaConsecutivos[plan.id] || `PLA-000`;
         const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
-        
         const progresoReal = Number(plan.progreso || plan.avance || 0);
         let estadoMostrar = plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente';
-        
-        // 🔒 AUTOMATIZACIÓN DE ESTADO EN EL PDF OFICIAL
         if (progresoReal >= 100) estadoMostrar = 'Cerrado';
 
         return [
@@ -472,10 +482,19 @@ export default function Planes({
     }
   };
 
+  // 📝 Textos dinámicos resumidos para mostrar en el botón principal
+  const textoBotonAnio = selectedAnios.length === 0 
+    ? "Todos los Años" 
+    : `Años: ${selectedAnios.join(', ')}`;
+
+  const textoBotonMes = selectedMeses.length === 0 
+    ? "Todos los Meses" 
+    : `Meses: ${selectedMeses.map(m => m.substring(0,3)).join(', ')}`;
+
   return (
     <div className="space-y-6">
       
-      {/* 🟢 PANEL OSCURO INDEPENDIENTE DE FILTROS Y HEADER DE CONTROL TEMPORAL */}
+      {/* 🟢 NUEVO PANEL OSCURO CON BOTONES DROPDOWN INDEPENDIENTES */}
       <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-5 mb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
         
@@ -495,33 +514,82 @@ export default function Planes({
            </button>
         </div>
         
-        <div className="flex flex-col md:flex-row gap-4 items-start md:items-end border-t border-slate-800/80 pt-5 relative z-10">
-          <div className="flex flex-col">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Años de Análisis</label>
-            <div className="flex flex-wrap gap-2">
-              {defaultAnios.map(anio => (
-                <button key={`plan-anio-${anio}`} onClick={() => toggleAnio(anio)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all shadow-sm border ${selectedAnios.includes(anio) ? 'bg-blue-600 text-white border-blue-500 shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}>
-                  {anio}
-                </button>
-              ))}
-            </div>
+        {/* 📊 FILTROS COMPACTADOS EN BOTONES DESPLEGABLES */}
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center border-t border-slate-800/80 pt-5 relative z-10">
+          
+          {/* 🔵 DROPDOWN DE AÑOS */}
+          <div className="relative w-full sm:w-56" ref={anioRef}>
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Filtrar por Año</label>
+            <button
+              type="button"
+              onClick={() => { setShowAnioDropdown(!showAnioDropdown); setShowMesDropdown(false); }}
+              className="w-full bg-slate-800 text-slate-200 font-black text-xs px-4 py-2.5 rounded-xl border border-slate-700 flex justify-between items-center transition-all hover:bg-slate-700/80"
+            >
+              <span className="truncate">{textoBotonAnio}</span>
+              <span className="text-[10px] ml-2 text-slate-400">{showAnioDropdown ? '▲' : '▼'}</span>
+            </button>
+            
+            {showAnioDropdown && (
+              <div className="absolute top-[105%] left-0 w-full bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[150] space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                {defaultAnios.map(anio => {
+                  const activo = selectedAnios.includes(anio);
+                  return (
+                    <button
+                      key={`drop-anio-${anio}`}
+                      type="button"
+                      onClick={() => toggleAnio(anio)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${activo ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}
+                    >
+                      <span>{anio}</span>
+                      {activo && <span className="text-[10px]">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div className="flex flex-col">
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Meses de Análisis</label>
-            <div className="flex flex-wrap gap-1.5">
-              {defaultMeses.map(mes => (
-                <button key={`plan-mes-${mes}`} onClick={() => toggleMes(mes)} className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all border shadow-sm notranslate ${selectedMeses.includes(mes) ? 'bg-emerald-600 text-white border-emerald-500 shadow-[0_0_10px_rgba(5,150,105,0.4)]' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`} translate="no" title={mes}>
-                  {mes.substring(0,3)}
-                </button>
-              ))}
-            </div>
+
+          {/* 🟢 DROPDOWN DE MESES */}
+          <div className="relative w-full sm:w-64" ref={mesRef}>
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Filtrar por Mes</label>
+            <button
+              type="button"
+              onClick={() => { setShowMesDropdown(!showMesDropdown); setShowAnioDropdown(false); }}
+              className="w-full bg-slate-800 text-slate-200 font-black text-xs px-4 py-2.5 rounded-xl border border-slate-700 flex justify-between items-center transition-all hover:bg-slate-700/80"
+            >
+              <span className="truncate">{textoBotonMes}</span>
+              <span className="text-[10px] ml-2 text-slate-400">{showMesDropdown ? '▲' : '▼'}</span>
+            </button>
+            
+            {showMesDropdown && (
+              <div className="absolute top-[105%] left-0 w-full sm:w-72 bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[150] grid grid-cols-2 gap-1 animate-in fade-in zoom-in-95 duration-150">
+                {defaultMeses.map(mes => {
+                  const activo = selectedMeses.includes(mes);
+                  return (
+                    <button
+                      key={`drop-mes-${mes}`}
+                      type="button"
+                      onClick={() => toggleMes(mes)}
+                      className={`text-left px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-between ${activo ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}
+                    >
+                      <span className="truncate">{mes}</span>
+                      {activo && <span className="text-[9px]">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          {/* BOTÓN REINICIAR (Aparece solo si hay filtros activos) */}
           {(selectedAnios.length > 0 || selectedMeses.length > 0) && (
-            <div className="flex items-end mt-2 md:mt-0 md:ml-auto">
-              <button onClick={() => { setSelectedAnios([]); setSelectedMeses([]); }} className="h-[38px] px-4 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-xl text-[10px] font-black transition-colors uppercase tracking-wider">
-                Limpiar Filtros
-              </button>
-            </div>
+            <button 
+              type="button"
+              onClick={() => { setSelectedAnios([]); setSelectedMeses([]); }} 
+              className="sm:mt-5 h-[38px] px-4 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-xl text-[10px] font-black transition-colors uppercase tracking-wider w-full sm:w-auto"
+            >
+              Limpiar Filtros
+            </button>
           )}
         </div>
       </div>
@@ -553,7 +621,6 @@ export default function Planes({
           </select>
         </div>
 
-        {/* 📄 VISTA DEL INFORME SELECCIONADO PARA DESCARGAR O VER */}
         {informeSeleccionadoObj && (
           <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in duration-200">
             <div>
@@ -684,7 +751,7 @@ export default function Planes({
                                 <input 
                                   type="date"
                                   value={act.fechaInicio}
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)}
+                                  onChange={(e) => handleUpdateUpdateActivityField ? '' : handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)}
                                   className="w-full border p-1.5 rounded-lg font-bold"
                                 />
                               </div>
@@ -740,6 +807,7 @@ export default function Planes({
         )}
       </div>
 
+      {/* TABLA DE SEGUIMIENTO GENERAL */}
       <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Actividades / Planes</h3>
