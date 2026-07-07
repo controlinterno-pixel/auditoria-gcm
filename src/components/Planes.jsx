@@ -42,7 +42,8 @@ export default function Planes({
   columnFilters,
   handleColFilterChange,
   onUpdateItemStatus,
-  informesAuditoria = []
+  informesAuditoria = [],
+  renderHeaderFiltros // 🟢 RECIBE LOS FILTROS DE PERIODICIDAD
 }) {
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -50,7 +51,6 @@ export default function Planes({
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
 
-  // 📝 NUEVO: Obtener el objeto completo del informe seleccionado
   const informeSeleccionadoObj = useMemo(() => {
     return informesAuditoria.find(inf => String(inf.id) === String(formInformeId));
   }, [formInformeId, informesAuditoria]);
@@ -80,7 +80,7 @@ export default function Planes({
             id: 'new-' + Math.random(), 
             accion: '', 
             responsable: '', 
-            auditorAsignado: '', // 📝 NUEVO CAMPO
+            auditorAsignado: '',
             fechaInicio: '', 
             fecha: '', 
             progreso: 0, 
@@ -167,7 +167,6 @@ export default function Planes({
             const mesIdx = parseInt(partes[1], 10) - 1;
             const mesVal = mesesArray[mesIdx] || "Julio";
 
-            // 🧠 LOGICA ESTRICTA: SI PROGRESO == 100, ES CERRADO
             const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
             const estadoCalculado = progresoEntero === 100 ? 'Cerrado' : 'En Proceso';
 
@@ -176,7 +175,7 @@ export default function Planes({
               idHallazgo: Number(hallazgoId),
               accion: act.accion,
               responsable: act.responsable || 'Por asignar',
-              auditorAsignado: act.auditorAsignado || 'No Asignado', // 📝 SE GUARDA
+              auditorAsignado: act.auditorAsignado || 'No Asignado', 
               fechaInicio: act.fechaInicio || '',
               fecha: act.fecha || '',
               progreso: progresoEntero,
@@ -248,7 +247,6 @@ export default function Planes({
     setFormResetKey(Date.now());
   };
 
-  // 📝 PREPARACIÓN DE DATOS PARA LA TABLA
   let tableFilteredData = pFiltrados;
   if (selectedInformeFilter) {
     tableFilteredData = tableFilteredData.filter(plan => {
@@ -257,24 +255,27 @@ export default function Planes({
     });
   }
 
-  // 🧠 ORDENAR POR AÑO Y FECHA CREACIÓN PARA CALCULAR EL CONSECUTIVO (PLA-YYYY-XXX)
-  const groupedByYear = {};
-  const sortedPlanes = [...tableFilteredData].sort((a, b) => a.id - b.id);
+  // 🧠 LÓGICA DE CONSECUTIVO GLOBAL (ININTERRUMPIDO A TRAVÉS DE LOS AÑOS)
+  const mapaConsecutivos = useMemo(() => {
+    const mapa = {};
+    let contadorGeneral = 1;
+    // Usamos safePlanes (toda la BD sin filtrar) para calcular el número exacto y permanente
+    [...safePlanes].sort((a, b) => a.id - b.id).forEach((p) => {
+      const anioP = p.anio || new Date().getFullYear();
+      mapa[p.id] = `PLA-${anioP}-${String(contadorGeneral).padStart(3, '0')}`;
+      contadorGeneral++; // Sigue subiendo sin importar el año
+    });
+    return mapa;
+  }, [safePlanes]);
   
-  const planesDataConConsecutivo = sortedPlanes.map(p => {
-    const anioPlan = p.anio || new Date().getFullYear();
-    if (!groupedByYear[anioPlan]) groupedByYear[anioPlan] = 1;
-    else groupedByYear[anioPlan]++;
-
-    const consecutivo = groupedByYear[anioPlan];
-    const codigoPlanOficial = `PLA-${anioPlan}-${String(consecutivo).padStart(3, '0')}`;
-
+  const planesDataConConsecutivo = [...tableFilteredData].sort((a, b) => a.id - b.id).map(p => {
+    const codigoPlanOficial = mapaConsecutivos[p.id] || `PLA-000`;
     const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
     const informe = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme)) || {};
     
     return { 
       ...p,
-      codigoPlanOficial, // 🟢 NUEVO ID
+      codigoPlanOficial,
       fechaVal: formatSafeDate(p.fecha),
       estadoWorkflow: p.estadoWorkflow || 'Borrador',
       planRefTexto: `${codigoPlanOficial} PLAN-${p.id}`,
@@ -377,18 +378,11 @@ export default function Planes({
       const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(targetInformeId)).map(h => h.id);
       const pdfPlanesFiltrados = pFiltrados.filter(plan => reportFindingsIds.includes(plan.idHallazgo));
 
-      // 📝 ORDENAR Y CALCULAR CONSECUTIVOS PARA EL PDF
-      const groupAnioPdf = {};
       const sortedPdfPlanes = [...pdfPlanesFiltrados].sort((a, b) => a.id - b.id);
       const tableData = sortedPdfPlanes.map((plan) => {
-        const anioP = plan.anio || new Date().getFullYear();
-        if (!groupAnioPdf[anioP]) groupAnioPdf[anioP] = 1; else groupAnioPdf[anioP]++;
-        const consecutivoPdf = groupAnioPdf[anioP];
-        const codigoPdf = `PLA-${anioP}-${String(consecutivoPdf).padStart(3, '0')}`;
-
+        const codigoPdf = mapaConsecutivos[plan.id] || `PLA-000`;
         const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
         
-        // 🧠 LÓGICA ESTADO "CERRADO"
         const progresoReal = Number(plan.progreso || plan.avance || 0);
         let estadoMostrar = plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente';
         if (progresoReal >= 100) estadoMostrar = 'Cerrado / Cumplido';
@@ -400,7 +394,7 @@ export default function Planes({
           hallazgo.claseObservacion || 'Oportunidad de Mejora', 
           hallazgo.proceso || 'General', 
           plan.accion, 
-          plan.auditorAsignado || 'Sin Asignar', // 📝 Muestra Auditor Asignado en lugar de mecanismo
+          plan.auditorAsignado || 'Sin Asignar',
           plan.responsable, 
           `${progresoReal}%`, 
           plan.fechaInicio ? formatSafeDate(plan.fechaInicio) : 'N/A', 
@@ -467,8 +461,11 @@ export default function Planes({
 
   return (
     <div className="space-y-6">
-      <div className="border-b pb-4 flex justify-between items-center">
-        <h2 className="text-2xl font-black text-slate-800">✅ Matriz de Planes de Acción Gerenciales</h2>
+      
+      {/* 🟢 RENDERIZADO DEL PANEL SUPERIOR DE FILTROS DE AÑO/MES */}
+      {renderHeaderFiltros && renderHeaderFiltros('Planes de Acción', 'Matriz general de gestión, seguimiento y trazabilidad operativa.')}
+
+      <div className="flex justify-end mb-4 border-b border-slate-200 pb-4">
         <button 
           onClick={exportarPlanMejoramientoPDF} 
           disabled={isGeneratingPdf}
@@ -505,7 +502,7 @@ export default function Planes({
           </select>
         </div>
 
-        {/* 📄 VISTA DEL INFORME SELECCIONADO */}
+        {/* 📄 VISTA DEL INFORME SELECCIONADO PARA DESCARGAR O VER */}
         {informeSeleccionadoObj && (
           <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm">
             <div>
@@ -514,7 +511,7 @@ export default function Planes({
             </div>
             {informeSeleccionadoObj.evidenciaUrl ? (
               <a href={informeSeleccionadoObj.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-emerald-600 text-white font-black px-4 py-2 rounded-lg text-xs hover:bg-emerald-700 transition-colors shadow-md">
-                📄 Ver Informe PDF
+                📄 Ver / Descargar Informe PDF
               </a>
             ) : (
               <span className="text-xs text-slate-400 font-bold italic bg-white px-3 py-1.5 rounded-lg border border-dashed">Sin Documento Cargado</span>
@@ -604,13 +601,13 @@ export default function Planes({
                                   required
                                 />
                               </div>
-                              {/* 📝 NUEVO CAMPO: AUDITOR ASIGNADO */}
+                              
                               <div className="md:col-span-2">
                                 <label className="font-bold text-blue-600 block mb-0.5">Auditor de Enlace Asignado</label>
                                 <select 
                                   value={act.auditorAsignado}
                                   onChange={(e) => handleUpdateActivityField(h.id, index, 'auditorAsignado', e.target.value)}
-                                  className="w-full border p-2 rounded-lg font-black text-slate-700 bg-blue-50 focus:bg-white"
+                                  className="w-full border border-blue-200 p-2 rounded-lg font-black text-slate-700 bg-blue-50 focus:bg-white"
                                 >
                                   <option value="">-- Asignar Auditor --</option>
                                   <option value="Rodolfo González">Rodolfo González</option>
@@ -748,7 +745,6 @@ export default function Planes({
               return (
                 <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   
-                  {/* 🟢 ID CORPORATIVO VISUAL (CONSECUTIVO POR AÑO) */}
                   <td className="p-3">
                     <div className="font-black text-slate-900 text-sm">{p.codigoPlanOficial}</div>
                     <div className="text-[8px] text-slate-400 font-mono mt-0.5">INT: #{p.id}</div>
