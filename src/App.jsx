@@ -2440,16 +2440,27 @@ const renderPlanes = () => {
         FilterInput={FilterInput}
         pFiltrados={pFiltrados}
         safeHallazgos={safeHallazgos}
-   setHallazgos={setHallazgos}
-        safePlanes={safePlanes} // 🟢 Envía la lista completa para sincronización
-        setPlanes={setPlanes}   // 🟢 Permite actualizar de forma masiva
-        saveToCloud={saveToCloud} // 🟢 Permite guardar directo en Firebase
+        setHallazgos={setHallazgos}
+        safePlanes={safePlanes} 
+        setPlanes={setPlanes}   
+        saveToCloud={saveToCloud} 
         formatSafeDate={formatSafeDate}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         columnFilters={columnFilters}
         handleColFilterChange={handleColFilterChange}
-        informesAuditoria={informesAuditoria} // 🟢 Conexión de informes
+        informesAuditoria={informesAuditoria} 
+        
+        {/* 🟢 CONEXIÓN DE FILTROS AL COMPONENTE HIJO */}
+        defaultAnios={defaultAnios}
+        defaultMeses={defaultMeses}
+        selectedAnios={selectedAnios}
+        selectedMeses={selectedMeses}
+        toggleAnio={toggleAnio}
+        toggleMes={toggleMes}
+        setSelectedAnios={setSelectedAnios}
+        setSelectedMeses={setSelectedMeses}
+
         onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
           try {
             const ts = new Date().toLocaleString();

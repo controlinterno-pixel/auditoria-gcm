@@ -43,7 +43,16 @@ export default function Planes({
   handleColFilterChange,
   onUpdateItemStatus,
   informesAuditoria = [],
-  renderHeaderFiltros // 🟢 RECIBE LOS FILTROS DE PERIODICIDAD
+  
+  // 🟢 FILTROS DE PERIODICIDAD CONECTADOS DESDE EL PRINCIPAL
+  defaultAnios = [],
+  defaultMeses = [],
+  selectedAnios = [],
+  selectedMeses = [],
+  toggleAnio,
+  toggleMes,
+  setSelectedAnios,
+  setSelectedMeses
 }) {
   const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -51,6 +60,7 @@ export default function Planes({
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
 
+  // 📄 Obtener el objeto completo del informe seleccionado en el formulario
   const informeSeleccionadoObj = useMemo(() => {
     return informesAuditoria.find(inf => String(inf.id) === String(formInformeId));
   }, [formInformeId, informesAuditoria]);
@@ -247,6 +257,7 @@ export default function Planes({
     setFormResetKey(Date.now());
   };
 
+  // 📝 PREPARACIÓN Y FILTRADO DE LA TABLA DE SEGUIMIENTO
   let tableFilteredData = pFiltrados;
   if (selectedInformeFilter) {
     tableFilteredData = tableFilteredData.filter(plan => {
@@ -255,15 +266,15 @@ export default function Planes({
     });
   }
 
-  // 🧠 LÓGICA DE CONSECUTIVO GLOBAL (ININTERRUMPIDO A TRAVÉS DE LOS AÑOS)
+  // 🧠 CONSECUTIVO GLOBAL ININTERRUMPIDO (Diciembre 31 salta al siguiente sin resetear a 001)
   const mapaConsecutivos = useMemo(() => {
     const mapa = {};
     let contadorGeneral = 1;
-    // Usamos safePlanes (toda la BD sin filtrar) para calcular el número exacto y permanente
+    // Evaluamos sobre safePlanes completo (toda la BD sin filtros temporales) para congelar el ID único
     [...safePlanes].sort((a, b) => a.id - b.id).forEach((p) => {
       const anioP = p.anio || new Date().getFullYear();
       mapa[p.id] = `PLA-${anioP}-${String(contadorGeneral).padStart(3, '0')}`;
-      contadorGeneral++; // Sigue subiendo sin importar el año
+      contadorGeneral++; 
     });
     return mapa;
   }, [safePlanes]);
@@ -385,7 +396,9 @@ export default function Planes({
         
         const progresoReal = Number(plan.progreso || plan.avance || 0);
         let estadoMostrar = plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente';
-        if (progresoReal >= 100) estadoMostrar = 'Cerrado / Cumplido';
+        
+        // 🔒 AUTOMATIZACIÓN DE ESTADO EN EL PDF OFICIAL
+        if (progresoReal >= 100) estadoMostrar = 'Cerrado';
 
         return [
           codigoPdf, 
@@ -411,8 +424,8 @@ export default function Planes({
         headStyles: { fillColor: [11, 42, 54], textColor: 255, fontSize: 7, halign: 'center', valign: 'middle' },
         bodyStyles: { fontSize: 6.5, valign: 'middle' },
         columnStyles: {
-          0: { cellWidth: 45 },   
-          1: { cellWidth: 100 },  
+          0: { cellWidth: 50 },   
+          1: { cellWidth: 95 },  
           2: { cellWidth: 100 },  
           3: { cellWidth: 65 },   
           4: { cellWidth: 70 },   
@@ -462,20 +475,58 @@ export default function Planes({
   return (
     <div className="space-y-6">
       
-      {/* 🟢 RENDERIZADO DEL PANEL SUPERIOR DE FILTROS DE AÑO/MES */}
-      {renderHeaderFiltros && renderHeaderFiltros('Planes de Acción', 'Matriz general de gestión, seguimiento y trazabilidad operativa.')}
-
-      <div className="flex justify-end mb-4 border-b border-slate-200 pb-4">
-        <button 
-          onClick={exportarPlanMejoramientoPDF} 
-          disabled={isGeneratingPdf}
-          className="bg-[#297A38] hover:bg-[#1f5c2a] disabled:bg-slate-400 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-md transition-all flex items-center space-x-2 border border-[#1f5c2a]"
-        >
-          <span className="text-sm">{isGeneratingPdf ? '⏳' : '📄'}</span>
-          <span>{isGeneratingPdf ? 'Generando...' : 'Generar PDF Oficial'}</span>
-        </button>
-      </div>  
+      {/* 🟢 PANEL OSCURO INDEPENDIENTE DE FILTROS Y HEADER DE CONTROL TEMPORAL */}
+      <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-5 mb-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+        
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
+           <div>
+             <h2 className="text-2xl font-black text-white tracking-wide">✅ Matriz de Planes de Acción Gerenciales</h2>
+             <p className="text-xs text-slate-400 font-bold mt-1">Gestión, seguimiento y trazabilidad operativa por periodos.</p>
+           </div>
+           
+           <button 
+              onClick={exportarPlanMejoramientoPDF} 
+              disabled={isGeneratingPdf}
+              className="mt-4 md:mt-0 bg-[#297A38] hover:bg-[#1f5c2a] disabled:bg-slate-600 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-[0_0_15px_rgba(41,122,56,0.4)] transition-all flex items-center space-x-2 border border-[#308f42] active:scale-95"
+            >
+              <span className="text-sm">{isGeneratingPdf ? '⏳' : '📄'}</span>
+              <span>{isGeneratingPdf ? 'Generando...' : 'Generar PDF Oficial'}</span>
+           </button>
+        </div>
+        
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-end border-t border-slate-800/80 pt-5 relative z-10">
+          <div className="flex flex-col">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Años de Análisis</label>
+            <div className="flex flex-wrap gap-2">
+              {defaultAnios.map(anio => (
+                <button key={`plan-anio-${anio}`} onClick={() => toggleAnio(anio)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all shadow-sm border ${selectedAnios.includes(anio) ? 'bg-blue-600 text-white border-blue-500 shadow-[0_0_10px_rgba(37,99,235,0.4)]' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`}>
+                  {anio}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">Meses de Análisis</label>
+            <div className="flex flex-wrap gap-1.5">
+              {defaultMeses.map(mes => (
+                <button key={`plan-mes-${mes}`} onClick={() => toggleMes(mes)} className={`px-3 py-2 rounded-xl text-[11px] font-black transition-all border shadow-sm notranslate ${selectedMeses.includes(mes) ? 'bg-emerald-600 text-white border-emerald-500 shadow-[0_0_10px_rgba(5,150,105,0.4)]' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`} translate="no" title={mes}>
+                  {mes.substring(0,3)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {(selectedAnios.length > 0 || selectedMeses.length > 0) && (
+            <div className="flex items-end mt-2 md:mt-0 md:ml-auto">
+              <button onClick={() => { setSelectedAnios([]); setSelectedMeses([]); }} className="h-[38px] px-4 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-xl text-[10px] font-black transition-colors uppercase tracking-wider">
+                Limpiar Filtros
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       
+      {/* FORMULARIO DE ACCIONES */}
       <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
         <div className="border-b pb-3 flex justify-between items-center">
           <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
@@ -504,14 +555,14 @@ export default function Planes({
 
         {/* 📄 VISTA DEL INFORME SELECCIONADO PARA DESCARGAR O VER */}
         {informeSeleccionadoObj && (
-          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm">
+          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in duration-200">
             <div>
               <span className="text-[10px] font-black uppercase text-emerald-800 tracking-widest block mb-1">Informe Base de Auditoría</span>
               <p className="text-sm font-bold text-slate-900">{informeSeleccionadoObj.titulo}</p>
             </div>
             {informeSeleccionadoObj.evidenciaUrl ? (
-              <a href={informeSeleccionadoObj.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-emerald-600 text-white font-black px-4 py-2 rounded-lg text-xs hover:bg-emerald-700 transition-colors shadow-md">
-                📄 Ver / Descargar Informe PDF
+              <a href={informeSeleccionadoObj.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-emerald-600 text-white font-black px-4 py-2 rounded-lg text-xs hover:bg-emerald-700 transition-colors shadow-md flex items-center space-x-1">
+                <span>📄</span> <span>Ver / Descargar Informe PDF</span>
               </a>
             ) : (
               <span className="text-xs text-slate-400 font-bold italic bg-white px-3 py-1.5 rounded-lg border border-dashed">Sin Documento Cargado</span>
@@ -746,8 +797,10 @@ export default function Planes({
                 <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   
                   <td className="p-3">
-                    <div className="font-black text-slate-900 text-sm">{p.codigoPlanOficial}</div>
-                    <div className="text-[8px] text-slate-400 font-mono mt-0.5">INT: #{p.id}</div>
+                    <div className="font-black text-slate-900 text-sm bg-slate-100 px-2 py-1.5 rounded-lg border border-slate-200 inline-block text-center shadow-xs">
+                      {p.codigoPlanOficial}
+                    </div>
+                    <div className="text-[8px] text-slate-400 font-mono mt-1 pl-1">INT: #{p.id}</div>
                   </td>
                   
                   <td className="p-3">
