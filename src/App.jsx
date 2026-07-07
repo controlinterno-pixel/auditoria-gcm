@@ -291,7 +291,7 @@ const [editComite, setEditComite] = useState(null);
   // 🔥 ESCÁNER DINÁMICO: Encuentra automáticamente todos los años con datos + año actual
   const defaultAnios = useMemo(() => {
     const currentYear = new Date().getFullYear();
-    const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1]); // Asegura histórico, actual y futuro próximo
+const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3]);
 
     // Extrae dinámicamente cualquier año registrado en tus módulos
     safeRiesgos.forEach(r => r.anio && yearsSet.add(Number(r.anio)));
