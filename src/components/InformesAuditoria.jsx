@@ -22,7 +22,7 @@ export default function InformesAuditoria({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* 📋 CABECERA */}
+      {/* 📋 CABECERA PRINCIPAL */}
       <div className="border-b pb-4 flex justify-between items-end">
         <div>
           <h2 className="text-2xl font-black text-slate-800">📁 Repositorio de Informes Emitidos</h2>
@@ -36,13 +36,98 @@ export default function InformesAuditoria({
             onClick={() => exportToExcel(safeInformes, 'Historico_Informes_Auditoria')} 
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2 rounded-xl text-xs shadow-md transition-colors flex items-center space-x-1.5"
           >
-            <span>📊</span>
-            <span>Exportar Excel</span>
+            <span>📥</span>
+            <span>Exportar</span>
           </button>
         </div>
       </div>
 
-      {/* 🔍 BÚSQUEDA GLOBAL */}
+      {/* ➕ FORMULARIO AVANZADO COMPLETO (SÓLO PARA ADMINISTRADORES) */}
+      {isAdmin && (
+        <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4">
+          <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">
+            {editInformeAuditoria ? `✏️ Editando Flujo de Informe: ${editInformeAuditoria.ref}` : '➕ ARCHIVAR, RADICAR Y DISTRIBUIR NUEVO INFORME'}
+          </h3>
+          <form onSubmit={handleInformeAuditoriaSubmit} className="space-y-6 text-xs">
+            
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-2">
+                <label className="font-bold text-gray-600 block mb-1">Título del Informe Formal</label>
+                <input name="titulo" defaultValue={editInformeAuditoria?.titulo || ''} required placeholder="Ej: Auditoría de Cumplimiento a Cadena de Suministros" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
+                <input name="proceso" defaultValue={editInformeAuditoria?.proceso || ''} required placeholder="Ej: Compras / Finanzas" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">Fecha de Emisión</label>
+                <input name="fecha" type="date" defaultValue={editInformeAuditoria?.fecha || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+              </div>
+              
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">✍️ Elaborado Por (Auditor)</label>
+                <input name="elaboradoPor" defaultValue={editInformeAuditoria?.elaboradoPor || ''} required placeholder="Nombre del auditor" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">🔍 Revisado Por (Líder)</label>
+                <input name="revisadoPor" defaultValue={editInformeAuditoria?.revisadoPor || ''} required placeholder="Nombre de quien revisó" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">🔒 Aprobado Por (Gerencia)</label>
+                <input name="aprobadoPor" defaultValue={editInformeAuditoria?.aprobadoPor || ''} required placeholder="Nombre de quien aprobó" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+              </div>
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">📢 ¿Fue Socializado?</label>
+                <select name="socializado" defaultValue={editInformeAuditoria?.socializado || 'No'} className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold">
+                  <option value="No">No</option>
+                  <option value="Sí">Sí</option>
+                </select>
+              </div>
+              <div className="md:col-span-4">
+                <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Líderes y convocados)</label>
+                <input name="socializadoCon" defaultValue={editInformeAuditoria?.socializadoCon || ''} placeholder="Ej: Comité de Auditoría, Gerencia General, Jefe de Compras..." className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+              </div>
+            </div>
+
+            {/* 📧 DISTRIBUCIÓN ELECTRÓNICA */}
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
+              <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
+              <input name="correosNotificacionInput" type="text" placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700" />
+              <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
+            </div>
+
+            {/* 📂 GESTOR DE EVIDENCIAS DIGITALES */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2 flex justify-between items-center border-b pb-2 border-slate-200">
+                <div>
+                  <label className="font-black text-slate-700 uppercase tracking-widest text-[10px]">GESTOR DE EVIDENCIAS DIGITALES</label>
+                  <p className="text-[9px] text-slate-500 font-medium">Sube los soportes a tu repositorio corporativo institucional y pega sus links públicos.</p>
+                </div>
+                <div className="flex space-x-2">
+                  <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1 rounded-lg shadow-sm hover:bg-slate-50 flex items-center gap-1">📁 Drive</a>
+                  <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1 rounded-lg shadow-sm hover:bg-slate-50 flex items-center gap-1">☁️ OneDrive</a>
+                </div>
+              </div>
+              <div>
+                <label className="font-black text-slate-700 uppercase tracking-widest text-[10px] block mb-1.5">📄 LINK DEL INFORME FINAL (PDF)</label>
+                <input type="url" name="evidenciaUrlInput" defaultValue={editInformeAuditoria?.evidenciaUrl || ''} required placeholder="https://drive.google.com/..." className="w-full border border-slate-300 bg-white rounded-lg p-2 text-xs shadow-sm focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+              </div>
+              <div>
+                <label className="font-black text-purple-800 uppercase tracking-widest text-[10px] block mb-1.5">🤝 LINK DEL ACTA DE SOCIALIZACIÓN</label>
+                <input type="url" name="actaSocializacionUrlInput" defaultValue={editInformeAuditoria?.actaSocializacionUrl || ''} placeholder="https://drive.google.com/..." className="w-full border border-purple-300 bg-white rounded-lg p-2 text-xs shadow-sm focus:ring-2 focus:ring-purple-500 outline-none" />
+              </div>
+            </div>
+
+            <div className="md:col-span-4 flex justify-end">
+              <button type="submit" disabled={isSubmitting} className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] text-white cursor-pointer'}`}>
+                {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR, ARCHIVAR Y ENVIAR DICTAMEN')}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 🔍 BARRA DE BÚSQUEDA GLOBAL */}
       <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center space-x-3">
         <span className="text-slate-400 text-lg">🔍</span>
         <input
@@ -54,7 +139,7 @@ export default function InformesAuditoria({
         />
       </div>
 
-      {/* 📊 TABLA */}
+      {/* 📊 REPOSITORIO TABULAR GENERAL */}
       <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left border-collapse">
@@ -66,7 +151,7 @@ export default function InformesAuditoria({
                 <th className="p-4">Socialización e Impacto</th>
                 <th className="p-4 text-center w-56">Documentos Custodiados</th>
               </tr>
-              {/* FILTROS INTEGRADOS POR COLUMNA */}
+              {/* FILTROS POR COLUMNA */}
               <tr className="bg-slate-100">
                 <td className="p-2">
                   <FilterInput colKey="ref" placeholder="Filtrar..." dark={false} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
@@ -88,7 +173,7 @@ export default function InformesAuditoria({
                 </tr>
               ) : (
                 applyFilters(safeInformes, searchTerm, columnFilters).map((inf, idx) => (
-                  <tr key={`inf-row-${inf.id || idx}`} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={inf.id || idx} className="hover:bg-slate-50/50 transition-colors">
                     {/* CONSECUTIVO */}
                     <td className="p-4 font-mono font-black text-sm text-slate-800 bg-slate-50/50">
                       {inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}
@@ -103,10 +188,10 @@ export default function InformesAuditoria({
                       <div className="text-[9px] text-slate-400 font-medium mt-1">Emitido el: {inf.fecha}</div>
                     </td>
 
-                    {/* TRAZABILIDAD */}
+                    {/* TRAZABILIDAD DE FIRMAS */}
                     <td className="p-4">
                       <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1 text-[10px] font-medium text-slate-600">
-                        <div><span className="text-slate-400 font-bold">✍ ELABORÓ:</span> <span className="font-black text-slate-800">{inf.elaboradoPor}</span></div>
+                        <div><span className="text-slate-400 font-bold">✍️ ELABORÓ:</span> <span className="font-black text-slate-800">{inf.elaboradoPor}</span></div>
                         <div><span className="text-slate-400 font-bold">🔍 REVISÓ:</span> <span className="font-black text-slate-800">{inf.revisadoPor}</span></div>
                         <div><span className="text-slate-400 font-bold">🔒 APROBÓ:</span> <span className="font-black text-slate-800">{inf.aprobadoPor}</span></div>
                       </div>
@@ -124,7 +209,7 @@ export default function InformesAuditoria({
                       )}
                     </td>
 
-                    {/* ACCIONES DIRECTAS SIN CENTRO EJECUTIVO NI GALERÍAS */}
+                    {/* BOTONES LIMPIOS Y SEGUROS DE ACCIÓN */}
                     <td className="p-4 text-center space-y-1.5 align-middle">
                       <a 
                         href={inf.evidenciaUrl || "#"} 
@@ -159,7 +244,7 @@ export default function InformesAuditoria({
                             onClick={() => { setEditInformeAuditoria(inf); setFormResetKey(Date.now()); scrollToForm(); }} 
                             className="text-orange-500 hover:text-orange-700 text-xs font-bold"
                           >
-                            ✏ Editar
+                            ✏️ Editar
                           </button>
                           <span className="text-slate-200">|</span>
                           <button 
@@ -167,7 +252,7 @@ export default function InformesAuditoria({
                             onClick={() => handleDeleteItem('informesAuditoria', inf.id)} 
                             className="text-slate-400 hover:text-red-600 text-xs font-bold"
                           >
-                            🗑 Eliminar
+                            🗑️ Eliminar
                           </button>
                         </div>
                       )}
