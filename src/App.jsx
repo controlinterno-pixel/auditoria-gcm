@@ -66,8 +66,20 @@ const ProgressBar = ({ progress }) => {
 
 const Gauge = ({ value, label, sublabel, colorClass }) => {
   const safeValue = Math.min(Math.max(Math.round(Number(value) || 0), 0), 100);
+  
+  // 💡 Lógica para identificar y mostrar el Tooltip (title) correcto
+  let tooltipText = "";
+  if (label === "MITIGACIÓN GLOBAL" || label === "PLANES DE ACCIÓN") {
+    tooltipText = "📍 ORIGEN: Planes de Acción\n❓ POR QUÉ: Mide el esfuerzo de mitigación\n📝 EXPLICACIÓN: Tareas y acciones correctivas que el equipo tiene actualmente en progreso o pendientes.";
+  } else if (label === "CONTROLES DE SALUD" || label === "SALUD DE CONTROLES") {
+    tooltipText = "📍 ORIGEN: Auditoría de Controles\n❓ POR QUÉ: Indica la cobertura de nuestro aseguramiento\n📝 EXPLICACIÓN: Porcentaje de controles que han sido evaluados frente al universo total de riesgos.";
+  }
+
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full">
+    <div 
+      className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full hover:shadow-md transition-shadow cursor-help"
+      title={tooltipText}
+    >
       <div className="relative w-32 h-32 flex items-center justify-center">
         <svg className="w-full h-full transform -rotate-90">
           <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
