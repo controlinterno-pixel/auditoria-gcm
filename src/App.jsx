@@ -1543,69 +1543,12 @@ const renderConfiguracion = () => (
           </div>
         </div>
 
-        {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
+    {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
             <div className="flex justify-between items-start">
-              <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
-              <span className="text-lg">🎯</span>
-            </div>
-            <div className="mt-2 flex items-baseline space-x-2">
-              <span className="text-3xl font-black text-white">{avancePlanesGlobal}%</span>
-              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">Muy Bueno</span>
-            </div>
-            <div className="w-full h-8 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
-              <svg viewBox="0 0 100 20" className="w-full h-full text-emerald-400" preserveAspectRatio="none">
-                <path d="M0,15 Q20,5 40,12 T80,8 L100,2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
-          </div>
-
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
-            <div className="flex justify-between items-start">
-              <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
-              <span className="text-lg">🔥</span>
-            </div>
-            <div className="mt-2">
-              <span className="text-3xl font-black text-white">{totalRiesgos}</span>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-[9px] font-black tracking-wider uppercase">
-              <span className="text-red-400">{riesgosCriticos} Críticos</span>
-              <span className="text-amber-400">{riesgosMedios} Medios</span>
-              <span className="text-emerald-400">{riesgosBajos} Bajos</span>
-            </div>
-          </div>
-
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
-            <div className="flex justify-between items-start">
-              <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
-              <span className="text-lg">🛡️</span>
-            </div>
-            <div className="mt-2 flex items-baseline space-x-2">
-              <span className="text-3xl font-black text-white">{efectividadControlesGlobal}%</span>
-              <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded-md">Eficaces</span>
-            </div>
-            <div className="w-full h-8 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
-              <svg viewBox="0 0 100 20" className="w-full h-full text-cyan-400" preserveAspectRatio="none">
-                <path d="M0,10 Q25,18 50,8 T100,5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
-          </div>
-
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
-            <div className="flex justify-between items-start">
-              <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
-              <span className="text-lg">🔎</span>
-            </div>
-            <div className="mt-2">
-              <span className="text-3xl font-black text-white">{totalHallazgos}</span>
-            </div>
-            <div className="mt-3 text-[10px] font-black uppercase text-red-400 tracking-wider">
-              🚨 {hallazgosCriticosCount} Con Alerta Crítica
-            </div>
-          </div>
-
+...
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
