@@ -1748,7 +1748,9 @@ const renderConfiguracion = () => (
               </div>
             </div>
             {/* TOOLTIP MATRIX */}
-            <div className="absolute top-[5%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+            {/* TOOLTIP MATRIX (FLOTANDO POR ENCIMA) */}
+            <div className="absolute bottom-[102%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
               <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Distribución Residual</h4>
               <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
                 <p><b className="text-emerald-400">📍 ORIGEN:</b> Matriz Integral de Riesgos.</p>
