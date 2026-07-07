@@ -1388,10 +1388,7 @@ const renderConfiguracion = () => (
 // =====================================================================
   // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
   // =====================================================================
-   // =====================================================================
-  // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
-  // =====================================================================
-  const renderTableroAnalitico = () => {
+ const renderTableroAnalitico = () => {
     const hoy = new Date();
 
     const riesgosBase = typeof rFiltrados !== 'undefined' ? rFiltrados : (typeof riesgos !== 'undefined' ? riesgos : []);
@@ -1443,7 +1440,6 @@ const renderConfiguracion = () => (
       ? riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === matrizFiltro.p && extraerNumeroPuro(r.impactoResidual) === matrizFiltro.i)
       : riesgosBase.slice(0, 5);
 
-    // 🚀 MOTORES DE DATOS PARA LOS NUEVOS WIDGETS
     const planesVencidosList = planesBase
       .filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy)
       .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
@@ -1496,7 +1492,7 @@ const renderConfiguracion = () => (
         <div className="bg-[#0a1122] border border-blue-500/10 p-5 rounded-2xl shadow-md space-y-4 mb-4">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800/80 pb-4 gap-4">
             <div>
-              <h2 className="text-xl font-black tracking-wide text-white">Dashboard Ejecutivo</h2>
+              <h2 className="text-xl font-black tracking-wide text-white">Dashboard Executive</h2>
               <p className="text-xs text-slate-400 font-medium">Resumen general del Sistema de Control Interno y Gestión Integral del Riesgo</p>
             </div>
             <div className="flex items-center space-x-3 shrink-0">
@@ -1511,7 +1507,6 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          {/* Panel de Filtros Modo Oscuro */}
           <div className="flex flex-col md:flex-row gap-4 pt-1 items-start md:items-end">
             <div className="flex flex-col">
               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Años de Análisis</label>
@@ -1543,11 +1538,10 @@ const renderConfiguracion = () => (
           </div>
         </div>
 
-     {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
+        {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TOOLTIPS PREMIUM ─── */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           
-          {/* TARJETA 1: CUMPLIMIENTO GLOBAL */}
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
               <span className="text-lg">🎯</span>
@@ -1561,7 +1555,6 @@ const renderConfiguracion = () => (
                 <path d="M0,15 Q20,5 40,12 T80,8 L100,2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
-            {/* TOOLTIP PREMIUM */}
             <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-blue-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
               <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-blue-500/40 rotate-45"></div>
               <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Control</h4>
@@ -1573,8 +1566,7 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          {/* TARJETA 2: RIESGOS ACTIVOS */}
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
               <span className="text-lg">🔥</span>
@@ -1587,20 +1579,18 @@ const renderConfiguracion = () => (
               <span className="text-amber-400">{riesgosMedios} Medios</span>
               <span className="text-emerald-400">{riesgosBajos} Bajos</span>
             </div>
-            {/* TOOLTIP PREMIUM */}
             <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-red-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
               <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-red-500/40 rotate-45"></div>
               <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Riesgo</h4>
               <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
                 <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Mapa de Calor Empresarial (Matriz 5x5).</p>
                 <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Indica el grado de exposición al riesgo de la organización.</p>
-                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Total de riesgos vigentes mapeados por los líderes de proceso.</p>
+                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Total de riesgos vigentes mapeados por los líderes.</p>
               </div>
             </div>
           </div>
 
-          {/* TARJETA 3: CONTROLES AUDITADOS */}
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
               <span className="text-lg">🛡️</span>
@@ -1614,20 +1604,18 @@ const renderConfiguracion = () => (
                 <path d="M0,10 Q25,18 50,8 T100,5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
-            {/* TOOLTIP PREMIUM */}
             <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-cyan-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
               <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-cyan-500/40 rotate-45"></div>
               <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Aseguramiento</h4>
               <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
                 <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Auditoría de Controles.</p>
-                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Valida la efectividad real del diseño y operación de los controles.</p>
-                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Porcentaje de pruebas de diseño y ejecución calificadas como 'Eficaz'.</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Valida la efectividad real del diseño y operación de controles.</p>
+                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Porcentaje de pruebas de auditoría evaluadas con éxito.</p>
               </div>
             </div>
           </div>
 
-          {/* TARJETA 4: HALLAZGOS ABIERTOS */}
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
               <span className="text-lg">🔎</span>
@@ -1638,20 +1626,18 @@ const renderConfiguracion = () => (
             <div className="mt-3 text-[10px] font-black uppercase text-red-400 tracking-wider">
               🚨 {hallazgosCriticosCount} Con Alerta Crítica
             </div>
-            {/* TOOLTIP PREMIUM */}
             <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-orange-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
               <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-orange-500/40 rotate-45"></div>
               <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Desviaciones</h4>
               <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes y Hallazgos.</p>
-                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Refleja la cantidad de brechas normativas o fallas operacionales no resueltas.</p>
+                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes Emitidos.</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Refleja la cantidad de brechas normativas no resueltas.</p>
                 <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Conteo de no conformidades con estado 'Abierto'.</p>
               </div>
             </div>
           </div>
 
-          {/* TARJETA 5: PLANES EN EJECUCIÓN */}
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
               <span className="text-lg">📝</span>
@@ -1662,22 +1648,24 @@ const renderConfiguracion = () => (
             <div className="mt-3 text-[10px] font-black uppercase text-amber-500 tracking-wider">
               ⚠️ {planesVencidos} Vencidos / Retrasados
             </div>
-            {/* TOOLTIP PREMIUM */}
             <div className="absolute top-[105%] left-[80%] -translate-x-[80%] w-64 bg-[#0f172a]/95 backdrop-blur-md border border-purple-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
               <div className="absolute -top-2 left-[80%] -translate-x-[80%] w-4 h-4 bg-[#0f172a] border-t border-l border-purple-500/40 rotate-45"></div>
               <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Gestión</h4>
               <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
                 <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Planes de Acción.</p>
-                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Indica el nivel de compromiso y saturación operativa para el cierre de brechas.</p>
-                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Sumatoria de planes cuyo estado se encuentra diferente a 'Cerrado'.</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Indica el nivel de esfuerzo actual para el cierre de brechas operacionales.</p>
+                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Sumatoria de planes cuyo estado es diferente a 'Cerrado'.</p>
               </div>
             </div>
           </div>
 
         </div>
-        {/* ─── CUADRÍCULA PRINCIPAL CENTRAL ─── */}
+
+        {/* ─── CUADRÍCULA PRINCIPAL CENTRAL CON POP-OVERS PREMIUM ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
+          
+          {/* MAPA DE CALOR */}
+          <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Mapa de Riesgos (Matriz 5x5)</h3>
               {matrizFiltro && (
@@ -1759,8 +1747,18 @@ const renderConfiguracion = () => (
                 </div>
               </div>
             </div>
+            {/* TOOLTIP MATRIX */}
+            <div className="absolute top-[5%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+              <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Distribución Residual</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                <p><b className="text-emerald-400">📍 ORIGEN:</b> Matriz Integral de Riesgos.</p>
+                <p><b className="text-amber-400">❓ POR QUÉ:</b> Interseca la Probabilidad x Impacto de la severidad del semáforo COSO.</p>
+                <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Los cuadrantes filtran la grilla inferior automáticamente.</p>
+              </div>
+            </div>
           </div>
 
+          {/* TENDENCIA HISTÓRICA */}
           {(() => {
             const mesesCortos = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
             const currentMonthIdx = hoy.getMonth();
@@ -1801,7 +1799,7 @@ const renderConfiguracion = () => (
             let offsetCirculo = 0;
 
             return (
-              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible">
+              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
                 <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Tendencia Histórica</h3>
                 <div className="w-full h-36 mt-2 relative">
                   <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
@@ -1857,6 +1855,15 @@ const renderConfiguracion = () => (
                         })
                       )}
                     </div>
+                  </div>
+                </div>
+                {/* TOOLTIP TENDENCIA */}
+                <div className="absolute top-[5%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                  <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Análisis de Tendencia</h4>
+                  <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                    <p><b className="text-emerald-400">📍 ORIGEN:</b> Historial de Evaluaciones Corporativas.</p>
+                    <p><b className="text-amber-400">❓ POR QUÉ:</b> Monitorea la concentración por área y la evolución mensual de criticidades.</p>
+                    <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Histórico a 6 meses con distribución concéntrica por procesos.</p>
                   </div>
                 </div>
               </div>
@@ -1930,7 +1937,7 @@ const renderConfiguracion = () => (
           return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left">
               
-              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
                 <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
                 <div className="flex items-center justify-around h-32">
                   <div className="w-24 h-24 relative">
@@ -1949,9 +1956,17 @@ const renderConfiguracion = () => (
                     <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Bajos</span><span className="text-white">{hBaj} ({pBaj}%)</span></div>
                   </div>
                 </div>
+                <div className="absolute top-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                  <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Desglose de Criticidad</h4>
+                  <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                    <p><b className="text-emerald-400">📍 ORIGEN:</b> Módulo Central de Hallazgos.</p>
+                    <p><b className="text-amber-400">❓ POR QUÉ:</b> Clasifica la urgencia de atenciones de no conformidades operativas.</p>
+                    <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Segmentación física de las desviaciones de auditoría.</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
                 <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Métricas de Planes</h3>
                 <div className="space-y-3 font-bold text-xs text-slate-400">
                   <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-blue-500/30 transition-colors">
@@ -1963,13 +1978,21 @@ const renderConfiguracion = () => (
                     <span className="text-cyan-400 font-black">{planesActivos}</span>
                   </div>
                   <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-red-500/30 transition-colors">
-                    <span className="flex items-center">🚨 Vencidos</span>
+                    <span className="text-slate-400 flex items-center">🚨 Vencidos</span>
                     <span className="text-red-400 font-black">{planesVencidos}</span>
+                  </div>
+                </div>
+                <div className="absolute top-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                  <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">KPI Operativo Metas</h4>
+                  <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                    <p><b className="text-emerald-400">📍 ORIGEN:</b> Plan de Mejoramiento del Sistema.</p>
+                    <p><b className="text-amber-400">❓ POR QUÉ:</b> Mide la velocidad institucional para subsanar los riesgos pitados.</p>
+                    <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Alertas automáticas cruzando plazos vs fecha actual del servidor.</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
                 <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Indicadores (KPI)</h3>
                 <div className="overflow-x-auto w-full flex-1">
                   <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
@@ -2003,16 +2026,25 @@ const renderConfiguracion = () => (
                     </tbody>
                   </table>
                 </div>
+                <div className="absolute top-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+                  <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Tablero de Control KRI</h4>
+                  <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                    <p><b className="text-emerald-400">📍 ORIGEN:</b> Consolidado de los 3 Módulos de Metas.</p>
+                    <p><b className="text-amber-400">❓ POR QUÉ:</b> Compara el rendimiento real frente a las exigencias Big-4 aprobadas por Gerencia.</p>
+                    <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Semáforos lógicos automáticos según el umbral de tolerancia.</p>
+                  </div>
+                </div>
               </div>
+
             </div>
           );
         })()}
 
-        {/* ─── NUEVO: PANEL DE CONTROL OPERATIVO (WIDGETS DE ESTADO EN TIEMPO REAL) ─── */}
+        {/* ─── NUEVO: PANEL DE CONTROL OPERATIVO CON POP-OVERS PREMIUM ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           
-          {/* 1. Planes Vencidos */}
-          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+          {/* PLANES VENCIDOS */}
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
             <div className="flex items-center space-x-3 mb-4">
               <h3 className="text-sm font-black text-slate-200">Planes Vencidos</h3>
               <span className="bg-red-500/20 text-red-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{planesVencidosList.length}</span>
@@ -2050,10 +2082,18 @@ const renderConfiguracion = () => (
             <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
                <button onClick={() => setActiveTab('planes')} className="text-red-400 text-[10px] font-bold hover:underline transition-colors">Ver todos los planes vencidos →</button>
             </div>
+            <div className="absolute top-[5%] right-4 w-56 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+              <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Alerta de Retrasos</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                <p><b className="text-emerald-400">📍 ORIGEN:</b> Módulo de Planes de Acción.</p>
+                <p><b className="text-amber-400">❓ POR QUÉ:</b> Identifica inmediatamente las brechas vencidas sin cierre reportado.</p>
+                <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Top 5 ordenado cronológicamente de forma ascendente.</p>
+              </div>
+            </div>
           </div>
 
-          {/* 2. Próximas Auditorías */}
-          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+          {/* PRÓXIMAS AUDITORÍAS */}
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
             <div className="flex items-center space-x-3 mb-4">
               <h3 className="text-sm font-black text-slate-200">Próximas Auditorías</h3>
               <span className="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{proximasAuditorias.length}</span>
@@ -2086,10 +2126,18 @@ const renderConfiguracion = () => (
             <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
                <button onClick={() => setActiveTab('plan_anual')} className="text-blue-400 text-[10px] font-bold hover:underline transition-colors">Ver calendario completo →</button>
             </div>
+            <div className="absolute top-[5%] right-4 w-56 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+              <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Calendario de Procesos</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                <p><b className="text-emerald-400">📍 ORIGEN:</b> Cronograma del Plan Anual de Auditoría.</p>
+                <p><b className="text-amber-400">❓ POR QUÉ:</b> Brinda visibilidad de los próximos frentes regulatorios a intervenir.</p>
+                <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Filtra procesos activos pendientes con ejecución menor al 100%.</p>
+              </div>
+            </div>
           </div>
 
-          {/* 3. Actividad Reciente */}
-          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+          {/* ACTIVIDAD RECIENTE */}
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
              <div className="flex items-center space-x-3 mb-4">
               <h3 className="text-sm font-black text-slate-200">Actividad Reciente</h3>
             </div>
@@ -2114,11 +2162,20 @@ const renderConfiguracion = () => (
                     <div className="py-4 text-center text-slate-500 italic text-[10px]">No hay actividad reciente registrada en sistema</div>
                   )}
             </div>
+            <div className="absolute top-[5%] right-4 w-56 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+              <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Bitácora Global (Logs)</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                <p><b className="text-emerald-400">📍 ORIGEN:</b> Nube Modular de Firebase Firestore.</p>
+                <p><b className="text-amber-400">❓ POR QUÉ:</b> Garantiza la transparencia y el principio de responsabilidad (Audit Trail).</p>
+                <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Historial unificado en tiempo real de los últimos movimientos.</p>
+              </div>
+            </div>
           </div>
+
         </div>
 
         {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD (REGISTROS REALES DESDE LA BD) ─── */}
-        <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left">
+        <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <div className="flex justify-between items-center mb-3">
             <div>
               <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">
@@ -2163,6 +2220,14 @@ const renderConfiguracion = () => (
                 );
               })
             )}
+          </div>
+          <div className="absolute top-[2%] right-36 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none">
+            <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Foco de Criticidades</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+              <p><b className="text-emerald-400">📍 ORIGEN:</b> Base de Datos Firebase Firestore.</p>
+              <p><b className="text-amber-400">❓ POR QUÉ:</b> Desglosa de forma analítica los picos de criticidad activos del inventario de Termales.</p>
+              <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Vista dinámica sincronizada con el motor relacional del Mapa de calor.</p>
+            </div>
           </div>
         </div>
 
