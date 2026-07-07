@@ -495,7 +495,7 @@ export default function Planes({
     <div className="space-y-6">
       
       {/* 🟢 NUEVO PANEL OSCURO CON BOTONES DROPDOWN INDEPENDIENTES */}
-      <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-5 mb-6 relative overflow-hidden">
+<div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-5 mb-6 relative overflow-visible z-30">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
@@ -530,7 +530,7 @@ export default function Planes({
             </button>
             
             {showAnioDropdown && (
-              <div className="absolute top-[105%] left-0 w-full bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[150] space-y-1 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute top-[105%] left-0 w-full sm:w-72 bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[150] ...">
                 {defaultAnios.map(anio => {
                   const activo = selectedAnios.includes(anio);
                   return (
