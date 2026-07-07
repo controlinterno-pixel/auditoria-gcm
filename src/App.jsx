@@ -2450,8 +2450,6 @@ const renderPlanes = () => {
         columnFilters={columnFilters}
         handleColFilterChange={handleColFilterChange}
         informesAuditoria={informesAuditoria} 
-        
-        {/* 🟢 CONEXIÓN DE FILTROS AL COMPONENTE HIJO */}
         defaultAnios={defaultAnios}
         defaultMeses={defaultMeses}
         selectedAnios={selectedAnios}
@@ -2460,7 +2458,6 @@ const renderPlanes = () => {
         toggleMes={toggleMes}
         setSelectedAnios={setSelectedAnios}
         setSelectedMeses={setSelectedMeses}
-
         onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
           try {
             const ts = new Date().toLocaleString();
