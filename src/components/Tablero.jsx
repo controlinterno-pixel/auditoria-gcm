@@ -3,7 +3,7 @@ import React from 'react';
 const Gauge = ({ value, label, sublabel, colorClass }) => {
   const safeValue = Math.min(Math.max(Math.round(Number(value) || 0), 0), 100);
 
-  // 💡 Lógica para inyectar la explicación exacta en cada velocímetro circular según su etiqueta
+  // 💡 Lógica interna para inyectar la explicación flotante exacta según el título del velocímetro
   let tooltipText = "";
   if (label === "MITIGACIÓN GLOBAL" || label === "PLANES DE ACCIÓN") {
     tooltipText = "📍 ORIGEN: Planes de Acción\n❓ POR QUÉ: Mide el esfuerzo de mitigación\n📝 EXPLICACIÓN: Promedio de avance físico y tareas correctivas en progreso o pendientes por el equipo.";
