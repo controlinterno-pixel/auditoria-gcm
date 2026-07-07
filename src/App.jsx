@@ -1543,10 +1543,13 @@ const renderConfiguracion = () => (
           </div>
         </div>
 
-        {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
+       {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+          <div 
+            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
+            title={"📍 ORIGEN: Planes de Acción\n❓ POR QUÉ: Mide el esfuerzo de mitigación\n📝 EXPLICACIÓN: Tareas y acciones correctivas que el equipo tiene actualmente en progreso o pendientes."}
+          >
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
               <span className="text-lg">🎯</span>
@@ -1562,7 +1565,10 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+          <div 
+            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
+            title={"📍 ORIGEN: Matriz de Riesgos\n❓ POR QUÉ: Alerta sobre la exposición actual\n📝 EXPLICACIÓN: Total de riesgos evaluados y vigentes en la organización que requieren monitoreo constante."}
+          >
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
               <span className="text-lg">🔥</span>
@@ -1577,7 +1583,10 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+          <div 
+            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
+            title={"📍 ORIGEN: Auditoría de Controles\n❓ POR QUÉ: Indica la cobertura de nuestro aseguramiento\n📝 EXPLICACIÓN: Porcentaje de controles que ya han sido evaluados frente al universo total de riesgos."}
+          >
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
               <span className="text-lg">🛡️</span>
@@ -1593,7 +1602,10 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+          <div 
+            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
+            title={"📍 ORIGEN: Módulo de Hallazgos\n❓ POR QUÉ: Muestra las brechas de seguridad y calidad\n📝 EXPLICACIÓN: Total de desviaciones o no conformidades identificadas que aún no han sido cerradas."}
+          >
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
               <span className="text-lg">🔎</span>
@@ -1606,7 +1618,10 @@ const renderConfiguracion = () => (
             </div>
           </div>
 
-          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible">
+          <div 
+            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
+            title={"📍 ORIGEN: Planes de Acción\n❓ POR QUÉ: Mide el esfuerzo de mitigación\n📝 EXPLICACIÓN: Tareas y acciones correctivas que el equipo tiene actualmente en progreso o pendientes."}
+          >
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
               <span className="text-lg">📝</span>
