@@ -1543,13 +1543,11 @@ const renderConfiguracion = () => (
           </div>
         </div>
 
-       {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
+     {/* ─── BLOQUE DE TARJETAS SUPERIORES ─── */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           
-          <div 
-            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
-            title={"📍 ORIGEN: Planes de Acción\n❓ POR QUÉ: Mide el esfuerzo de mitigación\n📝 EXPLICACIÓN: Tareas y acciones correctivas que el equipo tiene actualmente en progreso o pendientes."}
-          >
+          {/* TARJETA 1: CUMPLIMIENTO GLOBAL */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
               <span className="text-lg">🎯</span>
@@ -1563,12 +1561,20 @@ const renderConfiguracion = () => (
                 <path d="M0,15 Q20,5 40,12 T80,8 L100,2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
+            {/* TOOLTIP PREMIUM */}
+            <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-blue-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-blue-500/40 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Control</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Matriz Integrada de Planes de Acción.</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Evalúa la efectividad de iniciativas de mitigación corporativa.</p>
+                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Avance físico promedio de tareas en progreso y cerradas.</p>
+              </div>
+            </div>
           </div>
 
-          <div 
-            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
-            title={"📍 ORIGEN: Matriz de Riesgos\n❓ POR QUÉ: Alerta sobre la exposición actual\n📝 EXPLICACIÓN: Total de riesgos evaluados y vigentes en la organización que requieren monitoreo constante."}
-          >
+          {/* TARJETA 2: RIESGOS ACTIVOS */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
               <span className="text-lg">🔥</span>
@@ -1581,12 +1587,20 @@ const renderConfiguracion = () => (
               <span className="text-amber-400">{riesgosMedios} Medios</span>
               <span className="text-emerald-400">{riesgosBajos} Bajos</span>
             </div>
+            {/* TOOLTIP PREMIUM */}
+            <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-red-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-red-500/40 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Riesgo</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Mapa de Calor Empresarial (Matriz 5x5).</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Indica el grado de exposición al riesgo de la organización.</p>
+                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Total de riesgos vigentes mapeados por los líderes de proceso.</p>
+              </div>
+            </div>
           </div>
 
-          <div 
-            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
-            title={"📍 ORIGEN: Auditoría de Controles\n❓ POR QUÉ: Indica la cobertura de nuestro aseguramiento\n📝 EXPLICACIÓN: Porcentaje de controles que ya han sido evaluados frente al universo total de riesgos."}
-          >
+          {/* TARJETA 3: CONTROLES AUDITADOS */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
               <span className="text-lg">🛡️</span>
@@ -1600,12 +1614,20 @@ const renderConfiguracion = () => (
                 <path d="M0,10 Q25,18 50,8 T100,5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
+            {/* TOOLTIP PREMIUM */}
+            <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-cyan-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-cyan-500/40 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Aseguramiento</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Auditoría de Controles.</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Valida la efectividad real del diseño y operación de los controles.</p>
+                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Porcentaje de pruebas de diseño y ejecución calificadas como 'Eficaz'.</p>
+              </div>
+            </div>
           </div>
 
-          <div 
-            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
-            title={"📍 ORIGEN: Módulo de Hallazgos\n❓ POR QUÉ: Muestra las brechas de seguridad y calidad\n📝 EXPLICACIÓN: Total de desviaciones o no conformidades identificadas que aún no han sido cerradas."}
-          >
+          {/* TARJETA 4: HALLAZGOS ABIERTOS */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
               <span className="text-lg">🔎</span>
@@ -1616,12 +1638,20 @@ const renderConfiguracion = () => (
             <div className="mt-3 text-[10px] font-black uppercase text-red-400 tracking-wider">
               🚨 {hallazgosCriticosCount} Con Alerta Crítica
             </div>
+            {/* TOOLTIP PREMIUM */}
+            <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-orange-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-orange-500/40 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Desviaciones</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes y Hallazgos.</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Refleja la cantidad de brechas normativas o fallas operacionales no resueltas.</p>
+                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Conteo de no conformidades con estado 'Abierto'.</p>
+              </div>
+            </div>
           </div>
 
-          <div 
-            className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible cursor-help hover:border-blue-500/50 transition-colors"
-            title={"📍 ORIGEN: Planes de Acción\n❓ POR QUÉ: Mide el esfuerzo de mitigación\n📝 EXPLICACIÓN: Tareas y acciones correctivas que el equipo tiene actualmente en progreso o pendientes."}
-          >
+          {/* TARJETA 5: PLANES EN EJECUCIÓN */}
+          <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
               <span className="text-lg">📝</span>
@@ -1632,10 +1662,19 @@ const renderConfiguracion = () => (
             <div className="mt-3 text-[10px] font-black uppercase text-amber-500 tracking-wider">
               ⚠️ {planesVencidos} Vencidos / Retrasados
             </div>
+            {/* TOOLTIP PREMIUM */}
+            <div className="absolute top-[105%] left-[80%] -translate-x-[80%] w-64 bg-[#0f172a]/95 backdrop-blur-md border border-purple-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -top-2 left-[80%] -translate-x-[80%] w-4 h-4 bg-[#0f172a] border-t border-l border-purple-500/40 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Gestión</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Planes de Acción.</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Indica el nivel de compromiso y saturación operativa para el cierre de brechas.</p>
+                <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Sumatoria de planes cuyo estado se encuentra diferente a 'Cerrado'.</p>
+              </div>
+            </div>
           </div>
 
         </div>
-
         {/* ─── CUADRÍCULA PRINCIPAL CENTRAL ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
