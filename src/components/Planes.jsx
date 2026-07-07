@@ -45,7 +45,7 @@ export default function Planes({
   informesAuditoria = [],
   
   // VARIABLES DEL FILTRO GLOBAL TEMPORAL
-defaultAnios = [],
+  defaultAnios = [],
   defaultMeses = [],
   selectedAnios = [],
   selectedMeses = [],
@@ -498,8 +498,8 @@ defaultAnios = [],
   return (
     <div className="space-y-6">
       
-      {/* 🟢 NUEVO PANEL OSCURO CON BOTONES DROPDOWN INDEPENDIENTES */}
-<div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-5 mb-6 relative overflow-visible z-30">
+      {/* PANEL OSCURO CON BOTONES DROPDOWN INDEPENDIENTES CORREGIDO */}
+      <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-5 mb-6 relative overflow-visible z-30">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
@@ -521,7 +521,7 @@ defaultAnios = [],
         {/* 📊 FILTROS COMPACTADOS EN BOTONES DESPLEGABLES */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center border-t border-slate-800/80 pt-5 relative z-10">
           
-          {/* 🔵 DROPDOWN DE AÑOS */}
+          {/* 🔵 DROPDOWN DE AÑOS CORREGIDO REAL */}
           <div className="relative w-full sm:w-56" ref={anioRef}>
             <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Filtrar por Año</label>
             <button
@@ -533,10 +533,48 @@ defaultAnios = [],
               <span className="text-[10px] ml-2 text-slate-400">{showAnioDropdown ? '▲' : '▼'}</span>
             </button>
             
-          {showMesDropdown && (
+            {showAnioDropdown && (
+              <div className="absolute top-[105%] left-0 w-full bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[200] space-y-1 animate-in fade-in zoom-in-95 duration-150">
+                {/* ⚡ BOTONES MASIVOS DE AÑO */}
+                <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 mb-1 px-1">
+                  <button type="button" onClick={selectAllAnios} className="text-[10px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-wider">Marcar Todos</button>
+                  <button type="button" onClick={clearAllAnios} className="text-[10px] font-black text-slate-400 hover:text-slate-300 uppercase tracking-wider">Limpiar</button>
+                </div>
+                
+                {defaultAnios.map(anio => {
+                  const activo = selectedAnios.includes(anio);
+                  return (
+                    <button
+                      key={`drop-anio-${anio}`}
+                      type="button"
+                      onClick={() => toggleAnio(anio)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${activo ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}
+                    >
+                      <span>{anio}</span>
+                      {activo && <span className="text-[10px]">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 🟢 DROPDOWN DE MESES CORREGIDO REAL */}
+          <div className="relative w-full sm:w-64" ref={mesRef}>
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Filtrar por Mes</label>
+            <button
+              type="button"
+              onClick={() => { setShowMesDropdown(!showMesDropdown); setShowAnioDropdown(false); }}
+              className="w-full bg-slate-800 text-slate-200 font-black text-xs px-4 py-2.5 rounded-xl border border-slate-700 flex justify-between items-center transition-all hover:bg-slate-700/80"
+            >
+              <span className="truncate">{textoBotonMes}</span>
+              <span className="text-[10px] ml-2 text-slate-400">{showMesDropdown ? '▲' : '▼'}</span>
+            </button>
+            
+            {showMesDropdown && (
               <div className="absolute top-[105%] left-0 w-full sm:w-72 bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[200] animate-in fade-in zoom-in-95 duration-150">
                 {/* ⚡ BOTONES MASIVOS DE MES */}
-                <div className="col-span-2 flex justify-between items-center border-b border-slate-800 pb-1.5 mb-2 px-1 w-full">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 mb-2 px-1 w-full">
                   <button type="button" onClick={selectAllMeses} className="text-[10px] font-black text-emerald-400 hover:text-emerald-300 uppercase tracking-wider">Marcar Todos</button>
                   <button type="button" onClick={clearAllMeses} className="text-[10px] font-black text-slate-400 hover:text-slate-300 uppercase tracking-wider">Limpiar</button>
                 </div>
@@ -558,42 +596,10 @@ defaultAnios = [],
                   })}
                 </div>
               </div>
-            )} 
-          </div>
-
-          {/* 🟢 DROPDOWN DE MESES */}
-          <div className="relative w-full sm:w-64" ref={mesRef}>
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Filtrar por Mes</label>
-            <button
-              type="button"
-              onClick={() => { setShowMesDropdown(!showMesDropdown); setShowAnioDropdown(false); }}
-              className="w-full bg-slate-800 text-slate-200 font-black text-xs px-4 py-2.5 rounded-xl border border-slate-700 flex justify-between items-center transition-all hover:bg-slate-700/80"
-            >
-              <span className="truncate">{textoBotonMes}</span>
-              <span className="text-[10px] ml-2 text-slate-400">{showMesDropdown ? '▲' : '▼'}</span>
-            </button>
-            
-            {showMesDropdown && (
-              <div className="absolute top-[105%] left-0 w-full sm:w-72 bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[150] grid grid-cols-2 gap-1 animate-in fade-in zoom-in-95 duration-150">
-                {defaultMeses.map(mes => {
-                  const activo = selectedMeses.includes(mes);
-                  return (
-                    <button
-                      key={`drop-mes-${mes}`}
-                      type="button"
-                      onClick={() => toggleMes(mes)}
-                      className={`text-left px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-between ${activo ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <span className="truncate">{mes}</span>
-                      {activo && <span className="text-[9px]">✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
             )}
           </div>
 
-          {/* BOTÓN REINICIAR (Aparece solo si hay filtros activos) */}
+          {/* BOTÓN REINICIAR */}
           {(selectedAnios.length > 0 || selectedMeses.length > 0) && (
             <button 
               type="button"
@@ -763,7 +769,7 @@ defaultAnios = [],
                                 <input 
                                   type="date"
                                   value={act.fechaInicio}
-                                  onChange={(e) => handleUpdateUpdateActivityField ? '' : handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)}
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)}
                                   className="w-full border p-1.5 rounded-lg font-bold"
                                 />
                               </div>
