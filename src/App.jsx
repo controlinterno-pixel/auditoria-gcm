@@ -1802,136 +1802,212 @@ const renderConfiguracion = () => (
             ))}
           </div>
         </div>
-
-        {/* 📁 EXPLORADOR DEL EXPEDIENTE ÚNICO DE AUDITORÍA */}
-        <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl space-y-6">
-          <div className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+{/* 📁 FASE 2: EXPEDIENTE ÚNICO MAESTRO (360° VIEW) */}
+        <div className="bg-[#0a1122] border border-blue-500/20 p-6 sm:p-8 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.06)] space-y-6 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div className="border-b border-slate-800/80 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
             <div>
-              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">📁 Expediente Único de Control Integral</h3>
-              <p className="text-[10px] text-slate-500 font-bold mt-1">Trazabilidad total en una sola vista cruzando los módulos GRC</p>
+              <div className="inline-block px-2.5 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[9px] font-black uppercase tracking-widest rounded mb-2">Fase 2 Completada</div>
+              <h3 className="text-sm font-black tracking-widest uppercase text-white">📁 Expediente Único de Auditoría 360°</h3>
+              <p className="text-[10px] text-slate-400 font-medium mt-1">Visión panorámica de la auditoría. Navegación End-to-End sin cambiar de módulo.</p>
             </div>
             
             <select
               value={selectedExpedienteId}
               onChange={(e) => setSelectedExpedienteId(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-xl text-xs font-black py-2.5 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 outline-none w-full sm:w-80"
+              className="bg-[#060b16] border border-blue-500/30 rounded-xl text-xs font-black py-3.5 px-4 text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-96 shadow-inner cursor-pointer"
             >
-              <option value="">-- Seleccionar Hallazgo para Expediente --</option>
-              {safeHallazgos.map(h => (
-                <option key={h.id} value={h.id}>[{h.ref}] {h.titulo.substring(0, 45)}...</option>
+              <option value="">-- Seleccionar Auditoría / Proceso --</option>
+              {safeCronograma.map(c => (
+                <option key={c.id} value={c.id}>AUD-{c.codigo || c.id} : {c.proceso}</option>
               ))}
             </select>
           </div>
 
           {expedienteSeleccionado ? (
-            <div className="space-y-6 animate-in fade-in duration-300">
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="relative animate-in fade-in duration-700 pl-6 sm:pl-10 pt-4 pb-4">
+              
+              {/* LÍNEA VERTICAL CON DEGRADADO NEÓN */}
+              <div className="absolute left-[34px] sm:left-[50px] top-8 bottom-8 w-[3px] bg-gradient-to-b from-blue-500 via-purple-500 to-emerald-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
+
+              <div className="space-y-10 relative z-10">
                 
-                {/* ELEMENTO 1: ORIGEN INFORME */}
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">1. Informe Base</span>
-                  <div className="font-bold text-xs text-emerald-400 font-mono">{expedienteSeleccionado.informe.ref}</div>
-                  <div className="font-black text-xs text-white line-clamp-2">{expedienteSeleccionado.informe.titulo}</div>
-                  <div className="text-[9px] text-slate-400 font-bold">Fecha: {formatSafeDate(expedienteSeleccionado.informe.fecha)}</div>
-                </div>
-
-                {/* ELEMENTO 2: RIESGO IDENTIFICADO */}
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">2. Riesgo Asociado</span>
-                  <div className="font-bold text-xs text-blue-400 font-mono">RSG-{expedienteSeleccionado.riesgo.id || 'N/A'}</div>
-                  <div className="font-black text-xs text-white line-clamp-2">{expedienteSeleccionado.riesgo.descripcion || expedienteSeleccionado.riesgo.descripcionControl}</div>
-                  <div className="text-[9px] text-slate-400 font-bold">Dueño: {expedienteSeleccionado.riesgo.responsable}</div>
-                </div>
-
-                {/* ELEMENTO 3: HALLAZGO DE AUDITORÍA */}
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">3. Hallazgo Documentado</span>
-                  <div className="font-bold text-xs text-red-400 font-mono">{expedienteSeleccionado.hallazgo.ref}</div>
-                  <div className="font-black text-xs text-white line-clamp-2">{expedienteSeleccionado.hallazgo.titulo}</div>
-                  <span className="inline-block px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded font-black text-[8px] uppercase">{expedienteSeleccionado.hallazgo.severidad}</span>
-                </div>
-
-                {/* ELEMENTO 4: PLAN DE ACCIÓN */}
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">4. Plan de Acción</span>
-                  <div className="font-bold text-xs text-purple-400 font-mono">PLA-{expedienteSeleccionado.plan.id || 'N/A'}</div>
-                  <div className="font-black text-xs text-white line-clamp-2">{expedienteSeleccionado.plan.accion}</div>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className="text-[9px] font-black text-slate-400 uppercase">Avance:</span>
-                    <span className="text-white font-black text-[10px]">{expedienteSeleccionado.plan.progreso}%</span>
+                {/* NODO 1: PLANIFICACIÓN Y PROCESO */}
+                <div className="relative flex items-start group">
+                  <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-blue-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(59,130,246,0.5)] group-hover:scale-110 transition-transform">
+                    🏢
+                  </div>
+                  <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-blue-500/40 transition-colors shadow-lg">
+                    <div className="flex justify-between items-start mb-2 border-b border-slate-800/80 pb-2">
+                      <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">1. Planificación Estratégica</span>
+                      <span className="px-2 py-0.5 bg-[#060b16] border border-slate-700 text-slate-300 text-[9px] font-bold rounded">Meses: {expedienteSeleccionado.auditoria.meses?.join(', ') || 'N/A'}</span>
+                    </div>
+                    <h4 className="text-base font-black text-white">{expedienteSeleccionado.proceso}</h4>
+                    <p className="text-[10px] text-slate-400 mt-1.5 font-medium leading-relaxed">
+                      <b className="text-slate-300">Auditor Asignado:</b> {expedienteSeleccionado.auditoria.responsable}<br/>
+                      <b className="text-slate-300">Enfoque:</b> {expedienteSeleccionado.auditoria.enfoque}
+                    </p>
                   </div>
                 </div>
 
-              </div>
-
-              {/* LÍNEA CONECTADA DE FLUJO GRC */}
-              <div className="border-t border-slate-800 pt-5">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">🔗 Mapa de Trazabilidad End-to-End</h4>
-                
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
-                  <div className="text-center">
-                    <div className="text-xs font-black text-white">Riesgo Residual</div>
-                    <div className="text-[10px] text-slate-500 font-bold mt-0.5">P: {expedienteSeleccionado.riesgo.probabilidadResidual} • I: {expedienteSeleccionado.riesgo.impactoResidual}</div>
+                {/* NODO 2: MATRIZ DE RIESGOS */}
+                <div className="relative flex items-start group">
+                  <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-orange-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(249,115,22,0.5)] group-hover:scale-110 transition-transform">
+                    🔥
                   </div>
-                  
-                  <div className="text-slate-600 font-black">➔</div>
-
-                  <div className="text-center">
-                    <div className="text-xs font-black text-white">Controles Probados</div>
-                    <div className="text-[10px] text-blue-400 font-bold mt-0.5">Eficacia: {expedienteSeleccionado.evaluaciones.length > 0 ? 'Evaluado' : 'Sin Pruebas'}</div>
-                  </div>
-
-                  <div className="text-slate-600 font-black">➔</div>
-
-                  <div className="text-center">
-                    <div className="text-xs font-black text-white">Estado Hallazgo</div>
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest mt-0.5 ${expedienteSeleccionado.hallazgo.estado === 'Cerrado' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                      {expedienteSeleccionado.hallazgo.estado}
-                    </span>
-                  </div>
-
-                  <div className="text-slate-600 font-black">➔</div>
-
-                  <div className="text-center">
-                    <div className="text-xs font-black text-white">Estado Plan de Acción</div>
-                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest mt-0.5 ${expedienteSeleccionado.plan.estadoWorkflow === 'Cerrado' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
-                      {expedienteSeleccionado.plan.estadoWorkflow}
-                    </span>
+                  <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-orange-500/40 transition-colors shadow-lg">
+                    <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">2. Riesgos Mapeados del Proceso</span>
+                    <div className="flex items-center space-x-5">
+                      <div className="text-4xl font-black text-white">{expedienteSeleccionado.riesgos.length}</div>
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        Se documentaron en la matriz corporativa.<br/>
+                        Existen <span className="text-red-400 font-black px-1.5 py-0.5 bg-red-500/10 rounded">{expedienteSeleccionado.riesgos.filter(r => (Number(r.probabilidadResidual) * Number(r.impactoResidual)) >= 16).length} Críticos</span> con alta exposición.
+                      </div>
+                    </div>
                   </div>
                 </div>
+
+                {/* NODO 3: TRABAJO DE CAMPO / CONTROLES */}
+                <div className="relative flex items-start group">
+                  <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-cyan-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(6,182,212,0.5)] group-hover:scale-110 transition-transform">
+                    🛡️
+                  </div>
+                  <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-cyan-500/40 transition-colors shadow-lg">
+                    <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">3. Evaluaciones y Pruebas de Control</span>
+                    <div className="flex items-center space-x-5">
+                      <div className="text-4xl font-black text-white">{expedienteSeleccionado.evaluaciones.length}</div>
+                      <div className="text-[11px] text-slate-400 font-medium">
+                        Pruebas de recorrido ejecutadas en campo.<br/>
+                        <span className="text-emerald-400 font-black px-1.5 py-0.5 bg-emerald-500/10 rounded">{expedienteSeleccionado.evaluaciones.filter(e => e.calificacion === 100).length} Evaluados como Eficaces</span> (Diseño y Ejecución).
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* NODO 4: HALLAZGOS Y DESVIACIONES */}
+                <div className="relative flex items-start group">
+                  <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-red-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(239,68,68,0.5)] group-hover:scale-110 transition-transform">
+                    🔎
+                  </div>
+                  <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-red-500/40 transition-colors shadow-lg">
+                    <span className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">4. Hallazgos y Desviaciones Detectadas</span>
+                    {expedienteSeleccionado.hallazgos.length === 0 ? (
+                       <div className="text-[11px] text-slate-500 italic py-2">✅ Proceso limpio. No hay hallazgos registrados o conectados.</div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {expedienteSeleccionado.hallazgos.map((h, i) => (
+                          <div key={i} className="flex justify-between items-center bg-[#060b16] p-3 rounded-xl border border-slate-800 shadow-inner">
+                            <span className="text-[11px] text-slate-300 font-bold truncate pr-4"><span className="text-slate-500">[{h.ref}]</span> {h.titulo}</span>
+                            <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest border shrink-0 ${h.estado === 'Abierto' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'}`}>{h.estado}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* NODO 5: PLANES DE ACCIÓN */}
+                <div className="relative flex items-start group">
+                  <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-amber-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(245,158,11,0.5)] group-hover:scale-110 transition-transform">
+                    📝
+                  </div>
+                  <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-amber-500/40 transition-colors shadow-lg">
+                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">5. Gestión de Planes de Acción</span>
+                    {expedienteSeleccionado.planes.length === 0 ? (
+                       <div className="text-[11px] text-slate-500 italic py-2">⏳ Pendiente de apertura de planes de choque.</div>
+                    ) : (
+                      <div className="space-y-3">
+                        {expedienteSeleccionado.planes.map((p, i) => (
+                          <div key={i} className="flex flex-col sm:flex-row justify-between sm:items-center bg-[#060b16] p-3.5 rounded-xl border border-slate-800 shadow-inner gap-3">
+                            <span className="text-[11px] text-slate-300 font-bold w-full sm:w-2/3 leading-relaxed">{p.accion}</span>
+                            <div className="flex items-center space-x-3 w-full sm:w-auto">
+                              <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">{p.progreso}% completado</span>
+                              <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden shrink-0"><div className="h-full bg-gradient-to-r from-amber-600 to-amber-400" style={{width: `${p.progreso}%`}}></div></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* NODO 6: INFORME Y CIERRE */}
+                <div className="relative flex items-start group">
+                  <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-emerald-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(16,185,129,0.5)] group-hover:scale-110 transition-transform">
+                    ✅
+                  </div>
+                  <div className="ml-10 sm:ml-12 bg-emerald-900/10 border border-emerald-500/30 p-5 rounded-2xl w-full hover:border-emerald-500/50 transition-colors shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-3 block border-b border-emerald-500/20 pb-2 relative z-10">6. Dictamen y Cierre (Informes Radicados)</span>
+                    
+                    {expedienteSeleccionado.informes.length === 0 ? (
+                       <div className="text-[11px] text-slate-400 font-medium py-2 relative z-10">No se ha emitido y radicado un informe final para esta auditoría en el repositorio central.</div>
+                    ) : (
+                      <div className="space-y-3 relative z-10">
+                        {expedienteSeleccionado.informes.map((inf, i) => (
+                          <div key={i} className="flex justify-between items-center bg-[#060b16] p-4 rounded-xl border border-emerald-500/30 shadow-md">
+                            <div>
+                              <div className="text-emerald-400 font-mono text-[11px] font-black tracking-widest">{inf.ref}</div>
+                              <div className="text-xs text-white font-black truncate mt-1">{inf.titulo}</div>
+                            </div>
+                            {inf.evidenciaUrl ? (
+                              <a href={inf.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] bg-emerald-500 text-white font-black px-4 py-2 rounded-lg uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:bg-emerald-400 hover:scale-105 transition-all">Ver PDF / Acta</a>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 italic font-bold">Sin PDF anexo</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
               </div>
             </div>
           ) : (
-            <div className="text-center py-12 text-slate-500 italic border border-dashed border-slate-800 rounded-2xl bg-slate-950/40 text-xs">
-              📂 Selecciona un hallazgo en la cabecera para mapear el Expediente Único en tiempo real.
+            <div className="text-center py-20 text-slate-500 border border-dashed border-blue-500/30 rounded-2xl bg-[#060b16]/50 flex flex-col items-center justify-center transition-colors hover:border-blue-500/50 hover:bg-[#060b16]">
+              <div className="w-16 h-16 bg-blue-500/10 text-blue-400 rounded-full flex items-center justify-center text-3xl mb-4 shadow-[0_0_20px_rgba(59,130,246,0.2)]">🧭</div>
+              <p className="text-sm font-black uppercase tracking-widest text-slate-300">Selecciona un proceso del cronograma arriba</p>
+              <p className="text-[11px] font-medium text-slate-500 mt-2 max-w-md leading-relaxed">El motor inteligente mapeará automáticamente toda la genealogía de la auditoría en un solo Timeline de Trazabilidad 360°.</p>
             </div>
           )}
+        </div>
+
       </div>
-</div>
     );
   };
+                 
+
 // =====================================================================
-  // 🧭 MOTOR DEL EXPEDIENTE ÚNICO: CONECTOR DINÁMICO DE FLUJO END-TO-END
+  // 🧭 MOTOR FASE 2: EXPEDIENTE ÚNICO 360° (TRAZABILIDAD TOTAL)
   // =====================================================================
   const expedienteSeleccionado = useMemo(() => {
     if (!selectedExpedienteId) return null;
-    const hallazgo = safeHallazgos.find(h => String(h.id) === String(selectedExpedienteId));
-    if (!hallazgo) return null;
+    
+    // 1. Busca desde el origen: El Plan Anual (Cronograma)
+    const auditoria = safeCronograma.find(c => String(c.id) === String(selectedExpedienteId));
+    if (!auditoria) return null;
 
-    const linkedRiesgo = safeRiesgos.find(r => r.id === hallazgo.idRiesgo);
-    const linkedPlan = safePlanes.find(p => p.idHallazgo === hallazgo.id);
-    const linkedInforme = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme));
-    const linkedEvaluaciones = safeEvaluaciones.filter(ev => ev.idRiesgo === hallazgo.idRiesgo);
+    const proceso = auditoria.proceso;
+
+    // 2. Extrae en cascada toda la genealogía de ese proceso
+    const riesgosVinculados = safeRiesgos.filter(r => r.proceso === proceso);
+    const evaluacionesVinculadas = safeEvaluaciones.filter(ev => riesgosVinculados.some(r => r.id === ev.idRiesgo));
+    const hallazgosVinculados = safeHallazgos.filter(h => h.proceso === proceso || riesgosVinculados.some(r => r.id === h.idRiesgo));
+    const planesVinculados = safePlanes.filter(p => hallazgosVinculados.some(h => h.id === p.idHallazgo));
+    const informesVinculados = (informesAuditoria || []).filter(inf => inf.proceso === proceso);
 
     return {
-      hallazgo,
-      riesgo: linkedRiesgo || { descripcion: 'Sin riesgo catalogado' },
-      plan: linkedPlan || { accion: 'Sin plan asignado', progreso: 0, estadoWorkflow: 'Borrador' },
-      informe: linkedInforme || { ref: 'Radicación directa sin informe', titulo: 'N/A' },
-      evaluaciones: linkedEvaluaciones
+      auditoria,
+      proceso,
+      riesgos: riesgosVinculados,
+      evaluaciones: evaluacionesVinculadas,
+      hallazgos: hallazgosVinculados,
+      planes: planesVinculados,
+      informes: informesVinculados
     };
-  }, [selectedExpedienteId, safeHallazgos, safeRiesgos, safePlanes, informesAuditoria, safeEvaluaciones]);
-
+  }, [selectedExpedienteId, safeCronograma, safeRiesgos, safeEvaluaciones, safeHallazgos, safePlanes, informesAuditoria]);
 
 const renderTableroAnalitico = () => {
     const hoy = new Date();
