@@ -182,7 +182,7 @@ const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
 
-    // 🛑 1. NUEVA VALIDACIÓN DE CORREOS
+    // 🛑 1. VALIDACIÓN DE CORREOS
     let errorCorreos = false;
     Object.keys(matrixState).forEach(hallazgoId => {
       const stateNode = matrixState[hallazgoId];
@@ -198,11 +198,12 @@ const handleMasterMatrixSubmit = async (e) => {
 
     if (errorCorreos) {
       alert("❌ ALERTA: Hay correos de responsables vacíos o que no coinciden en la confirmación. Por favor revíselos antes de guardar.");
-      return; // Bloquea el guardado
+      return;
     }
 
     let compiledPlanes = [];
     let notificacionesPendientes = []; 
+    let correosLideresARadicar = new Set(); // 📧 Para agrupar los correos de los líderes únicos
     const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map(h => h.id);
 
     Object.keys(matrixState).forEach(hallazgoId => {
@@ -229,12 +230,17 @@ const handleMasterMatrixSubmit = async (e) => {
                 workflowCalculado = 'Borrador';
             }
 
+            // Guardamos el correo válido del líder para enviarle su comprobante
+            if (act.correoResponsable && act.correoResponsable.includes('@')) {
+              correosLideresARadicar.add(act.correoResponsable.trim());
+            }
+
             compiledPlanes.push({
               id: String(act.id).startsWith('new-') ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
               idHallazgo: Number(hallazgoId),
               accion: act.accion,
               responsable: act.responsable || 'Por asignar',
-              correoResponsable: act.correoResponsable, // 📧 GUARDA EL CORREO AQUI
+              correoResponsable: act.correoResponsable, 
               auditorAsignado: act.auditorAsignado || 'No Asignado', 
               fechaInicio: act.fechaInicio || '',
               fecha: act.fecha || '',
@@ -242,7 +248,7 @@ const handleMasterMatrixSubmit = async (e) => {
               estado: estadoCalculado, 
               evidenciaUrl: act.evidenciaUrl || '',
               estadoWorkflow: workflowCalculado,
-              anio: anioVal, 
+              anio: nioVal || 2026, 
               mes: mesVal,   
               historialCambios: act.historialCambios || [{ fecha: new Date().toLocaleString(), accion: 'Actividad registrada en matriz masiva' }]
             });
@@ -296,6 +302,23 @@ const handleMasterMatrixSubmit = async (e) => {
       await saveToCloud({ planes: finalGlobalPlanes });
     }
 
+    // 📧 1. ENVIAR COMPROBANTE DE RADICACIÓN AL LÍDER (PROPUESTA ELEGANTE)
+    if (correosLideresARadicar.size > 0 && ejecutarDespachoGmailApi) {
+      const urlInformeBase = informeSeleccionadoObj?.evidenciaUrl || 'https://auditoria-gcm.vercel.app';
+      const tituloInformeBase = informeSeleccionadoObj?.titulo || 'Plan de Acción';
+
+      for (const correoLider of correosLideresARadicar) {
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: `RADICACIÓN-ÉXITOSA`,
+          titulo_informe: `Tu Plan de Acción ha sido Radicado: ${tituloInformeBase}`,
+          proceso_auditado: `Se han indexado tus compromisos y actividades mitigantes en el repositorio digital corporativo.`,
+          enlace_pdf: urlInformeBase, // El botón del correo lo llevará al PDF del informe origen cargado
+          destinatarios: correoLider
+        });
+      }
+    }
+
+    // 📧 2. ENVIAR NOTIFICACIONES DE REVISIÓN AL AUDITOR (SÓLO SI LLEGÓ AL 100%)
     if (notificacionesPendientes.length > 0 && ejecutarDespachoGmailApi) {
         const diccionarioCorreos = {
             "Rodolfo González": "auditoria@termales.com.co",
@@ -314,9 +337,9 @@ const handleMasterMatrixSubmit = async (e) => {
               destinatarios: correoDestino
             });
         }
-        alert(`¡Guardado exitoso! Se enviaron ${notificacionesPendientes.length} notificaciones a los auditores para revisión.`);
+        alert(`¡Guardado exitoso! Se envió el comprobante de radicación al líder y ${notificacionesPendientes.length} alertas de revisión a los auditores.`);
     } else {
-        alert("¡Matriz de planes guardada exitosamente!");
+        alert("¡Matriz de planes guardada y comprobante enviado al correo del responsable con éxito!");
     }
     
     setFormInformeId('');
