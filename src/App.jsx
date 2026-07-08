@@ -400,8 +400,20 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
+useEffect(() => {
+    if (!user) return;
+    setIsCloudLoaded(false);
+    
+    // 🛡️ Seguro anti-congelamiento: Si Firebase no responde en 4 segundos, fuerza la entrada
+    const timeoutSeguridad = setTimeout(() => {
+      console.warn("⚠️ Firebase está tardando demasiado o Storage no está activo. Forzando entrada...");
+      setIsCloudLoaded(true);
+    }, 4000);
+
     const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
-    return onSnapshot(docRef, (docSnap) => {
+    
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      clearTimeout(timeoutSeguridad); // Si responde bien, cancela el timer
       if (docSnap.exists()) {
         const data = docSnap.data() || {};
         setRiesgos(data.riesgos || defaultRiesgos);
@@ -411,17 +423,26 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
         setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
         setCronograma(data.cronograma || defaultCronograma);
         setMonitoreo(data.monitoreo || defaultMonitoreo);
-setInformesAuditoria(data.informesAuditoria || []);
-setComites(data.comites || []);
-setAuditoresLista(data.auditoresLista || ["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
+        setInformesAuditoria(data.informesAuditoria || []);
+        setComites(data.comites || []);
+        setAuditoresLista(data.auditoresLista || ["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
       } else {
         if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
            setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [], comites: [] });
         }
       }
       setIsCloudLoaded(true);
+    }, (error) => {
+      clearTimeout(timeoutSeguridad);
+      console.error("🔥 Error de Firebase:", error);
+      setIsCloudLoaded(true); // Forzamos entrada aunque haya error
     });
-  }, [user]);
+
+    return () => {
+      clearTimeout(timeoutSeguridad);
+      unsubscribe();
+    };
+  }, [user]);    
 
   useEffect(() => {
     if (window.XLSX) { setXlsxLoaded(true); return; }
