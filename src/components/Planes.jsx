@@ -302,22 +302,21 @@ const handleMasterMatrixSubmit = async (e) => {
       await saveToCloud({ planes: finalGlobalPlanes });
     }
 
-    // 📧 1. ENVIAR COMPROBANTE DE RADICACIÓN AL LÍDER (PROPUESTA ELEGANTE)
+// 📧 1. ENVIAR COMPROBANTE DE RADICACIÓN AL LÍDER (PROPUESTA ELEGANTE)
     if (correosLideresARadicar.size > 0 && ejecutarDespachoGmailApi) {
       const urlInformeBase = informeSeleccionadoObj?.evidenciaUrl || 'https://auditoria-gcm.vercel.app';
       const tituloInformeBase = informeSeleccionadoObj?.titulo || 'Plan de Acción';
 
       for (const correoLider of correosLideresARadicar) {
         await ejecutarDespachoGmailApi({
-          ref_consecutivo: `RADICACIÓN-ÉXITOSA`,
+          ref_consecutivo: `RADICACION EXITOSA`, // 🟢 Corregido sin tildes para evitar errores de codificación en Gmail
           titulo_informe: `Tu Plan de Acción ha sido Radicado: ${tituloInformeBase}`,
           proceso_auditado: `Se han indexado tus compromisos y actividades mitigantes en el repositorio digital corporativo.`,
-          enlace_pdf: urlInformeBase, // El botón del correo lo llevará al PDF del informe origen cargado
+          enlace_pdf: urlInformeBase, 
           destinatarios: correoLider
         });
       }
     }
-
     // 📧 2. ENVIAR NOTIFICACIONES DE REVISIÓN AL AUDITOR (SÓLO SI LLEGÓ AL 100%)
     if (notificacionesPendientes.length > 0 && ejecutarDespachoGmailApi) {
         const diccionarioCorreos = {
