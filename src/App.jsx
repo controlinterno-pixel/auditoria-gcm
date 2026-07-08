@@ -2306,120 +2306,79 @@ const renderTableroAnalitico = () => {
             </div>
           </div>
 
-          {/* TENDENCIA HISTÓRICA */}
-          {(() => {
-            const mesesCortos = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-            const currentMonthIdx = hoy.getMonth();
-            const ultimos6Meses = Array.from({length: 6}, (_, i) => {
-                let m = currentMonthIdx - 5 + i;
-                if (m < 0) m += 12;
-                return { idx: m, nombre: mesesCortos[m], nombreLargo: defaultMeses[m] };
-            });
+          {/* ─── NUEVAS GRÁFICAS DE TENDENCIA GRC INTERACTIVAS INTEGRADAS (image_38aec6.png) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          
+          {/* GRÁFICA 1: EVOLUCIÓN DE IMPACTO FINANCIERO */}
+          <div className="bg-[#0a1122] p-2 rounded-3xl border border-slate-800 shadow-xl overflow-hidden text-white">
+            {(() => {
+              const infoFinanciera = defaultMeses.map(mText => {
+                const totalCostoMes = (safeIncidentes || [])
+                  .filter(inc => {
+                    const passAnio = selectedAnios.length === 0 || selectedAnios.includes(getItemAnio(inc));
+                    return passAnio && getItemMesText(inc) === mText;
+                  })
+                  .reduce((acc, current) => acc + (Number(current.costo) || 0), 0);
+                return { mes: mText, valor: totalCostoMes };
+              });
 
-            const trendData = ultimos6Meses.map(mInfo => {
-               const riesgosMes = riesgosBase.filter(r => r.mes === mInfo.nombreLargo);
-               const crit = riesgosMes.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
-               const med = riesgosMes.filter(r => {
-                 const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual);
-                 return score >= 6 && score < 16;
-               }).length;
-               const baj = riesgosMes.length - crit - med;
-               return { mes: mInfo.nombre, crit, med, baj };
-            });
-
-            const maxVal = Math.max(1, ...trendData.flatMap(d => [d.crit, d.med, d.baj]));
-            const getY = (val) => 35 - ((val / maxVal) * 25); 
-            const getX = (idx) => (idx * (100 / 5)); 
-
-            const pathCriticos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.crit)}`).join(' ');
-            const pathMedios = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.med)}`).join(' ');
-            const pathBajos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.baj)}`).join(' ');
-
-            const procesosCount = Object.entries(
-              riesgosBase.reduce((acc, r) => {
-                const proc = r.proceso || 'General / Otros';
-                acc[proc] = (acc[proc] || 0) + 1;
-                return acc;
-              }, {})
-            );
-            
-            const coloresMini = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899'];
-            let offsetCirculo = 0;
-
-            return (
-              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Tendencia Histórica</h3>
-                <div className="w-full h-36 mt-2 relative">
-                  <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
-                    <line x1="0" y1="10" x2="100" y2="10" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
-                    <line x1="0" y1="20" x2="100" y2="20" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
-                    <line x1="0" y1="30" x2="100" y2="30" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
-                    <path d={pathCriticos} fill="none" stroke="#ff4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d={pathMedios} fill="none" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d={pathBajos} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  <div className="flex justify-between text-[8px] font-bold text-slate-500 mt-2 px-1 uppercase">
-                    {trendData.map((d, i) => <span key={`mes-${i}`}>{d.mes}</span>)}
-                  </div>
+              return (
+                <div className="bg-[#0a1122] p-1 h-full rounded-2xl">
+                  <TrendChart 
+                    data={infoFinanciera}
+                    title="Evolución de Impacto Financiero"
+                    isCurrency={true}
+                    color="#ef4444"
+                    fillColor="rgba(239, 68, 68, 0.15)"
+                    onPointClick={(pt) => {
+                      const filtrados = (safeIncidentes || []).filter(inc => getItemMesText(inc) === pt.mes);
+                      setChartDetail({
+                        tipo: 'Incidentes Financiados',
+                        mesCompleto: pt.mes,
+                        items: filtrados
+                      });
+                    }}
+                  />
                 </div>
+              );
+            })()}
+          </div>
 
-                <div className="border-t border-slate-800/80 pt-3 mt-3">
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Distribución por Proceso</h4>
-                  <div className="flex items-center justify-between space-x-4">
-                    <div className="w-16 h-16 relative shrink-0">
-                      <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                        <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
-                        {totalRiesgos > 0 && procesosCount.map(([proc, cant], idx) => {
-                          const p = (cant / totalRiesgos) * 100;
-                          const color = coloresMini[idx % coloresMini.length];
-                          const dash = `${p} 100`;
-                          const off = `-${offsetCirculo}`;
-                          offsetCirculo += p;
-                          return <circle key={`circ-${idx}`} cx="18" cy="18" r="15.915" fill="none" stroke={color} strokeWidth="4" strokeDasharray={dash} strokeDashoffset={off} className="transition-all duration-1000"/>;
-                        })}
-                      </svg>
-                      <div className="absolute inset-0 flex flex-col items-center justify-center">
-                         <span className="text-[10px] font-black text-white leading-none">{totalRiesgos}</span>
-                         <span className="text-[7px] text-slate-400 font-bold leading-none mt-0.5">Total</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400 overflow-y-auto max-h-20 scrollbar-none">
-                      {totalRiesgos === 0 ? (
-                        <div className="text-slate-500 italic text-[8px]">No hay riesgos registrados</div>
-                      ) : (
-                        procesosCount.map(([procesoNombre, cantidad], idx) => {
-                          const porcentaje = Math.round((cantidad / totalRiesgos) * 100);
-                          const colorActual = coloresMini[idx % coloresMini.length];
-                          return (
-                            <div key={`proc-dist-${idx}`} className="flex justify-between items-center hover:bg-slate-800/50 p-0.5 rounded transition-colors">
-                              <span className="flex items-center truncate max-w-[140px]" title={procesoNombre}>
-                                <span className="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0" style={{ backgroundColor: colorActual }}></span>
-                                {procesoNombre}
-                              </span>
-                              <span className="text-white ml-2 shrink-0">{porcentaje}% ({cantidad})</span>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
+          {/* GRÁFICA 2: VOLUMEN DE DESVIACIONES Y HALLAZGOS */}
+          <div className="bg-[#0a1122] p-2 rounded-3xl border border-slate-800 shadow-xl overflow-hidden text-white">
+            {(() => {
+              const infoDesviaciones = defaultMeses.map(mText => {
+                const totalHallazgosMes = (safeHallazgos || [])
+                  .filter(hal => {
+                    const passAnio = selectedAnios.length === 0 || selectedAnios.includes(getItemAnio(hal));
+                    return passAnio && getItemMesText(hal) === mText;
+                  }).length;
+                return { mes: mText, valor: totalHallazgosMes };
+              });
+
+              return (
+                <div className="bg-[#0a1122] p-1 h-full rounded-2xl">
+                  <TrendChart 
+                    data={infoDesviaciones}
+                    title="Volumen de Desviaciones"
+                    isCurrency={false}
+                    color="#3b82f6"
+                    fillColor="rgba(59, 130, 246, 0.15)"
+                    onPointClick={(pt) => {
+                      const filtrados = (safeHallazgos || []).filter(hal => getItemMesText(hal) === pt.mes);
+                      setChartDetail({
+                        tipo: 'Hallazgos del Periodo',
+                        mesCompleto: pt.mes,
+                        items: filtrados
+                      });
+                    }}
+                  />
                 </div>
-                {/* TOOLTIP EXPULSADO HACIA ARRIBA */}
-                <div className="absolute bottom-[102%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-                  <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
-                  <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Análisis de Tendencia</h4>
-                  <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
-                    <p><b className="text-emerald-400">📍 ORIGEN:</b> Historial de Evaluaciones Corporativas.</p>
-                    <p><b className="text-amber-400">❓ POR QUÉ:</b> Monitorea la concentración por área y la evolución mensual de criticidades.</p>
-                    <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Histórico a 6 meses con distribución concéntrica por procesos.</p>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
+          </div>
+
         </div>
-
         {/* ─── ALERTAS INTELIGENTES (IA) ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
