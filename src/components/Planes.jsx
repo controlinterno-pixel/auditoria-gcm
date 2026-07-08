@@ -248,7 +248,7 @@ const handleMasterMatrixSubmit = async (e) => {
               estado: estadoCalculado, 
               evidenciaUrl: act.evidenciaUrl || '',
               estadoWorkflow: workflowCalculado,
-              anio: nioVal || 2026, 
+              anio: anioVal || 2026, // 🟢 ¡Corregido con éxito! 
               mes: mesVal,   
               historialCambios: act.historialCambios || [{ fecha: new Date().toLocaleString(), accion: 'Actividad registrada en matriz masiva' }]
             });
