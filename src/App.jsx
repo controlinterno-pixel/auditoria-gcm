@@ -2294,6 +2294,79 @@ const renderTableroAnalitico = () => {
                 </div>
               </div>
             </div>
+{/* ─── ENLACE ADICIONAL: GRÁFICAS DE TENDENCIA GRC INTERACTIVAS INTEGRADAS (image_392018.png) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+          
+          {/* GRÁFICA 1: EVOLUCIÓN DE IMPACTO FINANCIERO */}
+          <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
+            {(() => {
+              const infoFinanciera = defaultMeses.map(mText => {
+                const totalCostoMes = (safeIncidentes || [])
+                  .filter(inc => {
+                    const passAnio = selectedAnios.length === 0 || selectedAnios.includes(getItemAnio(inc));
+                    return passAnio && getItemMesText(inc) === mText;
+                  })
+                  .reduce((acc, current) => acc + (Number(current.costo) || 0), 0);
+                return { mes: mText, valor: totalCostoMes };
+              });
+
+              return (
+                <div className="bg-[#0a1122]">
+                  <TrendChart 
+                    data={infoFinanciera}
+                    title="Evolución de Impacto Financiero (5 Años)"
+                    isCurrency={true}
+                    color="#ef4444"
+                    fillColor="rgba(239, 68, 68, 0.15)"
+                    onPointClick={(pt) => {
+                      const filtrados = (safeIncidentes || []).filter(inc => getItemMesText(inc) === pt.mes);
+                      setChartDetail({
+                        tipo: 'Incidentes Financiados',
+                        mesCompleto: pt.mes,
+                        items: filtrados
+                      });
+                    }}
+                  />
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* GRÁFICA 2: VOLUMEN DE DESVIACIONES Y HALLAZGOS */}
+          <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
+            {(() => {
+              const infoDesviaciones = defaultMeses.map(mText => {
+                const totalHallazgosMes = (safeHallazgos || [])
+                  .filter(hal => {
+                    const passAnio = selectedAnios.length === 0 || selectedAnios.includes(getItemAnio(hal));
+                    return passAnio && getItemMesText(hal) === mText;
+                  }).length;
+                return { mes: mText, valor: totalHallazgosMes };
+              });
+
+              return (
+                <div className="bg-[#0a1122]">
+                  <TrendChart 
+                    data={infoDesviaciones}
+                    title="Volumen de Desviaciones (5 Años)"
+                    isCurrency={false}
+                    color="#3b82f6"
+                    fillColor="rgba(59, 130, 246, 0.15)"
+                    onPointClick={(pt) => {
+                      const filtrados = (safeHallazgos || []).filter(hal => getItemMesText(hal) === pt.mes);
+                      setChartDetail({
+                        tipo: 'Hallazgos del Periodo',
+                        mesCompleto: pt.mes,
+                        items: filtrados
+                      });
+                    }}
+                  />
+                </div>
+              );
+            })()}
+          </div>
+
+        </div>
             {/* TOOLTIP EXPULSADO HACIA ARRIBA */}
             <div className="absolute bottom-[102%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
               <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
