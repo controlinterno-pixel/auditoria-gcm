@@ -25,6 +25,7 @@ export default function Planes({
   setEditPlan,
   handlePlanSubmit,
   handleAprobarCierrePlan,
+ejecutarDespachoGmailApi,
   formResetKey,
   setFormResetKey,
   scrollToForm,
@@ -176,12 +177,12 @@ export default function Planes({
       };
     });
   };
-
-  const handleMasterMatrixSubmit = async (e) => {
+const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
 
     let compiledPlanes = [];
+    let notificacionesPendientes = []; // 📧 Para guardar los correos a disparar
     const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map(h => h.id);
 
     Object.keys(matrixState).forEach(hallazgoId => {
@@ -197,7 +198,18 @@ export default function Planes({
             const mesVal = mesesArray[mesIdx] || "Julio";
 
             const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
-            const estadoCalculado = progresoEntero === 100 ? 'Cerrado' : 'En Proceso';
+            
+            // 🛡️ LÓGICA DE GOBERNANZA AUTOMATIZADA
+            let estadoCalculado = 'En Proceso'; 
+            let workflowCalculado = act.estadoWorkflow || 'Borrador';
+
+            // Detecta el 100% y cambia a "En Revisión"
+            if (progresoEntero === 100 && workflowCalculado !== 'Cerrado' && workflowCalculado !== 'En Revisión') {
+                workflowCalculado = 'En Revisión'; 
+                notificacionesPendientes.push(act); // Encola el correo
+            } else if (progresoEntero < 100) {
+                workflowCalculado = 'Borrador';
+            }
 
             compiledPlanes.push({
               id: String(act.id).startsWith('new-') ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
@@ -208,9 +220,9 @@ export default function Planes({
               fechaInicio: act.fechaInicio || '',
               fecha: act.fecha || '',
               progreso: progresoEntero,
-              estado: estadoCalculado,
+              estado: estadoCalculado, // Se queda en proceso hasta que el auditor dé el clic final
               evidenciaUrl: act.evidenciaUrl || '',
-              estadoWorkflow: act.estadoWorkflow || 'Borrador',
+              estadoWorkflow: workflowCalculado,
               anio: anioVal, 
               mes: mesVal,   
               historialCambios: act.historialCambios || [{ fecha: new Date().toLocaleString(), accion: 'Actividad registrada en matriz masiva' }]
@@ -236,13 +248,11 @@ export default function Planes({
         if (!stateNode.aplica) {
           nuevoEstado = 'Cerrado';
         } else {
+          // El hallazgo solo se cierra automáticamente si TODAS sus tareas están aprobadas ('Cerrado')
           const actividadesDeEsteHallazgo = compiledPlanes.filter(p => String(p.idHallazgo) === String(hallazgoId));
-          
           if (actividadesDeEsteHallazgo.length > 0) {
-            const todasCompletadas = actividadesDeEsteHallazgo.every(act => Number(act.progreso) === 100);
-            if (todasCompletadas) {
-              nuevoEstado = 'Cerrado'; 
-            }
+            const todasAprobadas = actividadesDeEsteHallazgo.every(act => act.estadoWorkflow === 'Cerrado');
+            if (todasAprobadas) nuevoEstado = 'Cerrado'; 
           }
         }
 
@@ -264,10 +274,32 @@ export default function Planes({
     if (hallazgosModificados && setHallazgos) {
       setHallazgos(updatedHallazgos);
       await saveToCloud({ planes: finalGlobalPlanes, hallazgos: updatedHallazgos });
-      alert("¡Guardado exitoso! Los hallazgos se han cerrado o abierto automáticamente según el avance de sus tareas.");
     } else {
       await saveToCloud({ planes: finalGlobalPlanes });
-      alert("¡Matriz de planes guardada exitosamente!");
+    }
+
+    // 📧 DISPARAR TODOS LOS CORREOS ENCOLADOS
+    if (notificacionesPendientes.length > 0 && ejecutarDespachoGmailApi) {
+        const diccionarioCorreos = {
+            "Rodolfo González": "auditoria@termales.com.co",
+            "Yehison Pineda": "controlinterno@termales.com.co",
+            "Angelica Hernandez": "analista.auditoria@termales.com.co",
+            "Luz Angela Chico": "analista.controlinterno@termales.com.co"
+        };
+
+        for (const act of notificacionesPendientes) {
+            const correoDestino = diccionarioCorreos[act.auditorAsignado] || "controlinterno@termales.com.co";
+            await ejecutarDespachoGmailApi({
+              ref_consecutivo: `PLAN-REVISIÓN`,
+              titulo_informe: 'Plan Listo para Aprobación y Cierre',
+              proceso_auditado: act.accion.substring(0, 50) + '...',
+              enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
+              destinatarios: correoDestino
+            });
+        }
+        alert(`¡Guardado exitoso! Se enviaron ${notificacionesPendientes.length} notificaciones a los auditores para revisión.`);
+    } else {
+        alert("¡Matriz de planes guardada exitosamente!");
     }
     
     setFormInformeId('');

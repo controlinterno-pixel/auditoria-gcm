@@ -2683,6 +2683,7 @@ const renderHallazgos = () => {
 const renderPlanes = () => {
     return (
       <Planes 
+ejecutarDespachoGmailApi={ejecutarDespachoGmailApi}
 handleAprobarCierrePlan={handleAprobarCierrePlan}
         isAdmin={isAdmin}
         editPlan={editPlan}
