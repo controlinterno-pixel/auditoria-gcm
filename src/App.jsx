@@ -1931,10 +1931,6 @@ const renderConfiguracion = () => (
       evaluaciones: linkedEvaluaciones
     };
   }, [selectedExpedienteId, safeHallazgos, safeRiesgos, safePlanes, informesAuditoria, safeEvaluaciones]);
-
-// =====================================================================
-  // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
-  // =====================================================================
 const renderTableroAnalitico = () => {
     const hoy = new Date();
 
@@ -2032,6 +2028,17 @@ const renderTableroAnalitico = () => {
     allActivity.sort((a, b) => b.timestamp - a.timestamp);
     const recentActivityList = allActivity.slice(0, 4);
 
+    const procesosCount = Object.entries(
+      riesgosBase.reduce((acc, r) => {
+        const proc = r.proceso || 'General / Otros';
+        acc[proc] = (acc[proc] || 0) + 1;
+        return acc;
+      }, {})
+    );
+    
+    const coloresMini = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899'];
+    let offsetCirculo = 0;
+
     return (
       <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none">
         
@@ -2085,8 +2092,9 @@ const renderTableroAnalitico = () => {
           </div>
         </div>
 
-        {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TOOLTIPS PREMIUM ─── */}
+        {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TOOLTIPS PREMIUM RESTAURADOS (image_47bda7.png) ─── */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
@@ -2100,6 +2108,15 @@ const renderTableroAnalitico = () => {
               <svg viewBox="0 0 100 20" className="w-full h-full text-emerald-400" preserveAspectRatio="none">
                 <path d="M0,15 Q20,5 40,12 T80,8 L100,2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
+            </div>
+            <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-blue-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-blue-500/40 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Control</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Matriz Integrada de Planes de Acción.</p>
+                <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Mide el esfuerzo de mitigación corporativa.</p>
+                <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Tareas y acciones correctivas que el equipo tiene actualmente en progreso o pendientes.</p>
+              </div>
             </div>
           </div>
 
@@ -2116,6 +2133,15 @@ const renderTableroAnalitico = () => {
               <span className="text-amber-400">{riesgosMedios} Medios</span>
               <span className="text-emerald-400">{riesgosBajos} Bajos</span>
             </div>
+            <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-red-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-red-500/40 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Riesgo</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                <p><b className="text-emerald-400">📍 ORIGEN:</b> Mapa de Calor Empresarial (Matriz 5x5).</p>
+                <p><b className="text-amber-400">❓ JUSTIFICACIÓN:</b> Indica el grado de exposición al riesgo de la organización.</p>
+                <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Total de riesgos vigentes mapeados por los líderes.</p>
+              </div>
+            </div>
           </div>
 
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
@@ -2131,6 +2157,15 @@ const renderTableroAnalitico = () => {
               <svg viewBox="0 0 100 20" className="w-full h-full text-cyan-400" preserveAspectRatio="none">
                 <path d="M0,10 Q25,18 50,8 T100,5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               </svg>
+            </div>
+            <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-cyan-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-cyan-500/40 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Aseguramiento</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Auditoría de Controles.</p>
+                <p><b className="text-amber-400 uppercase">❓ Por Qué:</b> Indica la cobertura de nuestro aseguramiento.</p>
+                <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Porcentaje de controles que han sido evaluados frente al universo total de riesgos.</p>
+              </div>
             </div>
           </div>
 
@@ -2161,7 +2196,7 @@ const renderTableroAnalitico = () => {
           </div>
         </div>
 
-        {/* ─── CUADRÍCULA PRINCIPAL CON MAPA 5X5 INTEGRADO ─── */}
+        {/* ─── CUADRÍCULA PRINCIPAL CENTRAL ORIGINAL RESTAURADA (image_47bda7.png) ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* MAPA DE CALOR */}
@@ -2247,47 +2282,82 @@ const renderTableroAnalitico = () => {
                 </div>
               </div>
             </div>
+            {/* TOOLTIP EXPULSADO HACIA ARRIBA RESTAURADO (image_47bda7.png) */}
+            <div className="absolute bottom-[102%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+              <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
+              <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">CONTEXTO DE RIESGO</h4>
+              <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
+                <p><b className="text-red-400">📍 ORIGEN:</b> Mapa de Calor Empresarial (Matriz 5x5).</p>
+                <p><b className="text-amber-400">❓ JUSTIFICACIÓN:</b> Indica el grado de exposición al riesgo de la organización.</p>
+                <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Total de riesgos vigentes mapeados por los líderes.</p>
+              </div>
+            </div>
           </div>
 
-          {/* LADO DERECHO: RENDIMIENTO EN MINI TABLAS */}
-          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col justify-between">
-             <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
-                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Resumen KRI Operacional</h3>
-             </div>
-             <div className="overflow-x-auto w-full flex-1">
-                <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-[9px]">
-                      <th className="py-2 font-black">Indicador</th>
-                      <th className="py-2 font-black text-center">Real</th>
-                      <th className="py-2 font-black text-right">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2.5 text-white">Salud de Controles</td>
-                      <td className="py-2.5 text-center text-slate-200">{efectividadControlesGlobal}%</td>
-                      <td className="py-2.5 text-right">{efectividadControlesGlobal >= 80 ? '✅' : '🚨'}</td>
-                    </tr>
-                    <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2.5 text-white">Planes al Día</td>
-                      <td className="py-2.5 text-center text-slate-200">{avancePlanesGlobal}%</td>
-                      <td className="py-2.5 text-right">{avancePlanesGlobal >= 75 ? '✅' : '🚨'}</td>
-                    </tr>
-                    <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2.5 text-white">Brechas Críticas</td>
-                      <td className="py-2.5 text-center text-red-400">{hallazgosCriticosCount}</td>
-                      <td className="py-2.5 text-right">{hallazgosCriticosCount === 0 ? '✅' : '⚠️'}</td>
-                    </tr>
-                  </tbody>
-                </table>
-             </div>
-          </div>
+          {/* RETORNO DEL HISTÓRICO ORIGINAL + RUEDA CONCÉNTRICA DE PROCESOS (image_47bde4.png) */}
+          <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+            <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Tendencia Histórica</h3>
+            <div className="w-full h-36 mt-2 relative">
+              <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                <line x1="0" y1="10" x2="100" y2="10" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
+                <line x1="0" y1="20" x2="100" y2="20" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
+                <line x1="0" y1="30" x2="100" y2="30" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
+                <path d={pathCriticos} fill="none" stroke="#ff4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d={pathMedios} fill="none" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d={pathBajos} fill="none" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <div className="flex justify-between text-[8px] font-bold text-slate-500 mt-2 px-1 uppercase">
+                {trendData.map((d, i) => <span key={`mes-${i}`}>{d.mes}</span>)}
+              </div>
+            </div>
 
+            <div className="border-t border-slate-800 pt-3 mt-3">
+              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Distribución por Proceso</h4>
+              <div className="flex items-center justify-between space-x-4">
+                <div className="w-16 h-16 relative shrink-0">
+                  <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
+                    {totalRiesgos > 0 && procesosCount.map(([proc, cant], idx) => {
+                      const p = (cant / totalRiesgos) * 100;
+                      const color = coloresMini[idx % coloresMini.length];
+                      const dash = `${p} 100`;
+                      const off = `-${offsetCirculo}`;
+                      offsetCirculo += p;
+                      return <circle key={`circ-${idx}`} cx="18" cy="18" r="15.915" fill="none" stroke={color} strokeWidth="4" strokeDasharray={dash} strokeDashoffset={off} className="transition-all duration-1000"/>;
+                    })}
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                     <span className="text-[10px] font-black text-white leading-none">{totalRiesgos}</span>
+                     <span className="text-[7px] text-slate-400 font-bold leading-none mt-0.5">Total</span>
+                  </div>
+                </div>
+                
+                <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400 overflow-y-auto max-h-20 scrollbar-none">
+                  {totalRiesgos === 0 ? (
+                    <div className="text-slate-500 italic text-[8px]">No hay riesgos registrados</div>
+                  ) : (
+                    procesosCount.map(([procesoNombre, cantidad], idx) => {
+                      const porcentaje = Math.round((cantidad / totalRiesgos) * 100);
+                      const colorActual = coloresMini[idx % coloresMini.length];
+                      return (
+                        <div key={`proc-dist-${idx}`} className="flex justify-between items-center hover:bg-slate-800/50 p-0.5 rounded transition-colors">
+                          <span className="flex items-center truncate max-w-[140px]" title={procesoNombre}>
+                            <span className="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0" style={{ backgroundColor: colorActual }}></span>
+                            {procesoNombre}
+                          </span>
+                          <span className="text-white ml-2 shrink-0">{porcentaje}% ({cantidad})</span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ─── NUEVAS GRÁFICAS DE TENDENCIA LINEALES PARALELAS ABAJO (image_392018.png) ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+        {/* ─── ENLACE ADICIONAL: LAS DOS GRÁFICAS DE TENDENCIA GRC INTERACTIVAS LINEALES SOLICITADAS (image_392018.png) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           
           {/* GRÁFICA 1: EVOLUCIÓN DE IMPACTO FINANCIERO */}
           <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
@@ -2360,8 +2430,8 @@ const renderTableroAnalitico = () => {
 
         </div>
 
-        {/* ─── ALERTAS INTELIGENTES (IA) ─── */}
-        <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3">
+        {/* ─── ALERTAS INTELIGENTES (IA) (image_47bde4.png) ─── */}
+        <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3 mt-6">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 flex items-center">
               <span className="text-base mr-1.5">🤖</span> Alertas y Recomendaciones IA
@@ -2398,13 +2468,221 @@ const renderTableroAnalitico = () => {
               <div className="text-cyan-400 text-lg bg-cyan-500/10 p-1.5 rounded-lg">💡</div>
               <div className="space-y-0.5">
                 <h4 className="text-[11px] font-black text-cyan-400">Eficiencia Global: {efectividadControlesGlobal}%</h4>
-                <p className="text-[9px] text-slate-400 font-medium">Efectividad de la matriz de controles mitigantes</p>
+                <p className="text-[9px] text-slate-400 font-medium">Efectividad ponderada de la matriz de controles mitigantes</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ─── DETALLE INTEGRADO AL FINAL DE LA GRILLA DE COMPONENTE ─── */}
+        {/* ─── SECCIÓN INFERIOR DE COMPONENTES RESTAURADA (image_47be22.png) ─── */}
+        {(() => {
+          const totalHallazgosReal = hallazgosBase.length || 1; 
+          const hCrit = hallazgosBase.filter(h => h.severidad === 'Crítico' || h.severidad === 'Crítica').length;
+          const hAlt = hallazgosBase.filter(h => h.severidad === 'Alto' || h.severidad === 'Alta').length;
+          const hMed = hallazgosBase.filter(h => h.severidad === 'Medio' || h.severidad === 'Media').length;
+          const hBaj = hallazgosBase.filter(h => h.severidad === 'Bajo' || h.severidad === 'Baja').length;
+          
+          const pCrit = Math.round((hCrit / totalHallazgosReal) * 100) || 0;
+          const pAlt = Math.round((hAlt / totalHallazgosReal) * 100) || 0;
+          const pMed = Math.round((hMed / totalHallazgosReal) * 100) || 0;
+          const pBaj = Math.round((hBaj / totalHallazgosReal) * 100) || 0;
+
+          const cronogramaIniciados = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) > 0);
+          const kpiPlanAnual = cronogramaIniciados.length > 0 
+            ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) 
+            : 0;
+          const kpiOportunidad = totalPlanes > 0 ? Math.round(((totalPlanes - planesVencidos) / totalPlanes) * 100) : 100;
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left mt-6">
+              
+              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
+                <div className="flex items-center justify-around h-32">
+                  <div className="w-24 h-24 relative">
+                    <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90 drop-shadow-md">
+                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
+                      {pCrit > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ff4444" strokeWidth="4" strokeDasharray={`${pCrit} 100`} strokeDashoffset="0" className="transition-all duration-1000" />}
+                      {pAlt > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#fbbf24" strokeWidth="4" strokeDasharray={`${pAlt} 100`} strokeDashoffset={`-'${pCrit}`} className="transition-all duration-1000" />}
+                      {pMed > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#3b82f6" strokeWidth="4" strokeDasharray={`${pMed} 100`} strokeDashoffset={`-${pCrit + pAlt}`} className="transition-all duration-1000" />}
+                      {pBaj > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray={`${pBaj} 100`} strokeDashoffset={`-${pCrit + pAlt + pMed}`} className="transition-all duration-1000" />}
+                    </svg>
+                  </div>
+                  <div className="text-[10px] font-bold text-slate-400 space-y-1">
+                    <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-red-500 mr-1.5"></span>Críticos</span><span className="text-white">{hCrit} ({pCrit}%)</span></div>
+                    <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span>Altos</span><span className="text-white">{hAlt} ({pAlt}%)</span></div>
+                    <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>Medios</span><span className="text-white">{hMed} ({pMed}%)</span></div>
+                    <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Bajos</span><span className="text-white">{hBaj} ({pBaj}%)</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Métricas de Planes</h3>
+                <div className="space-y-3 font-bold text-xs text-slate-400">
+                  <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-blue-500/30 transition-colors">
+                    <span className="flex items-center">📈 Cumplimiento</span>
+                    <span className="text-white font-black text-sm">{avancePlanesGlobal}%</span>
+                  </div>
+                  <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-cyan-500/30 transition-colors">
+                    <span className="flex items-center">📂 Abiertos</span>
+                    <span className="text-cyan-400 font-black">{planesActivos}</span>
+                  </div>
+                  <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-red-500/30 transition-colors">
+                    <span className="text-slate-400 flex items-center">🚨 Vencidos</span>
+                    <span className="text-red-400 font-black">{planesVencidos}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between">
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Indicadores (KPI)</h3>
+                <div className="overflow-x-auto w-full flex-1">
+                  <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-[9px]">
+                        <th className="py-2 font-black">Indicador</th>
+                        <th className="py-2 font-black text-center">Valor Real</th>
+                        <th className="py-2 font-black text-center">Meta</th>
+                        <th className="py-2 font-black text-right">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      <tr className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2 text-white truncate max-w-[120px]">Ejecución Plan Anual</td>
+                        <td className="py-2 text-center text-slate-200">{kpiPlanAnual}%</td>
+                        <td className="py-2 text-center text-slate-500">85%</td>
+                        <td className="py-2 text-right">{kpiPlanAnual >= 85 ? '✅' : (kpiPlanAnual >= 60 ? '⚠️' : '🚨')}</td>
+                      </tr>
+                      <tr className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2 text-white truncate max-w-[120px]">Eficiencia de Controles</td>
+                        <td className="py-2 text-center text-slate-200">{efectividadControlesGlobal}%</td>
+                        <td className="py-2 text-center text-slate-500">80%</td>
+                        <td className="py-2 text-right">{efectividadControlesGlobal >= 80 ? '✅' : (efectividadControlesGlobal >= 60 ? '⚠️' : '🚨')}</td>
+                      </tr>
+                      <tr className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-2 text-white truncate max-w-[120px]">Oportunidad Planes</td>
+                        <td className="py-2 text-center text-slate-200">{kpiOportunidad}%</td>
+                        <td className="py-2 text-center text-slate-500">85%</td>
+                        <td className="py-2 text-right">{kpiOportunidad >= 85 ? '✅' : (kpiOportunidad >= 60 ? '⚠️' : '🚨')}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          );
+        })()}
+
+        {/* ─── SECCIÓN DE OPERACIONES, CALENDARIO Y LOGS RESTAURADA (image_47be22.png) ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 mt-6">
+          
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+            <div className="flex items-center space-x-3 mb-4">
+              <h3 className="text-sm font-black text-slate-200">Planes Vencidos</h3>
+              <span className="bg-red-500/20 text-red-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{planesVencidosList.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
+              <table className="w-full text-left text-[10px]">
+                <thead className="text-slate-500 border-b border-slate-800">
+                  <tr>
+                    <th className="pb-2 font-bold">Plan</th>
+                    <th className="pb-2 font-bold">Proceso</th>
+                    <th className="pb-2 font-bold">Vencimiento</th>
+                    <th className="pb-2 font-bold">Responsable</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {planesVencidosList.map((p, i) => {
+                    const hallazgoAsociado = hallazgosBase.find(h => h.id === p.idHallazgo) || {};
+                    return (
+                    <tr key={`venc-${i}`} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2.5 flex items-center space-x-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
+                        <span className="font-bold text-slate-300">PLAN-{p.id}</span>
+                      </td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={hallazgoAsociado.proceso || 'N/A'}>{hallazgoAsociado.proceso || 'N/A'}</td>
+                      <td className="py-2.5 text-slate-400">{formatSafeDate(p.fecha)}</td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={p.responsable}>{p.responsable}</td>
+                    </tr>
+                  )})}
+                  {planesVencidosList.length === 0 && (
+                    <tr><td colSpan="4" className="py-4 text-center text-slate-500 italic">No hay planes vencidos registrados</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
+               <button onClick={() => setActiveTab('planes')} className="text-red-400 text-[10px] font-bold hover:underline transition-colors">Ver todos los planes vencidos →</button>
+            </div>
+          </div>
+
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+            <div className="flex items-center space-x-3 mb-4">
+              <h3 className="text-sm font-black text-slate-200">Próximas Auditorías</h3>
+              <span className="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{proximasAuditorias.length}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
+               <table className="w-full text-left text-[10px]">
+                <thead className="text-slate-500 border-b border-slate-800">
+                  <tr>
+                    <th className="pb-2 font-bold">Auditoría</th>
+                    <th className="pb-2 font-bold">Proceso</th>
+                    <th className="pb-2 font-bold">Periodo</th>
+                    <th className="pb-2 font-bold">Auditor</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {proximasAuditorias.map((c, i) => (
+                    <tr key={`aud-${i}`} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2.5 font-bold text-slate-300">AUD-{c.codigo || `2026-${i+1}`}</td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={c.proceso}>{c.proceso}</td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[70px]">{c.periodo}</td>
+                      <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={c.responsable}>{c.responsable}</td>
+                    </tr>
+                  ))}
+                   {proximasAuditorias.length === 0 && (
+                    <tr><td colSpan="4" className="py-4 text-center text-slate-500 italic">No hay auditorías pendientes en cronograma</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
+               <button onClick={() => setActiveTab('plan_anual')} className="text-blue-400 text-[10px] font-bold hover:underline transition-colors">Ver calendario completo →</button>
+            </div>
+          </div>
+
+          <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
+             <div className="flex items-center space-x-3 mb-4">
+              <h3 className="text-sm font-black text-slate-200">Actividad Reciente</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin space-y-4">
+                {recentActivityList.map((act, i) => (
+                  <div key={`act-${i}`} className="flex items-start space-x-3 text-left">
+                    <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${act.colorClass} shrink-0`}>
+                      {act.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-slate-300 leading-snug">
+                        <span className="font-bold text-white">{act.type} {act.ref}</span> {String(act.accion).toLowerCase()}
+                      </p>
+                      <p className="text-[9px] text-slate-500 truncate mt-0.5">Por: {act.usuario}</p>
+                    </div>
+                    <div className="text-[9px] text-slate-500 shrink-0 text-right whitespace-nowrap">
+                      {act.fechaStr.split(',')[0]}
+                    </div>
+                  </div>
+                ))}
+                 {recentActivityList.length === 0 && (
+                    <div className="py-4 text-center text-slate-500 italic text-[10px]">No hay actividad reciente registrada en sistema</div>
+                  )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO RESTAURADO (image_47be44.png) ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">
@@ -2420,9 +2698,9 @@ const renderTableroAnalitico = () => {
               <p className="text-xs font-medium text-slate-500 py-4 text-center">No se registran riesgos mapeados en esta coordenada exacta.</p>
             ) : (
               riesgosFiltradosPorMatriz.map((r, idx) => {
-                const score = (Number(r.probabilidadResidual) || 1) * (Number(r.impactoResidual) || 1);
+                const score = (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) || 1;
                 return (
-                  <div key={`risk-row-${idx}`} className="bg-[#060b16] border border-slate-800/80 p-3 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                  <div key={`risk-row-${idx}`} className="bg-[#060b16] border border-slate-800/80 p-3 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-slate-700 transition-all">
                     <div className="flex items-start space-x-3">
                       <span className="bg-blue-600/10 text-blue-400 px-2 py-1 rounded-lg font-mono text-[10px] font-black border border-blue-500/10">
                         {r.id ? `RSG-${r.id}` : `RSG-${idx + 101}`}
@@ -2431,11 +2709,17 @@ const renderTableroAnalitico = () => {
                         <h4 className="text-xs font-black text-slate-200">
                           {r.proceso || 'Proceso No Asignado'} — <span className="font-semibold text-slate-400">{r.riesgo || r.descripcion || 'Riesgo sin descripción'}</span>
                         </h4>
+                        <p className="text-[9px] text-slate-500 font-medium mt-0.5">
+                          Factor/Causa: {r.factorRiesgo || r.causa || 'No especificada'} | Clasificación: {r.clasificacion || r.categoria || 'Operativo'}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4 text-right">
-                      <span className={`text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase ${score >= 16 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
-                        Score {score}
+                    <div className="flex items-center space-x-4 text-right self-end sm:self-auto">
+                      <div className="text-[10px] font-bold text-slate-400">
+                        P: <span className="text-slate-200">{r.probabilidadResidual || 1}</span> / I: <span className="text-slate-200">{r.impactoResidual || 1}</span>
+                      </div>
+                      <span className={`text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono`}>
+                        SCORE {score}
                       </span>
                     </div>
                   </div>
@@ -2448,6 +2732,7 @@ const renderTableroAnalitico = () => {
       </div>
     );
 };
+
 const renderDashboardRiesgos = () => {
     // ✨ EL NUEVO TRADUCTOR INTELIGENTE PARA EL DASHBOARD GRIS
     const extraerNumeroPuro = (valor) => {
