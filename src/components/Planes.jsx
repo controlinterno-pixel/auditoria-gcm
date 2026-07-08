@@ -348,6 +348,7 @@ const handleMasterMatrixSubmit = async (e) => {
     setFormResetKey(Date.now());
   };
 
+
   let tableFilteredData = pFiltrados;
   if (selectedInformeFilter) {
     tableFilteredData = tableFilteredData.filter(plan => {
