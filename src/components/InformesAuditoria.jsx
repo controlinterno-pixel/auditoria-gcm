@@ -50,7 +50,7 @@ export default function InformesAuditoria({
           <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">
             {editInformeAuditoria ? `✏️ Editando Flujo de Informe: ${editInformeAuditoria.ref}` : '➕ ARCHIVAR, RADICAR Y DISTRIBUIR NUEVO INFORME'}
           </h3>
-          <form onSubmit={handleInformeAuditoriaSubmit} className="space-y-6 text-xs">
+<form key={editInformeAuditoria?.ref || 'form-nuevo'} onSubmit={handleInformeAuditoriaSubmit} className="space-y-6 text-xs">
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
