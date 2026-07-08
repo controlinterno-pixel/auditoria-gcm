@@ -214,6 +214,7 @@ const defaultMonitoreo = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
+const [auditoresLista, setAuditoresLista] = useState(["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
   const [isPresentationMode, setIsPresentationMode] = useState(false); 
@@ -373,6 +374,7 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
         setMonitoreo(data.monitoreo || defaultMonitoreo);
 setInformesAuditoria(data.informesAuditoria || []);
 setComites(data.comites || []);
+setAuditoresLista(data.auditoresLista || ["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
       } else {
         if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
            setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [], comites: [] });
@@ -2976,6 +2978,11 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
                 safeHallazgos={safeHallazgos}
                 safePlanes={safePlanes}
                 formatSafeDate={formatSafeDate}
+                auditoresLista={auditoresLista}
+                onActualizarAuditores={async (nuevaLista) => {
+                  setAuditoresLista(nuevaLista);
+                  await saveToCloud({ auditoresLista: nuevaLista });
+                }}
               />
             )}
             {activeTab === 'config' && renderConfiguracion()}

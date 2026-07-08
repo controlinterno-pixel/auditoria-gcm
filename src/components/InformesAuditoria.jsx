@@ -16,7 +16,9 @@ export default function InformesAuditoria({
   scrollToForm, 
   handleDeleteItem, 
   applyFilters, 
-  FilterInput 
+  FilterInput,
+  auditoresLista = [], // 🟢 Propiedad dinámica vinculada a Firebase
+  onActualizarAuditores // 🟢 Función de actualización masiva
 }) {
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
 
@@ -63,18 +65,26 @@ export default function InformesAuditoria({
                 <label className="font-bold text-gray-600 block mb-1">Fecha de Emisión</label>
                 <input name="fecha" type="date" defaultValue={editInformeAuditoria?.fecha || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
               </div>
-              
               <div>
                 <label className="font-bold text-gray-600 block mb-1">✍️ Elaborado Por (Auditor)</label>
-                <input name="elaboradoPor" defaultValue={editInformeAuditoria?.elaboradoPor || ''} required placeholder="Nombre del auditor" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+                <select name="elaboradoPor" defaultValue={editInformeAuditoria?.elaboradoPor || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium">
+                  <option value="">-- Asignar Auditor --</option>
+                  {auditoresLista.map((aud, i) => <option key={`elab-${i}`} value={aud}>{aud}</option>)}
+                </select>
               </div>
               <div>
                 <label className="font-bold text-gray-600 block mb-1">🔍 Revisado Por (Líder)</label>
-                <input name="revisadoPor" defaultValue={editInformeAuditoria?.revisadoPor || ''} required placeholder="Nombre de quien revisó" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+                <select name="revisadoPor" defaultValue={editInformeAuditoria?.revisadoPor || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium">
+                  <option value="">-- Asignar Revisor --</option>
+                  {auditoresLista.map((aud, i) => <option key={`rev-${i}`} value={aud}>{aud}</option>)}
+                </select>
               </div>
               <div>
                 <label className="font-bold text-gray-600 block mb-1">🔒 Aprobado Por (Gerencia)</label>
-                <input name="aprobadoPor" defaultValue={editInformeAuditoria?.aprobadoPor || ''} required placeholder="Nombre de quien aprobó" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+                <select name="aprobadoPor" defaultValue={editInformeAuditoria?.aprobadoPor || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium">
+                  <option value="">-- Asignar Aprobador --</option>
+                  {auditoresLista.map((aud, i) => <option key={`aprob-${i}`} value={aud}>{aud}</option>)}
+                </select>
               </div>
               <div>
                 <label className="font-bold text-gray-600 block mb-1">📢 ¿Fue Socializado?</label>
@@ -124,6 +134,60 @@ export default function InformesAuditoria({
               </button>
             </div>
           </form>
+{/* 🟢 PANEL DE CONTROL DE BAJAS Y ALTAS DEL PERSONAL DE AUDITORÍA */}
+          <div className="bg-slate-900 text-slate-100 p-5 rounded-2xl border border-slate-800 space-y-4 mt-6">
+            <div className="border-b border-slate-800 pb-2">
+              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-300">👥 Gestión de Personal del Equipo de Auditoría</h4>
+              <p className="text-[9px] text-slate-500 font-medium">Agregue o retire firmas autorizadas para los flujos del sistema en tiempo real.</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 py-1">
+              {auditoresLista.map((auditor, index) => (
+                <div key={`badge-${index}`} className="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-xl flex items-center space-x-2 text-[11px] font-bold">
+                  <span>{auditor}</span>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if(window.confirm(`¿Desea eliminar permanentemente a ${auditor} de la lista de firmas autorizadas?`)) {
+                        const filtrados = auditoresLista.filter(a => a !== auditor);
+                        onActualizarAuditores(filtrados);
+                      }
+                    }}
+                    className="text-red-400 hover:text-red-500 font-black text-[9px] ml-1 bg-red-500/10 w-4 h-4 rounded-full flex items-center justify-center transition-colors"
+                    title="Eliminar del equipo"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <input 
+                type="text" 
+                id="inputNuevoAuditor"
+                placeholder="Nombre del nuevo funcionario..." 
+                className="bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs flex-1 outline-none focus:border-blue-500 font-bold"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('inputNuevoAuditor');
+                  const nuevoNombre = input?.value?.trim();
+                  if (!nuevoNombre) return;
+                  if (auditoresLista.includes(nuevoNombre)) {
+                    alert("Este funcionario ya se encuentra registrado en la lista corporativa.");
+                    return;
+                  }
+                  onActualizarAuditores([...auditoresLista, nuevoNombre]);
+                  input.value = "";
+                }}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-xl font-bold transition-all shrink-0 uppercase tracking-wider"
+              >
+                ➕ Agregar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
