@@ -841,7 +841,19 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
             return;
           }
 
-          const accessToken = tokenResponse.access_token;
+          const accessToken = tokenResponse.close || tokenResponse.access_token;
+
+          // 🆔 DICCIONARIO PARA TRADUCIR EL CORREO AL NOMBRE REAL DEL AUDITOR
+          const mapaNombresAudtores = {
+            "controlinterno@termales.com.co": "Yehison Pineda",
+            "analista.auditoria@termales.com.co": "Angelica Hernandez",
+            "analista.controlinterno@termales.com.co": "Luz Angela Chico",
+            "auditoria@termales.com.co": "Rodolfo Gonzalez"
+          };
+
+          // Extraemos el correo actual logueado y buscamos su nombre (o dejamos el correo si no coincide)
+          const correoActual = String(user?.email || '').toLowerCase().trim();
+          const nombreAuditorIdentificado = mapaNombresAudtores[correoActual] || correoActual;
 
           // Estructura limpia MIME en texto plano/HTML exigido por servidores de Google
           const mensajeMime = [
@@ -856,7 +868,8 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
             `  <p style="font-size: 13px; color: #475569;">Novedad radicada formalmente por el equipo de Control Interno a través de la plataforma:</p>`,
             `  <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 13px; margin: 20px 0; background: #f8fafc; border-radius: 8px;">`,
             `    <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Consecutivo:</td><td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #1e3a8a; font-weight: bold;">${emailParams.ref_consecutivo}</td></tr>`,
-            `    <tr><td style="padding: 10px; font-weight: bold;">Detalle / Proceso:</td><td style="padding: 10px; color: #334155;">${emailParams.proceso_auditado}</td></tr>`,
+            `    <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Detalle / Proceso:</td><td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #334155;">${emailParams.proceso_auditado}</td></tr>`,
+            `    <tr><td style="padding: 10px; font-weight: bold;">Emitido / Gestionado por:</td><td style="padding: 10px; color: #0b2a36; font-weight: bold;">${nombreAuditorIdentificado}</td></tr>`,
             `  </table>`,
             `  <p style="font-size: 12px; color: #64748b; margin-bottom: 25px;">Para ver el desglose, evidencias adjuntas, causas raíz y responder la matriz, ingrese a la app web corporativa.</p>`,
             `  <a href="${emailParams.enlace_pdf}" style="display: inline-block; background: #297A38; color: white; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px;">📄 Abrir Soporte del Sistema</a>`,
@@ -890,7 +903,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     } catch (err) {
       console.error("Error disparando login Gmail:", err);
     }
-  }; 
+  };
  const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
