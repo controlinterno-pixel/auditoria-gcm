@@ -1911,6 +1911,28 @@ const renderConfiguracion = () => (
     );
   };
 // =====================================================================
+  // 🧭 MOTOR DEL EXPEDIENTE ÚNICO: CONECTOR DINÁMICO DE FLUJO END-TO-END
+  // =====================================================================
+  const expedienteSeleccionado = useMemo(() => {
+    if (!selectedExpedienteId) return null;
+    const hallazgo = safeHallazgos.find(h => String(h.id) === String(selectedExpedienteId));
+    if (!hallazgo) return null;
+
+    const linkedRiesgo = safeRiesgos.find(r => r.id === hallazgo.idRiesgo);
+    const linkedPlan = safePlanes.find(p => p.idHallazgo === hallazgo.id);
+    const linkedInforme = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme));
+    const linkedEvaluaciones = safeEvaluaciones.filter(ev => ev.idRiesgo === hallazgo.idRiesgo);
+
+    return {
+      hallazgo,
+      riesgo: linkedRiesgo || { descripcion: 'Sin riesgo catalogado' },
+      plan: linkedPlan || { accion: 'Sin plan asignado', progreso: 0, estadoWorkflow: 'Borrador' },
+      informe: linkedInforme || { ref: 'Radicación directa sin informe', titulo: 'N/A' },
+      evaluaciones: linkedEvaluaciones
+    };
+  }, [selectedExpedienteId, safeHallazgos, safeRiesgos, safePlanes, informesAuditoria, safeEvaluaciones]);
+
+// =====================================================================
   // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
   // =====================================================================
 const renderTableroAnalitico = () => {
