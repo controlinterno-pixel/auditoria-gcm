@@ -861,21 +861,49 @@ const handleMasterMatrixSubmit = async (e) => {
         <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Actividades / Planes</h3>
            
-           <div className="flex flex-col md:flex-row gap-3">
+           <div className="flex flex-wrap gap-2 justify-end">
+              
+              {/* 🛡️ NUEVO: Filtro por Auditor Asignado */}
+              <select
+                value={columnFilters['auditorAsignado'] || ''}
+                onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)}
+                className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-blue-50 font-black text-blue-800 shadow-sm"
+              >
+                <option value="">🛡️ Todos los Auditores</option>
+                <option value="Rodolfo González">Rodolfo González</option>
+                <option value="Yehison Pineda">Yehison Pineda</option>
+                <option value="Angelica Hernandez">Angelica Hernandez</option>
+                <option value="Luz Angela Chico">Luz Angela Chico</option>
+              </select>
+
+              {/* ⏳ NUEVO: Filtro por Estado (Pendientes de aprobar) */}
+              <select
+                value={columnFilters['estadoWorkflow'] || ''}
+                onChange={(e) => handleColFilterChange('estadoWorkflow', e.target.value)}
+                className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50 font-black text-amber-800 shadow-sm"
+              >
+                <option value="">📋 Todas las Fases</option>
+                <option value="Borrador">✏️ Borrador (En Proceso)</option>
+                <option value="En Revisión">⏳ En Revisión (Por Aprobar)</option>
+                <option value="Cerrado">✅ Cerradas (Aprobadas)</option>
+              </select>
+
+              {/* 📂 Filtro de Informe Original Compactado */}
               <select
                 value={selectedInformeFilter}
                 onChange={(e) => setSelectedInformeFilter(e.target.value)}
-                className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white font-bold text-slate-700 shadow-sm w-64"
+                className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white font-bold text-slate-700 shadow-sm w-36 truncate"
               >
-                <option value="">📂 Todos los Informes de Origen</option>
+                <option value="">📂 Todos los Informes</option>
                 {informesAuditoria.map(inf => (
                   <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
                 ))}
               </select>
 
+              {/* 🔍 Buscador General Compactado */}
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-800 w-64 shadow-sm" />
+                <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400 text-[10px]">🔍</span>
+                <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-slate-800 w-32 shadow-sm" />
               </div>
            </div>
         </div>
