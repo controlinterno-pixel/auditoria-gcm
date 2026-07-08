@@ -1023,38 +1023,124 @@ const handlePlanSubmit = async (e) => {
     
     let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editPlan?.evidenciaUrl || '';
     const progresoVal = parseInt(formData.get('progreso') || 0);
-    const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
-
-    // 🟢 CAMPOS CONECTADOS PARA EL PDF OFICIAL
+    
+    // 🟢 CAMPOS CONECTADOS
     const fechaInicioVal = formData.get('fechaInicio') || '';
     const mecanismoVal = formData.get('mecanismo') || '';
 
     let updatedList;
+    let dispararCorreo = false;
+    let auditorNotificar = '';
+    let accionNotificar = '';
+
     if (editPlan && isAdmin) {
-      const modificado = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan actualizado' }] };
+      // Flujo Admin: Guarda y si es 100% cierra automáticamente
+      const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
+      const workflowVal = progresoVal === 100 ? 'Cerrado' : (editPlan.estadoWorkflow || 'Borrador');
+      
+      const modificado = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, estadoWorkflow: workflowVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan actualizado' }] };
+      
+      if(progresoVal === 100 && !modificado.fechaCierre) {
+          modificado.fechaCierre = new Date().toISOString().split('T')[0];
+      }
       updatedList = safePlanes.map(p => p.id === editPlan.id ? modificado : p);
       setEditPlan(null);
+
     } else if (!isAdmin) {
+      // 🛡️ Flujo Líder de Proceso: Interceptar el 100%
       const idHallazgo = parseInt(formData.get('idHallazgo'));
       const planToUpdate = safePlanes.find(p => p.idHallazgo === idHallazgo);
       
       if (planToUpdate) {
-        const mod = { ...planToUpdate, progreso: progresoVal, estado: estadoVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Avance reportado por Jefe de área' }] };
+        let estadoVal = 'En Proceso'; 
+        let workflowVal = planToUpdate.estadoWorkflow || 'Borrador';
+
+        if (progresoVal === 100 && workflowVal !== 'Cerrado') {
+            workflowVal = 'En Revisión'; // Pasa a gobernanza del auditor
+            dispararCorreo = true;
+            auditorNotificar = planToUpdate.auditorAsignado;
+            accionNotificar = planToUpdate.accion;
+        } else if (progresoVal < 100) {
+            workflowVal = 'Borrador';
+        }
+
+        const mod = { ...planToUpdate, progreso: progresoVal, estado: estadoVal, estadoWorkflow: workflowVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: progresoVal === 100 ? 'Reportado al 100% - Pendiente de revisión' : 'Avance reportado por Jefe de área' }] };
         updatedList = safePlanes.map(p => p.id === planToUpdate.id ? mod : p);
       } else {
         showNotification("Error: No se encontró el plan asociado a este hallazgo.", "error");
         return;
       }
     } else {
-      const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan asignado' }] };
+      // Nuevo plan
+      const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
+      const workflowVal = progresoVal === 100 ? 'Cerrado' : 'Borrador';
+      const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, estadoWorkflow: workflowVal, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan asignado' }] };
       updatedList = [...safePlanes, nuevo];
     }
     
     setPlanes(updatedList); 
     await saveToCloud({ planes: updatedList }); 
+
+    // ✉️ DISPARAR CORREO AL AUDITOR ASIGNADO
+    if (dispararCorreo && auditorNotificar) {
+        const diccionarioCorreos = {
+            "Rodolfo González": "auditoria@termales.com.co",
+            "Yehison Pineda": "controlinterno@termales.com.co",
+            "Angelica Hernandez": "analista.auditoria@termales.com.co",
+            "Luz Angela Chico": "analista.controlinterno@termales.com.co"
+        };
+        const correoDestino = diccionarioCorreos[auditorNotificar] || "controlinterno@termales.com.co";
+
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: `PLAN-REVISIÓN`,
+          titulo_informe: 'Plan de Acción Listo para Aprobación y Cierre',
+          proceso_auditado: accionNotificar.substring(0, 50) + '...',
+          enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
+          destinatarios: correoDestino
+        });
+        showNotification("Avance al 100% guardado. Se notificó al auditor para el cierre.", "success");
+    } else {
+        showNotification("Progreso del plan guardado correctamente.");
+    }
     e.target.reset(); 
-    showNotification("Progreso del plan guardado correctamente.");
   };
+
+const handleAprobarCierrePlan = async (plan) => {
+    if (!window.confirm("¿Aprobar evidencias y cerrar definitivamente este plan y su hallazgo vinculado?")) return;
+    
+    const ts = new Date().toLocaleString();
+    const fechaCierreStr = new Date().toISOString().split('T')[0];
+
+    // 1. Cerrar el Plan
+    const planModificado = {
+        ...plan,
+        estado: 'Cerrado',
+        estadoWorkflow: 'Cerrado',
+        progreso: 100,
+        fechaCierre: fechaCierreStr,
+        historialCambios: [...(plan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: '✅ Plan aprobado y cerrado por el Auditor' }]
+    };
+    const updatedPlanes = safePlanes.map(p => p.id === plan.id ? planModificado : p);
+    
+    // 2. Buscar y Cerrar el Hallazgo Vinculado
+    let updatedHallazgos = safeHallazgos;
+    const hallazgoPadre = safeHallazgos.find(h => h.id === plan.idHallazgo);
+    if (hallazgoPadre) {
+        const hallazgoModificado = {
+            ...hallazgoPadre,
+            estado: 'Cerrado',
+            fechaCierre: fechaCierreStr,
+            historialCambios: [...(hallazgoPadre.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: '✅ Hallazgo cerrado tras validación de evidencias del plan' }]
+        };
+        updatedHallazgos = safeHallazgos.map(h => h.id === hallazgoPadre.id ? hallazgoModificado : h);
+        setHallazgos(updatedHallazgos);
+    }
+
+    setPlanes(updatedPlanes);
+    await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
+    showNotification("¡Ciclo cerrado! Plan y Hallazgo marcados como 'Cerrado' con fecha de trazabilidad.", "success");
+  };
+
  const handleEvaluacionSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);
@@ -2597,6 +2683,7 @@ const renderHallazgos = () => {
 const renderPlanes = () => {
     return (
       <Planes 
+handleAprobarCierrePlan={handleAprobarCierrePlan}
         isAdmin={isAdmin}
         editPlan={editPlan}
         setEditPlan={setEditPlan}

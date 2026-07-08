@@ -24,6 +24,7 @@ export default function Planes({
   editPlan,
   setEditPlan,
   handlePlanSubmit,
+handleAprobarCierrePlan
   formResetKey,
   setFormResetKey,
   scrollToForm,
@@ -934,22 +935,31 @@ export default function Planes({
                       </div>
                     )}
                   </td>
-                  <td className="p-3 text-center whitespace-nowrap space-x-1">
+                  <td className="p-3 text-center align-middle flex flex-col space-y-1.5">
                     <button 
                       onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToForm();}} 
-                      className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px] hover:bg-amber-200 transition-colors"
+                      className="bg-amber-100 text-amber-800 font-bold px-2 py-1.5 rounded-lg text-[10px] hover:bg-amber-200 transition-colors w-full"
                     >
                       Gestionar
                     </button>
                     
+                    {isAdmin && p.estadoWorkflow === 'En Revisión' && Number(p.progreso || p.avance || 0) === 100 && (
+                      <button 
+                        onClick={() => handleAprobarCierrePlan(p)} 
+                        className="bg-emerald-600 text-white font-black px-2 py-1.5 rounded-lg text-[10px] hover:bg-emerald-700 transition-colors w-full flex justify-center items-center shadow-md animate-pulse"
+                      >
+                        ✅ Aprobar y Cerrar
+                      </button>
+                    )}
+
                     {isAdmin && (
                       <button 
                         onClick={() => handleDeleteItem('planes', p.id)} 
                         disabled={p.estadoWorkflow !== 'Borrador'}
-                        className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px] disabled:opacity-20 disabled:cursor-not-allowed hover:bg-red-100 transition-colors"
+                        className="bg-red-50 text-red-700 font-bold px-2 py-1.5 rounded-lg text-[10px] disabled:opacity-20 disabled:cursor-not-allowed hover:bg-red-100 transition-colors w-full"
                         title={p.estadoWorkflow !== 'Borrador' ? "No se puede eliminar un plan publicado" : "Eliminar borrador"}
                       >
-                        🗑️
+                        🗑️ Eliminar
                       </button>
                     )}
                   </td>
