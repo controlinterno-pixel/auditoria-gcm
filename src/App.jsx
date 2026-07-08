@@ -873,7 +873,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
             `      <table style="width: 100%; border-collapse: collapse;">`,
             `        <tr>`,
             `          <td style="width: 55px; vertical-align: middle;">`,
-            `            <img src="https://auditoria-gcm.vercel.app/logo_termales.png" alt="Logo" style="width: 50px; height: auto; display: block;" />`,
+<img src="https://termales.com.co/wp-content/uploads/2023/11/logo-termales-santa-rosa-de-cabal.png" alt="Termales" style="width: 60px; height: auto; display: block; max-height: 60px;" />
             `          </td>`,
             `          <td style="padding-left: 12px; vertical-align: middle; border-left: 1px solid #e2e8f0; padding-top: 2px; padding-bottom: 2px;">`,
             `            <div style="color: #0f172a; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; font-family: sans-serif;">GCM AUDITOR</div>`,
