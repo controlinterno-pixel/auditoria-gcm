@@ -791,7 +791,7 @@ const handleMasterMatrixSubmit = async (e) => {
                               </div>
                               <div className="md:col-span-3">
                                 <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar Correo Electrónico</label>
-                                <input type="email" value={act.correoConfirmacion !== undefined ? act.correoConfirmacion : (act.correoResponsable || '')} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} placeholder="Escriba el correo nuevamente..." className={`w-full border p-2 rounded-lg font-medium focus:bg-white focus:ring-2 outline-none ${act.correoConfirmacion && act.correoResponsable !== act.correoConfirmacion ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-500' : 'border-purple-200 bg-purple-50 focus:ring-purple-500'}`} required />
+                                <input type="email" value={act.correoConfirmacion || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} placeholder="Escriba el correo nuevamente..." className={`w-full border p-2 rounded-lg font-medium focus:bg-white focus:ring-2 outline-none ${act.correoConfirmacion && act.correoResponsable !== act.correoConfirmacion ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-500' : 'border-purple-200 bg-purple-50 focus:ring-purple-500'}`} required />
                               </div>
 
                               {/* FILA 3 */}
