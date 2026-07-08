@@ -177,12 +177,32 @@ ejecutarDespachoGmailApi,
       };
     });
   };
+
 const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
 
+    // 🛑 1. NUEVA VALIDACIÓN DE CORREOS
+    let errorCorreos = false;
+    Object.keys(matrixState).forEach(hallazgoId => {
+      const stateNode = matrixState[hallazgoId];
+      if (stateNode.aplica) {
+        stateNode.actividades.forEach(act => {
+          if (act.accion && act.accion.trim() !== '') {
+            if (!act.correoResponsable || act.correoResponsable.trim() === '') errorCorreos = true;
+            if (act.correoResponsable !== act.correoConfirmacion) errorCorreos = true;
+          }
+        });
+      }
+    });
+
+    if (errorCorreos) {
+      alert("❌ ALERTA: Hay correos de responsables vacíos o que no coinciden en la confirmación. Por favor revíselos antes de guardar.");
+      return; // Bloquea el guardado
+    }
+
     let compiledPlanes = [];
-    let notificacionesPendientes = []; // 📧 Para guardar los correos a disparar
+    let notificacionesPendientes = []; 
     const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map(h => h.id);
 
     Object.keys(matrixState).forEach(hallazgoId => {
@@ -199,14 +219,12 @@ const handleMasterMatrixSubmit = async (e) => {
 
             const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
             
-            // 🛡️ LÓGICA DE GOBERNANZA AUTOMATIZADA
             let estadoCalculado = 'En Proceso'; 
             let workflowCalculado = act.estadoWorkflow || 'Borrador';
 
-            // Detecta el 100% y cambia a "En Revisión"
             if (progresoEntero === 100 && workflowCalculado !== 'Cerrado' && workflowCalculado !== 'En Revisión') {
                 workflowCalculado = 'En Revisión'; 
-                notificacionesPendientes.push(act); // Encola el correo
+                notificacionesPendientes.push(act); 
             } else if (progresoEntero < 100) {
                 workflowCalculado = 'Borrador';
             }
@@ -216,11 +234,12 @@ const handleMasterMatrixSubmit = async (e) => {
               idHallazgo: Number(hallazgoId),
               accion: act.accion,
               responsable: act.responsable || 'Por asignar',
+              correoResponsable: act.correoResponsable, // 📧 GUARDA EL CORREO AQUI
               auditorAsignado: act.auditorAsignado || 'No Asignado', 
               fechaInicio: act.fechaInicio || '',
               fecha: act.fecha || '',
               progreso: progresoEntero,
-              estado: estadoCalculado, // Se queda en proceso hasta que el auditor dé el clic final
+              estado: estadoCalculado, 
               evidenciaUrl: act.evidenciaUrl || '',
               estadoWorkflow: workflowCalculado,
               anio: anioVal, 
@@ -248,7 +267,6 @@ const handleMasterMatrixSubmit = async (e) => {
         if (!stateNode.aplica) {
           nuevoEstado = 'Cerrado';
         } else {
-          // El hallazgo solo se cierra automáticamente si TODAS sus tareas están aprobadas ('Cerrado')
           const actividadesDeEsteHallazgo = compiledPlanes.filter(p => String(p.idHallazgo) === String(hallazgoId));
           if (actividadesDeEsteHallazgo.length > 0) {
             const todasAprobadas = actividadesDeEsteHallazgo.every(act => act.estadoWorkflow === 'Cerrado');
@@ -278,7 +296,6 @@ const handleMasterMatrixSubmit = async (e) => {
       await saveToCloud({ planes: finalGlobalPlanes });
     }
 
-    // 📧 DISPARAR TODOS LOS CORREOS ENCOLADOS
     if (notificacionesPendientes.length > 0 && ejecutarDespachoGmailApi) {
         const diccionarioCorreos = {
             "Rodolfo González": "auditoria@termales.com.co",
@@ -745,37 +762,20 @@ const handleMasterMatrixSubmit = async (e) => {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+                                                            <label className="font-bold text-gray-500 block mb-0.5">Fecha de Inicio</label>
+                                <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
+                              {/* FILA 1 */}
                               <div className="md:col-span-2">
                                 <label className="font-bold text-gray-500 block mb-0.5">Acción o Actividad Correctiva</label>
-                                <input 
-                                  type="text"
-                                  value={act.accion}
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)}
-                                  placeholder="Describa la tarea mitigante..."
-                                  className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white"
-                                  required
-                                />
+                                <input type="text" value={act.accion} onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} placeholder="Describa la tarea mitigante..." className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
                               </div>
-                              <div>
+                              <div className="md:col-span-2">
                                 <label className="font-bold text-gray-500 block mb-0.5">Responsable Ejecución</label>
-                                <input 
-                                  type="text"
-                                  value={act.responsable}
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)}
-                                  placeholder="Cargo o nombre..."
-                                  className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white"
-                                  required
-                                />
+                                <input type="text" value={act.responsable} onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} placeholder="Cargo o nombre..." className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
                               </div>
-                              
                               <div className="md:col-span-2">
                                 <label className="font-bold text-blue-600 block mb-0.5">Auditor de Enlace Asignado</label>
-                                <select 
-                                  value={act.auditorAsignado}
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'auditorAsignado', e.target.value)}
-                                  className="w-full border border-blue-200 p-2 rounded-lg font-black text-slate-700 bg-blue-50 focus:bg-white"
-                                >
+                                <select value={act.auditorAsignado} onChange={(e) => handleUpdateActivityField(h.id, index, 'auditorAsignado', e.target.value)} className="w-full border border-blue-200 p-2 rounded-lg font-black text-slate-700 bg-blue-50 focus:bg-white">
                                   <option value="">-- Asignar Auditor --</option>
                                   <option value="Rodolfo González">Rodolfo González</option>
                                   <option value="Yehison Pineda">Yehison Pineda</option>
@@ -784,44 +784,32 @@ const handleMasterMatrixSubmit = async (e) => {
                                 </select>
                               </div>
 
-                              <div>
-                                <label className="font-bold text-gray-500 block mb-0.5">Avance Real ({act.progreso}%)</label>
-                                <input 
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={act.progreso}
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)}
-                                  className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50/50"
-                                />
+                              {/* FILA 2: NUEVOS CORREOS */}
+                              <div className="md:col-span-3">
+                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo Electrónico del Responsable</label>
+                                <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} placeholder="Ej: lider@termales.com.co" className="w-full border border-purple-200 p-2 rounded-lg font-medium bg-purple-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" required />
                               </div>
-                              <div>
-                                <label className="font-bold text-gray-500 block mb-0.5">Fecha de Inicio</label>
-                                <input 
-                                  type="date"
-                                  value={act.fechaInicio}
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)}
-                                  className="w-full border p-1.5 rounded-lg font-bold"
-                                />
+                              <div className="md:col-span-3">
+                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar Correo Electrónico</label>
+                                <input type="email" value={act.correoConfirmacion !== undefined ? act.correoConfirmacion : (act.correoResponsable || '')} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} placeholder="Escriba el correo nuevamente..." className={`w-full border p-2 rounded-lg font-medium focus:bg-white focus:ring-2 outline-none ${act.correoConfirmacion && act.correoResponsable !== act.correoConfirmacion ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-500' : 'border-purple-200 bg-purple-50 focus:ring-purple-500'}`} required />
                               </div>
-                              <div>
-                                <label className="font-bold text-gray-500 block mb-0.5">Fecha de Compromiso</label>
-                                <input 
-                                  type="date"
-                                  value={formatSafeDate(act.fecha)}
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'fecha', e.target.value)}
-                                  className="w-full border p-1.5 rounded-lg font-bold"
-                                />
+
+                              {/* FILA 3 */}
+                              <div className="md:col-span-1">
+                                <label className="font-bold text-gray-500 block mb-0.5">Avance ({act.progreso}%)</label>
+                                <input type="number" min="0" max="100" value={act.progreso} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50/50" />
                               </div>
-                              <div className="md:col-span-2">
+                              <div className="md:col-span-1">
+                                <label className="font-bold text-gray-500 block mb-0.5">Fecha Inicio</label>
+                                <input type="date" value={act.fechaInicio} onChange={(e) => handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)} className="w-full border p-1.5 rounded-lg font-bold" />
+                              </div>
+                              <div className="md:col-span-1">
+                                <label className="font-bold text-gray-500 block mb-0.5">Fecha Límite</label>
+                                <input type="date" value={formatSafeDate(act.fecha)} onChange={(e) => handleUpdateActivityField(h.id, index, 'fecha', e.target.value)} className="w-full border p-1.5 rounded-lg font-bold" />
+                              </div>
+                              <div className="md:col-span-3">
                                 <label className="font-bold text-gray-500 block mb-0.5">Link de la Evidencia / Soporte Digital</label>
-                                <input 
-                                  type="url"
-                                  value={act.evidenciaUrl}
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'evidenciaUrl', e.target.value)}
-                                  placeholder="https://drive.google.com/..."
-                                  className="w-full border p-2 rounded-lg text-xs"
-                                />
+                                <input type="url" value={act.evidenciaUrl} onChange={(e) => handleUpdateActivityField(h.id, index, 'evidenciaUrl', e.target.value)} placeholder="https://drive.google.com/..." className="w-full border p-2 rounded-lg text-xs" />
                               </div>
                             </div>
                             <div className="pt-1">

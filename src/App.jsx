@@ -1104,7 +1104,6 @@ const handlePlanSubmit = async (e) => {
     }
     e.target.reset(); 
   };
-
 const handleAprobarCierrePlan = async (plan) => {
     if (!window.confirm("¿Aprobar evidencias y cerrar definitivamente este plan y su hallazgo vinculado?")) return;
     
@@ -1138,7 +1137,23 @@ const handleAprobarCierrePlan = async (plan) => {
 
     setPlanes(updatedPlanes);
     await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
-    showNotification("¡Ciclo cerrado! Plan y Hallazgo marcados como 'Cerrado' con fecha de trazabilidad.", "success");
+
+    // 3. 📧 DISPARAR CORREO DE CIERRE AL DUEÑO DEL PROCESO
+    // Toma el correo que el usuario digitó en la matriz. Si es un plan viejo, usa el de control interno por defecto.
+    let correoDestino = plan.correoResponsable;
+    if (!correoDestino || !correoDestino.includes('@')) {
+        correoDestino = "controlinterno@termales.com.co"; 
+    }
+
+    await ejecutarDespachoGmailApi({
+        ref_consecutivo: `CIERRE-PLAN-${plan.id}`,
+        titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito',
+        proceso_auditado: plan.accion.substring(0, 50) + '...',
+        enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
+        destinatarios: correoDestino
+    });
+
+    showNotification("¡Ciclo cerrado! Plan marcado como 'Cerrado' y notificación enviada al líder.", "success");
   };
 
  const handleEvaluacionSubmit = async (e) => {
