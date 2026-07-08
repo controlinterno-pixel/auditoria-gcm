@@ -857,7 +857,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
           const correoActual = String(user?.email || '').toLowerCase().trim();
           const nombreAuditorIdentificado = mapaNombresAudtores[correoActual] || correoActual;
 
-// Estructura Sobria y Elegante con técnica de Cache-Busting para forzar la carga del logo
+// Estructura Sobria y Elegante usando el CDN crudo de tu propio repositorio en GitHub
           const mensajeMime = [
             `To: ${emailParams.destinatarios}`,
             `Subject: [GCM Auditor] ${emailParams.ref_consecutivo} - ${emailParams.proceso_auditado}`,
@@ -872,7 +872,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
             '      <table style="width: 100%; border-collapse: collapse;">',
             '        <tr>',
             '          <td style="width: 65px; vertical-align: middle;">',
-            '            <img src="https://auditoria-gcm.vercel.app/logo_termales.png?v=1.0.1" alt="Termales Santa Rosa" style="width: 55px; height: auto; display: block; max-height: 55px; border: 0;" />',
+            '            <img src="https://raw.githubusercontent.com/controlinterno-pixel/auditoria-gcm/main/public/logo_termales.png" alt="Termales Santa Rosa" style="width: 55px; height: auto; display: block; max-height: 55px; border: 0;" />',
             '          </td>',
             '          <td style="padding-left: 12px; vertical-align: middle; border-left: 1px solid #e2e8f0; padding-top: 2px; padding-bottom: 2px;">',
             '            <div style="color: #0f172a; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; font-family: sans-serif;">GCM AUDITOR</div>',
