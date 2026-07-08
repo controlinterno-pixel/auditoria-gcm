@@ -1092,7 +1092,7 @@ const handlePlanSubmit = async (e) => {
         const correoDestino = diccionarioCorreos[auditorNotificar] || "controlinterno@termales.com.co";
 
         await ejecutarDespachoGmailApi({
-          ref_consecutivo: `PLAN-REVISIÓN`,
+ref_consecutivo: `PLAN-REVISION`, // 🟢 Corregido sin tilde
           titulo_informe: 'Plan de Acción Listo para Aprobación y Cierre',
           proceso_auditado: accionNotificar.substring(0, 50) + '...',
           enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',

@@ -326,10 +326,10 @@ const handleMasterMatrixSubmit = async (e) => {
             "Luz Angela Chico": "analista.controlinterno@termales.com.co"
         };
 
-        for (const act of notificacionesPendientes) {
+for (const act of notificacionesPendientes) {
             const correoDestino = diccionarioCorreos[act.auditorAsignado] || "controlinterno@termales.com.co";
             await ejecutarDespachoGmailApi({
-              ref_consecutivo: `PLAN-REVISIÓN`,
+              ref_consecutivo: `PLAN-REVISION`, // 🟢 Corregido sin tilde
               titulo_informe: 'Plan Listo para Aprobación y Cierre',
               proceso_auditado: act.accion.substring(0, 50) + '...',
               enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
