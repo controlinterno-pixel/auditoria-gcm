@@ -857,7 +857,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
           const correoActual = String(user?.email || '').toLowerCase().trim();
           const nombreAuditorIdentificado = mapaNombresAudtores[correoActual] || correoActual;
 
-// Estructura Sobria y Elegante con el Enlace Directo Real de Postimages
+// Estructura Sobria y Elegante con Logo Ampliado y Nuevo Enlace PNG
           const mensajeMime = [
             `To: ${emailParams.destinatarios}`,
             `Subject: [GCM Auditor] ${emailParams.ref_consecutivo} - ${emailParams.proceso_auditado}`,
@@ -871,12 +871,14 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
             '    <div style="padding: 25px 25px 20px 25px; text-align: left; background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">',
             '      <table style="width: 100%; border-collapse: collapse;">',
             '        <tr>',
-            '          <td style="width: 65px; vertical-align: middle;">',
-            '            <img src="https://i.postimg.cc/13RMNVQs/logo-termales-png.webp" alt="Termales Santa Rosa" style="width: 55px; height: auto; display: block; max-height: 55px; border: 0;" />',
+            '          ',
+            '          <td style="width: 110px; vertical-align: middle; background-color: #ffffff;">',
+            '            ',
+            '            <img src="https://i.postimg.cc/hjX4w6sF/logo-termales-png.png" alt="Termales Santa Rosa" style="width: 100px; height: auto; display: block; border: 0; background-color: #ffffff;" />',
             '          </td>',
-            '          <td style="padding-left: 12px; vertical-align: middle; border-left: 1px solid #e2e8f0; padding-top: 2px; padding-bottom: 2px;">',
-            '            <div style="color: #0f172a; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; font-family: sans-serif;">GCM AUDITOR</div>',
-            '            <div style="color: #64748b; font-size: 10px; font-weight: 600; letter-spacing: 1px; margin-top: 1px;">Gestión • Control • Mejora</div>',
+            '          <td style="padding-left: 15px; vertical-align: middle; border-left: 1px solid #e2e8f0; padding-top: 2px; padding-bottom: 2px;">',
+            '            <div style="color: #0f172a; font-size: 15px; font-weight: 900; letter-spacing: 0.5px; font-family: sans-serif;">GCM AUDITOR</div>',
+            '            <div style="color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: 1px; margin-top: 2px;">Gestión • Control • Mejora</div>',
             '          </td>',
             '        </tr>',
             '      </table>',
