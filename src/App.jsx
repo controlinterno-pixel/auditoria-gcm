@@ -109,6 +109,35 @@ const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilter
     onClick={(e) => e.stopPropagation()} 
   />
 );
+// 🛤️ COMPONENTE ASISTENTE: BARRA DE PROGRESO DE FASE (STEPPER HUD)
+const StepIndicatorHUD = ({ activeStep }) => {
+  const steps = [
+    { label: "1. Planificación", key: "plan_anual_tab" },
+    { label: "2. Campo", key: "evaluaciones" },
+    { label: "3. Resultados", key: "resultados_tab" },
+    { label: "4. Planes", key: "planes_tab" },
+    { label: "5. Gobernanza", key: "gobernanza_tab" }
+  ];
+  return (
+    <div className="bg-[#0b1329] border-b border-slate-800 px-8 py-2.5 flex items-center justify-between gap-4 text-xs font-bold text-slate-400">
+      <span className="text-slate-400 text-[10px] uppercase tracking-wider font-black">Flujo de Trabajo GRC Activo:</span>
+      <div className="flex items-center space-x-3 overflow-x-auto py-0.5">
+        {steps.map((st, i) => {
+          const isCurrent = activeStep === st.key;
+          return (
+            <React.Fragment key={st.key}>
+              <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isCurrent ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
+                <span>{i + 1}.</span>
+                <span>{st.label.split('. ')[1]}</span>
+              </div>
+              {i < steps.length - 1 && <span className="text-slate-700 font-bold">➔</span>}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick }) => {
   const maxVal = Math.max(...data.map(d => d.valor), 1);
@@ -214,7 +243,17 @@ const defaultMonitoreo = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
-const [auditoresLista, setAuditoresLista] = useState(["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
+  
+  // 🔌 ESTADOS PARA NAVEGACIÓN ANIDADA DE PROCESOS (WORKFLOW)
+  const [subTabPlanificar, setSubTabPlanificar] = useState('plan_anual');
+  const [subTabResultados, setSubTabResultados] = useState('hallazgos');
+  const [subTabPlanes, setSubTabPlanes] = useState('planes');
+  const [subTabGobernanza, setSubTabGobernanza] = useState('comites');
+
+  // 🔌 ESTADO PARA EL CASO ACTIVO DEL EXPEDIENTE ÚNICO
+  const [selectedExpedienteId, setSelectedExpedienteId] = useState('');
+
+  const [auditoresLista, setAuditoresLista] = useState(["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
   const [notification, setNotification] = useState(null);
   const [tipoMatriz, setTipoMatriz] = useState('residual'); 
   const [isPresentationMode, setIsPresentationMode] = useState(false); 
@@ -1655,6 +1694,222 @@ const renderConfiguracion = () => (
     </div>
   );
 
+  // =====================================================================
+  // ⚡ COMPONENTE DE BANDEJA DE TRABAJO "MI ESPACIO" (COMMAND CENTER)
+  // =====================================================================
+  const renderMiEspacioCommandCenter = () => {
+    const usuarioNombre = user?.email?.split('@')[0] || 'Líder de GRC';
+    const totalVencidos = safePlanes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length;
+    const totalAbiertos = safeHallazgos.filter(h => h.estado === 'Abierto').length;
+    const totalRevision = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
+
+    return (
+      <div className="space-y-6 text-left">
+        {/* BANNER DE BIENVENIDA PREMIUM */}
+        <div className="bg-[#0a1122] border border-blue-500/20 p-6 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="space-y-1 relative z-10">
+            <h2 className="text-2xl font-black text-white">¡Buen día, <span className="text-emerald-400 capitalize">{usuarioNombre}</span>!</h2>
+            <p className="text-xs text-slate-400 font-bold">Consola de Gobierno, Gestión de Riesgos y Cumplimiento Normativo • Termales Santa Rosa</p>
+          </div>
+          <div className="flex flex-wrap gap-2 relative z-10">
+            <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); scrollToForm(); }} className="bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 font-bold py-2 px-3 rounded-lg text-[10px] uppercase tracking-wider border border-blue-500/20 transition-all">
+              Filtrar Informes
+            </button>
+            <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} className="bg-purple-600/10 hover:bg-purple-600/20 text-purple-400 font-bold py-2 px-3 rounded-lg text-[10px] uppercase tracking-wider border border-purple-500/20 transition-all">
+              Gestionar Planes
+            </button>
+          </div>
+        </div>
+
+        {/* CUE DE TRABAJO ACTUAL */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className="bg-[#1c0d15] hover:bg-[#25101b] transition-all border border-red-500/10 p-5 rounded-2xl shadow-md cursor-pointer flex flex-col justify-between">
+            <div className="flex justify-between items-center text-red-400">
+              <span className="text-[10px] font-black uppercase tracking-widest">Hallazgos Abiertos</span>
+              <span>⚠️</span>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-black text-white">{totalAbiertos}</div>
+              <p className="text-[9px] text-slate-400 mt-1">Brechas por mitigar urgentemente</p>
+            </div>
+          </div>
+
+          <div onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} className="bg-[#1c140d] hover:bg-[#281d13] transition-all border border-amber-500/10 p-5 rounded-2xl shadow-md cursor-pointer flex flex-col justify-between">
+            <div className="flex justify-between items-center text-amber-400">
+              <span className="text-[10px] font-black uppercase tracking-widest">Planes Vencidos</span>
+              <span>⏳</span>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-black text-white">{totalVencidos}</div>
+              <p className="text-[9px] text-slate-400 mt-1">Fuera del límite programado</p>
+            </div>
+          </div>
+
+          <div onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} className="bg-[#0b171c] hover:bg-[#10232b] transition-all border border-cyan-500/10 p-5 rounded-2xl shadow-md cursor-pointer flex flex-col justify-between">
+            <div className="flex justify-between items-center text-cyan-400">
+              <span className="text-[10px] font-black uppercase tracking-widest">En Revisión por Auditor</span>
+              <span>🔬</span>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-black text-white">{totalRevision}</div>
+              <p className="text-[9px] text-slate-400 mt-1">Esperando aprobación de cierre</p>
+            </div>
+          </div>
+
+          <div onClick={() => setActiveTab('gobernanza_tab')} className="bg-[#0e0c1a] hover:bg-[#141126] transition-all border border-purple-500/10 p-5 rounded-2xl shadow-md cursor-pointer flex flex-col justify-between">
+            <div className="flex justify-between items-center text-purple-400">
+              <span className="text-[10px] font-black uppercase tracking-widest">Sesiones de Comité</span>
+              <span>👥</span>
+            </div>
+            <div className="mt-4">
+              <div className="text-3xl font-black text-white">{safeComites.length}</div>
+              <p className="text-[9px] text-slate-400 mt-1">Actas oficiales indexadas</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 🗺️ STEPPER WORKFLOW ASSISTANT (EL RUTA GRC) */}
+        <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl">
+          <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-6 flex items-center">
+            <span className="mr-2">🛤️</span> Ruta Guiada de Auditoría (GRC Assistant)
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 relative">
+            {[
+              { step: '1', name: 'Planificación', desc: 'Plan Anual y Riesgos', tab: 'plan_anual_tab', active: activeTab === 'plan_anual_tab' },
+              { step: '2', name: 'Trabajo de Campo', desc: 'Pruebas de Controles', tab: 'evaluaciones', active: activeTab === 'evaluaciones' },
+              { step: '3', name: 'Hallazgos', desc: 'Emisión de Brechas', tab: 'resultados_tab', active: activeTab === 'resultados_tab' },
+              { step: '4', name: 'Plan de Acción', desc: 'Ejecución y Cierre', tab: 'planes_tab', active: activeTab === 'planes_tab' },
+              { step: '5', name: 'Gobernanza', desc: 'Comité y Trazabilidad', tab: 'gobernanza_tab', active: activeTab === 'gobernanza_tab' }
+            ].map((st, i) => (
+              <div 
+                key={`step-${i}`}
+                onClick={() => setActiveTab(st.tab)}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between h-28 ${st.active ? 'bg-blue-600/10 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'}`}
+              >
+                <div className="flex justify-between items-center">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-xs ${st.active ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}>
+                    {st.step}
+                  </span>
+                  {st.active && <span className="text-[10px] font-black uppercase text-blue-400 tracking-wider">Activo</span>}
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-white">{st.name}</h4>
+                  <p className="text-[9px] text-slate-500 font-bold">{st.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 📁 EXPLORADOR DEL EXPEDIENTE ÚNICO DE AUDITORÍA */}
+        <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl space-y-6">
+          <div className="border-b border-slate-800 pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">📁 Expediente Único de Control Integral</h3>
+              <p className="text-[10px] text-slate-500 font-bold mt-1">Trazabilidad total en una sola vista cruzando los módulos GRC</p>
+            </div>
+            
+            <select
+              value={selectedExpedienteId}
+              onChange={(e) => setSelectedExpedienteId(e.target.value)}
+              className="bg-slate-900 border border-slate-700 rounded-xl text-xs font-black py-2.5 px-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600 outline-none w-full sm:w-80"
+            >
+              <option value="">-- Seleccionar Hallazgo para Expediente --</option>
+              {safeHallazgos.map(h => (
+                <option key={h.id} value={h.id}>[{h.ref}] {h.titulo.substring(0, 45)}...</option>
+              ))}
+            </select>
+          </div>
+
+          {expedienteSeleccionado ? (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                
+                {/* ELEMENTO 1: ORIGEN INFORME */}
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">1. Informe Base</span>
+                  <div className="font-bold text-xs text-emerald-400 font-mono">{expedienteSeleccionado.informe.ref}</div>
+                  <div className="font-black text-xs text-white line-clamp-2">{expedienteSeleccionado.informe.titulo}</div>
+                  <div className="text-[9px] text-slate-400 font-bold">Fecha: {formatSafeDate(expedienteSeleccionado.informe.fecha)}</div>
+                </div>
+
+                {/* ELEMENTO 2: RIESGO IDENTIFICADO */}
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">2. Riesgo Asociado</span>
+                  <div className="font-bold text-xs text-blue-400 font-mono">RSG-{expedienteSeleccionado.riesgo.id || 'N/A'}</div>
+                  <div className="font-black text-xs text-white line-clamp-2">{expedienteSeleccionado.riesgo.descripcion || expedienteSeleccionado.riesgo.descripcionControl}</div>
+                  <div className="text-[9px] text-slate-400 font-bold">Dueño: {expedienteSeleccionado.riesgo.responsable}</div>
+                </div>
+
+                {/* ELEMENTO 3: HALLAZGO DE AUDITORÍA */}
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">3. Hallazgo Documentado</span>
+                  <div className="font-bold text-xs text-red-400 font-mono">{expedienteSeleccionado.hallazgo.ref}</div>
+                  <div className="font-black text-xs text-white line-clamp-2">{expedienteSeleccionado.hallazgo.titulo}</div>
+                  <span className="inline-block px-2 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded font-black text-[8px] uppercase">{expedienteSeleccionado.hallazgo.severidad}</span>
+                </div>
+
+                {/* ELEMENTO 4: PLAN DE ACCIÓN */}
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                  <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest block">4. Plan de Acción</span>
+                  <div className="font-bold text-xs text-purple-400 font-mono">PLA-{expedienteSeleccionado.plan.id || 'N/A'}</div>
+                  <div className="font-black text-xs text-white line-clamp-2">{expedienteSeleccionado.plan.accion}</div>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <span className="text-[9px] font-black text-slate-400 uppercase">Avance:</span>
+                    <span className="text-white font-black text-[10px]">{expedienteSeleccionado.plan.progreso}%</span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* LÍNEA CONECTADA DE FLUJO GRC */}
+              <div className="border-t border-slate-800 pt-5">
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">🔗 Mapa de Trazabilidad End-to-End</h4>
+                
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-950 p-4 rounded-2xl border border-slate-800/80">
+                  <div className="text-center">
+                    <div className="text-xs font-black text-white">Riesgo Residual</div>
+                    <div className="text-[10px] text-slate-500 font-bold mt-0.5">P: {expedienteSeleccionado.riesgo.probabilidadResidual} • I: {expedienteSeleccionado.riesgo.impactoResidual}</div>
+                  </div>
+                  
+                  <div className="text-slate-600 font-black">➔</div>
+
+                  <div className="text-center">
+                    <div className="text-xs font-black text-white">Controles Probados</div>
+                    <div className="text-[10px] text-blue-400 font-bold mt-0.5">Eficacia: {expedienteSeleccionado.evaluaciones.length > 0 ? 'Evaluado' : 'Sin Pruebas'}</div>
+                  </div>
+
+                  <div className="text-slate-600 font-black">➔</div>
+
+                  <div className="text-center">
+                    <div className="text-xs font-black text-white">Estado Hallazgo</div>
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest mt-0.5 ${expedienteSeleccionado.hallazgo.estado === 'Cerrado' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                      {expedienteSeleccionado.hallazgo.estado}
+                    </span>
+                  </div>
+
+                  <div className="text-slate-600 font-black">➔</div>
+
+                  <div className="text-center">
+                    <div className="text-xs font-black text-white">Estado Plan de Acción</div>
+                    <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest mt-0.5 ${expedienteSeleccionado.plan.estadoWorkflow === 'Cerrado' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}`}>
+                      {expedienteSeleccionado.plan.estadoWorkflow}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-slate-500 italic border border-dashed border-slate-800 rounded-2xl bg-slate-950/40 text-xs">
+              📂 Selecciona un hallazgo en la cabecera para mapear el Expediente Único en tiempo real.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 // =====================================================================
   // 📊 COMPONENTE AVANZADO: TABLERO ANALÍTICO EJECUTIVO E INTERACTIVO (GRC)
   // =====================================================================
@@ -3073,41 +3328,80 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
         </button>
       )}
 
-      {/* SIDEBAR */}
-      <div className={`w-64 bg-slate-900 text-white flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
-        <div className="p-6 flex items-center space-x-3 border-b border-slate-800"><span className="text-2xl">🛡️</span><div><h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1><p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p></div></div>
+     {/* SIDEBAR CON NAV DE PROCESOS WORKFLOW */}
+      <div className={`w-64 bg-slate-900 text-white flex flex-col shadow-xl z-20 ${isPresentationMode ? 'hidden' : 'flex'}`}>
+        <div className="p-6 flex items-center space-x-3 border-b border-slate-800">
+          <span className="text-2xl">🛡️</span>
+          <div>
+            <h1 className="text-sm font-bold tracking-wide">GCM Auditor v5</h1>
+            <p className="text-[10px] text-slate-400 font-mono truncate max-w-[170px]">{user.email}</p>
+          </div>
+        </div>
         
-<nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto">
-          {[
-            { id: 'tablero', icon: '📊', label: 'Tablero Analítico' },
-            { id: 'dashboard_riesgos', icon: '📈', label: 'Dashboard Inteligente' },
-            { id: 'plan_anual', icon: '🗓️', label: 'Plan Anual de Auditoría' },
-            { id: 'riesgos', icon: '⚠️', label: 'Matriz de Riesgos' },
-            { id: 'apetito', icon: '⚖️', label: 'Apetito de Riesgo' },
-            { id: 'evaluaciones', icon: '🔬', label: 'Auditoría de Controles' },
-            { id: 'hallazgos', icon: '📄', label: 'Hallazgos' },
-            { id: 'planes', icon: '✅', label: 'Planes de Acción' },
-            { id: 'incidentes', icon: '🚨', label: 'Eventos de Pérdida' },
-            { id: 'comites', icon: '👥', label: 'Comités y Actas' },
-            // 👇 ESTAS 3 PESTAÑAS SOLO APARECEN SI ERES ADMIN 👇
-            ...(isAdmin ? [
-               { id: 'informe', icon: '📜', label: 'Trazabilidad' },
-               { id: 'informes_auditoria', icon: '📁', label: 'Informes Emitidos' },
-               { id: 'config', icon: '⚙️', label: 'Configuración / Copias de seguridad' }
-            ] : [])
-          ].map((tab, index) => (
-            <button key={`nav-${tab.id}-${index}`} onClick={() => setActiveTab(tab.id)} className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-colors ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-              <div className="flex items-center space-x-2">
-                <span>{tab.icon}</span><span>{tab.label}</span>
-              </div>
-              {/* BURBUJA ROJA DE NOTIFICACIÓN PARA PLANES */}
-              {tab.id === 'planes' && isAdmin && pendingPlansCount > 0 && (
-                <span className="bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse">
-                  {pendingPlansCount}
-                </span>
-              )}
-            </button>
-          ))}
+        <nav className="flex-1 px-4 py-4 space-y-4 text-xs font-medium overflow-y-auto">
+          {/* CONTROL CENTER */}
+          <div>
+            <span className="px-3 text-[9px] font-black uppercase text-slate-500 tracking-wider block mb-2">Consola Principal</span>
+            <div className="space-y-1">
+              <button onClick={() => setActiveTab('tablero')} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center space-x-2 transition-colors ${activeTab === 'tablero' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <span>🏠</span> <span>Mi Espacio GRC</span>
+              </button>
+              <button onClick={() => setActiveTab('dashboard_riesgos')} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center space-x-2 transition-colors ${activeTab === 'dashboard_riesgos' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <span>📈</span> <span>GRC Dashboard</span>
+              </button>
+            </div>
+          </div>
+
+          {/* WORKFLOW GRUPOS */}
+          <div>
+            <span className="px-3 text-[9px] font-black uppercase text-slate-500 tracking-wider block mb-2">Proceso de Auditoría</span>
+            <div className="space-y-1">
+              
+              <button onClick={() => { setActiveTab('plan_anual_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'plan_anual_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <div className="flex items-center space-x-2">
+                  <span>1️⃣</span> <span>Planificación</span>
+                </div>
+              </button>
+
+              <button onClick={() => { setActiveTab('evaluaciones'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'evaluaciones' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <div className="flex items-center space-x-2">
+                  <span>2️⃣</span> <span>Trabajo de Campo</span>
+                </div>
+              </button>
+
+              <button onClick={() => { setActiveTab('resultados_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'resultados_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <div className="flex items-center space-x-2">
+                  <span>3️⃣</span> <span>Resultados & Brechas</span>
+                </div>
+              </button>
+
+              <button onClick={() => { setActiveTab('planes_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'planes_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <div className="flex items-center space-x-2">
+                  <span>4️⃣</span> <span>Planes de Acción</span>
+                </div>
+                {pendingPlansCount > 0 && (
+                  <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">{pendingPlansCount}</span>
+                )}
+              </button>
+
+              <button onClick={() => { setActiveTab('gobernanza_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'gobernanza_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <div className="flex items-center space-x-2">
+                  <span>5️⃣</span> <span>Gobernanza y Cierre</span>
+                </div>
+              </button>
+
+            </div>
+          </div>
+
+          {/* ADMIN */}
+          {isAdmin && (
+            <div>
+              <span className="px-3 text-[9px] font-black uppercase text-slate-500 tracking-wider block mb-2">Administración</span>
+              <button onClick={() => setActiveTab('config')} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center space-x-2 transition-colors ${activeTab === 'config' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                <span>⚙️</span> <span>Copias de Seguridad</span>
+              </button>
+            </div>
+          )}
         </nav>
         <div className="p-4 border-t border-slate-800"><button onClick={handleLogout} className="w-full text-[10px] text-slate-300 border border-slate-700/50 rounded-lg py-1.5 font-bold flex items-center justify-center space-x-1"><span>🚪</span> <span>Cerrar Sesión</span></button></div>
       </div>
@@ -3123,67 +3417,121 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
             <span>📺</span><span>Modo Presentación</span>
           </button>
         </header>
+{/*  Tracks de gobernanza guiada del Workflow en la cabecera */}
+        {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}
         
         <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 scroll-smooth relative`}>
           <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
-            {activeTab === 'tablero' && renderTableroAnalitico()}
+           {/* 🏠 FASE 0: MI ESPACIO DE TRABAJO (Bandeja Ejecutiva + Expediente Único + Dashboard) */}
+            {activeTab === 'tablero' && renderMiEspacioCommandCenter()}
+
+            {/* 📈 DASHBOARD INTELIGENTE */}
             {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
-            {activeTab === 'plan_anual' && renderPlanAnual()}
-            {activeTab === 'riesgos' && renderRiesgos()}
-            {activeTab === 'apetito' && renderApetito()}
-            {activeTab === 'evaluaciones' && renderEvaluaciones()}
-            {activeTab === 'hallazgos' && renderHallazgos()}
-            {activeTab === 'planes' && renderPlanes()}
-            {activeTab === 'incidentes' && renderIncidentes()}
-{activeTab === 'comites' && (
-  <Comites 
-    isAdmin={isAdmin}
-    editComite={editComite}
-    setEditComite={setEditComite}
-    handleComiteSubmit={handleComiteSubmit}
-    setFormResetKey={setFormResetKey}
-    scrollToForm={scrollToForm}
-    handleDeleteItem={handleDeleteItem}
-    applyFilters={applyFilters}
-    comitesFiltrados={comitesFiltrados}
-    searchTerm={searchTerm}
-    setSearchTerm={setSearchTerm}
-    columnFilters={columnFilters}
-    handleColFilterChange={handleColFilterChange}
-    FilterInput={FilterInput}
-  />
-)}
-            {activeTab === 'informe' && renderInforme()}
-{activeTab === 'informes_auditoria' && (
-              <InformesAuditoria 
-                informesAuditoria={informesAuditoria}
-                setInformesAuditoria={setInformesAuditoria}
-                editInformeAuditoria={editInformeAuditoria}
-                setEditInformeAuditoria={setEditInformeAuditoria}
-                isAdmin={isAdmin}
-                user={user}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                columnFilters={columnFilters}
-                handleColFilterChange={handleColFilterChange}
-                exportToExcel={exportToExcel}
-                handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit}
-                isSubmitting={isSubmitting}
-                setFormResetKey={setFormResetKey}
-                scrollToForm={scrollToForm}
-                handleDeleteItem={handleDeleteItem}
-                applyFilters={applyFilters}
-                FilterInput={FilterInput}
-                safeHallazgos={safeHallazgos}
-                safePlanes={safePlanes}
-                formatSafeDate={formatSafeDate}
-                auditoresLista={auditoresLista}
-                onActualizarAuditores={async (nuevaLista) => {
-                  setAuditoresLista(nuevaLista);
-                  await saveToCloud({ auditoresLista: nuevaLista });
-                }}
-              />
+
+            {/* 1️⃣ FASE DE PLANIFICACIÓN (Subpestañas Anidadas) */}
+            {activeTab === 'plan_anual_tab' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
+                  <button onClick={() => setSubTabPlanificar('plan_anual')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'plan_anual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🗓️ Cronograma Anual</button>
+                  <button onClick={() => setSubTabPlanificar('riesgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'riesgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚠️ Matriz de Riesgos</button>
+                  <button onClick={() => setSubTabPlanificar('apetito')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'apetito' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚖️ Apetito de Riesgo</button>
+                </div>
+                {subTabPlanificar === 'plan_anual' && renderPlanAnual()}
+                {subTabPlanificar === 'riesgos' && renderRiesgos()}
+                {subTabPlanificar === 'apetito' && renderApetito()}
+              </div>
             )}
+
+            {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
+            {activeTab === 'evaluaciones' && renderEvaluaciones()}
+
+            {/* 3️⃣ FASE DE RESULTADOS & BRECHAS (Subpestañas Anidadas) */}
+            {activeTab === 'resultados_tab' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
+                  <button onClick={() => setSubTabResultados('hallazgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabResultados === 'hallazgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📄 Hallazgos Registrados</button>
+                  {isAdmin && (
+                    <button onClick={() => setSubTabResultados('informes')} className={`px-4 py-2 rounded-xl transition-all ${subTabResultados === 'informes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📁 Informes Emitidos</button>
+                  )}
+                </div>
+                {subTabResultados === 'hallazgos' && renderHallazgos()}
+                {subTabResultados === 'informes' && isAdmin && (
+                  <InformesAuditoria 
+                    informesAuditoria={informesAuditoria}
+                    setInformesAuditoria={setInformesAuditoria}
+                    editInformeAuditoria={editInformeAuditoria}
+                    setEditInformeAuditoria={setEditInformeAuditoria}
+                    isAdmin={isAdmin}
+                    user={user}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    columnFilters={columnFilters}
+                    handleColFilterChange={handleColFilterChange}
+                    exportToExcel={exportToExcel}
+                    handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit}
+                    isSubmitting={isSubmitting}
+                    setFormResetKey={setFormResetKey}
+                    scrollToForm={scrollToForm}
+                    handleDeleteItem={handleDeleteItem}
+                    applyFilters={applyFilters}
+                    FilterInput={FilterInput}
+                    safeHallazgos={safeHallazgos}
+                    safePlanes={safePlanes}
+                    formatSafeDate={formatSafeDate}
+                    auditoresLista={auditoresLista}
+                    onActualizarAuditores={async (nuevaLista) => {
+                      setAuditoresLista(nuevaLista);
+                      await saveToCloud({ auditoresLista: nuevaLista });
+                    }}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* 4️⃣ FASE DE PLANES DE ACCIÓN (Subpestañas Anidadas) */}
+            {activeTab === 'planes_tab' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
+                  <button onClick={() => setSubTabPlanes('planes')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanes === 'planes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>✅ Seguimiento de Planes</button>
+                  <button onClick={() => setSubTabPlanes('incidentes')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanes === 'incidentes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🚨 Eventos de Pérdida</button>
+                </div>
+                {subTabPlanes === 'planes' && renderPlanes()}
+                {subTabPlanes === 'incidentes' && renderIncidentes()}
+              </div>
+            )}
+
+            {/* 5️⃣ FASE DE GOBERNANZA, COMITÉS Y CIERRE (Subpestañas Anidadas) */}
+            {activeTab === 'gobernanza_tab' && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
+                  <button onClick={() => setSubTabGobernanza('comites')} className={`px-4 py-2 rounded-xl transition-all ${subTabGobernanza === 'comites' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>👥 Sesiones de Comité</button>
+                  {isAdmin && (
+                    <button onClick={() => setSubTabGobernanza('trazabilidad')} className={`px-4 py-2 rounded-xl transition-all ${subTabGobernanza === 'trazabilidad' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📜 Bitácora de Trazabilidad</button>
+                  )}
+                </div>
+                {subTabGobernanza === 'comites' && (
+                  <Comites 
+                    isAdmin={isAdmin}
+                    editComite={editComite}
+                    setEditComite={setEditComite}
+                    handleComiteSubmit={handleComiteSubmit}
+                    setFormResetKey={setFormResetKey}
+                    scrollToForm={scrollToForm}
+                    handleDeleteItem={handleDeleteItem}
+                    applyFilters={applyFilters}
+                    comitesFiltrados={comitesFiltrados}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    columnFilters={columnFilters}
+                    handleColFilterChange={handleColFilterChange}
+                    FilterInput={FilterInput}
+                  />
+                )}
+                {subTabGobernanza === 'trazabilidad' && isAdmin && renderInforme()}
+              </div>
+            )}
+
+            {/* ⚙️ CONFIGURACIÓN */}
             {activeTab === 'config' && renderConfiguracion()}
           </div>
         </main>
