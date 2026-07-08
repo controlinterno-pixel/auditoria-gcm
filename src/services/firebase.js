@@ -1,18 +1,18 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage'; // 👈 NUEVA LÍNEA
 
-// --- CONFIGURACIÓN DE FIREBASE ---
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: "gestion-de-riesgos-b4bf0.firebaseapp.com",
-  projectId: "gestion-de-riesgos-b4bf0",
-  messagingSenderId: "507146405155",
-  appId: "1:507146405155:web:574f89d0cc6256e629b896",
-  measurementId: "G-WTZPTWV67Y"
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Inicializamos los servicios
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const storage = getStorage(app); // 👈 NUEVA LÍNEA
