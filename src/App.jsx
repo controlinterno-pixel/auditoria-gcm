@@ -397,10 +397,7 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-    setIsCloudLoaded(false);
-useEffect(() => {
+ useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
     
