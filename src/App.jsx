@@ -1906,7 +1906,13 @@ const renderConfiguracion = () => (
               📂 Selecciona un hallazgo en la cabecera para mapear el Expediente Único en tiempo real.
             </div>
           )}
+      </div>
+
+        {/* 📊 RECONEXIÓN DE TU SÚPER TABLERO ANALÍTICO ORIGINAL */}
+        <div className="pt-6 border-t border-slate-800/40">
+          {renderTableroAnalitico()}
         </div>
+
       </div>
     );
   };
