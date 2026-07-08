@@ -24,7 +24,7 @@ export default function Planes({
   editPlan,
   setEditPlan,
   handlePlanSubmit,
-handleAprobarCierrePlan
+  handleAprobarCierrePlan,
   formResetKey,
   setFormResetKey,
   scrollToForm,
@@ -44,8 +44,6 @@ handleAprobarCierrePlan
   handleColFilterChange,
   onUpdateItemStatus,
   informesAuditoria = [],
-  
-  // VARIABLES DEL FILTRO GLOBAL TEMPORAL
   defaultAnios = [],
   defaultMeses = [],
   selectedAnios = [],
