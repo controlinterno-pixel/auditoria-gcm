@@ -1931,6 +1931,8 @@ const renderConfiguracion = () => (
       evaluaciones: linkedEvaluaciones
     };
   }, [selectedExpedienteId, safeHallazgos, safeRiesgos, safePlanes, informesAuditoria, safeEvaluaciones]);
+
+
 const renderTableroAnalitico = () => {
     const hoy = new Date();
 
@@ -2039,6 +2041,34 @@ const renderTableroAnalitico = () => {
     const coloresMini = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899'];
     let offsetCirculo = 0;
 
+    // 📈 CÁLCULO DE VECTORES GEOMÉTRICOS PARA TENDENCIA HISTÓRICA RESILIENTE
+    const mesesCortos = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const currentMonthIdx = hoy.getMonth();
+    const ultimos6Meses = Array.from({length: 6}, (_, i) => {
+        let m = currentMonthIdx - 5 + i;
+        if (m < 0) m += 12;
+        return { idx: m, nombre: mesesCortos[m], nombreLargo: defaultMeses[m] };
+    });
+
+    const trendData = ultimos6Meses.map(mInfo => {
+       const riesgosMes = riesgosBase.filter(r => r.mes === mInfo.nombreLargo);
+       const crit = riesgosMes.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
+       const med = riesgosMes.filter(r => {
+         const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual);
+         return score >= 6 && score < 16;
+       }).length;
+       const baj = riesgosMes.length - crit - med;
+       return { mes: mInfo.nombre, crit, med, baj };
+    });
+
+    const maxVal = Math.max(1, ...trendData.flatMap(d => [d.crit, d.med, d.baj]));
+    const getY = (val) => 35 - ((val / maxVal) * 25); 
+    const getX = (idx) => (idx * (100 / 5)); 
+
+    const pathCriticos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.crit)}`).join(' ');
+    const pathMedios = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.med)}`).join(' ');
+    const pathBajos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.baj)}`).join(' ');
+
     return (
       <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none">
         
@@ -2092,9 +2122,8 @@ const renderTableroAnalitico = () => {
           </div>
         </div>
 
-        {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TOOLTIPS PREMIUM RESTAURADOS (image_47bda7.png) ─── */}
+        {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TOOLTIPS PREMIUM RESTAURADOS ─── */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          
           <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
             <div className="flex justify-between items-start">
               <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
@@ -2196,7 +2225,7 @@ const renderTableroAnalitico = () => {
           </div>
         </div>
 
-        {/* ─── CUADRÍCULA PRINCIPAL CENTRAL ORIGINAL RESTAURADA (image_47bda7.png) ─── */}
+        {/* ─── CUADRÍCULA PRINCIPAL CENTRAL ORIGINAL ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* MAPA DE CALOR */}
@@ -2282,7 +2311,7 @@ const renderTableroAnalitico = () => {
                 </div>
               </div>
             </div>
-            {/* TOOLTIP EXPULSADO HACIA ARRIBA RESTAURADO (image_47bda7.png) */}
+            {/* TOOLTIP EXPULSADO HACIA ARRIBA RESTAURADO */}
             <div className="absolute bottom-[102%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
               <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
               <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">CONTEXTO DE RIESGO</h4>
@@ -2294,7 +2323,7 @@ const renderTableroAnalitico = () => {
             </div>
           </div>
 
-          {/* RETORNO DEL HISTÓRICO ORIGINAL + RUEDA CONCÉNTRICA DE PROCESOS (image_47bde4.png) */}
+          {/* HISTÓRICO ORIGINAL + RUEDA CONCÉNTRICA DE PROCESOS */}
           <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Tendencia Histórica</h3>
             <div className="w-full h-36 mt-2 relative">
@@ -2356,7 +2385,7 @@ const renderTableroAnalitico = () => {
           </div>
         </div>
 
-        {/* ─── ENLACE ADICIONAL: LAS DOS GRÁFICAS DE TENDENCIA GRC INTERACTIVAS LINEALES SOLICITADAS (image_392018.png) ─── */}
+        {/* ─── ENLACE ADICIONAL: LAS DOS GRÁFICAS DE TENDENCIA GRC INTERACTIVAS LINEALES SOLICITADAS ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
           
           {/* GRÁFICA 1: EVOLUCIÓN DE IMPACTO FINANCIERO */}
@@ -2430,7 +2459,7 @@ const renderTableroAnalitico = () => {
 
         </div>
 
-        {/* ─── ALERTAS INTELIGENTES (IA) (image_47bde4.png) ─── */}
+        {/* ─── ALERTAS INTELIGENTES (IA) ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3 mt-6">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 flex items-center">
@@ -2474,7 +2503,7 @@ const renderTableroAnalitico = () => {
           </div>
         </div>
 
-        {/* ─── SECCIÓN INFERIOR DE COMPONENTES RESTAURADA (image_47be22.png) ─── */}
+        {/* ─── SECCIÓN INFERIOR DE COMPONENTES RESTAURADA ─── */}
         {(() => {
           const totalHallazgosReal = hallazgosBase.length || 1; 
           const hCrit = hallazgosBase.filter(h => h.severidad === 'Crítico' || h.severidad === 'Crítica').length;
@@ -2575,7 +2604,7 @@ const renderTableroAnalitico = () => {
           );
         })()}
 
-        {/* ─── SECCIÓN DE OPERACIONES, CALENDARIO Y LOGS RESTAURADA (image_47be22.png) ─── */}
+        {/* ─── SECCIÓN DE OPERACIONES, CALENDARIO Y LOGS RESTAURADA ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 mt-6">
           
           <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col">
@@ -2682,7 +2711,7 @@ const renderTableroAnalitico = () => {
 
         </div>
 
-        {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO RESTAURADO (image_47be44.png) ─── */}
+        {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO RESTAURADO ─── */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">
