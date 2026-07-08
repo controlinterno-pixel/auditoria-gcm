@@ -822,7 +822,76 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
 // =====================================================================
   // --- SUBMITS DE ACCIONES CON TRAZABILIDAD DE AUTOR COMPLETA ---
   // =====================================================================
-  const handleRiesgoSubmit = async (e) => {
+// =====================================================================
+  // ⚡ MOTOR NATIVO GOOGLE GMAIL API OAUTH2 (REEMPLAZO TOTAL DE EMAILJS)
+  // =====================================================================
+  const ejecutarDespachoGmailApi = async (emailParams) => {
+    if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+      alert("⚠️ El SDK de Google aún está cargando. Espere un segundo e intente de nuevo.");
+      return;
+    }
+
+    try {
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: '310037504694-oaut36369g0d9p508time7un94tkksjk.apps.googleusercontent.com',
+        scope: 'https://www.googleapis.com/auth/gmail.send',
+        callback: async (tokenResponse) => {
+          if (tokenResponse.error) {
+            console.error("Error OAuth:", tokenResponse);
+            return;
+          }
+
+          const accessToken = tokenResponse.access_token;
+
+          // Estructura limpia MIME en texto plano/HTML exigido por servidores de Google
+          const mensajeMime = [
+            `To: ${emailParams.destinatarios}`,
+            `Subject: [GCM Auditor] ${emailParams.ref_consecutivo} - ${emailParams.proceso_auditado}`,
+            'MIME-Version: 1.0',
+            'Content-Type: text/html; charset=utf-8',
+            '',
+            `<div style="font-family: sans-serif; padding: 25px; color: #1e293b; max-width: 600px; border: 1px solid #e2e8f0; border-radius: 16px;">`,
+            `  <h2 style="color: #0A3B32; margin-top: 0;">TERMALES SANTA ROSA DE CABAL</h2>`,
+            `  <h3 style="color: #0f172a; margin-bottom: 20px;">${emailParams.titulo_informe}</h3>`,
+            `  <p style="font-size: 13px; color: #475569;">Novedad radicada formalmente por el equipo de Control Interno a través de la plataforma:</p>`,
+            `  <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 13px; margin: 20px 0; background: #f8fafc; border-radius: 8px;">`,
+            `    <tr><td style="padding: 10px; font-weight: bold; border-bottom: 1px solid #e2e8f0;">Consecutivo:</td><td style="padding: 10px; border-bottom: 1px solid #e2e8f0; color: #1e3a8a; font-weight: bold;">${emailParams.ref_consecutivo}</td></tr>`,
+            `    <tr><td style="padding: 10px; font-weight: bold;">Detalle / Proceso:</td><td style="padding: 10px; color: #334155;">${emailParams.proceso_auditado}</td></tr>`,
+            `  </table>`,
+            `  <p style="font-size: 12px; color: #64748b; margin-bottom: 25px;">Para ver el desglose, evidencias adjuntas, causas raíz y responder la matriz, ingrese a la app web corporativa.</p>`,
+            `  <a href="${emailParams.enlace_pdf}" style="display: inline-block; background: #297A38; color: white; padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 12px;">📄 Abrir Soporte del Sistema</a>`,
+            `</div>`
+          ].join('\n');
+
+          const base64Seguro = btoa(unescape(encodeURIComponent(mensajeMime)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+
+          const resGoogle = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ raw: base64Seguro })
+          });
+
+          if (resGoogle.ok) {
+            showNotification("🚀 Notificación enviada físicamente desde tu cuenta de Gmail institucional.");
+          } else {
+            alert("❌ Error: Google Workspace rechazó el despacho del correo.");
+          }
+        }
+      });
+
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+
+    } catch (err) {
+      console.error("Error disparando login Gmail:", err);
+    }
+  }; 
+ const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     let updated;
@@ -1244,27 +1313,16 @@ const handleInformeAuditoriaSubmit = async (e) => {
         updated = [nuevo, ...safeInformes];
       }
 
+      // 🟢 DISPARADOR GMAIL API INTEGRADO (INFORME EMITIDO)
       if (correosNotificacionOut !== '') {
-        const emailParams = {
-          ref_consecutivo: refConsecutivoFinal, titulo_informe: tituloVal, proceso_auditado: procesoVal,
-          enlace_pdf: evidenciaUrlOut, enlace_acta: actaSocializacionUrlOut || 'No adjunta', destinatarios: correosNotificacionOut
-        };
-
-        const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
-            template_id: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-            user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, 
-            accessToken: import.meta.env.VITE_EMAILJS_PRIVATE_KEY, 
-            template_params: emailParams
-          })
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: refConsecutivoFinal,
+          titulo_informe: `Radicación de Informe: ${tituloVal}`,
+          proceso_auditado: procesoVal,
+          enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
+          destinatarios: correosNotificacionOut
         });
-
-        if (res.ok) showNotification("Notificación electrónica enviada con éxito.");
       }
-
       setInformesAuditoria(updated);    
       await saveToCloud({ informesAuditoria: updated });
       e.target.reset();
@@ -2487,28 +2545,16 @@ selectAllAnios={() => setSelectedAnios([...defaultAnios])}
             setEditPlan(planModificado);
             setFormResetKey(Date.now());
 
+// 🟢 DISPARADOR GMAIL API INTEGRADO (PLAN DE ACCIÓN EN REVISIÓN)
             if (nuevoEstadoWorkflow === 'En Revisión') {
-              const emailParams = {
+              await ejecutarDespachoGmailApi({
                 ref_consecutivo: `PLAN-${id}`,
-                titulo_informe: 'Alerta: Plan de Acción listo para revisión',
+                titulo_informe: 'Plan de Acción Publicado Listo para Validación',
                 proceso_auditado: planModificado.accion.substring(0, 50) + '...',
-                enlace_pdf: 'Revisa la plataforma GCM Auditor',
-                enlace_acta: 'N/A',
+                enlace_pdf: 'https://auditoria-gcm.vercel.app',
                 destinatarios: 'controlinterno@termales.com.co'
-              };
-
-              fetch('https://api.emailjs.com/api/v1.0/email/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  service_id: import.meta.env.VITE_EMAILJS_SERVICE_ID,
-                  template_id: "template_dwr658j", 
-                  user_id: import.meta.env.VITE_EMAILJS_PUBLIC_KEY, 
-                  accessToken: import.meta.env.VITE_EMAILJS_PRIVATE_KEY, 
-                  template_params: emailParams
-                })              
-              }).catch(e => console.error("Error silencioso EmailJS:", e));
-            }
+              });
+            }           
 
             if (nuevoEstadoWorkflow === 'En Revisión') {
                showNotification("Plan enviado a revisión y administrador notificado.");
