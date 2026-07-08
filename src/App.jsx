@@ -1907,13 +1907,7 @@ const renderConfiguracion = () => (
             </div>
           )}
       </div>
-
-        {/* 📊 RECONEXIÓN DE TU SÚPER TABLERO ANALÍTICO ORIGINAL */}
-        <div className="pt-6 border-t border-slate-800/40">
-          {renderTableroAnalitico()}
-        </div>
-
-      </div>
+</div>
     );
   };
 // =====================================================================
@@ -3453,8 +3447,8 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
            {/* 🏠 FASE 0: MI ESPACIO DE TRABAJO (Bandeja Ejecutiva + Expediente Único + Dashboard) */}
             {activeTab === 'tablero' && renderMiEspacioCommandCenter()}
 
-            {/* 📈 DASHBOARD INTELIGENTE */}
-            {activeTab === 'dashboard_riesgos' && renderDashboardRiesgos()}
+            {/* 📈 DASHBOARD INTELIGENTE - RECONECTADO AQUÍ */}
+            {activeTab === 'dashboard_riesgos' && renderTableroAnalitico()}
 
             {/* 1️⃣ FASE DE PLANIFICACIÓN (Subpestañas Anidadas) */}
             {activeTab === 'plan_anual_tab' && (
