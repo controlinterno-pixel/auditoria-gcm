@@ -857,7 +857,7 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
           const correoActual = String(user?.email || '').toLowerCase().trim();
           const nombreAuditorIdentificado = mapaNombresAudtores[correoActual] || correoActual;
 
-// Estructura Sobria y Elegante basada exactamente en la Maqueta Light de Termales con Logo Embebido
+// Estructura Sobria y Elegante Maquetada con URL Global del Logo Real
           const mensajeMime = [
             `To: ${emailParams.destinatarios}`,
             `Subject: [GCM Auditor] ${emailParams.ref_consecutivo} - ${emailParams.proceso_auditado}`,
@@ -867,12 +867,12 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
             '<div style="background-color: #f8fafc; padding: 30px 15px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; min-height: 100%; width: 100%; box-sizing: border-box; text-align: center;">',
             '  <div style="max-width: 500px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 24px; padding: 0; margin: 0 auto; text-align: left; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); overflow: hidden;">',
             '    ',
-            '    <!-- CABECERA CON LOGO EMBEBIDO EN BASE64 - EVITA BLOQUEOS 404 Y HOTLINKING -->',
+            '    <!-- CABECERA PREMIUM CON LOGO CORPORATIVO REAL LIBRE DE RESTRICCIONES -->',
             '    <div style="padding: 25px 25px 20px 25px; text-align: left; background-color: #ffffff; border-bottom: 1px solid #f1f5f9;">',
             '      <table style="width: 100%; border-collapse: collapse;">',
             '        <tr>',
             '          <td style="width: 65px; vertical-align: middle;">',
-            '            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAMAAABwKC9VAAAAAXNSR0IArs4c6QAAAExQTFRFWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYqWSYq////XvYv9AAAAFnoVEX///8mKllmZpmZmZmZmZmZmZmZmZlmZpkX0v9fAAAAAnRSTlMAgMC/0by1AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6gcIDhUAFbXvswAAAZNJREFUaN7tmE2OgjAQRm8pWNDwI8YFGlfiwriaGHeu5v6XMQmDoAhYgAnvVb9WbZPe99KpA6g0TRvWbNiyYcuGLRu2bNjSgWpXz7K6lWfNu6y+6gC7Pq+N6WvjvPZ9Xp8Z97X3F8Y96f2pMZ+9f6pM+uL7q9YI76fWvPeeak6PZfO+pI35bF6WNDGfLcuSJuYrWRb98S6LfrfLkj8uLAn9cWFJ6I8LS0J/XFgS+uPCktAfF5aE/riwJPTXFpZkvraYyHxtEUnma4tIMl9b+C9fW0SS+dpioHy9Tkh6fT2GfD0WfL0mK1+vVct6zS0r67VkWVmvTcvKem1fVtZr6bKyXv8pK+uVpGXlvfJWXlbeK2/lZeW97itv5WUtg7yX6Sujy/SV0WX6yugyv8v86WfFvPJZ8bPyWeHlE+WfFX8pX5X9rPhb+Un59mdfmN9v7Tfmd277bUzXpL6O6XvDmsSWhW3Lki0btmziP9+T/rWpD6wXp3Yg2mN/ALwTInD/S8O0AAAAAElFTkSuQmCC" alt="Termales" style="width: 52px; height: auto; display: block;" />',
+            '            <img src="https://i.ibb.co/VWV3gX7n/logo-termales.png" alt="Termales Santa Rosa de Cabal" style="width: 55px; height: auto; display: block; max-height: 55px; border: 0;" />',
             '          </td>',
             '          <td style="padding-left: 12px; vertical-align: middle; border-left: 1px solid #e2e8f0; padding-top: 2px; padding-bottom: 2px;">',
             '            <div style="color: #0f172a; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; font-family: sans-serif;">GCM AUDITOR</div>',
