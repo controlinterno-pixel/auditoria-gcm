@@ -32,16 +32,22 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
   const [isActaUploading, setIsActaUploading] = useState(false);
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
 
-  // ⚙️ MOTOR DE SUBIDA CONECTADO A LA API DE TERMALES SANTA ROSA
+ // ⚙️ MOTOR DE SUBIDA CONECTADO A LA API DE TERMALES SANTA ROSA
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (type === 'informe') { setIsUploading(true); setUploadProgress(20); } 
-    else { setIsActaUploading(true); setActaProgress(20); }
+    if (type === 'informe') {
+      setIsUploading(true);
+      setUploadProgress(20);
+    } else {
+      setIsActaUploading(true);
+      setActaProgress(20);
+    }
 
     const formData = new FormData();
     formData.append('file', file); 
+    formData.append('carpeta', 'controlinterno'); // 👈 Aquí enviamos la carpeta exacta
 
     try {
       if (type === 'informe') setUploadProgress(50);
@@ -52,10 +58,10 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
         body: formData,
       });
 
-      if (!response.ok) throw new Error('Error en el servidor.');
+      if (!response.ok) throw new Error(`Error ${response.status}: Servidor rechazó la petición.`);
 
       const data = await response.json();
-      const urlFinal = data.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/${file.name}`;
+      const urlFinal = data.url || `https://repos.termalessantarosa.com.co/api/archivos/controlinterno/${file.name}`;
 
       if (type === 'informe') {
         setArchivoSubidoUrl(urlFinal);
@@ -66,11 +72,11 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
         setIsActaUploading(false);
         setActaProgress(100);
       }
-      alert("🎉 ¡Archivo guardado en el servidor de Termales!");
+      alert("🎉 ¡Archivo guardado con éxito en la carpeta controlinterno!");
 
     } catch (err) {
       console.error(err);
-      alert("Error al conectar con repos.termalessantarosa.com.co");
+      alert("Error al conectar. Verifica si la API espera la variable 'carpeta' o 'ruta'.");
       if (type === 'informe') setIsUploading(false);
       else setIsActaUploading(false);
     }
