@@ -63,6 +63,47 @@ ejecutarDespachoGmailApi,
 
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
+// ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
+  const [uploadingCell, setUploadingCell] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleFileUpload = async (e, hallazgoId, index) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Marcamos cuál fila exacta se está subiendo
+    setUploadingCell(`${hallazgoId}-${index}`);
+    setUploadProgress(20);
+
+    const formData = new FormData();
+    formData.append('appName', 'controlInterno'); 
+    formData.append('description', 'Evidencia de Plan de Acción'); 
+    formData.append('file', file); 
+
+    try {
+      setUploadProgress(50);
+      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+      const data = await response.json();
+      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+
+      // Actualizamos automáticamente el campo de la url en esa fila específica
+      handleUpdateActivityField(hallazgoId, index, 'evidenciaUrl', urlFinal);
+
+      setUploadingCell(null);
+      setUploadProgress(100);
+      alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
+    } catch (err) {
+      console.error(err);
+      alert("Error al conectar con el servidor de archivos.");
+      setUploadingCell(null);
+    }
+  };
 
   // 🔌 Estados locales para controlar la apertura de los menús desplegables
   const [showAnioDropdown, setShowAnioDropdown] = useState(false);
@@ -830,10 +871,34 @@ for (const act of notificacionesPendientes) {
                                 <label className="font-bold text-gray-500 block mb-0.5">Fecha Límite</label>
                                 <input type="date" value={formatSafeDate(act.fecha)} onChange={(e) => handleUpdateActivityField(h.id, index, 'fecha', e.target.value)} className="w-full border p-1.5 rounded-lg font-bold" />
                               </div>
-                              <div className="md:col-span-3">
-                                <label className="font-bold text-gray-500 block mb-0.5">Link de la Evidencia / Soporte Digital</label>
-                                <input type="url" value={act.evidenciaUrl} onChange={(e) => handleUpdateActivityField(h.id, index, 'evidenciaUrl', e.target.value)} placeholder="https://drive.google.com/..." className="w-full border p-2 rounded-lg text-xs" />
-                              </div>
+<div className="md:col-span-3 bg-slate-50 border border-slate-200 p-2 rounded-xl">
+                                <label className="font-black text-slate-700 block mb-1 text-[10px] uppercase tracking-widest">☁️ Evidencia / Soporte Digital</label>
+                                
+                                {uploadingCell === `${h.id}-${index}` ? (
+                                  <div className="space-y-1">
+                                    <div className="w-full bg-slate-200 rounded-full h-2">
+                                      <div className="bg-emerald-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                                    </div>
+                                    <p className="text-[9px] font-bold text-slate-500">{uploadProgress}% Subiendo al servidor...</p>
+                                  </div>
+                                ) : act.evidenciaUrl ? (
+                                  <div className="flex items-center justify-between mt-1">
+                                    <a href={act.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-700 font-black hover:underline bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm">
+                                      <span>✅</span><span>Ver Soporte Subido</span>
+                                    </a>
+                                    <label className="cursor-pointer text-[9px] font-bold text-slate-400 hover:text-blue-600 underline">
+                                      Reemplazar
+                                      <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={(e) => handleFileUpload(e, h.id, index)} />
+                                    </label>
+                                  </div>
+                                ) : (
+                                  <label className="cursor-pointer flex items-center justify-center w-full border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 bg-white py-2 rounded-lg transition-colors group shadow-sm">
+                                    <span className="text-lg mr-2 group-hover:scale-110 transition-transform">📂</span>
+                                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-emerald-700">Haz clic para subir PDF o Imagen</span>
+                                    <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={(e) => handleFileUpload(e, h.id, index)} />
+                                  </label>
+                                )}
+                              </div>                              
                             </div>
                             <div className="pt-1">
                               <ProgressBar progress={act.progreso} />
