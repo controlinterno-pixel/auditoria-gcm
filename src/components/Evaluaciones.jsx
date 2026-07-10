@@ -30,6 +30,45 @@ export default function Evaluaciones({
     setRiesgoSeleccionadoId(editEvaluacion?.idRiesgo || '');
   }, [editEvaluacion]);
 
+// ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadProgress(20);
+
+    const formData = new FormData();
+    formData.append('appName', 'controlInterno'); 
+    formData.append('description', 'Evidencia de Test de Control'); 
+    formData.append('file', file); 
+
+    try {
+      setUploadProgress(50);
+      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+      const data = await response.json();
+      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+
+      setArchivoSubidoUrl(urlFinal);
+      setIsUploading(false);
+      setUploadProgress(100);
+      alert("🎉 ¡Soporte de evaluación guardado con éxito en el servidor de Termales!");
+    } catch (err) {
+      console.error(err);
+      alert("Error al conectar con el servidor de archivos.");
+      setIsUploading(false);
+    }
+  };
   return (
     <div className="space-y-6">
       <div className="border-b pb-4">
@@ -99,22 +138,46 @@ export default function Evaluaciones({
               </select>
             </div>
             
-            <div className="md:col-span-4 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 shadow-sm mt-2">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-indigo-100 pb-3">
+{/* ☁️ BÓVEDA SERVIDOR TERMALES: EVIDENCIA DEL TEST DE CONTROL */}
+            <div className="md:col-span-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner mt-2">
+              <div className="border-b pb-2 border-slate-200 flex justify-between items-center mb-4">
                 <div>
-                  <label className="font-black text-indigo-800 uppercase tracking-widest text-[10px]">Paso 1: Busca y copia el enlace</label>
-                  <p className="text-[9px] text-indigo-600 font-medium mt-0.5">Ve a tu nube, busca el archivo, haz clic en "Compartir" y copia el link.</p>
+                  <label className="font-black text-slate-700 uppercase tracking-widest text-[11px]">Evidencia del Test de Control</label>
+                  <p className="text-[9px] text-slate-500 font-medium">Sube el soporte de la prueba (PDF o Imagen). Se guardará en el repositorio oficial.</p>
                 </div>
-                <div className="flex space-x-2 mt-2 md:mt-0">
-                  <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>📁</span><span>Ir a Drive</span></a>
-                  <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>☁️</span><span>Ir a OneDrive</span></a>
-                </div>
+                <div className="text-slate-300 text-3xl">☁️</div>
               </div>
-              <div>
-                <label className="font-black text-indigo-800 uppercase tracking-widest text-[10px] block mb-1.5">Paso 2: Pega el enlace copiado aquí</label>
-                <input type="url" name="evidenciaUrlInput" defaultValue={editEvaluacion?.evidenciaUrl||''} placeholder="Ej: https://drive.google.com/file/d/1a2b3c..." className="w-full border border-indigo-200 bg-white rounded-lg p-2.5 text-xs shadow-inner focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+
+              {/* INPUT OCULTO: Guarda la URL en el formulario */}
+              <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editEvaluacion?.evidenciaUrl || ''} />
+
+              <div className="bg-white border-2 border-dashed border-indigo-300 p-6 rounded-2xl text-center relative hover:border-indigo-500 hover:bg-indigo-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">
+                {isUploading ? (
+                  <div className="space-y-3 w-full">
+                    <div className="text-3xl animate-bounce">🚀</div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
+                      <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                    <p className="text-[9px] font-bold text-slate-500">{uploadProgress}% Subiendo al servidor...</p>
+                  </div>
+                ) : archivoSubidoUrl || editEvaluacion?.evidenciaUrl ? (
+                  <div className="space-y-2">
+                    <div className="text-4xl text-indigo-500">✅</div>
+                    <a href={archivoSubidoUrl || editEvaluacion?.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1 rounded-md">Ver Soporte Subido</a>
+                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-indigo-600 text-[9px] font-bold uppercase tracking-wider transition-colors underline">
+                      Reemplazar Archivo
+                      <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
+                    <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-lg group-hover:bg-indigo-100 group-hover:text-indigo-700 transition-colors">Seleccionar Archivo PDF o Imagen</p>
+                    <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
+                  </label>
+                )}
               </div>
-            </div>
+            </div>            
             <div className="md:col-span-4">
               <label className="font-bold text-gray-600">Comentarios y Observaciones</label>
               <textarea name="comentarios" defaultValue={editEvaluacion?.comentarios||''} required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea>
