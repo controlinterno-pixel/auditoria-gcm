@@ -172,7 +172,7 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" 
                 />
               </div>
-              <div>
+              
                 <label className="font-bold text-gray-600 block mb-1">✍️ Elaborado Por (Auditor)</label>
                 <select name="elaboradoPor" defaultValue={editInformeAuditoria?.elaboradoPor || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium">
                   <option value="">-- Asignar Auditor --</option>
