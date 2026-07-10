@@ -138,14 +138,22 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
           </div>
 
           <form key={editInformeAuditoria?.ref || 'form-nuevo'} onSubmit={handleInformeAuditoriaSubmit} className="space-y-6 text-xs">
-            
+{/* 📊 REJILLA DE CAMPOS PERFECTAMENTE ALINEADA (4 COLUMNAS) */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              
+              {/* 📝 COLUMNA: TÍTULO (OCUPA 2 COLUMNAS) */}
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 block mb-1">Título del Informe Formal</label>
-                <input name="titulo" defaultValue={editInformeAuditoria?.titulo || ''} required placeholder="Ej: Auditoría de Cumplimiento a Cadena de Suministros" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" />
+                <input 
+                  name="titulo" 
+                  defaultValue={editInformeAuditoria?.titulo || ''} 
+                  required 
+                  placeholder="Ej: Auditoría de Cumplimiento a Cadena de Suministros" 
+                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" 
+                />
               </div>
-              <div>
-{/* 📋 COLUMNA: SELECCIÓN DE PROCESO */}
+
+              {/* 📋 COLUMNA: SELECCIÓN DE PROCESO (OCUPA 1 COLUMNA) */}
               <div>
                 <label className="font-bold text-gray-600 block mb-1">📋 Proceso Auditado</label>
                 <select 
@@ -159,9 +167,9 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                     <option key={proc} value={proc}>{proc}</option>
                   ))}
                 </select>
-              </div>
+              </div>               
 
-              {/* 📅 COLUMNA: FECHA DE EMISIÓN */}
+              {/* 📅 COLUMNA: FECHA DE EMISIÓN (OCUPA 1 COLUMNA) */}
               <div>
                 <label className="font-bold text-gray-600 block mb-1">Fecha de Emisión</label>
                 <input 
@@ -172,40 +180,75 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                   className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" 
                 />
               </div>
-              
+
+              {/* ✍️ COLUMNA: ELABORADO POR (OCUPA 1 COLUMNA) */}
+              <div>
                 <label className="font-bold text-gray-600 block mb-1">✍️ Elaborado Por (Auditor)</label>
-                <select name="elaboradoPor" defaultValue={editInformeAuditoria?.elaboradoPor || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium">
+                <select 
+                  name="elaboradoPor" 
+                  defaultValue={editInformeAuditoria?.elaboradoPor || ''} 
+                  required 
+                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium text-slate-800"
+                >
                   <option value="">-- Asignar Auditor --</option>
                   {auditoresLista.map((aud, i) => <option key={`elab-${i}`} value={aud}>{aud}</option>)}
                 </select>
               </div>
+
+              {/* 🔍 COLUMNA: REVISADO POR (OCUPA 1 COLUMNA) */}
               <div>
                 <label className="font-bold text-gray-600 block mb-1">🔍 Revisado Por (Líder)</label>
-                <select name="revisadoPor" defaultValue={editInformeAuditoria?.revisadoPor || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner cursor-pointer">
+                <select 
+                  name="revisadoPor" 
+                  defaultValue={editInformeAuditoria?.revisadoPor || ''} 
+                  required 
+                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-inner cursor-pointer text-slate-800"
+                >
                   <option value="">-- Seleccionar --</option>
                   {auditoresLista.map((a, i) => <option key={`rev-${i}`} value={a}>{a}</option>)}
                 </select>
               </div>
+
+              {/* 🔒 COLUMNA: APROBADO POR (OCUPA 1 COLUMNA) */}
               <div>
                 <label className="font-bold text-gray-600 block mb-1">🔒 Aprobado Por (Gerencia)</label>
-                <select name="aprobadoPor" defaultValue={editInformeAuditoria?.aprobadoPor || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none w-full shadow-inner cursor-pointer">
+                <select 
+                  name="aprobadoPor" 
+                  defaultValue={editInformeAuditoria?.aprobadoPor || ''} 
+                  required 
+                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-inner cursor-pointer text-slate-800"
+                >
                   <option value="">-- Seleccionar --</option>
                   {auditoresLista.map((a, i) => <option key={`apr-${i}`} value={a}>{a}</option>)}
                 </select>
               </div>
+
+              {/* 📢 COLUMNA: ¿FUE SOCIALIZADO? (OCUPA 1 COLUMNA) */}
               <div>
                 <label className="font-bold text-gray-600 block mb-1">📢 ¿Fue Socializado?</label>
-                <select name="socializado" defaultValue={editInformeAuditoria?.socializado || 'No'} className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold">
+                <select 
+                  name="socializado" 
+                  defaultValue={editInformeAuditoria?.socializado || 'No'} 
+                  className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800"
+                >
                   <option value="No">No</option>
                   <option value="Sí">Sí</option>
                 </select>
               </div>
+
+              {/* 👥 COLUMNA: PARTICIPANTES (OCUPA LAS 4 COLUMNAS DE ANCHO COMPLETAS) */}
               <div className="md:col-span-4">
                 <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización</label>
-                <input name="socializadoCon" defaultValue={editInformeAuditoria?.socializadoCon || ''} placeholder="Ej: Comité de Auditoría, Gerencia General..." className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+                <input 
+                  name="socializadoCon" 
+                  defaultValue={editInformeAuditoria?.socializadoCon || ''} 
+                  placeholder="Ej: Comité de Auditoría, Gerencia General..." 
+                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none text-slate-800" 
+                />
               </div>
-            </div>
 
+            </div>            
+           
             {/* 📧 DISTRIBUCIÓN ELECTRÓNICA */}
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
               <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
