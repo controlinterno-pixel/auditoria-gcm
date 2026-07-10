@@ -31,8 +31,7 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
   const [actaProgress, setActaProgress] = useState(0);
   const [isActaUploading, setIsActaUploading] = useState(false);
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
-
- // ⚙️ MOTOR DE SUBIDA CONECTADO A LA API DE TERMALES SANTA ROSA
+// ⚙️ MOTOR DE SUBIDA CONECTADO A LA API DE TERMALES SANTA ROSA (POSTMAN CONFIG)
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -45,9 +44,11 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
       setActaProgress(20);
     }
 
+    // 📦 EMPAQUETAMOS EXACTAMENTE COMO LO PIDE EL POSTMAN DE TI
     const formData = new FormData();
+    formData.append('appName', 'controlInterno'); 
+    formData.append('description', `Documento adjunto desde GCM Auditor - ${type}`); 
     formData.append('file', file); 
-    formData.append('carpeta', 'controlinterno'); // 👈 Aquí enviamos la carpeta exacta
 
     try {
       if (type === 'informe') setUploadProgress(50);
@@ -58,10 +59,12 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
         body: formData,
       });
 
-      if (!response.ok) throw new Error(`Error ${response.status}: Servidor rechazó la petición.`);
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       const data = await response.json();
-      const urlFinal = data.url || `https://repos.termalessantarosa.com.co/api/archivos/controlinterno/${file.name}`;
+      
+      // 🔗 ARMAMOS LA URL CON EL NOMBRE ENCRIPTADO QUE NOS RESPONDE EL SERVIDOR
+      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
 
       if (type === 'informe') {
         setArchivoSubidoUrl(urlFinal);
@@ -72,11 +75,11 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
         setIsActaUploading(false);
         setActaProgress(100);
       }
-      alert("🎉 ¡Archivo guardado con éxito en la carpeta controlinterno!");
+      alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
 
     } catch (err) {
       console.error(err);
-      alert("Error al conectar. Verifica si la API espera la variable 'carpeta' o 'ruta'.");
+      alert("Error en la conexión con el servidor. Revisa la consola para más detalles.");
       if (type === 'informe') setIsUploading(false);
       else setIsActaUploading(false);
     }
