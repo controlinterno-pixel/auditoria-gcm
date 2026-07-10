@@ -268,16 +268,32 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                   const form = e.target.closest('form');
                   if (!form) return;
 
-                  // 🚨 CORRECCIÓN CRÍTICA: Asignamos los estados de las URLs cargadas a los campos del formulario
+                  // 🚨 1. INYECCIÓN DE SEGURIDAD: Pasa las URLs de los archivos cargados
                   const inputEvidencia = form.querySelector('input[name="evidenciaUrlInput"]');
                   const inputActa = form.querySelector('input[name="actaSocializacionUrlInput"]');
                   
                   if (inputEvidencia && archivoSubidoUrl) inputEvidencia.value = archivoSubidoUrl;
                   if (inputActa && actaSubidaUrl) inputActa.value = actaSubidaUrl;
 
-                  // 🧼 Limpieza segura en segundo plano solo si no hay un envío colgado
+                  // 🧼 2. RESETEO TOTAL DE LA INTERFAZ TRAS EL GUARDADO
+                  // Esperamos 3 segundos para asegurar que Firebase y Gmail hayan respondido
                   setTimeout(() => {
+                    // Limpia los archivos del estado local
                     handleResetForm();
+                    
+                    // Borra físicamente todos los textos e inputs escritos en el formulario
+                    form.reset();
+                    
+                    // 🪄 TRUCO DE MAGIA: Forzamos una recarga limpia interna sin reiniciar el navegador
+                    // Esto quitará el letrero "PROCESANDO..." al obligar a la interfaz a re-renderizarse limpia
+                    if(typeof setFormResetKey === 'function') {
+                      setFormResetKey(Date.now());
+                    } else {
+                      // Si todo falla, una pequeña ayuda visual para desbloquear el botón
+                      e.target.disabled = false;
+                    }
+                    
+                    alert("✨ Formulario desbloqueado y limpio. ¡Listo para el siguiente informe!");
                   }, 3000);
                 }}
                 className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] text-white cursor-pointer'}`}
