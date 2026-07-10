@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function InformesAuditoria({ 
   informesAuditoria, 
@@ -20,10 +20,68 @@ export default function InformesAuditoria({
   auditoresLista = [], 
   onActualizarAuditores 
 }) {
-  const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
+
+const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
+
+  // ☁️ ESTADOS DE CARGA PARA API TERMALES
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
+
+  const [actaProgress, setActaProgress] = useState(0);
+  const [isActaUploading, setIsActaUploading] = useState(false);
+  const [actaSubidaUrl, setActaSubidaUrl] = useState('');
+
+  // ⚙️ MOTOR DE SUBIDA CONECTADO A LA API DE TERMALES SANTA ROSA
+  const handleFileUpload = async (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (type === 'informe') { setIsUploading(true); setUploadProgress(20); } 
+    else { setIsActaUploading(true); setActaProgress(20); }
+
+    const formData = new FormData();
+    formData.append('file', file); 
+
+    try {
+      if (type === 'informe') setUploadProgress(50);
+      else setActaProgress(50);
+
+      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Error en el servidor.');
+
+      const data = await response.json();
+      const urlFinal = data.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/${file.name}`;
+
+      if (type === 'informe') {
+        setArchivoSubidoUrl(urlFinal);
+        setIsUploading(false);
+        setUploadProgress(100);
+      } else {
+        setActaSubidaUrl(urlFinal);
+        setIsActaUploading(false);
+        setActaProgress(100);
+      }
+      alert("🎉 ¡Archivo guardado en el servidor de Termales!");
+
+    } catch (err) {
+      console.error(err);
+      alert("Error al conectar con repos.termalessantarosa.com.co");
+      if (type === 'informe') setIsUploading(false);
+      else setIsActaUploading(false);
+    }
+  };
 
   const handleResetForm = () => {
     setEditInformeAuditoria(null);
+    setArchivoSubidoUrl('');
+    setActaSubidaUrl('');
+    setUploadProgress(0);
+    setActaProgress(0);
     setFormResetKey(Date.now());
   };
 
@@ -118,24 +176,78 @@ export default function InformesAuditoria({
               <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
             </div>
 
-            {/* 🔗 ENLACES DE EVIDENCIA (GOOGLE DRIVE / ONEDRIVE) */}
+         {/* ☁️ BÓVEDA SERVIDOR TERMALES: GESTOR DE EVIDENCIAS */}
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 border-b pb-2 border-slate-200 flex justify-between items-center">
                 <div>
-                  <label className="font-black text-slate-700 uppercase tracking-widest text-[11px]">Enlaces de Evidencia Externa</label>
-                  <p className="text-[9px] text-slate-500 font-medium">Pegue los enlaces web (Google Drive, OneDrive, SharePoint) correspondientes a los documentos.</p>
+                  <label className="font-black text-slate-700 uppercase tracking-widest text-[11px]">Repositorio Oficial Termales Santa Rosa</label>
+                  <p className="text-[9px] text-slate-500 font-medium">Sube tus PDFs. El sistema los enviará directo a repos.termalessantarosa.com.co.</p>
                 </div>
-                <div className="text-slate-300 text-3xl">🔗</div>
+                <div className="text-slate-300 text-3xl">☁️</div>
               </div>
 
-              <div>
-                <label className="font-black text-emerald-600 block mb-1">📄 Enlace del Informe Principal (PDF)</label>
-                <input name="evidenciaUrlInput" type="url" defaultValue={editInformeAuditoria?.evidenciaUrl || ''} placeholder="https://drive.google.com/..." className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
+              {/* INPUTS OCULTOS: Guardan las URLs de tu API en el form */}
+              <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || ''} />
+              <input type="hidden" name="actaSocializacionUrlInput" value={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || ''} />
+
+              {/* CAJA 1: INFORME PDF */}
+              <div className="bg-white border-2 border-dashed border-emerald-300 p-6 rounded-2xl text-center relative hover:border-emerald-500 hover:bg-emerald-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">
+                <span className="absolute top-2 left-3 text-[9px] font-black uppercase text-emerald-600 tracking-widest">📄 Documento Principal (Informe)</span>
+                
+                {isUploading ? (
+                  <div className="space-y-3 w-full">
+                    <div className="text-3xl animate-bounce">🚀</div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
+                      <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                    <p className="text-[9px] font-bold text-slate-500">{uploadProgress}% Subiendo al servidor...</p>
+                  </div>
+                ) : archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl ? (
+                  <div className="space-y-2">
+                    <div className="text-4xl text-emerald-500">✅</div>
+                    <a href={archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1 rounded-md">Ver Archivo Subido</a>
+                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-emerald-600 text-[9px] font-bold uppercase tracking-wider transition-colors underline">
+                      Reemplazar Archivo
+                      <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
+                    <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-lg group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">Seleccionar Archivo PDF</p>
+                    <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
+                  </label>
+                )}
               </div>
 
-              <div>
-                <label className="font-black text-purple-600 block mb-1">🤝 Enlace del Acta de Socialización</label>
-                <input name="actaSocializacionUrlInput" type="url" defaultValue={editInformeAuditoria?.actaSocializacionUrl || ''} placeholder="https://drive.google.com/..." className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+              {/* CAJA 2: ACTA DE SOCIALIZACIÓN */}
+              <div className="bg-white border-2 border-dashed border-purple-300 p-6 rounded-2xl text-center relative hover:border-purple-500 hover:bg-purple-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">
+                 <span className="absolute top-2 left-3 text-[9px] font-black uppercase text-purple-600 tracking-widest">🤝 Acta de Reunión / Firmas</span>
+                
+                {isActaUploading ? (
+                  <div className="space-y-3 w-full">
+                    <div className="text-3xl animate-bounce">🚀</div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
+                      <div className="bg-purple-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${actaProgress}%` }}></div>
+                    </div>
+                    <p className="text-[9px] font-bold text-slate-500">{actaProgress}% Subiendo al servidor...</p>
+                  </div>
+                ) : actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl ? (
+                  <div className="space-y-2">
+                    <div className="text-4xl text-purple-500">✅</div>
+                    <a href={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1 rounded-md">Ver Acta Subida</a>
+                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-purple-600 text-[9px] font-bold uppercase tracking-wider transition-colors underline">
+                      Reemplazar Archivo
+                      <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
+                    </label>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
+                    <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📷</div>
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Seleccionar Imagen o PDF</p>
+                    <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
+                  </label>
+                )}
               </div>
             </div>
 
