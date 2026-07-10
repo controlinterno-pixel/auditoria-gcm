@@ -259,6 +259,7 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                 )}
               </div>
             </div>
+
 <div className="md:col-span-4 flex justify-end">
               <button 
                 type="submit" 
@@ -267,18 +268,17 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                   const form = e.target.closest('form');
                   if (!form) return;
 
-                  // 🚨 1. INYECCIÓN DE SEGURIDAD: Captura las URLs correctas de la API
+                  // 🚨 CORRECCIÓN CRÍTICA: Asignamos los estados de las URLs cargadas a los campos del formulario
                   const inputEvidencia = form.querySelector('input[name="evidenciaUrlInput"]');
                   const inputActa = form.querySelector('input[name="actaSocializacionUrlInput"]');
                   
                   if (inputEvidencia && archivoSubidoUrl) inputEvidencia.value = archivoSubidoUrl;
-                  if (inputActa && actaSubidaUrl) inputActa.value = actaSocializacionUrlInput;
+                  if (inputActa && actaSubidaUrl) inputActa.value = actaSubidaUrl;
 
-                  // 🧼 2. LIMPIEZA AUTOMÁTICA EN SEGUNDO PLANO
-                  // Le damos 2 segundos para que la función original de App.jsx termine de guardar en Firebase y enviar el correo.
+                  // 🧼 Limpieza segura en segundo plano solo si no hay un envío colgado
                   setTimeout(() => {
-                    handleResetForm(); // Borra los textos, quita los chulitos verdes y resetea las barras de progreso
-                  }, 2500);
+                    handleResetForm();
+                  }, 3000);
                 }}
                 className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] text-white cursor-pointer'}`}
               >
