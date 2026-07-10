@@ -259,28 +259,32 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                 )}
               </div>
             </div>
-
 <div className="md:col-span-4 flex justify-end">
               <button 
                 type="submit" 
                 disabled={isSubmitting} 
                 onClick={(e) => {
-                  // Capturamos el formulario más cercano
                   const form = e.target.closest('form');
                   if (!form) return;
 
-                  // 🚨 INYECCIÓN DE SEGURIDAD: Forzamos los inputs ocultos con las URLs reales antes de enviar a Firebase
+                  // 🚨 1. INYECCIÓN DE SEGURIDAD: Captura las URLs correctas de la API
                   const inputEvidencia = form.querySelector('input[name="evidenciaUrlInput"]');
                   const inputActa = form.querySelector('input[name="actaSocializacionUrlInput"]');
                   
                   if (inputEvidencia && archivoSubidoUrl) inputEvidencia.value = archivoSubidoUrl;
-                  if (inputActa && actaSubidaUrl) inputActa.value = actaSubidaUrl;
+                  if (inputActa && actaSubidaUrl) inputActa.value = actaSocializacionUrlInput;
+
+                  // 🧼 2. LIMPIEZA AUTOMÁTICA EN SEGUNDO PLANO
+                  // Le damos 2 segundos para que la función original de App.jsx termine de guardar en Firebase y enviar el correo.
+                  setTimeout(() => {
+                    handleResetForm(); // Borra los textos, quita los chulitos verdes y resetea las barras de progreso
+                  }, 2500);
                 }}
                 className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] text-white cursor-pointer'}`}
               >
                 {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR, ARCHIVAR Y ENVIAR DICTAMEN')}
               </button>
-            </div>            
+            </div>
           </form>
 
           {/* 🟢 PANEL DE CONTROL DE BAJAS Y ALTAS DEL PERSONAL DE AUDITORÍA */}
