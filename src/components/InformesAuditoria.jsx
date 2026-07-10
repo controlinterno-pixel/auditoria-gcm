@@ -145,23 +145,32 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                 <input name="titulo" defaultValue={editInformeAuditoria?.titulo || ''} required placeholder="Ej: Auditoría de Cumplimiento a Cadena de Suministros" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" />
               </div>
               <div>
-<div>
-  <label className="font-bold text-gray-600 block mb-1">📋 Proceso Auditado</label>
-  <select 
-    name="proceso" 
-    defaultValue={editInformeAuditoria?.proceso || ''} 
-    required 
-    className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm"
-  >
-    <option value="">-- Seleccionar Proceso --</option>
-    {PROCESOS_OFICIALES.map((proc) => (
-      <option key={proc} value={proc}>{proc}</option>
-    ))}
-  </select>
-</div>               
+{/* 📋 COLUMNA: SELECCIÓN DE PROCESO */}
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">📋 Proceso Auditado</label>
+                <select 
+                  name="proceso" 
+                  defaultValue={editInformeAuditoria?.proceso || ''} 
+                  required 
+                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm"
+                >
+                  <option value="">-- Seleccionar Proceso --</option>
+                  {PROCESOS_OFICIALES.map((proc) => (
+                    <option key={proc} value={proc}>{proc}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 📅 COLUMNA: FECHA DE EMISIÓN */}
               <div>
                 <label className="font-bold text-gray-600 block mb-1">Fecha de Emisión</label>
-                <input name="fecha" type="date" defaultValue={editInformeAuditoria?.fecha || ''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none" />
+                <input 
+                  name="fecha" 
+                  type="date" 
+                  defaultValue={editInformeAuditoria?.fecha || ''} 
+                  required 
+                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" 
+                />
               </div>
               <div>
                 <label className="font-bold text-gray-600 block mb-1">✍️ Elaborado Por (Auditor)</label>
