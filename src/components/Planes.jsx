@@ -151,7 +151,7 @@ ejecutarDespachoGmailApi,
             id: 'new-' + Math.random(), 
             accion: '', 
             responsable: '', 
-            auditorAsignado: '',
+            auditorAsignado: h.auditor || '',
             fechaInicio: '', 
             fecha: '', 
             progreso: 0, 
@@ -180,14 +180,17 @@ ejecutarDespachoGmailApi,
     }));
   };
 
-  const handleAddActivity = (hallazgoId) => {
+ const handleAddActivity = (hallazgoId) => {
+    // 🔍 Buscamos el hallazgo base en la memoria para heredar el auditor
+    const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(hallazgoId));
+    
     setMatrixState(prev => ({
       ...prev,
       [hallazgoId]: {
         ...prev[hallazgoId],
         actividades: [
           ...prev[hallazgoId].actividades,
-          { id: 'new-' + Math.random(), accion: '', responsable: '', auditorAsignado: '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }
+          { id: 'new-' + Math.random(), accion: '', responsable: '', auditorAsignado: hallazgoBase?.auditor || '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }
         ]
       }
     }));
@@ -837,15 +840,20 @@ for (const act of notificacionesPendientes) {
                                 <label className="font-bold text-gray-500 block mb-0.5">Responsable Ejecución</label>
                                 <input type="text" value={act.responsable} onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} placeholder="Cargo o nombre..." className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
                               </div>
+
+                              {/* 🔒 COLUMNA: AUDITOR ASIGNADO (HEREDADO AUTOMÁTICAMENTE) */}
                               <div className="md:col-span-2">
-                                <label className="font-bold text-blue-600 block mb-0.5">Auditor de Enlace Asignado</label>
-                                <select value={act.auditorAsignado} onChange={(e) => handleUpdateActivityField(h.id, index, 'auditorAsignado', e.target.value)} className="w-full border border-blue-200 p-2 rounded-lg font-black text-slate-700 bg-blue-50 focus:bg-white">
-                                  <option value="">-- Asignar Auditor --</option>
-                                  <option value="Rodolfo González">Rodolfo González</option>
-                                  <option value="Yehison Pineda">Yehison Pineda</option>
-                                  <option value="Angelica Hernandez">Angelica Hernandez</option>
-                                  <option value="Luz Angela Chico">Luz Angela Chico</option>
-                                </select>
+                                <label className="font-bold text-blue-600 block mb-0.5 flex justify-between">
+                                  <span>Auditor de Enlace</span>
+                                  <span className="text-[9px] text-slate-400 uppercase tracking-widest">🔒 Autocompletado</span>
+                                </label>
+                                <input 
+                                  type="text" 
+                                  value={act.auditorAsignado || 'Sin auditor en el hallazgo'} 
+                                  disabled 
+                                  className="w-full border border-slate-200 p-2 rounded-lg font-black text-slate-500 bg-slate-100 cursor-not-allowed shadow-inner" 
+                                  title="Este dato se hereda automáticamente del registro de hallazgos y no puede ser modificado aquí."
+                                />
                               </div>
 
                               {/* FILA 2: NUEVOS CORREOS */}
