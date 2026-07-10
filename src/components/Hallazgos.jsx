@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 // 📚 LISTAS MAESTRAS EXTRAÍDAS DE LOS MANUALES OFICIALES DE TERMALES
 const AUDITORES_OFICIALES = [
@@ -74,7 +74,45 @@ export default function Hallazgos({
     const maxConsecutivo = consecutivos.length > 0 ? Math.max(...consecutivos) : 0;
     nextIdVal = `HAL-${anioActual}-${String(maxConsecutivo + 1).padStart(3, '0')}`;
   }
+// ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadProgress(20);
+
+    const formData = new FormData();
+    formData.append('appName', 'controlInterno'); 
+    formData.append('description', 'Evidencia de Hallazgo'); 
+    formData.append('file', file); 
+
+    try {
+      setUploadProgress(50);
+      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+      const data = await response.json();
+      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+
+      setArchivoSubidoUrl(urlFinal);
+      setIsUploading(false);
+      setUploadProgress(100);
+      alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
+    } catch (err) {
+      console.error(err);
+      alert("Error al conectar con el servidor de archivos.");
+      setIsUploading(false);
+    }
+  };
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4 flex justify-between items-end">
@@ -191,29 +229,45 @@ export default function Hallazgos({
             />
           </div>            
           
-          {/* 📂 GESTOR DE EVIDENCIAS */}
-          <div className="md:col-span-4 bg-rose-50/50 p-4 rounded-xl border border-rose-100 shadow-sm mt-2">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-rose-100 pb-3">
+          {/* ☁️ BÓVEDA SERVIDOR TERMALES: EVIDENCIA DEL HALLAZGO */}
+          <div className="md:col-span-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner mt-2">
+            <div className="border-b pb-2 border-slate-200 flex justify-between items-center mb-4">
               <div>
-                <label className="font-black text-rose-800 uppercase tracking-widest text-[10px]">Paso 1: Busca y copia el enlace de soporte</label>
-                <p className="text-[9px] text-rose-600 font-medium mt-0.5">Ve a tu nube, busca el archivo del informe o foto, haz clic en "Compartir" y copia el link.</p>
+                <label className="font-black text-slate-700 uppercase tracking-widest text-[11px]">Evidencia del Hallazgo</label>
+                <p className="text-[9px] text-slate-500 font-medium">Sube el soporte (PDF o Imagen). Se guardará en el repositorio oficial.</p>
               </div>
-              <div className="flex space-x-2 mt-2 md:mt-0">
-                <a href="https://drive.google.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>📁</span><span>Ir a Drive</span></a>
-                <a href="https://onedrive.live.com" target="_blank" rel="noreferrer" className="text-[10px] bg-white border border-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-slate-50 transition-all flex items-center space-x-1"><span>☁️</span><span>Ir a OneDrive</span></a>
-              </div>
+              <div className="text-slate-300 text-3xl">☁️</div>
             </div>
-            <div>
-              <label className="font-black text-rose-800 uppercase tracking-widest text-[10px] block mb-1.5">Paso 2: Pega el enlace de la evidencia aquí</label>
-              <input type="url" name="evidenciaUrlInput" defaultValue={editHallazgo?.evidenciaUrl||''} placeholder="Ej: https://drive.google.com/file/d/1a2b3c..." className="w-full border border-rose-200 bg-white rounded-lg p-2.5 text-xs shadow-inner focus:ring-2 focus:ring-rose-500 outline-none transition-all" />
+
+            {/* INPUT OCULTO: Guarda la URL en el formulario */}
+            <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editHallazgo?.evidenciaUrl || ''} />
+
+            <div className="bg-white border-2 border-dashed border-rose-300 p-6 rounded-2xl text-center relative hover:border-rose-500 hover:bg-rose-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">
+              {isUploading ? (
+                <div className="space-y-3 w-full">
+                  <div className="text-3xl animate-bounce">🚀</div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
+                    <div className="bg-rose-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-500">{uploadProgress}% Subiendo al servidor...</p>
+                </div>
+              ) : archivoSubidoUrl || editHallazgo?.evidenciaUrl ? (
+                <div className="space-y-2">
+                  <div className="text-4xl text-rose-500">✅</div>
+                  <a href={archivoSubidoUrl || editHallazgo?.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1 rounded-md">Ver Soporte Subido</a>
+                  <label className="block mt-3 cursor-pointer text-slate-400 hover:text-rose-600 text-[9px] font-bold uppercase tracking-wider transition-colors underline">
+                    Reemplazar Archivo
+                    <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
+                  </label>
+                </div>
+              ) : (
+                <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
+                  <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
+                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-lg group-hover:bg-rose-100 group-hover:text-rose-700 transition-colors">Seleccionar Archivo PDF o Imagen</p>
+                  <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
+                </label>
+              )}
             </div>
-            {editHallazgo?.evidenciaUrl && (
-              <div className="mt-3 flex space-x-2 border-t border-rose-100 pt-2">
-                <a href={editHallazgo.evidenciaUrl} target="_blank" rel="noreferrer" className="inline-flex items-center px-3 py-1.5 bg-rose-100 text-rose-800 rounded-lg text-[10px] font-bold hover:bg-rose-200 shadow-sm transition-colors">
-                  👁️ Abrir Enlace Actual
-                </a>
-              </div>
-            )}
           </div>
           
           {/* 🔘 BOTÓN */}
