@@ -516,14 +516,46 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                         <div><span className="text-slate-400 font-bold">🔒 APROBÓ:</span> <span className="font-black text-slate-800">{inf.aprobadoPor}</span></div>
                       </div>
                     </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest border inline-block mb-1.5 ${
-                        inf.socializado === 'Sí' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}>
-                        📢 Socializado: {inf.socializado || 'No'}
-                      </span>
-                      {inf.socializadoCon && (
-                        <div className="text-[10px] text-slate-500 font-semibold leading-relaxed">Con: {inf.socializadoCon}</div>
+                    <td className="p-4 relative group cursor-help">
+                      <div className="flex flex-col items-start space-y-1.5">
+                        <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest border inline-block ${
+                          inf.socializado === 'Sí' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                          📢 Socializado: {inf.socializado || 'No'}
+                        </span>
+                        
+                        {inf.socializadoCon && (
+                          <div className="text-[10px] text-slate-500 font-semibold leading-relaxed">Con: {inf.socializadoCon}</div>
+                        )}
+
+                        {/* 📧 NUEVO INDICADOR DE TRAZABILIDAD (AUDIT TRAIL) */}
+                        {inf.correoEnviadoA && (
+                          <div className="mt-2 flex items-center space-x-1.5 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                            <span className="text-sm">📧</span>
+                            <span className="text-[9px] font-black uppercase text-slate-600 tracking-wider">Notificado al Líder</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 👁️ TOOLTIP FLOTANTE (SE MUESTRA AL HACER HOVER) */}
+                      {inf.correoEnviadoA && (
+                        <div className="absolute top-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-blue-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+                          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-blue-500/40 rotate-45"></div>
+                          <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5 flex items-center">
+                            <span className="mr-1">🔗</span> Audit Trail de Correo
+                          </h4>
+                          <div className="space-y-2 text-[9px] leading-relaxed text-slate-300 font-medium">
+                            <p className="flex flex-col">
+                              <b className="text-slate-400 uppercase tracking-wider text-[8px] mb-0.5">Destinatario(s):</b> 
+                              <span className="text-white font-mono break-all bg-slate-800/50 p-1 rounded border border-slate-700/50">{inf.correoEnviadoA}</span>
+                            </p>
+                            <p className="flex flex-col">
+                              <b className="text-slate-400 uppercase tracking-wider text-[8px] mb-0.5">Fecha y Hora de Despacho:</b> 
+                              <span className="text-emerald-400 font-black">{inf.fechaCorreoEnviado}</span>
+                            </p>
+                            <p className="text-[8px] text-slate-500 italic mt-2 border-t border-slate-700/50 pt-2">El sistema de GRC certifica que este informe fue despachado vía Gmail API.</p>
+                          </div>
+                        </div>
                       )}
                     </td>
                     <td className="p-4 text-center space-y-1.5 align-middle">

@@ -1282,6 +1282,11 @@ const handleInformeAuditoriaSubmit = async (e) => {
       let updated;
       let refConsecutivoFinal = '';
 
+      // 📝 NUEVAS VARIABLES DE TRAZABILIDAD DE CORREO
+      const tsActual = new Date().toLocaleString();
+      const correoRegistrado = correosNotificacionOut !== '' ? correosNotificacionOut : (editInformeAuditoria?.correoEnviadoA || '');
+      const fechaCorreoRegistrada = correosNotificacionOut !== '' ? tsActual : (editInformeAuditoria?.fechaCorreoEnviado || '');
+
       if (editInformeAuditoria) {
         refConsecutivoFinal = editInformeAuditoria.ref;
         const mod = { 
@@ -1290,7 +1295,8 @@ const handleInformeAuditoriaSubmit = async (e) => {
           socializado: socializadoVal, socializadoCon: socializadoConVal,
           evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut,
           objetivo: objetivoVal, alcance: alcanceVal, conclusion: conclusionVal, fortalezas: fortalezasVal,
-          img1Url, img1Desc, img2Url, img2Desc, img3Url, img3Desc, img4Url, img4Desc
+          img1Url, img1Desc, img2Url, img2Desc, img3Url, img3Desc, img4Url, img4Desc,
+          correoEnviadoA: correoRegistrado, fechaCorreoEnviado: fechaCorreoRegistrada // 👈 NUEVO RASTRO
         };
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf);
         setEditInformeAuditoria(null);
@@ -1305,11 +1311,11 @@ const handleInformeAuditoriaSubmit = async (e) => {
           aprobadoPor: aprobadoPorVal, socializado: socializadoVal, socializadoCon: socializadoConVal,
           evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut,
           objetivo: objetivoVal, alcance: alcanceVal, conclusion: conclusionVal, fortalezas: fortalezasVal,
-          img1Url, img1Desc, img2Url, img2Desc, img3Url, img3Desc, img4Url, img4Desc
+          img1Url, img1Desc, img2Url, img2Desc, img3Url, img3Desc, img4Url, img4Desc,
+          correoEnviadoA: correoRegistrado, fechaCorreoEnviado: fechaCorreoRegistrada // 👈 NUEVO RASTRO
         };
         updated = [nuevo, ...safeInformes];
       }
-
       // 🟢 DISPARADOR GMAIL API INTEGRADO (INFORME EMITIDO)
       if (correosNotificacionOut !== '') {
         await ejecutarDespachoGmailApi({
