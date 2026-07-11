@@ -97,9 +97,12 @@ export default function Planes({
     return true;
   });
 
-  const totalPlanes = planesDashboard.length;
+const totalPlanes = planesDashboard.length;
   const cerrados = planesDashboard.filter(p => p.progreso === 100).length;
-  const enProceso = planesDashboard.filter(p => p.progreso < 100 && !p.esVencido).length;
+  // 🟢 Ajustamos "En Proceso" para que cuente solo mayores a 0%
+  const enProceso = planesDashboard.filter(p => p.progreso > 0 && p.progreso < 100 && !p.esVencido).length;
+  // 🟢 Agregamos "Pendientes" para los que están en 0% (Fiel al balance matemático del diseño)
+  const pendientes = planesDashboard.filter(p => (p.progreso === 0 || !p.progreso) && !p.esVencido).length;
   const vencidos = planesDashboard.filter(p => p.esVencido).length;
   const cumplimientoGlobal = totalPlanes > 0 ? Math.round((cerrados / totalPlanes) * 100) : 0;
 
