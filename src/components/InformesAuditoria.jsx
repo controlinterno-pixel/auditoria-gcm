@@ -33,13 +33,20 @@ export default function InformesAuditoria({
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
-  const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
+  const [grupoExpandido, setGrupoExpandido] = useState(null);
+
+  // 🎛️ ESTADOS DEL PANEL LATERAL (NUEVO)
+  const [agruparPor, setAgruparPor] = useState('Año'); 
+  const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
+  const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
+  const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
+  const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
 
   // ⏳ ESTADOS LOCALES PARA FILTROS DE FECHA (Historial)
   const [filtroAnio, setFiltroAnio] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
 
-  // 🧠 LÓGICA DE FILTRADO POR FECHA (Tabla Historial)
+  // 🧠 LÓGICA DE FILTRADO (Historial Completo)
   const informesFiltradosPorFecha = safeInformes.filter(inf => {
     if (!filtroAnio && !filtroMes) return true;
     if (!inf.fecha) return false;
@@ -49,6 +56,56 @@ export default function InformesAuditoria({
     return true;
   });
 
+  // =========================================================
+  // 🧠 NUEVA LÓGICA DASHBOARD: FILTROS + AGRUPACIÓN DINÁMICA
+  // =========================================================
+  
+  // 1. Filtrar los datos del Dashboard según el menú lateral
+  const informesDashboard = safeInformes.filter(inf => {
+    if (dashFiltroAnio !== 'Todos' && inf.fecha?.split('-')[0] !== dashFiltroAnio) return false;
+    if (dashFiltroProceso !== 'Todos' && inf.proceso !== dashFiltroProceso) return false;
+    if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
+    if (dashFiltroResponsable !== 'Todos' && inf.elaboradoPor !== dashFiltroResponsable) return false;
+    return true;
+  });
+
+  // 2. Calcular KPIs basados en lo que está filtrado
+  const totalInformes = informesDashboard.length;
+  const socializados = informesDashboard.filter(i => i.socializado === 'Sí').length;
+  const pctSocializados = totalInformes > 0 ? Math.round((socializados / totalInformes) * 100) : 0;
+  const pendientes = totalInformes - socializados;
+  const pctPendientes = totalInformes > 0 ? Math.round((pendientes / totalInformes) * 100) : 0;
+  const procesosAuditados = new Set(informesDashboard.map(i => i.proceso)).size;
+  const sortedInformes = [...informesDashboard].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  const ultimoInforme = sortedInformes.length > 0 ? sortedInformes[0] : null;
+
+  // 3. Agrupador Dinámico según el botón "ORGANIZAR POR"
+  const informesAgrupados = informesDashboard.reduce((acc, inf) => {
+    let key = 'Sin clasificar';
+    if (agruparPor === 'Año') key = inf.fecha ? inf.fecha.split('-')[0] : 'Sin Fecha';
+    if (agruparPor === 'Proceso') key = inf.proceso || 'Sin Proceso';
+    if (agruparPor === 'Estado') key = inf.socializado === 'Sí' ? 'Socializados' : 'Pendientes';
+    if (agruparPor === 'Responsable') key = inf.elaboradoPor || 'Sin Asignar';
+
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(inf);
+    return acc;
+  }, {});
+
+  const gruposOrdenados = Object.keys(informesAgrupados).sort((a, b) => b.localeCompare(a));
+
+  // 4. Lógica para el Top 5 de Procesos
+  const conteoProcesos = informesDashboard.reduce((acc, inf) => {
+    acc[inf.proceso] = (acc[inf.proceso] || 0) + 1;
+    return acc;
+  }, {});
+  const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const limpiarFiltrosDashboard = () => {
+    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); 
+    setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
+  };
+
   // ☁️ ESTADOS DE CARGA PARA API TERMALES
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -57,36 +114,6 @@ export default function InformesAuditoria({
   const [isActaUploading, setIsActaUploading] = useState(false);
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
 
-  // =========================================================
-  // 📊 CÁLCULO DE KPIs PARA EL DASHBOARD Y ACORDEONES
-  // =========================================================
-  const totalInformes = safeInformes.length;
-  const socializados = safeInformes.filter(i => i.socializado === 'Sí').length;
-  const pctSocializados = totalInformes > 0 ? Math.round((socializados / totalInformes) * 100) : 0;
-  const pendientes = totalInformes - socializados;
-  const pctPendientes = totalInformes > 0 ? Math.round((pendientes / totalInformes) * 100) : 0;
-  const procesosAuditados = new Set(safeInformes.map(i => i.proceso)).size;
-  const sortedInformes = [...safeInformes].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  const ultimoInforme = sortedInformes.length > 0 ? sortedInformes[0] : null;
-
-  // 🗂️ Lógica de Agrupación por Año (Para los Acordeones)
-  const informesAgrupados = safeInformes.reduce((acc, inf) => {
-    const anio = inf.fecha ? inf.fecha.split('-')[0] : 'Sin Fecha';
-    if (!acc[anio]) acc[anio] = [];
-    acc[anio].push(inf);
-    return acc;
-  }, {});
-  const aniosOrdenados = Object.keys(informesAgrupados).sort((a, b) => b.localeCompare(a));
-
-  // 🏆 Lógica para el Top 5 de Procesos
-  const conteoProcesos = safeInformes.reduce((acc, inf) => {
-    acc[inf.proceso] = (acc[inf.proceso] || 0) + 1;
-    return acc;
-  }, {});
-  const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-
-  // ⚙️ MOTOR DE SUBIDA CONECTADO A LA API DE TERMALES
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -101,89 +128,58 @@ export default function InformesAuditoria({
 
     try {
       if (type === 'informe') setUploadProgress(50); else setActaProgress(50);
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', { method: 'POST', body: formData });
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
       const data = await response.json();
       const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
 
-      if (type === 'informe') {
-        setArchivoSubidoUrl(urlFinal); setIsUploading(false); setUploadProgress(100);
-      } else {
-        setActaSubidaUrl(urlFinal); setIsActaUploading(false); setActaProgress(100);
-      }
+      if (type === 'informe') { setArchivoSubidoUrl(urlFinal); setIsUploading(false); setUploadProgress(100); } 
+      else { setActaSubidaUrl(urlFinal); setIsActaUploading(false); setActaProgress(100); }
       alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
-      console.error(err);
-      alert("Error en la conexión con el servidor. Revisa la consola.");
+      console.error(err); alert("Error en la conexión con el servidor. Revisa la consola.");
       if (type === 'informe') setIsUploading(false); else setIsActaUploading(false);
     }
   };
 
   const handleResetForm = () => {
-    setEditInformeAuditoria(null);
-    setArchivoSubidoUrl('');
-    setActaSubidaUrl('');
-    setUploadProgress(0);
-    setActaProgress(0);
-    setFormResetKey(Date.now());
+    setEditInformeAuditoria(null); setArchivoSubidoUrl(''); setActaSubidaUrl('');
+    setUploadProgress(0); setActaProgress(0); setFormResetKey(Date.now());
     setVistaActiva('dashboard');
   };
+
+  // Extraer años y responsables únicos para los selects
+  const aniosDisponibles = [...new Set(safeInformes.map(i => i.fecha?.split('-')[0]).filter(Boolean))].sort().reverse();
+  const responsablesDisponibles = [...new Set(safeInformes.map(i => i.elaboradoPor).filter(Boolean))].sort();
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
-      {/* 📋 CABECERA PRINCIPAL RE-DISEÑADA (ESTILO ERP) */}
+      {/* 📋 CABECERA PRINCIPAL */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>
           <h2 className="text-2xl font-black text-slate-800">Informes Emitidos</h2>
           <p className="text-xs text-slate-500 font-bold mt-1">Centro de gestión y consulta de informes de auditoría</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          
-          <button 
-            onClick={() => setVistaActiva('dashboard')} 
-            className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-          >
-            📊 Resumen Visual
-          </button>
-          
-          <button 
-            onClick={() => setVistaActiva('historial')} 
-            className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-          >
-            📜 Historial Completo
-          </button>
-          
+          <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Resumen Visual</button>
+          <button onClick={() => setVistaActiva('historial')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📜 Historial Completo</button>
           {isAdmin && (
-            <button 
-              onClick={() => { setEditInformeAuditoria(null); setVistaActiva('nuevo'); }} 
-              className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md ${vistaActiva === 'nuevo' ? 'bg-[#0A3B32] text-white ring-4 ring-emerald-500/20' : 'bg-[#0A3B32] text-white hover:bg-[#062620]'}`}
-            >
+            <button onClick={() => { setEditInformeAuditoria(null); setVistaActiva('nuevo'); }} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md ${vistaActiva === 'nuevo' ? 'bg-[#0A3B32] text-white ring-4 ring-emerald-500/20' : 'bg-[#0A3B32] text-white hover:bg-[#062620]'}`}>
               <span className="mr-2">➕</span> Nuevo Informe
             </button>
           )}
-
           {vistaActiva === 'historial' && (
-             <button 
-               type="button"
-               onClick={() => exportToExcel(safeInformes, 'Historico_Informes_Auditoria')} 
-               className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2.5 rounded-xl text-[11px] uppercase tracking-widest shadow-md transition-colors flex items-center"
-             >
-               <span className="mr-2">📥</span> Exportar
-             </button>
+             <button type="button" onClick={() => exportToExcel(safeInformes, 'Historico_Informes_Auditoria')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2.5 rounded-xl text-[11px] uppercase tracking-widest shadow-md transition-colors flex items-center"><span className="mr-2">📥</span> Exportar</button>
           )}
         </div>
       </div>
 
-      {/* 🚀 VISTA 1: DASHBOARD DE KPIs (VISTA INTELIGENTE AGRUPADA) */}
+      {/* 🚀 VISTA 1: DASHBOARD DE KPIs CON MENÚ LATERAL */}
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
-          {/* Fila de 5 Tarjetas de Métricas */}
+          {/* Fila de 5 Tarjetas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-slate-300 transition-colors">
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-xl shrink-0">📄</div>
@@ -229,64 +225,121 @@ export default function InformesAuditoria({
              </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* ESTRUCTURA 3 COLUMNAS: SIDEBAR | ACORDEONES | GRÁFICOS */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
              
-             {/* 🗂️ COLUMNA IZQUIERDA: ACORDEONES (VISTA INTELIGENTE AGRUPADA) */}
-             <div className="lg:col-span-2 space-y-4">
-               
-               {/* Barra de Controles del Acordeón */}
-               <div className="flex justify-between items-center bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center space-x-3 text-xs font-bold text-slate-600 ml-2">
-                    <span>Agrupado por:</span>
-                    <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-inner cursor-pointer">
-                      <option>Año de Emisión</option>
+             {/* 🎛️ COLUMNA IZQUIERDA: MENÚ LATERAL DE ORGANIZACIÓN */}
+             <div className="lg:col-span-1 space-y-4">
+                
+                {/* Bloque: Organizar Por */}
+                <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm overflow-hidden">
+                  <div className="bg-[#f8fafa] p-4 border-b border-[#1A4B42]/10 flex items-center justify-between">
+                    <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest">ORGANIZAR POR</h3>
+                    <div className="w-6 h-6 rounded-full bg-[#1A4B42] text-white flex items-center justify-center text-[10px] font-bold">1</div>
+                  </div>
+                  <div className="p-2 space-y-1">
+                    {[
+                      { id: 'Año', label: 'Vista por Año', icon: '📊' },
+                      { id: 'Proceso', label: 'Vista por Proceso', icon: '🏛️' },
+                      { id: 'Estado', label: 'Vista por Estado', icon: '🚩' },
+                      { id: 'Responsable', label: 'Vista por Responsable', icon: '👤' }
+                    ].map(btn => (
+                      <button 
+                        key={btn.id}
+                        onClick={() => { setAgruparPor(btn.id); setGrupoExpandido(null); }}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-3 ${agruparPor === btn.id ? 'bg-[#f0fdf4] text-[#0A3B32] shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        <span className="text-sm grayscale opacity-70">{btn.icon}</span>
+                        <span>{btn.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bloque: Filtros */}
+                <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm p-4 space-y-4">
+                  <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest border-b border-slate-100 pb-2">FILTROS</h3>
+                  
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Año</label>
+                    <select value={dashFiltroAnio} onChange={e=>setDashFiltroAnio(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
-                    <span className="text-slate-400 font-medium">({aniosOrdenados.length} grupos)</span>
+                  </div>
+                  
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
+                    <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      {PROCESOS_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Estado</label>
+                    <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      <option value="Socializado">Socializado</option>
+                      <option value="Pendiente">Pendiente</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Responsable</label>
+                    <select value={dashFiltroResponsable} onChange={e=>setDashFiltroResponsable(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      {responsablesDisponibles.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+
+                  <button onClick={limpiarFiltrosDashboard} className="w-full bg-[#f8fafa] hover:bg-slate-100 text-[#0A3B32] border border-[#1A4B42]/10 font-bold text-[10px] uppercase tracking-widest py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all">
+                    <span>Limpiar Filtros</span> <span>⚗️</span>
+                  </button>
+                </div>
+             </div>
+
+             {/* 🗂️ COLUMNA CENTRAL: ACORDEONES */}
+             <div className="lg:col-span-2 space-y-4">
+               <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center space-x-2 text-xs font-bold text-slate-600 ml-2">
+                    <span>Agrupado por: <span className="text-[#0A3B32] bg-[#f0fdf4] px-2 py-1 rounded-md">{agruparPor}</span></span>
+                    <span className="text-slate-400 font-medium">({gruposOrdenados.length} grupos)</span>
                   </div>
                </div>
 
-               {safeInformes.length === 0 ? (
+               {informesDashboard.length === 0 ? (
                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">
-                   No hay informes registrados en la base de datos.
+                   No hay informes que coincidan con los filtros.
                  </div>
                ) : (
-                 aniosOrdenados.map(anio => {
-                   const infs = informesAgrupados[anio];
+                 gruposOrdenados.map(grupo => {
+                   const infs = informesAgrupados[grupo];
                    const soc = infs.filter(i => i.socializado === 'Sí').length;
                    const pend = infs.length - soc;
                    const procs = new Set(infs.map(i => i.proceso)).size;
-                   const isExpanded = grupoExpandido === anio;
+                   const isExpanded = grupoExpandido === grupo;
 
                    return (
-                     <div key={anio} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
-                       {/* Header del Acordeón */}
-                       <div 
-                         onClick={() => setGrupoExpandido(isExpanded ? null : anio)}
-                         className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}
-                       >
+                     <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+                       <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
                          <div className="flex items-center space-x-3">
-                           <span className="text-xl">📅</span>
-                           <h4 className="text-sm sm:text-base font-black text-slate-800">{anio} <span className="text-slate-400 font-medium text-xs ml-1">({infs.length} informes)</span></h4>
-                           {anio === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ml-2 shadow-sm">Actual</span>}
+                           <span className="text-xl">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
+                           <h4 className="text-sm sm:text-base font-black text-slate-800 max-w-[200px] truncate" title={grupo}>{grupo} <span className="text-slate-400 font-medium text-xs ml-1">({infs.length})</span></h4>
+                           {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm">Actual</span>}
                          </div>
-                         
-                         {/* Resumen rápido visible solo cuando está cerrado */}
                          {!isExpanded && (
-                           <div className="hidden md:flex items-center space-x-6 text-xs font-bold bg-white px-4 py-1.5 rounded-xl border border-slate-100 shadow-sm">
-                             <span className="text-emerald-600 flex items-center" title="Socializados"><span className="mr-1.5 text-base">✅</span> {soc}</span>
-                             <span className="text-orange-500 flex items-center" title="Pendientes"><span className="mr-1.5 text-base">🕒</span> {pend}</span>
-                             <span className="text-slate-400 flex items-center" title="Procesos Auditados"><span className="mr-1.5 text-base">🏛️</span> {procs}</span>
+                           <div className="hidden md:flex items-center space-x-4 text-xs font-bold bg-white px-4 py-1.5 rounded-xl border border-slate-100 shadow-sm">
+                             <span className="text-emerald-600 flex items-center"><span className="mr-1.5 text-base">✅</span> {soc}</span>
+                             <span className="text-orange-500 flex items-center"><span className="mr-1.5 text-base">🕒</span> {pend}</span>
                              <span className="text-slate-300 ml-4 border-l pl-4 font-black">▼</span>
                            </div>
                          )}
                          {isExpanded && <span className="text-slate-400 font-black hidden md:block">▲</span>}
                        </div>
 
-                       {/* Contenido Desplegable */}
                        {isExpanded && (
                          <div className="p-4 sm:p-6 bg-white animate-in slide-in-from-top-2 duration-300">
-                           
-                           {/* Fila de Métricas Internas */}
                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 border-b border-slate-100 pb-6">
                              <div className="text-center">
                                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Socializados</p>
@@ -297,7 +350,7 @@ export default function InformesAuditoria({
                                <p className="text-xl font-black text-orange-500">{pend} <span className="text-[10px] font-bold text-orange-300 ml-1">({Math.round((pend/infs.length)*100)}%)</span></p>
                              </div>
                              <div className="text-center border-l border-slate-100 hidden md:block">
-                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Procesos Impactados</p>
+                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Procesos</p>
                                <p className="text-xl font-black text-slate-700">{procs}</p>
                              </div>
                              <div className="text-center border-l border-slate-100 hidden md:block">
@@ -306,10 +359,9 @@ export default function InformesAuditoria({
                              </div>
                            </div>
 
-                           {/* Lista (Mini-Tabla) de los primeros 5 informes */}
                            <div className="space-y-2">
                              {infs.slice(0, 5).map(inf => (
-                               <div key={inf.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-200 group">
+                               <div key={inf.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-200">
                                  <div className="flex items-center space-x-4 w-full md:w-1/3">
                                    <div className={`w-1 h-10 rounded-full ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
                                    <div className="overflow-hidden">
@@ -317,17 +369,14 @@ export default function InformesAuditoria({
                                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">{inf.ref}</p>
                                    </div>
                                  </div>
-                                 
                                  <div className="w-1/6 hidden lg:block">
                                    <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${inf.socializado === 'Sí' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
                                      {inf.socializado === 'Sí' ? 'Socializado' : 'Pendiente'}
                                    </span>
                                  </div>
-
                                  <div className="w-1/4 hidden md:block text-[10px] font-bold text-slate-600 truncate">
                                    <span className="text-slate-400 font-normal mr-1">Auditor:</span>{inf.elaboradoPor}
                                  </div>
-
                                  <div className="w-auto md:w-1/6 text-right text-[10px] font-bold text-slate-500">
                                    {inf.fecha}
                                  </div>
@@ -335,18 +384,13 @@ export default function InformesAuditoria({
                              ))}
                            </div>
                            
-                           {/* Botón Ver Más si hay más de 5 */}
                            {infs.length > 5 && (
                              <div className="mt-5 text-center bg-slate-50 rounded-xl p-2 border border-slate-100">
-                               <button 
-                                 onClick={() => { setFiltroAnio(anio); setVistaActiva('historial'); }} 
-                                 className="text-[10px] font-black uppercase tracking-widest text-[#0A3B32] hover:text-[#062620] hover:underline flex items-center justify-center w-full"
-                               >
-                                 Ver los {infs.length} informes completos de {anio} <span className="ml-1 text-sm">➔</span>
+                               <button onClick={() => { setFiltroAnio(agruparPor==='Año'?grupo:''); setVistaActiva('historial'); }} className="text-[10px] font-black uppercase tracking-widest text-[#0A3B32] hover:underline flex items-center justify-center w-full">
+                                 Ver los {infs.length} informes <span className="ml-1 text-sm">➔</span>
                                </button>
                              </div>
                            )}
-
                          </div>
                        )}
                      </div>
@@ -356,42 +400,40 @@ export default function InformesAuditoria({
              </div>
              
              {/* 🍩 COLUMNA DERECHA: GRÁFICOS Y TOP 5 */}
-             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 h-fit sticky top-24">
-                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">Resumen Visual</h3>
+             <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 h-fit sticky top-24">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">RESUMEN VISUAL</h3>
                 
-                {/* Gráfico Donut (CSS Puro) */}
                 <div className="flex items-center justify-center mb-8">
-                   <div className="relative w-40 h-40 rounded-full border-[16px] border-slate-100 border-l-emerald-500 border-t-emerald-500 border-r-orange-500 border-b-slate-200 flex items-center justify-center transform -rotate-45 shadow-inner">
+                   <div className="relative w-36 h-36 rounded-full border-[14px] border-slate-100 border-l-emerald-500 border-t-emerald-500 border-r-orange-500 border-b-slate-200 flex items-center justify-center transform -rotate-45 shadow-inner">
                       <div className="transform rotate-45 text-center">
-                         <span className="block text-4xl font-black text-slate-800 leading-none">{totalInformes}</span>
+                         <span className="block text-3xl font-black text-slate-800 leading-none">{totalInformes}</span>
                          <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Total</span>
                       </div>
                    </div>
                 </div>
 
                 <div className="space-y-4 mb-8">
-                   <div className="flex justify-between items-center text-xs font-bold bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                   <div className="flex justify-between items-center text-xs font-bold bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
                      <span className="flex items-center text-emerald-900"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2 shadow-sm"></span> Socializados</span>
-                     <span className="text-emerald-700 bg-white px-2 py-0.5 rounded shadow-sm">{socializados} <span className="text-[9px] ml-1 opacity-70">({pctSocializados}%)</span></span>
+                     <span className="text-emerald-700 bg-white px-2 py-0.5 rounded shadow-sm">{socializados}</span>
                    </div>
-                   <div className="flex justify-between items-center text-xs font-bold bg-orange-50 p-3 rounded-xl border border-orange-100">
+                   <div className="flex justify-between items-center text-xs font-bold bg-orange-50 p-2.5 rounded-xl border border-orange-100">
                      <span className="flex items-center text-orange-900"><span className="w-2.5 h-2.5 rounded-full bg-orange-500 mr-2 shadow-sm"></span> Pendientes</span>
-                     <span className="text-orange-700 bg-white px-2 py-0.5 rounded shadow-sm">{pendientes} <span className="text-[9px] ml-1 opacity-70">({pctPendientes}%)</span></span>
+                     <span className="text-orange-700 bg-white px-2 py-0.5 rounded shadow-sm">{pendientes}</span>
                    </div>
                 </div>
 
-                {/* Ranking Top 5 Procesos */}
                 {topProcesos.length > 0 && (
-                  <div className="border-t border-slate-100 pt-6">
-                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Top 5 Procesos Auditados</h3>
+                  <div className="border-t border-slate-100 pt-5">
+                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Top Procesos Auditados</h3>
                     <div className="space-y-3">
                       {topProcesos.map(([proc, count], idx) => (
                         <div key={idx} className="flex items-center text-[10px]">
-                          <span className="w-24 truncate text-slate-600 font-bold pr-2" title={proc}>{proc}</span>
-                          <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <span className="w-20 truncate text-slate-600 font-bold pr-2" title={proc}>{proc}</span>
+                          <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
                             <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${(count/totalInformes)*100}%`}}></div>
                           </div>
-                          <span className="w-8 text-right font-black text-slate-800">{count}</span>
+                          <span className="w-6 text-right font-black text-slate-800">{count}</span>
                         </div>
                       ))}
                     </div>
