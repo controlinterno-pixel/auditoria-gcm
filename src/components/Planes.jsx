@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState } from 'react';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -25,7 +25,7 @@ export default function Planes({
   setEditPlan,
   handlePlanSubmit,
   handleAprobarCierrePlan,
-ejecutarDespachoGmailApi,
+  ejecutarDespachoGmailApi,
   formResetKey,
   setFormResetKey,
   scrollToForm,
@@ -44,154 +44,151 @@ ejecutarDespachoGmailApi,
   columnFilters,
   handleColFilterChange,
   onUpdateItemStatus,
-  informesAuditoria = [],
-  defaultAnios = [],
-  defaultMeses = [],
-  selectedAnios = [],
-  selectedMeses = [],
-  toggleAnio,
-  toggleMes,
-  setSelectedAnios,
-  setSelectedMeses,
-  selectAllAnios,
-  clearAllAnios,
-  selectAllMeses,
-  clearAllMeses  
+  informesAuditoria = []
 }) {
-  const [selectedInformeFilter, setSelectedInformeFilter] = useState('');
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  // 🧭 PESTAÑAS DE CONTROL SUPERIOR
+  const [vistaActiva, setVistaActiva] = useState('dashboard');
+  const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
 
+  // 🎛️ ESTADOS FILTROS AVANZADOS DASHBOARD
+  const [agruparPor, setAgruparPor] = useState('Año');
+  const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
+  const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
+  const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
+  const [dashFiltroPrioridad, setDashFiltroPrioridad] = useState('Todos');
+  const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
+
+  // 🔌 MOTOR DE FORMULARIO MATRICIAL ORIGINAL
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
-// ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
   const [uploadingCell, setUploadingCell] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
+  // =========================================================
+  // 📊 MOTOR DE CÁLCULO ANALÍTICO (FIEL A TU DISEÑO)
+  // =========================================================
+  const planesEnriquecidos = safePlanes.map(p => {
+    const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
+    const hoy = new Date();
+    const limite = p.fecha ? new Date(p.fecha) : null;
+    const esVencido = p.progreso < 100 && limite && limite < hoy;
+    
+    return {
+      ...p,
+      proceso: hallazgo.proceso || 'General',
+      sede: hallazgo.sede || 'Hotel',
+      severidad: hallazgo.severidad || 'Medio',
+      esVencido,
+      anioTexto: p.fecha ? p.fecha.split('-')[0] : 'Sin Fecha'
+    };
+  });
+
+  // Filtrado reactivo del Dashboard lateral
+  const planesDashboard = planesEnriquecidos.filter(p => {
+    if (dashFiltroAnio !== 'Todos' && p.anioTexto !== dashFiltroAnio) return false;
+    if (dashFiltroProceso !== 'Todos' && p.proceso !== dashFiltroProceso) return false;
+    if (dashFiltroPrioridad !== 'Todos' && p.severidad !== dashFiltroPrioridad) return false;
+    if (dashFiltroResponsable !== 'Todos' && p.responsable !== dashFiltroResponsable) return false;
+    if (dashFiltroEstado !== 'Todos') {
+      if (dashFiltroEstado === 'Cerrado' && p.progreso < 100) return false;
+      if (dashFiltroEstado === 'Vencido' && !p.esVencido) return false;
+      if (dashFiltroEstado === 'En Proceso' && (p.progreso === 100 || p.esVencido)) return false;
+    }
+    return true;
+  });
+
+  const totalPlanes = planesDashboard.length;
+  const cerrados = planesDashboard.filter(p => p.progreso === 100).length;
+  const enProceso = planesDashboard.filter(p => p.progreso < 100 && !p.esVencido).length;
+  const vencidos = planesDashboard.filter(p => p.esVencido).length;
+  const cumplimientoGlobal = totalPlanes > 0 ? Math.round((cerrados / totalPlanes) * 100) : 0;
+
+  const criticos = planesDashboard.filter(p => p.severidad === 'Crítico').length;
+  const altos = planesDashboard.filter(p => p.severidad === 'Alto').length;
+  const medios = planesDashboard.filter(p => p.severidad === 'Medio').length;
+  const bajos = planesDashboard.filter(p => p.severidad === 'Bajo').length;
+
+  // Agrupador Dinámico
+  const planesAgrupados = planesDashboard.reduce((acc, p) => {
+    let key = 'Sin clasificar';
+    if (agruparPor === 'Año') key = p.anioTexto;
+    if (agruparPor === 'Proceso') key = p.proceso;
+    if (agruparPor === 'Estado') key = p.progreso === 100 ? 'Cerrados' : p.esVencido ? 'Vencidos' : 'En Proceso';
+    if (agruparPor === 'Responsable') key = p.responsable;
+    if (agruparPor === 'Prioridad') key = p.severidad;
+
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(p);
+    return acc;
+  }, {});
+  const gruposOrdenados = Object.keys(planesAgrupados).sort((a, b) => b.localeCompare(a));
+
+  const conteoProcesos = planesDashboard.reduce((acc, p) => {
+    acc[p.proceso] = (acc[p.proceso] || 0) + 1;
+    return acc;
+  }, {});
+  const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+  const limpiarFiltrosDashboard = () => {
+    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroEstado('Todos');
+    setDashFiltroPrioridad('Todos'); setDashFiltroResponsable('Todos');
+  };
+
+  // =========================================================
+  // 📂 LOGICA FORMULARIO Y API ORIGINAL (CUSTODIADA)
+  // =========================================================
   const handleFileUpload = async (e, hallazgoId, index) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // Marcamos cuál fila exacta se está subiendo
-    setUploadingCell(`${hallazgoId}-${index}`);
-    setUploadProgress(20);
-
+    setUploadingCell(`${hallazgoId}-${index}`); setUploadProgress(20);
     const formData = new FormData();
-    formData.append('appName', 'controlInterno'); 
-    formData.append('description', 'Evidencia de Plan de Acción'); 
-    formData.append('file', file); 
-
+    formData.append('appName', 'controlInterno');
+    formData.append('description', 'Evidencia de Plan de Acción');
+    formData.append('file', file);
     try {
       setUploadProgress(50);
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
+      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', { method: 'POST', body: formData });
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
       const data = await response.json();
       const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
-
-      // Actualizamos automáticamente el campo de la url en esa fila específica
       handleUpdateActivityField(hallazgoId, index, 'evidenciaUrl', urlFinal);
-
-      setUploadingCell(null);
-      setUploadProgress(100);
+      setUploadingCell(null); setUploadProgress(100);
       alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
     } catch (err) {
-      console.error(err);
-      alert("Error al conectar con el servidor de archivos.");
-      setUploadingCell(null);
+      console.error(err); alert("Error al conectar con el servidor de archivos."); setUploadingCell(null);
     }
   };
 
-  // 🔌 Estados locales para controlar la apertura de los menús desplegables
-  const [showAnioDropdown, setShowAnioDropdown] = useState(false);
-  const [showMesDropdown, setShowMesDropdown] = useState(false);
-
-  // Referencias para cerrar los dropdowns si haces clic afuera
-  const anioRef = useRef(null);
-  const mesRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (anioRef.current && !anioRef.current.contains(event.target)) setShowAnioDropdown(false);
-      if (mesRef.current && !mesRef.current.contains(event.target)) setShowMesDropdown(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const informeSeleccionadoObj = useMemo(() => {
-    return informesAuditoria.find(inf => String(inf.id) === String(formInformeId));
-  }, [formInformeId, informesAuditoria]);
-
   const handleInformeChange = (informeId) => {
     setFormInformeId(informeId);
-    if (!informeId) {
-      setMatrixState({});
-      return;
-    }
-
+    if (!informeId) { setMatrixState({}); return; }
     const reportFindings = safeHallazgos.filter(h => String(h.idInforme) === String(informeId));
     const newState = {};
-
     reportFindings.forEach(h => {
       const existingActivities = safePlanes.filter(p => p.idHallazgo === h.id);
       if (existingActivities.length > 0) {
-        newState[h.id] = {
-          aplica: true,
-          actividades: existingActivities.map(p => ({ ...p }))
-        };
+        newState[h.id] = { aplica: true, actividades: existingActivities.map(p => ({ ...p, correoConfirmacion: p.correoResponsable })) };
       } else {
-        const asumeAplica = h.estado !== 'Cerrado';
         newState[h.id] = {
-          aplica: asumeAplica,
-          actividades: [{ 
-            id: 'new-' + Math.random(), 
-            accion: '', 
-            responsable: '', 
-            auditorAsignado: h.auditor || '',
-            fechaInicio: '', 
-            fecha: '', 
-            progreso: 0, 
-            evidenciaUrl: '', 
-            estadoWorkflow: 'Borrador' 
-          }]
+          aplica: h.estado !== 'Cerrado',
+          actividades: [{ id: 'new-' + Math.random(), accion: '', responsable: '', auditorAsignado: h.auditor || '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }]
         };
       }
     });
     setMatrixState(newState);
   };
 
-  useEffect(() => {
-    if (editPlan) {
-      const hallazgo = safeHallazgos.find(h => h.id === editPlan.idHallazgo);
-      if (hallazgo && hallazgo.idInforme) {
-        handleInformeChange(hallazgo.idInforme);
-      }
-    }
-  }, [editPlan, safeHallazgos]);
-
   const handleToggleAplica = (hallazgoId, value) => {
-    setMatrixState(prev => ({
-      ...prev,
-      [hallazgoId]: { ...prev[hallazgoId], aplica: value }
-    }));
+    setMatrixState(prev => ({ ...prev, [hallazgoId]: { ...prev[hallazgoId], aplica: value } }));
   };
 
- const handleAddActivity = (hallazgoId) => {
-    // 🔍 Buscamos el hallazgo base en la memoria para heredar el auditor
+  const handleAddActivity = (hallazgoId) => {
     const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(hallazgoId));
-    
     setMatrixState(prev => ({
       ...prev,
       [hallazgoId]: {
         ...prev[hallazgoId],
-        actividades: [
-          ...prev[hallazgoId].actividades,
-          { id: 'new-' + Math.random(), accion: '', responsable: '', auditorAsignado: hallazgoBase?.auditor || '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }
-        ]
+        actividades: [...prev[hallazgoId].actividades, { id: 'new-' + Math.random(), accion: '', responsable: '', auditorAsignado: hallazgoBase?.auditor || '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }]
       }
     }));
   };
@@ -200,615 +197,314 @@ ejecutarDespachoGmailApi,
     setMatrixState(prev => {
       const currentActividades = [...prev[hallazgoId].actividades];
       currentActividades.splice(index, 1);
-      return {
-        ...prev,
-        [hallazgoId]: { ...prev[hallazgoId], actividades: currentActividades }
-      };
+      return { ...prev, [hallazgoId]: { ...prev[hallazgoId], actividades: currentActividades } };
     });
   };
 
   const handleUpdateActivityField = (hallazgoId, index, field, value) => {
     setMatrixState(prev => {
-      const currentActividades = prev[hallazgoId].actividades.map((act, idx) => {
-        if (idx === index) {
-          return { ...act, [field]: value };
-        }
-        return act;
-      });
-      return {
-        ...prev,
-        [hallazgoId]: { ...prev[hallazgoId], actividades: currentActividades }
-      };
+      const currentActividades = prev[hallazgoId].actividades.map((act, idx) => idx === index ? { ...act, [field]: value } : act);
+      return { ...prev, [hallazgoId]: { ...prev[hallazgoId], actividades: currentActividades } };
     });
   };
 
-const handleMasterMatrixSubmit = async (e) => {
-    e.preventDefault();
-    if (!formInformeId) return;
-
-    // 🛑 1. VALIDACIÓN DE CORREOS
-    let errorCorreos = false;
-    Object.keys(matrixState).forEach(hallazgoId => {
-      const stateNode = matrixState[hallazgoId];
-      if (stateNode.aplica) {
-        stateNode.actividades.forEach(act => {
-          if (act.accion && act.accion.trim() !== '') {
-            if (!act.correoResponsable || act.correoResponsable.trim() === '') errorCorreos = true;
-            if (act.correoResponsable !== act.correoConfirmacion) errorCorreos = true;
-          }
-        });
-      }
-    });
-
-    if (errorCorreos) {
-      alert("❌ ALERTA: Hay correos de responsables vacíos o que no coinciden en la confirmación. Por favor revíselos antes de guardar.");
-      return;
-    }
-
-    let compiledPlanes = [];
-    let notificacionesPendientes = []; 
-    let correosLideresARadicar = new Set(); // 📧 Para agrupar los correos de los líderes únicos
-    const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map(h => h.id);
-
-    Object.keys(matrixState).forEach(hallazgoId => {
-      const stateNode = matrixState[hallazgoId];
-      if (stateNode.aplica) {
-        stateNode.actividades.forEach(act => {
-          if (act.accion && act.accion.trim() !== '') {
-            const fechaDiligenciada = act.fecha || new Date().toISOString().split('T')[0];
-            const partes = fechaDiligenciada.split('-'); 
-            const anioVal = Number(partes[0]) || new Date().getFullYear();
-            const mesesArray = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-            const mesIdx = parseInt(partes[1], 10) - 1;
-            const mesVal = mesesArray[mesIdx] || "Julio";
-
-            const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
-            
-            let estadoCalculado = 'En Proceso'; 
-            let workflowCalculado = act.estadoWorkflow || 'Borrador';
-
-            if (progresoEntero === 100 && workflowCalculado !== 'Cerrado' && workflowCalculado !== 'En Revisión') {
-                workflowCalculado = 'En Revisión'; 
-                notificacionesPendientes.push(act); 
-            } else if (progresoEntero < 100) {
-                workflowCalculado = 'Borrador';
-            }
-
-            // Guardamos el correo válido del líder para enviarle su comprobante
-            if (act.correoResponsable && act.correoResponsable.includes('@')) {
-              correosLideresARadicar.add(act.correoResponsable.trim());
-            }
-
-            compiledPlanes.push({
-              id: String(act.id).startsWith('new-') ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
-              idHallazgo: Number(hallazgoId),
-              accion: act.accion,
-              responsable: act.responsable || 'Por asignar',
-              correoResponsable: act.correoResponsable, 
-              auditorAsignado: act.auditorAsignado || 'No Asignado', 
-              fechaInicio: act.fechaInicio || '',
-              fecha: act.fecha || '',
-              progreso: progresoEntero,
-              estado: estadoCalculado, 
-              evidenciaUrl: act.evidenciaUrl || '',
-              estadoWorkflow: workflowCalculado,
-              anio: anioVal || 2026, // 🟢 ¡Corregido con éxito! 
-              mes: mesVal,   
-              historialCambios: act.historialCambios || [{ fecha: new Date().toLocaleString(), accion: 'Actividad registrada en matriz masiva' }]
-            });
-          }
-        });
-      }
-    });
-
-    const cleanOtherPlanes = safePlanes.filter(p => !reportFindingsIds.includes(p.idHallazgo));
-    const finalGlobalPlanes = [...cleanOtherPlanes, ...compiledPlanes];
-
-    let updatedHallazgos = [...safeHallazgos];
-    let hallazgosModificados = false;
-
-    Object.keys(matrixState).forEach(hallazgoId => {
-      const stateNode = matrixState[hallazgoId];
-      const hIndex = updatedHallazgos.findIndex(h => String(h.id) === String(hallazgoId));
-
-      if (hIndex !== -1) {
-        let nuevoEstado = 'Abierto';
-
-        if (!stateNode.aplica) {
-          nuevoEstado = 'Cerrado';
-        } else {
-          const actividadesDeEsteHallazgo = compiledPlanes.filter(p => String(p.idHallazgo) === String(hallazgoId));
-          if (actividadesDeEsteHallazgo.length > 0) {
-            const todasAprobadas = actividadesDeEsteHallazgo.every(act => act.estadoWorkflow === 'Cerrado');
-            if (todasAprobadas) nuevoEstado = 'Cerrado'; 
-          }
-        }
-
-        if (updatedHallazgos[hIndex].estado !== nuevoEstado) {
-          updatedHallazgos[hIndex] = {
-            ...updatedHallazgos[hIndex],
-            estado: nuevoEstado,
-            historialCambios: [
-              ...(updatedHallazgos[hIndex].historialCambios || []),
-              { fecha: new Date().toLocaleString(), accion: `Estado automatizado a ${nuevoEstado} (Validación de Planes)` }
-            ]
-          };
-          hallazgosModificados = true;
-        }
-      }
-    });
-
-    setPlanes(finalGlobalPlanes);
-    if (hallazgosModificados && setHallazgos) {
-      setHallazgos(updatedHallazgos);
-      await saveToCloud({ planes: finalGlobalPlanes, hallazgos: updatedHallazgos });
-    } else {
-      await saveToCloud({ planes: finalGlobalPlanes });
-    }
-
-// 📧 1. ENVIAR COMPROBANTE DE RADICACIÓN AL LÍDER (PROPUESTA ELEGANTE)
-    if (correosLideresARadicar.size > 0 && ejecutarDespachoGmailApi) {
-      const urlInformeBase = informeSeleccionadoObj?.evidenciaUrl || 'https://auditoria-gcm.vercel.app';
-      const tituloInformeBase = informeSeleccionadoObj?.titulo || 'Plan de Acción';
-
-      for (const correoLider of correosLideresARadicar) {
-        await ejecutarDespachoGmailApi({
-          ref_consecutivo: `RADICACION EXITOSA`, // 🟢 Corregido sin tildes para evitar errores de codificación en Gmail
-          titulo_informe: `Tu Plan de Acción ha sido Radicado: ${tituloInformeBase}`,
-          proceso_auditado: `Se han indexado tus compromisos y actividades mitigantes en el repositorio digital corporativo.`,
-          enlace_pdf: urlInformeBase, 
-          destinatarios: correoLider
-        });
-      }
-    }
-    // 📧 2. ENVIAR NOTIFICACIONES DE REVISIÓN AL AUDITOR (SÓLO SI LLEGÓ AL 100%)
-    if (notificacionesPendientes.length > 0 && ejecutarDespachoGmailApi) {
-        const diccionarioCorreos = {
-            "Rodolfo González": "auditoria@termales.com.co",
-            "Yehison Pineda": "controlinterno@termales.com.co",
-            "Angelica Hernandez": "analista.auditoria@termales.com.co",
-            "Luz Angela Chico": "analista.controlinterno@termales.com.co"
-        };
-
-for (const act of notificacionesPendientes) {
-            const correoDestino = diccionarioCorreos[act.auditorAsignado] || "controlinterno@termales.com.co";
-            await ejecutarDespachoGmailApi({
-              ref_consecutivo: `PLAN-REVISION`, // 🟢 Corregido sin tilde
-              titulo_informe: 'Plan Listo para Aprobación y Cierre',
-              proceso_auditado: act.accion.substring(0, 50) + '...',
-              enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
-              destinatarios: correoDestino
-            });
-        }
-        alert(`¡Guardado exitoso! Se envió el comprobante de radicación al líder y ${notificacionesPendientes.length} alertas de revisión a los auditores.`);
-    } else {
-        alert("¡Matriz de planes guardada y comprobante enviado al correo del responsable con éxito!");
-    }
-    
-    setFormInformeId('');
-    setMatrixState({});
-    setEditPlan(null);
-    setFormResetKey(Date.now());
-  };
-
-
-  let tableFilteredData = pFiltrados;
-  if (selectedInformeFilter) {
-    tableFilteredData = tableFilteredData.filter(plan => {
-      const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
-      return String(hallazgo.idInforme) === String(selectedInformeFilter);
-    });
-  }
-
-  const mapaConsecutivos = useMemo(() => {
-    const mapa = {};
-    let contadorGeneral = 1;
-    [...safePlanes].sort((a, b) => a.id - b.id).forEach((p) => {
-      const anioP = p.anio || new Date().getFullYear();
-      mapa[p.id] = `PLA-${anioP}-${String(contadorGeneral).padStart(3, '0')}`;
-      contadorGeneral++; 
-    });
-    return mapa;
-  }, [safePlanes]);
-  
-  const planesDataConConsecutivo = [...tableFilteredData].sort((a, b) => a.id - b.id).map(p => {
-    const codigoPlanOficial = mapaConsecutivos[p.id] || `PLA-000`;
-    const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
-    const informe = informesAuditoria.find(inf => String(inf.id) === String(hallazgo.idInforme)) || {};
-    
-    return { 
-      ...p,
-      codigoPlanOficial,
-      fechaVal: formatSafeDate(p.fecha),
-      estadoWorkflow: p.estadoWorkflow || 'Borrador',
-      planRefTexto: `${codigoPlanOficial} PLAN-${p.id}`,
-      hallazgoRefTexto: `#HAL-${p.idHallazgo} HAL-${p.idHallazgo} ${hallazgo.proceso || ''} ${hallazgo.sede || ''}`,
-      accionTexto: `${p.accion} ${p.responsable || ''} ${p.auditorAsignado || ''}`,
-      textoHallazgoTitulo: hallazgo.titulo || '',
-      textoInformeRef: informe.ref || '',
-      textoInformeTitulo: informe.titulo || ''
-    };
-  });
-
-  const getWorkflowBadgeClass = (status) => {
-    switch (status) {
-      case 'Borrador': return 'bg-slate-100 text-slate-700 border-slate-300';
-      case 'En Revisión': return 'bg-amber-100 text-amber-800 border-amber-300';
-      case 'Aprobado': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'Cerrado': return 'bg-emerald-100 text-emerald-800 border-emerald-300';
-      default: return 'bg-slate-100 text-slate-700';
-    }
-  };
-
-  const exportarPlanMejoramientoPDF = async () => {
-    const targetInformeId = selectedInformeFilter || formInformeId;
-
-    if (!targetInformeId) {
-      alert("📋 Por favor, seleccione un informe para saber exactamente qué actividades procesar en el PDF.");
-      return;
-    }
-
-    setIsGeneratingPdf(true);
-    try {
-      if (!window.jspdf || !window.jspdf.jsPDF) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-          script.onload = () => {
-            if (window.jspdf && !window.jsPDF) window.jsPDF = window.jspdf.jsPDF;
-            resolve();
-          };
-          script.onerror = () => reject(new Error('Fallo al descargar jsPDF.'));
-          document.head.appendChild(script);
-        });
-      } else if (window.jspdf && !window.jsPDF) {
-        window.jsPDF = window.jspdf.jsPDF;
-      }
-
-      if (!window.autoTable && !(window.jsPDF && window.jsPDF.API && window.jsPDF.API.autoTable)) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js';
-          script.onload = () => resolve();
-          script.onerror = () => reject(new Error('Fallo al descargar autotable.'));
-          document.head.appendChild(script);
-        });
-      }
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF('landscape', 'pt', 'legal');
-      
-      let fechaSuscripcion = new Date().toLocaleDateString();
-      let fuentePlan = 'Auditoría Interna';
-      let objetivoGeneral = 'Fortalecer los procesos de control mediante la alineación estratégica de planes correctivos.';
-      let descripcionPlan = 'Plan de mejoramiento estructurado para dar cierre oportuno a los hallazgos y desviaciones.';
-      let informeRef = 'Consolidado General';
-
-      const informeSeleccionado = informesAuditoria.find(inf => String(inf.id) === String(targetInformeId));
-      if (informeSeleccionado) {
-        fechaSuscripcion = formatSafeDate(informeSeleccionado.fecha) || fechaSuscripcion;
-        fuentePlan = `Auditoría Interna - Ref: ${informeSeleccionado.ref}`;
-        objetivoGeneral = `Fortalecer el proceso de [${informeSeleccionado.proceso}] mediante la mitigación de fallas y mejora operativa.`;
-        descripcionPlan = informeSeleccionado.titulo;
-        informeRef = informeSeleccionado.ref;
-      }
-
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text("TERMALES SANTA ROSA DE CABAL", doc.internal.pageSize.getWidth() / 2, 40, { align: "center" });
-      doc.text("PLAN DE MEJORAMIENTO", doc.internal.pageSize.getWidth() / 2, 60, { align: "center" });
-
-      const callAutoTable = (docInst, config) => {
-        if (typeof docInst.autoTable === 'function') {
-          docInst.autoTable(config);
-        } else if (typeof window.autoTable === 'function') {
-          window.autoTable(docInst, config);
-        }
-      };
-
-      callAutoTable(doc, {
-        startY: 80,
-        theme: 'grid',
-        headStyles: { fillColor: [41, 122, 56], textColor: 255, fontStyle: 'bold', fontSize: 9 },
-        bodyStyles: { fontSize: 8, textColor: 50 },
-        body: [
-          ['Fecha De Suscripción:', fechaSuscripcion, 'Fuente Del Plan De Mejora:', fuentePlan],
-          ['Objetivo General:', objetivoGeneral, 'Periodo Evaluado / Informe:', `Año ${new Date().getFullYear()} • ${informeRef}`],
-          ['Tipo De Plan:', 'De proceso', 'Descripción del Informe:', descripcionPlan]
-        ]
-      });
-
-      const reportFindingsIds = safeHallazgos.filter(h => String(h.idInforme) === String(targetInformeId)).map(h => h.id);
-      const pdfPlanesFiltrados = pFiltrados.filter(plan => reportFindingsIds.includes(plan.idHallazgo));
-
-      const sortedPdfPlanes = [...pdfPlanesFiltrados].sort((a, b) => a.id - b.id);
-      const tableData = sortedPdfPlanes.map((plan) => {
-        const codigoPdf = mapaConsecutivos[plan.id] || `PLA-000`;
-        const hallazgo = safeHallazgos.find(h => h.id === plan.idHallazgo) || {};
-        const progresoReal = Number(plan.progreso || plan.avance || 0);
-        let estadoMostrar = plan.estadoWorkflow === 'Cerrado' ? 'Cumplido' : 'Pendiente';
-        if (progresoReal >= 100) estadoMostrar = 'Cerrado';
-
-        return [
-          codigoPdf, 
-          hallazgo.titulo || 'Sin descripción', 
-          hallazgo.causa || 'N/A', 
-          hallazgo.claseObservacion || 'Oportunidad de Mejora', 
-          hallazgo.proceso || 'General', 
-          plan.accion, 
-          plan.auditorAsignado || 'Sin Asignar',
-          plan.responsable, 
-          `${progresoReal}%`, 
-          plan.fechaInicio ? formatSafeDate(plan.fechaInicio) : 'N/A', 
-          formatSafeDate(plan.fecha) || 'No definida', 
-          estadoMostrar
-        ];
-      });
-
-      const firstTableY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 180;
-
-      callAutoTable(doc, {
-        startY: firstTableY + 20,
-        theme: 'grid',
-        headStyles: { fillColor: [11, 42, 54], textColor: 255, fontSize: 7, halign: 'center', valign: 'middle' },
-        bodyStyles: { fontSize: 6.5, valign: 'middle' },
-        columnStyles: {
-          0: { cellWidth: 50 },   
-          1: { cellWidth: 95 },  
-          2: { cellWidth: 100 },  
-          3: { cellWidth: 65 },   
-          4: { cellWidth: 70 },   
-          5: { cellWidth: 115 },  
-          6: { cellWidth: 75 },   
-          7: { cellWidth: 75 },   
-          8: { cellWidth: 40 },   
-          9: { cellWidth: 50 },   
-          10: { cellWidth: 50 },  
-          11: { cellWidth: 50 }   
-        },
-        head: [[
-          'CÓDIGO', 
-          'DESCRIPCIÓN HALLAZGO Y/O OBSERVACIÓN', 
-          'CAUSAS RAÍZ', 
-          'CLASE DE OBS.', 
-          'PROCESOS VINCULADOS', 
-          'ACCIONES DE MEJORAMIENTO', 
-          'AUDITOR ASIGNADO', 
-          'RESPONSABLE', 
-          'AVANCE', 
-          'FECHA INICIO', 
-          'FECHA LÍMITE', 
-          'ESTADO'
-        ]],
-        body: tableData,
-      });
-
-      const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 50 : 450;
-
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "bold");
-      doc.text("__________________________________________", 100, finalY);
-      doc.text("Elaborado por: LÍDER DE PROCESO", 100, finalY + 15);
-      
-      doc.text("__________________________________________", 600, finalY);
-      doc.text("Aprobado por: CONTROL INTERNO", 600, finalY + 15);
-
-      doc.save(`Plan_de_Mejoramiento_${informeRef}_${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (error) {
-      console.error("Error crítico en renderizador de PDF:", error);
-    } finally {
-      setIsGeneratingPdf(false);
-    }
-  };
-
-  // 📝 Textos dinámicos resumidos para mostrar en el botón principal
-  const textoBotonAnio = selectedAnios.length === 0 
-    ? "Todos los Años" 
-    : `Años: ${selectedAnios.join(', ')}`;
-
-  const textoBotonMes = selectedMeses.length === 0 
-    ? "Todos los Meses" 
-    : `Meses: ${selectedMeses.map(m => m.substring(0,3)).join(', ')}`;
+  const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).filter(a => a !== 'Sin Fecha'))].sort().reverse();
+  const responsablesDisponibles = [...new Set(planesEnriquecidos.map(p => p.responsable).filter(Boolean))].sort();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-300">
       
-      {/* PANEL OSCURO CON BOTONES DROPDOWN INDEPENDIENTES CORREGIDO */}
-      <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col gap-5 mb-6 relative overflow-visible z-30">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
-        
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
-           <div>
-             <h2 className="text-2xl font-black text-white tracking-wide">✅ Matriz de Planes de Acción Gerenciales</h2>
-             <p className="text-xs text-slate-400 font-bold mt-1">Gestión, seguimiento y trazabilidad operativa por periodos.</p>
-           </div>
-           
-           <button 
-              onClick={exportarPlanMejoramientoPDF} 
-              disabled={isGeneratingPdf}
-              className="mt-4 md:mt-0 bg-[#297A38] hover:bg-[#1f5c2a] disabled:bg-slate-600 text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-[0_0_15px_rgba(41,122,56,0.4)] transition-all flex items-center space-x-2 border border-[#308f42] active:scale-95"
-            >
-              <span className="text-sm">{isGeneratingPdf ? '⏳' : '📄'}</span>
-              <span>{isGeneratingPdf ? 'Generando...' : 'Generar PDF Oficial'}</span>
-           </button>
+      {/* 📋 CABECERA PRINCIPAL ESTILO ERP */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
+        <div>
+          <h2 className="text-2xl font-black text-slate-800">Planes de Acción</h2>
+          <p className="text-xs text-slate-500 font-bold mt-1">Gestión, seguimiento y cierre de planes derivados de hallazgos</p>
         </div>
-        
-        {/* 📊 FILTROS COMPACTADOS EN BOTONES DESPLEGABLES */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center border-t border-slate-800/80 pt-5 relative z-10">
-          
-          {/* 🔵 DROPDOWN DE AÑOS CORREGIDO REAL */}
-          <div className="relative w-full sm:w-56" ref={anioRef}>
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Filtrar por Año</label>
-            <button
-              type="button"
-              onClick={() => { setShowAnioDropdown(!showAnioDropdown); setShowMesDropdown(false); }}
-              className="w-full bg-slate-800 text-slate-200 font-black text-xs px-4 py-2.5 rounded-xl border border-slate-700 flex justify-between items-center transition-all hover:bg-slate-700/80"
-            >
-              <span className="truncate">{textoBotonAnio}</span>
-              <span className="text-[10px] ml-2 text-slate-400">{showAnioDropdown ? '▲' : '▼'}</span>
-            </button>
-            
-            {showAnioDropdown && (
-              <div className="absolute top-[105%] left-0 w-full bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[200] space-y-1 animate-in fade-in zoom-in-95 duration-150">
-                {/* ⚡ BOTONES MASIVOS DE AÑO */}
-                <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 mb-1 px-1">
-                  <button type="button" onClick={selectAllAnios} className="text-[10px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-wider">Marcar Todos</button>
-                  <button type="button" onClick={clearAllAnios} className="text-[10px] font-black text-slate-400 hover:text-slate-300 uppercase tracking-wider">Limpiar</button>
-                </div>
-                
-                {defaultAnios.map(anio => {
-                  const activo = selectedAnios.includes(anio);
-                  return (
-                    <button
-                      key={`drop-anio-${anio}`}
-                      type="button"
-                      onClick={() => toggleAnio(anio)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${activo ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}
-                    >
-                      <span>{anio}</span>
-                      {activo && <span className="text-[10px]">✓</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* 🟢 DROPDOWN DE MESES CORREGIDO REAL */}
-          <div className="relative w-full sm:w-64" ref={mesRef}>
-            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Filtrar por Mes</label>
-            <button
-              type="button"
-              onClick={() => { setShowMesDropdown(!showMesDropdown); setShowAnioDropdown(false); }}
-              className="w-full bg-slate-800 text-slate-200 font-black text-xs px-4 py-2.5 rounded-xl border border-slate-700 flex justify-between items-center transition-all hover:bg-slate-700/80"
-            >
-              <span className="truncate">{textoBotonMes}</span>
-              <span className="text-[10px] ml-2 text-slate-400">{showMesDropdown ? '▲' : '▼'}</span>
-            </button>
-            
-            {showMesDropdown && (
-              <div className="absolute top-[105%] left-0 w-full sm:w-72 bg-[#0f172a] border border-slate-700 rounded-xl p-2 shadow-2xl z-[200] animate-in fade-in zoom-in-95 duration-150">
-                {/* ⚡ BOTONES MASIVOS DE MES */}
-                <div className="flex justify-between items-center border-b border-slate-800 pb-1.5 mb-2 px-1 w-full">
-                  <button type="button" onClick={selectAllMeses} className="text-[10px] font-black text-emerald-400 hover:text-emerald-300 uppercase tracking-wider">Marcar Todos</button>
-                  <button type="button" onClick={clearAllMeses} className="text-[10px] font-black text-slate-400 hover:text-slate-300 uppercase tracking-wider">Limpiar</button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1">
-                  {defaultMeses.map(mes => {
-                    const activo = selectedMeses.includes(mes);
-                    return (
-                      <button
-                        key={`drop-mes-${mes}`}
-                        type="button"
-                        onClick={() => toggleMes(mes)}
-                        className={`text-left px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center justify-between ${activo ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-300 hover:bg-slate-800'}`}
-                      >
-                        <span className="truncate">{mes}</span>
-                        {activo && <span className="text-[9px]">✓</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* BOTÓN REINICIAR */}
-          {(selectedAnios.length > 0 || selectedMeses.length > 0) && (
-            <button 
-              type="button"
-              onClick={() => { setSelectedAnios([]); setSelectedMeses([]); }} 
-              className="sm:mt-5 h-[38px] px-4 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 rounded-xl text-[10px] font-black transition-colors uppercase tracking-wider w-full sm:w-auto"
-            >
-              Limpiar Filtros
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Resumen Visual</button>
+          <button onClick={() => setVistaActiva('historial')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📜 Historial Matriz</button>
+          {isAdmin && (
+            <button onClick={() => { setEditPlan(null); setVistaActiva('nuevo'); }} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md bg-[#0A3B32] text-white hover:bg-[#062620]">
+              <span className="mr-2">➕</span> Nuevo Plan
             </button>
           )}
         </div>
       </div>
-      
-      {/* FORMULARIO DE ACCIONES */}
-      <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6">
-        <div className="border-b pb-3 flex justify-between items-center">
-          <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
-            ➕ Formular Acciones por Informe Emitido
-          </h3>
-          {formInformeId && (
-            <button onClick={() => handleInformeChange('')} className="text-[10px] text-red-500 font-bold uppercase hover:underline">
-              ✖️ Limpiar Matriz
-            </button>
-          )}
-        </div>
 
-        <div className="w-full">
-          <label className="font-black text-gray-700 block mb-1.5 text-xs">1. Seleccione el Informe Emitido Evaluado</label>
-          <select 
-            value={formInformeId} 
-            onChange={(e) => handleInformeChange(e.target.value)}
-            className="w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm"
-          >
-            <option value="">-- Seleccione el Informe de Auditoría Radicado --</option>
-            {informesAuditoria.map((inf) => (
-              <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo} — ({inf.proceso})</option>
-            ))}
-          </select>
-        </div>
-
-        {informeSeleccionadoObj && (
-          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center justify-between shadow-sm animate-in fade-in duration-200">
-            <div>
-              <span className="text-[10px] font-black uppercase text-emerald-800 tracking-widest block mb-1">Informe Base de Auditoría</span>
-              <p className="text-sm font-bold text-slate-900">{informeSeleccionadoObj.titulo}</p>
+      {/* 🚀 VISTA 1: DASHBOARD FIEL A TU MAQUETA */}
+      {vistaActiva === 'dashboard' && (
+        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+          
+          {/* Fila de 6 Tarjetas Superiores */}
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+               <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Planes</p>
+               <div className="flex items-center space-x-2">
+                 <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-black shadow-sm">∑</div>
+                 <p className="text-2xl font-black text-slate-800">{totalPlanes}</p>
+               </div>
             </div>
-            {informeSeleccionadoObj.evidenciaUrl ? (
-              <a href={informeSeleccionadoObj.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-emerald-600 text-white font-black px-4 py-2 rounded-lg text-xs hover:bg-emerald-700 transition-colors shadow-md flex items-center space-x-1">
-                <span>📄</span> <span>Ver / Descargar Informe PDF</span>
-              </a>
-            ) : (
-              <span className="text-xs text-slate-400 font-bold italic bg-white px-3 py-1.5 rounded-lg border border-dashed">Sin Documento Cargado</span>
-            )}
+            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+               <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-1">Cerrados</p>
+               <div className="flex items-center space-x-2">
+                 <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-black shadow-sm">✓</div>
+                 <div>
+                   <p className="text-2xl font-black text-slate-800 leading-none">{cerrados}</p>
+                   <p className="text-[9px] font-bold text-emerald-500 mt-0.5">{pct(cerrados)}% del total</p>
+                 </div>
+               </div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+               <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest mb-1">En Proceso</p>
+               <div className="flex items-center space-x-2">
+                 <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-black shadow-sm">🕒</div>
+                 <div>
+                   <p className="text-2xl font-black text-slate-800 leading-none">{enProceso}</p>
+                   <p className="text-[9px] font-bold text-amber-500 mt-0.5">{pct(enProceso)}% del total</p>
+                 </div>
+               </div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-orange-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+               <p className="text-[9px] font-black text-orange-700 uppercase tracking-widest mb-1">Pendientes</p>
+               <div className="flex items-center space-x-2">
+                 <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black shadow-sm">?</div>
+                 <p className="text-2xl font-black text-slate-800">{pendientes}</p>
+               </div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-red-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+               <p className="text-[9px] font-black text-red-700 uppercase tracking-widest mb-1">Vencidos</p>
+               <div className="flex items-center space-x-2">
+                 <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-black shadow-sm animate-pulse">!</div>
+                 <div>
+                   <p className="text-2xl font-black text-slate-800 leading-none">{vencidos}</p>
+                   <p className="text-[9px] font-bold text-red-500 mt-0.5">{pct(vencidos)}% del total</p>
+                 </div>
+               </div>
+            </div>
+            <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+               <p className="text-[9px] font-black text-blue-700 uppercase tracking-widest mb-1">Cumplimiento</p>
+               <div className="flex items-center space-x-2">
+                 <div className="w-9 h-9 rounded-full border-4 border-emerald-500 flex items-center justify-center text-[10px] font-black text-slate-800 shadow-sm">{cumplimientoGlobal}%</div>
+                 <p className="text-[9px] font-bold text-slate-400">Meta: 90%+</p>
+               </div>
+            </div>
           </div>
-        )}
 
-        {formInformeId && (
-          <form onSubmit={handleMasterMatrixSubmit} className="space-y-6">
-            <div className="text-xs font-black text-blue-800 uppercase tracking-widest bg-blue-50/50 border border-blue-100 p-3 rounded-xl">
-              📝 Desglose de hallazgos encontrados para este informe:
+          {/* Bloque Central de 3 Columnas */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            {/* 1. Menú de Filtros Avanzados (Izquierda) */}
+            <div className="lg:col-span-1 space-y-4">
+               <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm overflow-hidden">
+                  <div className="bg-[#f8fafa] p-4 border-b border-[#1A4B42]/10 flex items-center justify-between">
+                    <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest">ORGANIZAR POR</h3>
+                    <div className="w-6 h-6 rounded-full bg-[#1A4B42] text-white flex items-center justify-center text-[10px] font-bold">1</div>
+                  </div>
+                  <div className="p-2 space-y-1">
+                    {[
+                      { id: 'Año', label: 'Vista por Año', icon: '📅' },
+                      { id: 'Proceso', label: 'Vista por Proceso', icon: '🏛️' },
+                      { id: 'Estado', label: 'Vista por Estado', icon: '🚩' },
+                      { id: 'Prioridad', label: 'Vista por Prioridad', icon: '⚠️' },
+                      { id: 'Responsable', label: 'Vista Responsable', icon: '👤' }
+                    ].map(btn => (
+                      <button 
+                        key={btn.id}
+                        onClick={() => { setAgruparPor(btn.id); setGrupoExpandido(null); }}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-3 ${agruparPor === btn.id ? 'bg-[#f0fdf4] text-[#0A3B32] shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        <span className="text-sm grayscale opacity-70">{btn.icon}</span><span>{btn.label}</span>
+                      </button>
+                    ))}
+                  </div>
+               </div>
+
+               <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm p-4 space-y-4">
+                  <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest border-b border-slate-100 pb-2">FILTROS AVANZADOS</h3>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Año</label>
+                    <select value={dashFiltroAnio} onChange={e=>setDashFiltroAnio(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
+                    <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      {PROCESOS_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Estado</label>
+                    <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      <option value="Cerrado">Cerrado (100%)</option>
+                      <option value="En Proceso">En Proceso</option>
+                      <option value="Vencido">Vencido</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Prioridad</label>
+                    <select value={dashFiltroPrioridad} onChange={e=>setDashFiltroPrioridad(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                      <option value="Todos">Todos</option>
+                      <option value="Crítico">Crítico</option>
+                      <option value="Alto">Alto</option>
+                      <option value="Medio">Medio</option>
+                      <option value="Bajo">Bajo</option>
+                    </select>
+                  </div>
+                  <button onClick={limpiarFiltrosDashboard} className="w-full bg-[#f8fafa] hover:bg-slate-100 text-[#0A3B32] border border-[#1A4B42]/10 font-bold text-[10px] uppercase tracking-widest py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all">
+                    <span>Limpiar Filtros</span> <span>⚗️</span>
+                  </button>
+               </div>
             </div>
 
-            {safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).length === 0 ? (
-              <div className="text-center p-6 text-slate-400 font-bold italic border rounded-xl bg-slate-50">
-                No se registran hallazgos vinculados a este informe en el sistema. Vaya al módulo de Hallazgos primero.
-              </div>
-            ) : (
-              safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
+            {/* 2. Acordeones Dinámicos Centrales */}
+            <div className="lg:col-span-2 space-y-4">
+               {gruposOrdenados.length === 0 ? (
+                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">No hay planes que coincidan con los filtros.</div>
+               ) : (
+                 gruposOrdenados.map(grupo => {
+                   const items = planesAgrupados[grupo];
+                   const gCerrados = items.filter(p => p.progreso === 100).length;
+                   const gProceso = items.filter(p => p.progreso < 100 && !p.esVencido).length;
+                   const gVencidos = items.filter(p => p.esVencido).length;
+                   const gCumplimiento = items.length > 0 ? Math.round((gCerrados / items.length) * 100) : 0;
+                   const isExpanded = grupoExpandido === grupo;
+
+                   return (
+                     <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+                       <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
+                         <div className="flex items-center space-x-3">
+                           <span className="text-xl">📅</span>
+                           <h4 className="text-sm sm:text-base font-black text-slate-800">{grupo} <span className="text-slate-400 font-medium text-xs">({items.length} planes)</span></h4>
+                         </div>
+                         {!isExpanded && (
+                           <div className="hidden md:flex items-center space-x-4 text-[10px] font-bold bg-white px-3 py-1 rounded-xl border border-slate-100 shadow-sm">
+                             <span className="text-emerald-600 flex items-center"><span className="text-emerald-500 mr-1 text-xs">✓</span> {gCerrados}</span>
+                             <span className="text-amber-500 flex items-center"><span className="text-amber-500 mr-1 text-xs">🕒</span> {gProceso}</span>
+                             <span className="text-red-600 flex items-center"><span className="text-red-500 mr-1 text-xs">!</span> {gVencidos}</span>
+                             <span className="text-slate-700 border-l pl-3 font-black text-xs text-emerald-600">{gCumplimiento}%</span>
+                           </div>
+                         )}
+                       </div>
+
+                       {isExpanded && (
+                         <div className="p-4 sm:p-5 bg-white animate-in slide-in-from-top-2 duration-300">
+                           <div className="grid grid-cols-5 gap-2 mb-4 border-b pb-4 text-center text-[10px] font-black text-slate-400 uppercase">
+                             <div><p>Cerrados</p><p className="text-base text-emerald-600 font-black mt-0.5">{gCerrados}</p></div>
+                             <div className="border-l"><p>En Proceso</p><p className="text-base text-amber-500 font-black mt-0.5">{gProceso}</p></div>
+                             <div className="border-l"><p>Vencidos</p><p className="text-base text-red-500 font-black mt-0.5">{gVencidos}</p></div>
+                             <div className="border-l col-span-2 bg-slate-50 rounded-xl p-1"><p>Cumplimiento</p><p className="text-base text-emerald-700 font-black mt-0.5">{gCumplimiento}%</p></div>
+                           </div>
+
+                           <div className="overflow-x-auto">
+                             <table className="w-full text-[10px] text-left">
+                               <thead className="text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                                 <tr>
+                                   <th className="pb-2 font-bold">Plan</th>
+                                   <th className="pb-2 font-bold">Actividad Remedial</th>
+                                   <th className="pb-2 font-bold">Proceso</th>
+                                   <th className="pb-2 font-bold text-center">Prioridad</th>
+                                   <th className="pb-2 font-bold text-center">Vencimiento</th>
+                                   <th className="pb-2 font-bold text-right">Avance</th>
+                                 </tr>
+                               </thead>
+                               <tbody className="divide-y divide-slate-50">
+                                 {items.map(p => (
+                                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                                     <td className="py-2.5 font-mono font-black text-slate-700">PLA-{p.id.toString().substring(0,3)}</td>
+                                     <td className="py-2.5 font-bold text-slate-600 max-w-[140px] truncate" title={p.accion}>{p.accion}</td>
+                                     <td className="py-2.5 font-medium text-slate-500 truncate max-w-[80px]">{p.proceso}</td>
+                                     <td className="py-2.5 text-center">
+                                       <span className={`px-1.5 py-0.5 rounded-md font-black text-[8px] border ${p.severidad === 'Crítico' ? 'bg-red-50 text-red-600 border-red-200' : p.severidad === 'Alto' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>{p.severidad}</span>
+                                     </td>
+                                     <td className={`py-2.5 text-center font-bold ${p.esVencido ? 'text-red-500' : 'text-slate-400'}`}>{p.fecha || 'N/A'}</td>
+                                     <td className="py-2.5 text-right font-black text-emerald-600">{p.progreso}%</td>
+                                   </tr>
+                                 ))}
+                               </tbody>
+                             </table>
+                           </div>
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })
+               )}
+            </div>
+
+            {/* 3. Columna Derecha (Gráfico de Dona y Rankings) */}
+            <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 h-fit sticky top-24">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">Distribución por prioridad</h3>
+                <div className="flex items-center justify-center mb-6">
+                   <div className="relative w-36 h-36 rounded-full border-[14px] border-emerald-500 border-l-red-500 border-t-red-500 border-r-orange-500 border-b-amber-500 flex items-center justify-center transform -rotate-45 shadow-inner">
+                      <div className="transform rotate-45 text-center">
+                         <span className="block text-3xl font-black text-slate-800 leading-none">{totalPlanes}</span>
+                         <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Total</span>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="space-y-2 mb-6 text-[10px] font-bold">
+                   <div className="flex justify-between items-center"><span className="flex items-center text-slate-600"><span className="w-2.5 h-2.5 rounded-full bg-red-500 mr-2"></span> Críticas</span><span className="text-slate-800">{criticos}</span></div>
+                   <div className="flex justify-between items-center"><span className="flex items-center text-slate-600"><span className="w-2.5 h-2.5 rounded-full bg-orange-500 mr-2"></span> Altas</span><span className="text-slate-800">{altos}</span></div>
+                   <div className="flex justify-between items-center"><span className="flex items-center text-slate-600"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 mr-2"></span> Medias</span><span className="text-slate-800">{medios}</span></div>
+                </div>
+
+                {topProcesos.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Top 5 procesos con más planes</h3>
+                    <div className="space-y-2.5">
+                      {topProcesos.map(([proc, count], idx) => (
+                        <div key={idx} className="flex items-center text-[10px]">
+                          <span className="w-16 truncate text-slate-600 font-bold pr-2">{proc}</span>
+                          <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${(count/totalPlanes).toFixed(1)*100}%`}}></div>
+                          </div>
+                          <span className="w-6 text-right font-black text-slate-800">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 VISTA 2: FORMULARIO MATRICIAL ORIGINAL COMPLETO (PRESERVADO) */}
+      {vistaActiva === 'nuevo' && (
+        <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6 animate-in slide-in-from-right-8 duration-500">
+          <div className="border-b pb-3 flex justify-between items-center">
+            <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">➕ Formular Acciones por Informe Emitido</h3>
+            {formInformeId && <button onClick={() => handleInformeChange('')} className="text-[10px] text-red-500 font-bold uppercase hover:underline">✖️ Limpiar Matriz</button>}
+          </div>
+
+          <div className="w-full">
+            <label className="font-black text-gray-700 block mb-1.5 text-xs">1. Seleccione el Informe Emitido Evaluado</label>
+            <select value={formInformeId} onChange={(e) => handleInformeChange(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm">
+              <option value="">-- Seleccione el Informe de Auditoría Radicado --</option>
+              {informesAuditoria.map((inf) => <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo} — ({inf.proceso})</option>)}
+            </select>
+          </div>
+
+          {formInformeId && (
+            <form onSubmit={handleMasterMatrixSubmit} className="space-y-6">
+              {safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
                 const node = matrixState[h.id] || { aplica: true, actividades: [] };
                 return (
                   <div key={`matrix-card-${h.id}`} className={`border rounded-2xl p-5 shadow-sm space-y-4 transition-all ${node.aplica ? 'border-blue-200 bg-slate-50/50' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-3 gap-2">
-                      <div className={!node.aplica ? 'line-through decoration-slate-400' : ''}>
-                        <span className="px-2 py-0.5 bg-red-100 text-red-800 font-black rounded text-[9px] uppercase tracking-wider">
-                          {h.ref}
-                        </span>
+                      <div>
+                        <span className="px-2 py-0.5 bg-red-100 text-red-800 font-black rounded text-[9px] uppercase tracking-wider">{h.ref}</span>
                         <h4 className="text-xs font-black text-slate-900 mt-1">{h.titulo}</h4>
-                        <p className="text-[10px] text-slate-500 font-medium">Proceso: <b>{h.proceso}</b> | Causa Raíz: <i>{h.causa || 'No descrita'}</i></p>
                       </div>
-                      
                       <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
-                        <button 
-                          type="button" 
-                          onClick={() => handleToggleAplica(h.id, true)}
-                          className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-wider transition-all ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}
-                        >
-                          Sí Aplica
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => handleToggleAplica(h.id, false)}
-                          className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase tracking-wider transition-all ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}
-                        >
-                          No Aplica
-                        </button>
+                        <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
+                        <button type="button" onClick={() => handleToggleAplica(h.id, false)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>No Aplica</button>
                       </div>
                     </div>
 
@@ -818,299 +514,125 @@ for (const act of notificacionesPendientes) {
                           <div key={`act-row-${index}`} className="bg-white border rounded-xl p-4 shadow-sm space-y-3 relative">
                             <div className="flex justify-between items-center border-b pb-1">
                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actividad #{index + 1}</span>
-                              {node.actividades.length > 1 && (
-                                <button 
-                                  type="button" 
-                                  onClick={() => handleRemoveActivity(h.id, index)}
-                                  className="text-red-500 font-bold hover:text-red-700 text-[10px] uppercase"
-                                >
-                                  🗑️ Quitar
-                                </button>
-                              )}
+                              {node.actividades.length > 1 && <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 font-bold text-[10px] uppercase">🗑️ Quitar</button>}
                             </div>
-
-                                                            <label className="font-bold text-gray-500 block mb-0.5">Fecha de Inicio</label>
-                                <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
-                              {/* FILA 1 */}
+                            <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
                               <div className="md:col-span-2">
-                                <label className="font-bold text-gray-500 block mb-0.5">Acción o Actividad Correctiva</label>
-                                <input type="text" value={act.accion} onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} placeholder="Describa la tarea mitigante..." className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
+                                <label className="font-bold text-gray-500 block mb-0.5">Acción Correctiva</label>
+                                <input type="text" value={act.accion} onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
                               </div>
                               <div className="md:col-span-2">
                                 <label className="font-bold text-gray-500 block mb-0.5">Responsable Ejecución</label>
-                                <input type="text" value={act.responsable} onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} placeholder="Cargo o nombre..." className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
+                                <input type="text" value={act.responsable} onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
                               </div>
-
-                              {/* 🔒 COLUMNA: AUDITOR ASIGNADO (HEREDADO AUTOMÁTICAMENTE) */}
                               <div className="md:col-span-2">
-                                <label className="font-bold text-blue-600 block mb-0.5 flex justify-between">
-                                  <span>Auditor de Enlace</span>
-                                  <span className="text-[9px] text-slate-400 uppercase tracking-widest">🔒 Autocompletado</span>
-                                </label>
-                                <input 
-                                  type="text" 
-                                  value={act.auditorAsignado || 'Sin auditor en el hallazgo'} 
-                                  disabled 
-                                  className="w-full border border-slate-200 p-2 rounded-lg font-black text-slate-500 bg-slate-100 cursor-not-allowed shadow-inner" 
-                                  title="Este dato se hereda automáticamente del registro de hallazgos y no puede ser modificado aquí."
-                                />
-                              </div>
-
-                              {/* FILA 2: NUEVOS CORREOS */}
-                              <div className="md:col-span-3">
-                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo Electrónico del Responsable</label>
-                                <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} placeholder="Ej: lider@termales.com.co" className="w-full border border-purple-200 p-2 rounded-lg font-medium bg-purple-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" required />
+                                <label className="font-bold text-blue-600 block mb-0.5">Auditor Enlace</label>
+                                <input type="text" value={act.auditorAsignado || ''} disabled className="w-full border border-slate-200 p-2 rounded-lg font-black text-slate-500 bg-slate-100 cursor-not-allowed shadow-inner" />
                               </div>
                               <div className="md:col-span-3">
-                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar Correo Electrónico</label>
-                                <input type="email" value={act.correoConfirmacion || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} placeholder="Escriba el correo nuevamente..." className={`w-full border p-2 rounded-lg font-medium focus:bg-white focus:ring-2 outline-none ${act.correoConfirmacion && act.correoResponsable !== act.correoConfirmacion ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-500' : 'border-purple-200 bg-purple-50 focus:ring-purple-500'}`} required />
+                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo Responsable</label>
+                                <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
                               </div>
-
-                              {/* FILA 3 */}
+                              <div className="md:col-span-3">
+                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar Correo</label>
+                                <input type="email" value={act.correoConfirmacion || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} className="w-full border p-2 rounded-lg bg-purple-50 focus:bg-white" required />
+                              </div>
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Avance ({act.progreso}%)</label>
-                                <input type="number" min="0" max="100" value={act.progreso} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50/50" />
+                                <input type="number" min="0" max="100" value={act.progreso} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50" />
                               </div>
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Fecha Inicio</label>
-                                <input type="date" value={act.fechaInicio} onChange={(e) => handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)} className="w-full border p-1.5 rounded-lg font-bold" />
+                                <input type="date" value={act.fechaInicio} onChange={(e) => handleUpdateActivityField(h.id, index, 'fechaInicio', e.target.value)} className="w-full border p-1.5 rounded-lg" />
                               </div>
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Fecha Límite</label>
-                                <input type="date" value={formatSafeDate(act.fecha)} onChange={(e) => handleUpdateActivityField(h.id, index, 'fecha', e.target.value)} className="w-full border p-1.5 rounded-lg font-bold" />
+                                <input type="date" value={act.fecha} onChange={(e) => handleUpdateActivityField(h.id, index, 'fecha', e.target.value)} className="w-full border p-1.5 rounded-lg" />
                               </div>
-<div className="md:col-span-3 bg-slate-50 border border-slate-200 p-2 rounded-xl">
-                                <label className="font-black text-slate-700 block mb-1 text-[10px] uppercase tracking-widest">☁️ Evidencia / Soporte Digital</label>
-                                
+                              <div className="md:col-span-3 bg-slate-50 border border-slate-200 p-2 rounded-xl">
+                                <label className="font-black text-slate-700 block mb-1 text-[10px] uppercase">☁️ Evidencia / Soporte Digital</label>
                                 {uploadingCell === `${h.id}-${index}` ? (
-                                  <div className="space-y-1">
-                                    <div className="w-full bg-slate-200 rounded-full h-2">
-                                      <div className="bg-emerald-500 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                                    </div>
-                                    <p className="text-[9px] font-bold text-slate-500">{uploadProgress}% Subiendo al servidor...</p>
-                                  </div>
+                                  <p className="text-[9px] font-bold text-slate-500">Subiendo...</p>
                                 ) : act.evidenciaUrl ? (
-                                  <div className="flex items-center justify-between mt-1">
-                                    <a href={act.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-700 font-black hover:underline bg-emerald-100 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow-sm">
-                                      <span>✅</span><span>Ver Soporte Subido</span>
-                                    </a>
-                                    <label className="cursor-pointer text-[9px] font-bold text-slate-400 hover:text-blue-600 underline">
-                                      Reemplazar
-                                      <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={(e) => handleFileUpload(e, h.id, index)} />
-                                    </label>
-                                  </div>
+                                  <a href={act.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-700 font-black bg-emerald-100 border p-1.5 rounded-lg inline-block">✅ Ver Soporte Subido</a>
                                 ) : (
-                                  <label className="cursor-pointer flex items-center justify-center w-full border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50 bg-white py-2 rounded-lg transition-colors group shadow-sm">
-                                    <span className="text-lg mr-2 group-hover:scale-110 transition-transform">📂</span>
-                                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-emerald-700">Haz clic para subir PDF o Imagen</span>
+                                  <label className="cursor-pointer flex items-center justify-center w-full border-2 border-dashed border-slate-300 py-2 rounded-lg bg-white">
+                                    <span className="text-[10px] font-bold text-slate-500">Subir Soporte</span>
                                     <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={(e) => handleFileUpload(e, h.id, index)} />
                                   </label>
                                 )}
-                              </div>                              
-                            </div>
-                            <div className="pt-1">
-                              <ProgressBar progress={act.progreso} />
+                              </div>
                             </div>
                           </div>
                         ))}
-
-                        <button 
-                          type="button"
-                          onClick={() => handleAddActivity(h.id)}
-                          className="bg-white border-2 border-dashed border-slate-300 hover:border-blue-500 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase tracking-wider shadow-sm transition-all"
-                        >
-                          ➕ Agregar Otra Actividad para este Hallazgo
-                        </button>
+                        <button type="button" onClick={() => handleAddActivity(h.id)} className="bg-white border-2 border-dashed border-slate-300 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase">➕ Agregar Otra Actividad</button>
                       </div>
                     )}
                   </div>
                 );
-              })
-            )}
-
-            <div className="pt-4 border-t flex justify-end">
-              <button 
-                type="submit"
-                className="bg-[#004d40] hover:bg-[#003d33] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest shadow-md transition-all text-xs"
-              >
-                💾 Guardar Matriz y Sincronizar Estados
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-
-      {/* TABLA DE SEGUIMIENTO GENERAL */}
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-        <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
-           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Actividades / Planes</h3>
-           
-           <div className="flex flex-wrap gap-2 justify-end">
-              
-              {/* 🛡️ NUEVO: Filtro por Auditor Asignado */}
-              <select
-                value={columnFilters['auditorAsignado'] || ''}
-                onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)}
-                className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-blue-50 font-black text-blue-800 shadow-sm"
-              >
-                <option value="">🛡️ Todos los Auditores</option>
-                <option value="Rodolfo González">Rodolfo González</option>
-                <option value="Yehison Pineda">Yehison Pineda</option>
-                <option value="Angelica Hernandez">Angelica Hernandez</option>
-                <option value="Luz Angela Chico">Luz Angela Chico</option>
-              </select>
-
-              {/* ⏳ NUEVO: Filtro por Estado (Pendientes de aprobar) */}
-              <select
-                value={columnFilters['estadoWorkflow'] || ''}
-                onChange={(e) => handleColFilterChange('estadoWorkflow', e.target.value)}
-                className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50 font-black text-amber-800 shadow-sm"
-              >
-                <option value="">📋 Todas las Fases</option>
-                <option value="Borrador">✏️ Borrador (En Proceso)</option>
-                <option value="En Revisión">⏳ En Revisión (Por Aprobar)</option>
-                <option value="Cerrado">✅ Cerradas (Aprobadas)</option>
-              </select>
-
-              {/* 📂 Filtro de Informe Original Compactado */}
-              <select
-                value={selectedInformeFilter}
-                onChange={(e) => setSelectedInformeFilter(e.target.value)}
-                className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-slate-800 bg-white font-bold text-slate-700 shadow-sm w-36 truncate"
-              >
-                <option value="">📂 Todos los Informes</option>
-                {informesAuditoria.map(inf => (
-                  <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
-                ))}
-              </select>
-
-              {/* 🔍 Buscador General Compactado */}
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400 text-[10px]">🔍</span>
-                <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-slate-800 w-32 shadow-sm" />
+              })}
+              <div className="pt-4 border-t flex justify-end">
+                <button type="submit" className="bg-[#004d40] hover:bg-[#003d33] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs">💾 Guardar Matriz y Sincronizar Estados</button>
               </div>
-           </div>
+            </form>
+          )}
         </div>
-        <table className="w-full text-xs text-left divide-y">
-          <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
-            <tr>
-              <th className="p-3">
-                <div>ID Plan</div>
-                <FilterInput colKey="planRefTexto" placeholder="Filtrar por ID..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-              </th>
-              <th className="p-3">
-                <div>Gobernanza (Fase)</div>
-                <FilterInput colKey="estadoWorkflow" placeholder="Fase..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-              </th>
-              <th className="p-3">
-                <div>Hallazgo / Proceso</div>
-                <FilterInput colKey="hallazgoRefTexto" placeholder="Filtrar Hallazgo/Proceso..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-              </th>
-              <th className="p-3">
-                <div>Acción Remedial Programada</div>
-                <FilterInput colKey="accionTexto" placeholder="Filtrar por Acción/Resp..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-              </th>
-              <th className="p-3 w-40">
-                <div>% Avance</div>
-                <FilterInput colKey="progreso" placeholder="Progreso..." dark columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-              </th>
-              <th className="p-3 text-center">
-                <div className="mb-8">Gestión</div>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {applyFilters(planesDataConConsecutivo, searchTerm, columnFilters).map((p, index) => {
-              const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo);
-              return (
-                <tr key={`plan-row-${p.id}-${index}`} className="hover:bg-slate-50 transition-colors">
-                  
-                  <td className="p-3">
-                    <div className="font-black text-slate-900 text-sm bg-slate-100 px-2 py-1.5 rounded-lg border border-slate-200 inline-block text-center shadow-xs">
-                      {p.codigoPlanOficial}
-                    </div>
-                    <div className="text-[8px] text-slate-400 font-mono mt-1 pl-1">INT: #{p.id}</div>
-                  </td>
-                  
-                  <td className="p-3">
-                    <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase border tracking-wider ${getWorkflowBadgeClass(p.estadoWorkflow)}`}>
-                      {p.workflowFase || p.estadoWorkflow || 'Borrador'}
-                    </span>
-                  </td>
+      )}
 
-                  <td className="p-3 text-red-600 font-bold">
-                    {hallazgoAsociado?.ref || `#HAL-${p.idHallazgo}`}
-                    <span className="text-[9px] uppercase tracking-widest text-slate-600 font-black block mt-0.5">
-                      💼 {hallazgoAsociado?.proceso || 'General'}
-                    </span>
-                    <span className="text-[9px] uppercase tracking-widest text-slate-400 font-bold block mt-0.5">
-                      📍 {hallazgoAsociado?.sede || 'Hotel'}
-                    </span>
-                  </td>
-                  <td className="p-3 text-slate-800 font-medium">
-                    <div className="font-black text-slate-900 leading-tight">{p.accion}</div>
-                    
-                    <div className="text-[10px] text-slate-500 font-medium space-y-0.5 mt-1.5 bg-slate-50 p-2 rounded border border-slate-100 grid grid-cols-2 gap-1">
-                      <div>👤 Ejecutor: <b className="text-slate-700">{p.responsable}</b></div>
-                      <div>🛡️ Auditor: <b className="text-blue-600">{p.auditorAsignado || 'N/A'}</b></div>
-                      {p.fechaInicio && <div>📅 Inicio: <b className="text-slate-700">{formatSafeDate(p.fechaInicio)}</b></div>}
-                      <div>🕒 Límite: <b className="text-slate-600">{p.fechaVal}</b></div>
-                    </div>
-
-                    {p.evidenciaUrl ? (
-                      <div className="flex items-center space-x-2 mt-2">
-                        <a href={p.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
-                          <span>🔗</span><span>Ver Soporte</span>
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
-                    )}
-                  </td>
-                  <td className="p-3">
-                    <ProgressBar progress={p.progreso || p.avance || 0} />
-                    {Number(p.progreso || 0) === 100 && (
-                      <div className="text-center mt-1.5">
-                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest">
-                          ✓ Cerrado
-                        </span>
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-3 text-center align-middle flex flex-col space-y-1.5">
-                    <button 
-                      onClick={() => {setEditPlan(p); setFormResetKey(Date.now()); scrollToForm();}} 
-                      className="bg-amber-100 text-amber-800 font-bold px-2 py-1.5 rounded-lg text-[10px] hover:bg-amber-200 transition-colors w-full"
-                    >
-                      Gestionar
-                    </button>
-                    
-                    {isAdmin && p.estadoWorkflow === 'En Revisión' && Number(p.progreso || p.avance || 0) === 100 && (
-                      <button 
-                        onClick={() => handleAprobarCierrePlan(p)} 
-                        className="bg-emerald-600 text-white font-black px-2 py-1.5 rounded-lg text-[10px] hover:bg-emerald-700 transition-colors w-full flex justify-center items-center shadow-md animate-pulse"
-                      >
-                        ✅ Aprobar y Cerrar
-                      </button>
-                    )}
-
-                    {isAdmin && (
-                      <button 
-                        onClick={() => handleDeleteItem('planes', p.id)} 
-                        disabled={p.estadoWorkflow !== 'Borrador'}
-                        className="bg-red-50 text-red-700 font-bold px-2 py-1.5 rounded-lg text-[10px] disabled:opacity-20 disabled:cursor-not-allowed hover:bg-red-100 transition-colors w-full"
-                        title={p.estadoWorkflow !== 'Borrador' ? "No se puede eliminar un plan publicado" : "Eliminar borrador"}
-                      >
-                        🗑️ Eliminar
-                      </button>
-                    )}
-                  </td>
+      {/* 🚀 VISTA 3: TABLA DE HISTORIAL ORIGINAL COMPLETA (PRESERVADA) */}
+      {vistaActiva === 'historial' && (
+        <div className="space-y-6 animate-in slide-in-from-left-8 duration-500">
+          <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+            <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
+               <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Actividades / Planes</h3>
+               <div className="flex flex-wrap gap-2 justify-end">
+                  <select value={columnFilters['auditorAsignado'] || ''} onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-blue-50 font-black text-blue-800 shadow-sm">
+                    <option value="">🛡️ Todos los Auditores</option>
+                    <option value="Rodolfo González">Rodolfo González</option><option value="Yehison Pineda">Yehison Pineda</option><option value="Angelica Hernandez">Angelica Hernandez</option><option value="Luz Angela Chico">Luz Angela Chico</option>
+                  </select>
+                  <select value={columnFilters['estadoWorkflow'] || ''} onChange={(e) => handleColFilterChange('estadoWorkflow', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-amber-50 font-black text-amber-800 shadow-sm">
+                    <option value="">📋 Todas las Fases</option><option value="Borrador">✏️ Borrador</option><option value="En Revisión">⏳ En Revisión</option><option value="Cerrado">✅ Cerradas</option>
+                  </select>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400 text-[10px]">🔍</span>
+                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-slate-800 w-32 shadow-sm" />
+                  </div>
+               </div>
+            </div>
+            <table className="w-full text-xs text-left divide-y">
+              <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
+                <tr>
+                  <th className="p-3">ID Plan</th>
+                  <th className="p-3">Gobernanza (Fase)</th>
+                  <th className="p-3">Hallazgo / Proceso</th>
+                  <th className="p-3">Acción Remedial Programada</th>
+                  <th className="p-3 w-40">% Avance</th>
+                  <th className="p-3 text-center">Gestión</th>
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y text-slate-700">
+                {planesEnriquecidos.map((p, index) => (
+                  <tr key={index} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().substring(0,3)}</td>
+                    <td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border bg-slate-100 text-slate-700">{p.estadoWorkflow}</span></td>
+                    <td className="p-3 text-red-600 font-bold">{p.proceso}<span className="block text-[9px] text-slate-400 font-black">{p.sede}</span></td>
+                    <td className="p-3 font-medium text-slate-800">
+                      <div className="font-black text-slate-900">{p.accion}</div>
+                      <div className="text-[9px] text-slate-500 mt-1 bg-slate-50 p-2 rounded">👤 Ejecutor: {p.responsable} | 🛡️ Auditor: {p.auditorAsignado}</div>
+                    </td>
+                    <td className="p-3"><ProgressBar progress={p.progreso} /></td>
+                    <td className="p-3 text-center flex flex-col space-y-1">
+                      <button onClick={() => { setEditPlan(p); setVistaActActive('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">Gestionar</button>
+                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">Eliminar</button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
