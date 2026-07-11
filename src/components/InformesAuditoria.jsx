@@ -31,6 +31,20 @@ export default function InformesAuditoria({
 
 const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
 
+// ⏳ ESTADOS LOCALES PARA FILTROS DE FECHA
+  const [filtroAnio, setFiltroAnio] = useState('');
+  const [filtroMes, setFiltroMes] = useState('');
+
+  // 🧠 LÓGICA DE FILTRADO POR FECHA
+  const informesFiltradosPorFecha = safeInformes.filter(inf => {
+    if (!filtroAnio && !filtroMes) return true;
+    if (!inf.fecha) return false;
+    const [anio, mes] = inf.fecha.split('-'); 
+    if (filtroAnio && anio !== filtroAnio) return false;
+    if (filtroMes && mes !== filtroMes) return false;
+    return true;
+  });
+
   // ☁️ ESTADOS DE CARGA PARA API TERMALES
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -430,16 +444,29 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
         </div>
       )}
 
-      {/* 🔍 BARRA DE BÚSQUEDA GLOBAL */}
-      <div className="bg-white p-4 rounded-2xl border shadow-sm flex items-center space-x-3">
-        <span className="text-slate-400 text-lg">🔍</span>
-        <input
-          type="text"
-          placeholder="Buscar informe..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full text-sm outline-none bg-transparent text-slate-700 font-medium placeholder-slate-400"
-        />
+      {/* 🔍 BARRA DE FILTROS Y BÚSQUEDA */}
+      <div className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Filtros:</span>
+          
+          <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer">
+            <option value="">📅 Todos los Años</option>
+            {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
+          </select>
+
+          <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer">
+            <option value="">📆 Todos los Meses</option>
+            <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+            <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+            <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+
+        <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-full md:w-64 shadow-inner">
+          <span className="text-slate-400">🔍</span>
+          <input type="text" placeholder="Buscar informe..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full text-xs outline-none bg-transparent text-slate-700 font-bold placeholder-slate-400" />
+        </div>
       </div>
 
       {/* 📊 REPOSITORIO TABULAR GENERAL */}
@@ -463,14 +490,14 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
-              {applyFilters(safeInformes, searchTerm, columnFilters).length === 0 ? (
+{applyFilters(informesFiltradosPorFecha, searchTerm, columnFilters).length === 0 ? (
                 <tr>
                   <td colSpan="5" className="p-12 text-center text-slate-400 font-bold italic">
                     No se encontraron informes con los criterios de búsqueda.
                   </td>
                 </tr>
               ) : (
-                applyFilters(safeInformes, searchTerm, columnFilters).map((inf, idx) => (
+                applyFilters(informesFiltradosPorFecha, searchTerm, columnFilters).map((inf, idx) => (
                   <tr key={inf.id || idx} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-4 font-mono font-black text-sm text-slate-800 bg-slate-50/50">
                       {inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}

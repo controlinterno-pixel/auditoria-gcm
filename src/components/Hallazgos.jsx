@@ -74,6 +74,20 @@ export default function Hallazgos({
     const maxConsecutivo = consecutivos.length > 0 ? Math.max(...consecutivos) : 0;
     nextIdVal = `HAL-${anioActual}-${String(maxConsecutivo + 1).padStart(3, '0')}`;
   }
+// ⏳ ESTADOS LOCALES PARA FILTROS DE FECHA
+  const [filtroAnio, setFiltroAnio] = useState('');
+  const [filtroMes, setFiltroMes] = useState('');
+
+  // 🧠 LÓGICA DE FILTRADO (Hereda la fecha del informe padre)
+  const hallazgosFiltradosPorFecha = hFiltrados.filter(h => {
+    if (!filtroAnio && !filtroMes) return true;
+    const informeBase = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
+    if (!informeBase || !informeBase.fecha) return false;
+    const [anio, mes] = informeBase.fecha.split('-');
+    if (filtroAnio && anio !== filtroAnio) return false;
+    if (filtroMes && mes !== filtroMes) return false;
+    return true;
+  });
 // ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
@@ -280,7 +294,29 @@ export default function Hallazgos({
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
+        <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-4">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">DESVIACIONES</h3>
+           
+           <div className="flex flex-wrap items-center gap-3">
+              <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
+                <option value="">📅 Todos los Años</option>
+                {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
+              </select>
+
+              <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
+                <option value="">📆 Todos los Meses</option>
+                <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+                <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+                <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+                <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+              </select>
+
+             <div className="relative w-full sm:w-auto">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-64 shadow-sm" />
+             </div>
+           </div>
+        </div>
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">DESVIACIONES</h3>
            <div className="relative">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
@@ -314,7 +350,7 @@ export default function Hallazgos({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {applyFilters(hFiltrados, searchTerm, columnFilters).map((h, index) => (
+              {applyFilters(hallazgosFiltradosPorFecha, searchTerm, columnFilters).map((h, index) => (
                 <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                   <td className="p-4">
                     <div className="font-black text-slate-800 text-sm">{h.ref}</div>
