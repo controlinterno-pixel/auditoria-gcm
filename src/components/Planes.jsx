@@ -134,7 +134,55 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
     setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroEstado('Todos');
     setDashFiltroPrioridad('Todos'); setDashFiltroResponsable('Todos');
   };
+// 💾 PROCESADOR DE ENVÍO MATRICIAL UNIFICADO
+  const handleMasterMatrixSubmit = async (e) => {
+    e.preventDefault();
+    if (!formInformeId) return;
 
+    const ts = new Date().toLocaleString();
+    let updatedPlanesList = [...safePlanes];
+
+    Object.keys(matrixState).forEach(hallazgoId => {
+      const node = matrixState[hallazgoId];
+      if (!node.aplica) return;
+
+      node.actividades.forEach(act => {
+        const isNew = String(act.id).startsWith('new-');
+        const planData = {
+          id: isNew ? Date.now() + Math.floor(Math.random() * 1000) : act.id,
+          idHallazgo: parseInt(hallazgoId),
+          accion: act.accion,
+          responsable: act.responsable,
+          correoResponsable: act.correoResponsable,
+          auditorAsignado: act.auditorAsignado,
+          progreso: parseInt(act.progreso || 0),
+          fechaInicio: act.fechaInicio || '',
+          fecha: act.fecha || '',
+          evidenciaUrl: act.evidenciaUrl || '',
+          estadoWorkflow: parseInt(act.progreso) === 100 ? 'Cerrado' : (act.estadoWorkflow || 'Borrador'),
+          estado: parseInt(act.progreso) === 100 ? 'Cerrado' : 'En Proceso'
+        };
+
+        if (isNew) {
+          planData.historialCambios = [{ fecha: ts, usuario: 'Auditor', accion: 'Actividad asignada matricialmente' }];
+          updatedPlanesList.push(planData);
+        } else {
+          const idx = updatedPlanesList.findIndex(p => p.id === act.id);
+          if (idx !== -1) {
+            planData.historialCambios = [...(updatedPlanesList[idx].historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: 'Actividad modificada en matriz' }];
+            updatedPlanesList[idx] = planData;
+          }
+        }
+      });
+    });
+
+    setPlanes(updatedPlanesList);
+    await saveToCloud({ planes: updatedPlanesList });
+    setFormInformeId('');
+    setMatrixState({});
+    setVistaActiva('dashboard');
+    if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
+  };
   // =========================================================
   // 📂 LOGICA FORMULARIO Y API ORIGINAL (CUSTODIADA)
   // =========================================================
