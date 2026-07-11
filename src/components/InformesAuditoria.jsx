@@ -31,14 +31,15 @@ export default function InformesAuditoria({
 
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
 
-  // 🧭 NUEVO ESTADO DE NAVEGACIÓN (TABS)
-  const [vistaActiva, setVistaActiva] = useState('dashboard'); // 'dashboard', 'nuevo', 'historial'
+  // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
+  const [vistaActiva, setVistaActiva] = useState('dashboard');
+  const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
 
   // ⏳ ESTADOS LOCALES PARA FILTROS DE FECHA (Historial)
   const [filtroAnio, setFiltroAnio] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
 
-  // 🧠 LÓGICA DE FILTRADO POR FECHA
+  // 🧠 LÓGICA DE FILTRADO POR FECHA (Tabla Historial)
   const informesFiltradosPorFecha = safeInformes.filter(inf => {
     if (!filtroAnio && !filtroMes) return true;
     if (!inf.fecha) return false;
@@ -56,7 +57,9 @@ export default function InformesAuditoria({
   const [isActaUploading, setIsActaUploading] = useState(false);
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
 
-  // 📊 CÁLCULO DE KPIs PARA EL DASHBOARD
+  // =========================================================
+  // 📊 CÁLCULO DE KPIs PARA EL DASHBOARD Y ACORDEONES
+  // =========================================================
   const totalInformes = safeInformes.length;
   const socializados = safeInformes.filter(i => i.socializado === 'Sí').length;
   const pctSocializados = totalInformes > 0 ? Math.round((socializados / totalInformes) * 100) : 0;
@@ -65,6 +68,23 @@ export default function InformesAuditoria({
   const procesosAuditados = new Set(safeInformes.map(i => i.proceso)).size;
   const sortedInformes = [...safeInformes].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   const ultimoInforme = sortedInformes.length > 0 ? sortedInformes[0] : null;
+
+  // 🗂️ Lógica de Agrupación por Año (Para los Acordeones)
+  const informesAgrupados = safeInformes.reduce((acc, inf) => {
+    const anio = inf.fecha ? inf.fecha.split('-')[0] : 'Sin Fecha';
+    if (!acc[anio]) acc[anio] = [];
+    acc[anio].push(inf);
+    return acc;
+  }, {});
+  const aniosOrdenados = Object.keys(informesAgrupados).sort((a, b) => b.localeCompare(a));
+
+  // 🏆 Lógica para el Top 5 de Procesos
+  const conteoProcesos = safeInformes.reduce((acc, inf) => {
+    acc[inf.proceso] = (acc[inf.proceso] || 0) + 1;
+    return acc;
+  }, {});
+  const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
 
   // ⚙️ MOTOR DE SUBIDA CONECTADO A LA API DE TERMALES
   const handleFileUpload = async (e, type) => {
@@ -135,7 +155,7 @@ export default function InformesAuditoria({
             onClick={() => setVistaActiva('historial')} 
             className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
           >
-            📜 Historial
+            📜 Historial Completo
           </button>
           
           {isAdmin && (
@@ -159,11 +179,11 @@ export default function InformesAuditoria({
         </div>
       </div>
 
-      {/* 🚀 VISTA 1: DASHBOARD DE KPIs (NUEVA) */}
+      {/* 🚀 VISTA 1: DASHBOARD DE KPIs (VISTA INTELIGENTE AGRUPADA) */}
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
-          {/* Fila de 5 Tarjetas */}
+          {/* Fila de 5 Tarjetas de Métricas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-slate-300 transition-colors">
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-xl shrink-0">📄</div>
@@ -195,7 +215,7 @@ export default function InformesAuditoria({
              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-blue-300 transition-colors">
                 <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">🏛️</div>
                 <div>
-                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Procesos</p>
+                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Procesos Auditados</p>
                    <p className="text-2xl font-black text-slate-800">{procesosAuditados}</p>
                 </div>
              </div>
@@ -209,43 +229,174 @@ export default function InformesAuditoria({
              </div>
           </div>
 
-          {/* Gráfico y Preview */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col items-center justify-center text-center">
-                <span className="text-5xl mb-4 animate-bounce">💡</span>
-                <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest">Vista Inteligente Agrupada (Próximamente)</h3>
-                <p className="text-xs text-slate-500 font-medium max-w-lg mt-3 leading-relaxed">
-                  Basado en tu diseño estratégico, aquí construiremos el panel de acordeón. Agruparemos tus informes por Año, Proceso o Estado para que analices grandes volúmenes de dictámenes sin listas infinitas.
-                </p>
-                <button 
-                  onClick={() => setVistaActiva('historial')} 
-                  className="mt-6 px-8 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest rounded-xl transition-colors shadow-sm"
-                >
-                  Ir a la tabla de Historial Completa ➔
-                </button>
+             
+             {/* 🗂️ COLUMNA IZQUIERDA: ACORDEONES (VISTA INTELIGENTE AGRUPADA) */}
+             <div className="lg:col-span-2 space-y-4">
+               
+               {/* Barra de Controles del Acordeón */}
+               <div className="flex justify-between items-center bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center space-x-3 text-xs font-bold text-slate-600 ml-2">
+                    <span>Agrupado por:</span>
+                    <select className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-inner cursor-pointer">
+                      <option>Año de Emisión</option>
+                    </select>
+                    <span className="text-slate-400 font-medium">({aniosOrdenados.length} grupos)</span>
+                  </div>
+               </div>
+
+               {safeInformes.length === 0 ? (
+                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">
+                   No hay informes registrados en la base de datos.
+                 </div>
+               ) : (
+                 aniosOrdenados.map(anio => {
+                   const infs = informesAgrupados[anio];
+                   const soc = infs.filter(i => i.socializado === 'Sí').length;
+                   const pend = infs.length - soc;
+                   const procs = new Set(infs.map(i => i.proceso)).size;
+                   const isExpanded = grupoExpandido === anio;
+
+                   return (
+                     <div key={anio} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+                       {/* Header del Acordeón */}
+                       <div 
+                         onClick={() => setGrupoExpandido(isExpanded ? null : anio)}
+                         className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}
+                       >
+                         <div className="flex items-center space-x-3">
+                           <span className="text-xl">📅</span>
+                           <h4 className="text-sm sm:text-base font-black text-slate-800">{anio} <span className="text-slate-400 font-medium text-xs ml-1">({infs.length} informes)</span></h4>
+                           {anio === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ml-2 shadow-sm">Actual</span>}
+                         </div>
+                         
+                         {/* Resumen rápido visible solo cuando está cerrado */}
+                         {!isExpanded && (
+                           <div className="hidden md:flex items-center space-x-6 text-xs font-bold bg-white px-4 py-1.5 rounded-xl border border-slate-100 shadow-sm">
+                             <span className="text-emerald-600 flex items-center" title="Socializados"><span className="mr-1.5 text-base">✅</span> {soc}</span>
+                             <span className="text-orange-500 flex items-center" title="Pendientes"><span className="mr-1.5 text-base">🕒</span> {pend}</span>
+                             <span className="text-slate-400 flex items-center" title="Procesos Auditados"><span className="mr-1.5 text-base">🏛️</span> {procs}</span>
+                             <span className="text-slate-300 ml-4 border-l pl-4 font-black">▼</span>
+                           </div>
+                         )}
+                         {isExpanded && <span className="text-slate-400 font-black hidden md:block">▲</span>}
+                       </div>
+
+                       {/* Contenido Desplegable */}
+                       {isExpanded && (
+                         <div className="p-4 sm:p-6 bg-white animate-in slide-in-from-top-2 duration-300">
+                           
+                           {/* Fila de Métricas Internas */}
+                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 border-b border-slate-100 pb-6">
+                             <div className="text-center">
+                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Socializados</p>
+                               <p className="text-xl font-black text-emerald-600">{soc} <span className="text-[10px] font-bold text-emerald-400 ml-1">({Math.round((soc/infs.length)*100)}%)</span></p>
+                             </div>
+                             <div className="text-center border-l border-slate-100">
+                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Pendientes</p>
+                               <p className="text-xl font-black text-orange-500">{pend} <span className="text-[10px] font-bold text-orange-300 ml-1">({Math.round((pend/infs.length)*100)}%)</span></p>
+                             </div>
+                             <div className="text-center border-l border-slate-100 hidden md:block">
+                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Procesos Impactados</p>
+                               <p className="text-xl font-black text-slate-700">{procs}</p>
+                             </div>
+                             <div className="text-center border-l border-slate-100 hidden md:block">
+                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Última Emisión</p>
+                               <p className="text-sm font-black text-slate-700 mt-1.5">{infs.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha))[0]?.fecha}</p>
+                             </div>
+                           </div>
+
+                           {/* Lista (Mini-Tabla) de los primeros 5 informes */}
+                           <div className="space-y-2">
+                             {infs.slice(0, 5).map(inf => (
+                               <div key={inf.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-200 group">
+                                 <div className="flex items-center space-x-4 w-full md:w-1/3">
+                                   <div className={`w-1 h-10 rounded-full ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
+                                   <div className="overflow-hidden">
+                                     <p className="text-xs font-bold text-slate-800 truncate" title={inf.proceso}>{inf.proceso}</p>
+                                     <p className="text-[10px] text-slate-400 font-mono mt-0.5">{inf.ref}</p>
+                                   </div>
+                                 </div>
+                                 
+                                 <div className="w-1/6 hidden lg:block">
+                                   <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${inf.socializado === 'Sí' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
+                                     {inf.socializado === 'Sí' ? 'Socializado' : 'Pendiente'}
+                                   </span>
+                                 </div>
+
+                                 <div className="w-1/4 hidden md:block text-[10px] font-bold text-slate-600 truncate">
+                                   <span className="text-slate-400 font-normal mr-1">Auditor:</span>{inf.elaboradoPor}
+                                 </div>
+
+                                 <div className="w-auto md:w-1/6 text-right text-[10px] font-bold text-slate-500">
+                                   {inf.fecha}
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
+                           
+                           {/* Botón Ver Más si hay más de 5 */}
+                           {infs.length > 5 && (
+                             <div className="mt-5 text-center bg-slate-50 rounded-xl p-2 border border-slate-100">
+                               <button 
+                                 onClick={() => { setFiltroAnio(anio); setVistaActiva('historial'); }} 
+                                 className="text-[10px] font-black uppercase tracking-widest text-[#0A3B32] hover:text-[#062620] hover:underline flex items-center justify-center w-full"
+                               >
+                                 Ver los {infs.length} informes completos de {anio} <span className="ml-1 text-sm">➔</span>
+                               </button>
+                             </div>
+                           )}
+
+                         </div>
+                       )}
+                     </div>
+                   );
+                 })
+               )}
              </div>
              
-             {/* Resumen Visual (Falso Gráfico CSS Puro) */}
-             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+             {/* 🍩 COLUMNA DERECHA: GRÁFICOS Y TOP 5 */}
+             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 h-fit sticky top-24">
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">Resumen Visual</h3>
+                
+                {/* Gráfico Donut (CSS Puro) */}
                 <div className="flex items-center justify-center mb-8">
-                   <div className="relative w-36 h-36 rounded-full border-[14px] border-slate-100 border-l-emerald-500 border-t-emerald-500 border-r-orange-500 border-b-slate-200 flex items-center justify-center transform -rotate-45 shadow-inner">
+                   <div className="relative w-40 h-40 rounded-full border-[16px] border-slate-100 border-l-emerald-500 border-t-emerald-500 border-r-orange-500 border-b-slate-200 flex items-center justify-center transform -rotate-45 shadow-inner">
                       <div className="transform rotate-45 text-center">
-                         <span className="block text-3xl font-black text-slate-800 leading-none">{totalInformes}</span>
+                         <span className="block text-4xl font-black text-slate-800 leading-none">{totalInformes}</span>
                          <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Total</span>
                       </div>
                    </div>
                 </div>
-                <div className="space-y-4">
+
+                <div className="space-y-4 mb-8">
                    <div className="flex justify-between items-center text-xs font-bold bg-emerald-50 p-3 rounded-xl border border-emerald-100">
                      <span className="flex items-center text-emerald-900"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2 shadow-sm"></span> Socializados</span>
-                     <span className="text-emerald-700 bg-white px-2 py-0.5 rounded shadow-sm">{socializados}</span>
+                     <span className="text-emerald-700 bg-white px-2 py-0.5 rounded shadow-sm">{socializados} <span className="text-[9px] ml-1 opacity-70">({pctSocializados}%)</span></span>
                    </div>
                    <div className="flex justify-between items-center text-xs font-bold bg-orange-50 p-3 rounded-xl border border-orange-100">
                      <span className="flex items-center text-orange-900"><span className="w-2.5 h-2.5 rounded-full bg-orange-500 mr-2 shadow-sm"></span> Pendientes</span>
-                     <span className="text-orange-700 bg-white px-2 py-0.5 rounded shadow-sm">{pendientes}</span>
+                     <span className="text-orange-700 bg-white px-2 py-0.5 rounded shadow-sm">{pendientes} <span className="text-[9px] ml-1 opacity-70">({pctPendientes}%)</span></span>
                    </div>
                 </div>
+
+                {/* Ranking Top 5 Procesos */}
+                {topProcesos.length > 0 && (
+                  <div className="border-t border-slate-100 pt-6">
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Top 5 Procesos Auditados</h3>
+                    <div className="space-y-3">
+                      {topProcesos.map(([proc, count], idx) => (
+                        <div key={idx} className="flex items-center text-[10px]">
+                          <span className="w-24 truncate text-slate-600 font-bold pr-2" title={proc}>{proc}</span>
+                          <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${(count/totalInformes)*100}%`}}></div>
+                          </div>
+                          <span className="w-8 text-right font-black text-slate-800">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
              </div>
           </div>
         </div>
@@ -253,39 +404,39 @@ export default function InformesAuditoria({
 
       {/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO */}
       {vistaActiva === 'nuevo' && isAdmin && (
-        <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500">
+        <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           
-          <div className="flex justify-between items-center border-b pb-3">
-            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest flex items-center">
-              <span className="text-lg mr-2">{editInformeAuditoria ? '✏️' : '➕'}</span>
+          <div className="flex justify-between items-center border-b pb-4">
+            <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest flex items-center">
+              <span className="text-xl mr-3 bg-emerald-50 p-2 rounded-lg">{editInformeAuditoria ? '✏️' : '➕'}</span>
               {editInformeAuditoria ? `Editando Flujo de Informe: ${editInformeAuditoria.ref}` : 'ARCHIVAR, RADICAR Y DISTRIBUIR NUEVO INFORME'}
             </h3>
           </div>
 
           <form key={editInformeAuditoria?.ref || 'form-nuevo'} onSubmit={(e) => { handleInformeAuditoriaSubmit(e); setVistaActiva('dashboard'); }} className="space-y-6 text-xs">
             {/* 📊 REJILLA DE CAMPOS PERFECTAMENTE ALINEADA (4 COLUMNAS) */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
               
               {/* 📝 COLUMNA: TÍTULO */}
               <div className="md:col-span-2">
-                <label className="font-bold text-gray-600 block mb-1">Título del Informe Formal</label>
+                <label className="font-bold text-gray-600 block mb-1.5">Título del Informe Formal</label>
                 <input 
                   name="titulo" 
                   defaultValue={editInformeAuditoria?.titulo || ''} 
                   required 
                   placeholder="Ej: Auditoría de Cumplimiento a Cadena de Suministros" 
-                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm" 
                 />
               </div>
 
               {/* 📋 COLUMNA: SELECCIÓN DE PROCESO */}
               <div>
-                <label className="font-bold text-gray-600 block mb-1">📋 Proceso Auditado</label>
+                <label className="font-bold text-gray-600 block mb-1.5">📋 Proceso Auditado</label>
                 <select 
                   name="proceso" 
                   defaultValue={editInformeAuditoria?.proceso || ''} 
                   required 
-                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm"
                 >
                   <option value="">-- Seleccionar Proceso --</option>
                   {PROCESOS_OFICIALES.map((proc) => (
@@ -296,24 +447,24 @@ export default function InformesAuditoria({
 
               {/* 📅 COLUMNA: FECHA DE EMISIÓN */}
               <div>
-                <label className="font-bold text-gray-600 block mb-1">Fecha de Emisión</label>
+                <label className="font-bold text-gray-600 block mb-1.5">Fecha de Emisión</label>
                 <input 
                   name="fecha" 
                   type="date" 
                   defaultValue={editInformeAuditoria?.fecha || ''} 
                   required 
-                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800" 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm" 
                 />
               </div>
 
               {/* ✍️ COLUMNA: ELABORADO POR */}
               <div>
-                <label className="font-bold text-gray-600 block mb-1">✍️ Elaborado Por (Auditor)</label>
+                <label className="font-bold text-gray-600 block mb-1.5">✍️ Elaborado Por (Auditor)</label>
                 <select 
                   name="elaboradoPor" 
                   defaultValue={editInformeAuditoria?.elaboradoPor || ''} 
                   required 
-                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium text-slate-800"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium text-slate-800 shadow-sm cursor-pointer"
                 >
                   <option value="">-- Asignar Auditor --</option>
                   {auditoresLista.map((aud, i) => <option key={`elab-${i}`} value={aud}>{aud}</option>)}
@@ -322,12 +473,12 @@ export default function InformesAuditoria({
 
               {/* 🔍 COLUMNA: REVISADO POR */}
               <div>
-                <label className="font-bold text-gray-600 block mb-1">🔍 Revisado Por (Líder)</label>
+                <label className="font-bold text-gray-600 block mb-1.5">🔍 Revisado Por (Líder)</label>
                 <select 
                   name="revisadoPor" 
                   defaultValue={editInformeAuditoria?.revisadoPor || ''} 
                   required 
-                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-inner cursor-pointer text-slate-800"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800"
                 >
                   <option value="">-- Seleccionar --</option>
                   {auditoresLista.map((a, i) => <option key={`rev-${i}`} value={a}>{a}</option>)}
@@ -336,12 +487,12 @@ export default function InformesAuditoria({
 
               {/* 🔒 COLUMNA: APROBADO POR */}
               <div>
-                <label className="font-bold text-gray-600 block mb-1">🔒 Aprobado Por (Gerencia)</label>
+                <label className="font-bold text-gray-600 block mb-1.5">🔒 Aprobado Por (Gerencia)</label>
                 <select 
                   name="aprobadoPor" 
                   defaultValue={editInformeAuditoria?.aprobadoPor || ''} 
                   required 
-                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-inner cursor-pointer text-slate-800"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800"
                 >
                   <option value="">-- Seleccionar --</option>
                   {auditoresLista.map((a, i) => <option key={`apr-${i}`} value={a}>{a}</option>)}
@@ -350,11 +501,11 @@ export default function InformesAuditoria({
 
               {/* 📢 COLUMNA: ¿FUE SOCIALIZADO? */}
               <div>
-                <label className="font-bold text-gray-600 block mb-1">📢 ¿Fue Socializado?</label>
+                <label className="font-bold text-gray-600 block mb-1.5">📢 ¿Fue Socializado?</label>
                 <select 
                   name="socializado" 
                   defaultValue={editInformeAuditoria?.socializado || 'No'} 
-                  className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800"
+                  className="w-full border rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm cursor-pointer"
                 >
                   <option value="No">No</option>
                   <option value="Sí">Sí</option>
@@ -363,30 +514,30 @@ export default function InformesAuditoria({
 
               {/* 👥 COLUMNA: PARTICIPANTES */}
               <div className="md:col-span-4">
-                <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización</label>
+                <label className="font-bold text-gray-600 block mb-1.5">Participantes de la Socialización</label>
                 <input 
                   name="socializadoCon" 
                   defaultValue={editInformeAuditoria?.socializadoCon || ''} 
                   placeholder="Ej: Comité de Auditoría, Gerencia General..." 
-                  className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#0A3B32] outline-none text-slate-800" 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none text-slate-800 shadow-sm" 
                 />
               </div>
 
             </div>            
            
             {/* 📧 DISTRIBUCIÓN ELECTRÓNICA */}
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl shadow-inner">
-              <label className="font-black text-blue-900 block mb-1 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
-              <input name="correosNotificacionInput" type="text" placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-lg p-2 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700" />
-              <p className="text-[9px] text-blue-600 mt-1 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
+            <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl shadow-inner mt-4">
+              <label className="font-black text-blue-900 block mb-2 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
+              <input name="correosNotificacionInput" type="text" placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm" />
+              <p className="text-[10px] text-blue-600 mt-2 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
             </div>
 
             {/* ☁️ BÓVEDA SERVIDOR TERMALES */}
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2 border-b pb-2 border-slate-200 flex justify-between items-center">
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-inner grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              <div className="md:col-span-2 border-b pb-3 border-slate-200 flex justify-between items-center">
                 <div>
-                  <label className="font-black text-slate-700 uppercase tracking-widest text-[11px]">Repositorio Oficial Termales Santa Rosa</label>
-                  <p className="text-[9px] text-slate-500 font-medium">Sube tus PDFs. El sistema los enviará directo a repos.termalessantarosa.com.co.</p>
+                  <label className="font-black text-slate-800 uppercase tracking-widest text-xs">Repositorio Oficial Termales Santa Rosa</label>
+                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">Sube tus PDFs. El sistema los enviará directo a repos.termalessantarosa.com.co.</p>
                 </div>
                 <div className="text-slate-300 text-3xl">☁️</div>
               </div>
@@ -394,58 +545,58 @@ export default function InformesAuditoria({
               <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || ''} />
               <input type="hidden" name="actaSocializacionUrlInput" value={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || ''} />
 
-              <div className="bg-white border-2 border-dashed border-emerald-300 p-6 rounded-2xl text-center relative hover:border-emerald-500 hover:bg-emerald-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">
-                <span className="absolute top-2 left-3 text-[9px] font-black uppercase text-emerald-600 tracking-widest">📄 Documento Principal</span>
+              <div className="bg-white border-2 border-dashed border-emerald-300 p-6 rounded-2xl text-center relative hover:border-emerald-500 hover:bg-emerald-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
+                <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-emerald-600 tracking-widest bg-emerald-50 px-2 py-0.5 rounded">📄 Documento Principal</span>
                 {isUploading ? (
-                  <div className="space-y-3 w-full">
+                  <div className="space-y-3 w-full mt-4">
                     <div className="text-3xl animate-bounce">🚀</div>
                     <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
                       <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
                     </div>
                   </div>
                 ) : archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-4">
                     <div className="text-4xl text-emerald-500">✅</div>
-                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-emerald-600 text-[9px] font-bold uppercase tracking-wider underline">
+                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-emerald-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
                       Reemplazar Archivo <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
                     </label>
                   </div>
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
+                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-4">
                     <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-lg group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">Seleccionar Archivo PDF</p>
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">Seleccionar Archivo PDF</p>
                     <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
                   </label>
                 )}
               </div>
 
-              <div className="bg-white border-2 border-dashed border-purple-300 p-6 rounded-2xl text-center relative hover:border-purple-500 hover:bg-purple-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">
-                 <span className="absolute top-2 left-3 text-[9px] font-black uppercase text-purple-600 tracking-widest">🤝 Acta de Reunión</span>
+              <div className="bg-white border-2 border-dashed border-purple-300 p-6 rounded-2xl text-center relative hover:border-purple-500 hover:bg-purple-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
+                 <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-purple-600 tracking-widest bg-purple-50 px-2 py-0.5 rounded">🤝 Acta de Reunión</span>
                 {isActaUploading ? (
-                  <div className="space-y-3 w-full">
+                  <div className="space-y-3 w-full mt-4">
                     <div className="text-3xl animate-bounce">🚀</div>
                     <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
                       <div className="bg-purple-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${actaProgress}%` }}></div>
                     </div>
                   </div>
                 ) : actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl ? (
-                  <div className="space-y-2">
+                  <div className="space-y-2 mt-4">
                     <div className="text-4xl text-purple-500">✅</div>
-                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-purple-600 text-[9px] font-bold uppercase tracking-wider underline">
+                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-purple-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
                       Reemplazar Archivo <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
                     </label>
                   </div>
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
+                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-4">
                     <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📷</div>
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Seleccionar Imagen o PDF</p>
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Seleccionar Imagen o PDF</p>
                     <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
                   </label>
                 )}
               </div>
             </div>
 
-            <div className="md:col-span-4 flex justify-end">
+            <div className="md:col-span-4 flex justify-end pt-4">
               <button 
                 type="submit" 
                 disabled={isSubmitting} 
@@ -464,7 +615,7 @@ export default function InformesAuditoria({
                     else e.target.disabled = false;
                   }, 3000);
                 }}
-                className={`font-black uppercase tracking-widest px-8 py-3 rounded-xl shadow-md transition-all w-full md:w-auto text-center block ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] text-white cursor-pointer'}`}
+                className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
               >
                 {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
               </button>
@@ -472,14 +623,14 @@ export default function InformesAuditoria({
           </form>
 
           {/* 🟢 PANEL DE CONTROL DE PERSONAL */}
-          <div className="bg-slate-900 text-slate-100 p-5 rounded-2xl border border-slate-800 space-y-4 mt-6">
-            <div className="border-b border-slate-800 pb-2">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-300">👥 Gestión de Personal del Equipo de Auditoría</h4>
-              <p className="text-[9px] text-slate-500 font-medium">Agregue o retire firmas autorizadas para los flujos del sistema en tiempo real.</p>
+          <div className="bg-slate-900 text-slate-100 p-6 rounded-3xl border border-slate-800 space-y-4 mt-8 shadow-inner">
+            <div className="border-b border-slate-800 pb-3">
+              <h4 className="text-xs font-black uppercase tracking-widest text-slate-300">👥 Gestión de Personal del Equipo de Auditoría</h4>
+              <p className="text-[10px] text-slate-500 font-medium mt-1">Agregue o retire firmas autorizadas para los flujos del sistema en tiempo real.</p>
             </div>
-            <div className="flex flex-wrap gap-2 py-1">
+            <div className="flex flex-wrap gap-2 py-2">
               {auditoresLista.map((auditor, index) => (
-                <div key={`badge-${index}`} className="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-xl flex items-center space-x-2 text-[11px] font-bold">
+                <div key={`badge-${index}`} className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center space-x-2 text-[11px] font-bold shadow-sm">
                   <span>{auditor}</span>
                   <button 
                     type="button"
@@ -488,13 +639,13 @@ export default function InformesAuditoria({
                         onActualizarAuditores(auditoresLista.filter(a => a !== auditor));
                       }
                     }}
-                    className="text-red-400 hover:text-red-500 font-black text-[9px] ml-1 bg-red-500/10 w-4 h-4 rounded-full flex items-center justify-center transition-colors"
+                    className="text-red-400 hover:text-white font-black text-[9px] ml-1 bg-red-500/10 hover:bg-red-500 w-5 h-5 rounded-full flex items-center justify-center transition-colors"
                   >✕</button>
                 </div>
               ))}
             </div>
-            <div className="flex gap-2 pt-1">
-              <input type="text" id="inputNuevoAuditor" placeholder="Nombre del nuevo funcionario..." className="bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs flex-1 outline-none focus:border-blue-500 font-bold" />
+            <div className="flex gap-3 pt-2">
+              <input type="text" id="inputNuevoAuditor" placeholder="Nombre del nuevo funcionario..." className="bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-2.5 text-xs flex-1 outline-none focus:border-blue-500 font-bold shadow-inner" />
               <button
                 type="button"
                 onClick={() => {
@@ -505,7 +656,7 @@ export default function InformesAuditoria({
                   onActualizarAuditores([...auditoresLista, nuevoNombre]);
                   input.value = "";
                 }}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-xl font-bold transition-all shrink-0 uppercase tracking-wider"
+                className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-6 py-2.5 rounded-xl font-bold transition-all shrink-0 uppercase tracking-wider shadow-md"
               >➕ Agregar</button>
             </div>
           </div>
