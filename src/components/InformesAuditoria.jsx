@@ -516,7 +516,7 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                         <div><span className="text-slate-400 font-bold">🔒 APROBÓ:</span> <span className="font-black text-slate-800">{inf.aprobadoPor}</span></div>
                       </div>
                     </td>
-                    <td className="p-4 relative group cursor-help">
+<td className="p-4">
                       <div className="flex flex-col items-start space-y-1.5">
                         <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest border inline-block ${
                           inf.socializado === 'Sí' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'
@@ -528,35 +528,46 @@ const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
                           <div className="text-[10px] text-slate-500 font-semibold leading-relaxed">Con: {inf.socializadoCon}</div>
                         )}
 
-                        {/* 📧 NUEVO INDICADOR DE TRAZABILIDAD (AUDIT TRAIL) */}
+                        {/* 📧 AUDIT TRAIL CON HOVER FIJO AL CENTRO DE LA PANTALLA */}
                         {inf.correoEnviadoA && (
-                          <div className="mt-2 flex items-center space-x-1.5 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
-                            <span className="text-sm">📧</span>
-                            <span className="text-[9px] font-black uppercase text-slate-600 tracking-wider">Notificado al Líder</span>
+                          <div className="mt-2 group inline-block cursor-help">
+                            
+                            {/* BOTÓN VISIBLE EN LA TABLA */}
+                            <div className="flex items-center space-x-1.5 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors shadow-sm">
+                              <span className="text-sm">📧</span>
+                              <span className="text-[9px] font-black uppercase text-emerald-700 tracking-wider">Notificado al Líder</span>
+                            </div>
+
+                            {/* POPUP FIJO: APARECE EN EL CENTRO EXACTO DEL MONITOR (NO REQUIERE SCROLL) */}
+                            <div className="fixed inset-0 z-[9999] pointer-events-none opacity-0 invisible group-hover:opacity-100 group-hover:visible flex items-center justify-center transition-all duration-300">
+                              
+                              {/* Capa oscura difuminada detrás del letrero (Efecto Cine) */}
+                              <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"></div>
+                              
+                              {/* Tarjeta del letrero centrada */}
+                              <div className="relative bg-[#0f172a] border border-emerald-500/40 p-6 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] transform scale-95 group-hover:scale-100 transition-transform duration-300 w-80 text-left">
+                                <h4 className="text-[12px] font-black text-emerald-400 uppercase tracking-widest mb-3 border-b border-slate-700/80 pb-2 flex items-center">
+                                  <span className="mr-2 text-base">🔗</span> Audit Trail de Correo
+                                </h4>
+                                <div className="space-y-3 text-[10px] leading-relaxed text-slate-300 font-medium">
+                                  <p className="flex flex-col">
+                                    <b className="text-slate-400 uppercase tracking-wider text-[9px] mb-1">Destinatario(s):</b> 
+                                    <span className="text-white font-mono break-all bg-slate-800/80 p-1.5 rounded border border-slate-700">{inf.correoEnviadoA}</span>
+                                  </p>
+                                  <p className="flex flex-col">
+                                    <b className="text-slate-400 uppercase tracking-wider text-[9px] mb-1">Fecha y Hora de Despacho:</b> 
+                                    <span className="text-emerald-400 font-black text-xs">{inf.fechaCorreoEnviado}</span>
+                                  </p>
+                                  <p className="text-[9px] text-slate-500 italic mt-3 border-t border-slate-700/80 pt-3">
+                                    El sistema GRC certifica que este dictamen fue despachado de forma segura y radicado en las bandejas correspondientes.
+                                  </p>
+                                </div>
+                              </div>
+
+                            </div>
                           </div>
                         )}
                       </div>
-
-                      {/* 👁️ TOOLTIP FLOTANTE (SE MUESTRA AL HACER HOVER) */}
-                      {inf.correoEnviadoA && (
-                        <div className="absolute top-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-blue-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-                          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-blue-500/40 rotate-45"></div>
-                          <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5 flex items-center">
-                            <span className="mr-1">🔗</span> Audit Trail de Correo
-                          </h4>
-                          <div className="space-y-2 text-[9px] leading-relaxed text-slate-300 font-medium">
-                            <p className="flex flex-col">
-                              <b className="text-slate-400 uppercase tracking-wider text-[8px] mb-0.5">Destinatario(s):</b> 
-                              <span className="text-white font-mono break-all bg-slate-800/50 p-1 rounded border border-slate-700/50">{inf.correoEnviadoA}</span>
-                            </p>
-                            <p className="flex flex-col">
-                              <b className="text-slate-400 uppercase tracking-wider text-[8px] mb-0.5">Fecha y Hora de Despacho:</b> 
-                              <span className="text-emerald-400 font-black">{inf.fechaCorreoEnviado}</span>
-                            </p>
-                            <p className="text-[8px] text-slate-500 italic mt-2 border-t border-slate-700/50 pt-2">El sistema de GRC certifica que este informe fue despachado vía Gmail API.</p>
-                          </div>
-                        </div>
-                      )}
                     </td>
                     <td className="p-4 text-center space-y-1.5 align-middle">
                       <a 
