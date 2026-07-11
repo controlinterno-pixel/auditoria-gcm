@@ -1,5 +1,13 @@
 import React, { useState } from 'react';
 
+const PROCESOS_OFICIALES = [
+  "Alimentos y Bebidas (AYB)", "Canales Alternos", "Compensaciones", "Compras", "Control Inventarios",
+  "Cumplimiento Normativo", "Financiera", "Formación y Desarrollo", "Gestión Ambiental",
+  "Gestión Clientes", "Gestión Contable", "Gestión de Crédito y Cartera", "Gestión de tecnologías de la información",
+  "Gestión de Tesoreria", "Mantenimiento de Infraestructura", "Mercadeo", "Operaciones Alojamiento y recreación.",
+  "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación"
+];
+
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
   let color = "bg-red-500";
