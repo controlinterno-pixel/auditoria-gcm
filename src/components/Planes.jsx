@@ -107,6 +107,7 @@ export default function Planes({
   const altos = planesDashboard.filter(p => p.severidad === 'Alto').length;
   const medios = planesDashboard.filter(p => p.severidad === 'Medio').length;
   const bajos = planesDashboard.filter(p => p.severidad === 'Bajo').length;
+const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0;
 
   // Agrupador Dinámico
   const planesAgrupados = planesDashboard.reduce((acc, p) => {
@@ -622,7 +623,7 @@ export default function Planes({
                     </td>
                     <td className="p-3"><ProgressBar progress={p.progreso} /></td>
                     <td className="p-3 text-center flex flex-col space-y-1">
-                      <button onClick={() => { setEditPlan(p); setVistaActActive('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">Gestionar</button>
+                      <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">Gestionar</button>
                       {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">Eliminar</button>}
                     </td>
                   </tr>
