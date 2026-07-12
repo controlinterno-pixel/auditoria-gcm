@@ -301,14 +301,14 @@ export default function Planes({
       await saveToCloud({ planes: updatedPlanesList });
     }
 
-    // 📧 NOTIFICACIÓN 1: CORREOS DE ASIGNACIÓN/CREACIÓN DE PLANES
+    // 📧 NOTIFICACIÓN 1: CORREOS DE ASIGNACIÓN/CREACIÓN DE PLANES (SINTETIZADOS)
     if (notificacionesCreadas.length > 0 && ejecutarDespachoGmailApi) {
       for (const plan of notificacionesCreadas) {
         // Correo al Dueño del Proceso
         await ejecutarDespachoGmailApi({
-          ref_consecutivo: `NUEVO-PLAN-${plan.id}`,
-          titulo_informe: `Asignacion de Plan de Accion Exitoso`,
-          proceso_auditado: `Se ha generado la tarea mitigante para tu area: ${plan.accion}`,
+          ref_consecutivo: `PLAN-${plan.id}`,
+          titulo_informe: `Nuevo Plan de Accion Asignado`,
+          proceso_auditado: `Se ha registrado una tarea correctiva para su area`,
           enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: plan.correoResponsable
         });
@@ -316,23 +316,23 @@ export default function Planes({
         // Correo espejo al Auditor Asignado
         const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || "controlinterno@termales.com.co";
         await ejecutarDespachoGmailApi({
-          ref_consecutivo: `ALERTA-AUDITOR-${plan.id}`,
-          titulo_informe: `Nuevo Plan de Accion Registrado en Sistema`,
-          proceso_auditado: `Se indexaron compromisos para el dueño del proceso. Tarea asignada: ${plan.accion}`,
+          ref_consecutivo: `PLAN-${plan.id}`,
+          titulo_informe: `Nuevo Plan de Accion Registrado`,
+          proceso_auditado: `Un lider ha mapeado compromisos en la matriz masiva`,
           enlace_pdf: 'https://auditoria-gcm.vercel.app',
           destinatarios: correoAuditor
         });
       }
     }
 
-    // 📧 NOTIFICACIÓN 2: CORREO DE ALERTA DE REVISIÓN AL 100% PARA EL AUDITOR
+    // 📧 NOTIFICACIÓN 2: ALERTA DE REVISIÓN AL 100% CON REDACCIÓN EJECUTIVA SOLICITADA
     if (notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
       for (const act of notificacionesRevision100) {
         const correoAuditor = diccionarioCorreos[act.auditorAsignado] || "controlinterno@termales.com.co";
         await ejecutarDespachoGmailApi({
           ref_consecutivo: `APROBACION-100`,
-          titulo_informe: `Plan de Accion al 100% - Requiere Aprobacion`,
-          proceso_auditado: `El dueño del proceso cargo soportes digitales y reporto avance total para la tarea: ${act.accion}. Por favor ingrese a la plataforma, valide las evidencias y efectue el cierre definitivo.`,
+          titulo_informe: `Verificar soportes cargados al 100 por ciento para proceder con el cierre`,
+          proceso_auditado: `Plan de accion pendiente por aprobar`,
           enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: correoAuditor
         });
