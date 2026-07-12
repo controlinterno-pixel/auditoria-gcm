@@ -1,5 +1,31 @@
 import React, { useState } from 'react';
 
+// 📚 LISTA MAESTRA UNIFICADA DE CARGOS CORPORATIVOS (CONEXIÓN IDÉNTICA A HALLAZGOS)
+const CARGOS_OFICIALES = [
+  "Agente contact Center", "Almacenista", "Ama de Llaves", "Analista Ambiental", "Analista de auditoría", 
+  "Analista de Cartera", "Analista de Compras", "Analista de Contabilidad", "Analista de costos e inventarios", 
+  "Analista de Mejora continua", "Analista de nómina", "Analista de Sistemas", "Analista de Talento Humano", 
+  "Analista de Tesorería", "Asistente de Gerencia", "Auditor Nocturno", "Auditoría Interna", "Auxiliar Administrativa y Contable de Socios", 
+  "Auxiliar Administrativa y Labor social", "Auxiliar Administrativo y Logístico", "Auxiliar Comercial SRC", "Auxiliar Comercial Taquilla", 
+  "Auxiliar de Almacén", "Auxiliar de barra", "Auxiliar de Cocina", "Auxiliar de despensa", "Auxiliar de enfermería", 
+  "Auxiliar de Inventarios", "Auxiliar de lavandería", "Auxiliar de parqueadero - Botones", "Auxiliar de Portería", 
+  "Auxiliar de Servicio al Cliente", "Auxiliar de Servicios Generales", "Auxiliar Gestión Documental", "Auxiliar mantenimiento", 
+  "Auxiliar mantenimiento carretera", "Auxiliar Porcionador", "Auxiliar PTAP", "Auxiliar PTAR", "Auxiliar supernumerario", 
+  "Auxiliares de Tics", "Barista", "Cajero", "Cajero Ay B", "Cajero recreación balneario", "Camareras", "Chef Hotel", 
+  "Contador", "Contadora de Socios", "Coordinación Administrativa Family Office", "Coordinación Comercial y Contact Center", 
+  "Coordinación de Mercadeo y Comunicaciones", "Coordinación de recepción", "Coordinación Seguridad Y Salud en el trabajo", 
+  "Coordinación SPA", "Coordinador de Mantenimiento", "Coordinador de Marketing digital", "Coordinador de Servicio al Cliente", 
+  "Coordinador Operaciones", "Creativo Gráfico", "Desarrollador Junior", "Dirección Administrativa y Financiera", "Dirección Comercial", 
+  "Dirección de Mercadeo y Comunicaciones", "Dirección Talento Humano", "Director de TICS", "Ejecutivo Comercial", 
+  "Gerente Administrativa y Judicial", "Guía Turístico y de experiencia natural", "Jardinero", "Jefe de Cocina", "Líder Administrativa", 
+  "Líder de Compras y Almacen", "Líder de Contabilidad", "Líder de Costos y Presupuestos", "Líder de Gestión Ambiental", 
+  "Líder de Proceso de alimentos y bebidas", "Líder de Tesorería y Cartera", "Lider Tactico de Infraestructura Tecnológica", 
+  "Líder Táctico de mejora Continua", "Líder Táctico desarrollo de Software", "Líder táctico de alimentos y bebidas", 
+  "Mensajero", "Mesero", "Porcionador", "Primer Cocinero (a)", "Recepcionista", "Salvavidas", "Steward", "Subdirección de Operaciones Balneario", 
+  "Subdirector de Operaciones Hotel", "Supervisor (a) de operaciones", "Supervisor (a) mesa y servicio", "Supervisor Operaciones", 
+  "Supervisor Ruta Ecológica", "Técnico de mantenimiento", "Terapeuta SPA"
+];
+
 const PROCESOS_OFICIALES = [
   "Alimentos y Bebidas (AYB)", "Canales Alternos", "Compensaciones", "Compras", "Control Inventarios",
   "Cumplimiento Normativo", "Financiera", "Formación y Desarrollo", "Gestión Ambiental",
@@ -105,11 +131,9 @@ export default function Planes({
     return true;
   });
 
-const totalPlanes = planesDashboard.length;
+  const totalPlanes = planesDashboard.length;
   const cerrados = planesDashboard.filter(p => p.progreso === 100).length;
-  // 🟢 Ajustamos "En Proceso" para que cuente solo mayores a 0%
   const enProceso = planesDashboard.filter(p => p.progreso > 0 && p.progreso < 100 && !p.esVencido).length;
-  // 🟢 Agregamos "Pendientes" para los que están en 0% (Fiel al balance matemático del diseño)
   const pendientes = planesDashboard.filter(p => (p.progreso === 0 || !p.progreso) && !p.esVencido).length;
   const vencidos = planesDashboard.filter(p => p.esVencido).length;
   const cumplimientoGlobal = totalPlanes > 0 ? Math.round((cerrados / totalPlanes) * 100) : 0;
@@ -118,7 +142,7 @@ const totalPlanes = planesDashboard.length;
   const altos = planesDashboard.filter(p => p.severidad === 'Alto').length;
   const medios = planesDashboard.filter(p => p.severidad === 'Medio').length;
   const bajos = planesDashboard.filter(p => p.severidad === 'Bajo').length;
-const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0;
+  const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0;
 
   // Agrupador Dinámico
   const planesAgrupados = planesDashboard.reduce((acc, p) => {
@@ -145,7 +169,8 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
     setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroEstado('Todos');
     setDashFiltroPrioridad('Todos'); setDashFiltroResponsable('Todos');
   };
-// 💾 PROCESADOR DE ENVÍO MATRICIAL UNIFICADO
+
+  // 💾 PROCESADOR DE ENVÍO MATRICIAL UNIFICADO
   const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
@@ -194,6 +219,7 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
     setVistaActiva('dashboard');
     if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
   };
+
   // =========================================================
   // 📂 LOGICA FORMULARIO Y API ORIGINAL (CUSTODIADA)
   // =========================================================
@@ -219,6 +245,7 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
     }
   };
 
+  // 🧠 MODIFICADO: JALA AUTOMÁTICAMENTE CARGO Y AUDITOR DESDE EL HALLAZGO
   const handleInformeChange = (informeId) => {
     setFormInformeId(informeId);
     if (!informeId) { setMatrixState({}); return; }
@@ -227,11 +254,29 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
     reportFindings.forEach(h => {
       const existingActivities = safePlanes.filter(p => p.idHallazgo === h.id);
       if (existingActivities.length > 0) {
-        newState[h.id] = { aplica: true, actividades: existingActivities.map(p => ({ ...p, correoConfirmacion: p.correoResponsable })) };
+        newState[h.id] = { 
+          aplica: true, 
+          actividades: existingActivities.map(p => ({ 
+            ...p, 
+            correoConfirmacion: p.correoResponsable,
+            responsable: p.responsable || h.responsable || '',
+            auditorAsignado: p.auditorAsignado || h.auditor || ''
+          })) 
+        };
       } else {
         newState[h.id] = {
           aplica: h.estado !== 'Cerrado',
-          actividades: [{ id: 'new-' + Math.random(), accion: '', responsable: '', auditorAsignado: h.auditor || '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }]
+          actividades: [{ 
+            id: 'new-' + Math.random(), 
+            accion: '', 
+            responsable: h.responsable || '', // 👈 HERENCIA AUTOMÁTICA DEL DUEÑO (CARGO)
+            auditorAsignado: h.auditor || '', // 👈 HERENCIA AUTOMÁTICA DEL AUDITOR RESPONSABLE
+            fechaInicio: '', 
+            fecha: '', 
+            progreso: 0, 
+            evidenciaUrl: '', 
+            estadoWorkflow: 'Borrador' 
+          }]
         };
       }
     });
@@ -242,13 +287,24 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
     setMatrixState(prev => ({ ...prev, [hallazgoId]: { ...prev[hallazgoId], aplica: value } }));
   };
 
+  // 🧠 MODIFICADO: MANTIENE LA CONSISTENCIA DE HERENCIA SI AGREGAN MÁS ACTIVIDADES
   const handleAddActivity = (hallazgoId) => {
     const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(hallazgoId));
     setMatrixState(prev => ({
       ...prev,
       [hallazgoId]: {
         ...prev[hallazgoId],
-        actividades: [...prev[hallazgoId].actividades, { id: 'new-' + Math.random(), accion: '', responsable: '', auditorAsignado: hallazgoBase?.auditor || '', fechaInicio: '', fecha: '', progreso: 0, evidenciaUrl: '', estadoWorkflow: 'Borrador' }]
+        actividades: [...prev[hallazgoId].actividades, { 
+          id: 'new-' + Math.random(), 
+          accion: '', 
+          responsable: hallazgoBase?.responsable || '', // 👈 HERENCIA AUTOMÁTICA
+          auditorAsignado: hallazgoBase?.auditor || '', // 👈 HERENCIA AUTOMÁTICA
+          fechaInicio: '', 
+          fecha: '', 
+          progreso: 0, 
+          evidenciaUrl: '', 
+          estadoWorkflow: 'Borrador' 
+        }]
       }
     }));
   };
@@ -535,7 +591,7 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
         </div>
       )}
 
-      {/* 🚀 VISTA 2: FORMULARIO MATRICIAL ORIGINAL COMPLETO (PRESERVADO) */}
+      {/* 🚀 VISTA 2: FORMULARIO MATRICIAL ORIGINAL COMPLETO (PRESERVADO Y RE-POTENCIADO) */}
       {vistaActiva === 'nuevo' && (
         <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6 animate-in slide-in-from-right-8 duration-500">
           <div className="border-b pb-3 flex justify-between items-center">
@@ -557,10 +613,16 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
                 const node = matrixState[h.id] || { aplica: true, actividades: [] };
                 return (
                   <div key={`matrix-card-${h.id}`} className={`border rounded-2xl p-5 shadow-sm space-y-4 transition-all ${node.aplica ? 'border-blue-200 bg-slate-50/50' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
+                    
+                    {/* ENCABEZADO DE CADA CARD ENRIQUECIDO CON DATOS MAESTROS DEL HALLAZGO */}
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-3 gap-2">
                       <div>
-                        <span className="px-2 py-0.5 bg-red-100 text-red-800 font-black rounded text-[9px] uppercase tracking-wider">{h.ref}</span>
-                        <h4 className="text-xs font-black text-slate-900 mt-1">{h.titulo}</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 bg-red-100 text-red-800 font-black rounded text-[9px] uppercase tracking-wider">{h.ref}</span>
+                          <span className="px-2 py-0.5 bg-[#f0fdf4] text-[#0A3B32] font-black rounded text-[9px] uppercase tracking-wider">📋 Proceso: {h.proceso || 'No asignado'}</span>
+                          <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 font-black rounded text-[9px] uppercase tracking-wider">⚖️ Clase: {h.claseObservacion || 'Hallazgo'}</span>
+                        </div>
+                        <h4 className="text-xs font-black text-slate-900 mt-2">{h.titulo}</h4>
                       </div>
                       <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
                         <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
@@ -577,18 +639,38 @@ const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0
                               {node.actividades.length > 1 && <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 font-bold text-[10px] uppercase">🗑️ Quitar</button>}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
+                              
+                              {/* CAMPO A: ACCION CORRECTIVA */}
                               <div className="md:col-span-2">
-                                <label className="font-bold text-gray-500 block mb-0.5">Acción Correctiva</label>
-                                <input type="text" value={act.accion} onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
+                                <label className="font-bold text-gray-500 block mb-0.5">Acción Correctiva / Remedial</label>
+                                <input type="text" value={act.accion} onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white text-slate-800" required />
                               </div>
+                              
+                              {/* CAMPO B: DUEÑO DEL PROCESO CARGO - EDITABLE & CON CATALOGO MAESTRO CORPORATIVO */}
                               <div className="md:col-span-2">
-                                <label className="font-bold text-gray-500 block mb-0.5">Responsable Ejecución</label>
-                                <input type="text" value={act.responsable} onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white" required />
+                                <label className="font-bold text-slate-700 block mb-0.5">👔 Dueño del Proceso (Cargo)</label>
+                                <select 
+                                  value={act.responsable} 
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} 
+                                  className="w-full border p-2 rounded-lg font-black bg-white focus:bg-white text-slate-800 cursor-pointer shadow-sm border-slate-300" 
+                                  required
+                                >
+                                  <option value="">-- Seleccione el Cargo --</option>
+                                  {CARGOS_OFICIALES.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
+                                </select>
                               </div>
+                              
+                              {/* CAMPO C: AUDITOR RESPONSABLE - COMPLETAMENTE BLOQUEADO EN MODO LECTURA */}
                               <div className="md:col-span-2">
-                                <label className="font-bold text-blue-600 block mb-0.5">Auditor Enlace</label>
-                                <input type="text" value={act.auditorAsignado || ''} disabled className="w-full border border-slate-200 p-2 rounded-lg font-black text-slate-500 bg-slate-100 cursor-not-allowed shadow-inner" />
+                                <label className="font-bold text-blue-600 block mb-0.5">🛡️ Auditor Responsable (Bloqueado)</label>
+                                <input 
+                                  type="text" 
+                                  value={act.auditorAsignado || ''} 
+                                  disabled 
+                                  className="w-full border border-blue-200 p-2 rounded-lg font-black text-blue-900 bg-blue-50/50 cursor-not-allowed shadow-inner" 
+                                />
                               </div>
+
                               <div className="md:col-span-3">
                                 <label className="font-bold text-purple-700 block mb-0.5">📧 Correo Responsable</label>
                                 <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
