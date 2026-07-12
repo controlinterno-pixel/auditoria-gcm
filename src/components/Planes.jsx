@@ -170,56 +170,180 @@ export default function Planes({
     setDashFiltroPrioridad('Todos'); setDashFiltroResponsable('Todos');
   };
 
-  // 💾 PROCESADOR DE ENVÍO MATRICIAL UNIFICADO
+  // 💾 PROCESADOR DE ENVÍO MATRICIAL UNIFICADO CON VALIDACIÓN Y CORREOS AUTOMÁTICOS
   const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
 
+    // 🛑 1. VALIDACIÓN ESTRICTA DE CORREOS (EVITA ESCRITURAS ERRÓNEAS)
+    let errorCorreos = false;
+    Object.keys(matrixState).forEach(hallazgoId => {
+      const node = matrixState[hallazgoId];
+      if (node.aplica) {
+        node.actividades.forEach(act => {
+          if (act.accion && act.accion.trim() !== '') {
+            if (!act.correoResponsable || act.correoResponsable.trim() === '') errorCorreos = true;
+            if (!act.correoConfirmacion || act.correoConfirmacion.trim() === '') errorCorreos = true;
+            if (act.correoResponsable.trim().toLowerCase() !== act.correoConfirmacion.trim().toLowerCase()) errorCorreos = true;
+          }
+        });
+      }
+    });
+
+    if (errorCorreos) {
+      alert("❌ ALERTA: Los correos electrónicos del responsable no coinciden o están vacíos. Por favor verifique ambas casillas antes de guardar.");
+      return;
+    }
+
     const ts = new Date().toLocaleString();
     let updatedPlanesList = [...safePlanes];
+    let notificacionesCreadas = [];
+    let notificacionesRevision100 = [];
+
+    const diccionarioCorreos = {
+      "Rodolfo González": "auditoria@termales.com.co",
+      "Yehison Pineda": "controlinterno@termales.com.co",
+      "Angelica Hernandez": "analista.auditoria@termales.com.co",
+      "Luz Angela Chico": "analista.controlinterno@termales.com.co"
+    };
 
     Object.keys(matrixState).forEach(hallazgoId => {
       const node = matrixState[hallazgoId];
       if (!node.aplica) return;
 
       node.actividades.forEach(act => {
+        if (!act.accion || act.accion.trim() === '') return;
+
         const isNew = String(act.id).startsWith('new-');
+        const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
+        
+        let workflowCalculado = act.estadoWorkflow || 'Borrador';
+
+        // ⏳ INTERCEPCIÓN DEL 100% PARA PASAR A REVISIÓN DEL AUDITOR
+        if (progresoEntero === 100 && workflowCalculado !== 'Cerrado' && workflowCalculado !== 'En Revisión') {
+          workflowCalculado = 'En Revisión';
+          notificacionesRevision100.push(act);
+        } else if (progresoEntero < 100) {
+          workflowCalculado = 'Borrador';
+        }
+
         const planData = {
-          id: isNew ? Date.now() + Math.floor(Math.random() * 1000) : act.id,
+          id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
           idHallazgo: parseInt(hallazgoId),
           accion: act.accion,
           responsable: act.responsable,
-          correoResponsable: act.correoResponsable,
+          correoResponsable: act.correoResponsable.trim(),
           auditorAsignado: act.auditorAsignado,
-          progreso: parseInt(act.progreso || 0),
+          progreso: progresoEntero,
           fechaInicio: act.fechaInicio || '',
           fecha: act.fecha || '',
           evidenciaUrl: act.evidenciaUrl || '',
-          estadoWorkflow: parseInt(act.progreso) === 100 ? 'Cerrado' : (act.estadoWorkflow || 'Borrador'),
-          estado: parseInt(act.progreso) === 100 ? 'Cerrado' : 'En Proceso'
+          estadoWorkflow: workflowCalculado,
+          estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
+          anio: act.fecha ? Number(act.fecha.split('-')[0]) : 2026,
+          mes: act.fecha ? act.fecha.split('-')[1] : "Junio"
         };
 
         if (isNew) {
-          planData.historialCambios = [{ fecha: ts, usuario: 'Auditor', accion: 'Actividad asignada matricialmente' }];
+          planData.historialCambios = [{ fecha: ts, usuario: 'Auditor', accion: 'Actividad registrada en matriz masiva' }];
           updatedPlanesList.push(planData);
+          notificacionesCreadas.push(planData);
         } else {
-          const idx = updatedPlanesList.findIndex(p => p.id === act.id);
+          const idx = updatedPlanesList.findIndex(p => p.id === Number(act.id));
           if (idx !== -1) {
             planData.historialCambios = [...(updatedPlanesList[idx].historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: 'Actividad modificada en matriz' }];
+            if (progresoEntero === 100 && updatedPlanesList[idx].progreso < 100) {
+              notificacionesRevision100.push(planData);
+            }
             updatedPlanesList[idx] = planData;
           }
         }
       });
     });
 
-    setPlanes(updatedPlanesList);
-    await saveToCloud({ planes: updatedPlanesList });
-    setFormInformeId('');
-    setMatrixState({});
-    setVistaActiva('dashboard');
-    if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
-  };
+    // Sincronizar estados de los hallazgos padres de forma automatizada
+    let updatedHallazgos = [...safeHallazgos];
+    let hallazgosModificados = false;
 
+    Object.keys(matrixState).forEach(hallazgoId => {
+      const stateNode = matrixState[hallazgoId];
+      const hIndex = updatedHallazgos.findIndex(h => String(h.id) === String(hallazgoId));
+
+      if (hIndex !== -1) {
+        let nuevoEstado = 'Abierto';
+        if (!stateNode.aplica) {
+          nuevoEstado = 'Cerrado';
+        } else {
+          const actividadesDeEsteHallazgo = updatedPlanesList.filter(p => String(p.idHallazgo) === String(hallazgoId));
+          if (actividadesDeEsteHallazgo.length > 0) {
+            const todasAprobadas = actividadesDeEsteHallazgo.every(act => act.estadoWorkflow === 'Cerrado');
+            if (todasAprobadas) nuevoEstado = 'Cerrado';
+          }
+        }
+
+        if (updatedHallazgos[hIndex].estado !== nuevoEstado) {
+          updatedHallazgos[hIndex] = {
+            ...updatedHallazgos[hIndex],
+            estado: nuevoEstado,
+            historialCambios: [...(updatedHallazgos[hIndex].historialCambios || []), { fecha: ts, accion: `Estado automatizado a ${nuevoEstado} (Validación de Planes)` }]
+          };
+          hallazgosModificados = true;
+        }
+      }
+    });
+
+    // Guardar colecciones actualizadas en Firebase Cloud
+    setPlanes(updatedPlanesList);
+    if (hallazgosModificados && setHallazgos) {
+      setHallazgos(updatedHallazgos);
+      await saveToCloud({ planes: updatedPlanesList, hallazgos: updatedHallazgos });
+    } else {
+      await saveToCloud({ planes: updatedPlanesList });
+    }
+
+    // 📧 NOTIFICACIÓN 1: CORREOS DE ASIGNACIÓN/CREACIÓN DE PLANES
+    if (notificacionesCreadas.length > 0 && ejecutarDespachoGmailApi) {
+      for (const plan of notificacionesCreadas) {
+        // Correo al Dueño del Proceso
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: `NUEVO-PLAN-${plan.id}`,
+          titulo_informe: `Asignacion de Plan de Accion Exitoso`,
+          proceso_auditado: `Se ha generado la tarea mitigante para tu area: ${plan.accion}`,
+          enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
+          destinatarios: plan.correoResponsable
+        });
+
+        // Correo espejo al Auditor Asignado
+        const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || "controlinterno@termales.com.co";
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: `ALERTA-AUDITOR-${plan.id}`,
+          titulo_informe: `Nuevo Plan de Accion Registrado en Sistema`,
+          proceso_auditado: `Se indexaron compromisos para el dueño del proceso. Tarea asignada: ${plan.accion}`,
+          enlace_pdf: 'https://auditoria-gcm.vercel.app',
+          destinatarios: correoAuditor
+        });
+      }
+    }
+
+    // 📧 NOTIFICACIÓN 2: CORREO DE ALERTA DE REVISIÓN AL 100% PARA EL AUDITOR
+    if (notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
+      for (const act of notificacionesRevision100) {
+        const correoAuditor = diccionarioCorreos[act.auditorAsignado] || "controlinterno@termales.com.co";
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: `APROBACION-100`,
+          titulo_informe: `Plan de Accion al 100% - Requiere Aprobacion`,
+          proceso_auditado: `El dueño del proceso cargo soportes digitales y reporto avance total para la tarea: ${act.accion}. Por favor ingrese a la plataforma, valide las evidencias y efectue el cierre definitivo.`,
+          enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
+          destinatarios: correoAuditor
+        });
+      }
+    }
+
+    alert("🎉 ¡Matriz guardada con éxito! Se despacharon las notificaciones a los líderes de área y las alertas de aprobación al 100% a los auditores asignados.");
+    
+    // 🛡️ CONSERVACIÓN DE PANTALLA: Mantiene al usuario visualizando el formulario matricial actual
+    handleInformeChange(formInformeId);
+  };
   // =========================================================
   // 📂 LOGICA FORMULARIO Y API ORIGINAL (CUSTODIADA)
   // =========================================================
