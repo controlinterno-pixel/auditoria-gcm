@@ -1246,6 +1246,12 @@ const handleInformeAuditoriaSubmit = async (e) => {
     setIsSubmitting(true); 
     console.log("🚀 Ejecución global V5 (Con Campos PDF Big-4)...");
     
+    // 🛡️ Filtro purificador para erradicar errores de codificación (ÃƒÂ³) en Gmail
+    const limpiarTildesParaCorreo = (texto) => {
+      if (!texto) return '';
+      return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    };
+    
     try {
       const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
       const formData = new FormData(e.target);
@@ -1263,13 +1269,11 @@ const handleInformeAuditoriaSubmit = async (e) => {
       const socializadoVal = formData.get('socializado') || editInformeAuditoria?.socializado || 'No';
       const socializadoConVal = formData.get('socializadoCon') || editInformeAuditoria?.socializadoCon || '';
 
-      // 🌟 NUEVOS CAMPOS EDITORIALES PARA EL PDF
       const objetivoVal = formData.get('objetivo') || editInformeAuditoria?.objetivo || 'Evaluar la eficacia de los controles y la gestión de riesgos...';
       const alcanceVal = formData.get('alcance') || editInformeAuditoria?.alcance || 'La auditoría cubre los procesos y sistemas...';
       const conclusionVal = formData.get('conclusion') || editInformeAuditoria?.conclusion || '';
       const fortalezasVal = formData.get('fortalezas') || editInformeAuditoria?.fortalezas || '';
       
-      // 🖼️ NUEVOS CAMPOS DE GALERÍA DE EVIDENCIAS
       const img1Url = formData.get('img1Url') || editInformeAuditoria?.img1Url || '';
       const img1Desc = formData.get('img1Desc') || editInformeAuditoria?.img1Desc || '';
       const img2Url = formData.get('img2Url') || editInformeAuditoria?.img2Url || '';
@@ -1282,7 +1286,6 @@ const handleInformeAuditoriaSubmit = async (e) => {
       let updated;
       let refConsecutivoFinal = '';
 
-      // 📝 NUEVAS VARIABLES DE TRAZABILIDAD DE CORREO
       const tsActual = new Date().toLocaleString();
       const correoRegistrado = correosNotificacionOut !== '' ? correosNotificacionOut : (editInformeAuditoria?.correoEnviadoA || '');
       const fechaCorreoRegistrada = correosNotificacionOut !== '' ? tsActual : (editInformeAuditoria?.fechaCorreoEnviado || '');
@@ -1296,7 +1299,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
           evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut,
           objetivo: objetivoVal, alcance: alcanceVal, conclusion: conclusionVal, fortalezas: fortalezasVal,
           img1Url, img1Desc, img2Url, img2Desc, img3Url, img3Desc, img4Url, img4Desc,
-          correoEnviadoA: correoRegistrado, fechaCorreoEnviado: fechaCorreoRegistrada // 👈 NUEVO RASTRO
+          correoEnviadoA: correoRegistrado, fechaCorreoEnviado: fechaCorreoRegistrada
         };
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf);
         setEditInformeAuditoria(null);
@@ -1312,16 +1315,17 @@ const handleInformeAuditoriaSubmit = async (e) => {
           evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut,
           objetivo: objetivoVal, alcance: alcanceVal, conclusion: conclusionVal, fortalezas: fortalezasVal,
           img1Url, img1Desc, img2Url, img2Desc, img3Url, img3Desc, img4Url, img4Desc,
-          correoEnviadoA: correoRegistrado, fechaCorreoEnviado: fechaCorreoRegistrada // 👈 NUEVO RASTRO
+          correoEnviadoA: correoRegistrado, fechaCorreoEnviado: fechaCorreoRegistrada
         };
         updated = [nuevo, ...safeInformes];
       }
-      // 🟢 DISPARADOR GMAIL API INTEGRADO (INFORME EMITIDO)
+
+      // 🟢 DESPACHO SANITIZADO: Limpiamos el asunto y el proceso de acentos problemáticos
       if (correosNotificacionOut !== '') {
         await ejecutarDespachoGmailApi({
           ref_consecutivo: refConsecutivoFinal,
-          titulo_informe: `Radicación de Informe: ${tituloVal}`,
-          proceso_auditado: procesoVal,
+          titulo_informe: limpiarTildesParaCorreo(`Radicacion de Informe: ${tituloVal}`),
+          proceso_auditado: limpiarTildesParaCorreo(procesoVal),
           enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
           destinatarios: correosNotificacionOut
         });
