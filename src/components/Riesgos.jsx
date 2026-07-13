@@ -212,6 +212,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
       const textoControlesConsolidados = controles.map(c => `🔹 [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n');
 
       const nuevoRiesgo = {
+        ...(editRiesgo || {}), // 🛡️ EL BLINDAJE: Esto obliga al sistema a "recordar" y heredar los datos financieros del Apetito antes de sobreescribir.
         id: editRiesgo ? editRiesgo.id : crypto.randomUUID(),
         sede: 'Hotel',
         proceso,
