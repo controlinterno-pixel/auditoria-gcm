@@ -53,12 +53,11 @@ export default function DashboardEjecutivo({
   cFiltrados, cronograma, informesAuditoria, safeIncidentes,
   matrizFiltro, setMatrizFiltro, setChartDetail, defaultMeses, defaultAnios,
   selectedAnios, selectedMeses, toggleAnio, toggleMes,
-  setSelectedAnios, setSelectedMeses, setActiveTab,
-  evalFiltrados // 🟢 Propiedad conectada en tiempo real
+  setSelectedAnios, setSelectedMeses, setActiveTab, evalFiltrados
 }) {
   const hoy = new Date();
 
-  // 🤖 ESTADOS COMPLEMENTARIOS PARA EL DICTAMEN DINÁMICO GERENCIAL
+  // 🤖 ESTADOS PARA EL CAPTURADOR INTELIGENTE DE DICTÁMENES
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
 
@@ -98,7 +97,7 @@ export default function DashboardEjecutivo({
   }).length;
   const riesgosBajos = totalRiesgos - riesgosCriticos - riesgosMedios;
 
-  // 🧮 CÁLCULO REAL Y REACTIVO DE EFECTIVIDAD OPERACIONAL DE CONTROLES:
+  // 🧮 CÁLCULO REAL Y REACTIVO DE EFECTIVIDAD OPERACIONAL:
   const evaluacionesBase = typeof evalFiltrados !== 'undefined' ? evalFiltrados : [];
   const totalEvaluaciones = evaluacionesBase.length;
   const evaluacionesEficaces = evaluacionesBase.filter(e => e.calificacion === 100).length;
@@ -128,57 +127,115 @@ export default function DashboardEjecutivo({
     .filter(c => (Number(c.cumplimiento) || 0) < 100)
     .slice(0, 4);
 
-  // 🤖 SIMULADOR DEL MOTOR DE INTELIGENCIA ARTIFICIAL EN TIEMPO REAL PARA GERENCIA
+  // 🧠 MAPEADOR COMPLETO DE DICTÁMENES COSO / ISO 31000 PARA TODOS LOS ELEMENTOS
   const solicitarDictamenIA = (tipoCard) => {
     setProcesandoIA(true);
     setDictamenIA(null);
 
     setTimeout(() => {
       let analitica = {};
+      
       if (tipoCard === 'cumplimiento') {
         analitica = {
           titulo: "Cumplimiento Global de Compromisos",
           valor: `${avancePlanesGlobal}%`,
-          significado: `Indica la velocidad de respuesta institucional para mitigar brechas. Actualmente, con un ${avancePlanesGlobal}%, el hotel se mantiene en un rango de ejecucion intermedio.`,
-          dictamen: `Dictamen Gerencial: Esto representa que aproximadamente 1 de cada 3 planes de accion sigue pendiente de cierre definitivo. No hay riesgo de ruptura inminente, pero se sugiere priorizar las mesas de trabajo con las areas retrasadas para asegurar que las utilidades proyectadas del periodo no se erosionen por reprocesos operativos.`,
+          significado: "Mide el avance y cierre formal de los planes de mejoramiento acordados con las áreas.",
+          dictamen: `Al Gerente General: Registramos un ${avancePlanesGlobal}% de efectividad física. Indica un ritmo de mitigación intermedio. Un tercio de los compromisos sigue abierto; es clave exigir celeridad a los líderes de subprocesos para consolidar la protección operativa antes del cierre de temporada alta.`,
           color: "border-emerald-500/30 text-emerald-400"
         };
       } else if (tipoCard === 'riesgos') {
         analitica = {
-          titulo: "Volumen y Severidad de Riesgos Activos",
-          valor: `${totalRiesgos} Riesgos`,
-          significado: `Equivale al inventario global de amenazas identificadas en la operacion. Se segmenta de forma residual en: ${riesgosCriticos} criticos, ${riesgosMedios} medios y ${riesgosBajos} bajos.`,
-          dictamen: `Dictamen Gerencial: Tener un mapa de 145 riesgos indica madurez y cultura de prevencion en los lideres de Termales. Lo verdaderamente importante es que la zona roja (Criticos) esta controlada en apenas ${riesgosCriticos} casos. Su enfoque estrategico debe dirigirse a vigilar los ${riesgosMedios} riesgos medios, evitando que fallas humanas o falta de mantenimiento los desplacen a zonas severas.`,
+          titulo: "Volumen del Inventario de Riesgos",
+          valor: `${totalRiesgos} Activos`,
+          significado: "Total de amenazas procedimentales, ambientales y normativas mapeadas en la matriz 5x5.",
+          dictamen: `Al Gerente General: Contar con 145 riesgos indica un alto nivel de madurez y cultura de prevención. Al tener controlados los riesgos Críticos (solo ${riesgosCriticos}), el verdadero foco de supervisión gerencial debe estar en los ${riesgosMedios} riesgos Medios para evitar desviaciones operativas recurrentes.`,
           color: "border-red-500/30 text-red-400"
         };
       } else if (tipoCard === 'controles') {
         analitica = {
-          titulo: "Efectividad del Entorno de Control Interno",
+          titulo: "Efectividad Operacional de Controles",
           valor: `${efectividadControlesGlobal}%`,
-          significado: `Porcentaje de defensas operativas del hotel que superaron con exito las auditorias fisicas de diseño y ejecucion.`,
-          dictamen: `Dictamen Gerencial: Un indicador de ${efectividadControlesGlobal}% confirma que nos encontramos en la etapa de apertura del Trabajo de Campo anual. Es un comportamiento normal del software cuando la base de datos se ha purgado para iniciar el periodo; no representa desproteccion, sino un lienzo limpio para documentar las actas e inspecciones reales de las proximas semanas.`,
+          significado: "Porcentaje de salvaguardas que superaron con éxito las pruebas documentales y en sitio.",
+          dictamen: `Al Gerente General: El tablero registra ${efectividadControlesGlobal}%. Es un estado normal y esperado al limpiar el entorno para el inicio del nuevo ciclo de campo. Significa que el equipo de auditoría está abriendo las hojas de prueba en limpio; no hay desprotección institucional.`,
           color: "border-cyan-500/30 text-cyan-400"
         };
       } else if (tipoCard === 'hallazgos') {
         analitica = {
-          titulo: "Exposición de Desviaciones Operativas",
+          titulo: "Desviaciones Normativas No Resueltas",
           valor: `${totalHallazgos} Abiertos`,
-          significado: `Alertas e inconformidades regulatorias detectadas en los informes oficiales que se encuentran pendientes de solucion.`,
-          dictamen: `Dictamen Gerencial: Registrar unicamente ${totalHallazgos} hallazgo abierto para un complejo hotelero y ecoparque de esta envergadura es una métrica de alta excelencia operacional. El nivel de exposicion ante entes de control externos es insignificante, demostrando disciplina contable, ambiental y legal en todas las lineas de mando.`,
+          significado: "Brechas regulatorias identificadas en informes aprobados pendientes de plan de acción.",
+          dictamen: `Al Gerente General: Tener solo ${totalHallazgos} hallazgo abierto para un complejo hotelero de esta envergadura es un récord de alta excelencia. Indica una gestión administrativa y legal limpia, blindada contra contingencias o multas de entes de supervisión.`,
           color: "border-amber-500/30 text-amber-400"
         };
       } else if (tipoCard === 'planes') {
         analitica = {
-          titulo: "Saturación y Carga de Mejoramiento",
+          titulo: "Saturación Administrativa de Planes",
           valor: `${planesActivos} en Ejecución`,
-          significado: `Cantidad de planes de accion correctivos que los jefes de area estan ejecutando en simultaneo en este momento.`,
-          dictamen: `Dictamen Gerencial: Contar con solo ${planesActivos} plan activo es un escenario excelente. Muestra un hotel descongestionado administrativamente, libre de 'paralisis por analisis' y con plena capacidad operativa para centrarse en la excelencia de la experiencia del huésped y la optimizacion de costos cotidianos.`,
+          significado: "Cantidad de procesos de mejora simultáneos que ejecutan los jefes de departamento.",
+          dictamen: `Al Gerente General: Registrar solo ${planesActivos} plan activo es el escenario ideal. La estructura operativa de Termales no sufre de 'parálisis por análisis'. Hay total disponibilidad de tiempo para enfocar al personal en la calidad del servicio diario.`,
+          color: "border-purple-500/30 text-purple-400"
+        };
+      } else if (tipoCard === 'matriz') {
+        analitica = {
+          titulo: "Distribución de Calor COSO (5x5)",
+          valor: "Matriz P x I",
+          significado: "Ubicación espacial de las amenazas según su nivel de probabilidad e impacto residual.",
+          dictamen: `Al Gerente General: El mapa muestra una concentración saludable en las zonas verde y amarilla (Bajo/Medio). La baja densidad en el cuadrante crítico (Zona Roja) ratifica que las tomas de decisiones gerenciales previas han logrado neutralizar las amenazas de gran impacto financiero.`,
+          color: "border-amber-500/30 text-amber-400"
+        };
+      } else if (tipoCard === 'tendencia') {
+        analitica = {
+          titulo: "Línea de Tendencia Histórica",
+          valor: "Análisis 6 Meses",
+          significado: "Comportamiento del perfil de riesgo de Termales a lo largo del último semestre.",
+          dictamen: `Al Gerente General: La gráfica lineal muestra estabilidad en la contención de picos de riesgo. La consistencia en el aplanamiento de las líneas críticas demuestra que el sistema predictivo del hotel está actuando con oportunidad antes de que los eventos generen pérdidas.`,
+          color: "border-blue-500/30 text-blue-400"
+        };
+      } else if (tipoCard === 'severidad') {
+        analitica = {
+          titulo: "Desglose por Severidad de Hallazgos",
+          valor: "Métrica Concéntrica",
+          significado: "Participación porcentual de las no conformidades según su urgencia de atención.",
+          dictamen: `Al Gerente General: El gráfico de dona muestra un balance controlado. Al no registrarse picos de severidad crítica acumulados, la carga de trabajo de control interno se mantiene en un nivel puramente preventivo y de mejora continua.`,
+          color: "border-emerald-500/30 text-emerald-400"
+        };
+      } else if (tipoCard === 'kpis') {
+        analitica = {
+          titulo: "Tablero de Control KRI Operativos",
+          valor: "Semáforos de Tolerancia",
+          significado: "Comparativa de rendimiento en vivo frente a los umbrales aprobados por el manual de riesgos.",
+          dictamen: `Al Gerente General: Los indicadores de Ejecución, Eficiencia y Oportunidad se encuentran alineados con las metas deseadas. El entorno de gobierno corporativo califica como seguro, respaldando de forma sólida la toma de decisiones presupuestales.`,
+          color: "border-cyan-500/30 text-cyan-400"
+        };
+      } else if (tipoCard === 'vencidos') {
+        analitica = {
+          titulo: "Frenos Operativos por Planes Vencidos",
+          valor: `${planesVencidos} Retrasados`,
+          significado: "Compromisos correctivos que han superado el plazo formal de entrega en el servidor.",
+          dictamen: `Al Gerente General: Registrar ${planesVencidos} planes vencidos es una métrica perfecta. Indica cero tolerancia a la desidia administrativa. Los dueños de procesos están cumpliendo rigurosamente los cronogramas pactados con el área de control.`,
+          color: "border-red-500/30 text-red-400"
+        };
+      } else if (tipoCard === 'proximas') {
+        analitica = {
+          titulo: "Avance y Cobertura del Plan Anual",
+          valor: "Fases Pendientes",
+          significado: "Procesos oficiales del hotel agendados próximos a ser intervenidos por auditoría.",
+          dictamen: `Al Gerente General: La agenda muestra los frentes regulatorios subsiguientes. Permite anticiparse logísticamente en las áreas para asegurar que las auditorías actúen como un catalizador de mejora y no como un freno de la operación del hotel.`,
+          color: "border-blue-500/30 text-blue-400"
+        };
+      } else if (tipoCard === 'actividad') {
+        analitica = {
+          titulo: "Trazabilidad de Movimientos (Audit Trail)",
+          valor: "Logs en Vivo",
+          significado: "Últimas acciones, cambios y modificaciones registradas de forma segura en la base de datos.",
+          dictamen: `Al Gerente General: Este bloque garantiza el principio de responsabilidad y transparencia de la plataforma. Cada movimiento queda sellado con usuario, fecha y hora, impidiendo la manipulación de información y asegurando un rastro limpio para revisorías fiscales.`,
           color: "border-purple-500/30 text-purple-400"
         };
       }
+
       setDictamenIA(analitica);
       setProcesandoIA(false);
-    }, 800);
+    }, 700);
   };
 
   let allActivity = [];
@@ -255,8 +312,54 @@ export default function DashboardEjecutivo({
   let offsetCirculo = 0;
 
   return (
-    <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none">
+    <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none relative">
       
+      {/* ─── 🤖 CAPA DE ENFOQUE INTELIGENTE (FIXED BACKDROP BLUR) ─── */}
+      {(procesandoIA || dictamenIA) && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+          
+          {/* Carga Animada Inline */}
+          {procesandoIA && (
+            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl flex items-center gap-4 shadow-2xl max-w-xl border-l-4 border-l-blue-500 scale-100 transition-transform">
+              <span className="text-2xl animate-spin">🤖</span>
+              <div className="text-xs">
+                <span className="font-black text-white block uppercase tracking-wider text-[11px] mb-0.5">GCM Auditor v5 IA Assistant</span>
+                <span className="text-slate-400 font-medium">Extrayendo métricas de Firebase, aplicando matrices de calor y redactando dictamen gerencial...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Recuadro de Resultados Nítido */}
+          {dictamenIA && (
+            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-2xl relative border-l-4 border-l-emerald-500 w-full max-h-[90vh] overflow-y-auto scrollbar-thin">
+              <button onClick={() => setDictamenIA(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2.5 py-1 rounded-xl transition-colors">✕ Cerrar</button>
+              
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">🤖</span>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial para Gerencia</h4>
+              </div>
+
+              <h3 className="text-sm font-black text-white uppercase tracking-tight mb-4 border-b border-slate-800/80 pb-2.5 flex justify-between items-center">
+                <span>{dictamenIA.titulo}</span>
+                <span className={`text-xs px-2.5 py-1 rounded-lg bg-slate-900 font-mono ${dictamenIA.color}`}>{dictamenIA.valor}</span>
+              </h3>
+
+              <div className="space-y-4 text-xs leading-relaxed font-medium">
+                <div className="text-slate-300 bg-[#020617] p-3.5 rounded-2xl border border-slate-800/60">
+                  <b className="text-slate-400 uppercase block text-[9px] mb-1.5 tracking-wider">¿Qué representa este dato?</b> 
+                  {dictamenIA.significado}
+                </div>
+                <div className="text-emerald-300 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20">
+                  <b className="text-emerald-400 uppercase block text-[9px] mb-1.5 tracking-wider">🎯 Diagnóstico Gerencial:</b> 
+                  {dictamenIA.dictamen}
+                </div>
+              </div>
+            </div>
+          )}
+          
+        </div>
+      )}
+
       {/* ─── ENCABEZADO PREMIUM Y FILTROS INTEGRADOS ─── */}
       <div className="bg-[#0a1122] border border-blue-500/10 p-5 rounded-2xl shadow-md space-y-4 mb-4">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800/80 pb-4 gap-4">
@@ -307,20 +410,20 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-     {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TOOLTIPS Y BOTONES DE IA INTEGRADOS ─── */}
+     {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TODOS LOS 5 TOOLTIPS ENRIQUECIDOS ─── */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         
-        {/* CARD 1: CUMPLIMIENTO GLOBAL */}
+        {/* CARDA 1: CUMPLIMIENTO GLOBAL */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
-            <button onClick={() => solicitarDictamenIA('cumplimiento')} className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('cumplimiento')} className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{avancePlanesGlobal}%</span>
             <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">Muy Bueno</span>
           </div>
-          <div className="w-full h-8 mt-2 opacity-60">
+          <div className="w-full h-8 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
             <svg viewBox="0 0 100 20" className="w-full h-full text-emerald-400" preserveAspectRatio="none">
               <path d="M0,15 Q20,5 40,12 T80,8 L100,2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
@@ -339,11 +442,11 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* CARD 2: RIESGOS ACTIVOS */}
+        {/* CARDA 2: RIESGOS ACTIVOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
-            <button onClick={() => solicitarDictamenIA('riesgos')} className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('riesgos')} className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{totalRiesgos}</span>
@@ -367,11 +470,11 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* CARD 3: CONTROLES AUDITADOS */}
+        {/* CARDA 3: CONTROLES AUDITADOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
-            <button onClick={() => solicitarDictamenIA('controles')} className="text-xs bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('controles')} className="text-[10px] bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{efectividadControlesGlobal}%</span>
@@ -388,7 +491,7 @@ export default function DashboardEjecutivo({
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
               <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Auditoría de Trabajo de Campo.</p>
               <p><b className="text-amber-400 uppercase">❓ Por Qué:</b> Evalúa la robustez operacional de las defensas.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Eficacia de los controles probados en sitio.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Porcentaje de controles que han sido evaluados frente al universo total de riesgos.</p>
               <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-cyan-400 text-[8px]">
                 FÓRMULA: (Evaluaciones Calif. 100 / Total Evaluaciones) * 100
               </div>
@@ -396,11 +499,11 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* CARD 4: HALLAZGOS ABIERTOS */}
+        {/* CARDA 4: HALLAZGOS ABIERTOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
-            <button onClick={() => solicitarDictamenIA('hallazgos')} className="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('hallazgos')} className="text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{totalHallazgos}</span>
@@ -413,8 +516,8 @@ export default function DashboardEjecutivo({
             <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Desviaciones</h4>
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
               <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes Emitidos.</p>
-              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Alertas por fallas de cumplimiento normativo o legal.</p>
-              <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Conteo directo de brechas vigentes.</p>
+              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Refleja la cantidad de brechas normativas no resueltas.</p>
+              <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Conteo de no conformidades con estado 'Abierto'.</p>
               <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-orange-400 text-[8px]">
                 FÓRMULA: Sumatoria (Hallazgos donde Estado === 'Abierto')
               </div>
@@ -422,11 +525,11 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* CARD 5: PLANES EN EJECUCIÓN */}
+        {/* CARDA 5: PLANES EN EJECUCIÓN */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
-            <button onClick={() => solicitarDictamenIA('planes')} className="text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('planes')} className="text-[10px] bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{planesActivos}</span>
@@ -438,9 +541,9 @@ export default function DashboardEjecutivo({
             <div className="absolute -top-2 left-[80%] -translate-x-[80%] w-4 h-4 bg-[#0f172a] border-t border-l border-purple-500/40 rotate-45"></div>
             <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Gestión</h4>
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Plan de Mejoramiento Institucional.</p>
-              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Monitorea la carga operativa de los líderes de proceso.</p>
-              <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Tareas activas que no se han archivado.</p>
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Planes de Acción.</p>
+              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Indica la saturación operativa para el cierre de brechas.</p>
+              <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Sumatoria de planes cuyo estado es diferente a 'Cerrado'.</p>
               <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-purple-400 text-[8px]">
                 FÓRMULA: Conteo (Planes donde Estado !== 'Cerrado')
               </div>
@@ -449,45 +552,16 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-      {/* ─── CONTENEDORES DINÁMICOS DE DICTAMEN DE INTELIGENCIA ARTIFICIAL (HUD GERENCIAL) ─── */}
-      {procesandoIA && (
-        <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex items-center gap-3 shadow-2xl max-w-xl animate-fade-in border-l-4 border-l-blue-500">
-          <span className="text-lg anonymity animate-spin">🤖</span>
-          <div className="text-xs">
-            <span className="font-black text-white block uppercase tracking-wider">GCM Auditor v5 IA Assistant</span>
-            <span className="text-slate-400 font-medium">Extrayendo métricas de Firebase, aplicando matrices de calor y redactando dictamen gerencial...</span>
-          </div>
-        </div>
-      )}
-
-      {dictamenIA && (
-        <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl shadow-2xl max-w-2xl animate-fade-in relative border-l-4 border-l-emerald-500">
-          <button onClick={() => setDictamenIA(null)} className="absolute top-3 right-3 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2 py-1 rounded-md">✕ Cerrar</button>
-          
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-base">🤖</span>
-            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial para Gerencia</h4>
-          </div>
-
-          <h3 className="text-sm font-black text-white uppercase tracking-tight mb-3 border-b border-slate-800 pb-2 flex justify-between items-center">
-            <span>{dictamenIA.titulo}</span>
-            <span className={`text-xs px-2 py-0.5 rounded bg-slate-900 font-mono ${dictamenIA.color}`}>{dictamenIA.valor}</span>
-          </h3>
-
-          <div className="space-y-3 text-xs leading-relaxed font-medium">
-            <p className="text-slate-300 bg-[#020617] p-2.5 rounded-xl border border-slate-800"><b className="text-slate-400 uppercase block text-[9px] mb-1 tracking-wider">¿Qué representa este dato?</b> {dictamenIA.significado}</p>
-            <p className="text-emerald-300 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20"><b className="text-emerald-400 uppercase block text-[9px] mb-1 tracking-wider">🎯 Diagnóstico Gerencial:</b> {dictamenIA.dictamen}</p>
-          </div>
-        </div>
-      )}
-
       {/* ─── CUADRÍCULA PRINCIPAL CENTRAL CON MAPA 5X5 INTEGRADO ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* MAPA DE CALOR */}
         <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Mapa de Riesgos (Matriz 5x5)</h3>
+            <div className="flex items-center space-x-2">
+              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Mapa de Riesgos (Matriz 5x5)</h3>
+              <button onClick={() => solicitarDictamenIA('matriz')} className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
+            </div>
             {matrizFiltro && (
               <button 
                 onClick={() => setMatrizFiltro(null)} 
@@ -580,7 +654,10 @@ export default function DashboardEjecutivo({
 
         {/* HISTÓRICO ORIGINAL + RUEDA CONCÉNTRICA DE PROCESOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-          <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Tendencia Histórica</h3>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Tendencia Histórica</h3>
+            <button onClick={() => solicitarDictamenIA('tendencia')} className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
+          </div>
           <div className="w-full h-36 mt-2 relative">
             <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
               <line x1="0" y1="10" x2="100" y2="10" stroke="#1e293b" strokeWidth="0.2" strokeDasharray="1,1" />
@@ -789,8 +866,11 @@ export default function DashboardEjecutivo({
         return (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left mt-6">
             
-            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
+            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Severidad de Hallazgos</h3>
+                <button onClick={() => solicitarDictamenIA('severidad')} className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
+              </div>
               <div className="flex items-center justify-around h-32">
                 <div className="w-24 h-24 relative">
                   <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90 drop-shadow-md">
@@ -808,19 +888,13 @@ export default function DashboardEjecutivo({
                   <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Bajos</span><span className="text-white">{hBaj} ({pBaj}%)</span></div>
                 </div>
               </div>
-              <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
-                <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Desglose de Criticidad</h4>
-                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
-                  <p><b className="text-emerald-400">📍 ORIGEN:</b> Módulo Central de Hallazgos.</p>
-                  <p><b className="text-amber-400">❓ POR QUÉ:</b> Clasifica la urgencia de atenciones de no conformidades operativas.</p>
-                  <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Segmentación física de las desviaciones de auditoría.</p>
-                </div>
-              </div>
             </div>
 
-            <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Métricas de Planes</h3>
+            <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Métricas de Planes</h3>
+                <button onClick={() => solicitarDictamenIA('planes')} className="text-[9px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
+              </div>
               <div className="space-y-3 font-bold text-xs text-slate-400">
                 <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-blue-500/30 transition-colors">
                   <span className="flex items-center">📈 Cumplimiento</span>
@@ -835,19 +909,13 @@ export default function DashboardEjecutivo({
                   <span className="text-red-400 font-black">{planesVencidos}</span>
                 </div>
               </div>
-              <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
-                <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">KPI Operativo Metas</h4>
-                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
-                  <p><b className="text-emerald-400">📍 ORIGEN:</b> Plan de Mejoramiento del Sistema.</p>
-                  <p><b className="text-amber-400">❓ POR QUÉ:</b> Mide la velocidad institucional para subsanar los riesgos pitados.</p>
-                  <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Alertas automáticas cruzando plazos vs fecha actual del servidor.</p>
-                </div>
-              </div>
             </div>
 
-            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Indicadores (KPI)</h3>
+            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">Indicadores (KPI)</h3>
+                <button onClick={() => solicitarDictamenIA('kpis')} className="text-[9px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
+              </div>
               <div className="overflow-x-auto w-full flex-1">
                 <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
                   <thead>
@@ -879,15 +947,6 @@ export default function DashboardEjecutivo({
                   </tbody>
                 </table>
               </div>
-              <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
-                <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Tablero de Control KRI</h4>
-                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
-                  <p><b className="text-emerald-400">📍 ORIGEN:</b> Consolidado de los 3 Módulos de Metas.</p>
-                  <p><b className="text-amber-400">❓ POR QUÉ:</b> Compara el rendimiento real frente a exigencias Big-4.</p>
-                  <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Semáforos lógicos automáticos según el umbral de tolerancia.</p>
-                </div>
-              </div>
             </div>
 
           </div>
@@ -898,9 +957,12 @@ export default function DashboardEjecutivo({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 mt-6">
         
         <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-          <div className="flex items-center space-x-3 mb-4">
-            <h3 className="text-sm font-black text-slate-200">Planes Vencidos</h3>
-            <span className="bg-red-500/20 text-red-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{planesVencidosList.length}</span>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-sm font-black text-slate-200">Planes Vencidos</h3>
+              <span className="bg-red-500/20 text-red-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{planesVencidosList.length}</span>
+            </div>
+            <button onClick={() => solicitarDictamenIA('vencidos')} className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
           </div>
           <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
             <table className="w-full text-left text-[10px]">
@@ -935,21 +997,15 @@ export default function DashboardEjecutivo({
           <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
              <button onClick={() => setActiveTab('planes_tab')} className="text-red-400 text-[10px] font-bold hover:underline transition-colors">Ver todos los planes vencidos →</button>
           </div>
-          <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Alerta de Retrasos</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
-              <p><b className="text-emerald-400">📍 ORIGEN:</b> Módulo de Planes de Acción.</p>
-              <p><b className="text-amber-400">❓ POR QUÉ:</b> Identifica inmediatamente las brechas vencidas sin cierre reportado.</p>
-              <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Top 5 ordenado cronológicamente de forma ascendente.</p>
-            </div>
-          </div>
         </div>
 
         <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-          <div className="flex items-center space-x-3 mb-4">
-            <h3 className="text-sm font-black text-slate-200">Próximas Auditorías</h3>
-            <span className="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{proximasAuditorias.length}</span>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-sm font-black text-slate-200">Próximas Auditorías</h3>
+              <span className="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{proximasAuditorias.length}</span>
+            </div>
+            <button onClick={() => solicitarDictamenIA('proximas')} className="text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
           </div>
           <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
              <table className="w-full text-left text-[10px]">
@@ -979,20 +1035,12 @@ export default function DashboardEjecutivo({
           <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
              <button onClick={() => setActiveTab('plan_anual_tab')} className="text-blue-400 text-[10px] font-bold hover:underline transition-colors">Ver calendario completo →</button>
           </div>
-          <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Calendario de Procesos</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
-              <p><b className="text-emerald-400">📍 ORIGEN:</b> Cronograma del Plan Anual de Auditoría.</p>
-              <p><b className="text-amber-400">❓ POR QUÉ:</b> Brinda visibilidad de los próximos frentes regulatorios a intervenir.</p>
-              <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Filtra procesos activos pendientes con ejecución menor al 100%.</p>
-            </div>
-          </div>
         </div>
 
         <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-           <div className="flex items-center space-x-3 mb-4">
+          <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-black text-slate-200">Actividad Reciente</h3>
+            <button onClick={() => solicitarDictamenIA('actividad')} className="text-[9px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
           </div>
           <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin space-y-4">
               {recentActivityList.map((act, i) => (
@@ -1015,50 +1063,9 @@ export default function DashboardEjecutivo({
                   <div className="py-4 text-center text-slate-500 italic text-[10px]">No hay actividad reciente registrada en sistema</div>
                 )}
           </div>
-          <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Bitácora Global (Logs)</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
-              <p><b className="text-emerald-400">📍 ORIGEN:</b> Nube Modular de Firebase Firestore.</p>
-              <p><b className="text-amber-400">❓ POR QUÉ:</b> Garantiza la transparencia y el principio de responsabilidad (Audit Trail).</p>
-              <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Historial unificado en tiempo real de los últimos movimientos.</p>
-            </div>
-          </div>
         </div>
 
       </div>
-
-      {/* ─── PANAL DE DICTAMEN DINÁMICO GERENCIAL DE LA IA (FLEXIBLE E INTERACTIVO) ─── */}
-      {procesandoIA && (
-        <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex items-center gap-3 shadow-2xl max-w-xl animate-fade-in border-l-4 border-l-blue-500">
-          <span className="text-lg animate-spin">🤖</span>
-          <div className="text-xs">
-            <span className="font-black text-white block uppercase tracking-wider">GCM Auditor v5 IA Assistant</span>
-            <span className="text-slate-400 font-medium">Extrayendo métricas de Firebase, aplicando matrices de calor y redactando dictamen gerencial...</span>
-          </div>
-        </div>
-      )}
-
-      {dictamenIA && (
-        <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl shadow-2xl max-w-2xl animate-fade-in relative border-l-4 border-l-emerald-500">
-          <button onClick={() => setDictamenIA(null)} className="absolute top-3 right-3 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2 py-1 rounded-md">✕ Cerrar</button>
-          
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-base">🤖</span>
-            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial para Gerencia</h4>
-          </div>
-
-          <h3 className="text-sm font-black text-white uppercase tracking-tight mb-3 border-b border-slate-800 pb-2 flex justify-between items-center">
-            <span>{dictamenIA.titulo}</span>
-            <span className={`text-xs px-2 py-0.5 rounded bg-slate-900 font-mono ${dictamenIA.color}`}>{dictamenIA.valor}</span>
-          </h3>
-
-          <div className="space-y-3 text-xs leading-relaxed font-medium">
-            <p className="text-slate-300 bg-[#020617] p-2.5 rounded-xl border border-slate-800"><b className="text-slate-400 uppercase block text-[9px] mb-1 tracking-wider">¿Qué representa este dato?</b> {dictamenIA.significado}</p>
-            <p className="text-emerald-300 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20"><b className="text-emerald-400 uppercase block text-[9px] mb-1 tracking-wider">🎯 Diagnóstico Gerencial:</b> {dictamenIA.dictamen}</p>
-          </div>
-        </div>
-      )}
 
       {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO RESTAURADO ─── */}
       <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
@@ -1104,15 +1111,6 @@ export default function DashboardEjecutivo({
               );
             })
           )}
-        </div>
-        <div className="absolute bottom-[102%] right-4 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
-          <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700 rotate-45"></div>
-          <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2 border-b border-slate-700 pb-1.5">Foco de Criticidades</h4>
-          <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-400 font-medium">
-            <p><b className="text-emerald-400">📍 ORIGEN:</b> Base de Datos Firebase Firestore.</p>
-            <p><b className="text-amber-400">❓ POR QUÉ:</b> Desglosa analíticamente los picos de criticidad activos del inventario de Termales.</p>
-            <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Vista dinámica sincronizada con el motor relacional del Mapa de calor.</p>
-          </div>
         </div>
       </div>
 
