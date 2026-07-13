@@ -36,9 +36,71 @@ const CLASIFICACIONES_MANUAL = [
   "Fallas tecnologicas", "Daños a activos fisicos", "Relaciones laborales y seguridad en el puesto de trabajo"
 ];
 
+// 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
+const EXPLICACIONES_CAMPOS = {
+  proceso: {
+    titulo: "Proceso / Subproceso",
+    porQue: "Permite segregar el mapa de riesgos corporativo. Al asignarle un bloque exacto de la operación, facilitamos la consolidación de estadísticas en el Dashboard por áreas de negocio.",
+    ejemplo: "Si se están auditando pérdidas de vajilla o inventario en restaurantes, se debe seleccionar obligatoriamente 'Alimentos y Bebidas (AYB)'."
+  },
+  categoria: {
+    titulo: "Categoría de Riesgo",
+    porQue: "Agrupa los riesgos bajo la taxonomía de la norma internacional ISO 31000. Ayuda a la Junta Directiva a entender si la mayor exposición de Termales es operacional, de estrategia o legal.",
+    ejemplo: "Un ataque informático al sistema de reservas Zeus corresponde a la categoría 'Tecnológico'. Una demanda laboral corresponde a 'Cumplimiento'."
+  },
+  clasificacion: {
+    titulo: "Clasificación COSO / Manual",
+    porQue: "Mandato directo de la Guía de Administración del Riesgo V5. Sirve para tipificar la naturaleza exacta de la falla humana, de procesos o del entorno para generar planes de choque estandarizados.",
+    ejemplo: "Si un colaborador extrae dinero o activos de la caja de forma intencional con ánimo de lucro, se clasifica como 'Fraude interno'."
+  },
+  normativa: {
+    titulo: "Normativa Asociada",
+    porQue: "Conecta el riesgo con el marco legal, leyes o lineamientos de entes de control externos que rigen la operación de Termales. Ayuda a evitar sanciones o cierres.",
+    ejemplo: "Para riesgos de Seguridad y Salud en el Trabajo, la norma asociada es el 'Decreto 1072'. Para temas contables, el 'Estatuto Tributario'."
+  },
+  responsable: {
+    titulo: "Líder Dueño del Proceso",
+    porQue: "Establece la rendición de cuentas (Accountability). Define qué cargo de la organización es el único responsable de vigilar la ejecución diaria de los controles preventivos y responder ante auditorías.",
+    ejemplo: "Para el proceso de contabilidad e impuestos, el líder dueño del proceso es el 'Jefe de Contabilidad'."
+  },
+  afectacion: {
+    titulo: "Tipo de Afectación",
+    porQue: "Define las dimensiones afectadas del negocio. Ayuda a priorizar la atención: un riesgo puede implicar solo desembolso de dinero, o dañar gravemente el nombre y la marca del hotel.",
+    ejemplo: "Si un huésped sufre un accidente en las instalaciones, la afectación es 'Económico-Reputacional' debido a la indemnización y el impacto publicitario municipal."
+  },
+  causaInmediata: {
+    titulo: "Causa Inmediata (¿Qué pasa?)",
+    porQue: "Describe el síntoma o la circunstancia visible e inmediata bajo la cual el riesgo se materializa. Es la primera parte obligatoria de la redacción metodológica.",
+    ejemplo: "Pérdida o descuadre físico de activos fijos por daños, hurtos y/o actos indebidos."
+  },
+  causaRaiz: {
+    titulo: "Causa Raíz (¿Por qué pasa?)",
+    porQue: "Es la vulnerabilidad básica o falla estructural de control interno que causó el evento. Aquí es donde los controles de la empresa deben atacar para que no vuelva a ocurrir.",
+    ejemplo: "Ausencia de un procedimiento de seguimiento, monitoreo y conciliación mensual del módulo de activos fijos Zeus contra la contabilidad física."
+  },
+  probInh: {
+    titulo: "Probabilidad Inherente",
+    porQue: "Mide cuántas veces al año ejecutamos la actividad que conlleva el riesgo, calculando la exposición pura del hotel antes de implementar cualquier tipo de defensa o control.",
+    ejemplo: "Si la facturación en el hotel se realiza más de 5,000 veces al año, su probabilidad inherente es 'Muy Alta (100%)'."
+  },
+  impInh: {
+    titulo: "Impacto Inherente",
+    porQue: "Evalúa la gravedad máxima del daño en términos de Salarios Mínimos (SMLMV) o impacto reputacional nacional/local si el riesgo se llegara a materializar sin controles.",
+    ejemplo: "Una afectación mayor a 500 Salarios Mínimos Mensuales Legales Vigentes se califica a nivel máximo como 'Catastrófico (100%)'."
+  },
+  controlDesc: {
+    titulo: "Descripción de la Tarea del Control",
+    porQue: "Detalla la acción o procedimiento específico que realiza el personal o un sistema automatizado para anular las causas del riesgo e impedir su materialización.",
+    ejemplo: "El Coordinador de Contabilidad realiza mensualmente la toma física y aleatoria de los inventarios confrontando el módulo Zeus contra los activos asignados por acta."
+  }
+};
+
 export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud, showNotification }) {
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // 🍿 ESTADO PARA EL POPUP INTERACTIVO ELEGANTE
+  const [ayudaModal, setAyudaModal] = useState(null);
   
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [riesgoId, setRiesgoId] = useState('');
@@ -48,23 +110,18 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   const [normativa, setNormativa] = useState('');
   const [responsable, setResponsable] = useState('');
   
-  // SINTAXIS DEL MANUAL DE RIESGOS
   const [afectacion, setAfectacion] = useState('Económico');
   const [causaInmediata, setCausaInmediata] = useState('');
   const [causaRaiz, setCausaRaiz] = useState('');
   const [probInherente, setProbInherente] = useState(60);
   const [impInherente, setImpInherente] = useState(60);
   
-  // CONTROLES DINÁMICOS COMPLETO SEGÚN MANUAL
   const [controles, setControles] = useState([]);
-
-  // NUEVAS CASILLAS DE MONITOREO Y TRATAMIENTO
   const [tratamiento, setTratamiento] = useState('Reducir el riesgo');
   const [planAccionRiesgo, setPlanAccionRiesgo] = useState('');
   const [fechaSeguimiento, setFechaSeguimiento] = useState('');
   const [seguimientoBitacora, setSeguimientoBitacora] = useState('');
 
-  // 🧮 EVALUACIÓN DINÁMICA DE LA SOLIDEZ DEL CONTROL (5 VARIABLES)
   const calcularRiesgoResidual = () => {
     let curr_p = probInherente / 100;
     let curr_i = impInherente / 100;
@@ -201,6 +258,25 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     }
   };
 
+  // 🏷️ COMPONENTE INTERNO REUTILIZABLE PARA TITULOS CON LA PALOMITA DE INFORMACIÓN
+  const LabelConPalomita = ({ idCampo }) => {
+    const dataAyuda = EXPLICACIONES_CAMPOS[idCampo];
+    if (!dataAyuda) return null;
+    return (
+      <div className="flex items-center space-x-1.5 mb-1">
+        <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{dataAyuda.titulo}</span>
+        <button
+          type="button"
+          onClick={() => setAyudaModal(dataAyuda)}
+          className="w-4 h-4 rounded-full bg-emerald-50 border border-emerald-300 flex items-center justify-center text-[9px] text-emerald-600 font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm group"
+          title="Ver por qué diligenciar y ejemplo"
+        >
+          <span className="group-hover:scale-110 transition-transform">✓</span>
+        </button>
+      </div>
+    );
+  };
+
   const renderDashboard = () => {
     const totalRiesgos = safeRiesgos.length;
     const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
@@ -323,7 +399,44 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 relative">
+      
+      {/* 🔮 EL POPUP MODAL SUTIL Y ELEGANTE CON BASE EN LA MAQUETA DE FORMATO */}
+      {ayudaModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md p-6 overflow-hidden relative animate-in zoom-in-95 duration-300">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60"></div>
+            
+            <div className="flex items-center space-x-2 border-b pb-3 relative z-10">
+              <span className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white font-black text-[10px]">✓</span>
+              <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider">{ayudaModal.titulo}</h4>
+            </div>
+
+            <div className="mt-4 space-y-4 relative z-10 text-xs">
+              <div>
+                <h5 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1">💡 ¿Por qué diligenciarlo?</h5>
+                <p className="text-slate-600 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/60">{ayudaModal.porQue}</p>
+              </div>
+              <div>
+                <h5 className="font-black text-[10px] text-emerald-600 uppercase tracking-widest mb-1">📝 Ejemplo Metodológico (Termales)</h5>
+                <p className="text-emerald-950 font-semibold leading-relaxed bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 italic">"{ayudaModal.ejemplo}"</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end relative z-10">
+              <button
+                type="button"
+                onClick={() => setAyudaModal(null)}
+                className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CABECERA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>
           <h2 className="text-2xl font-black text-slate-800">Matriz de Riesgos</h2>
@@ -347,17 +460,17 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
         <form onSubmit={handleRiesgoSubmit} className="space-y-6">
           
           {/* DATOS GENERALES EXTENDIDOS */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">1. Datos Generales de la Fila</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Proceso / Subproceso</label>
+                <LabelConPalomita idCampo="proceso" />
                 <select value={proceso} onChange={(e) => setProceso(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   {PROCESOS_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Categoría de Riesgo</label>
+                <LabelConPalomita idCampo="categoria" />
                 <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required>
                   <option value="">Seleccione...</option>
                   <option value="Estratégico">Estratégico</option>
@@ -368,17 +481,17 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Clasificación COSO / Manual</label>
+                <LabelConPalomita idCampo="clasificacion" />
                 <select value={clasificacionRiesgo} onChange={(e) => setClasificacionRiesgo(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   {CLASIFICACIONES_MANUAL.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Normativa Asociada</label>
+                <LabelConPalomita idCampo="normativa" />
                 <input type="text" value={normativa} onChange={(e) => setNormativa(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej. ISO 31000..." />
               </div>
-          <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Líder Dueño del Proceso</label>
+              <div>
+                <LabelConPalomita idCampo="responsable" />
                 <select value={responsable} onChange={(e) => setResponsable(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required>
                   <option value="">Seleccione Cargo Oficial...</option>
                   {CARGOS_OFICIALES.map(cargo => (
@@ -390,39 +503,39 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           </div>
 
           {/* SINTAXIS OBLIGATORIA */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">2. Estructura y Redacción (Mandato del Manual)</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo de Afectación</label>
+                <LabelConPalomita idCampo="afectacion" />
                 <select value={afectacion} onChange={e => setAfectacion(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   <option value="Económico">Económico</option>
                   <option value="Reputacional">Reputacional</option>
                   <option value="Económico-Reputacional">Económico-Reputacional</option>
                 </select>
               </div>
-            <div>
-  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Inmediata (¿Qué pasa?)</label>
-  <textarea
-    rows="2"
-    value={causaInmediata}
-    onChange={e => setCausaInmediata(e.target.value)}
-    placeholder="Describa qué pasa en la operación detalladamente..."
-    className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
-    required
-  />
-</div>  
-            <div>
-  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Raíz (¿Por qué pasa?)</label>
-  <textarea
-    rows="2"
-    value={causaRaiz}
-    onChange={e => setCausaRaiz(e.target.value)}
-    placeholder="Describa por qué se origina el fallo..."
-    className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
-    required
-  />
-</div>  
+              <div>
+                <LabelConPalomita idCampo="causaInmediata" />
+                <textarea
+                  rows="2"
+                  value={causaInmediata}
+                  onChange={e => setCausaInmediata(e.target.value)}
+                  placeholder="¿Qué pasa en la operación?"
+                  className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
+                  required
+                />
+              </div>
+              <div>
+                <LabelConPalomita idCampo="causaRaiz" />
+                <textarea
+                  rows="2"
+                  value={causaRaiz}
+                  onChange={e => setCausaRaiz(e.target.value)}
+                  placeholder="¿Por qué se origina el fallo?"
+                  className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
+                  required
+                />
+              </div>
             </div>
             <div className="bg-[#f0fdf4] border border-emerald-200 p-3 rounded-lg">
               <label className="text-[9px] font-black text-emerald-800 uppercase block mb-1">Texto Final para el Escenario (Bloqueado)</label>
@@ -431,11 +544,11 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           </div>
 
           {/* MATRIZ DE CALOR INHERENTE */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">3. Nivel de Riesgo Inherente</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Probabilidad Inherente</label>
+                <LabelConPalomita idCampo="probInh" />
                 <select value={probInherente} onChange={e => setProbInherente(Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   <option value={20}>Muy Baja (20%)</option>
                   <option value={40}>Baja (40%)</option>
@@ -445,7 +558,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Impacto Inherente</label>
+                <LabelConPalomita idCampo="impInh" />
                 <select value={impInherente} onChange={e => setImpInherente(Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   <option value={20}>Leve (20%)</option>
                   <option value={40}>Menor (40%)</option>
@@ -458,34 +571,34 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           </div>
 
           {/* BLOQUE DINÁMICO CON LAS 5 CASILLAS METODOLÓGICAS */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div className="flex justify-between items-center border-b pb-2">
               <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">4. Evaluación de Solidez de Controles (5 Variables)</h3>
               <button type="button" onClick={() => setControles([...controles, { descripcion: '', tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro' }])} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-colors">➕ Agregar Control</button>
             </div>
             {controles.map((ctrl, idx) => (
-              <div key={idx} className="bg-white border border-slate-200 p-4 rounded-lg shadow-sm space-y-3 relative">
+              <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3 relative">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                   <div className="md:col-span-11">
-                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Descripción de la Tarea del Control</label>
-                 <textarea
-  rows="3"
-  value={ctrl.descripcion}
-  onChange={(e) => { const nuevos = [...controles]; nuevos[idx].descripcion = e.target.value; setControles(nuevos); }}
-  className="w-full text-xs p-2 border rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
-  placeholder="Describa la tarea completa del control..."
-  required
-/>
-                   </div>
+                    <LabelConPalomita idCampo="controlDesc" />
+                    <textarea
+                      rows="3"
+                      value={ctrl.descripcion}
+                      onChange={(e) => { const nuevos = [...controles]; nuevos[idx].descripcion = e.target.value; setControles(nuevos); }}
+                      className="w-full text-xs p-2 border bg-white rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
+                      placeholder="Describa la tarea completa del control..."
+                      required
+                    />
+                  </div>
                   <div className="md:col-span-1 flex justify-center">
-                    <button type="button" onClick={() => setControles(controles.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 text-sm font-bold">🗑️ Borrar</button>
+                    <button type="button" onClick={() => setControles(controles.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 text-xs font-black uppercase tracking-widest bg-red-50 border border-red-200 px-3 py-2 rounded-xl transition-colors">🗑️ Borrar</button>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Tipo</label>
-                    <select value={ctrl.tipo} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].tipo = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                    <select value={ctrl.tipo} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].tipo = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border bg-white rounded-md">
                       <option value="Preventivo">Preventivo (Foco Probabilidad)</option>
                       <option value="Detectivo">Detectivo (Foco Desviación)</option>
                       <option value="Correctivo">Correctivo (Foco Impacto)</option>
@@ -493,28 +606,28 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Ejecución</label>
-                    <select value={ctrl.implementacion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].implementacion = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                    <select value={ctrl.implementacion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].implementacion = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border bg-white rounded-md">
                       <option value="Automático">Automático</option>
                       <option value="Manual">Manual</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Documentación</label>
-                    <select value={ctrl.documentacion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].documentacion = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                    <select value={ctrl.documentacion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].documentacion = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border bg-white rounded-md">
                       <option value="Documentado">Documentado</option>
                       <option value="No documentado">No documentado</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Frecuencia</label>
-                    <select value={ctrl.frecuencia} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].frecuencia = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                    <select value={ctrl.frecuencia} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].frecuencia = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border bg-white rounded-md">
                       <option value="Continua">Continua / Permanente</option>
                       <option value="Aleatoria">Aleatoria / Periódica</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Soporte Evidencia</label>
-                    <select value={ctrl.evidencia} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].evidencia = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                    <select value={ctrl.evidence} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].evidencia = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border bg-white rounded-md">
                       <option value="Con registro">Con registro / Trazable</option>
                       <option value="Sin registro">Sin registro</option>
                     </select>
@@ -524,8 +637,8 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
             ))}
           </div>
 
-          {/* NUEVA SECCIÓN DE GOBERNANZA, TRATAMIENTO Y SEGUIMIENTO */}
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+          {/* TRATAMIENTO Y SEGUIMIENTO */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">5. Monitoreo, Tratamiento y Mitigación Temporal</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -552,7 +665,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
             </div>
           </div>
 
-          {/* CAJA NEGRA MATEMÁTICA INTERNA RESIDUAL */}
+          {/* CALCULADORA RESIDUAL */}
           <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-4">
             <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-slate-700 pb-2">6. Resultados de Mitigación (Cálculo Multivariable)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
