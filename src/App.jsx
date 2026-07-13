@@ -2213,20 +2213,25 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
               />
             )}
 
-        {/* 📈 DASHBOARD INTELIGENTE — RECONECTADO AQUÍ */}
+     {/* 📈 DASHBOARD INTELIGENTE — RECONECTADO AQUÍ */}
             {activeTab === 'dashboard_riesgos' && (() => {
               const ajustarCoordenada = (valor) => {
                 if (valor === undefined || valor === null || valor === '') return 0;
                 const s = String(valor).toLowerCase().trim();
-                if (s === '20') return 1;
-                if (s === '40') return 2;
-                if (s === '60') return 3;
-                if (s === '80') return 4;
-                if (s === '100') return 5;
-                if (s === '0') return 1;
-
-                const num = parseInt(s.charAt(0), 10);
-                if (!isNaN(num) && num >= 1 && num <= 5) return num;
+                
+                // Extraer el número puro del porcentaje
+                const numMatch = s.match(/\d+/);
+                if (numMatch) {
+                  const valNum = parseInt(numMatch[0], 10);
+                  // Si ya es un cuadrante directo del 1 al 5
+                  if (s.length === 1 && valNum >= 1 && valNum <= 5) return valNum;
+                  // Clasificación por rangos estándar 5x5
+                  if (valNum <= 20) return 1;
+                  if (valNum <= 40) return 2;
+                  if (valNum <= 60) return 3;
+                  if (valNum <= 80) return 4;
+                  return 5;
+                }
                 
                 if (s.includes('rara') || s.includes('muy baja')) return 1;
                 if (s.includes('improbable') || s.includes('baja')) return 2;
