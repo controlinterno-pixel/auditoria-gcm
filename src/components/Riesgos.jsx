@@ -401,14 +401,28 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                   <option value="Económico-Reputacional">Económico-Reputacional</option>
                 </select>
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Inmediata</label>
-                <input type="text" value={causaInmediata} onChange={e => setCausaInmediata(e.target.value)} placeholder="¿Qué pasa en la operación?" className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Raíz</label>
-                <input type="text" value={causaRaiz} onChange={e => setCausaRaiz(e.target.value)} placeholder="¿Por qué se origina el fallo?" className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required />
-              </div>
+            <div>
+  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Inmediata (¿Qué pasa?)</label>
+  <textarea
+    rows="2"
+    value={causaInmediata}
+    onChange={e => setCausaInmediata(e.target.value)}
+    placeholder="Describa qué pasa en la operación detalladamente..."
+    className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
+    required
+  />
+</div>  
+            <div>
+  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Raíz (¿Por qué pasa?)</label>
+  <textarea
+    rows="2"
+    value={causaRaiz}
+    onChange={e => setCausaRaiz(e.target.value)}
+    placeholder="Describa por qué se origina el fallo..."
+    className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
+    required
+  />
+</div>  
             </div>
             <div className="bg-[#f0fdf4] border border-emerald-200 p-3 rounded-lg">
               <label className="text-[9px] font-black text-emerald-800 uppercase block mb-1">Texto Final para el Escenario (Bloqueado)</label>
