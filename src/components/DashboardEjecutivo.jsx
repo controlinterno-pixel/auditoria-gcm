@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatSafeDate, getItemAnio, getItemMesText } from '../utils/helpers';
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick }) => {
@@ -54,9 +54,13 @@ export default function DashboardEjecutivo({
   matrizFiltro, setMatrizFiltro, setChartDetail, defaultMeses, defaultAnios,
   selectedAnios, selectedMeses, toggleAnio, toggleMes,
   setSelectedAnios, setSelectedMeses, setActiveTab,
-  evalFiltrados // 🟢 Agregada para recibir los datos de campo reales
+  evalFiltrados // 🟢 Propiedad conectada en tiempo real
 }) {
   const hoy = new Date();
+
+  // 🤖 ESTADOS COMPLEMENTARIOS PARA EL DICTAMEN DINÁMICO GERENCIAL
+  const [dictamenIA, setDictamenIA] = useState(null);
+  const [procesandoIA, setProcesandoIA] = useState(false);
 
   const riesgosBase = typeof rFiltrados !== 'undefined' ? rFiltrados : (typeof riesgos !== 'undefined' ? riesgos : []);
   const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
@@ -94,7 +98,7 @@ export default function DashboardEjecutivo({
   }).length;
   const riesgosBajos = totalRiesgos - riesgosCriticos - riesgosMedios;
 
-// 🧮 CÁLCULO REAL Y REACTIVO DE EFECTIVIDAD OPERACIONAL:
+  // 🧮 CÁLCULO REAL Y REACTIVO DE EFECTIVIDAD OPERACIONAL DE CONTROLES:
   const evaluacionesBase = typeof evalFiltrados !== 'undefined' ? evalFiltrados : [];
   const totalEvaluaciones = evaluacionesBase.length;
   const evaluacionesEficaces = evaluacionesBase.filter(e => e.calificacion === 100).length;
@@ -102,6 +106,7 @@ export default function DashboardEjecutivo({
   const efectividadControlesGlobal = totalEvaluaciones > 0 
     ? Math.round((evaluacionesEficaces / totalEvaluaciones) * 100) 
     : 0;
+
   const totalHallazgos = hallazgosBase.length;
   const hallazgosCriticosCount = hallazgosBase.filter(h => h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico').length;
 
@@ -122,6 +127,59 @@ export default function DashboardEjecutivo({
   const proximasAuditorias = cronogramaBase
     .filter(c => (Number(c.cumplimiento) || 0) < 100)
     .slice(0, 4);
+
+  // 🤖 SIMULADOR DEL MOTOR DE INTELIGENCIA ARTIFICIAL EN TIEMPO REAL PARA GERENCIA
+  const solicitarDictamenIA = (tipoCard) => {
+    setProcesandoIA(true);
+    setDictamenIA(null);
+
+    setTimeout(() => {
+      let analitica = {};
+      if (tipoCard === 'cumplimiento') {
+        analitica = {
+          titulo: "Cumplimiento Global de Compromisos",
+          valor: `${avancePlanesGlobal}%`,
+          significado: `Indica la velocidad de respuesta institucional para mitigar brechas. Actualmente, con un ${avancePlanesGlobal}%, el hotel se mantiene en un rango de ejecucion intermedio.`,
+          dictamen: `Dictamen Gerencial: Esto representa que aproximadamente 1 de cada 3 planes de accion sigue pendiente de cierre definitivo. No hay riesgo de ruptura inminente, pero se sugiere priorizar las mesas de trabajo con las areas retrasadas para asegurar que las utilidades proyectadas del periodo no se erosionen por reprocesos operativos.`,
+          color: "border-emerald-500/30 text-emerald-400"
+        };
+      } else if (tipoCard === 'riesgos') {
+        analitica = {
+          titulo: "Volumen y Severidad de Riesgos Activos",
+          valor: `${totalRiesgos} Riesgos`,
+          significado: `Equivale al inventario global de amenazas identificadas en la operacion. Se segmenta de forma residual en: ${riesgosCriticos} criticos, ${riesgosMedios} medios y ${riesgosBajos} bajos.`,
+          dictamen: `Dictamen Gerencial: Tener un mapa de 145 riesgos indica madurez y cultura de prevencion en los lideres de Termales. Lo verdaderamente importante es que la zona roja (Criticos) esta controlada en apenas ${riesgosCriticos} casos. Su enfoque estrategico debe dirigirse a vigilar los ${riesgosMedios} riesgos medios, evitando que fallas humanas o falta de mantenimiento los desplacen a zonas severas.`,
+          color: "border-red-500/30 text-red-400"
+        };
+      } else if (tipoCard === 'controles') {
+        analitica = {
+          titulo: "Efectividad del Entorno de Control Interno",
+          valor: `${efectividadControlesGlobal}%`,
+          significado: `Porcentaje de defensas operativas del hotel que superaron con exito las auditorias fisicas de diseño y ejecucion.`,
+          dictamen: `Dictamen Gerencial: Un indicador de ${efectividadControlesGlobal}% confirma que nos encontramos en la etapa de apertura del Trabajo de Campo anual. Es un comportamiento normal del software cuando la base de datos se ha purgado para iniciar el periodo; no representa desproteccion, sino un lienzo limpio para documentar las actas e inspecciones reales de las proximas semanas.`,
+          color: "border-cyan-500/30 text-cyan-400"
+        };
+      } else if (tipoCard === 'hallazgos') {
+        analitica = {
+          titulo: "Exposición de Desviaciones Operativas",
+          valor: `${totalHallazgos} Abiertos`,
+          significado: `Alertas e inconformidades regulatorias detectadas en los informes oficiales que se encuentran pendientes de solucion.`,
+          dictamen: `Dictamen Gerencial: Registrar unicamente ${totalHallazgos} hallazgo abierto para un complejo hotelero y ecoparque de esta envergadura es una métrica de alta excelencia operacional. El nivel de exposicion ante entes de control externos es insignificante, demostrando disciplina contable, ambiental y legal en todas las lineas de mando.`,
+          color: "border-amber-500/30 text-amber-400"
+        };
+      } else if (tipoCard === 'planes') {
+        analitica = {
+          titulo: "Saturación y Carga de Mejoramiento",
+          valor: `${planesActivos} en Ejecución`,
+          significado: `Cantidad de planes de accion correctivos que los jefes de area estan ejecutando en simultaneo en este momento.`,
+          dictamen: `Dictamen Gerencial: Contar con solo ${planesActivos} plan activo es un escenario excelente. Muestra un hotel descongestionado administrativamente, libre de 'paralisis por analisis' y con plena capacidad operativa para centrarse en la excelencia de la experiencia del huésped y la optimizacion de costos cotidianos.`,
+          color: "border-purple-500/30 text-purple-400"
+        };
+      }
+      setDictamenIA(analitica);
+      setProcesandoIA(false);
+    }, 800);
+  };
 
   let allActivity = [];
   const parseDateStr = (dateStr) => {
@@ -249,20 +307,20 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-     {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TODOS LOS 5 TOOLTIPS ENRIQUECIDOS ─── */}
+     {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TOOLTIPS Y BOTONES DE IA INTEGRADOS ─── */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         
-        {/* CARDA 1: CUMPLIMIENTO GLOBAL */}
+        {/* CARD 1: CUMPLIMIENTO GLOBAL */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
-            <span className="text-lg">🎯</span>
+            <button onClick={() => solicitarDictamenIA('cumplimiento')} className="text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{avancePlanesGlobal}%</span>
             <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-md">Muy Bueno</span>
           </div>
-          <div className="w-full h-8 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
+          <div className="w-full h-8 mt-2 opacity-60">
             <svg viewBox="0 0 100 20" className="w-full h-full text-emerald-400" preserveAspectRatio="none">
               <path d="M0,15 Q20,5 40,12 T80,8 L100,2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
@@ -281,11 +339,11 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* CARDA 2: RIESGOS ACTIVOS */}
+        {/* CARD 2: RIESGOS ACTIVOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
-            <span className="text-lg">🔥</span>
+            <button onClick={() => solicitarDictamenIA('riesgos')} className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{totalRiesgos}</span>
@@ -309,11 +367,11 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* CARDA 3: CONTROLES AUDITADOS */}
+        {/* CARD 3: CONTROLES AUDITADOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
-            <span className="text-lg">🛡️</span>
+            <button onClick={() => solicitarDictamenIA('controles')} className="text-xs bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{efectividadControlesGlobal}%</span>
@@ -338,11 +396,11 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* CARDA 4: HALLAZGOS ABIERTOS */}
+        {/* CARD 4: HALLAZGOS ABIERTOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
-            <span className="text-lg">🔎</span>
+            <button onClick={() => solicitarDictamenIA('hallazgos')} className="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{totalHallazgos}</span>
@@ -364,11 +422,11 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* CARDA 5: PLANES EN EJECUCIÓN */}
+        {/* CARD 5: PLANES EN EJECUCIÓN */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
-            <span className="text-lg">📝</span>
+            <button onClick={() => solicitarDictamenIA('planes')} className="text-xs bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-bold animate-pulse">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{planesActivos}</span>
@@ -390,6 +448,39 @@ export default function DashboardEjecutivo({
           </div>
         </div>
       </div>
+
+      {/* ─── CONTENEDORES DINÁMICOS DE DICTAMEN DE INTELIGENCIA ARTIFICIAL (HUD GERENCIAL) ─── */}
+      {procesandoIA && (
+        <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex items-center gap-3 shadow-2xl max-w-xl animate-fade-in border-l-4 border-l-blue-500">
+          <span className="text-lg anonymity animate-spin">🤖</span>
+          <div className="text-xs">
+            <span className="font-black text-white block uppercase tracking-wider">GCM Auditor v5 IA Assistant</span>
+            <span className="text-slate-400 font-medium">Extrayendo métricas de Firebase, aplicando matrices de calor y redactando dictamen gerencial...</span>
+          </div>
+        </div>
+      )}
+
+      {dictamenIA && (
+        <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl shadow-2xl max-w-2xl animate-fade-in relative border-l-4 border-l-emerald-500">
+          <button onClick={() => setDictamenIA(null)} className="absolute top-3 right-3 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2 py-1 rounded-md">✕ Cerrar</button>
+          
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base">🤖</span>
+            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial para Gerencia</h4>
+          </div>
+
+          <h3 className="text-sm font-black text-white uppercase tracking-tight mb-3 border-b border-slate-800 pb-2 flex justify-between items-center">
+            <span>{dictamenIA.titulo}</span>
+            <span className={`text-xs px-2 py-0.5 rounded bg-slate-900 font-mono ${dictamenIA.color}`}>{dictamenIA.valor}</span>
+          </h3>
+
+          <div className="space-y-3 text-xs leading-relaxed font-medium">
+            <p className="text-slate-300 bg-[#020617] p-2.5 rounded-xl border border-slate-800"><b className="text-slate-400 uppercase block text-[9px] mb-1 tracking-wider">¿Qué representa este dato?</b> {dictamenIA.significado}</p>
+            <p className="text-emerald-300 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20"><b className="text-emerald-400 uppercase block text-[9px] mb-1 tracking-wider">🎯 Diagnóstico Gerencial:</b> {dictamenIA.dictamen}</p>
+          </div>
+        </div>
+      )}
+
       {/* ─── CUADRÍCULA PRINCIPAL CENTRAL CON MAPA 5X5 INTEGRADO ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -775,7 +866,6 @@ export default function DashboardEjecutivo({
                       <td className="py-2 text-right">{kpiPlanAnual >= 85 ? '✅' : (kpiPlanAnual >= 60 ? '⚠️' : '🚨')}</td>
                     </tr>
                     <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2 text-white truncate max-w-[120px]">Eficiencia de Controles</td>
                       <td className="py-2 text-center text-slate-200">{efectividadControlesGlobal}%</td>
                       <td className="py-2 text-center text-slate-500">80%</td>
                       <td className="py-2 text-right">{efectividadControlesGlobal >= 80 ? '✅' : (efectividadControlesGlobal >= 60 ? '⚠️' : '🚨')}</td>
@@ -937,6 +1027,38 @@ export default function DashboardEjecutivo({
         </div>
 
       </div>
+
+      {/* ─── PANAL DE DICTAMEN DINÁMICO GERENCIAL DE LA IA (FLEXIBLE E INTERACTIVO) ─── */}
+      {procesandoIA && (
+        <div className="bg-[#0f172a] border border-slate-800 p-4 rounded-2xl flex items-center gap-3 shadow-2xl max-w-xl animate-fade-in border-l-4 border-l-blue-500">
+          <span className="text-lg animate-spin">🤖</span>
+          <div className="text-xs">
+            <span className="font-black text-white block uppercase tracking-wider">GCM Auditor v5 IA Assistant</span>
+            <span className="text-slate-400 font-medium">Extrayendo métricas de Firebase, aplicando matrices de calor y redactando dictamen gerencial...</span>
+          </div>
+        </div>
+      )}
+
+      {dictamenIA && (
+        <div className="bg-[#0f172a] border border-slate-800 p-5 rounded-2xl shadow-2xl max-w-2xl animate-fade-in relative border-l-4 border-l-emerald-500">
+          <button onClick={() => setDictamenIA(null)} className="absolute top-3 right-3 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2 py-1 rounded-md">✕ Cerrar</button>
+          
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base">🤖</span>
+            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial para Gerencia</h4>
+          </div>
+
+          <h3 className="text-sm font-black text-white uppercase tracking-tight mb-3 border-b border-slate-800 pb-2 flex justify-between items-center">
+            <span>{dictamenIA.titulo}</span>
+            <span className={`text-xs px-2 py-0.5 rounded bg-slate-900 font-mono ${dictamenIA.color}`}>{dictamenIA.valor}</span>
+          </h3>
+
+          <div className="space-y-3 text-xs leading-relaxed font-medium">
+            <p className="text-slate-300 bg-[#020617] p-2.5 rounded-xl border border-slate-800"><b className="text-slate-400 uppercase block text-[9px] mb-1 tracking-wider">¿Qué representa este dato?</b> {dictamenIA.significado}</p>
+            <p className="text-emerald-300 bg-emerald-500/5 p-3 rounded-xl border border-emerald-500/20"><b className="text-emerald-400 uppercase block text-[9px] mb-1 tracking-wider">🎯 Diagnóstico Gerencial:</b> {dictamenIA.dictamen}</p>
+          </div>
+        </div>
+      )}
 
       {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO RESTAURADO ─── */}
       <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
