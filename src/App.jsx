@@ -2179,28 +2179,29 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
       </div>
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* HEADER SUPERIOR */}
-        <header className={`bg-white border-b h-16 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresentationMode ? 'hidden' : 'flex'}`}>
-       <div className="flex items-center space-x-3 bg-slate-100/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-all hover:bg-slate-200/80">
-  {/* Logo Corporativo */}
-  <img 
-src="/logo_termales.png.png"
-    alt="Logo Termales" 
-    className="h-7 w-auto object-contain drop-shadow-sm transition-transform hover:scale-105" 
-    onError={(e) => { e.target.style.display = 'none'; }} 
-  />
-  
-  {/* Separador vertical sutil */}
-  <div className="h-5 w-px bg-slate-300 hidden sm:block"></div>
-  
-  {/* Texto Corporativo */}
-  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest hidden sm:inline-block">
-    Termales de Santa Rosa de Cabal — Sistema de Gestión Integral
-  </span>
-</div>   
+{/* HEADER SUPERIOR */}
+        <header className={`bg-white border-b h-20 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresentationMode ? 'hidden' : 'flex'}`}>
+          <div className="flex items-center space-x-4 bg-slate-100/80 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200 shadow-sm transition-all hover:bg-slate-200/80">
+            {/* Logo Corporativo */}
+            <img 
+              src="/logo_termales.png.png" 
+              alt="Logo Termales" 
+              className="h-10 w-auto object-contain drop-shadow-sm transition-transform hover:scale-105" 
+              onError={(e) => { e.target.style.display = 'none'; }} 
+            />
+            
+            {/* Separador vertical sutil */}
+            <div className="h-8 w-px bg-slate-300 hidden sm:block"></div>
+            
+            {/* Texto Corporativo */}
+            <span className="text-xs font-black text-slate-600 uppercase tracking-widest hidden sm:inline-block">
+              Termales de Santa Rosa de Cabal — Sistema de Gestión Integral
+            </span>
+          </div>   
+          
           <button 
             onClick={() => setIsPresentationMode(true)} 
-            className="bg-slate-800 text-white hover:bg-slate-700 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center space-x-2 shadow"
+            className="bg-slate-800 text-white hover:bg-slate-700 px-5 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center space-x-2 shadow-md"
           >
             <span>📺</span><span>Modo Presentación</span>
           </button>
