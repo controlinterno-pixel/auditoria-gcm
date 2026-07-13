@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 
-// 📚 LISTA MAESTRA UNIFICADA DE PROCESOS (IDÉNTICA A PLANES Y HALLAZGOS)
 const PROCESOS_OFICIALES = [
   "Alimentos y Bebidas (AYB)", "Canales Alternos", "Compensaciones", "Compras", "Control Inventarios",
   "Cumplimiento Normativo", "Financiera", "Formación y Desarrollo", "Gestión Ambiental",
   "Gestión Clientes", "Gestión Contable", "Gestión de Crédito y Cartera", "Gestión de tecnologías de la información",
   "Gestión de Tesoreria", "Mantenimiento de Infraestructura", "Mercadeo", "Operaciones Alojamiento y recreación.",
   "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación", "Proceso General"
+];
+
+const CLASIFICACIONES_MANUAL = [
+  "Ejecución y administracion del proceso", "Fraude interno", "Usuarios, productos y practicas", 
+  "Fallas tecnologicas", "Daños a activos fisicos", "Relaciones laborales y seguridad en el puesto de trabajo"
 ];
 
 export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud, showNotification }) {
@@ -17,35 +21,48 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   const [riesgoId, setRiesgoId] = useState('');
   const [proceso, setProceso] = useState(PROCESOS_OFICIALES[0]);
   const [categoria, setCategoria] = useState('');
+  const [clasificacionRiesgo, setClasificacionRiesgo] = useState(CLASIFICACIONES_MANUAL[0]);
   const [normativa, setNormativa] = useState('');
   const [responsable, setResponsable] = useState('');
   
-  // 🧠 ESTADOS PARA LA NUEVA SINTAXIS DEL RIESGO Y CÁLCULO
+  // SINTAXIS DEL MANUAL DE RIESGOS
   const [afectacion, setAfectacion] = useState('Económico');
   const [causaInmediata, setCausaInmediata] = useState('');
   const [causaRaiz, setCausaRaiz] = useState('');
   const [probInherente, setProbInherente] = useState(60);
   const [impInherente, setImpInherente] = useState(60);
-  const [controles, setControles] = useState([]); // Ahora es un Array dinámico
+  
+  // CONTROLES DINÁMICOS COMPLETO SEGÚN MANUAL
+  const [controles, setControles] = useState([]);
 
-  // 🧮 MOTOR MATEMÁTICO EN TIEMPO REAL
+  // NUEVAS CASILLAS DE MONITOREO Y TRATAMIENTO
+  const [tratamiento, setTratamiento] = useState('Reducir el riesgo');
+  const [planAccionRiesgo, setPlanAccionRiesgo] = useState('');
+  const [fechaSeguimiento, setFechaSeguimiento] = useState('');
+  const [seguimientoBitacora, setSeguimientoBitacora] = useState('');
+
+  // 🧮 EVALUACIÓN DINÁMICA DE LA SOLIDEZ DEL CONTROL (5 VARIABLES)
   const calcularRiesgoResidual = () => {
     let curr_p = probInherente / 100;
     let curr_i = impInherente / 100;
 
     controles.forEach(c => {
       let weight = 0;
-      if (c.tipo === 'Preventivo') weight += 0.25;
-      else if (c.tipo === 'Detectivo') weight += 0.15;
-      else if (c.tipo === 'Correctivo') weight += 0.10;
+      if (c.tipo === 'Preventivo') weight += 0.20;
+      else if (c.tipo === 'Detectivo') weight += 0.12;
+      else if (c.tipo === 'Correctivo') weight += 0.08;
 
-      if (c.implementacion === 'Automático' || c.implementacion === 'Automatico') weight += 0.25;
-      else if (c.implementacion === 'Manual') weight += 0.15;
+      if (c.implementacion === 'Automático') weight += 0.10;
+      else if (c.implementacion === 'Manual') weight += 0.05;
 
-      if (c.tipo === 'Preventivo' || c.tipo === 'Detectivo') {
-        curr_p = curr_p - (curr_p * weight);
-      } else {
+      if (c.documentacion === 'Documentado') weight += 0.05;
+      if (c.frecuencia === 'Continua') weight += 0.05;
+      if (c.evidencia === 'Con registro') weight += 0.05;
+
+      if (c.tipo === 'Correctivo') {
         curr_i = curr_i - (curr_i * weight);
+      } else {
+        curr_p = curr_p - (curr_p * weight);
       }
     });
 
@@ -72,29 +89,30 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     setRiesgoId(riesgo.id);
     setProceso(riesgo.proceso);
     setCategoria(riesgo.categoria);
+    setClasificacionRiesgo(riesgo.clasificacionRiesgo || CLASIFICACIONES_MANUAL[0]);
     setNormativa(riesgo.normativa);
     setResponsable(riesgo.responsable);
-    
-    // Configuración para el autogenerador de texto
     setAfectacion('Económico'); 
     setCausaInmediata(riesgo.descripcion || '');
     setCausaRaiz('');
-    
     setProbInherente(riesgo.probabilidadInherente || 60);
     setImpInherente(riesgo.impactoInherente || 60);
-    
-    // Carga los controles detallados estructurados o array vacío
     setControles(riesgo.controlesDetallados || []);
+    
+    setTratamiento(riesgo.tratamiento || 'Reducir el riesgo');
+    setPlanAccionRiesgo(riesgo.planAccionRiesgo || '');
+    setFechaSeguimiento(riesgo.fechaSeguimiento || '');
+    setSeguimientoBitacora(riesgo.seguimientoBitacora || '');
     setVistaActiva('nuevo');
   };
 
   const handleDeleteRiesgo = async (id) => {
-    if (window.confirm("¿Estás seguro de eliminar este riesgo permanentemente?")) {
+    if (window.confirm("¿Estás seguro de eliminar este riesgo de la matriz?")) {
       try {
         const updated = safeRiesgos.filter(r => r.id !== id);
         setRiesgos(updated);
         await saveToCloud({ riesgos: updated });
-        showNotification("Riesgo eliminado correctamente.", "success");
+        showNotification("Riesgo eliminado permanentemente.", "success");
       } catch (error) {
         showNotification("Error al eliminar el riesgo.", "error");
       }
@@ -108,29 +126,32 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
 
     try {
       let updatedList = [...safeRiesgos];
-      
-      // Consolidar controles para la vista clásica
-      const textoControlesConsolidados = controles.map(c => `🔹 [${c.tipo}] ${c.descripcion}`).join('\n');
+      const textoControlesConsolidados = controles.map(c => `🔹 [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n');
 
       const nuevoRiesgo = {
         id: editRiesgo ? editRiesgo.id : crypto.randomUUID(),
         sede: 'Hotel',
         proceso,
         categoria,
+        clasificacionRiesgo,
         normativa,
         responsable,
-        descripcion: descripcionAutomatica, // 👈 SINTAXIS OBLIGATORIA ISO
+        descripcion: causaInmediata && causaRaiz ? descripcionAutomatica : causaInmediata,
         probabilidadInherente: probInherente,
         impactoInherente: impInherente,
-        probabilidadResidual: residuales.probabilidad, // 👈 CÁLCULO MATEMÁTICO REAL
-        impactoResidual: residuales.impacto, // 👈 CÁLCULO MATEMÁTICO REAL
+        probabilidadResidual: residuales.probabilidad,
+        impactoResidual: residuales.impacto,
         descripcionControl: textoControlesConsolidados,
-        controlesDetallados: controles, // 👈 ARRAY PARA EDICIONES FUTURAS
+        controlesDetallados: controles,
+        tratamiento,
+        planAccionRiesgo,
+        fechaSeguimiento,
+        seguimientoBitacora,
         anio: new Date().getFullYear(),
         mes: "Junio",
         historialCambios: editRiesgo 
-          ? [...(editRiesgo.historialCambios || []), { fecha: ts, accion: 'Modificación de Riesgo y/o Controles (Cálculo ISO)' }]
-          : [{ fecha: ts, accion: 'Creación Inicial Manual' }]
+          ? [...(editRiesgo.historialCambios || []), { fecha: ts, accion: 'Modificación con variables completas del manual' }]
+          : [{ fecha: ts, accion: 'Creación manual con matriz completa' }]
       };
 
       if (editRiesgo) {
@@ -143,18 +164,15 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
       setRiesgos(updatedList);
       await saveToCloud({ riesgos: updatedList });
 
-      showNotification(`Riesgo ${editRiesgo ? 'actualizado' : 'creado'} correctamente con valoración ISO.`, "success");
+      showNotification(`Riesgo corporativo ${editRiesgo ? 'actualizado' : 'creado'} con éxito.`, "success");
       setVistaActiva('dashboard');
       setEditRiesgo(null);
       
-      // Limpiar Formulario
-      setProceso(PROCESOS_OFICIALES[0]); setCategoria(''); setNormativa(''); setResponsable('');
-      setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz('');
-      setProbInherente(60); setImpInherente(60); setControles([]);
-
+      setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setControles([]);
+      setPlanAccionRiesgo(''); setFechaSeguimiento(''); setSeguimientoBitacora('');
     } catch (error) {
       console.error(error);
-      showNotification("Error al guardar el riesgo.", "error");
+      showNotification("Error al procesar el riesgo corporativo.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -167,7 +185,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     const moderados = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Moderado').length;
     const bajos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Bajo').length;
 
-    // Distribución por procesos
     const conteoProcesos = safeRiesgos.reduce((acc, r) => {
       acc[r.proceso] = (acc[r.proceso] || 0) + 1;
       return acc;
@@ -176,7 +193,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
 
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-        {/* Tarjetas KPI */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Riesgos</p>
@@ -200,7 +216,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           </div>
         </div>
 
-        {/* Top Procesos con más riesgos */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest mb-4 border-b pb-2">Procesos con mayor exposición</h3>
           <div className="space-y-3">
@@ -208,12 +223,11 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
               <div key={idx} className="flex items-center text-xs">
                 <span className="w-1/3 truncate text-slate-600 font-bold pr-2">{proc}</span>
                 <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${(count/totalRiesgos)*100}%`}}></div>
+                  <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${(count/(totalRiesgos || 1))*100}%`}}></div>
                 </div>
                 <span className="w-12 text-right font-black text-slate-800">{count}</span>
               </div>
             ))}
-            {topProcesos.length === 0 && <p className="text-xs text-slate-400 italic">No hay riesgos mapeados aún.</p>}
           </div>
         </div>
       </div>
@@ -230,27 +244,32 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           <table className="w-full text-xs text-left divide-y">
             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
               <tr>
-                <th className="p-3 whitespace-nowrap">ID Riesgo</th>
-                <th className="p-3">Proceso</th>
-                <th className="p-3 w-64">Descripción / Evento</th>
-                <th className="p-3 text-center">Zona Inherente</th>
-                <th className="p-3 text-center">Zona Residual</th>
-                <th className="p-3">Controles Asociados</th>
+                <th className="p-3">ID / Proceso</th>
+                <th className="p-3 w-64">Clasificación y Escenario de Riesgo</th>
+                <th className="p-3 text-center">Inherente</th>
+                <th className="p-3 text-center">Residual</th>
+                <th className="p-3">Controles Mitigantes</th>
+                <th className="p-3">Monitoreo / Tratamiento</th>
                 <th className="p-3 text-center">Gestión</th>
               </tr>
             </thead>
             <tbody className="divide-y text-slate-700">
               {safeRiesgos.length === 0 ? (
-                <tr><td colSpan="7" className="p-8 text-center text-slate-400 font-bold italic">No hay riesgos registrados en la matriz.</td></tr>
+                <tr><td colSpan="7" className="p-8 text-center text-slate-400 font-bold italic">No hay riesgos registrados.</td></tr>
               ) : (
                 safeRiesgos.map((r, index) => {
                   const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
                   const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
                   return (
                     <tr key={index} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3 font-mono font-black text-slate-900">RSK-{String(r.id).substring(0,4)}</td>
-                      <td className="p-3 font-bold text-[#0A3B32]">{r.proceso}</td>
-                      <td className="p-3 text-[10px] leading-tight">{r.descripcion}</td>
+                      <td className="p-3">
+                        <div className="font-mono font-black text-slate-900">RSK-{String(r.id).substring(0,4)}</div>
+                        <div className="font-bold text-[#0A3B32] text-[10px] mt-0.5">{r.proceso}</div>
+                      </td>
+                      <td className="p-3 leading-tight">
+                        <span className="bg-slate-100 text-slate-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase block w-max mb-1">{r.clasificacionRiesgo || 'General'}</span>
+                        <div className="text-[10px] text-slate-800 font-medium">{r.descripcion}</div>
+                      </td>
                       <td className="p-3 text-center">
                         <span className={`px-2 py-1 rounded font-black text-[9px] uppercase ${zoneInh.color}`}>{zoneInh.label}</span>
                         <div className="text-[8px] text-slate-400 mt-1 font-bold">P:{r.probabilidadInherente}% | I:{r.impactoInherente}%</div>
@@ -259,7 +278,12 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                         <span className={`px-2 py-1 rounded font-black text-[9px] uppercase shadow-sm ${zoneRes.color}`}>{zoneRes.label}</span>
                         <div className="text-[8px] text-slate-400 mt-1 font-bold">P:{r.probabilidadResidual}% | I:{r.impactoResidual}%</div>
                       </td>
-                      <td className="p-3 text-[9px] whitespace-pre-wrap leading-tight text-slate-500">{r.descripcionControl || 'Sin controles asignados'}</td>
+                      <td className="p-3 text-[9px] whitespace-pre-wrap leading-tight text-slate-500 font-mono">{r.descripcionControl || 'Sin controles asignados'}</td>
+                      <td className="p-3 text-[10px] leading-snug">
+                        <div className="font-black text-slate-700">🎯 {r.tratamiento || 'Sin tratamiento'}</div>
+                        {r.planAccionRiesgo && <div className="text-slate-500 mt-0.5 text-[9px]"><span className="font-bold">Plan:</span> {r.planAccionRiesgo}</div>}
+                        {r.fechaSeguimiento && <div className="text-[8px] font-black text-blue-600 mt-1">📅 Seg: {r.fechaSeguimiento}</div>}
+                      </td>
                       <td className="p-3 text-center flex flex-col space-y-1">
                         <button onClick={() => handleEditRiesgo(r)} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">Editar</button>
                         {isAdmin && <button onClick={() => handleDeleteRiesgo(r.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">Eliminar</button>}
@@ -277,11 +301,10 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* CABECERA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>
           <h2 className="text-2xl font-black text-slate-800">Matriz de Riesgos</h2>
-          <p className="text-xs text-slate-500 font-bold mt-1">Gestión corporativa de riesgos y controles (ISO 31000)</p>
+          <p className="text-xs text-slate-500 font-bold mt-1">Gestión corporativa integral de riesgos y controles (ISO 31000 - Termales S.A)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Dashboard</button>
@@ -300,17 +323,18 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
       {vistaActiva === 'nuevo' && (
         <form onSubmit={handleRiesgoSubmit} className="space-y-6">
           
+          {/* DATOS GENERALES EXTENDIDOS */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">1. Datos Generales</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">1. Datos Generales de la Fila</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Proceso</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Proceso / Subproceso</label>
                 <select value={proceso} onChange={(e) => setProceso(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   {PROCESOS_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Categoría</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Categoría de Riesgo</label>
                 <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required>
                   <option value="">Seleccione...</option>
                   <option value="Estratégico">Estratégico</option>
@@ -321,19 +345,25 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Normativa Aplicable</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Clasificación COSO / Manual</label>
+                <select value={clasificacionRiesgo} onChange={(e) => setClasificacionRiesgo(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
+                  {CLASIFICACIONES_MANUAL.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Normativa Asociada</label>
                 <input type="text" value={normativa} onChange={(e) => setNormativa(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej. ISO 31000..." />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Líder Responsable</label>
-                <input type="text" value={responsable} onChange={(e) => setResponsable(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Cargo o Nombre..." required/>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Líder Dueño del Proceso</label>
+                <input type="text" value={responsable} onChange={(e) => setResponsable(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Cargo del Responsable..." required/>
               </div>
             </div>
           </div>
 
-          {/* BLOQUE 2: REDACCIÓN SINTÁCTICA DEL RIESGO */}
+          {/* SINTAXIS OBLIGATORIA */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">2. Estructura del Riesgo</h3>
+            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">2. Estructura y Redacción (Mandato del Manual)</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Tipo de Afectación</label>
@@ -344,92 +374,145 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Inmediata (¿Qué pasa?)</label>
-                <input type="text" value={causaInmediata} onChange={e => setCausaInmediata(e.target.value)} placeholder="Ej: fallas en la plataforma..." className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required />
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Inmediata</label>
+                <input type="text" value={causaInmediata} onChange={e => setCausaInmediata(e.target.value)} placeholder="¿Qué pasa en la operación?" className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Raíz (¿Por qué pasa?)</label>
-                <input type="text" value={causaRaiz} onChange={e => setCausaRaiz(e.target.value)} placeholder="Ej: falta de mantenimiento preventivo..." className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required />
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Causa Raíz</label>
+                <input type="text" value={causaRaiz} onChange={e => setCausaRaiz(e.target.value)} placeholder="¿Por qué se origina el fallo?" className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required />
               </div>
             </div>
             <div className="bg-[#f0fdf4] border border-emerald-200 p-3 rounded-lg">
-              <label className="text-[9px] font-black text-emerald-800 uppercase block mb-1">Descripción Final del Riesgo (Autogenerada)</label>
+              <label className="text-[9px] font-black text-emerald-800 uppercase block mb-1">Texto Final para el Escenario (Bloqueado)</label>
               <p className="text-xs font-medium text-emerald-900">{descripcionAutomatica}</p>
             </div>
           </div>
 
-          {/* BLOQUE 3: VALORACIÓN INHERENTE */}
+          {/* MATRIZ DE CALOR INHERENTE */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">3. Valoración Inherente</h3>
+            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">3. Nivel de Riesgo Inherente</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Probabilidad Inherente</label>
                 <select value={probInherente} onChange={e => setProbInherente(Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
-                  <option value={20}>Muy Baja (20%) - Máximo 2 veces/año</option>
-                  <option value={40}>Baja (40%) - 3 a 24 veces/año</option>
-                  <option value={60}>Media (60%) - 24 a 500 veces/año</option>
-                  <option value={80}>Alta (80%) - 500 a 5000 veces/año</option>
-                  <option value={100}>Muy Alta (100%) - Más de 5000 veces/año</option>
+                  <option value={20}>Muy Baja (20%)</option>
+                  <option value={40}>Baja (40%)</option>
+                  <option value={60}>Media (60%)</option>
+                  <option value={80}>Alta (80%)</option>
+                  <option value={100}>Muy Alta (100%)</option>
                 </select>
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Impacto Inherente</label>
                 <select value={impInherente} onChange={e => setImpInherente(Number(e.target.value))} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
-                  <option value={20}>Leve (20%) - Menor a 10 SMLMV</option>
-                  <option value={40}>Menor (40%) - 10 a 50 SMLMV</option>
-                  <option value={60}>Moderado (60%) - 50 a 100 SMLMV</option>
-                  <option value={80}>Mayor (80%) - 100 a 500 SMLMV</option>
-                  <option value={100}>Catastrófico (100%) - Mayor a 500 SMLMV</option>
+                  <option value={20}>Leve (20%)</option>
+                  <option value={40}>Menor (40%)</option>
+                  <option value={60}>Moderado (60%)</option>
+                  <option value={80}>Mayor (80%)</option>
+                  <option value={100}>Catastrófico (100%)</option>
                 </select>
               </div>
             </div>
           </div>
 
-          {/* BLOQUE 4: CONTROLES DINÁMICOS */}
+          {/* BLOQUE DINÁMICO CON LAS 5 CASILLAS METODOLÓGICAS */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
             <div className="flex justify-between items-center border-b pb-2">
-              <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">4. Controles Asociados</h3>
-              <button type="button" onClick={() => setControles([...controles, { descripcion: '', tipo: 'Preventivo', implementacion: 'Manual' }])} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-colors">➕ Agregar Control</button>
+              <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">4. Evaluación de Solidez de Controles (5 Variables)</h3>
+              <button type="button" onClick={() => setControles([...controles, { descripcion: '', tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro' }])} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-colors">➕ Agregar Control</button>
             </div>
-            {controles.length === 0 && <p className="text-xs text-slate-400 italic text-center py-2">No hay controles agregados. El riesgo residual será igual al inherente.</p>}
             {controles.map((ctrl, idx) => (
-              <div key={idx} className="bg-white border border-slate-200 p-3 rounded-lg shadow-sm grid grid-cols-1 md:grid-cols-12 gap-3 items-end relative">
-                <div className="md:col-span-6">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Descripción del Control</label>
-                  <input type="text" value={ctrl.descripcion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].descripcion = e.target.value; setControles(nuevos); }} className="w-full text-xs p-2 border rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej: Revisión quincenal..." required />
+              <div key={idx} className="bg-white border border-slate-200 p-4 rounded-lg shadow-sm space-y-3 relative">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                  <div className="md:col-span-11">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Descripción de la Tarea del Control</label>
+                    <input type="text" value={ctrl.descripcion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].descripcion = e.target.value; setControles(nuevos); }} className="w-full text-xs p-2 border rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej: Arqueos sorpresivos de caja..." required />
+                  </div>
+                  <div className="md:col-span-1 flex justify-center">
+                    <button type="button" onClick={() => setControles(controles.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 text-sm font-bold">🗑️ Borrar</button>
+                  </div>
                 </div>
-                <div className="md:col-span-3">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Tipo de Control</label>
-                  <select value={ctrl.tipo} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].tipo = e.target.value; setControles(nuevos); }} className="w-full text-xs p-2 border rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
-                    <option value="Preventivo">Preventivo (25%)</option>
-                    <option value="Detectivo">Detectivo (15%)</option>
-                    <option value="Correctivo">Correctivo (10%)</option>
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Implementación</label>
-                  <select value={ctrl.implementacion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].implementacion = e.target.value; setControles(nuevos); }} className="w-full text-xs p-2 border rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
-                    <option value="Automático">Automático (25%)</option>
-                    <option value="Manual">Manual (15%)</option>
-                  </select>
-                </div>
-                <div className="md:col-span-1 flex justify-center">
-                  <button type="button" onClick={() => { const nuevos = controles.filter((_, i) => i !== idx); setControles(nuevos); }} className="text-red-500 hover:text-red-700 text-lg" title="Eliminar control">🗑️</button>
+                
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Tipo</label>
+                    <select value={ctrl.tipo} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].tipo = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                      <option value="Preventivo">Preventivo (Foco Probabilidad)</option>
+                      <option value="Detectivo">Detectivo (Foco Desviación)</option>
+                      <option value="Correctivo">Correctivo (Foco Impacto)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Ejecución</label>
+                    <select value={ctrl.implementacion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].implementacion = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                      <option value="Automático">Automático</option>
+                      <option value="Manual">Manual</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Documentación</label>
+                    <select value={ctrl.documentacion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].documentacion = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                      <option value="Documentado">Documentado</option>
+                      <option value="No documentado">No documentado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Frecuencia</label>
+                    <select value={ctrl.frecuencia} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].frecuencia = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                      <option value="Continua">Continua / Permanente</option>
+                      <option value="Aleatoria">Aleatoria / Periódica</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Soporte Evidencia</label>
+                    <select value={ctrl.evidencia} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].evidencia = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border rounded-md">
+                      <option value="Con registro">Con registro / Trazable</option>
+                      <option value="Sin registro">Sin registro</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* BLOQUE 5: VALORACIÓN RESIDUAL (MATEMÁTICA EN VIVO) */}
+          {/* NUEVA SECCIÓN DE GOBERNANZA, TRATAMIENTO Y SEGUIMIENTO */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+            <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">5. Monitoreo, Tratamiento y Mitigación Temporal</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Estrategia de Tratamiento</label>
+                <select value={tratamiento} onChange={e => setTratamiento(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
+                  <option value="Reducir el riesgo">Reducir el riesgo (Mitigar)</option>
+                  <option value="Asumir el riesgo">Asumir el riesgo (Aceptar)</option>
+                  <option value="Transferir el riesgo">Transferir el riesgo (Compartir)</option>
+                  <option value="Evitar el riesgo">Evitar el riesgo (Eliminar actividad)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Plan de Acción de Control Interno</label>
+                <input type="text" value={planAccionRiesgo} onChange={e => setPlanAccionRiesgo(e.target.value)} placeholder="Ej: Implementar póliza de cumplimiento..." className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Próxima Fecha de Seguimiento</label>
+                <input type="date" value={fechaSeguimiento} onChange={e => setFechaSeguimiento(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Bitácora de Observaciones y Seguimiento Activo</label>
+              <textarea value={seguimientoBitacora} onChange={e => setSeguimientoBitacora(e.target.value)} rows="2" placeholder="Notas de auditoría sobre el comportamiento de este riesgo..." className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]"></textarea>
+            </div>
+          </div>
+
+          {/* CAJA NEGRA MATEMÁTICA INTERNA RESIDUAL */}
           <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-4">
-            <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-slate-700 pb-2">5. Riesgo Residual (Cálculo Automático ISO)</h3>
+            <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-slate-700 pb-2">6. Resultados de Mitigación (Cálculo Multivariable)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Probabilidad Residual</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Probabilidad Residual Final</label>
                 <input type="text" value={`${residuales.probabilidad}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Impacto Residual</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Impacto Residual Final</label>
                 <input type="text" value={`${residuales.impacto}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
             </div>
@@ -438,7 +521,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           <div className="flex justify-end pt-2 border-t border-slate-200">
             <button type="button" onClick={() => setVistaActiva('dashboard')} className="mr-3 px-6 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 text-xs">Cancelar</button>
             <button type="submit" disabled={isSubmitting} className="bg-[#0A3B32] hover:bg-[#062620] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-md disabled:opacity-50">
-              {isSubmitting ? 'Guardando...' : (editRiesgo ? 'Actualizar Riesgo' : 'Crear Riesgo ISO')}
+              {isSubmitting ? 'Guardando...' : (editRiesgo ? 'Actualizar Matriz' : 'Guardar en la Nube')}
             </button>
           </div>
         </form>
