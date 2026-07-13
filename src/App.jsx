@@ -1539,30 +1539,40 @@ const renderConfiguracion = () => (
   );
 
 const renderDashboardRiesgos = () => {
-    // ✨ EL NUEVO TRADUCTOR INTELIGENTE PARA EL DASHBOARD GRIS
+    // 🧠 TRADUCTOR INTELIGENTE UNIVERSAL (Porcentajes y Textos del Manual)
     const extraerNumeroPuro = (valor) => {
-      if (!valor) return 0;
+      if (valor === undefined || valor === null || valor === '') return 0;
+      
       const str = String(valor).toLowerCase().trim();
       
+      // 🟢 SI YA ES UN PORCENTAJE NUMÉRICO DIRECTO (20, 40, 60, 80, 100)
+      if (str === '20') return 1;
+      if (str === '40') return 2;
+      if (str === '60') return 3;
+      if (str === '80') return 4;
+      if (str === '100') return 5;
+      if (str === '0') return 1; // Control de seguridad por si baja a cero
+
+      // 🔵 SI VIENE COMO TEXTO DEL EXCEL ANTERIOR
       const num = parseInt(str.charAt(0), 10);
-      if (!isNaN(num)) return num;
+      if (!isNaN(num) && num >= 1 && num <= 5) return num;
       
-      if (str === 'rara' || str === 'rara vez') return 1;
-      if (str === 'improbable') return 2;
-      if (str === 'posible') return 3;
-      if (str === 'probable') return 4;
-      if (str === 'casi seguro') return 5;
+      if (str.includes('rara') || str.includes('muy baja')) return 1;
+      if (str.includes('improbable') || str.includes('baja')) return 2;
+      if (str.includes('posible') || str.includes('media')) return 3;
+      if (str.includes('probable') || str.includes('alta')) return 4;
+      if (str.includes('casi seguro') || str.includes('muy alta')) return 5;
       
-      if (str === 'insignificante') return 1;
-      if (str === 'menor') return 2;
-      if (str === 'moderado' || str === 'medio') return 3;
-      if (str === 'mayor' || str === 'alto') return 4;
-      if (str === 'catastrófico' || str === 'crítico') return 5;
+      if (str.includes('insignificante') || str.includes('leve')) return 1;
+      if (str.includes('menor')) return 2;
+      if (str.includes('moderado') || stroke.includes('medio')) return 3;
+      if (str.includes('mayor') || str.includes('alto')) return 4;
+      if (str.includes('catastrófico') || str.includes('crítico')) return 5;
       
       return 0;
     };
 
-    // Copia de los riesgos con los números traducidos
+    // Copia de los riesgos con los números traducidos con total precisión
     const riesgosLimpiosParaMatriz = (rFiltrados || []).map(r => ({
       ...r,
       probabilidadResidual: extraerNumeroPuro(r.probabilidadResidual),
@@ -1589,8 +1599,7 @@ const renderDashboardRiesgos = () => {
         renderHeaderFiltros={renderHeaderFiltros}
       />
     );
-  };
-    
+  };    
 const renderPlanAnual = () => {
     return (
       <PlanAnual 
