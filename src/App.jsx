@@ -1249,7 +1249,7 @@ const handleComiteSubmit = async (e) => {
     const capacidad = parseFloat(formData.get('capacidadRiesgo') || 0);
 
     if (apetito > tolerancia || tolerancia > capacidad) {
-      showNotification({ message: "Error: La jerarquía debe ser: Apetito ≤ Tolerancia ≤ Capacidad.", type: "error" });
+showNotification("Error: La jerarquía debe ser: Apetito ≤ Tolerancia ≤ Capacidad.", "error");
       return;
     }
 
