@@ -888,6 +888,7 @@ const handlePlanSubmit = async (e) => {
         showNotification("Progreso del plan guardado correctamente.");
     }
     e.target.reset();
+};
 
 const handleAprobarCierrePlan = async (plan) => {
     if (!window.confirm("¿Aprobar evidencias y cerrar definitivamente este plan y su hallazgo vinculado?")) return;
