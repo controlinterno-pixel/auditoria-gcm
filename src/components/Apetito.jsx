@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function Apetito({
   isAdmin,
@@ -60,6 +60,34 @@ export default function Apetito({
 
     return { ...r, resScoreVal: resScore, costoTotalVal: costoTotal, estaConfiguradoVal: estaConfigurado, zonaVal: zona, zonaColorVal: zonaColor, consumoPorcentajeVal: consumoPorcentaje };
   });
+
+  // 💰 ESTADO Y LÓGICA PARA FORMATEAR MONEDA EN TIEMPO REAL
+  const [finanzas, setFinanzas] = useState({
+    apetito: '',
+    tolerancia: '',
+    capacidad: ''
+  });
+
+  useEffect(() => {
+    if (editApetito) {
+      setFinanzas({
+        apetito: editApetito.apetitoFinanciero || '',
+        tolerancia: editApetito.toleranciaFinanciera || '',
+        capacidad: editApetito.capacidadRiesgo || ''
+      });
+    }
+  }, [editApetito]);
+
+  const handleFinanzasChange = (e, field) => {
+    // Elimina cualquier caracter que no sea número para guardar el valor real
+    const rawValue = e.target.value.replace(/\D/g, '');
+    setFinanzas(prev => ({ ...prev, [field]: rawValue }));
+  };
+
+  const formatMoney = (val) => {
+    if (!val) return '';
+    return '$ ' + Number(val).toLocaleString('es-CO');
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -169,40 +197,41 @@ export default function Apetito({
               <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                 <h4 className="font-black text-blue-800 uppercase tracking-widest mb-3 border-b border-blue-200 pb-2">2. Umbrales Financieros (COP)</h4>
                 
-                {/* TOOLTIP: CAPACIDAD DE RIESGO */}
+                {/* 1. TOOLTIP: APETITO FINANCIERO (AHORA VA PRIMERO) */}
                 <div className="mb-4 relative">
                   <div className="flex items-center gap-1 mb-1">
-                    <label className="font-black text-red-700 text-[11px] uppercase tracking-widest">🛑 Capacidad de Riesgo (Límite)</label>
-                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'capacidad' ? null : 'capacidad')} className="ml-1 text-[12px] text-red-500 hover:scale-125 transition-transform bg-red-50 rounded-full px-1.5 py-0.5 border border-red-200 shadow-sm cursor-pointer font-bold">ℹ️ Leer Guía</button>
+                    <label className="font-black text-emerald-700 text-[11px] uppercase tracking-widest">🎯 Apetito Financiero (Deseado)</label>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'apetito' ? null : 'apetito')} className="ml-1 text-[12px] text-emerald-500 hover:scale-125 transition-transform bg-emerald-50 rounded-full px-1.5 py-0.5 border border-emerald-200 shadow-sm cursor-pointer font-bold">ℹ️ Leer Guía</button>
                   </div>
-                  {activeTooltip === 'capacidad' && (
+                  {activeTooltip === 'apetito' && (
                     <div className="absolute top-full right-0 mt-2 z-[100] w-full md:w-[500px] max-h-[500px] overflow-y-auto p-6 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
                       <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
-                        <span className="font-black text-red-400 uppercase tracking-widest text-[10px]">La Frontera de la Muerte (Capacidad)</span>
+                        <span className="font-black text-emerald-400 uppercase tracking-widest text-[10px]">El Costo de Operar (Apetito)</span>
                         <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖ Cerrar</button>
                       </div>
                       <div className="mb-4">
                         <b className="text-blue-300 block mb-1 text-xs">¿De qué estamos hablando aquí de forma sencilla?</b>
-                        Este es el número apocalíptico. Es la cantidad máxima de plata que Termales podría perder por este riesgo antes de tener que cerrar puertas, quebrar o paralizar la empresa completa.
+                        Es la cantidad de plata que Termales ACEPTA PERDER con todo el gusto del mundo en el día a día. Es el riesgo normal de hacer negocios. No hay regaños, no hay crisis, es simplemente la "Zona Verde".
                       </div>
                       <div className="mb-4">
                         <b className="text-emerald-300 block mb-1 text-xs">Ejemplos Prácticos en Termales</b>
                         <ul className="list-disc pl-4 space-y-1 text-slate-300">
-                          <li><b>Daño Estructural:</b> Un deslizamiento que destruya las piscinas y la vía de acceso, costando $5.000 millones. Termales no tendría caja para pagar la reconstrucción y la nómina al mismo tiempo.</li>
-                          <li><b>Sanción DIAN:</b> Una multa tributaria tan gigante que obligue a embargar las cuentas del hotel. Es el fin de la operación.</li>
+                          <li><b>Las Toallas VIP:</b> Aceptamos que se pierdan o dañen toallas por $5 millones al mes. Lo aceptamos para que la operación fluya rápido y no hacer filas eternas requisando a los turistas a la salida.</li>
+                          <li><b>La Vajilla del Restaurante:</b> Por el alto volumen de turistas, sabemos que se van a romper platos y vasos. Aceptamos una pérdida de $2 millones al mes. Es el costo de atender rápido.</li>
                         </ul>
                       </div>
                       <div>
                         <b className="text-amber-300 block mb-1 text-xs">¿Por qué diligenciarlo?</b>
-                        Marca el techo absoluto. Al llenar esto, le dices a la Gerencia: "Cualquier problema que cueste cerca de esta plata no es un chicharrón operativo, es la muerte del negocio". NINGÚN otro valor en este formulario puede ser mayor a este.
+                        ¡Para tu propia tranquilidad como Jefe! Si defines tu Apetito, y pierdes plata DENTRO de ese rango, Auditoría nunca te va a molestar ni a sancionar, porque la Gerencia ya aprobó que eso es normal.
                       </div>
                     </div>
                   )}
-                  <p className="text-[9px] text-slate-500 mb-1 leading-tight">El desastre absoluto (Ej: Pérdida {">"} $500M = Quiebra).</p>
-                  <input type="number" name="capacidadRiesgo" defaultValue={editApetito.capacidadRiesgo || ''} required placeholder="Ej: 50000000" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm" />
+                  <p className="text-[9px] text-slate-500 mb-1 leading-tight">Riesgo normal aceptado (Zona Verde sin regaños).</p>
+                  <input type="hidden" name="apetitoFinanciero" value={finanzas.apetito} />
+                  <input type="text" value={formatMoney(finanzas.apetito)} onChange={(e) => handleFinanzasChange(e, 'apetito')} required placeholder="$ 0" className="w-full border border-emerald-200 rounded-lg p-2 bg-white shadow-sm font-mono font-bold text-emerald-800" />
                 </div>
 
-                {/* TOOLTIP: TOLERANCIA FINANCIERA */}
+                {/* 2. TOOLTIP: TOLERANCIA FINANCIERA (AHORA VA SEGUNDO) */}
                 <div className="mb-4 relative">
                   <div className="flex items-center gap-1 mb-1">
                     <label className="font-black text-amber-700 text-[11px] uppercase tracking-widest">⚠️ Tolerancia Financiera (Desv. Máx)</label>
@@ -232,40 +261,42 @@ export default function Apetito({
                     </div>
                   )}
                   <p className="text-[9px] text-slate-500 mb-1 leading-tight">Límite donde duele y hay que llamar a Gerencia.</p>
-                  <input type="number" name="toleranciaFinanciera" defaultValue={editApetito.toleranciaFinanciera || ''} required placeholder="Ej: 30000000" className="w-full border border-amber-200 rounded-lg p-2 bg-white shadow-sm" />
+                  <input type="hidden" name="toleranciaFinanciera" value={finanzas.tolerancia} />
+                  <input type="text" value={formatMoney(finanzas.tolerancia)} onChange={(e) => handleFinanzasChange(e, 'tolerancia')} required placeholder="$ 0" className="w-full border border-amber-200 rounded-lg p-2 bg-white shadow-sm font-mono font-bold text-amber-800" />
                 </div>
 
-                {/* TOOLTIP: APETITO FINANCIERO */}
+                {/* 3. TOOLTIP: CAPACIDAD DE RIESGO (AHORA VA DE TERCERO) */}
                 <div className="mb-2 relative">
                   <div className="flex items-center gap-1 mb-1">
-                    <label className="font-black text-blue-900 text-[11px] uppercase tracking-widest">🎯 Apetito Financiero (Deseado)</label>
-                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'apetito' ? null : 'apetito')} className="ml-1 text-[12px] text-blue-500 hover:scale-125 transition-transform bg-blue-50 rounded-full px-1.5 py-0.5 border border-blue-200 shadow-sm cursor-pointer font-bold">ℹ️ Leer Guía</button>
+                    <label className="font-black text-red-700 text-[11px] uppercase tracking-widest">🛑 Capacidad de Riesgo (Límite)</label>
+                    <button type="button" onClick={() => setActiveTooltip(activeTooltip === 'capacidad' ? null : 'capacidad')} className="ml-1 text-[12px] text-red-500 hover:scale-125 transition-transform bg-red-50 rounded-full px-1.5 py-0.5 border border-red-200 shadow-sm cursor-pointer font-bold">ℹ️ Leer Guía</button>
                   </div>
-                  {activeTooltip === 'apetito' && (
+                  {activeTooltip === 'capacidad' && (
                     <div className="absolute top-full right-0 mt-2 z-[100] w-full md:w-[500px] max-h-[500px] overflow-y-auto p-6 bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl border border-slate-700 normal-case tracking-normal font-medium animate-in slide-in-from-top-2">
                       <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 sticky top-0 bg-slate-900">
-                        <span className="font-black text-blue-400 uppercase tracking-widest text-[10px]">El Costo de Operar (Apetito)</span>
+                        <span className="font-black text-red-400 uppercase tracking-widest text-[10px]">La Frontera de la Muerte (Capacidad)</span>
                         <button type="button" onClick={() => setActiveTooltip(null)} className="text-white bg-red-600 hover:bg-red-500 font-bold px-3 py-1 rounded transition-colors">✖ Cerrar</button>
                       </div>
                       <div className="mb-4">
                         <b className="text-blue-300 block mb-1 text-xs">¿De qué estamos hablando aquí de forma sencilla?</b>
-                        Es la cantidad de plata que Termales ACEPTA PERDER con todo el gusto del mundo en el día a día. Es el riesgo normal de hacer negocios. No hay regaños, no hay crisis, es simplemente la "Zona Verde".
+                        Este es el número apocalíptico. Es la cantidad máxima de plata que Termales podría perder por este riesgo antes de tener que cerrar puertas, quebrar o paralizar la empresa completa.
                       </div>
                       <div className="mb-4">
                         <b className="text-emerald-300 block mb-1 text-xs">Ejemplos Prácticos en Termales</b>
                         <ul className="list-disc pl-4 space-y-1 text-slate-300">
-                          <li><b>Las Toallas VIP:</b> Aceptamos que se pierdan o dañen toallas por $5 millones al mes. Lo aceptamos para que la operación fluya rápido y no hacer filas eternas requisando a los turistas a la salida.</li>
-                          <li><b>La Vajilla del Restaurante:</b> Por el alto volumen de turistas, sabemos que se van a romper platos y vasos. Aceptamos una pérdida de $2 millones al mes. Es el costo de atender rápido.</li>
+                          <li><b>Daño Estructural:</b> Un deslizamiento que destruya las piscinas y la vía de acceso, costando $5.000 millones. Termales no tendría caja para pagar la reconstrucción y la nómina al mismo tiempo.</li>
+                          <li><b>Sanción DIAN:</b> Una multa tributaria tan gigante que obligue a embargar las cuentas del hotel. Es el fin de la operación.</li>
                         </ul>
                       </div>
                       <div>
                         <b className="text-amber-300 block mb-1 text-xs">¿Por qué diligenciarlo?</b>
-                        ¡Para tu propia tranquilidad como Jefe! Si defines tu Apetito, y pierdes plata DENTRO de ese rango, Auditoría nunca te va a molestar ni a sancionar, porque la Gerencia ya aprobó que eso es normal.
+                        Marca el techo absoluto. Al llenar esto, le dices a la Gerencia: "Cualquier problema que cueste cerca de esta plata no es un chicharrón operativo, es la muerte del negocio". NINGÚN otro valor en este formulario puede ser mayor a este.
                       </div>
                     </div>
                   )}
-                  <p className="text-[9px] text-slate-500 mb-1 leading-tight">Riesgo normal aceptado (Zona Verde sin regaños).</p>
-                  <input type="number" name="apetitoFinanciero" defaultValue={editApetito.apetitoFinanciero || ''} required placeholder="Ej: 10000000" className="w-full border border-blue-200 rounded-lg p-2 bg-white shadow-sm" />
+                  <p className="text-[9px] text-slate-500 mb-1 leading-tight">El desastre absoluto (Ej: Pérdida {">"} $500M = Quiebra).</p>
+                  <input type="hidden" name="capacidadRiesgo" value={finanzas.capacidad} />
+                  <input type="text" value={formatMoney(finanzas.capacidad)} onChange={(e) => handleFinanzasChange(e, 'capacidad')} required placeholder="$ 0" className="w-full border border-red-200 rounded-lg p-2 bg-white shadow-sm font-mono font-bold text-red-800" />
                 </div>
               </div>
 
