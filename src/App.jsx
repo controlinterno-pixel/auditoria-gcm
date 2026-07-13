@@ -2250,7 +2250,6 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
                 impactoInherente: ajustarCoordenada(r.impactoInherente)
               }));
 
-              // 🟢 FILTRAR EVALUACIONES EN TIEMPO REAL SEGÚN EL PERIODO SELECCIONADO
               const evalFiltrados = (safeEvaluaciones || []).filter(filterByGlobalPeriod);
 
               return (
@@ -2259,7 +2258,12 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
                   hFiltrados={hFiltrados} hallazgos={hallazgos}
                   pFiltrados={pFiltrados} planes={planes}
                   cFiltrados={cFiltrados} cronograma={cronograma}
-                  evalFiltrados={evalFiltrados} evaluaciones={safeEvaluaciones} // 🌟 ¡CONEXIÓN CORREGIDA AQUÍ!
+                  // 🟢 INYECCIÓN MULTI-PROP PARA BLINDAR LA CONEXIÓN REAL
+                  safeEvaluaciones={safeEvaluaciones}
+                  evaluaciones={safeEvaluaciones}
+                  evalFiltrados={evalFiltrados}
+                  evFiltrados={evalFiltrados}
+                  eFiltrados={evalFiltrados}
                   informesAuditoria={informesAuditoria} safeIncidentes={safeIncidentes}
                   matrizFiltro={matrizFiltro} setMatrizFiltro={setMatrizFiltro}
                   setChartDetail={setChartDetail}
@@ -2270,7 +2274,7 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
                   setActiveTab={setActiveTab}
                 />
               );
-            })()}     
+            })()}
             {/* 1️⃣ FASE DE PLANIFICACIÓN (Subpestañas Anidadas) */}
             {activeTab === 'plan_anual_tab' && (
               <div className="space-y-6">
