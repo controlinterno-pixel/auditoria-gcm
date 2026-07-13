@@ -597,7 +597,6 @@ const handleImportExcelRiesgos = (e) => {
         if(window.confirm("⚠️ ALERTA: ¿Deseas procesar y limpiar este Excel automáticamente para incorporarlo a la Matriz de Riesgos?")) {
           setIsCloudLoaded(false);
           
-          // 🧠 FUNCIONES DE DEPURACIÓN DE TEXTO (INTELIGENCIA ARTIFICIAL LOCAL)
           const extractPct = (str) => {
             if (!str) return 0;
             const match = String(str).match(/\((\d+)%\)/);
@@ -609,12 +608,20 @@ const handleImportExcelRiesgos = (e) => {
             return String(str).match(/[A-Z][a-záéíóúñ]+/g) || [];
           };
 
+          // 🟢 LA MAGIA ESTÁ AQUÍ: Ahora lee los "Enter" del Excel para crear cajas separadas
           const splitSentences = (str) => {
              if (!str) return [];
-             return String(str).split(/(?<=[a-z\.])(?=[A-Z])/).filter(s => s.trim() !== '');
+             // 1. Intentamos separar por el salto de línea real del Excel (\n)
+             let lineas = String(str).split(/\r?\n/);
+             
+             // 2. Si las celdas estaban pegadas sin "Enter", usamos un divisor de respaldo
+             if (lineas.length === 1) {
+                lineas = String(str).split(/(?<=[a-z\.\)])\s*(?=[A-Z])/);
+             }
+             
+             return lineas.map(s => s.trim()).filter(s => s.length > 2);
           };
 
-          // 🧮 LÓGICA DE AGRUPACIÓN Y CÁLCULO MATEMÁTICO ISO
           const riesgosAgrupados = {};
 
           json.forEach((r, index) => {
@@ -634,7 +641,6 @@ const handleImportExcelRiesgos = (e) => {
                   categoria: r['Categoría'] || 'Operativo',
                   normativa: 'Ninguna',
                   responsable: r['Responsable'] || 'Sin Asignar',
-                  // Autogenerador de sintaxis obligatoria del Manual
                   descripcion: `Posibilidad de afectación ${afectacion} por ${causaInm} debido a ${causaRaiz}`,
                   probabilidadInherente: Math.round(p_inh * 100) || 60,
                   impactoInherente: Math.round(i_inh * 100) || 60,
@@ -663,7 +669,6 @@ const handleImportExcelRiesgos = (e) => {
                 const c_tipo = tipos[i] || "Preventivo";
                 const c_impl = impls[i] || "Manual";
                 
-                // Pesos exactos del Manual de Termales (Tabla 6)
                 let weight = 0;
                 if(c_tipo === 'Preventivo') weight += 0.25;
                 else if(c_tipo === 'Detectivo') weight += 0.15;
@@ -672,26 +677,27 @@ const handleImportExcelRiesgos = (e) => {
                 if(c_impl === 'Automático' || c_impl === 'Automatico') weight += 0.25;
                 else if(c_impl === 'Manual') weight += 0.15;
                 
-                // Cálculo de mitigación Acumulativa (Tabla 8)
+                // Aplicar el descuento matemático acumulativo
                 if(c_tipo === 'Preventivo' || c_tipo === 'Detectivo') {
                    curr_p = curr_p - (curr_p * weight);
                 } else {
                    curr_i = curr_i - (curr_i * weight);
                 }
                 
+                // Crear la cajita independiente para cada control
                 riesgosAgrupados[idRiesgo].controlesDetallados.push({ descripcion: c_desc, tipo: c_tipo, implementacion: c_impl });
                 riesgosAgrupados[idRiesgo].descripcionControl += `🔹 [${c_tipo}] ${c_desc}\n`;
              }
              
-             // Guardar el nuevo valor residual después de los filtros matemáticos
-             riesgosAgrupados[idRiesgo].probabilidadResidual = Math.round(curr_p * 100);
-             riesgosAgrupados[idRiesgo].impactoResidual = Math.round(curr_i * 100);
+             // Actualizar riesgo residual
+             riesgosAgrupados[idRiesgo].probabilidadResidual = Math.max(Math.round(curr_p * 100), 0);
+             riesgosAgrupados[idRiesgo].impactoResidual = Math.max(Math.round(curr_i * 100), 0);
           });
 
           const nuevosRiesgos = Object.values(riesgosAgrupados);
 
           await saveToCloud({ riesgos: nuevosRiesgos });
-          showNotification(`Base de datos depurada. (${nuevosRiesgos.length} riesgos analizados y guardados)`, "success");
+          showNotification(`Base de datos depurada. Riesgos analizados y guardados.`, "success");
           setIsCloudLoaded(true);
         }
       } catch (error) {
@@ -702,7 +708,7 @@ const handleImportExcelRiesgos = (e) => {
       e.target.value = null;
     };
     reader.readAsArrayBuffer(file);
-  }; 
+  };
 
   const forceUpdateCronograma = async () => {
     if(window.confirm("¿Seguro que deseas cargar los 20 procesos del nuevo Plan Anual? Esto borrará el cronograma actual y lo reemplazará por la versión de Termales Santa Rosa.")) {
