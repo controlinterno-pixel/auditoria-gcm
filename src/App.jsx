@@ -577,7 +577,7 @@ const handleLogout = async () => {
     reader.readAsText(file);
   };
 
-  const handleImportExcelRiesgos = (e) => {
+const handleImportExcelRiesgos = (e) => {
     if (!window.XLSX) {
       showNotification("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.", "error");
       return;
@@ -594,74 +594,115 @@ const handleLogout = async () => {
         const worksheet = workbook.Sheets[firstSheetName];
         const json = window.XLSX.utils.sheet_to_json(worksheet);
 
-        if(window.confirm("⚠️ ALERTA: Esto reemplazará tu Matriz de Riesgos actual con los datos del nuevo Excel estructurado. ¿Estás seguro?")) {
+        if(window.confirm("⚠️ ALERTA: ¿Deseas procesar y limpiar este Excel automáticamente para incorporarlo a la Matriz de Riesgos?")) {
           setIsCloudLoaded(false);
           
-          // 🧠 LÓGICA INTELIGENTE: Agrupar múltiples controles bajo un mismo Riesgo
+          // 🧠 FUNCIONES DE DEPURACIÓN DE TEXTO (INTELIGENCIA ARTIFICIAL LOCAL)
+          const extractPct = (str) => {
+            if (!str) return 0;
+            const match = String(str).match(/\((\d+)%\)/);
+            return match ? parseInt(match[1]) / 100 : 0;
+          };
+
+          const splitCamelCase = (str) => {
+            if (!str) return [];
+            return String(str).match(/[A-Z][a-záéíóúñ]+/g) || [];
+          };
+
+          const splitSentences = (str) => {
+             if (!str) return [];
+             return String(str).split(/(?<=[a-z\.])(?=[A-Z])/).filter(s => s.trim() !== '');
+          };
+
+          // 🧮 LÓGICA DE AGRUPACIÓN Y CÁLCULO MATEMÁTICO ISO
           const riesgosAgrupados = {};
 
           json.forEach((r, index) => {
-            const idRiesgo = r.ID_Riesgo || r.No || (Date.now() + index);
+             const idRiesgo = r['No'] || (Date.now() + index);
+             const p_inh = extractPct(r['Probabilidad Inherente']);
+             const i_inh = extractPct(r['Impacto Inherente']);
+             
+             if (!riesgosAgrupados[idRiesgo]) {
+                const causaInm = String(r['Causa Inmediata'] || '').toLowerCase();
+                const causaRaiz = String(r['Causa Raíz'] || '').toLowerCase();
+                const afectacion = String(r['Afectacion'] || '').toLowerCase();
+                
+                riesgosAgrupados[idRiesgo] = {
+                  id: idRiesgo,
+                  sede: 'Hotel',
+                  proceso: r['Proceso/Subproceso'] || 'Proceso General',
+                  categoria: r['Categoría'] || 'Operativo',
+                  normativa: 'Ninguna',
+                  responsable: r['Responsable'] || 'Sin Asignar',
+                  // Autogenerador de sintaxis obligatoria del Manual
+                  descripcion: `Posibilidad de afectación ${afectacion} por ${causaInm} debido a ${causaRaiz}`,
+                  probabilidadInherente: Math.round(p_inh * 100) || 60,
+                  impactoInherente: Math.round(i_inh * 100) || 60,
+                  probabilidadResidual: Math.round(p_inh * 100) || 60,
+                  impactoResidual: Math.round(i_inh * 100) || 60, 
+                  descripcionControl: '',
+                  controlesDetallados: [],
+                  anio: new Date().getFullYear(),
+                  mes: "Junio",
+                  historialCambios: [{ fecha: new Date().toLocaleString(), accion: 'Importado masivamente y depurado matemáticamente' }]
+                };
+             }
 
-            if (!riesgosAgrupados[idRiesgo]) {
-              // Si el riesgo no existe en nuestro agrupador, lo creamos
-              riesgosAgrupados[idRiesgo] = {
-                id: idRiesgo,
-                sede: 'Hotel',
-                proceso: r.Proceso || r['Proceso/Subproceso'] || 'Proceso General',
-                categoria: r.Categoría || 'Operativo',
-                normativa: 'Ninguna',
-                responsable: r.Responsable || 'Sin Asignar',
-                descripcion: r.Descripcion_Riesgo || r['Descripción del riesgo'] || 'Sin descripción',
-                
-                // 🧮 TRADUCTOR DE DECIMALES A ESCALA DE CALOR (ej: 0.8 -> 80)
-                probabilidadInherente: r.Prob_Inh ? Math.round(r.Prob_Inh * 100) : 60,
-                impactoInherente: r.Imp_Inh ? Math.round(r.Imp_Inh * 100) : 60,
-                probabilidadResidual: r.Prob_Res ? Math.round(r.Prob_Res * 100) : 40,
-                impactoResidual: r.Imp_Res ? Math.round(r.Imp_Res * 100) : 40,
-                
-                // Campo consolidado de controles para la tabla visual
-                descripcionControl: '',
-                controlesDetallados: [], // Array para almacenar la desnormalización
-                
-                anio: new Date().getFullYear(),
-                mes: "Junio",
-                historialCambios: [{ fecha: new Date().toLocaleString(), accion: 'Importado masivamente con agrupación inteligente' }]
-              };
-            }
+             // Desarmar y procesar controles anidados pegados
+             const descControles = splitSentences(r['Descripción del Control']);
+             const tipos = splitCamelCase(r['Tipo']);
+             const impls = splitCamelCase(r['Implementación']);
+             
+             let curr_p = riesgosAgrupados[idRiesgo].probabilidadResidual / 100;
+             let curr_i = riesgosAgrupados[idRiesgo].impactoResidual / 100;
 
-            // Agregamos los detalles del control al riesgo correspondiente
-            const textoControl = r.Control_Desc || r['Descripción del Control'] || '';
-            const tipoControl = r.Tipo || '';
-            
-            if (textoControl) {
-              riesgosAgrupados[idRiesgo].controlesDetallados.push({
-                descripcion: textoControl,
-                tipo: tipoControl,
-                implementacion: r.Implementacion || ''
-              });
-              
-              // Concatenamos el texto para la vista rápida de la tabla actual
-              riesgosAgrupados[idRiesgo].descripcionControl += `🔹 [${tipoControl}] ${textoControl}\n`;
-            }
+             const maxLen = Math.max(descControles.length, tipos.length, impls.length);
+             
+             for(let i = 0; i < maxLen; i++) {
+                const c_desc = descControles[i] || "Control general";
+                const c_tipo = tipos[i] || "Preventivo";
+                const c_impl = impls[i] || "Manual";
+                
+                // Pesos exactos del Manual de Termales (Tabla 6)
+                let weight = 0;
+                if(c_tipo === 'Preventivo') weight += 0.25;
+                else if(c_tipo === 'Detectivo') weight += 0.15;
+                else if(c_tipo === 'Correctivo') weight += 0.10;
+                
+                if(c_impl === 'Automático' || c_impl === 'Automatico') weight += 0.25;
+                else if(c_impl === 'Manual') weight += 0.15;
+                
+                // Cálculo de mitigación Acumulativa (Tabla 8)
+                if(c_tipo === 'Preventivo' || c_tipo === 'Detectivo') {
+                   curr_p = curr_p - (curr_p * weight);
+                } else {
+                   curr_i = curr_i - (curr_i * weight);
+                }
+                
+                riesgosAgrupados[idRiesgo].controlesDetallados.push({ descripcion: c_desc, tipo: c_tipo, implementacion: c_impl });
+                riesgosAgrupados[idRiesgo].descripcionControl += `🔹 [${c_tipo}] ${c_desc}\n`;
+             }
+             
+             // Guardar el nuevo valor residual después de los filtros matemáticos
+             riesgosAgrupados[idRiesgo].probabilidadResidual = Math.round(curr_p * 100);
+             riesgosAgrupados[idRiesgo].impactoResidual = Math.round(curr_i * 100);
           });
 
-          // Convertimos el objeto agrupado de nuevo a un Array limpio
           const nuevosRiesgos = Object.values(riesgosAgrupados);
 
           await saveToCloud({ riesgos: nuevosRiesgos });
-          showNotification(`Matriz actualizada. (${nuevosRiesgos.length} riesgos únicos procesados)`, "success");
+          showNotification(`Base de datos depurada. (${nuevosRiesgos.length} riesgos analizados y guardados)`, "success");
           setIsCloudLoaded(true);
         }
       } catch (error) {
         console.error(error);
-        showNotification("Error: El archivo Excel no tiene un formato válido o está corrupto.", "error");
+        showNotification("Error: El archivo Excel no tiene el formato esperado.", "error");
         setIsCloudLoaded(true);
       }
       e.target.value = null;
     };
     reader.readAsArrayBuffer(file);
-  };
+  }; 
 
   const forceUpdateCronograma = async () => {
     if(window.confirm("¿Seguro que deseas cargar los 20 procesos del nuevo Plan Anual? Esto borrará el cronograma actual y lo reemplazará por la versión de Termales Santa Rosa.")) {
