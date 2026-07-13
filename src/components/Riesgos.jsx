@@ -454,8 +454,15 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                   <div className="md:col-span-11">
                     <label className="text-[9px] font-bold text-slate-500 uppercase block mb-1">Descripción de la Tarea del Control</label>
-                    <input type="text" value={ctrl.descripcion} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].descripcion = e.target.value; setControles(nuevos); }} className="w-full text-xs p-2 border rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej: Arqueos sorpresivos de caja..." required />
-                  </div>
+                 <textarea
+  rows="3"
+  value={ctrl.descripcion}
+  onChange={(e) => { const nuevos = [...controles]; nuevos[idx].descripcion = e.target.value; setControles(nuevos); }}
+  className="w-full text-xs p-2 border rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
+  placeholder="Describa la tarea completa del control..."
+  required
+/>
+                   </div>
                   <div className="md:col-span-1 flex justify-center">
                     <button type="button" onClick={() => setControles(controles.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 text-sm font-bold">🗑️ Borrar</button>
                   </div>
