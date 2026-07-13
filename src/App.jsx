@@ -2184,7 +2184,7 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
        <div className="flex items-center space-x-3 bg-slate-100/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-200 shadow-sm transition-all hover:bg-slate-200/80">
   {/* Logo Corporativo */}
   <img 
-    src="/logo-termales.png" 
+    src="/logo_termales.png" 
     alt="Logo Termales" 
     className="h-7 w-auto object-contain drop-shadow-sm transition-transform hover:scale-105" 
     onError={(e) => { e.target.style.display = 'none'; }} 
