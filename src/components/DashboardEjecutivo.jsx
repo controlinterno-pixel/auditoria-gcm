@@ -249,9 +249,10 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-      {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TODOS LOS 5 TOOLTIPS ─── */}
+     {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TODOS LOS 5 TOOLTIPS ENRIQUECIDOS ─── */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         
+        {/* CARDA 1: CUMPLIMIENTO GLOBAL */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
@@ -266,17 +267,21 @@ export default function DashboardEjecutivo({
               <path d="M0,15 Q20,5 40,12 T80,8 L100,2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </div>
-          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-blue-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-blue-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-blue-500/40 rotate-45"></div>
             <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Control</h4>
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
               <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Matriz Integrada de Planes de Acción.</p>
-              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Mide el esfuerzo de mitigación corporativa.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Tareas y acciones correctivas que el equipo tiene actualmente en progreso o pendientes.</p>
+              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Mide la velocidad de mitigación frente a las brechas.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Porcentaje de tareas de mejora completadas.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-cyan-400 text-[8px]">
+                FÓRMULA: (Planes Cerrados / Total Planes) * 100
+              </div>
             </div>
           </div>
         </div>
 
+        {/* CARDA 2: RIESGOS ACTIVOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
@@ -290,17 +295,21 @@ export default function DashboardEjecutivo({
             <span className="text-amber-400">{riesgosMedios} Medios</span>
             <span className="text-emerald-400">{riesgosBajos} Bajos</span>
           </div>
-          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-red-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-red-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-red-500/40 rotate-45"></div>
             <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Riesgo</h4>
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
               <p><b className="text-emerald-400">📍 ORIGEN:</b> Mapa de Calor Empresarial (Matriz 5x5).</p>
-              <p><b className="text-amber-400">❓ JUSTIFICACIÓN:</b> Indica el grado de exposición al riesgo de la organization.</p>
-              <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Total de riesgos vigentes mapeados por los líderes.</p>
+              <p><b className="text-amber-400">❓ JUSTIFICACIÓN:</b> Cuantifica la exposición residual total del hotel.</p>
+              <p><b className="text-slate-300">📝 METODOLOGÍA:</b> Clasificación por cuadrante de criticidad.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-red-400 text-[8px]">
+                NIVEL: Probabilidad Residual * Impacto Residual
+              </div>
             </div>
           </div>
         </div>
 
+        {/* CARDA 3: CONTROLES AUDITADOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
@@ -315,17 +324,21 @@ export default function DashboardEjecutivo({
               <path d="M0,10 Q25,18 50,8 T100,5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
           </div>
-          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-cyan-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-cyan-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-cyan-500/40 rotate-45"></div>
             <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Aseguramiento</h4>
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Auditoría de Controles.</p>
-              <p><b className="text-amber-400 uppercase">❓ Por Qué:</b> Indica la cobertura de nuestro aseguramiento.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Porcentaje de controles que han sido evaluados frente al universo total de riesgos.</p>
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Auditoría de Trabajo de Campo.</p>
+              <p><b className="text-amber-400 uppercase">❓ Por Qué:</b> Evalúa la robustez operacional de las defensas.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Eficacia de los controles probados en sitio.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-cyan-400 text-[8px]">
+                FÓRMULA: (Evaluaciones Calif. 100 / Total Evaluaciones) * 100
+              </div>
             </div>
           </div>
         </div>
 
+        {/* CARDA 4: HALLAZGOS ABIERTOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
@@ -337,17 +350,21 @@ export default function DashboardEjecutivo({
           <div className="mt-3 text-[10px] font-black uppercase text-red-400 tracking-wider">
             🚨 {hallazgosCriticosCount} Con Alerta Crítica
           </div>
-          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-64 bg-[#0f172a]/95 backdrop-blur-md border border-orange-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-orange-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-orange-500/40 rotate-45"></div>
             <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Desviaciones</h4>
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
               <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes Emitidos.</p>
-              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Refleja la cantidad de brechas normativas no resueltas.</p>
-              <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Conteo de no conformidades con estado 'Abierto'.</p>
+              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Alertas por fallas de cumplimiento normativo o legal.</p>
+              <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Conteo directo de brechas vigentes.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-orange-400 text-[8px]">
+                FÓRMULA: Sumatoria (Hallazgos donde Estado === 'Abierto')
+              </div>
             </div>
           </div>
         </div>
 
+        {/* CARDA 5: PLANES EN EJECUCIÓN */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
@@ -359,18 +376,20 @@ export default function DashboardEjecutivo({
           <div className="mt-3 text-[10px] font-black uppercase text-amber-500 tracking-wider">
             ⚠️ {planesVencidos} Vencidos / Retrasados
           </div>
-          <div className="absolute top-[105%] left-[80%] -translate-x-[80%] w-64 bg-[#0f172a]/95 backdrop-blur-md border border-purple-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
+          <div className="absolute top-[105%] left-[80%] -translate-x-[80%] w-72 bg-[#0f172a]/95 backdrop-blur-md border border-purple-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
             <div className="absolute -top-2 left-[80%] -translate-x-[80%] w-4 h-4 bg-[#0f172a] border-t border-l border-purple-500/40 rotate-45"></div>
             <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Gestión</h4>
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Planes de Acción.</p>
-              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Indica la saturación operativa para el cierre de brechas.</p>
-              <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Sumatoria de planes cuyo estado es diferente a 'Cerrado'.</p>
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Plan de Mejoramiento Institucional.</p>
+              <p><b className="text-amber-400 uppercase">❓ Justificación:</b> Monitorea la carga operativa de los líderes de proceso.</p>
+              <p><b className="text-slate-200 uppercase">📝 Metodología:</b> Tareas activas que no se han archivado.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-purple-400 text-[8px]">
+                FÓRMULA: Conteo (Planes donde Estado !== 'Cerrado')
+              </div>
             </div>
           </div>
         </div>
       </div>
-
       {/* ─── CUADRÍCULA PRINCIPAL CENTRAL CON MAPA 5X5 INTEGRADO ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
