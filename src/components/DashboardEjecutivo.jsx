@@ -53,7 +53,8 @@ export default function DashboardEjecutivo({
   cFiltrados, cronograma, informesAuditoria, safeIncidentes,
   matrizFiltro, setMatrizFiltro, setChartDetail, defaultMeses, defaultAnios,
   selectedAnios, selectedMeses, toggleAnio, toggleMes,
-  setSelectedAnios, setSelectedMeses, setActiveTab
+  setSelectedAnios, setSelectedMeses, setActiveTab,
+  evalFiltrados // 🟢 Agregada para recibir los datos de campo reales
 }) {
   const hoy = new Date();
 
@@ -93,8 +94,14 @@ export default function DashboardEjecutivo({
   }).length;
   const riesgosBajos = totalRiesgos - riesgosCriticos - riesgosMedios;
 
-  const efectividadControlesGlobal = totalRiesgos > 0 ? Math.round(85 + (riesgosBajos * 1.5) - (riesgosCriticos * 2)) : 90; 
-
+// 🧮 CÁLCULO REAL Y REACTIVO DE EFECTIVIDAD OPERACIONAL:
+  const evaluacionesBase = typeof evalFiltrados !== 'undefined' ? evalFiltrados : [];
+  const totalEvaluaciones = evaluacionesBase.length;
+  const evaluacionesEficaces = evaluacionesBase.filter(e => e.calificacion === 100).length;
+  
+  const efectividadControlesGlobal = totalEvaluaciones > 0 
+    ? Math.round((evaluacionesEficaces / totalEvaluaciones) * 100) 
+    : 0;
   const totalHallazgos = hallazgosBase.length;
   const hallazgosCriticosCount = hallazgosBase.filter(h => h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico').length;
 
