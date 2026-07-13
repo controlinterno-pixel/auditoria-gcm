@@ -8,6 +8,29 @@ const PROCESOS_OFICIALES = [
   "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación", "Proceso General"
 ];
 
+const CARGOS_OFICIALES = [
+  "Gerencia General",
+  "Control Interno",
+  "Dirección Administrativa y Financiera",
+  "Dirección Comercial",
+  "Dirección de Mercadeo",
+  "Dirección de Talento Humano",
+  "Jefe de Alimentos y Bebidas (AYB)",
+  "Jefe de Alojamiento y Recreación",
+  "Jefe de Compras y Suministros",
+  "Jefe de Contabilidad",
+  "Jefe de Control Inventarios",
+  "Jefe de Crédito y Cartera",
+  "Jefe de Mantenimiento de Infraestructura",
+  "Jefe de Tesorería",
+  "Líder de Cumplimiento Normativo",
+  "Líder de Formación y Desarrollo",
+  "Líder de Gestión Ambiental",
+  "Líder de Gestión Clientes",
+  "Líder de Seguridad y Salud en el Trabajo (SST)",
+  "Líder de Tecnologías de la Información (TI)"
+];
+
 const CLASIFICACIONES_MANUAL = [
   "Ejecución y administracion del proceso", "Fraude interno", "Usuarios, productos y practicas", 
   "Fallas tecnologicas", "Daños a activos fisicos", "Relaciones laborales y seguridad en el puesto de trabajo"
@@ -354,10 +377,15 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Normativa Asociada</label>
                 <input type="text" value={normativa} onChange={(e) => setNormativa(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej. ISO 31000..." />
               </div>
-              <div>
+          <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Líder Dueño del Proceso</label>
-                <input type="text" value={responsable} onChange={(e) => setResponsable(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Cargo del Responsable..." required/>
-              </div>
+                <select value={responsable} onChange={(e) => setResponsable(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required>
+                  <option value="">Seleccione Cargo Oficial...</option>
+                  {CARGOS_OFICIALES.map(cargo => (
+                    <option key={cargo} value={cargo}>{cargo}</option>
+                  ))}
+                </select>
+              </div>    
             </div>
           </div>
 
