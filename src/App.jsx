@@ -877,9 +877,9 @@ const handlePlanSubmit = async (e) => {
         const correoDestino = diccionarioCorreos[auditorNotificar] || "controlinterno@termales.com.co";
 
         await ejecutarDespachoGmailApi({
-ref_consecutivo: `PLAN-REVISION`, // 🟢 Corregido sin tilde
-          titulo_informe: 'Plan de Acción Listo para Aprobación y Cierre',
-          proceso_auditado: accionNotificar.substring(0, 50) + '...',
+          ref_consecutivo: `APROBACION-100`,
+          titulo_informe: 'Verificar soportes cargados al 100 por ciento para proceder con el cierre',
+          proceso_auditado: 'Plan de accion pendiente por aprobar',
           enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
           destinatarios: correoDestino
         });
@@ -887,8 +887,8 @@ ref_consecutivo: `PLAN-REVISION`, // 🟢 Corregido sin tilde
     } else {
         showNotification("Progreso del plan guardado correctamente.");
     }
-    e.target.reset(); 
-  };
+    e.target.reset();
+
 const handleAprobarCierrePlan = async (plan) => {
     if (!window.confirm("¿Aprobar evidencias y cerrar definitivamente este plan y su hallazgo vinculado?")) return;
     
