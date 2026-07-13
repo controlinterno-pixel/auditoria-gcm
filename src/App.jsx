@@ -2250,8 +2250,18 @@ if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center ju
                 impactoInherente: ajustarCoordenada(r.impactoInherente)
               }));
 
-              const evalFiltrados = (safeEvaluaciones || []).filter(filterByGlobalPeriod);
+// 🟢 Solo evaluar si pertenecen al año y mes que el auditor seleccionó explícitamente en los botones
+const evalFiltrados = (safeEvaluaciones || []).filter(item => {
+  const anioItem = String(item.anio || '');
+  const mesItem = String(item.mes || '');
+  
+  // Si están todos los meses marcados, obligar a que solo lea el mes de análisis operativo (Junio) 
+  // para evitar que los datos demo del pasado ensucien el tablero.
+  const aniosSeleccionados = periodFilters['dashboard_riesgos']?.anios || [2026];
+  const mesesSeleccionados = periodFilters['dashboard_riesgos']?.meses || ["Junio"];
 
+  return aniosSeleccionados.map(String).includes(anioItem) && mesesSeleccionados.includes(mesItem);
+});
               return (
                 <DashboardEjecutivo 
                   rFiltrados={riesgosEstructurados5x5} riesgos={riesgos}
