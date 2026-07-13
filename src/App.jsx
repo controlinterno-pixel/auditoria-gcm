@@ -594,35 +594,63 @@ const handleLogout = async () => {
         const worksheet = workbook.Sheets[firstSheetName];
         const json = window.XLSX.utils.sheet_to_json(worksheet);
 
-        if(window.confirm("⚠️ ALERTA: Esto reemplazará tu Matriz de Riesgos actual con los datos de este archivo Excel. Los demás módulos (Planes, Hallazgos, etc) no se borrarán. ¿Estás seguro?")) {
+        if(window.confirm("⚠️ ALERTA: Esto reemplazará tu Matriz de Riesgos actual con los datos del nuevo Excel estructurado. ¿Estás seguro?")) {
           setIsCloudLoaded(false);
           
-          const nuevosRiesgos = json.map((r, index) => ({
-            id: r.id || Date.now() + index,
-            sede: r.sede || 'Hotel',
-            proceso: r.proceso || 'Proceso General',
-            categoria: r.categoria || 'Operativo',
-            normativa: r.normativa || 'Ninguna',
-            responsable: r.responsable || 'Sin Asignar',
-            noControl: r.noControl || 'C-' + Math.floor(Math.random() * 100 + 100),
-            descripcionControl: r.descripcionControl || r.control || 'Control no definido',
-            descripcion: r.descripcion || 'Sin descripción',
-            probabilidadInherente: r.probabilidadInherente || 'Posible',
-            impactoInherente: r.impactoInherente || 'Medio',
-            probabilidadResidual: r.probabilidadResidual || 'Posible',
-            impactoResidual: r.impactoResidual || 'Medio',
-            capacidadRiesgo: r.capacidadRiesgo || null,
-            toleranciaFinanciera: r.toleranciaFinanciera || null,
-            apetitoFinanciero: r.apetitoFinanciero || null,
-            posturaEstrategica: r.posturaEstrategica || null,
-            kriScore: r.kriScore || null,
-            anio: r.anio || new Date().getFullYear(),
-            mes: r.mes || "Mayo",
-            historialCambios: [{ fecha: new Date().toLocaleString(), accion: 'Importado masivamente desde Excel' }]
-          }));
+          // 🧠 LÓGICA INTELIGENTE: Agrupar múltiples controles bajo un mismo Riesgo
+          const riesgosAgrupados = {};
+
+          json.forEach((r, index) => {
+            const idRiesgo = r.ID_Riesgo || r.No || (Date.now() + index);
+
+            if (!riesgosAgrupados[idRiesgo]) {
+              // Si el riesgo no existe en nuestro agrupador, lo creamos
+              riesgosAgrupados[idRiesgo] = {
+                id: idRiesgo,
+                sede: 'Hotel',
+                proceso: r.Proceso || r['Proceso/Subproceso'] || 'Proceso General',
+                categoria: r.Categoría || 'Operativo',
+                normativa: 'Ninguna',
+                responsable: r.Responsable || 'Sin Asignar',
+                descripcion: r.Descripcion_Riesgo || r['Descripción del riesgo'] || 'Sin descripción',
+                
+                // 🧮 TRADUCTOR DE DECIMALES A ESCALA DE CALOR (ej: 0.8 -> 80)
+                probabilidadInherente: r.Prob_Inh ? Math.round(r.Prob_Inh * 100) : 60,
+                impactoInherente: r.Imp_Inh ? Math.round(r.Imp_Inh * 100) : 60,
+                probabilidadResidual: r.Prob_Res ? Math.round(r.Prob_Res * 100) : 40,
+                impactoResidual: r.Imp_Res ? Math.round(r.Imp_Res * 100) : 40,
+                
+                // Campo consolidado de controles para la tabla visual
+                descripcionControl: '',
+                controlesDetallados: [], // Array para almacenar la desnormalización
+                
+                anio: new Date().getFullYear(),
+                mes: "Junio",
+                historialCambios: [{ fecha: new Date().toLocaleString(), accion: 'Importado masivamente con agrupación inteligente' }]
+              };
+            }
+
+            // Agregamos los detalles del control al riesgo correspondiente
+            const textoControl = r.Control_Desc || r['Descripción del Control'] || '';
+            const tipoControl = r.Tipo || '';
+            
+            if (textoControl) {
+              riesgosAgrupados[idRiesgo].controlesDetallados.push({
+                descripcion: textoControl,
+                tipo: tipoControl,
+                implementacion: r.Implementacion || ''
+              });
+              
+              // Concatenamos el texto para la vista rápida de la tabla actual
+              riesgosAgrupados[idRiesgo].descripcionControl += `🔹 [${tipoControl}] ${textoControl}\n`;
+            }
+          });
+
+          // Convertimos el objeto agrupado de nuevo a un Array limpio
+          const nuevosRiesgos = Object.values(riesgosAgrupados);
 
           await saveToCloud({ riesgos: nuevosRiesgos });
-          showNotification(`Matriz de Riesgos actualizada masivamente. (${nuevosRiesgos.length} riesgos cargados)`, "success");
+          showNotification(`Matriz actualizada. (${nuevosRiesgos.length} riesgos únicos procesados)`, "success");
           setIsCloudLoaded(true);
         }
       } catch (error) {
