@@ -45,11 +45,18 @@ export default function PlanAnual({
 
   const labelAnio = selectedAnios.length === 0 ? 'HISTÓRICO MULTIANUAL' : selectedAnios.join(' - ');
 
-  // 🧠 MOTOR DE AGRUPACIÓN REACTIVA POR AÑO
-  const itemsFiltradosFinal = applyFilters(cronogramaOrdenado, searchTerm, columnFilters);
+  // 🧠 MOTOR DE AGRUPACIÓN Y FILTRADO REAL POR BOTÓN DE AÑO
+  const itemsFiltradosFinal = applyFilters(cronogramaOrdenado, searchTerm, columnFilters).filter(c => {
+    if (selectedAnios && selectedAnios.length > 0) {
+      const anioItem = c.anio ? String(c.anio) : "2025";
+      return selectedAnios.map(String).includes(anioItem);
+    }
+    return true;
+  });
+
   const itemsPorAnio = itemsFiltradosFinal.reduce((acc, c) => {
-    const anioKey = c.anio || 2025; // Si el registro viejo no tiene año, preserva 2025 por defecto
-    if (!acc[anioKey]) acc[anioKey] = [];
+    const anioKey = c.anio || 2025;
+    if (!acc[anioKey]) acc[accKey] = [];
     acc[anioKey].push(c);
     return acc;
   }, {});
@@ -165,7 +172,7 @@ export default function PlanAnual({
                      </thead>
                      <tbody className="divide-y divide-slate-100 bg-white">
                        {listaAniosOrdenados.length === 0 ? (
-                         <tr><td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400 font-bold italic">No se encontraron registros.</td></tr>
+                         <tr><td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400 font-bold italic">No se encontraron registros para este periodo.</td></tr>
                        ) : (
                          listaAniosOrdenados.flatMap(anio => [
                            <tr key={`header-crono-group-${anio}`} className="bg-slate-100 font-black text-[#004d40]">
@@ -211,7 +218,7 @@ export default function PlanAnual({
               <input 
                 type="number" 
                 name="anio" 
-                defaultValue={editCronograma ? (editCronograma.anio || 2025) : 2026} 
+                defaultValue={editCronograma ? (editCronograma.anio || 2025) : (selectedAnios[0] || 2026)} 
                 required 
                 className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-black text-slate-800 bg-white" 
               />
@@ -263,7 +270,7 @@ export default function PlanAnual({
              </thead>
              <tbody>
                {listaAniosOrdenados.length === 0 ? (
-                 <tr><td colSpan={isAdmin ? 16 : 15} className="p-4 text-center text-slate-400 italic font-bold">No hay registros planificados.</td></tr>
+                 <tr><td colSpan={isAdmin ? 16 : 15} className="p-4 text-center text-slate-400 italic font-bold">No hay registros planificados para este periodo.</td></tr>
                ) : (
                  listaAniosOrdenados.flatMap(anio => [
                    <tr key={`header-gantt-group-${anio}`} className="bg-slate-100 font-black text-[#004d40]">
