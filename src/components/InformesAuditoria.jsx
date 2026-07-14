@@ -8,6 +8,50 @@ const PROCESOS_OFICIALES = [
   "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación"
 ];
 
+// 👔 LISTA MAESTRA DE CARGOS PARA PARTICIPANTES DE SOCIALIZACIÓN
+const CARGOS_SOCIALIZACION = [
+  "Auditoría Interna",
+  "Chef Hotel",
+  "Contador",
+  "Contadora de Socios",
+  "Coordinación Administrativa Family Office",
+  "Coordinación Comercial y Contact Center",
+  "Coordinación de Mercadeo y Comunicaciones",
+  "Coordinación de Recepción",
+  "Coordinación Seguridad y Salud en el Trabajo",
+  "Coordinación SPA",
+  "Coordinador de Mantenimiento",
+  "Coordinador de Marketing Digital",
+  "Coordinador de Servicio al Cliente",
+  "Coordinador de Operaciones",
+  "Desarrollador Junior",
+  "Dirección Administrativa y Financiera",
+  "Dirección Comercial",
+  "Dirección de Mercadeo y Comunicaciones",
+  "Dirección de Talento Humano",
+  "Director de TICS",
+  "Gerente Administrativa y Judicial",
+  "Jefe de Control Interno",
+  "Jefe de Cocina",
+  "Líder Administrativa",
+  "Líder de Compras y Almacén",
+  "Líder de Costos y Presupuestos",
+  "Líder de Contabilidad",
+  "Líder de Gestión Ambiental",
+  "Líder de Proceso de Alimentos y Bebidas",
+  "Líder de Tesorería y Cartera",
+  "Líder Táctico de Infraestructura Tecnológica",
+  "Líder Táctico de Mejora Continua",
+  "Líder Táctico de Desarrollo de Software",
+  "Subdirección de Operaciones Balneario",
+  "Subdirector de Operaciones Hotel",
+  "Supervisor (a) de Operaciones",
+  "Supervisor (a) Mesa y Servicio",
+  "Supervisor de Operaciones",
+  "Supervisor Ruta Ecológica",
+  "Terapeuta SPA"
+];
+
 export default function InformesAuditoria({ 
   informesAuditoria, 
   editInformeAuditoria, 
@@ -29,6 +73,18 @@ export default function InformesAuditoria({
   onActualizarAuditores 
 }) {
 
+// 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN (PEGAR AQUÍ)
+  const [participantesMultiples, setParticipantesMultiples] = useState([]);
+  const [participanteTemp, setParticipanteTemp] = useState('');
+
+  // Sincronizador automático si se carga un informe en modo edición
+  React.useEffect(() => {
+    if (editInformeAuditoria?.participantes) {
+      setParticipantesMultiples(editInformeAuditoria.participantes.includes(',') ? editInformeAuditoria.participantes.split(',').map(p => p.trim()) : [editInformeAuditoria.participantes]);
+    } else {
+      setParticipantesMultiples([]);
+    }
+  }, [editInformeAuditoria]);
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
@@ -554,17 +610,54 @@ export default function InformesAuditoria({
                 </select>
               </div>
 
-              {/* 👥 COLUMNA: PARTICIPANTES */}
-              <div className="md:col-span-4">
-                <label className="font-bold text-gray-600 block mb-1.5">Participantes de la Socialización</label>
-                <input 
-                  name="socializadoCon" 
-                  defaultValue={editInformeAuditoria?.socializadoCon || ''} 
-                  placeholder="Ej: Comité de Auditoría, Gerencia General..." 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none text-slate-800 shadow-sm" 
-                />
+             {/* 👥 SECTOR MÚLTIPLE: PARTICIPANTES DE LA SOCIALIZACIÓN */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 col-span-full space-y-2">
+              <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Cargos)</label>
+              <div className="flex gap-2">
+                <select 
+                  value={participanteTemp} 
+                  onChange={(e) => setParticipanteTemp(e.target.value)} 
+                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 text-xs shadow-sm cursor-pointer"
+                >
+                  <option value="">-- Seleccionar Cargo Participante --</option>
+                  {CARGOS_SOCIALIZACION.map(cargo => (
+                    <option key={cargo} value={cargo} disabled={participantesMultiples.includes(cargo)}>{cargo}</option>
+                  ))}
+                </select>
+                <button 
+                  type="button" 
+                  onClick={() => { 
+                    if(participanteTemp && !participantesMultiples.includes(participanteTemp)) {
+                      setParticipantesMultiples([...participantesMultiples, participanteTemp]); 
+                    }
+                    setParticipanteTemp(''); 
+                  }} 
+                  className="bg-[#0A3B32] text-white px-5 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm flex items-center"
+                >
+                  ➕ Añadir
+                </button>
               </div>
-
+              
+              {/* 🏷️ VISUALIZADOR DE CHIPS / FICHAS SELECCIONADAS */}
+              <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
+                {participantesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún cargo seleccionado aún...</span>}
+                {participantesMultiples.map(cargo => (
+                  <span key={cargo} className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
+                    {cargo} 
+                    <button 
+                      type="button" 
+                      onClick={() => setParticipantesMultiples(participantesMultiples.filter(item => item !== cargo))} 
+                      className="ml-1.5 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors font-sans"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+              
+              {/* 🔒 INPUT OCULTO: Envía los cargos unificados por comas automáticamente */}
+              <input type="hidden" name="participantes" value={participantesMultiples.join(', ')} />
+            </div>
             </div>            
            
             {/* 📧 DISTRIBUCIÓN ELECTRÓNICA */}
