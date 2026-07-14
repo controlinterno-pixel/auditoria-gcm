@@ -115,7 +115,15 @@ export default function Planes({
   const [matrixState, setMatrixState] = useState({});
   const [uploadingCell, setUploadingCell] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-
+// ⚡ MEJORA UX: Carga automáticamente la matriz del informe al dar clic en "Gestionar" desde el historial
+  React.useEffect(() => {
+    if (editPlan) {
+      const hallazgoBase = safeHallazgos.find(h => h.id === editPlan.idHallazgo);
+      if (hallazgoBase && hallazgoBase.idInforme) {
+        handleInformeChange(String(hallazgoBase.idInforme));
+      }
+    }
+  }, [editPlan, safeHallazgos]);
   // =========================================================
   // 📊 MOTOR DE CÁLCULO ANALÍTICO (FIEL A TU DISEÑO)
   // =========================================================
