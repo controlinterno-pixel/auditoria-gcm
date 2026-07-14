@@ -1,11 +1,30 @@
 import React, { useState } from 'react';
 
 const PROCESOS_OFICIALES = [
-  "Alimentos y Bebidas (AYB)", "Canales Alternos", "Compensaciones", "Compras", "Control Inventarios",
-  "Cumplimiento Normativo", "Financiera", "Formación y Desarrollo", "Gestión Ambiental",
-  "Gestión Clientes", "Gestión Contable", "Gestión de Crédito y Cartera", "Gestión de tecnologías de la información",
-  "Gestión de Tesoreria", "Mantenimiento de Infraestructura", "Mercadeo", "Operaciones Alojamiento y recreación.",
-  "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación"
+   "Gestión comercial",
+  "Gestión de la mejora continua (SIGCAS)",
+  "Gestión de mercadeo y comunicaciones",
+  "Gestión de servicio al cliente",
+  "Gestión estratégica",
+ "Gestión de Operaciones",
+  "I+D+i",
+  "Subproceso alojamiento",
+  "Subproceso alimentos y bebidas",
+  "Subproceso compras",
+  "Subproceso desarrollo de competencias",
+  "Subproceso gestión administrativa",
+  "Subproceso gestión de almacenes",
+  "Subproceso gestión de cartera",
+  "Subproceso gestión de contabilidad",
+  "Subproceso gestión de costos",
+  "Subproceso gestión de inventarios",
+  "Subproceso gestión de tesorería",
+  "Subproceso gestión del bienestar y la compensación",
+  "Subproceso gestionar los activos fijos de la empresa",
+  "Subproceso mantenimiento",
+  "Subproceso recreación",
+  "Subproceso selección, vinculación y administración de colaboradores",
+  "Tecnologías de la información y la comunicación"
 ];
 
 // 👔 LISTA MAESTRA DE CARGOS PARA PARTICIPANTES DE SOCIALIZACIÓN

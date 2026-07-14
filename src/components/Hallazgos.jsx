@@ -14,6 +14,7 @@ const PROCESOS_OFICIALES = [
   "Gestión de mercadeo y comunicaciones",
   "Gestión de servicio al cliente",
   "Gestión estratégica",
+ "Gestión de Operaciones",
   "I+D+i",
   "Subproceso alojamiento",
   "Subproceso alimentos y bebidas",
