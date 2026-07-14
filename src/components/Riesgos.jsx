@@ -92,6 +92,16 @@ const EXPLICACIONES_CAMPOS = {
     titulo: "Descripción de la Tarea del Control",
     porQue: "Detalla la acción o procedimiento específico que realiza el personal o un sistema automatizado para anular las causas del riesgo e impedir su materialización.",
     ejemplo: "El Coordinador de Contabilidad realiza mensualmente la toma física y aleatoria de los inventarios confrontando el módulo Zeus contra los activos asignados por acta."
+  },
+  probRes: {
+    titulo: "Probabilidad Residual Final",
+    porQue: "Calcula qué tan probable es que ocurra el evento DESPUÉS de aplicar los controles Preventivos y Detectivos. El sistema resta más porcentaje si el control es Automático y Documentado, que si es Manual.",
+    ejemplo: "Fórmula: Prob. Inicial - (Prob. Inicial × Suma de pesos de los controles Preventivos/Detectivos)."
+  },
+  impRes: {
+    titulo: "Impacto Residual Final",
+    porQue: "Calcula qué tan grave sería el daño DESPUÉS de aplicar controles Correctivos. IMPORTANTE: Los controles preventivos NO reducen el impacto. Solo las acciones como pólizas de seguro o copias de seguridad logran amortiguar la caída.",
+    ejemplo: "Fórmula: Impacto Inicial - (Impacto Inicial × Suma de pesos de los controles Correctivos)."
   }
 };
 
@@ -263,12 +273,12 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   };
 
   // 🏷️ COMPONENTE INTERNO REUTILIZABLE PARA TITULOS CON LA PALOMITA DE INFORMACIÓN
-  const LabelConPalomita = ({ idCampo }) => {
+  const LabelConPalomita = ({ idCampo, dark }) => {
     const dataAyuda = EXPLICACIONES_CAMPOS[idCampo];
     if (!dataAyuda) return null;
     return (
       <div className="flex items-center space-x-1.5 mb-1">
-        <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">{dataAyuda.titulo}</span>
+        <span className={`text-[10px] font-black uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{dataAyuda.titulo}</span>
         <button
           type="button"
           onClick={() => setAyudaModal(dataAyuda)}
@@ -751,11 +761,11 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
             <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-slate-700 pb-2">6. Resultados de Mitigación (Cálculo Multivariable)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Probabilidad Residual Final</label>
+                <LabelConPalomita idCampo="probRes" dark={true} />
                 <input type="text" value={`${residuales.probabilidad}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Impacto Residual Final</label>
+                <LabelConPalomita idCampo="impRes" dark={true} />
                 <input type="text" value={`${residuales.impacto}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
             </div>
