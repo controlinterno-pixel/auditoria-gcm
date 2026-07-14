@@ -774,7 +774,7 @@ export default function Planes({
 
                     {node.aplica && (
                       <div className="space-y-4">
-                        {node.actividades.map((act, index) => (
+{Array.isArray(node?.actividades) && node.actividades.map((act, index) => (
                           <div key={`act-row-${index}`} className="bg-white border rounded-xl p-4 shadow-sm space-y-3 relative">
                             <div className="flex justify-between items-center border-b pb-1">
                               <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actividad #{index + 1}</span>
