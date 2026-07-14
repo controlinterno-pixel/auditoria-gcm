@@ -26,26 +26,33 @@ export default function PlanAnual({
   const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const currentYear = new Date().getFullYear();
 
-// 🧠 1. MIGRACIÓN DIRECTA AL 2026 (Toda la data actual se centraliza en 2026)
+  // 🧠 1. MIGRACIÓN DIRECTA AL 2026 (Toda la data actual se centraliza en 2026)
   const getAnio = (c) => {
-    // Si el registro ya tiene un año oficial guardado (ej. cuando crees los nuevos de 2027 o 2028), lo respeta al 100%.
     if (c.anio) return String(c.anio);
-    
-    // Si es tu información actual/antigua que carecía del campo año, la aloja y agrupa obligatoriamente en 2026.
     return "2026";
-  };  
+  };
+
   // 🧠 2. FILTRO ESTRICTO POR BOTONES SUPERIORES (Años Seleccionados)
   const recordsPorAnio = (cFiltrados || []).filter(c => {
     if (selectedAnios && selectedAnios.length > 0) {
       return selectedAnios.map(String).includes(getAnio(c));
     }
-    return true; // Si no hay filtro presionado, pasan todos
+    return true;
   });
 
-  // 🧠 3. APLICAR BÚSQUEDA Y FILTROS DE COLUMNA
+  // 🧠 3. FILTRADO DE KRIs POR AÑO
+  const monitoreoFiltrado = (safeMonitoreo || []).filter(m => {
+    if (selectedAnios && selectedAnios.length > 0) {
+      const anioM = m.anio ? String(m.anio) : "2026"; // Migra los KRIs viejos al 2026
+      return selectedAnios.map(String).includes(anioM);
+    }
+    return true;
+  });
+
+  // 🧠 4. APLICAR BÚSQUEDA Y FILTROS DE COLUMNA
   const itemsFiltradosFinal = applyFilters(recordsPorAnio, searchTerm, columnFilters);
 
-  // 🧠 4. ORDEN CRONOLÓGICO Y ALFABÉTICO
+  // 🧠 5. ORDEN CRONOLÓGICO Y ALFABÉTICO
   const cronogramaOrdenado = [...itemsFiltradosFinal].sort((a, b) => {
     const getMinIdx = (arr) => {
       if (!arr || !Array.isArray(arr) || arr.length === 0) return 99;
@@ -58,13 +65,13 @@ export default function PlanAnual({
     return (a.codigo || '').localeCompare(b.codigo || '');
   });
 
-  // 🧠 5. CÁLCULO DE KPIs DINÁMICOS BASADOS ÚNICAMENTE EN LO VISIBLE
+  // 🧠 6. CÁLCULO DE KPIs DINÁMICOS BASADOS ÚNICAMENTE EN LO VISIBLE
   const procesosActivos = cronogramaOrdenado.filter(c => c.cumplimiento > 0);
   const avgCumplimiento = procesosActivos.length > 0 
     ? Math.round(procesosActivos.reduce((acc, c) => acc + c.cumplimiento, 0) / procesosActivos.length)
     : (cronogramaOrdenado.length > 0 ? Math.round(cronogramaOrdenado.reduce((acc, c) => acc + c.cumplimiento, 0) / cronogramaOrdenado.length) : 0);
 
-  // 🧠 6. AGRUPACIÓN VISUAL POR AÑO PARA LAS TABLAS
+  // 🧠 7. AGRUPACIÓN VISUAL POR AÑO PARA LAS TABLAS
   const itemsPorAnioGroup = cronogramaOrdenado.reduce((acc, c) => {
     const anioKey = getAnio(c);
     if (!acc[anioKey]) acc[anioKey] = [];
@@ -112,9 +119,14 @@ export default function PlanAnual({
                    {isAdmin && <button onClick={() => {setEditMonitoreo({}); scrollToForm();}} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
                  </div>
                  <div className="divide-y divide-slate-100 p-2">
+                   
+                   {/* FORMULARIO DE KRIs EDITADO */}
                    {editMonitoreo && isAdmin && (
                      <form onSubmit={handleMonitoreoSubmit} key={editMonitoreo?.id ? `edit-monitoreo-${editMonitoreo.id}-${formResetKey}` : `new-monitoreo-${formResetKey}`} className="p-3 bg-slate-50 rounded-lg mb-2 border border-slate-200 shadow-inner">
-                       <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Nombre KRI..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                       <div className="flex space-x-2 mb-2">
+                         <input name="anio" type="number" defaultValue={editMonitoreo.anio || (selectedAnios && selectedAnios.length > 0 ? selectedAnios[0] : 2026)} placeholder="Año" required className="w-1/3 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none font-bold text-[#004d40]" />
+                         <input name="indicador" defaultValue={editMonitoreo.indicador||''} placeholder="Nombre KRI..." required className="w-2/3 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
+                       </div>
                        <input name="proceso" defaultValue={editMonitoreo.proceso||''} placeholder="Proceso..." required className="w-full text-xs p-1.5 mb-2 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
                        <div className="flex space-x-2 mb-2">
                          <input name="valor" type="number" defaultValue={editMonitoreo.valor||''} placeholder="Valor actual" required className="w-1/2 text-xs p-1.5 border border-slate-300 rounded focus:ring-1 focus:ring-[#004d40] outline-none" />
@@ -132,10 +144,17 @@ export default function PlanAnual({
                      </form>
                    )}
                    
-                   {safeMonitoreo.map((m, index) => (
+                   {/* LISTA DE KRIs FILTRADA POR AÑO */}
+                   {monitoreoFiltrado.length === 0 && !editMonitoreo && (
+                     <div className="text-center p-3 text-[10px] text-slate-400 font-bold italic">No hay KRIs para este año.</div>
+                   )}
+                   {monitoreoFiltrado.map((m, index) => (
                      <div key={`moni-${m.id}-${index}`} className="flex flex-col p-3 hover:bg-slate-50 transition-colors group rounded-lg border border-transparent hover:border-slate-200">
                        <div className="flex justify-between items-center">
-                         <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>{m.indicador}</span>
+                         <span className="text-[10px] font-bold text-slate-800 truncate" title={m.indicador}>
+                           <span className="text-[8px] bg-slate-200 text-slate-600 px-1 py-0.5 rounded mr-1">{m.anio || 2026}</span>
+                           {m.indicador}
+                         </span>
                          {isAdmin && (
                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1.5">
                              <button onClick={() => {setEditMonitoreo(m); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-500 hover:text-blue-700 text-xs transition-colors" title="Editar">✏️</button>
@@ -185,7 +204,7 @@ export default function PlanAnual({
                      </thead>
                      <tbody className="divide-y divide-slate-100 bg-white">
                        {listaAniosOrdenados.length === 0 ? (
-                         <tr><td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400 font-bold italic">No se encontraron registros para el periodo seleccionado.</td></tr>
+                         <tr><td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400 font-bold italic">No se encontraron registros para este periodo.</td></tr>
                        ) : (
                          listaAniosOrdenados.flatMap(anio => [
                            <tr key={`header-crono-group-${anio}`} className="bg-slate-100 font-black text-[#004d40]">

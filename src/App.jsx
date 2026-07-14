@@ -1304,6 +1304,7 @@ if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); se
     if (editMonitoreo && editMonitoreo.id) {
       const modificado = {
         ...editMonitoreo,
+        anio: parseInt(formData.get('anio')),
         indicador: formData.get('indicador').toUpperCase(),
         proceso: formData.get('proceso') || '',
         valor: parseInt(formData.get('valor') || 0),
@@ -1316,6 +1317,7 @@ if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); se
     } else {
       const nuevo = {
         id: Date.now(),
+        anio: parseInt(formData.get('anio')),
         indicador: formData.get('indicador').toUpperCase(),
         proceso: formData.get('proceso') || '',
         valor: parseInt(formData.get('valor') || 0),
