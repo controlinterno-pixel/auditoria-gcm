@@ -775,7 +775,6 @@ export default function Hallazgos({
                   const hzsDelInforme = hallazgosPorInforme[idInf];
                   const informeBase = informesAuditoria.find(inf => String(inf.id) === String(idInf));
                   
-                  // Mapeo y trazabilidad del informe padre
                   const refInforme = informeBase ? informeBase.ref : "INF-S/N";
                   const tituloInforme = informeBase ? informeBase.titulo : "Informe general o registros huérfanos";
                   const procesoInforme = informeBase ? informeBase.proceso : "Varios Procesos";
@@ -901,3 +900,7 @@ export default function Hallazgos({
           </div>
         );
       })()}
+
+    </div>
+  );
+}
