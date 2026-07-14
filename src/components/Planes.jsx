@@ -474,7 +474,7 @@ export default function Planes({
           actividades: existingActivities.map(p => ({ 
             ...p, 
             correoConfirmacion: p.correoResponsable,
-responsable: p.responsable || (h.responsable ? h.responsable.split(',')[0].trim() : ''),
+            responsable: p.responsable || h.responsable || '',
             auditorAsignado: p.auditorAsignado || h.auditor || ''
           })) 
         };
@@ -484,7 +484,7 @@ responsable: p.responsable || (h.responsable ? h.responsable.split(',')[0].trim(
           actividades: [{ 
             id: 'new-' + Math.random(), 
             accion: '', 
-responsable: h.responsable ? h.responsable.split(',')[0].trim() : '',
+            responsable: h.responsable || '',
             auditorAsignado: h.auditor || '', // 👈 HERENCIA AUTOMÁTICA DEL AUDITOR RESPONSABLE
             fechaInicio: '', 
             fecha: '', 
@@ -863,34 +863,81 @@ responsable: h.responsable ? h.responsable.split(',')[0].trim() : '',
                                 <input type="text" value={act.accion} onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white text-slate-800" required />
                               </div>
                               
-                              {/* CAMPO S1: SEDE DEL PROCESO */}
-                <div className="md:col-span-1">
-                  <label className="font-bold text-slate-700 block mb-0.5">🏢 Sede</label>
-                  <select 
-                    value={act.sede || 'Administrativos'} 
-                    onChange={(e) => { 
-                      handleUpdateActivityField(h.id, index, 'sede', e.target.value);
-                      handleUpdateActivityField(h.id, index, 'responsable', ''); // Limpia el cargo si cambian de sede
-                    }} 
-                    className="w-full border p-2 rounded-lg font-black bg-slate-50 focus:bg-white text-slate-700 cursor-pointer shadow-sm border-slate-300"
-                  >
-                    {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
+                              {/* --- INICIO SECTOR MÚLTIPLE: SEDE Y CARGOS --- */}
+                              {(() => {
+                                const sedesActuales = act.sede ? act.sede.split(',').map(s => s.trim()).filter(Boolean) : [];
+                                const responsablesActuales = act.responsable ? act.responsable.split(',').map(r => r.trim()).filter(Boolean) : [];
+                                const cargosDisponibles = sedesActuales.length > 0 
+                                  ? [...new Set(sedesActuales.flatMap(s => CARGOS_POR_SEDE[s] || []))] 
+                                  : Object.keys(CARGOS_POR_SEDE).flatMap(k => CARGOS_POR_SEDE[k]);
 
-                {/* CAMPO B: DUEÑO DEL PROCESO CARGO */}
-                <div className="md:col-span-1">
-                  <label className="font-bold text-slate-700 block mb-0.5">👔 Cargo (Dueño)</label>
-                  <select 
-                    value={act.responsable || ''} 
-                    onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} 
-                    className="w-full border p-2 rounded-lg font-black bg-white focus:bg-white text-slate-800 cursor-pointer shadow-sm border-slate-300" 
-                    required
-                  >
-                    <option value="">-- Seleccionar --</option>
-{(CARGOS_POR_SEDE[act.sede] || CARGOS_POR_SEDE['Administrativos'] || []).map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
-                  </select>
-                </div>
+                                return (
+                                  <>
+                                    {/* CAMPO S1: SEDES MÚLTIPLES */}
+                                    <div className="md:col-span-1 bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-start">
+                                      <label className="font-bold text-slate-700 block mb-1 text-[10px]">🏢 Sedes</label>
+                                      <select 
+                                        value="" 
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if(val && !sedesActuales.includes(val)) {
+                                            const nuevasSedes = [...sedesActuales, val].join(', ');
+                                            handleUpdateActivityField(h.id, index, 'sede', nuevasSedes);
+                                          }
+                                        }} 
+                                        className="w-full border border-slate-300 p-1.5 rounded bg-white font-bold text-slate-700 cursor-pointer shadow-sm text-[10px] outline-none"
+                                      >
+                                        <option value="">-- Añadir Sede --</option>
+                                        {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesActuales.includes(s)}>{s}</option>)}
+                                      </select>
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {sedesActuales.length === 0 && <span className="text-[9px] text-slate-400 italic">Ninguna...</span>}
+                                        {sedesActuales.map(s => (
+                                          <span key={s} className="bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center shadow-sm">
+                                            {s} 
+                                            <button type="button" onClick={() => {
+                                              const filtrado = sedesActuales.filter(item => item !== s).join(', ');
+                                              handleUpdateActivityField(h.id, index, 'sede', filtrado);
+                                            }} className="ml-1 text-indigo-400 hover:text-indigo-600 font-black">✕</button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+
+                                    {/* CAMPO B: CARGOS MÚLTIPLES */}
+                                    <div className="md:col-span-1 bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-start">
+                                      <label className="font-bold text-slate-700 block mb-1 text-[10px]">👔 Cargos (Dueños)</label>
+                                      <select 
+                                        value="" 
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          if(val && !responsablesActuales.includes(val)) {
+                                            const nuevosResp = [...responsablesActuales, val].join(', ');
+                                            handleUpdateActivityField(h.id, index, 'responsable', nuevosResp);
+                                          }
+                                        }} 
+                                        className="w-full border border-slate-300 p-1.5 rounded bg-white font-bold text-slate-800 cursor-pointer shadow-sm text-[10px] outline-none" 
+                                      >
+                                        <option value="">-- Añadir Cargo --</option>
+                                        {cargosDisponibles.sort().map(cargo => <option key={cargo} value={cargo} disabled={responsablesActuales.includes(cargo)}>{cargo}</option>)}
+                                      </select>
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {responsablesActuales.length === 0 && <span className="text-[9px] text-slate-400 italic">Ningún cargo...</span>}
+                                        {responsablesActuales.map(r => (
+                                          <span key={r} className="bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center shadow-sm">
+                                            <span className="truncate max-w-[80px]" title={r}>{r}</span>
+                                            <button type="button" onClick={() => {
+                                              const filtrado = responsablesActuales.filter(item => item !== r).join(', ');
+                                              handleUpdateActivityField(h.id, index, 'responsable', filtrado);
+                                            }} className="ml-1 text-sky-400 hover:text-sky-600 font-black">✕</button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </>
+                                );
+                              })()}
+                              {/* --- FIN SECTOR MÚLTIPLE --- */}
                               
                               {/* CAMPO C: AUDITOR RESPONSABLE - COMPLETAMENTE BLOQUEADO EN MODO LECTURA */}
                               <div className="md:col-span-2">
