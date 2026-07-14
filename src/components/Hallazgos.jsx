@@ -15,6 +15,8 @@ const PROCESOS_OFICIALES = [
   "Gestión de servicio al cliente",
   "Gestión estratégica",
  "Gestión de Operaciones",
+"Gestión Administrativa y Financiera ",
+"Gestión Talento Humano ",
   "I+D+i",
   "Subproceso alojamiento",
   "Subproceso alimentos y bebidas",
@@ -31,6 +33,11 @@ const PROCESOS_OFICIALES = [
   "Subproceso gestionar los activos fijos de la empresa",
   "Subproceso mantenimiento",
   "Subproceso recreación",
+"Subproceso Seguridad y salud en trabajo",
+"Subproceso Gestion de calidad",
+"Subproceso Gestión Ambiental",
+"Subproceso Control interno y Gestion de riesgos",
+"Subproceso Proteccion de datos personales",
   "Subproceso selección, vinculación y administración de colaboradores",
   "Tecnologías de la información y la comunicación"
 ];
