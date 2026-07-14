@@ -45,6 +45,16 @@ export default function PlanAnual({
 
   const labelAnio = selectedAnios.length === 0 ? 'HISTÓRICO MULTIANUAL' : selectedAnios.join(' - ');
 
+  // 🧠 MOTOR DE AGRUPACIÓN REACTIVA POR AÑO
+  const itemsFiltradosFinal = applyFilters(cronogramaOrdenado, searchTerm, columnFilters);
+  const itemsPorAnio = itemsFiltradosFinal.reduce((acc, c) => {
+    const anioKey = c.anio || 2025; // Si el registro viejo no tiene año, preserva 2025 por defecto
+    if (!acc[anioKey]) acc[anioKey] = [];
+    acc[anioKey].push(c);
+    return acc;
+  }, {});
+  const listaAniosOrdenados = Object.keys(itemsPorAnio).sort((a, b) => b - a);
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       
@@ -153,22 +163,33 @@ export default function PlanAnual({
                          {isAdmin && <th className="p-3 text-center">Acción</th>}
                        </tr>
                      </thead>
-                     <tbody className="divide-y divide-slate-100">
-                       {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => (
-                         <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
-                           <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
-                           <td className="p-3 font-medium text-slate-600"><span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black mr-1">{c.anio || new Date().getFullYear()}</span>{c.periodo}</td>
-                           <td className="p-3 font-black text-slate-800">{c.proceso}</td>
-                           <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
-                           <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
-                           {isAdmin && (
-                             <td className="p-3 text-center whitespace-nowrap">
-                               <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 mx-1 text-sm">✏️</button>
-                               <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-slate-400 hover:text-red-700 mx-1 text-sm">🗑️</button>
+                     <tbody className="divide-y divide-slate-100 bg-white">
+                       {listaAniosOrdenados.length === 0 ? (
+                         <tr><td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400 font-bold italic">No se encontraron registros.</td></tr>
+                       ) : (
+                         listaAniosOrdenados.flatMap(anio => [
+                           <tr key={`header-crono-group-${anio}`} className="bg-slate-100 font-black text-[#004d40]">
+                             <td colSpan={isAdmin ? 6 : 5} className="p-2.5 pl-4 uppercase tracking-widest text-[9px] font-black">
+                               📅 Planificación del Periodo Anual {anio}
                              </td>
-                           )}
-                         </tr>
-                       ))}
+                           </tr>,
+                           ...itemsPorAnio[anio].map((c, index) => (
+                             <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
+                               <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
+                               <td className="p-3 font-medium text-slate-600"><span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black mr-1">{c.anio || anio}</span>{c.periodo}</td>
+                               <td className="p-3 font-black text-slate-800">{c.proceso}</td>
+                               <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
+                               <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
+                               {isAdmin && (
+                                 <td className="p-3 text-center whitespace-nowrap">
+                                   <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 mx-1 text-sm">✏️</button>
+                                   <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-slate-400 hover:text-red-700 mx-1 text-sm">🗑️</button>
+                                 </td>
+                               )}
+                             </tr>
+                           ))
+                         ])
+                       )}
                      </tbody>
                    </table>
                  </div>
@@ -185,7 +206,16 @@ export default function PlanAnual({
           </div>
           <form onSubmit={handleCronogramaSubmit} key={editCronograma ? `edit-crono-${editCronograma.id}-${formResetKey}` : `new-crono-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-5 gap-4 text-xs">
             <div><label className="font-bold text-gray-600 block mb-1">Identificación</label><input name="codigo" defaultValue={editCronograma?.codigo||''} required placeholder="Ej: 05" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
-            <div><label className="font-bold text-gray-600 block mb-1">Año</label><input type="number" name="anio" defaultValue={editCronograma?.anio||new Date().getFullYear()} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-black text-slate-800 bg-slate-50" /></div>
+            <div>
+              <label className="font-bold text-gray-600 block mb-1">Año</label>
+              <input 
+                type="number" 
+                name="anio" 
+                defaultValue={editCronograma ? (editCronograma.anio || 2025) : 2026} 
+                required 
+                className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-black text-slate-800 bg-white" 
+              />
+            </div>
             <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required placeholder="Ej: Enero - Abril" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
             <div className="md:col-span-2"><label className="font-bold text-gray-600 block mb-1">Área / Proceso</label><input name="proceso" defaultValue={editCronograma?.proceso||''} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-bold text-slate-800" /></div>
             
@@ -232,42 +262,53 @@ export default function PlanAnual({
                </tr>
              </thead>
              <tbody>
-               {applyFilters(cronogramaOrdenado, searchTerm, columnFilters).map((c, index) => (
-                 <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
-                   <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
-                   <td className="border border-slate-300 p-2 font-black text-slate-800"><span className="bg-slate-200 text-slate-700 px-1 py-0.5 rounded font-bold mr-1 text-[8px]">{c.anio || new Date().getFullYear()}</span>{c.proceso}</td>
-                   <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
-                   {allMonths.map(mes => {
-                     const isPlanned = c.meses?.includes(mes);
-                     let bgColor = 'bg-transparent';
-                     let textLabel = '';
-                     
-                     if (isPlanned) {
-                         if (c.cumplimiento === 100) {
-                             bgColor = 'bg-emerald-500';
-                             textLabel = 'Completado';
-                         } else if (c.cumplimiento > 0) {
-                             bgColor = 'bg-amber-500';
-                             textLabel = `${c.cumplimiento}%`;
-                           } else {
-                             bgColor = 'bg-[#00695c]';
-                             textLabel = 'Planeado';
-                         }
-                     }
-
-                     return (
-                       <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0`}>
-                         {isPlanned && <div className={`${bgColor} text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner notranslate`} translate="no">{textLabel}</div>}
-                       </td>
-                     );
-                   })}
-                   {isAdmin && (
-                     <td className="border border-slate-300 p-2 text-center bg-slate-50">
-                       <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 bg-white border border-orange-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-colors">✏️ Modificar</button>
+               {listaAniosOrdenados.length === 0 ? (
+                 <tr><td colSpan={isAdmin ? 16 : 15} className="p-4 text-center text-slate-400 italic font-bold">No hay registros planificados.</td></tr>
+               ) : (
+                 listaAniosOrdenados.flatMap(anio => [
+                   <tr key={`header-gantt-group-${anio}`} className="bg-slate-100 font-black text-[#004d40]">
+                     <td colSpan={isAdmin ? 16 : 15} className="border border-slate-300 p-2 font-black uppercase tracking-widest text-[8px] bg-slate-200/60">
+                       🗓️ Cronograma Mensualizado — Periodo {anio}
                      </td>
-                   )}
-                 </tr>
-               ))}
+                   </tr>,
+                   ...itemsPorAnio[anio].map((c, index) => (
+                     <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                       <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
+                       <td className="border border-slate-300 p-2 font-black text-slate-800"><span className="bg-slate-200 text-slate-700 px-1 py-0.5 rounded font-bold mr-1 text-[8px]">{c.anio || anio}</span>{c.proceso}</td>
+                       <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
+                       {allMonths.map(mes => {
+                         const isPlanned = c.meses?.includes(mes);
+                         let bgColor = 'bg-transparent';
+                         let textLabel = '';
+                         
+                         if (isPlanned) {
+                             if (c.cumplimiento === 100) {
+                                 bgColor = 'bg-emerald-500';
+                                 textLabel = 'Completado';
+                             } else if (c.cumplimiento > 0) {
+                                 bgColor = 'bg-amber-500';
+                                 textLabel = `${c.cumplimiento}%`;
+                               } else {
+                                 bgColor = 'bg-[#00695c]';
+                                 textLabel = 'Planeado';
+                             }
+                         }
+
+                         return (
+                           <td key={`gantt-cell-${c.id}-${mes}`} className={`border border-slate-300 text-center p-0`}>
+                             {isPlanned && <div className={`${bgColor} text-white w-full h-full py-2 font-bold uppercase text-[8px] tracking-widest shadow-inner notranslate`} translate="no">{textLabel}</div>}
+                           </td>
+                         );
+                       })}
+                       {isAdmin && (
+                         <td className="border border-slate-300 p-2 text-center bg-slate-50">
+                           <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 bg-white border border-orange-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-colors">✏️ Modificar</button>
+                         </td>
+                       )}
+                     </tr>
+                   ))
+                 ])
+               )}
              </tbody>
            </table>
          </div>
