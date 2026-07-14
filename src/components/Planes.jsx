@@ -188,12 +188,11 @@ export default function Planes({
     setDashFiltroPrioridad('Todos'); setDashFiltroResponsable('Todos');
   };
 
-  // 💾 PROCESADOR DE ENVÍO MATRICIAL UNIFICADO CON VALIDACIÓN Y CORREOS AUTOMÁTICOS
+// 💾 PROCESOR DE ENVÍO MATRICIAL UNIFICADO CON VALIDACIÓN Y CORREOS AUTOMÁTICOS
   const handleMasterMatrixSubmit = async (e) => {
     e.preventDefault();
     if (!formInformeId) return;
 
-    // 🛑 1. VALIDACIÓN ESTRICTA DE CORREOS (EVITA ESCRITURAS ERRÓNEAS)
     let errorCorreos = false;
     Object.keys(matrixState).forEach(hallazgoId => {
       const node = matrixState[hallazgoId];
@@ -215,7 +214,7 @@ export default function Planes({
 
     const ts = new Date().toLocaleString();
     let updatedPlanesList = [...safePlanes];
-    let notificacionesCreadas = [];
+    let notificacionesRadicadas = [];
     let notificacionesRevision100 = [];
 
     const diccionarioCorreos = {
@@ -237,11 +236,10 @@ export default function Planes({
         
         let workflowCalculado = act.estadoWorkflow || 'Borrador';
 
-        // ⏳ INTERCEPCIÓN DEL 100% PARA PASAR A REVISIÓN DEL AUDITOR
         if (progresoEntero === 100 && workflowCalculado !== 'Cerrado' && workflowCalculado !== 'En Revisión') {
           workflowCalculado = 'En Revisión';
           notificacionesRevision100.push(act);
-        } else if (progresoEntero < 100) {
+        } else if (progresoEntero < 100 && workflowCalculado === 'En Revisión') {
           workflowCalculado = 'Borrador';
         }
 
@@ -265,7 +263,7 @@ export default function Planes({
         if (isNew) {
           planData.historialCambios = [{ fecha: ts, usuario: 'Auditor', accion: 'Actividad registrada en matriz masiva' }];
           updatedPlanesList.push(planData);
-          notificacionesCreadas.push(planData);
+          notificacionesRadicadas.push(planData);
         } else {
           const idx = updatedPlanesList.findIndex(p => p.id === Number(act.id));
           if (idx !== -1) {
@@ -274,12 +272,12 @@ export default function Planes({
               notificacionesRevision100.push(planData);
             }
             updatedPlanesList[idx] = planData;
+            notificacionesRadicadas.push(planData); // ✨ Corregido: Se añade a notificaciones para que siempre avise al guardar
           }
         }
       });
     });
 
-    // Sincronizar estados de los hallazgos padres de forma automatizada
     let updatedHallazgos = [...safeHallazgos];
     let hallazgosModificados = false;
 
@@ -310,7 +308,6 @@ export default function Planes({
       }
     });
 
-    // Guardar colecciones actualizadas en Firebase Cloud
     setPlanes(updatedPlanesList);
     if (hallazgosModificados && setHallazgos) {
       setHallazgos(updatedHallazgos);
@@ -319,49 +316,114 @@ export default function Planes({
       await saveToCloud({ planes: updatedPlanesList });
     }
 
-    // 📧 NOTIFICACIÓN 1: CORREOS DE ASIGNACIÓN/CREACIÓN DE PLANES (SINTETIZADOS)
-    if (notificacionesCreadas.length > 0 && ejecutarDespachoGmailApi) {
-      for (const plan of notificacionesCreadas) {
-        // Correo al Dueño del Proceso
+    // 📧 NOTIFICACIÓN 1: RADICACIÓN EXITOSA (Para el Jefe y el Auditor)
+    if (notificacionesRadicadas.length > 0 && ejecutarDespachoGmailApi) {
+      for (const plan of notificacionesRadicadas) {
         await ejecutarDespachoGmailApi({
           ref_consecutivo: `PLAN-${plan.id}`,
-          titulo_informe: `Nuevo Plan de Accion Asignado`,
-          proceso_auditado: `Se ha registrado una tarea correctiva para su area`,
+          titulo_informe: `Plan de Accion Radicado Exitosamente`,
+          proceso_auditado: `Su plan de accion correctivo ha sido registrado exitosamente en el sistema de auditoria GCM.`,
           enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: plan.correoResponsable
         });
 
-        // Correo espejo al Auditor Asignado
         const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || "controlinterno@termales.com.co";
         await ejecutarDespachoGmailApi({
           ref_consecutivo: `PLAN-${plan.id}`,
-          titulo_informe: `Nuevo Plan de Accion Registrado`,
-          proceso_auditado: `Un lider ha mapeado compromisos en la matriz masiva`,
+          titulo_informe: `Nuevo Plan de Accion Asignado`,
+          proceso_auditado: `Un lider de area ha radicado o actualizado un plan de accion bajo su cargo.`,
           enlace_pdf: 'https://auditoria-gcm.vercel.app',
           destinatarios: correoAuditor
         });
       }
     }
 
-    // 📧 NOTIFICACIÓN 2: ALERTA DE REVISIÓN AL 100% CON REDACCIÓN EJECUTIVA SOLICITADA
+    // 📧 NOTIFICACIÓN 2: ALERTA DE TRABAJO AL 100% PARA EL AUDITOR
     if (notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
       for (const act of notificacionesRevision100) {
         const correoAuditor = diccionarioCorreos[act.auditorAsignado] || "controlinterno@termales.com.co";
         await ejecutarDespachoGmailApi({
-          ref_consecutivo: `APROBACION-100`,
+          ref_consecutivo: `REVISION-100`,
           titulo_informe: `Verificar soportes cargados al 100 por ciento para proceder con el cierre`,
-          proceso_auditado: `Plan de accion pendiente por aprobar`,
+          proceso_auditado: `Plan de accion completado por el auditado y listo para evaluar.`,
           enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: correoAuditor
         });
       }
     }
 
-    alert("🎉 ¡Matriz guardada con éxito! Se despacharon las notificaciones a los líderes de área y las alertas de aprobación al 100% a los auditores asignados.");
-    
-    // 🛡️ CONSERVACIÓN DE PANTALLA: Mantiene al usuario visualizando el formulario matricial actual
+    alert("🎉 ¡Matriz guardada con éxito! Se despacharon las notificaciones de radicación y las alertas correspondientes.");
     handleInformeChange(formInformeId);
   };
+
+  // 🛡️ NUEVA FUNCIÓN: GOBERNANZA DE EVALUACIÓN DIRECTA PARA EL AUDITOR (APROBAR / RECHAZAR)
+  const handleEvaluacionAuditor = async (plan, aprobado) => {
+    const ts = new Date().toLocaleString();
+    let updatedPlanesList = [...safePlanes];
+    const idx = updatedPlanesList.findIndex(p => p.id === plan.id);
+    if (idx === -1) return;
+
+    if (aprobado) {
+      // CASO A: APROBAR PLAN DE ACCIÓN
+      updatedPlanesList[idx] = {
+        ...updatedPlanesList[idx],
+        estadoWorkflow: 'Cerrado',
+        estado: 'Cerrado',
+        progreso: 100,
+        historialCambios: [
+          ...(updatedPlanesList[idx].historialCambios || []),
+          { fecha: ts, usuario: 'Auditor', accion: 'Plan de acción aprobado y CERRADO formalmente.' }
+        ]
+      };
+
+      setPlanes(updatedPlanesList);
+      await saveToCloud({ planes: updatedPlanesList });
+
+      if (ejecutarDespachoGmailApi) {
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: `CIERRE-PLAN-${plan.id}`,
+          titulo_informe: `Plan de Acción CERRADO Exitosamente`,
+          proceso_auditado: `Felicitaciones, el auditor aprobo las evidencias suministradas. El estado cambio a CERRADO.`,
+          enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
+          destinatarios: plan.correoResponsable
+        });
+      }
+      alert("✅ ¡Plan de acción aprobado y cerrado con éxito!");
+    } else {
+      // CASO B: RECHAZAR PLAN DE ACCIÓN
+      const explicacion = prompt("Por favor, escriba la explicación o motivo del rechazo para el jefe de área:");
+      if (explicacion === null) return;
+      if (explicacion.trim() === '') return alert("❌ Debe digitar una explicación para poder rechazar el plan.");
+
+      updatedPlanesList[idx] = {
+        ...updatedPlanesList[idx],
+        estadoWorkflow: 'Borrador',
+        estado: 'En Proceso',
+        progreso: 90, // Bajamos el avance del 100% para habilitar la re-edición del Jefe
+        historialCambios: [
+          ...(updatedPlanesList[idx].historialCambios || []),
+          { fecha: ts, usuario: 'Auditor', accion: `Plan RECHAZADO por el auditor. Motivo: ${explicacion}` }
+        ]
+      };
+
+      setPlanes(updatedPlanesList);
+      await saveToCloud({ planes: updatedPlanesList });
+
+      if (ejecutarDespachoGmailApi) {
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: `RECHAZO-PLAN-${plan.id}`,
+          titulo_informe: `Plan de Acción RECHAZADO por el Auditor`,
+          proceso_auditado: `Su plan requiere revisiones adicionales. Motivo: "${explicacion}". Debe continuar gestionando y subiendo nuevas evidencias.`,
+          enlace_pdf: 'https://auditoria-gcm.vercel.app',
+          destinatarios: plan.correoResponsable
+        });
+      }
+      alert("❌ Plan rechazado. Se envió la notificación con el motivo detallado al jefe de área.");
+    }
+
+    if (formInformeId) handleInformeChange(formInformeId);
+  };
+
   // =========================================================
   // 📂 LOGICA FORMULARIO Y API ORIGINAL (CUSTODIADA)
   // =========================================================
@@ -922,9 +984,18 @@ responsable: h.responsable ? h.responsable.split(',')[0].trim() : '',
                       <div className="text-[9px] text-slate-500 mt-1 bg-slate-50 p-2 rounded">👤 Ejecutor: {p.responsable} | 🛡️ Auditor: {p.auditorAsignado}</div>
                     </td>
                     <td className="p-3"><ProgressBar progress={p.progreso} /></td>
-                    <td className="p-3 text-center flex flex-col space-y-1">
-                      <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">Gestionar</button>
-                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">Eliminar</button>}
+                    <td className="p-3 text-center flex flex-col space-y-1 items-center justify-center">
+                      <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full">Gestionar</button>
+                      
+                      {/* 🛡️ ACCIONES DIRECTAS DE GOBERNANZA PARA PLANES AL 100% */}
+                      {p.estadoWorkflow === 'En Revisión' && (
+                        <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
+                          <button type="button" onClick={() => handleEvaluacionAuditor(p, true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✓ Aprobar</button>
+                          <button type="button" onClick={() => handleEvaluacionAuditor(p, false)} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✕ Rechazar</button>
+                        </div>
+                      )}
+
+                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px] w-full mt-1">Eliminar</button>}
                     </td>
                   </tr>
                 ))}
