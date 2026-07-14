@@ -568,23 +568,14 @@ export default function Hallazgos({
 
           <form onSubmit={(e) => { handleHallazgoSubmit(e); setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
-            {/* ================= FILA 1: DATOS MAESTROS CORTOS (1 + 1 + 1 + 1 = 4) ================= */}
+            {/* ================= FILA 1: DATOS MAESTROS REBALANCED (1 + 1 + 2 = 4) ================= */}
             <div className="md:col-span-1">
               <label className="font-bold text-gray-600 block mb-1">ID / Código (Automático)</label>
               <input name="ref" value={nextIdVal} readOnly className="w-full border border-slate-200 bg-slate-100 text-slate-500 font-black rounded-lg p-2 cursor-not-allowed outline-none focus:ring-0" />
             </div>
 
             <div className="md:col-span-1">
-              <label className="font-bold text-gray-600 block mb-1">Sede Principal</label>
-              <select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none">
-                <option>Hotel</option>
-                <option>Ecoparque</option>
-                <option>Administrativo</option>
-              </select>
-            </div>
-
-            <div className="md:col-span-1">
-              <label className="font-bold text-gray-600 block mb-1">Clase de Observation</label>
+              <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
               <select name="claseObservacion" defaultValue={editHallazgo?.claseObservacion||'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700">
                 <option value="Hallazgo">Hallazgo</option>
                 <option value="No Conformidad">No Conformidad</option>
@@ -593,14 +584,13 @@ export default function Hallazgos({
               </select>
             </div>
 
-            <div className="md:col-span-1">
+            <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label>
-              <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium">
+              <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
                 <option value="">-- Seleccione un Auditor --</option>
                 {AUDITORES_OFICIALES.map(aud => <option key={aud} value={aud}>{aud}</option>)}
               </select>
             </div>
-
             {/* ================= FILA 2: ORIGEN Y CONTEXTO (2 + 2 = 4) ================= */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
