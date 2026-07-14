@@ -101,6 +101,7 @@ export default function Planes({
   // 🧭 PESTAÑAS DE CONTROL SUPERIOR
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
+  const [informePlanesExpandido, setInformePlanesExpandido] = useState(null);
 
   // 🎛️ ESTADOS FILTROS AVANZADOS DASHBOARD
   const [agruparPor, setAgruparPor] = useState('Año');
@@ -950,68 +951,164 @@ responsable: h.responsable ? h.responsable.split(',')[0].trim() : '',
         </div>
       )}
 
-      {/* 🚀 VISTA 3: TABLA DE HISTORIAL ORIGINAL COMPLETA (PRESERVADA) */}
-      {vistaActiva === 'historial' && (
-        <div className="space-y-6 animate-in slide-in-from-left-8 duration-500">
-          <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-            <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
-               <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Seguimiento de Actividades / Planes</h3>
-               <div className="flex flex-wrap gap-2 justify-end">
-                  <select value={columnFilters['auditorAsignado'] || ''} onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-blue-50 font-black text-blue-800 shadow-sm">
-                    <option value="">🛡️ Todos los Auditores</option>
-                    <option value="Rodolfo González">Rodolfo González</option><option value="Yehison Pineda">Yehison Pineda</option><option value="Angelica Hernandez">Angelica Hernandez</option><option value="Luz Angela Chico">Luz Angela Chico</option>
-                  </select>
-                  <select value={columnFilters['estadoWorkflow'] || ''} onChange={(e) => handleColFilterChange('estadoWorkflow', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-amber-50 font-black text-amber-800 shadow-sm">
-                    <option value="">📋 Todas las Fases</option><option value="Borrador">✏️ Borrador</option><option value="En Revisión">⏳ En Revisión</option><option value="Cerrado">✅ Cerradas</option>
-                  </select>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400 text-[10px]">🔍</span>
-                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-slate-800 w-32 shadow-sm" />
-                  </div>
-               </div>
+      {/* 🚀 VISTA 3: HISTORIAL MATRIZ AGRUPADO POR INFORME EMITIDO (ACORDEÓN ANIDADO) */}
+      {vistaActiva === 'historial' && (() => {
+        const planesFiltradosFinal = applyFilters(planesEnriquecidos, searchTerm, columnFilters);
+        
+        // Agrupar dinámicamente las actividades filtradas bajo su respectivo informe de origen
+        const planesPorInforme = planesFiltradosFinal.reduce((acc, p) => {
+          const key = p.idInforme || 'sin-informe';
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(p);
+          return acc;
+        }, {});
+
+        const listaInformesIds = Object.keys(planesPorInforme);
+
+        return (
+          <div className="space-y-4 animate-in slide-in-from-left-8 duration-500">
+            {/* 🎛️ BARRA DE FILTROS Y BÚSQUEDA SUPERIOR CORRESPONDIENTE */}
+            <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+              <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
+                 <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest ml-2">Seguimiento de Actividades por Informe Emitido</h3>
+                 <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
+                    <select value={columnFilters['auditorAsignado'] || ''} onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-blue-50 font-black text-blue-800 shadow-sm cursor-pointer">
+                      <option value="">🛡️ Todos los Auditores</option>
+                      <option value="Rodolfo González">Rodolfo González</option>
+                      <option value="Yehison Pineda">Yehison Pineda</option>
+                      <option value="Angelica Hernandez">Angelica Hernandez</option>
+                      <option value="Luz Angela Chico">Luz Angela Chico</option>
+                    </select>
+                    <select value={columnFilters['estadoWorkflow'] || ''} onChange={(e) => handleColFilterChange('estadoWorkflow', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-amber-50 font-black text-amber-800 shadow-sm cursor-pointer">
+                      <option value="">📋 Todas las Fases</option>
+                      <option value="Borrador">✏️ Borrador</option>
+                      <option value="En Revisión">⏳ En Revisión</option>
+                      <option value="Cerrado">✅ Cerradas</option>
+                    </select>
+                    <div className="relative w-full sm:w-auto">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-slate-400 text-[10px]">🔍</span>
+                      <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-6 pr-2 py-1.5 border border-slate-300 rounded-lg text-[10px] font-bold focus:outline-none focus:ring-2 focus:ring-slate-800 w-full sm:w-44 shadow-sm" />
+                    </div>
+                 </div>
+              </div>
             </div>
-            <table className="w-full text-xs text-left divide-y">
-              <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
-                <tr>
-                  <th className="p-3">ID Plan</th>
-                  <th className="p-3">Gobernanza (Fase)</th>
-                  <th className="p-3">Hallazgo / Proceso</th>
-                  <th className="p-3">Acción Remedial Programada</th>
-                  <th className="p-3 w-40">% Avance</th>
-                  <th className="p-3 text-center">Gestión</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-slate-700">
-                {planesEnriquecidos.map((p, index) => (
-                  <tr key={index} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().substring(0,3)}</td>
-                    <td className="p-3"><span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border bg-slate-100 text-slate-700">{p.estadoWorkflow}</span></td>
-                    <td className="p-3 text-red-600 font-bold">{p.proceso}<span className="block text-[9px] text-slate-400 font-black">{p.sede}</span></td>
-                    <td className="p-3 font-medium text-slate-800">
-                      <div className="font-black text-slate-900">{p.accion}</div>
-                      <div className="text-[9px] text-slate-500 mt-1 bg-slate-50 p-2 rounded">👤 Ejecutor: {p.responsable} | 🛡️ Auditor: {p.auditorAsignado}</div>
-                    </td>
-                    <td className="p-3"><ProgressBar progress={p.progreso} /></td>
-                    <td className="p-3 text-center flex flex-col space-y-1 items-center justify-center">
-                      <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full">Gestionar</button>
+
+            {/* 📂 LISTADO DE INFORMES CON ACTIVIDADES ASOCIADAS */}
+            {listaInformesIds.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">
+                No se encontraron informes con planes de acción para los criterios seleccionados.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {listaInformesIds.map(idInf => {
+                  const planesDelInforme = planesPorInforme[idInf];
+                  const informeBase = informesAuditoria.find(inf => String(inf.id) === String(idInf));
+                  
+                  // Mapear trazabilidad del informe padre
+                  const refInforme = informeBase ? informeBase.ref : "INF-S/N";
+                  const tituloInforme = informeBase ? informeBase.titulo : "Informe general o registros huérfanos";
+                  const procesoInforme = informeBase ? informeBase.proceso : "Varios Procesos";
+                  const fechaInforme = informeBase ? informeBase.fecha : "Sin Fecha";
+
+                  const nCerrados = planesDelInforme.filter(p => p.progreso === 100).length;
+                  const nVencidos = planesDelInforme.filter(p => p.esVencido).length;
+                  const nProceso = planesDelInforme.length - nCerrados - nVencidos;
+                  const isExpanded = informePlanesExpandido === idInf;
+
+                  return (
+                    <div key={`inf-plan-card-${idInf}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
                       
-                      {/* 🛡️ ACCIONES DIRECTAS DE GOBERNANZA PARA PLANES AL 100% */}
-                      {p.estadoWorkflow === 'En Revisión' && (
-                        <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                          <button type="button" onClick={() => handleEvaluacionAuditor(p, true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✓ Aprobar</button>
-                          <button type="button" onClick={() => handleEvaluacionAuditor(p, false)} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✕ Rechazar</button>
+                      {/* Fila Resumen del Informe (Línea de Trazabilidad Principal) */}
+                      <div 
+                        onClick={() => setInformePlanesExpandido(isExpanded ? null : idInf)}
+                        className={`p-4 flex flex-col md:flex-row items-start md:items-center justify-between cursor-pointer transition-colors gap-3 ${isExpanded ? 'bg-slate-50/80 border-b border-slate-100' : 'hover:bg-slate-50'}`}
+                      >
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <span className="text-xl shrink-0">📂</span>
+                          <div className="truncate w-full">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2 py-0.5 bg-[#0A3B32] text-white font-mono font-black rounded text-[9px] tracking-wider uppercase">{refInforme}</span>
+                              <span className="text-[10px] text-slate-400 font-bold">📅 {fechaInforme}</span>
+                              <span className="text-[10px] bg-slate-100 text-slate-600 font-black px-2 py-0.5 rounded uppercase max-w-[200px] truncate" title={procesoInforme}>🏛️ {procesoInforme}</span>
+                            </div>
+                            <h4 className="text-xs font-black text-slate-800 mt-1 truncate" title={tituloInforme}>{tituloInforme}</h4>
+                          </div>
+                        </div>
+
+                        {/* Indicadores de Trazabilidad del Plan de Acción */}
+                        <div className="flex items-center space-x-4 shrink-0 self-end md:self-center">
+                          <div className="flex items-center space-x-2 text-[10px] font-bold bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm">
+                            <span className="text-slate-500">Actividades: <span className="font-black text-slate-800">{planesDelInforme.length}</span></span>
+                            <span className="text-emerald-600 border-l pl-2 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1"></span> {nCerrados} Cerradas</span>
+                            <span className="text-amber-500 border-l pl-2 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1"></span> {nProceso} En Proceso</span>
+                            <span className="text-red-600 border-l pl-2 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1"></span> {nVencidos} Vencidas</span>
+                          </div>
+                          <span className="text-slate-400 font-black text-xs w-4 text-center">{isExpanded ? '▲' : '▼'}</span>
+                        </div>
+                      </div>
+
+                      {/* Sub-tabla Desplegable de Actividades Amarradas */}
+                      {isExpanded && (
+                        <div className="p-3 bg-white border-t border-slate-50 overflow-x-auto">
+                          <table className="w-full text-xs text-left divide-y border border-slate-100 rounded-xl overflow-hidden shadow-inner">
+                            <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider">
+                              <tr>
+                                <th className="p-3 w-28">ID Plan</th>
+                                <th className="p-3 w-32">Gobernanza (Fase)</th>
+                                <th className="p-3 w-40">Hallazgo / Proceso</th>
+                                <th className="p-3">Acción Remedial Programada</th>
+                                <th className="p-3 w-44">% Avance</th>
+                                <th className="p-3 text-center w-32">Gestión</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y text-slate-700 bg-white">
+                              {planesDelInforme.map((p, pIdx) => (
+                                <tr key={`h-child-plan-${p.id}-${pIdx}`} className="hover:bg-slate-50/60 transition-colors">
+                                  <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().substring(0,3)}</td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border bg-slate-100 text-slate-700">{p.estadoWorkflow}</span>
+                                  </td>
+                                  <td className="p-3 text-red-600 font-bold">
+                                    {p.proceso}
+                                    <span className="block text-[9px] text-slate-400 font-black">{p.sede}</span>
+                                  </td>
+                                  <td className="p-3 font-medium text-slate-800">
+                                    <div className="font-black text-slate-900">{p.accion}</div>
+                                    <div className="text-[9px] text-slate-500 mt-1 bg-slate-50 p-2 rounded">
+                                      👤 Ejecutor: {p.responsable} | 🛡️ Auditor: {p.auditorAsignado}
+                                    </div>
+                                  </td>
+                                  <td className="p-3">
+                                    <ProgressBar progress={p.progreso} />
+                                  </td>
+                                  <td className="p-3 text-center flex flex-col space-y-1 items-center justify-center">
+                                    <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full">Gestionar</button>
+                                    
+                                    {p.estadoWorkflow === 'En Revisión' && (
+                                      <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
+                                        <button type="button" onClick={() => handleEvaluacionAuditor(p, true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✓ Aprobar</button>
+                                        <button type="button" onClick={() => handleEvaluacionAuditor(p, false)} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✕ Rechazar</button>
+                                      </div>
+                                    )}
+
+                                    {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px] w-full mt-1">Eliminar</button>}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       )}
 
-                      {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px] w-full mt-1">Eliminar</button>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
           </div>
-        </div>
-      )}
+        );
+      })()}
 
     </div>
   );
