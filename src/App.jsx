@@ -1205,6 +1205,7 @@ const handleComiteSubmit = async (e) => {
     if (editCronograma) {
       const modificado = {
         ...editCronograma,
+        anio: parseInt(formData.get('anio')),
         codigo: formData.get('codigo'),
         proceso: formData.get('proceso'),
         responsable: formData.get('responsable'),
@@ -1220,6 +1221,7 @@ const handleComiteSubmit = async (e) => {
     } else {
       const nuevo = {
         id: Date.now(),
+        anio: parseInt(formData.get('anio')),
         codigo: formData.get('codigo'),
         proceso: formData.get('proceso'),
         responsable: formData.get('responsable'),
