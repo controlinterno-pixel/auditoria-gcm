@@ -26,16 +26,14 @@ export default function PlanAnual({
   const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const currentYear = new Date().getFullYear();
 
-  // 🧠 1. EXTRACTOR INTELIGENTE DE AÑO (Previene que registros antiguos salten a 2026 al editarlos)
+// 🧠 1. MIGRACIÓN DIRECTA AL 2026 (Toda la data actual se centraliza en 2026)
   const getAnio = (c) => {
+    // Si el registro ya tiene un año oficial guardado (ej. cuando crees los nuevos de 2027 o 2028), lo respeta al 100%.
     if (c.anio) return String(c.anio);
-    if (c.periodo) {
-      const match = String(c.periodo).match(/202\d/); // Intenta sacar el año del texto del periodo
-      if (match) return match[0];
-    }
-    return String(currentYear);
-  };
-
+    
+    // Si es tu información actual/antigua que carecía del campo año, la aloja y agrupa obligatoriamente en 2026.
+    return "2026";
+  };  
   // 🧠 2. FILTRO ESTRICTO POR BOTONES SUPERIORES (Años Seleccionados)
   const recordsPorAnio = (cFiltrados || []).filter(c => {
     if (selectedAnios && selectedAnios.length > 0) {
