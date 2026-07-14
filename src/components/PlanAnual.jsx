@@ -52,17 +52,18 @@ export default function PlanAnual({
   // 🧠 4. APLICAR BÚSQUEDA Y FILTROS DE COLUMNA
   const itemsFiltradosFinal = applyFilters(recordsPorAnio, searchTerm, columnFilters);
 
-  // 🧠 5. ORDEN CRONOLÓGICO Y ALFABÉTICO
+// 🧠 5. ORDEN CRONOLÓGICO Y ALFABÉTICO (AHORA PRIORIZA EL CONSECUTIVO NUMÉRICO)
   const cronogramaOrdenado = [...itemsFiltradosFinal].sort((a, b) => {
-    const getMinIdx = (arr) => {
-      if (!arr || !Array.isArray(arr) || arr.length === 0) return 99;
-      const indices = arr.map(m => allMonths.indexOf(m)).filter(i => i >= 0);
-      return indices.length ? Math.min(...indices) : 99;
-    };
-    const minA = getMinIdx(a.meses);
-    const minB = getMinIdx(b.meses);
-    if (minA !== minB) return minA - minB;
-    return (a.codigo || '').localeCompare(b.codigo || '');
+    // Intenta convertir los códigos a números para un ordenamiento perfecto (ej. 1, 2, 10 en lugar de 1, 10, 2)
+    const numA = parseInt(a.codigo || '0', 10);
+    const numB = parseInt(b.codigo || '0', 10);
+    
+    if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
+      return numA - numB;
+    }
+    
+    // Si no son números o son iguales, ordena alfabéticamente
+    return String(a.codigo || '').localeCompare(String(b.codigo || ''));
   });
 
   // 🧠 6. CÁLCULO DE KPIs DINÁMICOS BASADOS ÚNICAMENTE EN LO VISIBLE
@@ -76,9 +77,18 @@ export default function PlanAnual({
     const anioKey = getAnio(c);
     if (!acc[anioKey]) acc[anioKey] = [];
     acc[anioKey].push(c);
+// 🧠 8. CÁLCULO DEL PRÓXIMO CONSECUTIVO AUTOMÁTICO
+  const añoParaNuevoRegistro = selectedAnios && selectedAnios.length > 0 ? selectedAnios[0] : currentYear;
+  const consecutivosDelAño = (cFiltrados || [])
+    .filter(c => getAnio(c) === String(añoParaNuevoRegistro))
+    .map(c => parseInt(c.codigo, 10))
+    .filter(n => !isNaN(n));
+  const maxConsecutivo = consecutivosDelAño.length > 0 ? Math.max(...consecutivosDelAño) : 0;
+  const nextConsecutivo = String(maxConsecutivo + 1).padStart(3, '0'); // Ejemplo: 001, 002...
     return acc;
   }, {});
   
+
   const listaAniosOrdenados = Object.keys(itemsPorAnioGroup).sort((a, b) => b - a);
   const labelAnio = (!selectedAnios || selectedAnios.length === 0) ? 'HISTÓRICO MULTIANUAL' : selectedAnios.join(' - ');
 
@@ -116,7 +126,7 @@ export default function PlanAnual({
               <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                  <div className="bg-[#004d40] text-white p-3 flex justify-between items-center">
                    <span className="text-[10px] font-black uppercase tracking-widest flex items-center space-x-2"><span>📈</span> <span>Gestor de KRIs</span></span>
-                   {isAdmin && <button onClick={() => {setEditMonitoreo({}); scrollToForm();}} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
+                   {isAdmin && <button onClick={() => setEditMonitoreo({})} className="text-xs bg-white text-[#004d40] px-2 py-0.5 rounded font-bold hover:bg-slate-200 transition-colors">➕</button>}
                  </div>
                  <div className="divide-y divide-slate-100 p-2">
                    
@@ -244,7 +254,7 @@ export default function PlanAnual({
             {editCronograma && <button onClick={() => setEditCronograma(null)} className="text-xs text-red-500 font-bold hover:text-red-700">✖ Cancelar</button>}
           </div>
           <form onSubmit={handleCronogramaSubmit} key={editCronograma ? `edit-crono-${editCronograma.id}-${formResetKey}` : `new-crono-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-5 gap-4 text-xs">
-            <div><label className="font-bold text-gray-600 block mb-1">Identificación</label><input name="codigo" defaultValue={editCronograma?.codigo||''} required placeholder="Ej: 05" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
+            <div><label className="font-bold text-gray-600 block mb-1">Identificación</label><input name="codigo" defaultValue={editCronograma?.codigo || nextConsecutivo} required className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-mono font-bold bg-slate-50" /></div>
             <div>
               <label className="font-bold text-gray-600 block mb-1">Año</label>
               <input 
