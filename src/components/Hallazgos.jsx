@@ -67,9 +67,6 @@ export default function Hallazgos({
   const [sedesMultiples, setSedesMultiples] = React.useState(['Administrativos']);
   const [sedeTemp, setSedeTemp] = React.useState('');
   
-  const [responsablesMultiples, setResponsablesMultiples] = React.useState([]);
-  const [responsableTemp, setResponsableTemp] = React.useState('');
-
   // 🧠 TRADUCTOR AUTOMÁTICO PARA EL BOTÓN "EDITAR"
   React.useEffect(() => {
     if (editHallazgo) {
