@@ -556,7 +556,7 @@ export default function Hallazgos({
         </div>
       )}
 
-      {/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO (Con Severidad Agregada) */}
+{/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO (Con Severidad Agregada) */}
       {vistaActiva === 'nuevo' && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           <div className="flex justify-between items-center border-b pb-4">
@@ -569,13 +569,11 @@ export default function Hallazgos({
           <form onSubmit={(e) => { handleHallazgoSubmit(e); setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
             {/* ================= FILA 1: DATOS MAESTROS CORTOS (1 + 1 + 1 + 1 = 4) ================= */}
-            {/* 🔒 ID AUTOMÁTICO */}
             <div className="md:col-span-1">
               <label className="font-bold text-gray-600 block mb-1">ID / Código (Automático)</label>
               <input name="ref" value={nextIdVal} readOnly className="w-full border border-slate-200 bg-slate-100 text-slate-500 font-black rounded-lg p-2 cursor-not-allowed outline-none focus:ring-0" />
             </div>
 
-            {/* 🏢 SEDE PRINCIPAL */}
             <div className="md:col-span-1">
               <label className="font-bold text-gray-600 block mb-1">Sede Principal</label>
               <select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none">
@@ -585,9 +583,8 @@ export default function Hallazgos({
               </select>
             </div>
 
-            {/* ⚖️ CLASE DE OBSERVACIÓN */}
             <div className="md:col-span-1">
-              <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
+              <label className="font-bold text-gray-600 block mb-1">Clase de Observation</label>
               <select name="claseObservacion" defaultValue={editHallazgo?.claseObservacion||'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700">
                 <option value="Hallazgo">Hallazgo</option>
                 <option value="No Conformidad">No Conformidad</option>
@@ -596,7 +593,6 @@ export default function Hallazgos({
               </select>
             </div>
 
-            {/* 👥 AUDITOR RESPONSABLE */}
             <div className="md:col-span-1">
               <label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label>
               <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium">
@@ -606,7 +602,6 @@ export default function Hallazgos({
             </div>
 
             {/* ================= FILA 2: ORIGEN Y CONTEXTO (2 + 2 = 4) ================= */}
-            {/* 📁 INFORME ORIGEN */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
               <select name="idInforme" defaultValue={editHallazgo?.idInforme||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
@@ -617,7 +612,6 @@ export default function Hallazgos({
               </select>
             </div>
             
-            {/* 🔍 PROCESO AUDITADO */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
               <input name="proceso" list="lista-procesos" defaultValue={editHallazgo?.proceso||''} required placeholder="Escribe o selecciona..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500 outline-none font-medium" />
@@ -627,7 +621,6 @@ export default function Hallazgos({
             </div>
 
             {/* ================= FILA 3: ASIGNACIÓN COMPUESTA (2 + 2 = 4) ================= */}
-            {/* 🏢 SELECTOR MÚLTIPLE: SEDES */}
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
               <div className="flex gap-2 mb-2">
@@ -638,7 +631,6 @@ export default function Hallazgos({
                 <button type="button" onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setSedesMultiples([...sedesMultiples, sedeTemp]); setSedeTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
               </div>
               
-              {/* 🏷️ CHIPS DE SEDES */}
               <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
                 {sedesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ninguna sede añadida...</span>}
                 {sedesMultiples.map(s => (
@@ -651,7 +643,6 @@ export default function Hallazgos({
               <input type="hidden" name="sede" value={sedesMultiples.join(', ')} />
             </div>
 
-            {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO */}
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Responsables del Proceso (Cargos)</label>
               <div className="flex gap-2 mb-2">
@@ -664,7 +655,6 @@ export default function Hallazgos({
                 <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setResponsablesMultiples([...responsablesMultiples, responsableTemp]); setResponsableTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
               </div>
               
-              {/* 🏷️ CHIPS DE RESPONSABLES */}
               <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
                 {responsablesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún responsable añadido...</span>}
                 {responsablesMultiples.map(r => (
@@ -677,8 +667,7 @@ export default function Hallazgos({
               <input type="hidden" name="responsable" value={responsablesMultiples.join(', ')} />
             </div>
 
-            {/* ================= BLOQUES ANCHOS COMPLETOS (col-span-4) ================= */}
-            {/* ⚠️ SEVERIDAD */}
+            {/* ================= BLOQUES ANCHOS COMPLETOS ================= */}
             <div className="md:col-span-4 bg-red-50/50 p-4 rounded-xl border border-red-100 flex items-center justify-between">
               <div>
                 <label className="font-black text-red-800 block mb-1 uppercase tracking-widest text-[10px]">⚠️ Nivel de Severidad</label>
@@ -692,13 +681,11 @@ export default function Hallazgos({
               </select>
             </div>
 
-            {/* 📝 TÍTULO / DESCRIPCIÓN */}
             <div className="md:col-span-4">
               <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
               <textarea name="titulo" defaultValue={editHallazgo?.titulo||''} required rows="5" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner" />
             </div>            
             
-            {/* ☁️ BÓVEDA SERVIDOR TERMALES */}
             <div className="md:col-span-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner mt-2">
               <div className="border-b pb-2 border-slate-200 flex justify-between items-center mb-4">
                 <div>
@@ -736,14 +723,14 @@ export default function Hallazgos({
               </div>
             </div>
             
-            {/* 🔘 BOTÓN */}
             <div className="md:col-span-4 flex justify-end items-end pt-4">
               <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto hover:scale-105">
                 {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
               </button>
             </div>
           </form>
-            
+        </div>
+      )}
             
       {/* 🚀 VISTA 3: TABLA DE HISTORIAL EXACTA INTACTA */}
       {vistaActiva === 'historial' && (
@@ -759,7 +746,7 @@ export default function Hallazgos({
                   </select>
 
                   <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
-                    <option value="">📆 Todos los Meses</option>
+                    <option value="">&📆 Todos los Meses</option>
                     <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
                     <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
                     <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
@@ -772,7 +759,7 @@ export default function Hallazgos({
                  </div>
                </div>
             </div>
-             <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
               <table className="w-full text-xs text-left divide-y divide-slate-100">
                 <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
                   <tr>
