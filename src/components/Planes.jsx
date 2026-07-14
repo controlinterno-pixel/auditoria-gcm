@@ -813,7 +813,7 @@ export default function Planes({
                     required
                   >
                     <option value="">-- Seleccionar --</option>
-                    {CARGOS_POR_SEDE[act.sede || 'Administrativos'].map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
+{(CARGOS_POR_SEDE[act.sede] || CARGOS_POR_SEDE['Administrativos'] || []).map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
                   </select>
                 </div>
                               
