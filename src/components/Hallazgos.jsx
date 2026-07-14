@@ -621,14 +621,14 @@ export default function Hallazgos({
               </select>
             </div>
             
+            {/* 🔍 PROCESO AUDITADO */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
-              <input name="proceso" list="lista-procesos" defaultValue={editHallazgo?.proceso||''} required placeholder="Escribe o selecciona..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500 outline-none font-medium" />
+              <input name="proceso" list="lista-procesos" defaultValue={editHallazgo?.proceso||''} required autoComplete="off" placeholder="Escribe o selecciona..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500 outline-none font-medium" />
               <datalist id="lista-procesos">
                 {PROCESOS_OFICIALES.map(proc => <option key={proc} value={proc} />)}
               </datalist>
             </div>
-
             {/* ================= FILA 3: ASIGNACIÓN COMPUESTA (2 + 2 = 4) ================= */}
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
