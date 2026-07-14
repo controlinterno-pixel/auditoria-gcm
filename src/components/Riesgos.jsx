@@ -8,28 +8,62 @@ const PROCESOS_OFICIALES = [
   "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación", "Proceso General"
 ];
 
-const CARGOS_OFICIALES = [
-  "Gerencia General",
-  "Control Interno",
-  "Dirección Administrativa y Financiera",
-  "Dirección Comercial",
-  "Dirección de Mercadeo",
-  "Dirección de Talento Humano",
-  "Jefe de Alimentos y Bebidas (AYB)",
-  "Jefe de Alojamiento y Recreación",
-  "Jefe de Compras y Suministros",
-  "Jefe de Contabilidad",
-  "Jefe de Control Inventarios",
-  "Jefe de Crédito y Cartera",
-  "Jefe de Mantenimiento de Infraestructura",
-  "Jefe de Tesorería",
-  "Líder de Cumplimiento Normativo",
-  "Líder de Formación y Desarrollo",
-  "Líder de Gestión Ambiental",
-  "Líder de Gestión Clientes",
-  "Líder de Seguridad y Salud en el Trabajo (SST)",
-  "Líder de Tecnologías de la Información (TI)"
-];
+// 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
+const CARGOS_POR_SEDE = {
+  "Hotel": [
+    "Líderes Hotel",
+    "Subdirector de Operaciones Hotel",
+    "Líder de Proceso de alimentos y bebidas",
+    "Chef Hotel",
+    "Supervisor (a) mesa y servicio",
+    "Coordinación de recepción",
+    "Supervisor (a) de operaciones",
+    "Coordinación SPA",
+    "Coordinador de Mantenimiento"
+  ],
+  "Ecoparque": [
+    "Líderes Ecoparque",
+    "Subdirección de Operaciones Balneario",
+    "Líder táctico de alimentos y bebidas",
+    "Jefe de Cocina",
+    "Supervisor (a) mesa y servicio",
+    "Coordinador Operaciones",
+    "Supervisor Operaciones",
+    "Coordinación SPA",
+    "Terapeuta SPA",
+    "Coordinador de mantenimiento",
+    "Supervisor Ruta Ecológica"
+  ],
+  "Administrativos": [
+    "Administrativos",
+    "Gerente Administrativa y Judicial",
+    "Auditoría Interna",
+    "Líder Táctico de mejora Continua",
+    "Coordinador de Servicio al Cliente",
+    "Dirección Administrativa y Financiera",
+    "Líder de de Compras y Almacen",
+    "Líder de Costos y Presupuestos",
+    "Líder de Tesorería y Cartera",
+    "Contadora de Socios",
+    "Coordinación Administrativa Family Office",
+    "Jefe de control interno",
+    "Líder de Contabilidad",
+    "Contador",
+    "Líder Administrativa",
+    "Dirección de Mercadeo y Comunicaciones",
+    "Coordinación de Mercadeo y Comunicaciones",
+    "Dirección Comercial",
+    "Coordinación Comercial y Contact Center",
+    "Dirección Talento Humano",
+    "Coordinación Seguridad Y Salud en el trabajo",
+    "Líder de Gestión Ambiental",
+    "Lider Tactico de Infraestructura Tecnológica",
+    "Director de TICS",
+    "Desarrollador Junior",
+    "Líder Táctico desarrollo de Software",
+    "Coordinador de Marketing digital"
+  ]
+};
 
 const CLASIFICACIONES_MANUAL = [
   "Ejecución y administracion del proceso", "Fraude interno", "Usuarios, productos y practicas", 
@@ -121,8 +155,9 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   const [categoria, setCategoria] = useState('');
   const [clasificacionRiesgo, setClasificacionRiesgo] = useState(CLASIFICACIONES_MANUAL[0]);
   const [normativa, setNormativa] = useState('');
-  const [responsable, setResponsable] = useState('');
-  
+const [sedeForm, setSedeForm] = useState('Administrativos');
+  const [responsablesMultiples, setResponsablesMultiples] = useState([]);
+  const [responsableTemp, setResponsableTemp] = useState('');  
   const [afectacion, setAfectacion] = useState('Económico');
   const [causaInmediata, setCausaInmediata] = useState('');
   const [causaRaiz, setCausaRaiz] = useState('');
@@ -224,12 +259,12 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
       const nuevoRiesgo = {
         ...(editRiesgo || {}), // 🛡️ EL BLINDAJE: Esto obliga al sistema a "recordar" y heredar los datos financieros del Apetito antes de sobreescribir.
         id: editRiesgo ? editRiesgo.id : crypto.randomUUID(),
-        sede: 'Hotel',
+        sede: sedeForm,
         proceso,
         categoria,
         clasificacionRiesgo,
         normativa,
-        responsable,
+        responsable: responsablesMultiples.length > 0 ? responsablesMultiples.join(', ') : 'Sin Asignar',
         descripcion: causaInmediata && causaRaiz ? descripcionAutomatica : causaInmediata,
         probabilidadInherente: probInherente,
         impactoInherente: impInherente,
@@ -581,15 +616,39 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 <LabelConPalomita idCampo="normativa" />
                 <input type="text" value={normativa} onChange={(e) => setNormativa(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej. ISO 31000..." />
               </div>
-              <div>
-                <LabelConPalomita idCampo="responsable" />
-                <select value={responsable} onChange={(e) => setResponsable(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required>
-                  <option value="">Seleccione Cargo Oficial...</option>
-                  {CARGOS_OFICIALES.map(cargo => (
-                    <option key={cargo} value={cargo}>{cargo}</option>
-                  ))}
+              
+              {/* 🏢 SELECTOR EN CASCADA: SEDE */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Sede Afectada</label>
+                <select value={sedeForm} onChange={(e) => { setSedeForm(e.target.value); setResponsableTemp(''); }} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 bg-white">
+                  {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-              </div>    
+              </div>
+
+              {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
+                <LabelConPalomita idCampo="responsable" />
+                <div className="flex gap-2 mb-2">
+                  <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white">
+                    <option value="">-- Escoger de {sedeForm} --</option>
+                    {CARGOS_POR_SEDE[sedeForm].map(cargo => (
+                      <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setResponsablesMultiples([...responsablesMultiples, responsableTemp]); setResponsableTemp(''); }} className="bg-[#0A3B32] text-white px-4 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm">➕ Añadir</button>
+                </div>
+                
+                {/* 🏷️ CHIPS DE SELECCIÓN MÚLTIPLE */}
+                <div className="flex flex-wrap gap-2 mt-2 min-h-[32px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
+                  {responsablesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún responsable añadido aún...</span>}
+                  {responsablesMultiples.map(r => (
+                    <span key={r} className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
+                      {r} 
+                      <button type="button" onClick={() => setResponsablesMultiples(responsablesMultiples.filter(item => item !== r))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                    </span>
+                  ))}
+                </div>
+              </div>  
             </div>
           </div>
 
