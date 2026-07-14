@@ -60,9 +60,10 @@ export default function Hallazgos({
   FilterInput
 }) {
 
-  // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
+// 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
+  const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
 // 🏢 NUEVOS ESTADOS PARA SEDES Y CARGOS MÚLTIPLES
   const [sedesMultiples, setSedesMultiples] = React.useState(['Administrativos']);
   const [sedeTemp, setSedeTemp] = React.useState('');
@@ -722,21 +723,34 @@ export default function Hallazgos({
         </div>
       )}
             
-      {/* 🚀 VISTA 3: TABLA DE HISTORIAL EXACTA INTACTA */}
-      {vistaActiva === 'historial' && (
-        <div className="space-y-6 animate-in slide-in-from-left-8 duration-500">
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-4">
-               <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">DESVIACIONES</h3>
+     {/* 🚀 VISTA 3: HISTORIAL AGRUPADO POR INFORME EMITIDO (ACORDEÓN ANIDADO) */}
+      {vistaActiva === 'historial' && (() => {
+        const hallazgosFiltradosFinal = applyFilters(hallazgosFiltradosPorFecha, searchTerm, columnFilters);
+        
+        // Agrupar dinámicamente los hallazgos filtrados bajo su respectivo informe de origen
+        const hallazgosPorInforme = hallazgosFiltradosFinal.reduce((acc, h) => {
+          const key = h.idInforme || 'sin-informe';
+          if (!acc[key]) acc[key] = [];
+          acc[key].push(h);
+          return acc;
+        }, {});
+
+        const listaInformesIds = Object.keys(hallazgosPorInforme);
+
+        return (
+          <div className="space-y-4 animate-in slide-in-from-left-8 duration-500">
+            {/* 🎛️ BARRA DE FILTROS TEMPORALES Y BÚSQUEDA SUPERIOR */}
+            <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-4">
+               <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest ml-2">Historial por Informe Emitido</h3>
                
-               <div className="flex flex-wrap items-center gap-3">
+               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
                   <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
                     <option value="">📅 Todos los Años</option>
                     {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
                   </select>
 
                   <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
-                    <option value="">&📆 Todos los Meses</option>
+                    <option value="">📆 Todos los Meses</option>
                     <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
                     <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
                     <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
@@ -745,94 +759,145 @@ export default function Hallazgos({
 
                  <div className="relative w-full sm:w-auto">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-                    <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-64 shadow-sm" />
+                    <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-64 shadow-sm font-bold" />
                  </div>
                </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left divide-y divide-slate-100">
-                <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
-                  <tr>
-                    <th className="p-4">
-                      <div>ID / REF</div>
-                      <FilterInput colKey="ref" placeholder="Identificación..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                    </th>
-                    <th className="p-4">
-                      <div>PROCESO</div>
-                      <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                    </th>
-                    <th className="p-4 w-1/3">
-                      <div>TÍTULO E INFORMES</div>
-                      <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                    </th>
-                    <th className="p-4">
-                      <div>RESPONSABLES</div>
-                      <FilterInput colKey="responsable" placeholder="Responsable..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                    </th>
-                    <th className="p-4 text-center">
-                      <div>ESTADO / GESTIÓN</div>
-                      <FilterInput colKey="estado" placeholder="Estado..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {applyFilters(hallazgosFiltradosPorFecha, searchTerm, columnFilters).map((h, index) => (
-                    <tr key={`hallazgo-row-${h.id}-${index}`} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-4">
-                        <div className="font-black text-slate-800 text-sm">{h.ref}</div>
-                        <div className="text-[9px] text-slate-400 font-mono mt-0.5">INT-#{h.id}</div>
-                      </td>
-                      <td className="p-4">
-                        <div className="font-bold text-slate-700">{h.proceso}</div>
-                        <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-0.5">{h.sede || 'Hotel'}</div>
-                      </td>
-                      <td className="p-4">
-                        <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
-                        {h.evidenciaUrl ? (
-                          <div className="flex items-center space-x-2 mt-2">
-                            <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-blue-100 flex items-center space-x-1 transition-colors shadow-sm">
-                              <span>🔗</span><span>Abrir Enlace</span>
-                            </a>
-                          </div>
-                        ) : (
-                          <div className="mt-2 text-[9px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-2 py-1 rounded bg-slate-50">🚫 Sin evidencia adjunta</div>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <div className="text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
-                          <div className="mb-1"><span className="font-bold text-slate-400 uppercase">Auditor:</span> <span className="font-black text-slate-700">{h.auditor || 'N/A'}</span></div>
-                          <div><span className="font-bold text-slate-400 uppercase">Dueño:</span> <span className="font-black text-slate-700">{h.responsable}</span></div>
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest block mx-auto w-max mb-3 ${h.estado === 'Cerrado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                          {h.estado}
-                        </span>
-                        
-                        <div className="flex justify-center items-center space-x-2 border-t border-slate-100 pt-3">
-                          <button onClick={() => {setEditHallazgo(h); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm();}} className="text-slate-500 hover:text-blue-600 transition-colors font-bold" title="Editar">
-                            ✏️ Editar
-                          </button>
-                          
-                          {isAdmin && (
-                            <>
-                              <span className="text-slate-300">|</span>
-                              <button onClick={() => handleDeleteItem('hallazgos', h.id)} className="text-slate-500 hover:text-red-600 transition-colors font-bold" title="Eliminar">
-                                🗑️ Eliminar
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
 
-    </div>
-  );
-}
+            {/* 📂 LISTADO PRINCIPAL DE INFORMES EMITIDOS */}
+            {listaInformesIds.length === 0 ? (
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">
+                No se encontraron informes con hallazgos para los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {listaInformesIds.map(idInf => {
+                  const hzsDelInforme = hallazgosPorInforme[idInf];
+                  const informeBase = informesAuditoria.find(inf => String(inf.id) === String(idInf));
+                  
+                  // Mapeo y trazabilidad del informe padre
+                  const refInforme = informeBase ? informeBase.ref : "INF-S/N";
+                  const tituloInforme = informeBase ? informeBase.titulo : "Informe general o registros huérfanos";
+                  const procesoInforme = informeBase ? informeBase.proceso : "Varios Procesos";
+                  const fechaInforme = informeBase ? informeBase.fecha : "Sin Fecha";
+
+                  const nAbiertos = hzsDelInforme.filter(h => h.estado !== 'Cerrado').length;
+                  const nCerrados = hzsDelInforme.filter(h => h.estado === 'Cerrado').length;
+                  const isExpanded = informeHistorialExpandido === idInf;
+
+                  return (
+                    <div key={`inf-card-${idInf}`} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:shadow-md">
+                      
+                      {/* Fila Resumen del Informe (Línea de Trazabilidad Principal) */}
+                      <div 
+                        onClick={() => setInformeHistorialExpandido(isExpanded ? null : idInf)}
+                        className={`p-4 flex flex-col md:flex-row items-start md:items-center justify-between cursor-pointer transition-colors gap-3 ${isExpanded ? 'bg-slate-50/80 border-b border-slate-100' : 'hover:bg-slate-50'}`}
+                      >
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          <span className="text-xl shrink-0">📂</span>
+                          <div className="truncate w-full">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2 py-0.5 bg-[#0A3B32] text-white font-mono font-black rounded text-[9px] tracking-wider uppercase">{refInforme}</span>
+                              <span className="text-[10px] text-slate-400 font-bold">📅 {fechaInforme}</span>
+                              <span className="text-[10px] bg-slate-100 text-slate-600 font-black px-2 py-0.5 rounded uppercase max-w-[180px] truncate" title={procesoInforme}>🏛️ {procesoInforme}</span>
+                            </div>
+                            <h4 className="text-xs font-black text-slate-800 mt-1 truncate" title={tituloInforme}>{tituloInforme}</h4>
+                          </div>
+                        </div>
+
+                        {/* Indicadores Cuantitativos del Informe */}
+                        <div className="flex items-center space-x-4 shrink-0 self-end md:self-center">
+                          <div className="flex items-center space-x-2 text-[10px] font-bold bg-white px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm">
+                            <span className="text-slate-500">Hallazgos: <span className="font-black text-slate-800">{hzsDelInforme.length}</span></span>
+                            <span className="text-red-600 border-l pl-2 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-red-500 mr-1"></span> {nAbiertos} Abiertos</span>
+                            <span className="text-blue-600 border-l pl-2 flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1"></span> {nCerrados} Cerrados</span>
+                          </div>
+                          <span className="text-slate-400 font-black text-xs w-4 text-center">{isExpanded ? '▲' : '▼'}</span>
+                        </div>
+                      </div>
+
+                      {/* Sub-tabla Desplegable de Hallazgos Amarrados */}
+                      {isExpanded && (
+                        <div className="p-3 bg-white border-t border-slate-50 overflow-x-auto">
+                          <table className="w-full text-xs text-left divide-y divide-slate-100 border border-slate-100 rounded-xl overflow-hidden shadow-inner">
+                            <thead className="bg-slate-900 text-white font-bold uppercase tracking-widest text-[9px]">
+                              <tr>
+                                <th className="p-3 w-28">
+                                  <div className="mb-1">ID / REF</div>
+                                  <FilterInput colKey="ref" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                </th>
+                                <th className="p-3 w-36">
+                                  <div className="mb-1">PROCESO / SEDE</div>
+                                  <FilterInput colKey="proceso" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                </th>
+                                <th className="p-3 w-2/5">
+                                  <div className="mb-1">DESCRIPCIÓN DEL HALLAZGO</div>
+                                  <FilterInput colKey="titulo" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                </th>
+                                <th className="p-3">
+                                  <div className="mb-1">RESPONSABLES</div>
+                                  <FilterInput colKey="responsable" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                </th>
+                                <th className="p-3 text-center">
+                                  <div className="mb-1">ESTADO</div>
+                                  <FilterInput colKey="estado" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
+                              {hzsDelInforme.map((h, hIdx) => (
+                                <tr key={`h-child-${h.id}-${hIdx}`} className="hover:bg-slate-50/60 transition-colors">
+                                  <td className="p-3 font-mono">
+                                    <div className="font-black text-slate-800">{h.ref}</div>
+                                    <div className="text-[9px] text-slate-400 mt-0.5">INT-#{h.id}</div>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="font-bold text-slate-700 truncate max-w-[130px]" title={h.proceso}>{h.proceso}</div>
+                                    <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-0.5">{h.sede || 'Hotel'}</div>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>
+                                    {h.evidenciaUrl ? (
+                                      <a href={h.evidenciaUrl} target="_blank" rel="noreferrer" className="mt-2 bg-blue-50 text-blue-700 font-bold px-2 py-1 rounded text-[9px] inline-flex items-center space-x-1 hover:bg-blue-100 transition-colors border border-blue-100 w-max shadow-sm">
+                                        <span>🔗</span><span>Ver Evidencia</span>
+                                      </a>
+                                    ) : (
+                                      <div className="mt-2 text-[8px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-1.5 py-0.5 rounded bg-slate-50">🚫 Sin evidencia</div>
+                                    )}
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="text-[10px] space-y-0.5 bg-slate-50 p-2 rounded border">
+                                      <div><span className="font-bold text-slate-400 uppercase text-[8px]">Auditor:</span> <span className="font-bold text-slate-700">{h.auditor || 'N/A'}</span></div>
+                                      <div><span className="font-bold text-slate-400 uppercase text-[8px]">Dueño:</span> <span className="font-bold text-slate-700">{h.responsable}</span></div>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <span className={`px-2.5 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest inline-block mb-2 ${h.estado === 'Cerrado' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                      {h.estado}
+                                    </span>
+                                    <div className="flex justify-center items-center space-x-2 text-[10px] border-t border-slate-100 pt-1.5 mt-1">
+                                      <button onClick={() => {setEditHallazgo(h); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-600 hover:underline font-bold">✏️ Editar</button>
+                                      {isAdmin && (
+                                        <>
+                                          <span className="text-slate-300">|</span>
+                                          <button onClick={() => handleDeleteItem('hallazgos', h.id)} className="text-red-500 hover:underline font-bold">🗑️ Borrar</button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+          </div>
+        );
+      })()}
