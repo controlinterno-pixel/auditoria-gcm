@@ -401,7 +401,7 @@ export default function Planes({
           actividades: existingActivities.map(p => ({ 
             ...p, 
             correoConfirmacion: p.correoResponsable,
-            responsable: p.responsable || h.responsable || '',
+responsable: p.responsable || (h.responsable ? h.responsable.split(',')[0].trim() : ''),
             auditorAsignado: p.auditorAsignado || h.auditor || ''
           })) 
         };
@@ -411,7 +411,7 @@ export default function Planes({
           actividades: [{ 
             id: 'new-' + Math.random(), 
             accion: '', 
-            responsable: h.responsable || '', // 👈 HERENCIA AUTOMÁTICA DEL DUEÑO (CARGO)
+responsable: h.responsable ? h.responsable.split(',')[0].trim() : '',
             auditorAsignado: h.auditor || '', // 👈 HERENCIA AUTOMÁTICA DEL AUDITOR RESPONSABLE
             fechaInicio: '', 
             fecha: '', 
