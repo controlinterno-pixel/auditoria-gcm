@@ -16,15 +16,31 @@ const PROCESOS_OFICIALES = [
   "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación"
 ];
 
-const CARGOS_OFICIALES = [
-  "Agente contact Center", "Almacenista", "Ama de Llaves", "Analista Ambiental", "Analista de auditoría", 
-  "Analista de Cartera", "Analista de Compras", "Analista de Contabilidad", "Analista de costos e inventarios", 
-  "Analista de Mejora continua", "Analista de nómina", "Analista de Sistemas", "Analista de Talento Humano", 
-  "Analista de Tesorería", "Asistente de Gerencia", "Auditor Nocturno", "Auditoría Interna", "Auxiliar Administrativa",
-  "Chef Hotel", "Contador", "Coordinador Operaciones", "Dirección Administrativa y Financiera", "Dirección Comercial", 
-  "Director de TICS", "Gerente", "Líder de Compras", "Líder de Contabilidad", "Supervisor Operaciones"
-];
-
+// 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
+const CARGOS_POR_SEDE = {
+  "Hotel": [
+    "Líderes Hotel", "Subdirector de Operaciones Hotel", "Líder de Proceso de alimentos y bebidas",
+    "Chef Hotel", "Supervisor (a) mesa y servicio", "Coordinación de recepción",
+    "Supervisor (a) de operaciones", "Coordinación SPA", "Coordinador de Mantenimiento"
+  ],
+  "Ecoparque": [
+    "Líderes Ecoparque", "Subdirección de Operaciones Balneario", "Líder táctico de alimentos y bebidas",
+    "Jefe de Cocina", "Supervisor (a) mesa y servicio", "Coordinador Operaciones",
+    "Supervisor Operaciones", "Coordinación SPA", "Terapeuta SPA", "Coordinador de mantenimiento",
+    "Supervisor Ruta Ecológica"
+  ],
+  "Administrativos": [
+    "Administrativos", "Gerente Administrativa y Judicial", "Auditoría Interna",
+    "Líder Táctico de mejora Continua", "Coordinador de Servicio al Cliente", "Dirección Administrativa y Financiera",
+    "Líder de de Compras y Almacen", "Líder de Costos y Presupuestos", "Líder de Tesorería y Cartera",
+    "Contadora de Socios", "Coordinación Administrativa Family Office", "Jefe de control interno",
+    "Líder de Contabilidad", "Contador", "Líder Administrativa", "Dirección de Mercadeo y Comunicaciones",
+    "Coordinación de Mercadeo y Comunicaciones", "Dirección Comercial", "Coordinación Comercial y Contact Center",
+    "Dirección Talento Humano", "Coordinación Seguridad Y Salud en el trabajo", "Líder de Gestión Ambiental",
+    "Lider Tactico de Infraestructura Tecnológica", "Director de TICS", "Desarrollador Junior",
+    "Líder Táctico desarrollo de Software", "Coordinador de Marketing digital"
+  ]
+};
 export default function Hallazgos({
   isAdmin,
   informesAuditoria = [], 
@@ -46,7 +62,8 @@ export default function Hallazgos({
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
-
+// 🏢 NUEVO ESTADO PARA LA SEDE
+  const [sedeForm, setSedeForm] = useState('Administrativos');
   // 🎛️ ESTADOS DEL PANEL LATERAL (DASHBOARD)
   const [agruparPor, setAgruparPor] = useState('Año'); 
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
@@ -573,14 +590,24 @@ export default function Hallazgos({
               </select>
             </div>
 
-            {/* 👔 DUEÑO DEL PROCESO */}
-            <div>
-              <label className="font-bold text-gray-600 block mb-1">Dueño del Proceso (Cargo)</label>
-              <select name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium">
-                <option value="">-- Seleccione el Cargo --</option>
-                {CARGOS_OFICIALES.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
-              </select>
-            </div>
+            {/* 🏢 SELECTOR EN CASCADA: SEDE */}
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">Sede Afectada</label>
+                <select value={sedeForm} onChange={(e) => setSedeForm(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-slate-50 focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+                  {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              {/* 👥 SELECTOR: DUEÑO DEL PROCESO */}
+              <div>
+                <label className="font-bold text-gray-600 block mb-1">Responsable del Proceso</label>
+                <select name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium">
+                  <option value="">-- Escoger de {sedeForm} --</option>
+                  {CARGOS_POR_SEDE[sedeForm].map(cargo => (
+                    <option key={cargo} value={cargo}>{cargo}</option>
+                  ))}
+                </select>
+              </div>
 
             {/* ⚖️ CLASE DE OBSERVACIÓN */}
             <div>
