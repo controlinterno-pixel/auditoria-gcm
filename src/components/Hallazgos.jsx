@@ -568,15 +568,16 @@ export default function Hallazgos({
 
           <form onSubmit={(e) => { handleHallazgoSubmit(e); setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
+            {/* ================= FILA 1: DATOS MAESTROS CORTOS (1 + 1 + 1 + 1 = 4) ================= */}
             {/* 🔒 ID AUTOMÁTICO */}
-            <div>
+            <div className="md:col-span-1">
               <label className="font-bold text-gray-600 block mb-1">ID / Código (Automático)</label>
               <input name="ref" value={nextIdVal} readOnly className="w-full border border-slate-200 bg-slate-100 text-slate-500 font-black rounded-lg p-2 cursor-not-allowed outline-none focus:ring-0" />
             </div>
 
-            {/* 🏢 SEDE */}
-            <div>
-              <label className="font-bold text-gray-600 block mb-1">Sede</label>
+            {/* 🏢 SEDE PRINCIPAL */}
+            <div className="md:col-span-1">
+              <label className="font-bold text-gray-600 block mb-1">Sede Principal</label>
               <select name="sede" defaultValue={editHallazgo?.sede||'Hotel'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none">
                 <option>Hotel</option>
                 <option>Ecoparque</option>
@@ -584,6 +585,27 @@ export default function Hallazgos({
               </select>
             </div>
 
+            {/* ⚖️ CLASE DE OBSERVACIÓN */}
+            <div className="md:col-span-1">
+              <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
+              <select name="claseObservacion" defaultValue={editHallazgo?.claseObservacion||'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700">
+                <option value="Hallazgo">Hallazgo</option>
+                <option value="No Conformidad">No Conformidad</option>
+                <option value="Oportunidad de Mejora">Oportunidad de Mejora</option>
+                <option value="Observación">Observación</option>
+              </select>
+            </div>
+
+            {/* 👥 AUDITOR RESPONSABLE */}
+            <div className="md:col-span-1">
+              <label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label>
+              <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium">
+                <option value="">-- Seleccione un Auditor --</option>
+                {AUDITORES_OFICIALES.map(aud => <option key={aud} value={aud}>{aud}</option>)}
+              </select>
+            </div>
+
+            {/* ================= FILA 2: ORIGEN Y CONTEXTO (2 + 2 = 4) ================= */}
             {/* 📁 INFORME ORIGEN */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
@@ -596,87 +618,67 @@ export default function Hallazgos({
             </div>
             
             {/* 🔍 PROCESO AUDITADO */}
-            <div>
+            <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
               <input name="proceso" list="lista-procesos" defaultValue={editHallazgo?.proceso||''} required placeholder="Escribe o selecciona..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500 outline-none font-medium" />
               <datalist id="lista-procesos">
                 {PROCESOS_OFICIALES.map(proc => <option key={proc} value={proc} />)}
               </datalist>
             </div>
-            
-            {/* 👥 AUDITOR RESPONSABLE */}
-            <div>
-              <label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label>
-              <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium">
-                <option value="">-- Seleccione un Auditor --</option>
-                {AUDITORES_OFICIALES.map(aud => <option key={aud} value={aud}>{aud}</option>)}
-              </select>
+
+            {/* ================= FILA 3: ASIGNACIÓN COMPUESTA (2 + 2 = 4) ================= */}
+            {/* 🏢 SELECTOR MÚLTIPLE: SEDES */}
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
+              <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
+              <div className="flex gap-2 mb-2">
+                <select value={sedeTemp} onChange={(e) => setSedeTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+                  <option value="">-- Escoger Sede --</option>
+                  {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
+                </select>
+                <button type="button" onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setSedesMultiples([...sedesMultiples, sedeTemp]); setSedeTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
+              </div>
+              
+              {/* 🏷️ CHIPS DE SEDES */}
+              <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
+                {sedesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ninguna sede añadida...</span>}
+                {sedesMultiples.map(s => (
+                  <span key={s} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
+                    {s} 
+                    <button type="button" onClick={() => setSedesMultiples(sedesMultiples.filter(item => item !== s))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                  </span>
+                ))}
+              </div>
+              <input type="hidden" name="sede" value={sedesMultiples.join(', ')} />
             </div>
 
-        {/* 🏢 SELECTOR MÚLTIPLE: SEDES */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
-                <div className="flex gap-2 mb-2">
-                  <select value={sedeTemp} onChange={(e) => setSedeTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
-                    <option value="">-- Escoger Sede --</option>
-                    {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
-                  </select>
-                  <button type="button" onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setSedesMultiples([...sedesMultiples, sedeTemp]); setSedeTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
-                </div>
-                
-                {/* 🏷️ CHIPS DE SEDES */}
-                <div className="flex flex-wrap gap-2 mt-2 min-h-[32px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
-                  {sedesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ninguna sede añadida...</span>}
-                  {sedesMultiples.map(s => (
-                    <span key={s} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
-                      {s} 
-                      <button type="button" onClick={() => setSedesMultiples(sedesMultiples.filter(item => item !== s))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
-                    </span>
-                  ))}
-                </div>
-                {/* 🔒 CAMPO OCULTO (VITAL PARA GUARDAR EN LA BASE DE DATOS) */}
-                <input type="hidden" name="sede" value={sedesMultiples.join(', ')} />
-              </div>
-
-              {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
-                <label className="font-bold text-gray-600 block mb-1">Responsables del Proceso (Cargos)</label>
-                <div className="flex gap-2 mb-2">
-                  <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
-                    <option value="">-- Escoger de las sedes seleccionadas --</option>
-                    {cargosDisponibles.map(cargo => (
-                      <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>
+            {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO */}
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
+              <label className="font-bold text-gray-600 block mb-1">Responsables del Proceso (Cargos)</label>
+              <div className="flex gap-2 mb-2">
+                <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+                  <option value="">-- Escoger de las sedes seleccionadas --</option>
+                  {cargosDisponibles.map(cargo => (
+                    <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>
                     ))}
-                  </select>
-                  <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setResponsablesMultiples([...responsablesMultiples, responsableTemp]); setResponsableTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
-                </div>
-                
-                {/* 🏷️ CHIPS DE RESPONSABLES */}
-                <div className="flex flex-wrap gap-2 mt-2 min-h-[32px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
-                  {responsablesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún responsable añadido...</span>}
-                  {responsablesMultiples.map(r => (
-                    <span key={r} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
-                      {r} 
-                      <button type="button" onClick={() => setResponsablesMultiples(responsablesMultiples.filter(item => item !== r))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
-                    </span>
-                  ))}
-                </div>
-                {/* 🔒 CAMPO OCULTO (VITAL PARA GUARDAR EN LA BASE DE DATOS) */}
-                <input type="hidden" name="responsable" value={responsablesMultiples.join(', ')} />
+                </select>
+                <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setResponsablesMultiples([...responsablesMultiples, responsableTemp]); setResponsableTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
               </div>
-
-            {/* ⚖️ CLASE DE OBSERVACIÓN */}
-            <div>
-              <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
-              <select name="claseObservacion" defaultValue={editHallazgo?.claseObservacion||'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700">
-                <option value="Hallazgo">Hallazgo</option>
-                <option value="No Conformidad">No Conformidad</option>
-                <option value="Oportunidad de Mejora">Oportunidad de Mejora</option>
-                <option value="Observación">Observación</option>
-              </select>
+              
+              {/* 🏷️ CHIPS DE RESPONSABLES */}
+              <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
+                {responsablesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún responsable añadido...</span>}
+                {responsablesMultiples.map(r => (
+                  <span key={r} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
+                    {r} 
+                    <button type="button" onClick={() => setResponsablesMultiples(responsablesMultiples.filter(item => item !== r))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                  </span>
+                ))}
+              </div>
+              <input type="hidden" name="responsable" value={responsablesMultiples.join(', ')} />
             </div>
 
-            {/* ⚠️ SEVERIDAD (Añadido para el Dashboard) */}
+            {/* ================= BLOQUES ANCHOS COMPLETOS (col-span-4) ================= */}
+            {/* ⚠️ SEVERIDAD */}
             <div className="md:col-span-4 bg-red-50/50 p-4 rounded-xl border border-red-100 flex items-center justify-between">
               <div>
                 <label className="font-black text-red-800 block mb-1 uppercase tracking-widest text-[10px]">⚠️ Nivel de Severidad</label>
@@ -741,9 +743,8 @@ export default function Hallazgos({
               </button>
             </div>
           </form>
-        </div>
-      )}
-
+            
+            
       {/* 🚀 VISTA 3: TABLA DE HISTORIAL EXACTA INTACTA */}
       {vistaActiva === 'historial' && (
         <div className="space-y-6 animate-in slide-in-from-left-8 duration-500">
