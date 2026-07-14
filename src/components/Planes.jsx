@@ -587,12 +587,14 @@ responsable: h.responsable ? h.responsable.split(',')[0].trim() : '',
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
-                    <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
-                      <option value="Todos">Todos</option>
-                      {PROCESOS_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </div>
+  <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
+  <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+    <option value="Todos">Todos</option>
+    {[...new Set(planesEnriquecidos.map(p => p.proceso).filter(Boolean))].sort().map(p => (
+      <option key={p} value={p}>{p}</option>
+    ))}
+  </select>
+</div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Estado</label>
                     <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
