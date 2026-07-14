@@ -634,32 +634,6 @@ export default function Hallazgos({
                     </span>
                   ))}
                 </div>
-                
-                {/* 🔒 CAMPO OCULTO (VITAL PARA GUARDAR EN LA BASE DE DATOS) */}
-                <input type="hidden" name="sede" value={sedesMultiples.join(', ')} />
-              </div>
-
-             {/* 🏢 SELECTOR MÚLTIPLE: SEDES */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
-                <div className="flex gap-2 mb-2">
-                  <select value={sedeTemp} onChange={(e) => setSedeTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
-                    <option value="">-- Escoger Sede --</option>
-                    {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
-                  </select>
-                  <button type="button" onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setSedesMultiples([...sedesMultiples, sedeTemp]); setSedeTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
-                </div>
-                
-                {/* 🏷️ CHIPS DE SEDES */}
-                <div className="flex flex-wrap gap-2 mt-2 min-h-[32px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
-                  {sedesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ninguna sede añadida...</span>}
-                  {sedesMultiples.map(s => (
-                    <span key={s} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
-                      {s} 
-                      <button type="button" onClick={() => setSedesMultiples(sedesMultiples.filter(item => item !== s))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
-                    </span>
-                  ))}
-                </div>
                 {/* 🔒 CAMPO OCULTO (VITAL PARA GUARDAR EN LA BASE DE DATOS) */}
                 <input type="hidden" name="sede" value={sedesMultiples.join(', ')} />
               </div>
