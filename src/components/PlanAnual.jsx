@@ -72,12 +72,15 @@ export default function PlanAnual({
     ? Math.round(procesosActivos.reduce((acc, c) => acc + c.cumplimiento, 0) / procesosActivos.length)
     : (cronogramaOrdenado.length > 0 ? Math.round(cronogramaOrdenado.reduce((acc, c) => acc + c.cumplimiento, 0) / cronogramaOrdenado.length) : 0);
 
-  // 🧠 7. AGRUPACIÓN VISUAL POR AÑO PARA LAS TABLAS
+// 🧠 7. AGRUPACIÓN VISUAL POR AÑO PARA LAS TABLAS
   const itemsPorAnioGroup = cronogramaOrdenado.reduce((acc, c) => {
     const anioKey = getAnio(c);
     if (!acc[anioKey]) acc[anioKey] = [];
     acc[anioKey].push(c);
-// 🧠 8. CÁLCULO DEL PRÓXIMO CONSECUTIVO AUTOMÁTICO
+    return acc;
+  }, {});
+
+  // 🧠 8. CÁLCULO DEL PRÓXIMO CONSECUTIVO AUTOMÁTICO
   const añoParaNuevoRegistro = selectedAnios && selectedAnios.length > 0 ? selectedAnios[0] : currentYear;
   const consecutivosDelAño = (cFiltrados || [])
     .filter(c => getAnio(c) === String(añoParaNuevoRegistro))
@@ -85,8 +88,6 @@ export default function PlanAnual({
     .filter(n => !isNaN(n));
   const maxConsecutivo = consecutivosDelAño.length > 0 ? Math.max(...consecutivosDelAño) : 0;
   const nextConsecutivo = String(maxConsecutivo + 1).padStart(3, '0'); // Ejemplo: 001, 002...
-    return acc;
-  }, {});
   
 
   const listaAniosOrdenados = Object.keys(itemsPorAnioGroup).sort((a, b) => b - a);
