@@ -67,6 +67,9 @@ export default function Hallazgos({
   const [sedesMultiples, setSedesMultiples] = React.useState(['Administrativos']);
   const [sedeTemp, setSedeTemp] = React.useState('');
   
+  const [responsablesMultiples, setResponsablesMultiples] = React.useState([]);
+  const [responsableTemp, setResponsableTemp] = React.useState('');
+
   // 🧠 TRADUCTOR AUTOMÁTICO PARA EL BOTÓN "EDITAR"
   React.useEffect(() => {
     if (editHallazgo) {
@@ -79,21 +82,6 @@ export default function Hallazgos({
     } else {
       setSedesMultiples(['Administrativos']);
       setResponsablesMultiples([]);
-    }
-  }, [editHallazgo]);
-
-  // Consolidar todos los cargos de las sedes elegidas
-  const cargosDisponibles = sedesMultiples.flatMap(s => CARGOS_POR_SEDE[s] || []);
-// 🏢 NUEVOS ESTADOS PARA SEDES MÚLTIPLES
-  const [sedesMultiples, setSedesMultiples] = React.useState(['Administrativos']);
-  const [sedeTemp, setSedeTemp] = React.useState('');
-
-  // 🧠 TRADUCTOR AUTOMÁTICO PARA EL BOTÓN "EDITAR"
-  React.useEffect(() => {
-    if (editHallazgo && editHallazgo.sede) {
-      setSedesMultiples(editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede]);
-    } else {
-      setSedesMultiples(['Administrativos']);
     }
   }, [editHallazgo]);
 
