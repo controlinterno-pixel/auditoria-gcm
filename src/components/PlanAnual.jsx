@@ -56,7 +56,7 @@ export default function PlanAnual({
 
   const itemsPorAnio = itemsFiltradosFinal.reduce((acc, c) => {
     const anioKey = c.anio || 2025;
-    if (!acc[anioKey]) acc[accKey] = [];
+    if (!acc[anioKey]) acc[anioKey] = []; // ✨ Corregido aquí
     acc[anioKey].push(c);
     return acc;
   }, {});
