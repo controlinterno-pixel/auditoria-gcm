@@ -20,13 +20,35 @@ export default function PlanAnual({
   editMonitoreo,
   setEditMonitoreo,
   handleMonitoreoSubmit,
-  selectedAnios,
+  selectedAnios = [],
   renderHeaderFiltros
 }) {
   const allMonths = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  
-  // ORDEN CRONOLÓGICO: Enero a Diciembre según el array de meses
-  const cronogramaOrdenado = [...cFiltrados].sort((a, b) => {
+  const currentYear = new Date().getFullYear();
+
+  // 🧠 1. EXTRACTOR INTELIGENTE DE AÑO (Previene que registros antiguos salten a 2026 al editarlos)
+  const getAnio = (c) => {
+    if (c.anio) return String(c.anio);
+    if (c.periodo) {
+      const match = String(c.periodo).match(/202\d/); // Intenta sacar el año del texto del periodo
+      if (match) return match[0];
+    }
+    return String(currentYear);
+  };
+
+  // 🧠 2. FILTRO ESTRICTO POR BOTONES SUPERIORES (Años Seleccionados)
+  const recordsPorAnio = (cFiltrados || []).filter(c => {
+    if (selectedAnios && selectedAnios.length > 0) {
+      return selectedAnios.map(String).includes(getAnio(c));
+    }
+    return true; // Si no hay filtro presionado, pasan todos
+  });
+
+  // 🧠 3. APLICAR BÚSQUEDA Y FILTROS DE COLUMNA
+  const itemsFiltradosFinal = applyFilters(recordsPorAnio, searchTerm, columnFilters);
+
+  // 🧠 4. ORDEN CRONOLÓGICO Y ALFABÉTICO
+  const cronogramaOrdenado = [...itemsFiltradosFinal].sort((a, b) => {
     const getMinIdx = (arr) => {
       if (!arr || !Array.isArray(arr) || arr.length === 0) return 99;
       const indices = arr.map(m => allMonths.indexOf(m)).filter(i => i >= 0);
@@ -38,29 +60,22 @@ export default function PlanAnual({
     return (a.codigo || '').localeCompare(b.codigo || '');
   });
 
+  // 🧠 5. CÁLCULO DE KPIs DINÁMICOS BASADOS ÚNICAMENTE EN LO VISIBLE
   const procesosActivos = cronogramaOrdenado.filter(c => c.cumplimiento > 0);
   const avgCumplimiento = procesosActivos.length > 0 
     ? Math.round(procesosActivos.reduce((acc, c) => acc + c.cumplimiento, 0) / procesosActivos.length)
     : (cronogramaOrdenado.length > 0 ? Math.round(cronogramaOrdenado.reduce((acc, c) => acc + c.cumplimiento, 0) / cronogramaOrdenado.length) : 0);
 
-  const labelAnio = selectedAnios.length === 0 ? 'HISTÓRICO MULTIANUAL' : selectedAnios.join(' - ');
-
-  // 🧠 MOTOR DE AGRUPACIÓN Y FILTRADO REAL POR BOTÓN DE AÑO
-  const itemsFiltradosFinal = applyFilters(cronogramaOrdenado, searchTerm, columnFilters).filter(c => {
-    if (selectedAnios && selectedAnios.length > 0) {
-      const anioItem = c.anio ? String(c.anio) : "2025";
-      return selectedAnios.map(String).includes(anioItem);
-    }
-    return true;
-  });
-
-  const itemsPorAnio = itemsFiltradosFinal.reduce((acc, c) => {
-    const anioKey = c.anio || 2025;
-    if (!acc[anioKey]) acc[anioKey] = []; // ✨ Corregido aquí
+  // 🧠 6. AGRUPACIÓN VISUAL POR AÑO PARA LAS TABLAS
+  const itemsPorAnioGroup = cronogramaOrdenado.reduce((acc, c) => {
+    const anioKey = getAnio(c);
+    if (!acc[anioKey]) acc[anioKey] = [];
     acc[anioKey].push(c);
     return acc;
   }, {});
-  const listaAniosOrdenados = Object.keys(itemsPorAnio).sort((a, b) => b - a);
+  
+  const listaAniosOrdenados = Object.keys(itemsPorAnioGroup).sort((a, b) => b - a);
+  const labelAnio = (!selectedAnios || selectedAnios.length === 0) ? 'HISTÓRICO MULTIANUAL' : selectedAnios.join(' - ');
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
@@ -172,25 +187,25 @@ export default function PlanAnual({
                      </thead>
                      <tbody className="divide-y divide-slate-100 bg-white">
                        {listaAniosOrdenados.length === 0 ? (
-                         <tr><td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400 font-bold italic">No se encontraron registros para este periodo.</td></tr>
+                         <tr><td colSpan={isAdmin ? 6 : 5} className="p-8 text-center text-slate-400 font-bold italic">No se encontraron registros para el periodo seleccionado.</td></tr>
                        ) : (
                          listaAniosOrdenados.flatMap(anio => [
                            <tr key={`header-crono-group-${anio}`} className="bg-slate-100 font-black text-[#004d40]">
-                             <td colSpan={isAdmin ? 6 : 5} className="p-2.5 pl-4 uppercase tracking-widest text-[9px] font-black">
+                             <td colSpan={isAdmin ? 6 : 5} className="p-2.5 pl-4 uppercase tracking-widest text-[9px] font-black shadow-sm">
                                📅 Planificación del Periodo Anual {anio}
                              </td>
                            </tr>,
-                           ...itemsPorAnio[anio].map((c, index) => (
+                           ...itemsPorAnioGroup[anio].map((c, index) => (
                              <tr key={`crono-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                                <td className="p-3 text-slate-400 font-mono">0{c.codigo}</td>
-                               <td className="p-3 font-medium text-slate-600"><span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black mr-1">{c.anio || anio}</span>{c.periodo}</td>
+                               <td className="p-3 font-medium text-slate-600"><span className="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-black mr-1 shadow-sm">{getAnio(c)}</span>{c.periodo}</td>
                                <td className="p-3 font-black text-slate-800">{c.proceso}</td>
                                <td className="p-3 text-[10px] text-slate-500 leading-relaxed">{c.enfoque}</td>
                                <td className="p-3 text-center font-black text-sm notranslate" translate="no" style={{ color: c.cumplimiento === 100 ? '#059669' : c.cumplimiento >= 50 ? '#d97706' : '#dc2626' }}>{c.cumplimiento}%</td>
                                {isAdmin && (
                                  <td className="p-3 text-center whitespace-nowrap">
-                                   <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 mx-1 text-sm">✏️</button>
-                                   <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-slate-400 hover:text-red-700 mx-1 text-sm">🗑️</button>
+                                   <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 mx-1 text-sm transition-colors">✏️</button>
+                                   <button onClick={() => handleDeleteItem('cronograma', c.id)} className="text-slate-400 hover:text-red-700 mx-1 text-sm transition-colors">🗑️</button>
                                  </td>
                                )}
                              </tr>
@@ -218,9 +233,9 @@ export default function PlanAnual({
               <input 
                 type="number" 
                 name="anio" 
-                defaultValue={editCronograma ? (editCronograma.anio || 2025) : (selectedAnios[0] || 2026)} 
+                defaultValue={editCronograma ? getAnio(editCronograma) : (selectedAnios && selectedAnios.length > 0 ? selectedAnios[0] : currentYear)} 
                 required 
-                className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-black text-slate-800 bg-white" 
+                className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none font-black text-slate-800 bg-white shadow-sm" 
               />
             </div>
             <div><label className="font-bold text-gray-600 block mb-1">Periodo Texto</label><input name="periodo" defaultValue={editCronograma?.periodo||''} required placeholder="Ej: Enero - Abril" className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-[#004d40] outline-none" /></div>
@@ -274,14 +289,14 @@ export default function PlanAnual({
                ) : (
                  listaAniosOrdenados.flatMap(anio => [
                    <tr key={`header-gantt-group-${anio}`} className="bg-slate-100 font-black text-[#004d40]">
-                     <td colSpan={isAdmin ? 16 : 15} className="border border-slate-300 p-2 font-black uppercase tracking-widest text-[8px] bg-slate-200/60">
+                     <td colSpan={isAdmin ? 16 : 15} className="border border-slate-300 p-2 font-black uppercase tracking-widest text-[8px] bg-slate-200/60 shadow-sm">
                        🗓️ Cronograma Mensualizado — Periodo {anio}
                      </td>
                    </tr>,
-                   ...itemsPorAnio[anio].map((c, index) => (
+                   ...itemsPorAnioGroup[anio].map((c, index) => (
                      <tr key={`gantt-table-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                        <td className="border border-slate-300 p-2 text-center text-slate-500 font-mono">{c.codigo}</td>
-                       <td className="border border-slate-300 p-2 font-black text-slate-800"><span className="bg-slate-200 text-slate-700 px-1 py-0.5 rounded font-bold mr-1 text-[8px]">{c.anio || anio}</span>{c.proceso}</td>
+                       <td className="border border-slate-300 p-2 font-black text-slate-800"><span className="bg-slate-200 text-slate-700 px-1 py-0.5 rounded font-bold mr-1 text-[8px] shadow-sm">{getAnio(c)}</span>{c.proceso}</td>
                        <td className="border border-slate-300 p-2 text-slate-600 font-medium">{c.responsable}</td>
                        {allMonths.map(mes => {
                          const isPlanned = c.meses?.includes(mes);
