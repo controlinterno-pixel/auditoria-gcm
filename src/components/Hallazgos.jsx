@@ -17,6 +17,7 @@ const PROCESOS_OFICIALES = [
 ];
 
 // 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
+// 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
 const CARGOS_POR_SEDE = {
   "Hotel": [
     "Líderes Hotel", "Subdirector de Operaciones Hotel", "Líder de Proceso de alimentos y bebidas",
@@ -62,6 +63,30 @@ export default function Hallazgos({
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
+// 🏢 NUEVOS ESTADOS PARA SEDES Y CARGOS MÚLTIPLES
+  const [sedesMultiples, setSedesMultiples] = React.useState(['Administrativos']);
+  const [sedeTemp, setSedeTemp] = React.useState('');
+  
+  const [responsablesMultiples, setResponsablesMultiples] = React.useState([]);
+  const [responsableTemp, setResponsableTemp] = React.useState('');
+
+  // 🧠 TRADUCTOR AUTOMÁTICO PARA EL BOTÓN "EDITAR"
+  React.useEffect(() => {
+    if (editHallazgo) {
+      if (editHallazgo.sede) {
+        setSedesMultiples(editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede]);
+      }
+      if (editHallazgo.responsable) {
+        setResponsablesMultiples(editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable]);
+      }
+    } else {
+      setSedesMultiples(['Administrativos']);
+      setResponsablesMultiples([]);
+    }
+  }, [editHallazgo]);
+
+  // Consolidar todos los cargos de las sedes elegidas
+  const cargosDisponibles = sedesMultiples.flatMap(s => CARGOS_POR_SEDE[s] || []);
 // 🏢 NUEVOS ESTADOS PARA SEDES MÚLTIPLES
   const [sedesMultiples, setSedesMultiples] = React.useState(['Administrativos']);
   const [sedeTemp, setSedeTemp] = React.useState('');
@@ -629,16 +654,58 @@ export default function Hallazgos({
                 <input type="hidden" name="sede" value={sedesMultiples.join(', ')} />
               </div>
 
-              {/* 👥 SELECTOR: DUEÑO DEL PROCESO */}
-              <div>
-                <label className="font-bold text-gray-600 block mb-1">Responsable del Proceso</label>
-                <select name="responsable" defaultValue={editHallazgo?.responsable||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium">
-                  <option value="">-- Escoger de las sedes --</option>
-                  {cargosDisponibles.map(cargo => (
-                    <option key={cargo} value={cargo}>{cargo}</option>
+             {/* 🏢 SELECTOR MÚLTIPLE: SEDES */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
+                <div className="flex gap-2 mb-2">
+                  <select value={sedeTemp} onChange={(e) => setSedeTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+                    <option value="">-- Escoger Sede --</option>
+                    {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
+                  </select>
+                  <button type="button" onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setSedesMultiples([...sedesMultiples, sedeTemp]); setSedeTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
+                </div>
+                
+                {/* 🏷️ CHIPS DE SEDES */}
+                <div className="flex flex-wrap gap-2 mt-2 min-h-[32px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
+                  {sedesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ninguna sede añadida...</span>}
+                  {sedesMultiples.map(s => (
+                    <span key={s} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
+                      {s} 
+                      <button type="button" onClick={() => setSedesMultiples(sedesMultiples.filter(item => item !== s))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                    </span>
                   ))}
-                </select>
+                </div>
+                {/* 🔒 CAMPO OCULTO (VITAL PARA GUARDAR EN LA BASE DE DATOS) */}
+                <input type="hidden" name="sede" value={sedesMultiples.join(', ')} />
               </div>
+
+              {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
+                <label className="font-bold text-gray-600 block mb-1">Responsables del Proceso (Cargos)</label>
+                <div className="flex gap-2 mb-2">
+                  <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+                    <option value="">-- Escoger de las sedes seleccionadas --</option>
+                    {cargosDisponibles.map(cargo => (
+                      <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setResponsablesMultiples([...responsablesMultiples, responsableTemp]); setResponsableTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
+                </div>
+                
+                {/* 🏷️ CHIPS DE RESPONSABLES */}
+                <div className="flex flex-wrap gap-2 mt-2 min-h-[32px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
+                  {responsablesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún responsable añadido...</span>}
+                  {responsablesMultiples.map(r => (
+                    <span key={r} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
+                      {r} 
+                      <button type="button" onClick={() => setResponsablesMultiples(responsablesMultiples.filter(item => item !== r))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                    </span>
+                  ))}
+                </div>
+                {/* 🔒 CAMPO OCULTO (VITAL PARA GUARDAR EN LA BASE DE DATOS) */}
+                <input type="hidden" name="responsable" value={responsablesMultiples.join(', ')} />
+              </div>
+
             {/* ⚖️ CLASE DE OBSERVACIÓN */}
             <div>
               <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
