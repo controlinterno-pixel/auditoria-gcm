@@ -26,13 +26,31 @@ const CARGOS_OFICIALES = [
   "Supervisor Ruta Ecológica", "Técnico de mantenimiento", "Terapeuta SPA"
 ];
 
-const PROCESOS_OFICIALES = [
-  "Alimentos y Bebidas (AYB)", "Canales Alternos", "Compensaciones", "Compras", "Control Inventarios",
-  "Cumplimiento Normativo", "Financiera", "Formación y Desarrollo", "Gestión Ambiental",
-  "Gestión Clientes", "Gestión Contable", "Gestión de Crédito y Cartera", "Gestión de tecnologías de la información",
-  "Gestión de Tesoreria", "Mantenimiento de Infraestructura", "Mercadeo", "Operaciones Alojamiento y recreación.",
-  "Proyectos", "Seguridad y Salud en el Trabajo", "Selección y Vinculación"
-];
+// 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
+const CARGOS_POR_SEDE = {
+  "Hotel": [
+    "Líderes Hotel", "Subdirector de Operaciones Hotel", "Líder de Proceso de alimentos y bebidas",
+    "Chef Hotel", "Supervisor (a) mesa y servicio", "Coordinación de recepción",
+    "Supervisor (a) de operaciones", "Coordinación SPA", "Coordinador de Mantenimiento"
+  ],
+  "Ecoparque": [
+    "Líderes Ecoparque", "Subdirección de Operaciones Balneario", "Líder táctico de alimentos y bebidas",
+    "Jefe de Cocina", "Supervisor (a) mesa y servicio", "Coordinador Operaciones",
+    "Supervisor Operaciones", "Coordinación SPA", "Terapeuta SPA", "Coordinador de mantenimiento",
+    "Supervisor Ruta Ecológica"
+  ],
+  "Administrativos": [
+    "Administrativos", "Gerente Administrativa y Judicial", "Auditoría Interna",
+    "Líder Táctico de mejora Continua", "Coordinador de Servicio al Cliente", "Dirección Administrativa y Financiera",
+    "Líder de de Compras y Almacen", "Líder de Costos y Presupuestos", "Líder de Tesorería y Cartera",
+    "Contadora de Socios", "Coordinación Administrativa Family Office", "Jefe de control interno",
+    "Líder de Contabilidad", "Contador", "Líder Administrativa", "Dirección de Mercadeo y Comunicaciones",
+    "Coordinación de Mercadeo y Comunicaciones", "Dirección Comercial", "Coordinación Comercial y Contact Center",
+    "Dirección Talento Humano", "Coordinación Seguridad Y Salud en el trabajo", "Líder de Gestión Ambiental",
+    "Lider Tactico de Infraestructura Tecnológica", "Director de TICS", "Desarrollador Junior",
+    "Líder Táctico desarrollo de Software", "Coordinador de Marketing digital"
+  ]
+};
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -770,19 +788,34 @@ export default function Planes({
                                 <input type="text" value={act.accion} onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white text-slate-800" required />
                               </div>
                               
-                              {/* CAMPO B: DUEÑO DEL PROCESO CARGO - EDITABLE & CON CATALOGO MAESTRO CORPORATIVO */}
-                              <div className="md:col-span-2">
-                                <label className="font-bold text-slate-700 block mb-0.5">👔 Dueño del Proceso (Cargo)</label>
-                                <select 
-                                  value={act.responsable} 
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} 
-                                  className="w-full border p-2 rounded-lg font-black bg-white focus:bg-white text-slate-800 cursor-pointer shadow-sm border-slate-300" 
-                                  required
-                                >
-                                  <option value="">-- Seleccione el Cargo --</option>
-                                  {CARGOS_OFICIALES.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
-                                </select>
-                              </div>
+                              {/* CAMPO S1: SEDE DEL PROCESO */}
+                <div className="md:col-span-1">
+                  <label className="font-bold text-slate-700 block mb-0.5">🏢 Sede</label>
+                  <select 
+                    value={act.sede || 'Administrativos'} 
+                    onChange={(e) => { 
+                      handleUpdateActivityField(h.id, index, 'sede', e.target.value);
+                      handleUpdateActivityField(h.id, index, 'responsable', ''); // Limpia el cargo si cambian de sede
+                    }} 
+                    className="w-full border p-2 rounded-lg font-black bg-slate-50 focus:bg-white text-slate-700 cursor-pointer shadow-sm border-slate-300"
+                  >
+                    {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                {/* CAMPO B: DUEÑO DEL PROCESO CARGO */}
+                <div className="md:col-span-1">
+                  <label className="font-bold text-slate-700 block mb-0.5">👔 Cargo (Dueño)</label>
+                  <select 
+                    value={act.responsable || ''} 
+                    onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} 
+                    className="w-full border p-2 rounded-lg font-black bg-white focus:bg-white text-slate-800 cursor-pointer shadow-sm border-slate-300" 
+                    required
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {CARGOS_POR_SEDE[act.sede || 'Administrativos'].map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
+                  </select>
+                </div>
                               
                               {/* CAMPO C: AUDITOR RESPONSABLE - COMPLETAMENTE BLOQUEADO EN MODO LECTURA */}
                               <div className="md:col-span-2">
