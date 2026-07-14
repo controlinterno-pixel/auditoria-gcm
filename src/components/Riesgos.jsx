@@ -215,11 +215,35 @@ const [sedeForm, setSedeForm] = useState('Administrativos');
   const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
+    
+    // 🏢 Recuperar Sede
+    setSedeForm(riesgo.sede || 'Administrativos');
+    
     setProceso(riesgo.proceso);
     setCategoria(riesgo.categoria);
     setClasificacionRiesgo(riesgo.clasificacionRiesgo || CLASIFICACIONES_MANUAL[0]);
     setNormativa(riesgo.normativa);
-    setResponsable(riesgo.responsable);
+    
+    // 👥 Recuperar Múltiples Responsables
+    if (riesgo.responsable) {
+      // Si ya venía como arreglo (versiones nuevas)
+      if (Array.isArray(riesgo.responsable)) {
+        setResponsablesMultiples(riesgo.responsable);
+      } 
+      // Si venía como texto separado por comas (versión de transición)
+      else if (riesgo.responsable.includes(',')) {
+        setResponsablesMultiples(riesgo.responsable.split(',').map(r => r.trim()));
+      } 
+      // Si venía como un solo texto (versiones antiguas)
+      else if (riesgo.responsable !== 'Sin Asignar') {
+        setResponsablesMultiples([riesgo.responsable]);
+      } else {
+        setResponsablesMultiples([]);
+      }
+    } else {
+      setResponsablesMultiples([]);
+    }
+    
     setAfectacion('Económico'); 
     setCausaInmediata(riesgo.descripcion || '');
     setCausaRaiz('');
@@ -231,22 +255,11 @@ const [sedeForm, setSedeForm] = useState('Administrativos');
     setPlanAccionRiesgo(riesgo.planAccionRiesgo || '');
     setFechaSeguimiento(riesgo.fechaSeguimiento || '');
     setSeguimientoBitacora(riesgo.seguimientoBitacora || '');
+    
     setVistaActiva('nuevo');
+    setTimeout(scrollToForm, 100);
   };
-
-  const handleDeleteRiesgo = async (id) => {
-    if (window.confirm("¿Estás seguro de eliminar este riesgo de la matriz?")) {
-      try {
-        const updated = safeRiesgos.filter(r => r.id !== id);
-        setRiesgos(updated);
-        await saveToCloud({ riesgos: updated });
-        showNotification("Riesgo eliminado permanentemente.", "success");
-      } catch (error) {
-        showNotification("Error al eliminar el riesgo.", "error");
-      }
-    }
-  };
-
+  
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
