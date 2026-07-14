@@ -125,7 +125,8 @@ export default function Planes({
       }
     }
   }, [editPlan, safeHallazgos]);
-  // =========================================================
+
+// =========================================================
   // 📊 MOTOR DE CÁLCULO ANALÍTICO (FIEL A TU DISEÑO)
   // =========================================================
   const planesEnriquecidos = safePlanes.map(p => {
@@ -136,6 +137,7 @@ export default function Planes({
     
     return {
       ...p,
+      idInforme: hallazgo.idInforme, // ✨ CONEXIÓN DE TRAZABILIDAD: Hereda el informe del hallazgo
       proceso: hallazgo.proceso || 'General',
       sede: hallazgo.sede || 'Hotel',
       severidad: hallazgo.severidad || 'Medio',
