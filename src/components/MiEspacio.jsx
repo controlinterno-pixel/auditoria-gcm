@@ -1,22 +1,28 @@
 import React, { useState, useMemo } from 'react';
 
+// 📚 LISTA OFICIAL HOMOLOGADA Y LIMPIA
+const PROCESOS_OFICIALES = [
+  "Gestión comercial", "Gestión de la mejora continua (SIGCAS)", "Gestión de mercadeo y comunicaciones",
+  "Gestión de servicio al cliente", "Gestión estratégica", "Gestión de Operaciones",
+  "Gestión Administrativa y Financiera", "Gestión Talento Humano", "I+D+i",
+  "Subproceso alojamiento", "Subproceso alimentos y bebidas", "Subproceso compras",
+  "Subproceso desarrollo de competencias", "Subproceso gestión administrativa",
+  "Subproceso gestión de almacenes", "Subproceso gestión de cartera", "Subproceso gestión de contabilidad",
+  "Subproceso gestión de costos", "Subproceso gestión de inventarios", "Subproceso gestión de tesorería",
+  "Subproceso gestión del bienestar y la compensación", "Subproceso gestionar los activos fijos de la empresa",
+  "Subproceso mantenimiento", "Subproceso recreación", "Subproceso Seguridad y salud en trabajo",
+  "Subproceso Gestion de calidad", "Subproceso Gestión Ambiental", "Subproceso Control interno y Gestion de riesgos",
+  "Subproceso Proteccion de datos personales", "Subproceso selección, vinculación y administración de colaboradores",
+  "Tecnologías de la información y la comunicación", "Proceso General"
+];
+
 export default function MiEspacio({
-  user,
-  safePlanes,
-  safeHallazgos,
-  safeComites,
-  safeCronograma,
-  safeRiesgos,
-  safeEvaluaciones,
-  informesAuditoria,
-  activeTab,
-  setActiveTab,
-  setSubTabResultados,
-  setSubTabPlanes,
-  scrollToForm
+  user, safePlanes, safeHallazgos, safeComites, safeCronograma,
+  safeRiesgos, safeEvaluaciones, informesAuditoria,
+  activeTab, setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm
 }) {
-  // 🔌 ESTADO PARA EL CASO ACTIVO DEL EXPEDIENTE ÚNICO
-  const [selectedExpedienteId, setSelectedExpedienteId] = useState('');
+  // 🔌 ESTADO PARA EL PROCESO SELECCIONADO (Ahora filtra por nombre limpio)
+  const [selectedProceso, setSelectedProceso] = useState('');
 
   const usuarioNombre = user?.email?.split('@')[0] || 'Líder de GRC';
   const totalVencidos = safePlanes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length;
@@ -27,33 +33,41 @@ export default function MiEspacio({
   // 🧭 MOTOR FASE 2: EXPEDIENTE ÚNICO 360° (TRAZABILIDAD TOTAL)
   // =====================================================================
   const expedienteSeleccionado = useMemo(() => {
-    if (!selectedExpedienteId) return null;
-    
-    // 1. Busca desde el origen: El Plan Anual (Cronograma)
-    const auditoria = safeCronograma.find(c => String(c.id) === String(selectedExpedienteId));
-    if (!auditoria) return null;
+    if (!selectedProceso) return null;
 
-    const proceso = auditoria.proceso;
+    // 🧹 NORMALIZADOR ESTRICTO: Quita tildes, espacios, símbolos y mayúsculas
+    const normalizeStr = (str) => {
+      if (!str) return "";
+      return String(str)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") 
+        .replace(/[^a-z0-9]/g, ""); 
+    };
 
-    // 2. Extrae en cascada toda la genealogía de ese proceso
-    const riesgosVinculados = safeRiesgos.filter(r => r.proceso === proceso);
+    const target = normalizeStr(selectedProceso);
+
+    // 1. Busca si hay cronograma planeado (toma el más reciente si hay varios)
+    const auditorias = safeCronograma.filter(c => normalizeStr(c.proceso) === target);
+    const auditoria = auditorias.length > 0 ? auditorias[auditorias.length - 1] : { responsable: 'Múltiples / No asignado', enfoque: 'N/A', meses: [] };
+
+    // 2. Extrae en cascada comparando con la cadena purificada
+    const riesgosVinculados = safeRiesgos.filter(r => normalizeStr(r.proceso) === target);
     const evaluacionesVinculadas = safeEvaluaciones.filter(ev => riesgosVinculados.some(r => r.id === ev.idRiesgo));
-    const hallazgosVinculados = safeHallazgos.filter(h => h.proceso === proceso || riesgosVinculados.some(r => r.id === h.idRiesgo));
+    const hallazgosVinculados = safeHallazgos.filter(h => normalizeStr(h.proceso) === target || riesgosVinculados.some(r => r.id === h.idRiesgo));
     const planesVinculados = safePlanes.filter(p => hallazgosVinculados.some(h => h.id === p.idHallazgo));
-    const informesVinculados = (informesAuditoria || []).filter(inf => inf.proceso === proceso);
+    const informesVinculados = (informesAuditoria || []).filter(inf => normalizeStr(inf.proceso) === target);
 
     return {
       auditoria,
-      proceso,
+      proceso: selectedProceso,
       riesgos: riesgosVinculados,
       evaluaciones: evaluacionesVinculadas,
       hallazgos: hallazgosVinculados,
       planes: planesVinculados,
       informes: informesVinculados
     };
-  }, [selectedExpedienteId, safeCronograma, safeRiesgos, safeEvaluaciones, safeHallazgos, safePlanes, informesAuditoria]);
-
-
+  }, [selectedProceso, safeCronograma, safeRiesgos, safeEvaluaciones, safeHallazgos, safePlanes, informesAuditoria]);
   return (
     <div className="space-y-6 text-left">
       {/* BANNER DE BIENVENIDA PREMIUM */}
@@ -164,18 +178,17 @@ export default function MiEspacio({
             <h3 className="text-sm font-black tracking-widest uppercase text-white">📁 Expediente Único de Auditoría 360°</h3>
             <p className="text-[10px] text-slate-400 font-medium mt-1">Visión panorámica de la auditoría. Navegación End-to-End sin cambiar de módulo.</p>
           </div>
-          
           <select
-            value={selectedExpedienteId}
-            onChange={(e) => setSelectedExpedienteId(e.target.value)}
+            value={selectedProceso}
+            onChange={(e) => setSelectedProceso(e.target.value)}
             className="bg-[#060b16] border border-blue-500/30 rounded-xl text-xs font-black py-3.5 px-4 text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-96 shadow-inner cursor-pointer"
           >
-            <option value="">-- Seleccionar Auditoría / Proceso --</option>
-            {safeCronograma.map(c => (
-              <option key={c.id} value={c.id}>AUD-{c.codigo || c.id} : {c.proceso}</option>
+            <option value="">-- Seleccionar Proceso --</option>
+            {PROCESOS_OFICIALES.map((proc, idx) => (
+              <option key={`opt-${idx}`} value={proc}>📁 {proc}</option>
             ))}
           </select>
-        </div>
+                  </div>
 
         {expedienteSeleccionado ? (
           <div className="relative animate-in fade-in duration-700 pl-6 sm:pl-10 pt-4 pb-4">
