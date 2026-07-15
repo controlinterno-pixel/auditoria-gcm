@@ -131,7 +131,7 @@ export default function DashboardEjecutivo({
     return score >= 1 && score <= 4;
   }).length;
  // 🧮 CÁLCULO DE EFECTIVIDAD OPERACIONAL (Ignorando el mes, calculando el acumulado del año)
-  const evaluacionesBase = (evaluaciones || []).filter(e => {
+  const evaluacionesBase = (evalFiltrados || []).filter(e => {
     const anioE = Number(e.anio) || 2026;
     return selectedAnios.length === 0 || selectedAnios.includes(anioE) || selectedAnios.includes(String(anioE));
   });
