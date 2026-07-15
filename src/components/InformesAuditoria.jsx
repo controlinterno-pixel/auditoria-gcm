@@ -103,10 +103,11 @@ export default function InformesAuditoria({
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
   const [participanteTemp, setParticipanteTemp] = useState('');
 
-  // Sincronizador automático si se carga un informe en modo edición
+  // Sincronizador automático si se carga un informe en modo edición (Compatible con ambos esquemas de datos)
   React.useEffect(() => {
-    if (editInformeAuditoria?.participantes) {
-      setParticipantesMultiples(editInformeAuditoria.participantes.includes(',') ? editInformeAuditoria.participantes.split(',').map(p => p.trim()) : [editInformeAuditoria.participantes]);
+    const datosCargos = editInformeAuditoria?.participantes || editInformeAuditoria?.socializadoCon || '';
+    if (datosCargos) {
+      setParticipantesMultiples(datosCargos.includes(',') ? datosCargos.split(',').map(p => p.trim()) : [datosCargos]);
     } else {
       setParticipantesMultiples([]);
     }
@@ -767,17 +768,29 @@ export default function InformesAuditoria({
 
                   // 🛡️ ENLACE RIGUROSO: Sincroniza la cadena de cargos unificada en el input oculto
                   const cadenaCargos = participantesMultiples.join(', ');
+                  
+                  // Guardar en 'participantes'
                   const inputParticipantes = form.querySelector('input[name="participantes"]');
                   if (inputParticipantes) {
                     inputParticipantes.value = cadenaCargos;
                   }
+
+                  // 🚀 CLAVE DE LA SOLUCIÓN: Forzar la inyección en 'socializadoCon' para sobrescribir los datos de texto antiguos
+                  let inputSocializadoCon = form.querySelector('input[name="socializadoCon"]');
+                  if (!inputSocializadoCon) {
+                    inputSocializadoCon = document.createElement('input');
+                    inputSocializadoCon.type = 'hidden';
+                    inputSocializadoCon.name = 'socializadoCon';
+                    form.appendChild(inputSocializadoCon);
+                  }
+                  inputSocializadoCon.value = cadenaCargos;
 
                   const inputEvidencia = form.querySelector('input[name="evidenciaUrlInput"]');
                   const inputActa = form.querySelector('input[name="actaSocializacionUrlInput"]');
                   if (inputEvidencia && archivoSubidoUrl) inputEvidencia.value = archivoSubidoUrl;
                   if (inputActa && actaSubidaUrl) inputActa.value = actaSubidaUrl;
 
-                  // ⏳ RETRASO DE SEGURIDAD EXTREMO: Evita que el DOM se limpie antes de que Firebase reciba la información
+                  // ⏳ RETRASO DE SEGURIDAD EXTENDIDO: Permite el envío completo de datos a Firebase antes del reinicio
                   setTimeout(() => {
                     handleResetForm();
                     form.reset();
