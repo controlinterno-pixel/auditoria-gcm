@@ -48,7 +48,7 @@ const CARGOS_POR_SEDE = {
   "Hotel": [
     "Líderes Hotel", "Subdirector de Operaciones Hotel", "Líder de Proceso de alimentos y bebidas",
     "Chef Hotel", "Supervisor (a) mesa y servicio", "Coordinación de recepción",
-    "Supervisor (a) de operaciones", "Coordinación SPA", "Coordinador de Mantenimiento"
+    "Supervisor (a) de operaciones", "Coordinación SPA", "Coordinador de Mantenimiento","Ama de llaves"
   ],
   "Ecoparque": [
     "Líderes Ecoparque", "Subdirección de Operaciones Balneario", "Líder táctico de alimentos y bebidas",
@@ -65,7 +65,7 @@ const CARGOS_POR_SEDE = {
     "Coordinación de Mercadeo y Comunicaciones", "Dirección Comercial", "Coordinación Comercial y Contact Center",
     "Dirección Talento Humano", "Coordinación Seguridad Y Salud en el trabajo", "Líder de Gestión Ambiental",
     "Lider Tactico de Infraestructura Tecnológica", "Director de TICS", "Desarrollador Junior",
-    "Líder Táctico desarrollo de Software", "Coordinador de Marketing digital"
+    "Líder Táctico desarrollo de Software", "Coordinador de Marketing digital",
   ]
 };
 export default function Hallazgos({

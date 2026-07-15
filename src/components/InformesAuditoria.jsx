@@ -76,6 +76,7 @@ const CARGOS_SOCIALIZACION = [
   "Supervisor de Operaciones",
   "Supervisor Ruta Ecológica",
   "Terapeuta SPA"
+  "Ama de llaves"
 ];
 
 export default function InformesAuditoria({ 
