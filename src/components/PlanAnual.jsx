@@ -52,17 +52,30 @@ export default function PlanAnual({
   // 🧠 4. APLICAR BÚSQUEDA Y FILTROS DE COLUMNA
   const itemsFiltradosFinal = applyFilters(recordsPorAnio, searchTerm, columnFilters);
 
-// 🧠 5. ORDEN CRONOLÓGICO Y ALFABÉTICO (AHORA PRIORIZA EL CONSECUTIVO NUMÉRICO)
+// 🧠 5. ORDEN CRONOLÓGICO (DE ENERO A DICIEMBRE) Y LUEGO POR CONSECUTIVO
   const cronogramaOrdenado = [...itemsFiltradosFinal].sort((a, b) => {
-    // Intenta convertir los códigos a números para un ordenamiento perfecto (ej. 1, 2, 10 en lugar de 1, 10, 2)
+    // Función para obtener el primer mes planeado de una actividad
+    const getMinIdx = (arr) => {
+      if (!arr || !Array.isArray(arr) || arr.length === 0) return 99;
+      const indices = arr.map(m => allMonths.indexOf(m)).filter(i => i >= 0);
+      return indices.length ? Math.min(...indices) : 99;
+    };
+
+    const minA = getMinIdx(a.meses);
+    const minB = getMinIdx(b.meses);
+
+    // 1. Prioridad principal: Ordenar por mes (Enero a Diciembre)
+    if (minA !== minB) {
+      return minA - minB;
+    }
+
+    // 2. Desempate: Si están en el mismo mes, ordenar por el consecutivo (001, 002...)
     const numA = parseInt(a.codigo || '0', 10);
     const numB = parseInt(b.codigo || '0', 10);
-    
     if (!isNaN(numA) && !isNaN(numB) && numA !== numB) {
       return numA - numB;
     }
     
-    // Si no son números o son iguales, ordena alfabéticamente
     return String(a.codigo || '').localeCompare(String(b.codigo || ''));
   });
 
