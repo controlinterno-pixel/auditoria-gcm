@@ -75,7 +75,7 @@ const CARGOS_SOCIALIZACION = [
   "Supervisor (a) Mesa y Servicio",
   "Supervisor de Operaciones",
   "Supervisor Ruta Ecológica",
-  "Terapeuta SPA"
+  "Terapeuta SPA",
   "Ama de llaves"
 ];
 
