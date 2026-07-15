@@ -757,13 +757,20 @@ export default function InformesAuditoria({
               </div>
             </div>
 
-            <div className="md:col-span-4 flex justify-end pt-4">
+           <div className="md:col-span-4 flex justify-end pt-4">
               <button 
                 type="submit" 
                 disabled={isSubmitting} 
                 onClick={(e) => {
                   const form = e.target.closest('form');
                   if (!form) return;
+                  
+                  // 🛡️ BLINDAJE DE CARGOS: Fuerza la inyección de los participantes antes del submit
+                  const inputParticipantes = form.querySelector('input[name="participantes"]');
+                  if (inputParticipantes) {
+                    inputParticipantes.value = participantesMultiples.join(', ');
+                  }
+
                   const inputEvidencia = form.querySelector('input[name="evidenciaUrlInput"]');
                   const inputActa = form.querySelector('input[name="actaSocializacionUrlInput"]');
                   if (inputEvidencia && archivoSubidoUrl) inputEvidencia.value = archivoSubidoUrl;
