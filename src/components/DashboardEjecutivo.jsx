@@ -128,13 +128,12 @@ export default function DashboardEjecutivo({
     ? Math.round((evaluacionesEficaces / totalEvaluaciones) * 100) 
     : 0;
 
+  // 🧠 NUEVO CÁLCULO EXACTO DE HALLAZGOS ABIERTOS Y CRÍTICOS
   const totalHallazgos = hallazgosBase.length;
-  const hallazgosCriticosCount = hallazgosBase.filter(h => h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico').length;
+  const hallazgosAbiertos = hallazgosBase.filter(h => h.estado !== 'Cerrado').length; 
+  const hallazgosCriticosCount = hallazgosBase.filter(h => h.estado !== 'Cerrado' && (h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico')).length;
 
   const contarRiesgosEnCelda = (p, i) => {
-    return riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === p && extraerNumeroPuro(r.impactoResidual) === i).length;
-  };
-
   const riesgosFiltradosPorMatriz = matrizFiltro 
     ? riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === matrizFiltro.p && extraerNumeroPuro(r.impactoResidual) === matrizFiltro.i)
     : riesgosBase.slice(0, 5);
@@ -520,19 +519,18 @@ export default function DashboardEjecutivo({
             </div>
           </div>
         </div>
-
-        {/* CARDA 4: HALLAZGOS ABIERTOS */}
+{/* CARDA 4: HALLAZGOS ABIERTOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
             <button onClick={() => solicitarDictamenIA('hallazgos')} className="text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
           </div>
           <div className="mt-2">
-            <span className="text-3xl font-black text-white">{totalHallazgos}</span>
+            <span className="text-3xl font-black text-white">{hallazgosAbiertos}</span>
           </div>
           <div className="mt-3 text-[10px] font-black uppercase text-red-400 tracking-wider">
             🚨 {hallazgosCriticosCount} Con Alerta Crítica
-          </div>
+          </div>        
           <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-orange-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-orange-500/40 rotate-45"></div>
             <h4 className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Desviaciones</h4>
