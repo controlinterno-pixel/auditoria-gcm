@@ -61,7 +61,12 @@ export default function DashboardEjecutivo({
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
 
-  const riesgosBase = typeof rFiltrados !== 'undefined' ? rFiltrados : (typeof riesgos !== 'undefined' ? riesgos : []);
+// 🧠 FILTRADO EXACTO DE RIESGOS POR AÑO (Ignora el mes para ver el inventario total real)
+  const riesgosBase = (riesgos || []).filter(r => {
+    const anioR = Number(r.anio) || 2026;
+    return selectedAnios.length === 0 || selectedAnios.includes(anioR) || selectedAnios.includes(String(anioR));
+  });
+
   const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
 // 🧠 FILTRADO EXACTO DE PLANES POR AÑO (Ignora el filtro de mes para ver el acumulado real)
   const planesBase = (planes || []).filter(p => {
@@ -114,23 +119,28 @@ export default function DashboardEjecutivo({
   const planesVencidos = planesBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy).length;
   const planesCerrados = planesBase.filter(p => (Number(p.progreso) || 0) === 100).length;
   const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 0;
+  // 🧮 CÁLCULO MATEMÁTICO EXACTO DE RIESGOS (Bajos 1-4, Medios/Altos 5-15, Críticos 16+)
   const totalRiesgos = riesgosBase.length;
   const riesgosCriticos = riesgosBase.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
   const riesgosMedios = riesgosBase.filter(r => {
     const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual);
-    return score >= 6 && score < 16;
+    return score >= 5 && score <= 15;
   }).length;
-  const riesgosBajos = totalRiesgos - riesgosCriticos - riesgosMedios;
-
-  // 🧮 CÁLCULO REAL Y REACTIVO DE EFECTIVIDAD OPERACIONAL:
-  const evaluacionesBase = typeof evalFiltrados !== 'undefined' ? evalFiltrados : [];
+  const riesgosBajos = riesgosBase.filter(r => {
+    const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual);
+    return score >= 1 && score <= 4;
+  }).length;
+ // 🧮 CÁLCULO DE EFECTIVIDAD OPERACIONAL (Ignorando el mes, calculando el acumulado del año)
+  const evaluacionesBase = (evaluaciones || []).filter(e => {
+    const anioE = Number(e.anio) || 2026;
+    return selectedAnios.length === 0 || selectedAnios.includes(anioE) || selectedAnios.includes(String(anioE));
+  });
   const totalEvaluaciones = evaluacionesBase.length;
-  const evaluacionesEficaces = evaluacionesBase.filter(e => e.calificacion === 100).length;
+  const evaluacionesEficaces = evaluacionesBase.filter(e => Number(e.calificacion) === 100).length;
   
   const efectividadControlesGlobal = totalEvaluaciones > 0 
     ? Math.round((evaluacionesEficaces / totalEvaluaciones) * 100) 
     : 0;
-
   // 🧠 NUEVO CÁLCULO EXACTO DE HALLAZGOS ABIERTOS Y CRÍTICOS
   const totalHallazgos = hallazgosBase.length;
   const hallazgosAbiertos = hallazgosBase.filter(h => h.estado !== 'Cerrado').length; 
