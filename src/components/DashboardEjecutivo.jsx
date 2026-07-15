@@ -119,17 +119,19 @@ export default function DashboardEjecutivo({
   const planesVencidos = planesBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy).length;
   const planesCerrados = planesBase.filter(p => (Number(p.progreso) || 0) === 100).length;
   const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 0;
-  // 🧮 CÁLCULO MATEMÁTICO EXACTO DE RIESGOS (Bajos 1-4, Medios/Altos 5-15, Críticos 16+)
+// 🧮 CÁLCULO DE RIESGOS ALINEADO CON EL MÓDULO MATRIZ (4 Niveles)
   const totalRiesgos = riesgosBase.length;
-  const riesgosCriticos = riesgosBase.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
-  const riesgosMedios = riesgosBase.filter(r => {
-    const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual);
-    return score >= 5 && score <= 15;
-  }).length;
-  const riesgosBajos = riesgosBase.filter(r => {
-    const score = extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual);
-    return score >= 1 && score <= 4;
-  }).length;
+  let riesgosExtremos = 0; let riesgosAltos = 0; let riesgosModerados = 0; let riesgosBajos = 0;
+
+  riesgosBase.forEach(r => {
+    const p = extraerNumeroPuro(r.probabilidadResidual);
+    const i = extraerNumeroPuro(r.impactoResidual);
+    
+    if (p >= 4 && i >= 4) { riesgosExtremos++; } 
+    else if ((p >= 3 && i >= 4) || (p >= 4 && i >= 3)) { riesgosAltos++; } 
+    else if ((p >= 2 && i >= 3) || (p >= 3 && i >= 2) || (p >= 2 && i >= 2)) { riesgosModerados++; } 
+    else { riesgosBajos++; }
+  });
  // 🧮 CÁLCULO DE EFECTIVIDAD OPERACIONAL (Ignorando el mes, calculando el acumulado del año)
   const evaluacionesBase = (evalFiltrados || []).filter(e => {
     const anioE = Number(e.anio) || 2026;
@@ -488,9 +490,10 @@ export default function DashboardEjecutivo({
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{totalRiesgos}</span>
           </div>
-          <div className="mt-3 flex items-center justify-between text-[9px] font-black tracking-wider uppercase">
-            <span className="text-red-400">{riesgosCriticos} Críticos</span>
-            <span className="text-amber-400">{riesgosMedios} Medios</span>
+          <div className="mt-3 grid grid-cols-4 gap-1 text-[8px] font-black tracking-wider uppercase text-center">
+            <span className="text-red-500">{riesgosExtremos} Extr</span>
+            <span className="text-orange-400">{riesgosAltos} Altos</span>
+            <span className="text-amber-400">{riesgosModerados} Mod</span>
             <span className="text-emerald-400">{riesgosBajos} Bajos</span>
           </div>
           <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-red-500/40 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0">
