@@ -765,10 +765,11 @@ export default function InformesAuditoria({
                   const form = e.target.closest('form');
                   if (!form) return;
 
-                  // 🛡️ INYECCIÓN FORZADA: Asegura que el valor de cargos se asigne al DOM antes de procesar el submit
+                  // 🛡️ ENLACE RIGUROSO: Sincroniza la cadena de cargos unificada en el input oculto
+                  const cadenaCargos = participantesMultiples.join(', ');
                   const inputParticipantes = form.querySelector('input[name="participantes"]');
                   if (inputParticipantes) {
-                    inputParticipantes.value = participantesMultiples.join(', ');
+                    inputParticipantes.value = cadenaCargos;
                   }
 
                   const inputEvidencia = form.querySelector('input[name="evidenciaUrlInput"]');
@@ -776,12 +777,12 @@ export default function InformesAuditoria({
                   if (inputEvidencia && archivoSubidoUrl) inputEvidencia.value = archivoSubidoUrl;
                   if (inputActa && actaSubidaUrl) inputActa.value = actaSubidaUrl;
 
+                  // ⏳ RETRASO DE SEGURIDAD EXTREMO: Evita que el DOM se limpie antes de que Firebase reciba la información
                   setTimeout(() => {
                     handleResetForm();
                     form.reset();
-                    if(typeof setFormResetKey === 'function') setFormResetKey(Date.now());
-                    else e.target.disabled = false;
-                  }, 3000);
+                    if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
+                  }, 4500);
                 }}
                 className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
               >
@@ -896,7 +897,12 @@ export default function InformesAuditoria({
                         <td className="p-4">
                           <div className="flex flex-col items-start space-y-1.5">
                             <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest border inline-block ${inf.socializado === 'Sí' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>📢 Socializado: {inf.socializado || 'No'}</span>
-                            {inf.socializadoCon && <div className="text-[10px] text-slate-500 font-semibold leading-relaxed">Con: {inf.socializadoCon}</div>}
+                            {/* 👔 TRAZABILIDAD DE CARGOS HOMOLOGADOS */}
+                            {(inf.participantes || inf.socializadoCon) && (
+                              <div className="text-[10px] text-slate-500 font-bold leading-relaxed bg-slate-50 px-2 py-1 rounded-md border border-slate-200/60 mt-1">
+                                <span className="text-slate-400 font-normal">Cargos:</span> {inf.participantes || inf.socializadoCon}
+                              </div>
+                            )}
                             {inf.correoEnviadoA && (
                               <div className="mt-2 group inline-block cursor-help">
                                 <div className="flex items-center space-x-1.5 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 hover:bg-emerald-100 transition-colors shadow-sm">
