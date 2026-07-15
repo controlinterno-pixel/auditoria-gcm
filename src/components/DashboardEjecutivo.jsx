@@ -65,14 +65,12 @@ export default function DashboardEjecutivo({
   const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
   const planesBase = typeof pFiltrados !== 'undefined' ? pFiltrados : (typeof planes !== 'undefined' ? planes : []);
 
-  // 🧠 TRADUCTOR UNIVERSAL REFORZADO (Compatible con todos los formatos)
+ // 🧠 TRADUCTOR UNIVERSAL REFORZADO (Compatible con todos los formatos)
   const extraerNumeroPuro = (valor) => {
     if (valor === undefined || valor === null || valor === '') return 0;
     
-    // Si ya es un número directo válido entre 1 y 5 (ej. un riesgo nuevo creado en el sistema)
     if (typeof valor === 'number') {
       if (valor >= 1 && valor <= 5) return valor;
-      // Si por alguna razón se guardó como porcentaje directo (ej. 20, 40, 60...)
       if (valor === 20) return 1;
       if (valor === 40) return 2;
       if (valor === 60) return 3;
@@ -82,7 +80,6 @@ export default function DashboardEjecutivo({
 
     const str = String(valor).toLowerCase().trim();
     
-    // Si viene como texto porcentual (ej. "60%" o "20")
     if (str === '20' || str === '20%') return 1;
     if (str === '40' || str === '40%') return 2;
     if (str === '60' || str === '60%') return 3;
@@ -90,16 +87,14 @@ export default function DashboardEjecutivo({
     if (str === '100' || str === '100%') return 5;
     if (str === '0' || str === '0%') return 1;
 
-    // Si viene con el texto descriptivo del manual (ej. "3 Posible")
     const num = parseInt(str.charAt(0), 10);
     if (!isNaN(num) && num >= 1 && num <= 5) return num;
     
-    // Si viene solo como texto (ej. "Catastrófico")
-    if (str.includes('rara') || str.includes('muy baja')) return 1;
-    if (str.includes('improbable') || str.includes('baja')) return 2;
+    if (str.includes('rara') || str.includes('baja')) return 1;
+    if (str.includes('improbable')) return 2;
     if (str.includes('posible') || str.includes('media')) return 3;
     if (str.includes('probable') || str.includes('alta')) return 4;
-    if (str.includes('casi seguro') || str.includes('muy alta')) return 5;
+    if (str.includes('casi seguro')) return 5;
     
     if (str.includes('insignificante') || str.includes('leve')) return 1;
     if (str.includes('menor')) return 2;
@@ -107,7 +102,7 @@ export default function DashboardEjecutivo({
     if (str.includes('mayor') || str.includes('alto')) return 4;
     if (str.includes('catastrófico') || str.includes('crítico')) return 5;
     
-    return 1; // 🛡️ Valor por defecto si no reconoce nada, evitando que se grafique en el aire
+    return 1; 
   };
 
   const totalPlanes = planesBase.length;
@@ -1147,7 +1142,9 @@ export default function DashboardEjecutivo({
             <p className="text-xs font-medium text-slate-500 py-4 text-center">No se registran riesgos mapeados en esta coordenada exacta.</p>
           ) : (
             riesgosFiltradosPorMatriz.map((r, idx) => {
-              const score = (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) || 1;
+const pRes = extraerNumeroPuro(r.probabilidadResidual) || 1;
+              const iRes = extraerNumeroPuro(r.impactoResidual) || 1;
+              const score = pRes * iRes;
               return (
                 <div key={`risk-row-${idx}`} className="bg-[#060b16] border border-slate-800/80 p-3 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-slate-700 transition-all">
                   <div className="flex items-start space-x-3">
