@@ -63,8 +63,11 @@ export default function DashboardEjecutivo({
 
   const riesgosBase = typeof rFiltrados !== 'undefined' ? rFiltrados : (typeof riesgos !== 'undefined' ? riesgos : []);
   const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
-  const planesBase = typeof pFiltrados !== 'undefined' ? pFiltrados : (typeof planes !== 'undefined' ? planes : []);
-
+// 🧠 FILTRADO EXACTO DE PLANES POR AÑO (Ignora el filtro de mes para ver el acumulado real)
+  const planesBase = (planes || []).filter(p => {
+    const anioPlan = p.fecha ? Number(p.fecha.split('-')[0]) : (Number(p.anio) || 2026);
+    return selectedAnios.length === 0 || selectedAnios.includes(anioPlan) || selectedAnios.includes(String(anioPlan));
+  });
   // 🧠 TRADUCTOR UNIVERSAL REFORZADO (Compatible con todos los formatos)
   const extraerNumeroPuro = (valor) => {
     if (valor === undefined || valor === null || valor === '') return 0;
@@ -105,12 +108,12 @@ export default function DashboardEjecutivo({
     return 1; 
   };
 
+  // 🧮 CÁLCULO IDÉNTICO AL MÓDULO DE PLANES (Basado en % de Progreso real)
   const totalPlanes = planesBase.length;
-  const planesActivos = planesBase.filter(p => p.estado !== 'Cerrado').length;
-  const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
-  const planesCerrados = planesBase.filter(p => p.estado === 'Cerrado').length;
-  const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 100;
-
+  const planesActivos = planesBase.filter(p => (Number(p.progreso) || 0) < 100).length;
+  const planesVencidos = planesBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy).length;
+  const planesCerrados = planesBase.filter(p => (Number(p.progreso) || 0) === 100).length;
+  const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 0;
   const totalRiesgos = riesgosBase.length;
   const riesgosCriticos = riesgosBase.filter(r => (extraerNumeroPuro(r.probabilidadResidual) * extraerNumeroPuro(r.impactoResidual)) >= 16).length;
   const riesgosMedios = riesgosBase.filter(r => {
@@ -142,7 +145,7 @@ export default function DashboardEjecutivo({
     : riesgosBase.slice(0, 5);
 
   const planesVencidosList = planesBase
-    .filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy)
+    .filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy)
     .sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
     .slice(0, 5);
 
