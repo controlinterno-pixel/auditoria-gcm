@@ -65,22 +65,49 @@ export default function DashboardEjecutivo({
   const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
   const planesBase = typeof pFiltrados !== 'undefined' ? pFiltrados : (typeof planes !== 'undefined' ? planes : []);
 
+  // 🧠 TRADUCTOR UNIVERSAL REFORZADO (Compatible con todos los formatos)
   const extraerNumeroPuro = (valor) => {
-    if (!valor) return 0;
+    if (valor === undefined || valor === null || valor === '') return 0;
+    
+    // Si ya es un número directo válido entre 1 y 5 (ej. un riesgo nuevo creado en el sistema)
+    if (typeof valor === 'number') {
+      if (valor >= 1 && valor <= 5) return valor;
+      // Si por alguna razón se guardó como porcentaje directo (ej. 20, 40, 60...)
+      if (valor === 20) return 1;
+      if (valor === 40) return 2;
+      if (valor === 60) return 3;
+      if (valor === 80) return 4;
+      if (valor === 100) return 5;
+    }
+
     const str = String(valor).toLowerCase().trim();
+    
+    // Si viene como texto porcentual (ej. "60%" o "20")
+    if (str === '20' || str === '20%') return 1;
+    if (str === '40' || str === '40%') return 2;
+    if (str === '60' || str === '60%') return 3;
+    if (str === '80' || str === '80%') return 4;
+    if (str === '100' || str === '100%') return 5;
+    if (str === '0' || str === '0%') return 1;
+
+    // Si viene con el texto descriptivo del manual (ej. "3 Posible")
     const num = parseInt(str.charAt(0), 10);
-    if (!isNaN(num)) return num;
-    if (str === 'rara' || str === 'rara vez') return 1;
-    if (str === 'improbable') return 2;
-    if (str === 'posible') return 3;
-    if (str === 'probable') return 4;
-    if (str === 'casi seguro') return 5;
-    if (str === 'insignificante') return 1;
-    if (str === 'menor') return 2;
-    if (str === 'moderado' || str === 'medio') return 3;
-    if (str === 'mayor' || str === 'alto') return 4;
-    if (str === 'catastrófico' || str === 'crítico') return 5;
-    return 0;
+    if (!isNaN(num) && num >= 1 && num <= 5) return num;
+    
+    // Si viene solo como texto (ej. "Catastrófico")
+    if (str.includes('rara') || str.includes('muy baja')) return 1;
+    if (str.includes('improbable') || str.includes('baja')) return 2;
+    if (str.includes('posible') || str.includes('media')) return 3;
+    if (str.includes('probable') || str.includes('alta')) return 4;
+    if (str.includes('casi seguro') || str.includes('muy alta')) return 5;
+    
+    if (str.includes('insignificante') || str.includes('leve')) return 1;
+    if (str.includes('menor')) return 2;
+    if (str.includes('moderado') || str.includes('medio')) return 3;
+    if (str.includes('mayor') || str.includes('alto')) return 4;
+    if (str.includes('catastrófico') || str.includes('crítico')) return 5;
+    
+    return 1; // 🛡️ Valor por defecto si no reconoce nada, evitando que se grafique en el aire
   };
 
   const totalPlanes = planesBase.length;
@@ -732,15 +759,34 @@ export default function DashboardEjecutivo({
         {/* GRÁFICA 1: EVOLUCIÓN DE IMPACTO FINANCIERO */}
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
           {(() => {
-            const infoFinanciera = defaultMeses.map(mText => {
-              const totalCostoMes = (safeIncidentes || [])
-                .filter(inc => {
-                  const passAnio = selectedAnios.length === 0 || selectedAnios.includes(getItemAnio(inc));
-                  return passAnio && getItemMesText(inc) === mText;
-                })
-                .reduce((acc, current) => acc + (Number(current.costo) || 0), 0);
+            // 🧠 CÁLCULO ESTRICTO GRÁFICO 1: EVOLUCIÓN FINANCIERA (INCIDENTES)
+            const infoFinanciera = defaultMeses.map((mText, mIdx) => {
+              // Si no se han cargado datos, retornar 0
+              if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
+              
+              const totalCostoMes = safeIncidentes.filter(inc => {
+                // Validación robusta de fechas
+                let anioInc = 2026;
+                let mesIncText = "Junio";
+                
+                if (inc.fecha) {
+                  const d = new Date(inc.fecha);
+                  if (!isNaN(d.getTime())) {
+                    anioInc = d.getFullYear();
+                    mesIncText = defaultMeses[d.getMonth()] || "Junio";
+                  }
+                } else if (inc.anio && inc.mes) {
+                  anioInc = Number(inc.anio);
+                  mesIncText = inc.mes;
+                }
+                
+                const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
+                return passAnio && mesIncText === mText;
+              }).reduce((acc, current) => acc + (Number(current.costo) || 0), 0);
+              
               return { mes: mText, valor: totalCostoMes };
             });
+
 
             return (
               <div className="bg-[#0a1122]">
@@ -767,12 +813,30 @@ export default function DashboardEjecutivo({
         {/* GRÁFICA 2: VOLUMEN DE DESVIACIONES Y HALLAZGOS */}
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
           {(() => {
+            // 🧠 CÁLCULO ESTRICTO GRÁFICO 2: VOLUMEN DE DESVIACIONES (HALLAZGOS)
             const infoDesviaciones = defaultMeses.map(mText => {
-              const totalHallazgosMes = (hallazgosBase || [])
-                .filter(hal => {
-                  const passAnio = selectedAnios.length === 0 || selectedAnios.includes(getItemAnio(hal));
-                  return passAnio && getItemMesText(hal) === mText;
-                }).length;
+              if (!hallazgosBase || hallazgosBase.length === 0) return { mes: mText, valor: 0 };
+              
+              const totalHallazgosMes = hallazgosBase.filter(hal => {
+                // Validación robusta de fechas
+                let anioHal = 2026;
+                let mesHalText = "Junio";
+                
+                if (hal.fecha) {
+                  const d = new Date(hal.fecha);
+                  if (!isNaN(d.getTime())) {
+                    anioHal = d.getFullYear();
+                    mesHalText = defaultMeses[d.getMonth()] || "Junio";
+                  }
+                } else if (hal.anio && hal.mes) {
+                  anioHal = Number(hal.anio);
+                  mesHalText = hal.mes;
+                }
+                
+                const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioHal) || selectedAnios.includes(String(anioHal));
+                return passAnio && mesHalText === mText;
+              }).length;
+              
               return { mes: mText, valor: totalHallazgosMes };
             });
 
