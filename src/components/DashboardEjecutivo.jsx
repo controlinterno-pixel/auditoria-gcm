@@ -187,7 +187,7 @@ export default function DashboardEjecutivo({
           titulo: "Volumen del Inventario de Riesgos",
           valor: `${totalRiesgos} Activos`,
           significado: "Total de amenazas procedimentales, ambientales y normativas mapeadas en la matriz 5x5.",
-          dictamen: `Al Gerente General: Contar con 145 riesgos indica un alto nivel de madurez y cultura de prevención. Al tener controlados los riesgos Críticos (solo ${riesgosCriticos}), el verdadero foco de supervisión gerencial debe estar en los ${riesgosMedios} riesgos Medios para evitar desviaciones operativas recurrentes.`,
+          dictamen: `Al Gerente General: Contar con ${totalRiesgos} riesgos indica un alto nivel de madurez y cultura de prevención. Al tener controlados los riesgos Extremos (solo ${riesgosExtremos}), el verdadero foco de supervisión gerencial debe estar en los ${riesgosAltos} riesgos Altos y ${riesgosModerados} Moderados para evitar desviaciones operativas recurrentes.`,
           color: "border-red-500/30 text-red-400"
         };
       } else if (tipoCard === 'controles') {
@@ -886,11 +886,10 @@ export default function DashboardEjecutivo({
           <div className="bg-[#1c0d15] border border-red-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-red-500/40 transition-colors relative overflow-visible">
             <div className="text-red-400 text-lg bg-red-500/10 p-1.5 rounded-lg">⚠️</div>
             <div className="space-y-0.5">
-              <h4 className="text-[11px] font-black text-red-400">{riesgosCriticos} Riesgos Críticos Activos</h4>
+              <h4 className="text-[11px] font-black text-red-400">{riesgosExtremos + riesgosAltos} Riesgos Extremos/Altos</h4>
               <p className="text-[9px] text-slate-400 font-medium">Requieren priorización de controles inmediata</p>
             </div>
           </div>
-
           <div className="bg-[#1c140d] border border-amber-500/20 p-3 rounded-xl flex items-start space-x-3 group cursor-pointer hover:border-amber-500/40 transition-colors relative overflow-visible">
             <div className="text-amber-400 text-lg bg-amber-500/10 p-1.5 rounded-lg">📝</div>
             <div className="space-y-0.5">
