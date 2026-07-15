@@ -65,7 +65,7 @@ export default function DashboardEjecutivo({
   const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
   const planesBase = typeof pFiltrados !== 'undefined' ? pFiltrados : (typeof planes !== 'undefined' ? planes : []);
 
- // 🧠 TRADUCTOR UNIVERSAL REFORZADO (Compatible con todos los formatos)
+  // 🧠 TRADUCTOR UNIVERSAL REFORZADO (Compatible con todos los formatos)
   const extraerNumeroPuro = (valor) => {
     if (valor === undefined || valor === null || valor === '') return 0;
     
@@ -134,6 +134,9 @@ export default function DashboardEjecutivo({
   const hallazgosCriticosCount = hallazgosBase.filter(h => h.estado !== 'Cerrado' && (h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico')).length;
 
   const contarRiesgosEnCelda = (p, i) => {
+    return riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === p && extraerNumeroPuro(r.impactoResidual) === i).length;
+  };
+
   const riesgosFiltradosPorMatriz = matrizFiltro 
     ? riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === matrizFiltro.p && extraerNumeroPuro(r.impactoResidual) === matrizFiltro.i)
     : riesgosBase.slice(0, 5);
@@ -183,9 +186,9 @@ export default function DashboardEjecutivo({
       } else if (tipoCard === 'hallazgos') {
         analitica = {
           titulo: "Desviaciones Normativas No Resueltas",
-          valor: `${totalHallazgos} Abiertos`,
+          valor: `${hallazgosAbiertos} Abiertos`,
           significado: "Brechas regulatorias identificadas en informes aprobados pendientes de plan de acción.",
-          dictamen: `Al Gerente General: Tener solo ${totalHallazgos} hallazgo abierto para un complejo hotelero de esta envergadura es un récord de alta excelencia. Indica una gestión administrativa y legal limpia, blindada contra contingencias o multas de entes de supervisión.`,
+          dictamen: `Al Gerente General: Tener solo ${hallazgosAbiertos} hallazgos abiertos para un complejo hotelero de esta envergadura es un récord de alta excelencia. Indica una gestión administrativa y legal limpia, blindada contra contingencias o multas de entes de supervisión.`,
           color: "border-amber-500/30 text-amber-400"
         };
       } else if (tipoCard === 'planes') {
@@ -193,7 +196,7 @@ export default function DashboardEjecutivo({
           titulo: "Saturación Administrativa de Planes",
           valor: `${planesActivos} en Ejecución`,
           significado: "Cantidad de procesos de mejora simultáneos que ejecutan los jefes de departamento.",
-          dictamen: `Al Gerente General: Registrar solo ${planesActivos} plan activo es el escenario ideal. La estructura operativa de Termales no sufre de 'parálisis por análisis'. Hay total disponibilidad de tiempo para enfocar al personal en la calidad del servicio diario.`,
+          dictamen: `Al Gerente General: Registrar solo ${planesActivos} planes activos es el escenario ideal. La estructura operativa de Termales no sufre de 'parálisis por análisis'. Hay total disponibilidad de tiempo para enfocar al personal en la calidad del servicio diario.`,
           color: "border-purple-500/30 text-purple-400"
         };
       } else if (tipoCard === 'matriz') {
@@ -431,7 +434,7 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-     {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TODOS LOS 5 TOOLTIPS ENRIQUECIDOS ─── */}
+      {/* ─── BLOQUE DE TARJETAS SUPERIORES CON TODOS LOS 5 TOOLTIPS ENRIQUECIDOS ─── */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         
         {/* CARDA 1: CUMPLIMIENTO GLOBAL */}
@@ -519,7 +522,8 @@ export default function DashboardEjecutivo({
             </div>
           </div>
         </div>
-{/* CARDA 4: HALLAZGOS ABIERTOS */}
+
+        {/* CARDA 4: HALLAZGOS ABIERTOS */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
@@ -754,11 +758,9 @@ export default function DashboardEjecutivo({
           {(() => {
             // 🧠 CÁLCULO ESTRICTO GRÁFICO 1: EVOLUCIÓN FINANCIERA (INCIDENTES)
             const infoFinanciera = defaultMeses.map((mText, mIdx) => {
-              // Si no se han cargado datos, retornar 0
               if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
               
               const totalCostoMes = safeIncidentes.filter(inc => {
-                // Validación robusta de fechas
                 let anioInc = 2026;
                 let mesIncText = "Junio";
                 
@@ -779,7 +781,6 @@ export default function DashboardEjecutivo({
               
               return { mes: mText, valor: totalCostoMes };
             });
-
 
             return (
               <div className="bg-[#0a1122]">
@@ -811,7 +812,6 @@ export default function DashboardEjecutivo({
               if (!hallazgosBase || hallazgosBase.length === 0) return { mes: mText, valor: 0 };
               
               const totalHallazgosMes = hallazgosBase.filter(hal => {
-                // Validación robusta de fechas
                 let anioHal = 2026;
                 let mesHalText = "Junio";
                 
@@ -991,6 +991,7 @@ export default function DashboardEjecutivo({
                       <td className="py-2 text-right">{kpiPlanAnual >= 85 ? '✅' : (kpiPlanAnual >= 60 ? '⚠️' : '🚨')}</td>
                     </tr>
                     <tr className="hover:bg-slate-800/30 transition-colors">
+                      <td className="py-2 text-white truncate max-w-[120px]">Salud de Controles</td>
                       <td className="py-2 text-center text-slate-200">{efectividadControlesGlobal}%</td>
                       <td className="py-2 text-center text-slate-500">80%</td>
                       <td className="py-2 text-right">{efectividadControlesGlobal >= 80 ? '✅' : (efectividadControlesGlobal >= 60 ? '⚠️' : '🚨')}</td>
@@ -1137,10 +1138,10 @@ export default function DashboardEjecutivo({
 
         <div className="space-y-2">
           {riesgosFiltradosPorMatriz.length === 0 ? (
-            <p className="text-xs font-medium text-slate-500 py-4 text-center">No se registran riesgos mapeados en esta coordenada exacta.</p>
+            <p className="text-xs font-medium text-slate-500 py-4 text-center">No se registran riesgos mapeados in esta coordenada exacta.</p>
           ) : (
             riesgosFiltradosPorMatriz.map((r, idx) => {
-const pRes = extraerNumeroPuro(r.probabilidadResidual) || 1;
+              const pRes = extraerNumeroPuro(r.probabilidadResidual) || 1;
               const iRes = extraerNumeroPuro(r.impactoResidual) || 1;
               const score = pRes * iRes;
               return (
