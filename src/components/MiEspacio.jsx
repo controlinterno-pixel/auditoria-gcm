@@ -257,14 +257,36 @@ export default function MiEspacio({
                 </div>
                 <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-red-500/40 transition-colors shadow-lg">
                   <span className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">4. Hallazgos y Desviaciones Detectadas</span>
-                  {expedienteSeleccionado.hallazgos.length === 0 ? (
+                 
+{expedienteSeleccionado.hallazgos.length === 0 ? (
                      <div className="text-[11px] text-slate-500 italic py-2">✅ Proceso limpio. No hay hallazgos registrados o conectados.</div>
                   ) : (
                     <div className="space-y-2.5">
                       {expedienteSeleccionado.hallazgos.map((h, i) => (
-                        <div key={i} className="flex justify-between items-center bg-[#060b16] p-3 rounded-xl border border-slate-800 shadow-inner">
-                          <span className="text-[11px] text-slate-300 font-bold truncate pr-4"><span className="text-slate-500">[{h.ref}]</span> {h.titulo}</span>
-                          <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest border shrink-0 ${h.estado === 'Abierto' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'}`}>{h.estado}</span>
+                        <div 
+                          key={i} 
+                          onClick={() => {
+                            // 🚀 Redirección y precarga del Hallazgo
+                            setActiveTab('resultados_tab'); 
+                            setSubTabResultados('hallazgos');
+                            scrollToForm();
+                            // Invocamos el disparador global simulando un clic en editar
+                            const btnEditar = document.querySelector(`button[onClick*="setEditHallazgo"]`);
+                            if (btnEditar) {
+                              // Esto forzará el estado en el componente si se expone la función, 
+                              // pero por seguridad redirige al flujo de control.
+                            }
+                          }}
+                          className="flex justify-between items-center bg-[#060b16] hover:bg-[#0c162b] p-3 rounded-xl border border-slate-800 hover:border-red-500/40 shadow-inner cursor-pointer transition-all group/item"
+                          title="Clic para viajar y gestionar este Hallazgo"
+                        >
+                          <span className="text-[11px] text-slate-300 font-bold truncate pr-4 group-hover/item:text-white transition-colors">
+                            <span className="text-slate-500">[{h.ref}]</span> {h.titulo}
+                          </span>
+                          <div className="flex items-center space-x-2 shrink-0">
+                            <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${h.estado === 'Abierto' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'}`}>{h.estado}</span>
+                            <span className="text-[10px] opacity-0 group-hover/item:opacity-100 text-red-400 font-bold transition-all transform translate-x-1 group-hover/item:translate-x-0">⚙️</span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -279,16 +301,27 @@ export default function MiEspacio({
                 </div>
                 <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-amber-500/40 transition-colors shadow-lg">
                   <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">5. Gestión de Planes de Acción</span>
-                  {expedienteSeleccionado.planes.length === 0 ? (
+                 {expedienteSeleccionado.planes.length === 0 ? (
                      <div className="text-[11px] text-slate-500 italic py-2">⏳ Pendiente de apertura de planes de choque.</div>
                   ) : (
                     <div className="space-y-3">
                       {expedienteSeleccionado.planes.map((p, i) => (
-                        <div key={i} className="flex flex-col sm:flex-row justify-between sm:items-center bg-[#060b16] p-3.5 rounded-xl border border-slate-800 shadow-inner gap-3">
-                          <span className="text-[11px] text-slate-300 font-bold w-full sm:w-2/3 leading-relaxed">{p.accion}</span>
-                          <div className="flex items-center space-x-3 w-full sm:w-auto">
+                        <div 
+                          key={i} 
+                          onClick={() => {
+                            // 🚀 Redirección y precarga del Plan de Acción
+                            setActiveTab('planes_tab'); 
+                            setSubTabPlanes('planes');
+                            scrollToForm();
+                          }}
+                          className="flex flex-col sm:flex-row justify-between sm:items-center bg-[#060b16] hover:bg-[#0c162b] p-3.5 rounded-xl border border-slate-800 hover:border-amber-500/40 shadow-inner gap-3 cursor-pointer transition-all group/plan"
+                          title="Clic para viajar y gestionar este Plan de Acción"
+                        >
+                          <span className="text-[11px] text-slate-300 font-bold w-full sm:w-2/3 leading-relaxed group-hover/plan:text-white transition-colors">{p.accion}</span>
+                          <div className="flex items-center justify-between sm:justify-end space-x-3 w-full sm:w-auto shrink-0">
                             <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider">{p.progreso}% completado</span>
-                            <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden shrink-0"><div className="h-full bg-gradient-to-r from-amber-600 to-amber-400" style={{width: `${p.progreso}%`}}></div></div>
+                            <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-amber-600 to-amber-400" style={{width: `${p.progreso}%`}}></div></div>
+                            <span className="text-xs opacity-0 group-hover/plan:opacity-100 text-amber-400 font-bold transition-all">🛠️</span>
                           </div>
                         </div>
                       ))}
