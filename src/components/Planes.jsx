@@ -758,7 +758,7 @@ export default function Planes({
                                      className="hover:bg-blue-50 transition-colors cursor-pointer group/row"
                                      title="Clic para gestionar este plan de acción"
                                    >
-                                     <td className="py-2.5 font-mono font-black text-slate-700 group-hover/row:text-blue-700">PLA-{p.id.toString().substring(0,3)}</td>
+                                     <td className="py-2.5 font-mono font-black text-slate-700 group-hover/row:text-blue-700">PLA-{p.id.toString().slice(-4)}</td>
                                      <td className="py-2.5 font-bold text-slate-600 max-w-[140px] truncate group-hover/row:text-blue-900" title={p.accion}>{p.accion}</td>
                                      <td className="py-2.5 font-medium text-slate-500 truncate max-w-[80px]">{p.proceso}</td>
                                      <td className="py-2.5 text-center">
@@ -1127,7 +1127,7 @@ export default function Planes({
                             <tbody className="divide-y text-slate-700 bg-white">
                               {planesDelInforme.map((p, pIdx) => (
                                 <tr key={`h-child-plan-${p.id}-${pIdx}`} className="hover:bg-slate-50/60 transition-colors">
-                                  <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().substring(0,3)}</td>
+                                  <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().slice(-4)}</td>
                                   <td className="p-3">
                                     <span className="px-2 py-0.5 rounded font-black text-[9px] uppercase border bg-slate-100 text-slate-700">{p.estadoWorkflow}</span>
                                   </td>
