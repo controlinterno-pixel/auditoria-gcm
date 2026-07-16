@@ -162,7 +162,8 @@ export default function Planes({
     if (dashFiltroEstado !== 'Todos') {
       if (dashFiltroEstado === 'Cerrado' && p.progreso < 100) return false;
       if (dashFiltroEstado === 'Vencido' && !p.esVencido) return false;
-      if (dashFiltroEstado === 'En Proceso' && (p.progreso === 100 || p.esVencido)) return false;
+      if (dashFiltroEstado === 'En Proceso' && (p.progreso === 100 || p.progreso === 0 || p.esVencido)) return false;
+      if (dashFiltroEstado === 'Pendiente' && (p.progreso > 0 || p.esVencido)) return false;
     }
     return true;
   });
@@ -575,15 +576,19 @@ export default function Planes({
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
-<div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+{/* 🚀 TARJETAS 100% INTERACTIVAS: Al hacer clic, aplican filtro de Estado */}
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+            
+            {/* 1. TOTAL PLANES (Resetea los filtros) */}
+            <div onClick={() => setDashFiltroEstado('Todos')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Todos' ? 'border-slate-800 ring-4 ring-slate-800/10' : 'border-slate-200 hover:border-slate-400'}`}>
                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Planes</p>
                <div className="flex items-center space-x-2">
                  <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-black shadow-sm">∑</div>
                  <p className="text-2xl font-black text-slate-800">{totalPlanesBase}</p>
                </div>
             </div>          
-           {/* 🚀 TARJETAS INTERACTIVAS: Al hacer clic, aplican filtro de Estado */}
+            
+            {/* 2. CERRADOS */}
             <div onClick={() => setDashFiltroEstado('Cerrado')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Cerrado' ? 'border-emerald-500 ring-4 ring-emerald-500/20' : 'border-emerald-200 hover:border-emerald-500'}`}>
                <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-1">Cerrados</p>
                <div className="flex items-center space-x-2">
@@ -594,6 +599,8 @@ export default function Planes({
                  </div>
                </div>
             </div>
+            
+            {/* 3. EN PROCESO */}
             <div onClick={() => setDashFiltroEstado('En Proceso')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'En Proceso' ? 'border-amber-500 ring-4 ring-amber-500/20' : 'border-amber-200 hover:border-amber-500'}`}>
                <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest mb-1">En Proceso</p>
                <div className="flex items-center space-x-2">
@@ -604,13 +611,20 @@ export default function Planes({
                  </div>
                </div>
             </div>
-            <div onClick={() => setDashFiltroEstado('En Proceso')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'En Proceso' && pendientes > 0 ? 'border-orange-500 ring-4 ring-orange-500/20' : 'border-orange-200 hover:border-orange-500'}`}>
+            
+            {/* 4. PENDIENTES */}
+            <div onClick={() => setDashFiltroEstado('Pendiente')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Pendiente' ? 'border-orange-500 ring-4 ring-orange-500/20' : 'border-orange-200 hover:border-orange-500'}`}>
                <p className="text-[9px] font-black text-orange-700 uppercase tracking-widest mb-1">Pendientes</p>
                <div className="flex items-center space-x-2">
                  <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black shadow-sm">?</div>
-                 <p className="text-2xl font-black text-slate-800">{pendientes}</p>
+                 <div>
+                   <p className="text-2xl font-black text-slate-800 leading-none">{pendientes}</p>
+                   <p className="text-[9px] font-bold text-orange-500 mt-0.5">{pct(pendientes)}% del total</p>
+                 </div>
                </div>
             </div>
+            
+            {/* 5. VENCIDOS */}
             <div onClick={() => setDashFiltroEstado('Vencido')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Vencido' ? 'border-red-500 ring-4 ring-red-500/20' : 'border-red-200 hover:border-red-500'}`}>
                <p className="text-[9px] font-black text-red-700 uppercase tracking-widest mb-1">Vencidos</p>
                <div className="flex items-center space-x-2">
@@ -621,15 +635,16 @@ export default function Planes({
                  </div>
                </div>
             </div> 
-            <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+            
+            {/* 6. CUMPLIMIENTO */}
+            <div onClick={() => setDashFiltroEstado('Cerrado')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Cerrado' ? 'border-blue-500 ring-4 ring-blue-500/20' : 'border-blue-200 hover:border-blue-500'}`}>
                <p className="text-[9px] font-black text-blue-700 uppercase tracking-widest mb-1">Cumplimiento</p>
                <div className="flex items-center space-x-2">
-                 <div className="w-9 h-9 rounded-full border-4 border-emerald-500 flex items-center justify-center text-[10px] font-black text-slate-800 shadow-sm">{cumplimientoGlobal}%</div>
+                 <div className="w-9 h-9 rounded-full border-4 border-emerald-500 flex items-center justify-center text-[10px] font-black text-slate-800 shadow-sm bg-white">{cumplimientoGlobal}%</div>
                  <p className="text-[9px] font-bold text-slate-400">Meta: 90%+</p>
                </div>
             </div>
           </div>
-
           {/* Bloque Central de 3 Columnas */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             
@@ -682,7 +697,8 @@ export default function Planes({
                     <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
                       <option value="Cerrado">Cerrado (100%)</option>
-                      <option value="En Proceso">En Proceso</option>
+                      <option value="En Proceso">En Proceso (> 0%)</option>
+                      <option value="Pendiente">Pendiente (0%)</option>
                       <option value="Vencido">Vencido</option>
                     </select>
                   </div>
