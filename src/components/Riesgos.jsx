@@ -230,14 +230,27 @@ const [sedeForm, setSedeForm] = useState('Administrativos');
   const descripcionAutomatica = `Posibilidad de afectación ${afectacion.toLowerCase()} por ${causaInmediata.toLowerCase()} debido a ${causaRaiz.toLowerCase()}`;
 
   const getSeverityZone = (prob, imp) => {
-    const p = Number(prob);
-    const i = Number(imp);
-    if (p >= 80 && i >= 80) return { label: 'Extremo', color: 'bg-red-600 text-white' };
-    if ((p >= 60 && i >= 80) || (p >= 80 && i >= 60)) return { label: 'Alto', color: 'bg-orange-500 text-white' };
-    if ((p >= 40 && i >= 60) || (p >= 60 && i >= 40) || (p >= 40 && i >= 40)) return { label: 'Moderado', color: 'bg-amber-400 text-slate-900' };
+    // 1. Convertir a número por seguridad
+    let p = Number(prob) || 1;
+    let i = Number(imp) || 1;
+    
+    // 2. Si vienen como porcentajes (20, 40, 60, 80, 100), los convertimos a la escala 1-5
+    if (p > 5) p = Math.ceil(p / 20);
+    if (i > 5) i = Math.ceil(i / 20);
+    
+    // 3. Aplicar la lógica exacta de la matriz 5x5
+    if (p >= 4 && i >= 4) {
+      return { label: 'Extremo', color: 'bg-red-600 text-white' };
+    } 
+    if ((p >= 3 && i >= 4) || (p >= 4 && i >= 3)) {
+      return { label: 'Alto', color: 'bg-orange-500 text-white' };
+    } 
+    if ((p >= 2 && i >= 3) || (p >= 3 && i >= 2) || (p >= 2 && i >= 2)) {
+      return { label: 'Moderado', color: 'bg-amber-400 text-slate-900' };
+    }
+    
     return { label: 'Bajo', color: 'bg-emerald-500 text-white' };
   };
-
   const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
