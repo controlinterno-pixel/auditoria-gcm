@@ -865,9 +865,14 @@ export default function Planes({
                       <div className="space-y-4">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => (
                           <div key={`act-row-${index}`} className="bg-white border rounded-xl p-4 shadow-sm space-y-3 relative">
-                            <div className="flex justify-between items-center border-b pb-1">
-                              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Actividad #{index + 1}</span>
-                              {node.actividades.length > 1 && <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 font-bold text-[10px] uppercase">🗑️ Quitar</button>}
+                            <div className="flex justify-between items-center border-b pb-2">
+                              <div className="flex items-center space-x-3">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actividad #{index + 1}</span>
+                                <span className={`px-2 py-0.5 rounded-md font-mono font-black text-[10px] tracking-widest border ${String(act.id).startsWith('new-') ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-300 shadow-inner'}`}>
+                                  PLA-{String(act.id).startsWith('new-') ? 'NUEVO' : String(act.id).slice(-4)}
+                                </span>
+                              </div>
+                              {node.actividades.length > 1 && <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 hover:bg-red-50 font-bold text-[10px] uppercase px-2 py-1 rounded transition-colors">🗑️ Quitar</button>}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
                               
