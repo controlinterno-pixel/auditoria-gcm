@@ -813,7 +813,7 @@ export default function DashboardEjecutivo({
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
               <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Cronograma Aprobado.</p>
               <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Visibilidad para agendar recursos logísticos en campo.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Procesos oficiales con cumplimiento < 100%.</p>
+<p><b className="text-slate-200 uppercase">📝 Explicación:</b> Procesos oficiales con cumplimiento &lt; 100%.</p>
             </div>
           </div>
         </div>
