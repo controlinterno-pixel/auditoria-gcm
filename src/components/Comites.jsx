@@ -23,7 +23,10 @@ export default function Comites({
   handleColFilterChange,
   FilterInput
 }) {
-// ☁️ ESTADOS Y MOTOR DE SUBIDA (API TERMALES)
+  // 🗂️ ESTADO DEL ACORDEÓN
+  const [grupoExpandido, setGrupoExpandido] = useState(null);
+
+  // ☁️ ESTADOS Y MOTOR DE SUBIDA (API TERMALES)
   const [uploadProgressPres, setUploadProgressPres] = useState(0);
   const [isUploadingPres, setIsUploadingPres] = useState(false);
   const [presentacionSubidaUrl, setPresentacionSubidaUrl] = useState('');
@@ -242,90 +245,128 @@ export default function Comites({
           </div>
         </form>
       </div>
-
-      {/* 📊 TABLA DE REGISTROS */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Historial de Sesiones</h3>
-           <div className="relative">
+{/* 📊 REGISTROS AGRUPADOS POR COMITÉ (ACORDEONES) */}
+      <div className="space-y-4">
+        
+        {/* BUSCADOR */}
+        <div className="p-4 flex flex-col md:flex-row justify-between items-center bg-white rounded-2xl shadow-sm border border-slate-200 gap-4">
+           <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest ml-2">Historial de Sesiones</h3>
+           <div className="relative w-full md:w-auto">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
               <input 
                 type="text" 
                 placeholder="Búsqueda General..." 
                 value={searchTerm} 
                 onChange={(e) => setSearchTerm(e.target.value)} 
-                className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-sm" 
+                className="pl-8 pr-4 py-2 border border-slate-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-72 shadow-sm font-bold" 
               />
            </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y divide-slate-100">
-            <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[10px]">
-              <tr>
-                <th className="p-4 w-1/4">
-                  <div>TIPO DE COMITÉ</div>
-                  <FilterInput colKey="tipo" placeholder="Filtrar Comité..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4">
-                  <div>TEMA CENTRAL / SESIÓN</div>
-                  <FilterInput colKey="nombre" placeholder="Filtrar tema..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
-                </th>
-                <th className="p-4 w-1/3">ACUERDOS Y COMPROMISOS PACTADOS</th>
-                <th className="p-4 text-center">DOCUMENTACIÓN</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
-              {applyFilters(comitesFiltrados, searchTerm, columnFilters).map((c, index) => {
-                let badgeColor = "bg-blue-50 text-blue-700 border-blue-200";
-                if (c.tipo === "Junta Directiva") badgeColor = "bg-purple-50 text-purple-700 border-purple-200";
-                if (c.tipo === "Daily Scrum Meeting de Auditoría ST") badgeColor = "bg-cyan-50 text-cyan-700 border-cyan-200";
 
-                return (
-                  <tr key={`comite-row-${c.id}-${index}`} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4">
-                      <span className={`px-2 py-1 rounded-lg border font-black text-[9px] uppercase tracking-wider block text-center shadow-inner ${badgeColor}`}>
-                        {c.tipo}
-                      </span>
-                      <div className="text-[9px] text-slate-400 font-mono mt-1.5 text-center">Fecha: {c.fecha}</div>
-                    </td>
-                    <td className="p-4">
-                      <div className="font-black text-slate-900 text-sm leading-tight">{c.nombre}</div>
-                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">Periodo: {c.mes} / {c.anio}</div>
-                    </td>
-                    <td className="p-4">
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium text-slate-700 whitespace-pre-wrap leading-relaxed text-[11px]">
-                        {c.compromisos}
-                      </div>
-                    </td>
-                    <td className="p-4 text-center space-y-1.5">
-                      <a href={c.presentacionUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-black px-3 py-1.5 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full">
-                        <span>🖥️</span> <span>Ver Presentación</span>
-                      </a>
-                      <a href={c.actaUrl} target="_blank" rel="noreferrer" className="bg-purple-50 text-purple-700 font-black px-3 py-1.5 rounded-xl text-[10px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full">
-                        <span>📜</span> <span>Ver Acta Firmada</span>
-                      </a>
-                      
-                      <div className="flex justify-center items-center space-x-2 pt-2 border-t border-dashed mt-2">
-                        <button onClick={() => { setEditComite(c); setFormResetKey(Date.now()); scrollToForm(); }} className="text-slate-500 hover:text-blue-600 text-[11px] font-bold transition-colors">
-                          ✏️ Editar
-                        </button>
-                        {isAdmin && (
-                          <>
-                            <span className="text-slate-300">|</span>
-                            <button onClick={() => handleDeleteItem('comites', c.id)} className="text-slate-400 hover:text-red-600 text-[11px] font-bold transition-colors">
-                              🗑️ Eliminar
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        {(() => {
+          // 1. Filtrar los datos
+          const datosFiltrados = applyFilters(comitesFiltrados, searchTerm, columnFilters);
+          
+          // 2. Agrupar por Tipo de Comité
+          const comitesAgrupados = datosFiltrados.reduce((acc, c) => {
+            const key = c.tipo || 'Sin Clasificar';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(c);
+            return acc;
+          }, {});
+
+          const gruposOrdenados = Object.keys(comitesAgrupados).sort();
+
+          if (gruposOrdenados.length === 0) {
+            return <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">No hay sesiones registradas que coincidan con la búsqueda.</div>;
+          }
+
+          return gruposOrdenados.map(grupo => {
+            const items = comitesAgrupados[grupo];
+            const isExpanded = grupoExpandido === grupo;
+            
+            // Iconos y colores personalizados
+            let icon = "👥";
+            if (grupo.includes("Junta Directiva")) icon = "🏛️";
+            if (grupo.includes("Daily") || grupo.includes("Scrum")) icon = "⚡";
+            if (grupo.includes("Accionistas")) icon = "📈";
+
+            return (
+              <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+                
+                {/* CABECERA DEL ACORDEÓN */}
+                <div 
+                  onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} 
+                  className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}
+                >
+                  <div className="flex items-center space-x-4">
+                    <span className="text-2xl bg-white p-2 rounded-xl shadow-sm border border-slate-100">{icon}</span>
+                    <div>
+                      <h4 className="text-sm sm:text-base font-black text-slate-800 tracking-tight uppercase">{grupo}</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{items.length} sesiones archivadas</p>
+                    </div>
+                  </div>
+                  <span className="text-slate-400 font-black px-4">{isExpanded ? '▲' : '▼'}</span>
+                </div>
+
+                {/* CONTENIDO DESPLEGABLE (TABLA INTERNA) */}
+                {isExpanded && (
+                  <div className="p-4 bg-white animate-in slide-in-from-top-2 duration-300 overflow-x-auto">
+                    <table className="w-full text-xs text-left divide-y divide-slate-100">
+                      <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-widest text-[9px]">
+                        <tr>
+                          <th className="p-3 w-1/4">TEMA CENTRAL / SESIÓN</th>
+                          <th className="p-3 w-1/3">ACUERDOS Y COMPROMISOS PACTADOS</th>
+                          <th className="p-3 text-center">SOPORTES DOCUMENTALES</th>
+                          <th className="p-3 text-center">ACCIÓN</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {items.map((c, index) => (
+                          <tr key={`comite-row-${c.id}-${index}`} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3 align-top">
+                              <div className="font-black text-slate-900 text-sm leading-tight mb-1">{c.nombre}</div>
+                              <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">📅 {c.fecha}</div>
+                              <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Periodo: {c.mes} / {c.anio}</div>
+                            </td>
+                            <td className="p-3 align-top">
+                              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium text-slate-700 whitespace-pre-wrap leading-relaxed text-[10px] max-h-32 overflow-y-auto shadow-inner">
+                                {c.compromisos}
+                              </div>
+                            </td>
+                            <td className="p-3 align-top">
+                              <div className="flex flex-col space-y-2 max-w-[160px] mx-auto">
+                                <a href={c.presentacionUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[9px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full">
+                                  <span>🖥️</span> <span>Ver Presentación</span>
+                                </a>
+                                <a href={c.actaUrl} target="_blank" rel="noreferrer" className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[9px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full">
+                                  <span>📜</span> <span>Ver Acta Firmada</span>
+                                </a>
+                              </div>
+                            </td>
+                            <td className="p-3 align-top text-center">
+                               <div className="flex flex-col justify-center items-center space-y-1.5 w-full max-w-[100px] mx-auto">
+                                <button onClick={() => { setEditComite(c); setFormResetKey(Date.now()); scrollToForm(); }} className="bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 w-full py-1.5 rounded-lg text-[10px] font-black transition-colors shadow-sm">
+                                  ✏️ Editar
+                                </button>
+                                {isAdmin && (
+                                  <button onClick={() => handleDeleteItem('comites', c.id)} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 w-full py-1.5 rounded-lg text-[10px] font-black transition-colors shadow-sm">
+                                    🗑️ Borrar
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          });
+        })()}
       </div>
-    </div>
+     </div>
   );
 }
