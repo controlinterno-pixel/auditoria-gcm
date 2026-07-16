@@ -140,19 +140,30 @@ export default function Incidentes({
               </select>
             </div>
 
-            <div className="md:col-span-2">
+            <div className="md:col-span-4">
               <label className="font-bold text-gray-600 block mb-1">Título del Evento</label>
-              <input name="titulo" defaultValue={editIncidente?.titulo || ''} required placeholder="Ej: Robo de activos en caja" className="w-full border p-2 rounded-lg" />
+              <input name="titulo" defaultValue={editIncidente?.titulo || ''} required placeholder="Ej: Faltante en arqueo de caja menor..." className="w-full border p-2 rounded-lg focus:ring-2 focus:ring-red-500 outline-none" />
             </div>
 
             <div className="md:col-span-1">
-              <label className="font-bold text-gray-600 block mb-1">Monto de la Pérdida (COP)</label>
-              <input name="costo" type="number" defaultValue={editIncidente?.costo || ''} required placeholder="1500000" className="w-full border p-2 rounded-lg" />
+              <label className="font-bold text-emerald-600 block mb-1">Monto Sobrante</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-emerald-600 font-black">$</span>
+                <input name="montoSobrante" type="number" defaultValue={editIncidente?.montoSobrante || ''} required placeholder="0" className="w-full border p-2 pl-7 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none font-mono font-bold text-slate-700" />
+              </div>
             </div>
 
             <div className="md:col-span-1">
+              <label className="font-bold text-red-600 block mb-1">Monto Faltante</label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-red-600 font-black">$</span>
+                <input name="montoFaltante" type="number" defaultValue={editIncidente?.montoFaltante || ''} required placeholder="0" className="w-full border p-2 pl-7 rounded-lg focus:ring-2 focus:ring-red-500 outline-none font-mono font-bold text-slate-700" />
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Nivel de Impacto</label>
-              <select name="impacto" defaultValue={editIncidente?.impacto || 'Bajo'} className="w-full border p-2 bg-white rounded-lg">
+              <select name="impacto" defaultValue={editIncidente?.impacto || 'Bajo'} className="w-full border p-2 bg-white rounded-lg focus:ring-2 focus:ring-red-500 outline-none">
                 <option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option>
               </select>
             </div>
@@ -220,8 +231,9 @@ export default function Incidentes({
               <th className="p-3 w-40">Proceso <FilterInput colKey="proceso" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3">Descripción <FilterInput colKey="titulo" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
               <th className="p-3 w-28">Impacto <FilterInput colKey="impacto" columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></th>
-              <th className="p-3 text-right w-32">Costo (COP)</th>
-              <th className="p-3 text-center w-28">Soporte</th>
+              <th className="p-3 text-right w-24">Sobrante</th>
+              <th className="p-3 text-right w-24">Faltante</th>
+              <th className="p-3 text-center w-24">Soporte</th>
               {isAdmin && <th className="p-3 text-center w-24">Acción</th>}
             </tr>
           </thead>
@@ -251,8 +263,11 @@ export default function Incidentes({
                     {i.impacto}
                   </span>
                 </td>
-                <td className="p-3 text-right font-mono font-black text-red-600 notranslate text-sm" translate="no">
-                  ${Number(i.costo || 0).toLocaleString('es-CO')}
+                <td className="p-3 text-right font-mono font-black text-emerald-600 notranslate text-xs" translate="no">
+                  ${Number(i.montoSobrante || 0).toLocaleString('es-CO')}
+                </td>
+                <td className="p-3 text-right font-mono font-black text-red-600 notranslate text-xs" translate="no">
+                  ${Number(i.montoFaltante || 0).toLocaleString('es-CO')}
                 </td>
                 <td className="p-3 text-center">
                   {i.evidenciaUrl ? (

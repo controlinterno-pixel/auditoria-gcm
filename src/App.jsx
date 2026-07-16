@@ -1181,18 +1181,55 @@ const handleComiteSubmit = async (e) => {
     showNotification("Sesión de comité guardada con éxito.");
   };
   const handleIncidenteSubmit = async (e) => {
-    e.preventDefault(); const formData = new FormData(e.target);
+    e.preventDefault(); 
+    const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
+    
+    // 💰 Extraemos los nuevos campos
+    const sobranteVal = parseFloat(formData.get('montoSobrante') || 0);
+    const faltanteVal = parseFloat(formData.get('montoFaltante') || 0);
+
     let updated;
     if (editIncidente) {
-      const mod = { ...editIncidente, idRiesgo: parseInt(formData.get('idRiesgo')), titulo: formData.get('titulo'), descripcion: formData.get('descripcion'), costo: parseFloat(formData.get('costo') || 0), impacto: formData.get('impacto'), historialCambios: [...(editIncidente.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Modificado' }] };
+      const mod = { 
+        ...editIncidente, 
+        proceso: formData.get('proceso'), 
+        idRiesgo: parseInt(formData.get('idRiesgo')), 
+        titulo: formData.get('titulo'), 
+        descripcion: formData.get('descripcion'), 
+        montoSobrante: sobranteVal, 
+        montoFaltante: faltanteVal, 
+        impacto: formData.get('impacto'), 
+        evidenciaUrl: formData.get('evidenciaUrlInput') || editIncidente.evidenciaUrl, 
+        historialCambios: [...(editIncidente.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evento modificado' }] 
+      };
       updated = safeIncidentes.map(i => i.id === editIncidente.id ? mod : i);
       setEditIncidente(null);
     } else {
-      const nuevo = { id: Date.now(), idRiesgo: parseInt(formData.get('idRiesgo')), fecha: new Date().toISOString().split('T')[0], titulo: formData.get('titulo'), descripcion: formData.get('descripcion'), costo: parseFloat(formData.get('costo') || 0), impacto: formData.get('impacto'), reportadoPor: user.email, estado: 'Abierto', anio: 2026, mes: "Junio", historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evento de pérdida registrado' }] };
+      const nuevo = { 
+        id: Date.now(), 
+        proceso: formData.get('proceso'), 
+        idRiesgo: parseInt(formData.get('idRiesgo')), 
+        fecha: new Date().toISOString().split('T')[0], 
+        titulo: formData.get('titulo'), 
+        descripcion: formData.get('descripcion'), 
+        montoSobrante: sobranteVal, 
+        montoFaltante: faltanteVal, 
+        impacto: formData.get('impacto'), 
+        reportadoPor: user.email, 
+        evidenciaUrl: formData.get('evidenciaUrlInput'), 
+        estado: 'Abierto', 
+        anio: new Date().getFullYear(), 
+        mes: "Junio", 
+        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evento de pérdida registrado' }] 
+      };
       updated = [...safeIncidentes, nuevo];
     }
-    setIncidentes(updated); await saveToCloud({ incidentes: updated }); e.target.reset(); showNotification("Evento registrado.");
+    setIncidentes(updated); 
+    await saveToCloud({ incidentes: updated }); 
+    e.target.reset(); 
+    setFormResetKey(Date.now()); // Limpia la subida de archivos
+    showNotification("Evento registrado y guardado con éxito.");
   };
 
   const handleCronogramaSubmit = async (e) => {
