@@ -594,17 +594,17 @@ const handleImportExcelRiesgos = (e) => {
         const worksheet = workbook.Sheets[firstSheetName];
         const json = window.XLSX.utils.sheet_to_json(worksheet);
 
-        if(window.confirm("⚠️ ALERTA: ¿Deseas cargar esta Matriz de Riesgos? Los campos avanzados de COSO ERM (Apetito, KRI, etc.) de los riesgos existentes se mantendrán intactos.")) {
+        if(window.confirm("⚠️ ALERTA: ¿Deseas cargar esta Matriz de Riesgos? Reemplazará los riesgos actuales para NO acumular basura. Las variables avanzadas COSO de los riesgos que ya existían se mantendrán intactas.")) {
           setIsCloudLoaded(false);
           
           const riesgosAgrupados = {};
 
           json.forEach((r, index) => {
-             // Adaptabilidad a los nombres de columnas de tu CSV
-             const idRaw = r['No'] || r['ID'] || r['Id'] || r['id'] || (Date.now() + index);
+             // 🎯 Adaptabilidad exacta a las columnas en MAYÚSCULA de tu archivo Excel
+             const idRaw = r['NO'] || r['No'] || r['ID'] || r['Id'] || r['id'] || (Date.now() + index);
              const idRiesgo = parseInt(idRaw) || idRaw;
              
-             // 🛡️ EL ESCUDO: Buscamos si el riesgo ya existe para NO borrar sus datos avanzados
+             // Busca si existe para no borrar variables COSO, si no, crea uno nuevo
              const riesgoExistente = safeRiesgos?.find(existente => String(existente.id) === String(idRiesgo)) || {};
 
              if (!riesgosAgrupados[idRiesgo]) {
@@ -612,14 +612,23 @@ const handleImportExcelRiesgos = (e) => {
                   ...riesgoExistente, 
                   id: idRiesgo,
                   sede: r['Sede'] || riesgoExistente.sede || 'Administrativos',
-                  proceso: r['Proceso/Subproceso'] || r['Proceso'] || riesgoExistente.proceso || 'Proceso General',
-                  categoria: r['Categoría'] || r['Categoria'] || riesgoExistente.categoria || 'Operativo',
-                  clasificacionRiesgo: r['Clasificación del riesgo'] || riesgoExistente.clasificacionRiesgo || 'Ejecución',
-                  normativa: r['Normativa'] || riesgoExistente.normativa || 'Interna',
-                  responsable: r['Responsable'] || riesgoExistente.responsable || 'Sin Asignar',
-                  descripcion: r['Descripción'] || r['Riesgo'] || r['Descripción del Riesgo'] || riesgoExistente.descripcion || '',
-                  causa: r['Causas'] || r['Causa'] || riesgoExistente.causa || '',
+                  proceso: r['PROCESO/SUBPROCESO'] || r['Proceso'] || riesgoExistente.proceso || 'Proceso General',
+                  categoria: r['CATEGORÍA'] || r['Categoría'] || riesgoExistente.categoria || 'Operativo',
+                  clasificacionRiesgo: r['CLASIFICACIÓN DEL RIESGO'] || r['Clasificación del riesgo'] || riesgoExistente.clasificacionRiesgo || 'Ejecución',
+                  normativa: riesgoExistente.normativa || 'Interna',
+                  responsable: r['RESPONSABLE'] || r['Responsable'] || riesgoExistente.responsable || 'Sin Asignar',
+                  descripcion: r['DESCRIPCIÓN DEL RIESGO'] || r['Descripción'] || riesgoExistente.descripcion || '',
+                  causa: r['CAUSA INMEDIATA'] || r['CAUSA RAÍZ'] || r['Causas'] || riesgoExistente.causa || '',
                   
+                  // 🔥 CAPTURANDO LAS PROBABILIDADES E IMPACTOS DEL EXCEL
+                  probabilidadInherente: r['PROBABILIDAD INHERENTE'] || riesgoExistente.probabilidadInherente || 1,
+                  impactoInherente: r['IMPACTO INHERENTE'] || riesgoExistente.impactoInherente || 1,
+                  probabilidadResidual: r['PROBABILIDAD RESIDUAL FINAL'] || riesgoExistente.probabilidadResidual || 1,
+                  impactoResidual: r['IMPACTO RESIDUAL FINAL'] || riesgoExistente.impactoResidual || 1,
+                  
+                  noControl: r['NO. CONTROL'] || riesgoExistente.noControl || '',
+                  descripcionControl: r['DESCRIPCIÓN DEL CONTROL'] || riesgoExistente.descripcionControl || '',
+
                   // 🔥 Variables COSO ERM protegidas
                   capacidadRiesgo: riesgoExistente.capacidadRiesgo || 0,
                   toleranciaFinanciera: riesgoExistente.toleranciaFinanciera || 0,
@@ -633,15 +642,16 @@ const handleImportExcelRiesgos = (e) => {
 
                   anio: riesgoExistente.anio || new Date().getFullYear(),
                   mes: riesgoExistente.mes || "Julio",
-                  historialCambios: [...(riesgoExistente.historialCambios || []), { fecha: new Date().toLocaleString(), usuario: user?.email || 'Sistema', accion: 'Actualizado vía Carga Masiva (CSV)' }]
+                  historialCambios: [...(riesgoExistente.historialCambios || []), { fecha: new Date().toLocaleString(), usuario: user?.email || 'Sistema', accion: 'Actualizado vía Carga Masiva (Excel)' }]
                 };
              }
           });
 
+          // 🧹 Al guardar "Object.values", automáticamente SE BORRAN los riesgos viejos que no venían en este Excel
           const nuevosRiesgos = Object.values(riesgosAgrupados);
           setRiesgos(nuevosRiesgos);
           await saveToCloud({ riesgos: nuevosRiesgos });
-          showNotification(`Éxito: Matriz cargada. Las variables COSO fueron protegidas.`, "success");
+          showNotification(`Éxito: Matriz cargada. Los datos obsoletos fueron eliminados.`, "success");
           setIsCloudLoaded(true);
         }
       } catch (error) {
