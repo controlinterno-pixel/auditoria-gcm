@@ -7,7 +7,23 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
   const width = 600;
   const paddingY = 20;
   const paddingX = 20;
-
+// 📊 CÁLCULO SEGURO Y AISLADO DE LA EVOLUCIÓN FINANCIERA
+  const infoFinancieraLimpia = defaultMeses.map((mText) => {
+    if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
+    
+    const totalCostoMes = safeIncidentes.filter(inc => {
+      const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
+      const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
+      
+      const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
+      return passAnio && mesIncText === mText;
+    }).reduce((acc, current) => {
+      const perdida = (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
+      return acc + perdida;
+    }, 0);
+    
+    return { mes: mText, valor: totalCostoMes };
+  });
   const points = data.map((d, i) => {
     const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
     const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
@@ -768,63 +784,40 @@ export default function DashboardEjecutivo({
 
 {/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA A ANCHO COMPLETO ─── */}
       <div className="grid grid-cols-1 gap-6 mt-6">
-        
         {/* GRÁFICA: EVOLUCIÓN DE IMPACTO FINANCIERO */}
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
-          {(() => {
-            const infoFinanciera = defaultMeses.map((mText) => {
-              if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
-              
-              const totalCostoMes = safeIncidentes.filter(inc => {
-                const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
-                const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
+          <div className="bg-[#0a1122]">
+            <TrendChart 
+              data={infoFinancieraLimpia}
+              title="Evolución de Impacto Financiero (5 Años)"
+              isCurrency={true}
+              color="#ef4444"
+              fillColor="rgba(239, 68, 68, 0.15)"
+              onPointClick={(pt) => {
+                const filtrados = (safeIncidentes || [])
+                  .filter(inc => {
+                    const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
+                    const perdidaReal = (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0);
+                    return mesIncText === pt.mes && perdidaReal > 0;
+                  })
+                  .map(inc => ({
+                    ...inc,
+                    costo: (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
+                  }));
                 
-                const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
-                return passAnio && mesIncText === mText;
-              }).reduce((acc, current) => {
-                const perdida = (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
-                return acc + perdida;
-              }, 0);
-              
-              return { mes: mText, valor: totalCostoMes };
-            });
-
-            return (
-              <div className="bg-[#0a1122]">
-                <TrendChart 
-                  data={infoFinanciera}
-                  title="Evolución de Impacto Financiero (5 Años)"
-                  isCurrency={true}
-                  color="#ef4444"
-                  fillColor="rgba(239, 68, 68, 0.15)"
-                  onPointClick={(pt) => {
-                    const filtrados = (safeIncidentes || [])
-                      .filter(inc => {
-                        const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
-                        const perdidaReal = (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0);
-                        return mesIncText === pt.mes && perdidaReal > 0;
-                      })
-                      .map(inc => ({
-                        ...inc,
-                        costo: (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
-                      }));
-                    
-                    if (filtrados.length > 0) {
-                      setChartDetail({
-                        tipo: 'Incidentes Financiados',
-                        mesCompleto: pt.mes,
-                        items: filtrados
-                      });
-                    } else {
-                       alert(`No hay registros operativos con pérdida financiera en ${pt.mes}.`);
-                    }
-                  }}
-                />
-              </div>
-            );
-          })()}
+                if (filtrados.length > 0) {
+                  setChartDetail({
+                    tipo: 'Incidentes Financiados',
+                    mesCompleto: pt.mes,
+                    items: filtrados
+                  });
+                } else {
+                   alert(`No hay registros operativos con pérdida financiera en ${pt.mes}.`);
+                }
+              }}
+            />
+          </div>
         </div>
-
       </div>
                  const infoFinanciera = defaultMeses.map((mText) => {
               if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
