@@ -17,7 +17,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
   const fillPoints = `${paddingX},${height - paddingY} ${points} ${width - paddingX},${height - paddingY}`;
 
   return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full">
+    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col justify-between h-full relative group cursor-help">
        <div className="flex justify-between items-center mb-6">
          <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest">{title}</h4>
          <span className="text-xl">{isCurrency ? '📉' : '📊'}</span>
@@ -30,10 +30,10 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
               const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
               const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
               return (
-                <g key={`point-${i}`} className="group cursor-pointer" onClick={() => onPointClick && onPointClick(d)}>
-                    <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover:r-[7px] group-hover:fill-slate-800" />
-                    <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover:opacity-100 transition-opacity" pointerEvents="none" />
-                    <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
+                <g key={`point-${i}`} className="group/pt cursor-pointer" onClick={() => onPointClick && onPointClick(d)}>
+                    <circle cx={x} cy={y} r="5" fill="white" stroke={color} strokeWidth="3" className="transition-all duration-200 group-hover/pt:r-[7px] group-hover/pt:fill-slate-800" />
+                    <rect x={x - 35} y={y - 32} width="70" height="22" rx="6" fill="#1e293b" className="opacity-0 group-hover/pt:opacity-100 transition-opacity" pointerEvents="none" />
+                    <text x={x} y={y - 17} fontSize="11" fill="white" textAnchor="middle" className="opacity-0 group-hover/pt:opacity-100 transition-opacity font-bold pointer-events-none notranslate" translate="no">
                        {isCurrency ? `$${(d.valor/1000000).toFixed(1)}M` : Math.round(d.valor)}
                     </text>
                 </g>
@@ -43,6 +43,20 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
          <div className="flex justify-between mt-4 text-[9px] font-bold text-slate-400 uppercase px-2 border-t border-slate-100 pt-3">
             {data.map((d, idx) => <span key={`chart-mes-${idx}`} className="notranslate" translate="no">{d.mes.substring(0,3)}</span>)}
          </div>
+       </div>
+
+       {/* TOOLTIP GRÁFICA */}
+       <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
+          <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto Financiero</h4>
+          <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+            <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo Eventos de Pérdida.</p>
+            <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Cuantifica el impacto real monetario materializado.</p>
+            <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Sumatoria de costos operativos, dineros faltantes y sobrantes sin justificar.</p>
+            <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-rose-400 text-[8px]">
+              FÓRMULA: Suma (Costos + Faltantes + Sobrantes) / Mes
+            </div>
+          </div>
        </div>
     </div>
   );
@@ -64,18 +78,15 @@ export default function DashboardEjecutivo({
   // 📊 CÁLCULO SEGURO Y AISLADO DE LA EVOLUCIÓN FINANCIERA MULTI-CAMPOS
   const infoFinancieraLimpia = (defaultMeses || []).map((mText) => {
     if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
-    
     const totalCostoMes = safeIncidentes.filter(inc => {
       const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
       const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
-      
       const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
       return passAnio && mesIncText === mText;
     }).reduce((acc, current) => {
       const perdida = (Number(current.costo) || 0) + (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
       return acc + perdida;
     }, 0);
-    
     return { mes: mText, valor: totalCostoMes };
   });
 
@@ -173,15 +184,15 @@ export default function DashboardEjecutivo({
     setTimeout(() => {
       let analitica = {};
       if (tipoCard === 'cumplimiento') {
-        analitica = { titulo: "Cumplimiento Global de Compromisos", valor: `${avancePlanesGlobal}%`, significado: "Mide el avance y cierre formal de los planes.", dictamen: `Efectividad física de planes al ${avancePlanesGlobal}%.`, color: "border-emerald-500/30 text-emerald-400" };
+        analitica = { titulo: "Cumplimiento Global de Compromisos", valor: `${avancePlanesGlobal}%`, significado: "Mide el avance y cierre formal de los planes.", dictamen: `Efectividad física de planes al ${avancePlanesGlobal}%. El nivel de mitigación indica la agilidad del hotel para subsanar debilidades.`, color: "border-emerald-500/30 text-emerald-400" };
       } else if (tipoCard === 'riesgos') {
-        analitica = { titulo: "Inventario de Riesgos", valor: `${totalRiesgos} Activos`, significado: "Total de amenazas.", dictamen: `Mapeo maduro con ${totalRiesgos} riesgos activos.`, color: "border-red-500/30 text-red-400" };
+        analitica = { titulo: "Inventario de Riesgos", valor: `${totalRiesgos} Activos`, significado: "Total de amenazas.", dictamen: `Mapeo maduro con ${totalRiesgos} riesgos activos. La concentración de exposición requiere monitoreo periódico.`, color: "border-red-500/30 text-red-400" };
       } else if (tipoCard === 'controles') {
-        analitica = { titulo: "Efectividad Operacional de Controles", valor: `${efectividadControlesGlobal}%`, significado: "Salvaguardas eficaces.", dictamen: `Efectividad registrada al ${efectividadControlesGlobal}%.`, color: "border-cyan-500/30 text-cyan-400" };
+        analitica = { titulo: "Efectividad Operacional de Controles", valor: `${efectividadControlesGlobal}%`, significado: "Salvaguardas eficaces.", dictamen: `Efectividad registrada al ${efectividadControlesGlobal}%. Es fundamental fortalecer las hojas de prueba en sitio.`, color: "border-cyan-500/30 text-cyan-400" };
       } else if (tipoCard === 'hallazgos') {
-        analitica = { titulo: "Desviaciones Abiertas", valor: `${hallazgosAbiertos} Abiertos`, significado: "Brechas normativas.", dictamen: `Controlado con solo ${hallazgosAbiertos} hallazgos abiertos.`, color: "border-amber-500/30 text-amber-400" };
+        analitica = { titulo: "Desviaciones Abiertas", valor: `${hallazgosAbiertos} Abiertos`, significado: "Brechas normativas.", dictamen: `Controlado con ${hallazgosAbiertos} hallazgos abiertos. Los hallazgos críticos deben generar planes inmediatos.`, color: "border-amber-500/30 text-amber-400" };
       } else if (tipoCard === 'planes') {
-        analitica = { titulo: "Planes en Ejecución", valor: `${planesActivos} Activos`, significado: "Saturación operativa.", dictamen: `Sostenible con ${planesActivos} planes activos.`, color: "border-purple-500/30 text-purple-400" };
+        analitica = { titulo: "Planes en Ejecución", valor: `${planesActivos} Activos`, significado: "Saturación operativa.", dictamen: `Sostenible con ${planesActivos} planes activos. Exigir cierres formales en los plazos acordados.`, color: "border-purple-500/30 text-purple-400" };
       }
       setDictamenIA(analitica); setProcesandoIA(false);
     }, 400);
@@ -257,7 +268,7 @@ export default function DashboardEjecutivo({
       )}
 
       {/* ─── ENCABEZADO PREMIUM Y FILTROS ─── */}
-      <div className="bg-[#0a1122] border border-blue-500/10 p-5 rounded-2xl shadow-md space-y-4 mb-4">
+      <div className="bg-[#0a1122] border border-blue-500/10 p-5 rounded-2xl shadow-md space-y-4 mb-4 relative z-50">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800/80 pb-4 gap-4">
           <div>
             <h2 className="text-xl font-black text-white">Dashboard Ejecutivo</h2>
@@ -291,10 +302,23 @@ export default function DashboardEjecutivo({
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
-            <button onClick={() => solicitarDictamenIA('cumplimiento')} className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('cumplimiento')} className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0 relative z-10">✨ IA</button>
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{avancePlanesGlobal}%</span>
+          </div>
+          {/* TOOLTIP 1 */}
+          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Control</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Matriz Integrada de Planes de Acción.</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Mide la velocidad de mitigación frente a las brechas.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Porcentaje de tareas de mejora completadas al 100%.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-emerald-400 text-[8px]">
+                FÓRMULA: (Planes Cerrados / Total Planes) * 100
+              </div>
+            </div>
           </div>
         </div>
 
@@ -302,7 +326,7 @@ export default function DashboardEjecutivo({
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
-            <button onClick={() => solicitarDictamenIA('riesgos')} className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('riesgos')} className="text-[10px] bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0 relative z-10">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{totalRiesgos}</span>
@@ -313,16 +337,42 @@ export default function DashboardEjecutivo({
             <span className="text-amber-400">{riesgosModerados} Mod</span>
             <span className="text-emerald-400">{riesgosBajos} Bajos</span>
           </div>
+          {/* TOOLTIP 2 */}
+          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Riesgo</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Mapa de Calor Empresarial (Matriz 5x5).</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Cuantifica la exposición residual total del hotel.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Riesgos corporativos actualmente abiertos.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-red-400 text-[8px]">
+                FÓRMULA: Sumatoria (Riesgos Registrados)
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* CARDA 3 */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
-            <button onClick={() => solicitarDictamenIA('controles')} className="text-[10px] bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('controles')} className="text-[10px] bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0 relative z-10">✨ IA</button>
           </div>
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{efectividadControlesGlobal}%</span>
+          </div>
+          {/* TOOLTIP 3 */}
+          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Aseguramiento</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Trabajo de Campo (Auditoría).</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Evalúa la robustez operativa de las defensas (Controles).</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Porcentaje de controles evaluados como eficaces al 100%.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-cyan-400 text-[8px]">
+                FÓRMULA: (Evaluaciones Calificadas 100 / Total Evaluaciones) * 100
+              </div>
+            </div>
           </div>
         </div>
 
@@ -330,21 +380,34 @@ export default function DashboardEjecutivo({
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
-            <button onClick={() => solicitarDictamenIA('hallazgos')} className="text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('hallazgos')} className="text-[10px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0 relative z-10">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{hallazgosAbiertos}</span>
           </div>
           <div className="mt-3 text-[10px] font-black uppercase text-red-400 tracking-wider">
             🚨 {hallazgosCriticosCount} Con Alerta Crítica
-          </div>        
+          </div> 
+          {/* TOOLTIP 4 */}
+          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Desviaciones</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes Emitidos.</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Refleja cantidad de brechas normativas no resueltas.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Conteo de no conformidades con estado 'Abierto'.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-amber-400 text-[8px]">
+                FÓRMULA: Sumatoria (Hallazgos donde Estado === 'Abierto')
+              </div>
+            </div>
+          </div>       
         </div>
 
-        {/* CARDA 5 */}
+        {/* CARDA 5 (Alineada a la izquierda para no salirse de pantalla) */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
-            <button onClick={() => solicitarDictamenIA('planes')} className="text-[10px] bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0">✨ IA</button>
+            <button onClick={() => solicitarDictamenIA('planes')} className="text-[10px] bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded-md flex items-center gap-1 transition-all font-black shadow-sm shrink-0 relative z-10">✨ IA</button>
           </div>
           <div className="mt-2">
             <span className="text-3xl font-black text-white">{planesActivos}</span>
@@ -352,11 +415,26 @@ export default function DashboardEjecutivo({
           <div className="mt-3 text-[10px] font-black uppercase text-amber-500 tracking-wider">
             ⚠️ {planesVencidos} Vencidos / Retrasados
           </div>
+          {/* TOOLTIP 5 */}
+          <div className="absolute top-[105%] left-[80%] -translate-x-[80%] w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -top-2 left-[80%] -translate-x-[80%] w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Gestión</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Planes de Acción.</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Indica la saturación operativa para cierre de brechas.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Sumatoria de planes con progreso menor a 100%.</p>
+              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-purple-400 text-[8px]">
+                FÓRMULA: Conteo (Planes donde Estado !== 'Cerrado')
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ─── PANEL CENTRAL CON MATRIZ 5X5 ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* MAPA DE CALOR */}
         <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <h3 className="text-xs font-black uppercase text-slate-300 mb-4">Mapa de Riesgos (Matriz 5x5)</h3>
           <div className="flex items-center space-x-4 flex-1">
@@ -389,10 +467,20 @@ export default function DashboardEjecutivo({
               </div>
             </div>
           </div>
+          {/* TOOLTIP MATRIZ */}
+          <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Distribución Residual COSO</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Matriz Integral de Riesgos.</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Muestra dónde se concentra la severidad corporativa.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Intersección Probabilidad x Impacto en su fase Residual.</p>
+            </div>
+          </div>
         </div>
 
         {/* TENDENCIA HISTÓRICA & PROCESOS */}
-        <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
+        <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <h3 className="text-xs font-black uppercase text-slate-300">Tendencia Histórica</h3>
           <div className="w-full h-36 mt-2 relative">
             <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
@@ -405,7 +493,6 @@ export default function DashboardEjecutivo({
             </div>
           </div>
           
-          {/* RUEDA CONCÉNTRICA RESTAURADA */}
           <div className="border-t border-slate-800 pt-3 mt-3">
             <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Distribución por Proceso</h4>
             <div className="flex items-center justify-between space-x-4">
@@ -443,12 +530,22 @@ export default function DashboardEjecutivo({
               </div>
             </div>
           </div>
+          {/* TOOLTIP TENDENCIAS */}
+          <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Análisis de Tendencia</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Histórico de Módulo de Riesgos.</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Monitorea evolución mensual de criticidades y concentración por área.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Picos históricos a 6 meses.</p>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA A ANCHO COMPLETO ─── */}
       <div className="grid grid-cols-1 gap-6 mt-6">
-        <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
+        <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden relative group cursor-help">
           <div className="bg-[#0a1122]">
             <TrendChart 
               data={infoFinancieraLimpia}
@@ -517,7 +614,7 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-      {/* ─── SECCIÓN INFERIOR DE COMPONENTES RESTAURADA AL 100% ─── */}
+      {/* ─── SECCIÓN INFERIOR DE COMPONENTES RESTAURADA ─── */}
       {(() => {
         const totalHallazgosReal = hallazgosBase.length || 1; 
         const hCrit = hallazgosBase.filter(h => h.severidad === 'Crítico' || h.severidad === 'Crítica').length;
@@ -538,7 +635,7 @@ export default function DashboardEjecutivo({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left mt-6">
             
             {/* SEVERIDAD DE HALLAZGOS */}
-            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative">
+            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
               <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
               <div className="flex items-center justify-around h-32">
                 <div className="w-24 h-24 relative">
@@ -557,10 +654,20 @@ export default function DashboardEjecutivo({
                   <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Bajos</span><span className="text-white">{hBaj} ({pBaj}%)</span></div>
                 </div>
               </div>
+              {/* TOOLTIP SEVERIDAD */}
+              <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+                <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+                <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Desglose de Severidad</h4>
+                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                  <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes.</p>
+                  <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Identifica la urgencia de atención operativa.</p>
+                  <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Participación porcentual de no conformidades (Críticas a Bajas).</p>
+                </div>
+              </div>
             </div>
 
             {/* MÉTRICAS DE PLANES */}
-            <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg relative">
+            <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
               <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Métricas de Planes</h3>
               <div className="space-y-3 font-bold text-xs text-slate-400">
                 <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-blue-500/30 transition-colors">
@@ -573,10 +680,20 @@ export default function DashboardEjecutivo({
                   <span className="text-slate-400 flex items-center">🚨 Vencidos</span><span className="text-red-400 font-black">{planesVencidos}</span>
                 </div>
               </div>
+              {/* TOOLTIP MÉTRICAS */}
+              <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+                <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Salud de la Remediación</h4>
+                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                  <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo Planes de Acción.</p>
+                  <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Control de tiempos y cuellos de botella.</p>
+                  <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Resumen dinámico del estado de las tareas preventivas.</p>
+                </div>
+              </div>
             </div>
 
             {/* INDICADORES KPI */}
-            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative">
+            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
               <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Indicadores (KPI)</h3>
               <div className="overflow-x-auto w-full flex-1">
                 <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
@@ -598,6 +715,16 @@ export default function DashboardEjecutivo({
                   </tbody>
                 </table>
               </div>
+              {/* TOOLTIP KPI */}
+              <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+                <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+                <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Tablero de Control Operativo</h4>
+                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+                  <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Fusión Transversal de Módulos GRC.</p>
+                  <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Indicadores Clave de Riesgo (KRI).</p>
+                  <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Comparativa de rendimiento real en vivo frente al umbral aprobado.</p>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -614,7 +741,6 @@ export default function DashboardEjecutivo({
               <h3 className="text-sm font-black text-slate-200">Planes Vencidos</h3>
               <span className="bg-red-500/20 text-red-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{planesVencidosList.length}</span>
             </div>
-            <button onClick={() => solicitarDictamenIA('vencidos')} className="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
           </div>
           <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
             <table className="w-full text-left text-[10px]">
@@ -639,6 +765,16 @@ export default function DashboardEjecutivo({
           <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
              <button onClick={() => setActiveTab('planes_tab')} className="text-red-400 text-[10px] font-bold hover:underline transition-colors">Ver todos los planes vencidos →</button>
           </div>
+          {/* TOOLTIP PLANES VENCIDOS */}
+          <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Frenos Operativos</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Planes.</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Son contingencias o brechas prolongadas innecesariamente.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Compromisos correctivos que han superado el plazo formal de entrega en el servidor.</p>
+            </div>
+          </div>
         </div>
 
         {/* PRÓXIMAS AUDITORÍAS */}
@@ -648,7 +784,6 @@ export default function DashboardEjecutivo({
               <h3 className="text-sm font-black text-slate-200">Próximas Auditorías</h3>
               <span className="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{proximasAuditorias.length}</span>
             </div>
-            <button onClick={() => solicitarDictamenIA('proximas')} className="text-[9px] bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
           </div>
           <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
              <table className="w-full text-left text-[10px]">
@@ -671,13 +806,22 @@ export default function DashboardEjecutivo({
           <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
              <button onClick={() => setActiveTab('plan_anual_tab')} className="text-blue-400 text-[10px] font-bold hover:underline transition-colors">Ver calendario completo →</button>
           </div>
+          {/* TOOLTIP AUDITORIAS */}
+          <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Avance Plan Anual</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Cronograma Aprobado.</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Visibilidad para agendar recursos logísticos en campo.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Procesos oficiales con cumplimiento < 100%.</p>
+            </div>
+          </div>
         </div>
 
         {/* ACTIVIDAD RECIENTE (AUDIT TRAIL) */}
         <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-black text-slate-200">Actividad Reciente</h3>
-            <button onClick={() => solicitarDictamenIA('actividad')} className="text-[9px] bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded font-black shadow-sm">✨ IA</button>
           </div>
           <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin space-y-4">
               {recentActivityList.map((act, i) => (
@@ -694,6 +838,16 @@ export default function DashboardEjecutivo({
               ))}
                {recentActivityList.length === 0 && (<div className="py-4 text-center text-slate-500 italic text-[10px]">No hay actividad reciente registrada en sistema</div>)}
           </div>
+          {/* TOOLTIP ACTIVIDAD */}
+          <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+            <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+            <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Trazabilidad de Movimientos</h4>
+            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Logs en Vivo (Audit Trail).</p>
+              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Principio de responsabilidad y transparencia para revisiones fiscales.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Últimas acciones, cambios y modificaciones registradas de forma segura.</p>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -709,7 +863,7 @@ export default function DashboardEjecutivo({
 
         <div className="space-y-2">
           {riesgosFiltradosPorMatriz.length === 0 ? (
-            <p className="text-xs font-medium text-slate-500 py-4 text-center">No se registran riesgos mapeados in esta coordenada exacta.</p>
+            <p className="text-xs font-medium text-slate-500 py-4 text-center">No se registran riesgos mapeados en esta coordenada exacta.</p>
           ) : (
             riesgosFiltradosPorMatriz.map((r, idx) => {
               const pRes = extraerNumeroPuro(r.probabilidadResidual) || 1;
@@ -734,6 +888,17 @@ export default function DashboardEjecutivo({
               );
             })
           )}
+        </div>
+        
+        {/* TOOLTIP ANEXO RIESGOS */}
+        <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
+          <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Inspección de Cuadrante</h4>
+          <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
+            <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Clic Interactivo en Mapa de Calor.</p>
+            <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Despliega el detalle exacto de los riesgos que componen cada casilla.</p>
+            <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Listado dinámico filtrado por la coordenada Probabilidad x Impacto.</p>
+          </div>
         </div>
       </div>
 
