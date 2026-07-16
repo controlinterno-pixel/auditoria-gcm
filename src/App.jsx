@@ -1816,7 +1816,7 @@ selectAllAnios={() => setSelectedAnios([...defaultAnios])}
     );
   };
 
-  const renderIncidentes = () => {
+ const renderIncidentes = () => {
     return (
       <Incidentes 
         incFiltrados={incFiltrados}
@@ -1834,6 +1834,7 @@ selectAllAnios={() => setSelectedAnios([...defaultAnios])}
         handleDeleteItem={handleDeleteItem}
         applyFilters={applyFilters}
         FilterInput={FilterInput}
+        safeRiesgos={safeRiesgos} 
       />
     );
   };
