@@ -594,17 +594,30 @@ const handleImportExcelRiesgos = (e) => {
         const worksheet = workbook.Sheets[firstSheetName];
         const json = window.XLSX.utils.sheet_to_json(worksheet);
 
-        if(window.confirm("⚠️ ALERTA: ¿Deseas cargar esta Matriz de Riesgos? Reemplazará los riesgos actuales para NO acumular basura. Las variables avanzadas COSO de los riesgos que ya existían se mantendrán intactas.")) {
+        // 🔥 NUEVO: Función traductora para extraer el número (1 al 5) de textos como "Nivel4:Alta (80%)"
+        const extraerNivel = (val) => {
+            if (!val) return 1;
+            if (typeof val === 'number') return val > 5 ? Math.ceil(val/20) : val;
+            const str = String(val).toLowerCase();
+            const match = str.match(/nivel\s*(\d)/); // Busca la palabra nivel seguida de un número
+            if (match) return parseInt(match[1], 10);
+            
+            // Plan B por si escribieron otra cosa
+            if (str.includes('1') || str.includes('rara') || str.includes('baja') || str.includes('insignificante')) return 1;
+            if (str.includes('2') || str.includes('improbable') || str.includes('menor')) return 2;
+            if (str.includes('3') || str.includes('posible') || str.includes('media') || str.includes('moderado')) return 3;
+            if (str.includes('4') || str.includes('probable') || str.includes('alta') || str.includes('mayor')) return 4;
+            if (str.includes('5') || str.includes('seguro') || str.includes('extrema') || str.includes('catastr')) return 5;
+            return 1;
+        };
+
+        if(window.confirm("⚠️ ALERTA: ¿Deseas cargar esta Matriz de Riesgos? Reemplazará los riesgos actuales para NO acumular basura.")) {
           setIsCloudLoaded(false);
-          
           const riesgosAgrupados = {};
 
           json.forEach((r, index) => {
-             // 🎯 Adaptabilidad exacta a las columnas en MAYÚSCULA de tu archivo Excel
              const idRaw = r['NO'] || r['No'] || r['ID'] || r['Id'] || r['id'] || (Date.now() + index);
              const idRiesgo = parseInt(idRaw) || idRaw;
-             
-             // Busca si existe para no borrar variables COSO, si no, crea uno nuevo
              const riesgoExistente = safeRiesgos?.find(existente => String(existente.id) === String(idRiesgo)) || {};
 
              if (!riesgosAgrupados[idRiesgo]) {
@@ -620,16 +633,15 @@ const handleImportExcelRiesgos = (e) => {
                   descripcion: r['DESCRIPCIÓN DEL RIESGO'] || r['Descripción'] || riesgoExistente.descripcion || '',
                   causa: r['CAUSA INMEDIATA'] || r['CAUSA RAÍZ'] || r['Causas'] || riesgoExistente.causa || '',
                   
-                  // 🔥 CAPTURANDO LAS PROBABILIDADES E IMPACTOS DEL EXCEL
-                  probabilidadInherente: r['PROBABILIDAD INHERENTE'] || riesgoExistente.probabilidadInherente || 1,
-                  impactoInherente: r['IMPACTO INHERENTE'] || riesgoExistente.impactoInherente || 1,
-                  probabilidadResidual: r['PROBABILIDAD RESIDUAL FINAL'] || riesgoExistente.probabilidadResidual || 1,
-                  impactoResidual: r['IMPACTO RESIDUAL FINAL'] || riesgoExistente.impactoResidual || 1,
+                  // 🔥 AQUÍ APLICAMOS EL TRADUCTOR PARA QUE SEAN NÚMEROS LIMPIOS (1, 2, 3, 4 o 5)
+                  probabilidadInherente: extraerNivel(r['PROBABILIDAD INHERENTE'] || riesgoExistente.probabilidadInherente),
+                  impactoInherente: extraerNivel(r['IMPACTO INHERENTE'] || riesgoExistente.impactoInherente),
+                  probabilidadResidual: extraerNivel(r['PROBABILIDAD RESIDUAL FINAL'] || riesgoExistente.probabilidadResidual),
+                  impactoResidual: extraerNivel(r['IMPACTO RESIDUAL FINAL'] || riesgoExistente.impactoResidual),
                   
                   noControl: r['NO. CONTROL'] || riesgoExistente.noControl || '',
                   descripcionControl: r['DESCRIPCIÓN DEL CONTROL'] || riesgoExistente.descripcionControl || '',
 
-                  // 🔥 Variables COSO ERM protegidas
                   capacidadRiesgo: riesgoExistente.capacidadRiesgo || 0,
                   toleranciaFinanciera: riesgoExistente.toleranciaFinanciera || 0,
                   apetitoFinanciero: riesgoExistente.apetitoFinanciero || 0,
@@ -639,7 +651,6 @@ const handleImportExcelRiesgos = (e) => {
                   impactoReputacional: riesgoExistente.impactoReputacional || 'No definido',
                   impactoLegal: riesgoExistente.impactoLegal || 'No definido',
                   escalamiento: riesgoExistente.escalamiento || 'Jefe de Área',
-
                   anio: riesgoExistente.anio || new Date().getFullYear(),
                   mes: riesgoExistente.mes || "Julio",
                   historialCambios: [...(riesgoExistente.historialCambios || []), { fecha: new Date().toLocaleString(), usuario: user?.email || 'Sistema', accion: 'Actualizado vía Carga Masiva (Excel)' }]
@@ -647,7 +658,6 @@ const handleImportExcelRiesgos = (e) => {
              }
           });
 
-          // 🧹 Al guardar "Object.values", automáticamente SE BORRAN los riesgos viejos que no venían en este Excel
           const nuevosRiesgos = Object.values(riesgosAgrupados);
           setRiesgos(nuevosRiesgos);
           await saveToCloud({ riesgos: nuevosRiesgos });
