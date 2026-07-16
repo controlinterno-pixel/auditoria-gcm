@@ -127,17 +127,19 @@ export default function Planes({
   }, [editPlan, safeHallazgos]);
 
 // =========================================================
-  // 📊 MOTOR DE CÁLCULO ANALÍTICO (FIEL A TU DISEÑO)
+  // 📊 MOTOR DE CÁLCULO ANALÍTICO (100% REACTIVO A FILTROS)
   // =========================================================
   const planesEnriquecidos = safePlanes.map(p => {
     const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
     const hoy = new Date();
-    const limite = p.fecha ? new Date(p.fecha) : null;
+    // Normalizar a media noche para comparaciones justas
+    hoy.setHours(0,0,0,0);
+    const limite = p.fecha ? new Date(`${p.fecha}T00:00:00`) : null; 
     const esVencido = p.progreso < 100 && limite && limite < hoy;
     
     return {
       ...p,
-      idInforme: hallazgo.idInforme, // ✨ CONEXIÓN DE TRAZABILIDAD: Hereda el informe del hallazgo
+      idInforme: hallazgo.idInforme,
       proceso: hallazgo.proceso || 'General',
       sede: hallazgo.sede || 'Hotel',
       severidad: hallazgo.severidad || 'Medio',
@@ -146,12 +148,17 @@ export default function Planes({
     };
   });
 
-  // Filtrado reactivo del Dashboard lateral
-  const planesDashboard = planesEnriquecidos.filter(p => {
+  // 1. Filtrado Base (Desde el menú lateral)
+  const planesFiltradosBase = planesEnriquecidos.filter(p => {
     if (dashFiltroAnio !== 'Todos' && p.anioTexto !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && p.proceso !== dashFiltroProceso) return false;
     if (dashFiltroPrioridad !== 'Todos' && p.severidad !== dashFiltroPrioridad) return false;
     if (dashFiltroResponsable !== 'Todos' && p.responsable !== dashFiltroResponsable) return false;
+    return true;
+  });
+
+  // 2. Filtrado Final (Incluye el clic en las tarjetas de estado)
+  const planesDashboard = planesFiltradosBase.filter(p => {
     if (dashFiltroEstado !== 'Todos') {
       if (dashFiltroEstado === 'Cerrado' && p.progreso < 100) return false;
       if (dashFiltroEstado === 'Vencido' && !p.esVencido) return false;
@@ -160,19 +167,21 @@ export default function Planes({
     return true;
   });
 
-  const totalPlanes = planesDashboard.length;
-  const cerrados = planesDashboard.filter(p => p.progreso === 100).length;
-  const enProceso = planesDashboard.filter(p => p.progreso > 0 && p.progreso < 100 && !p.esVencido).length;
-  const pendientes = planesDashboard.filter(p => (p.progreso === 0 || !p.progreso) && !p.esVencido).length;
-  const vencidos = planesDashboard.filter(p => p.esVencido).length;
-  const cumplimientoGlobal = totalPlanes > 0 ? Math.round((cerrados / totalPlanes) * 100) : 0;
+  // 3. Cálculos Dinámicos de las Tarjetas (Basados en planesFiltradosBase para no desaparecer al hacer clic)
+  const totalPlanesBase = planesFiltradosBase.length;
+  const cerrados = planesFiltradosBase.filter(p => p.progreso === 100).length;
+  const enProceso = planesFiltradosBase.filter(p => p.progreso > 0 && p.progreso < 100 && !p.esVencido).length;
+  const pendientes = planesFiltradosBase.filter(p => (p.progreso === 0 || !p.progreso) && !p.esVencido).length;
+  const vencidos = planesFiltradosBase.filter(p => p.esVencido).length;
+  const cumplimientoGlobal = totalPlanesBase > 0 ? Math.round((cerrados / totalPlanesBase) * 100) : 0;
+  const pct = (val) => totalPlanesBase > 0 ? Math.round((val / totalPlanesBase) * 100) : 0;
 
+  // 4. Cálculos para la Gráfica de Dona y Rankings (Estos cambian con cada clic en la pantalla)
+  const totalPlanesReactivo = planesDashboard.length;
   const criticos = planesDashboard.filter(p => p.severidad === 'Crítico').length;
   const altos = planesDashboard.filter(p => p.severidad === 'Alto').length;
   const medios = planesDashboard.filter(p => p.severidad === 'Medio').length;
   const bajos = planesDashboard.filter(p => p.severidad === 'Bajo').length;
-  const pct = (val) => totalPlanes > 0 ? Math.round((val / totalPlanes) * 100) : 0;
-
   // Agrupador Dinámico
   const planesAgrupados = planesDashboard.reduce((acc, p) => {
     let key = 'Sin clasificar';
