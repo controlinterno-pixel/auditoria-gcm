@@ -321,7 +321,7 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
         setRiesgos(data.riesgos || defaultRiesgos);
         setHallazgos(data.hallazgos || defaultHallazgos);
         setPlanes(data.planes || defaultPlanes);
-        setIncidentes(data.incidentes || defaultIncidentes);
+        setIncidentes(data.incidentes || []); 
         setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
         setCronograma(data.cronograma || defaultCronograma);
         setMonitoreo(data.monitoreo || defaultMonitoreo);
