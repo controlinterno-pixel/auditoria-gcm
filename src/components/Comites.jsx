@@ -4,6 +4,7 @@ const TIPOS_COMITE = [
   "Comité de Auditoría de Accionistas",
   "Junta Directiva",
   "Daily Scrum Meeting de Auditoría ST"
+  "Comité de ambiente y control"
 ];
 
 export default function Comites({
