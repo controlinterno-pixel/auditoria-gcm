@@ -575,15 +575,14 @@ export default function Planes({
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
-          {/* Fila de 6 Tarjetas Superiores */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+<div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Planes</p>
                <div className="flex items-center space-x-2">
                  <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-black shadow-sm">∑</div>
-                 <p className="text-2xl font-black text-slate-800">{totalPlanes}</p>
+                 <p className="text-2xl font-black text-slate-800">{totalPlanesBase}</p>
                </div>
-            </div>
+            </div>          
            {/* 🚀 TARJETAS INTERACTIVAS: Al hacer clic, aplican filtro de Estado */}
             <div onClick={() => setDashFiltroEstado('Cerrado')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Cerrado' ? 'border-emerald-500 ring-4 ring-emerald-500/20' : 'border-emerald-200 hover:border-emerald-500'}`}>
                <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-1">Cerrados</p>
@@ -797,7 +796,7 @@ export default function Planes({
                 <div className="flex items-center justify-center mb-6">
                    <div className="relative w-36 h-36 rounded-full border-[14px] border-emerald-500 border-l-red-500 border-t-red-500 border-r-orange-500 border-b-amber-500 flex items-center justify-center transform -rotate-45 shadow-inner">
                       <div className="transform rotate-45 text-center">
-                         <span className="block text-3xl font-black text-slate-800 leading-none">{totalPlanes}</span>
+                         <span className="block text-3xl font-black text-slate-800 leading-none">{totalPlanesReactivo}</span>
                          <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Total</span>
                       </div>
                    </div>
@@ -817,7 +816,7 @@ export default function Planes({
                         <div key={idx} className="flex items-center text-[10px]">
                           <span className="w-16 truncate text-slate-600 font-bold pr-2">{proc}</span>
                           <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${(count/totalPlanes).toFixed(1)*100}%`}}></div>
+                            <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${totalPlanesReactivo > 0 ? (count/totalPlanesReactivo)*100 : 0}%`}}></div>
                           </div>
                           <span className="w-6 text-right font-black text-slate-800">{count}</span>
                         </div>
@@ -826,7 +825,6 @@ export default function Planes({
                   </div>
                 )}
             </div>
-
           </div>
         </div>
       )}
