@@ -336,12 +336,29 @@ export default function Comites({
                             </td>
                             <td className="p-3 align-top">
                               <div className="flex flex-col space-y-2 max-w-[160px] mx-auto">
-                                <a href={c.presentacionUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[9px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full">
-                                  <span>🖥️</span> <span>Ver Presentación</span>
-                                </a>
-                                <a href={c.actaUrl} target="_blank" rel="noreferrer" className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[9px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full">
-                                  <span>📜</span> <span>Ver Acta Firmada</span>
-                                </a>
+                                
+                                {/* Botón de Presentación (Condicional) */}
+                                {c.presentacionUrl ? (
+                                  <a href={c.presentacionUrl} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[9px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full">
+                                    <span>🖥️</span> <span>Ver Presentación</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-[9px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl text-center italic w-full">
+                                    Sin Presentación
+                                  </span>
+                                )}
+
+                                {/* Botón de Acta Firmada (Condicional) */}
+                                {c.actaUrl ? (
+                                  <a href={c.actaUrl} target="_blank" rel="noreferrer" className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[9px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full">
+                                    <span>📜</span> <span>Ver Acta Firmada</span>
+                                  </a>
+                                ) : (
+                                  <span className="text-[9px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl text-center italic w-full">
+                                    Sin Acta Adjunta
+                                  </span>
+                                )}
+
                               </div>
                             </td>
                             <td className="p-3 align-top text-center">
