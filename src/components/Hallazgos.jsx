@@ -258,9 +258,9 @@ export default function Hallazgos({
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
-          {/* Fila de 6 Tarjetas de KPIs */}
+          {/* 🚀 TARJETAS INTERACTIVAS: Al hacer clic, aplican filtro de Severidad o Estado */}
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+             <div onClick={() => { setDashFiltroSeveridad('Todos'); setDashFiltroEstado('Todos'); }} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroSeveridad === 'Todos' && dashFiltroEstado === 'Todos' ? 'border-slate-800 ring-4 ring-slate-800/10' : 'border-slate-200 hover:border-slate-400'}`}>
                 <div className="absolute -right-4 -bottom-4 text-5xl opacity-5">📄</div>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Hallazgos</p>
                 <div className="flex items-center space-x-2">
@@ -269,7 +269,7 @@ export default function Hallazgos({
                 </div>
              </div>
              
-             <div className="bg-white p-4 rounded-2xl border border-red-200 shadow-sm flex flex-col justify-center relative overflow-hidden hover:border-red-400 transition-colors">
+             <div onClick={() => { setDashFiltroSeveridad('Crítico'); setDashFiltroEstado('Todos'); }} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroSeveridad === 'Crítico' ? 'border-red-500 ring-4 ring-red-500/20' : 'border-red-200 hover:border-red-500'}`}>
                 <p className="text-[10px] font-black text-red-700 uppercase tracking-widest mb-1 flex justify-between">Críticos</p>
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center text-sm font-black shadow-md animate-pulse">!</div>
@@ -280,7 +280,7 @@ export default function Hallazgos({
                 </div>
              </div>
 
-             <div className="bg-white p-4 rounded-2xl border border-orange-200 shadow-sm flex flex-col justify-center relative overflow-hidden hover:border-orange-400 transition-colors">
+             <div onClick={() => { setDashFiltroSeveridad('Alto'); setDashFiltroEstado('Todos'); }} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroSeveridad === 'Alto' ? 'border-orange-500 ring-4 ring-orange-500/20' : 'border-orange-200 hover:border-orange-500'}`}>
                 <p className="text-[10px] font-black text-orange-700 uppercase tracking-widest mb-1">Altos</p>
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-black shadow-md">↑</div>
@@ -291,7 +291,7 @@ export default function Hallazgos({
                 </div>
              </div>
 
-             <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-sm flex flex-col justify-center relative overflow-hidden hover:border-amber-400 transition-colors">
+             <div onClick={() => { setDashFiltroSeveridad('Medio'); setDashFiltroEstado('Todos'); }} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroSeveridad === 'Medio' ? 'border-amber-500 ring-4 ring-amber-500/20' : 'border-amber-200 hover:border-amber-500'}`}>
                 <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1">Medios</p>
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-black shadow-md">-</div>
@@ -302,7 +302,7 @@ export default function Hallazgos({
                 </div>
              </div>
 
-             <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm flex flex-col justify-center relative overflow-hidden hover:border-emerald-400 transition-colors">
+             <div onClick={() => { setDashFiltroSeveridad('Bajo'); setDashFiltroEstado('Todos'); }} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroSeveridad === 'Bajo' ? 'border-emerald-500 ring-4 ring-emerald-500/20' : 'border-emerald-200 hover:border-emerald-500'}`}>
                 <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Bajos</p>
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm font-black shadow-md">↓</div>
@@ -313,7 +313,7 @@ export default function Hallazgos({
                 </div>
              </div>
 
-             <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-sm flex flex-col justify-center relative overflow-hidden hover:border-blue-400 transition-colors">
+             <div onClick={() => { setDashFiltroEstado('Cerrado'); setDashFiltroSeveridad('Todos'); }} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Cerrado' ? 'border-blue-500 ring-4 ring-blue-500/20' : 'border-blue-200 hover:border-blue-500'}`}>
                 <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest mb-1">Cerrados</p>
                 <div className="flex items-center space-x-2">
                   <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-black shadow-md">✓</div>
@@ -323,8 +323,7 @@ export default function Hallazgos({
                   </div>
                 </div>
              </div>
-          </div>
-
+          </div>          
           {/* ESTRUCTURA 3 COLUMNAS: SIDEBAR | ACORDEONES | GRÁFICOS */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
              
@@ -487,10 +486,20 @@ export default function Hallazgos({
                                  </tr>
                                </thead>
                                <tbody className="divide-y divide-slate-50">
-                                 {hzs.slice(0, 10).map(h => (
-                                   <tr key={h.id} className="hover:bg-slate-50 transition-colors">
-                                     <td className="py-2.5 font-mono font-black text-slate-700 align-top">{h.ref}</td>
-                                     <td className="py-2.5 font-bold text-slate-600 pr-3 leading-tight align-top" title={h.titulo}>{h.titulo}</td>
+                               {hzs.slice(0, 10).map(h => (
+                                   <tr 
+                                     key={h.id} 
+                                     onClick={() => {
+                                        // 🚀 NAVEGACIÓN INTELIGENTE: Viaja a gestionar este hallazgo
+                                        setEditHallazgo(h);
+                                        setVistaActiva('nuevo');
+                                        scrollToForm();
+                                     }}
+                                     className="hover:bg-red-50 transition-colors cursor-pointer group/row"
+                                     title="Clic para ver detalle o gestionar este hallazgo"
+                                   >
+                                     <td className="py-2.5 font-mono font-black text-slate-700 align-top group-hover/row:text-red-700">{h.ref}</td>
+                                     <td className="py-2.5 font-bold text-slate-600 pr-3 leading-tight align-top group-hover/row:text-red-900" title={h.titulo}>{h.titulo}</td>
                                      <td className="py-2.5 font-medium text-slate-500 pr-3 leading-tight align-top" title={h.proceso}>{h.proceso}</td>
                                      <td className="py-2.5 text-center align-top">
                                        <span className={`px-2 py-0.5 rounded-md font-black uppercase tracking-wider border ${
@@ -508,7 +517,10 @@ export default function Hallazgos({
                                        </span>
                                      </td>
                                      <td className="py-2.5 font-bold text-slate-500 truncate max-w-[80px]" title={h.responsable}>{h.responsable}</td>
-                                     <td className="py-2.5 font-bold text-slate-400 text-right">{h.fechaReal}</td>
+                                     <td className="py-2.5 font-bold text-slate-400 text-right flex items-center justify-end space-x-2">
+                                       <span>{h.fechaReal}</span>
+                                       <span className="text-[10px] opacity-0 group-hover/row:opacity-100 text-red-600 transition-all font-bold">⚙️</span>
+                                     </td>
                                    </tr>
                                  ))}
                                </tbody>
