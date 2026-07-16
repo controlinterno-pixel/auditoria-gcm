@@ -7,23 +7,7 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
   const width = 600;
   const paddingY = 20;
   const paddingX = 20;
-// 📊 CÁLCULO SEGURO Y AISLADO DE LA EVOLUCIÓN FINANCIERA
-  const infoFinancieraLimpia = defaultMeses.map((mText) => {
-    if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
-    
-    const totalCostoMes = safeIncidentes.filter(inc => {
-      const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
-      const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
-      
-      const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
-      return passAnio && mesIncText === mText;
-    }).reduce((acc, current) => {
-      const perdida = (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
-      return acc + perdida;
-    }, 0);
-    
-    return { mes: mText, valor: totalCostoMes };
-  });
+
   const points = data.map((d, i) => {
     const x = paddingX + (i * (width - 2 * paddingX) / (data.length - 1 || 1));
     const y = height - paddingY - ((d.valor / maxVal) * (height - 2 * paddingY));
@@ -77,18 +61,38 @@ export default function DashboardEjecutivo({
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
 
-// 🧠 FILTRADO EXACTO DE RIESGOS POR AÑO (Ignora el mes para ver el inventario total real)
+  // 📊 CÁLCULO SEGURO Y AISLADO DE LA EVOLUCIÓN FINANCIERA (Ubicado correctamente en la zona de JavaScript)
+  const infoFinancieraLimpia = (defaultMeses || []).map((mText) => {
+    if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
+    
+    const totalCostoMes = safeIncidentes.filter(inc => {
+      const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
+      const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
+      
+      const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
+      return passAnio && mesIncText === mText;
+    }).reduce((acc, current) => {
+      const perdida = (Number(current.costo) || 0) + (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
+      return acc + perdida;
+    }, 0);
+    
+    return { mes: mText, valor: totalCostoMes };
+  });
+
+  // 🧠 FILTRADO EXACTO DE RIESGOS POR AÑO (Ignora el mes para ver el inventario total real)
   const riesgosBase = (riesgos || []).filter(r => {
     const anioR = Number(r.anio) || 2026;
     return selectedAnios.length === 0 || selectedAnios.includes(anioR) || selectedAnios.includes(String(anioR));
   });
 
   const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
-// 🧠 FILTRADO EXACTO DE PLANES POR AÑO (Ignora el filtro de mes para ver el acumulado real)
+  
+  // 🧠 FILTRADO EXACTO DE PLANES POR AÑO (Ignora el filtro de mes para ver el acumulado real)
   const planesBase = (planes || []).filter(p => {
     const anioPlan = p.fecha ? Number(p.fecha.split('-')[0]) : (Number(p.anio) || 2026);
     return selectedAnios.length === 0 || selectedAnios.includes(anioPlan) || selectedAnios.includes(String(anioPlan));
   });
+
   // 🧠 TRADUCTOR UNIVERSAL REFORZADO (Compatible con todos los formatos)
   const extraerNumeroPuro = (valor) => {
     if (valor === undefined || valor === null || valor === '') return 0;
@@ -135,7 +139,8 @@ export default function DashboardEjecutivo({
   const planesVencidos = planesBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy).length;
   const planesCerrados = planesBase.filter(p => (Number(p.progreso) || 0) === 100).length;
   const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 0;
-// 🧮 CÁLCULO DE RIESGOS ALINEADO CON EL MÓDULO MATRIZ (4 Niveles)
+
+  // 🧮 CÁLCULO DE RIESGOS ALINEADO CON EL MÓDULO MATRIZ (4 Niveles)
   const totalRiesgos = riesgosBase.length;
   let riesgosExtremos = 0; let riesgosAltos = 0; let riesgosModerados = 0; let riesgosBajos = 0;
 
@@ -148,7 +153,8 @@ export default function DashboardEjecutivo({
     else if ((p >= 2 && i >= 3) || (p >= 3 && i >= 2) || (p >= 2 && i >= 2)) { riesgosModerados++; } 
     else { riesgosBajos++; }
   });
- // 🧮 CÁLCULO DE EFECTIVIDAD OPERACIONAL (Ignorando el mes, calculando el acumulado del año)
+
+  // 🧠 CÁLCULO DE EFECTIVIDAD OPERACIONAL (Ignorando el mes, calculando el acumulado del año)
   const evaluacionesBase = (evalFiltrados || []).filter(e => {
     const anioE = Number(e.anio) || 2026;
     return selectedAnios.length === 0 || selectedAnios.includes(anioE) || selectedAnios.includes(String(anioE));
@@ -159,6 +165,7 @@ export default function DashboardEjecutivo({
   const efectividadControlesGlobal = totalEvaluaciones > 0 
     ? Math.round((evaluacionesEficaces / totalEvaluaciones) * 100) 
     : 0;
+
   // 🧠 NUEVO CÁLCULO EXACTO DE HALLAZGOS ABIERTOS Y CRÍTICOS
   const totalHallazgos = hallazgosBase.length;
   const hallazgosAbiertos = hallazgosBase.filter(h => h.estado !== 'Cerrado').length; 
@@ -680,7 +687,7 @@ export default function DashboardEjecutivo({
                           {cant > 0 && <span className="absolute bottom-0.5 right-1 text-[12px] opacity-70 animate-pulse">🖱️</span>}
                         </button>
                       );
-                    })}                      
+                    })}                     
                   </div>
                 );
               })}
@@ -782,7 +789,7 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-{/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA A ANCHO COMPLETO ─── */}
+      {/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA A ANCHO COMPLETO ─── */}
       <div className="grid grid-cols-1 gap-6 mt-6">
         {/* GRÁFICA: EVOLUCIÓN DE IMPACTO FINANCIERO */}
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
@@ -797,12 +804,12 @@ export default function DashboardEjecutivo({
                 const filtrados = (safeIncidentes || [])
                   .filter(inc => {
                     const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
-                    const perdidaReal = (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0);
+                    const perdidaReal = (Number(inc.costo) || 0) + (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0);
                     return mesIncText === pt.mes && perdidaReal > 0;
                   })
                   .map(inc => ({
                     ...inc,
-                    costo: (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
+                    costo: (Number(inc.costo) || 0) + (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
                   }));
                 
                 if (filtrados.length > 0) {
@@ -819,56 +826,7 @@ export default function DashboardEjecutivo({
           </div>
         </div>
       </div>
-                 const infoFinanciera = defaultMeses.map((mText) => {
-              if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
-              
-              const totalCostoMes = safeIncidentes.filter(inc => {
-                // Extracción segura que ignora la zona horaria
-                const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
-                const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
-                
-                const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
-                return passAnio && mesIncText === mText;
-              }).reduce((acc, current) => {
-                // Sumamos costo antiguo + los nuevos campos de sobrante/faltante que creamos
-                const perdida = (Number(current.costo) || 0) + (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
-                return acc + perdida;
-              }, 0);
-              
-              return { mes: mText, valor: totalCostoMes };
-            });
 
-            return (
-              <div className="bg-[#0a1122]">
-                <TrendChart 
-                  data={infoFinanciera}
-                  title="Evolución de Impacto Financiero (5 Años)"
-                  isCurrency={true}
-                  color="#ef4444"
-                  fillColor="rgba(239, 68, 68, 0.15)"
-                  onPointClick={(pt) => {
-                    // 💡 FIX DEL MODAL: Sumamos el nuevo formato de costos y se lo pasamos al modal con el nombre antiguo 'costo'
-                    const filtrados = (safeIncidentes || []).filter(inc => {
-                      const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
-                      return mesIncText === pt.mes;
-                    }).map(inc => ({
-                      ...inc,
-                      costo: (Number(inc.costo) || 0) + (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
-                    }));
-                    
-                    setChartDetail({
-                      tipo: 'Incidentes Financiados',
-                      mesCompleto: pt.mes,
-                      items: filtrados
-                    });
-                  }}
-                />
-              </div>
-            );
-          })()}
-        </div>
-
-      </div>
       {/* ─── ALERTAS INTELIGENTES (IA) ─── */}
       <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3 mt-6">
         <div className="flex justify-between items-center border-b border-slate-800 pb-2">
@@ -1136,7 +1094,7 @@ export default function DashboardEjecutivo({
 
       </div>
 
-      {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO RESTAURADO ─── */}
+      {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO RESTAURADA ─── */}
       <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">
@@ -1174,7 +1132,7 @@ export default function DashboardEjecutivo({
                     <div className="text-[10px] font-bold text-slate-400">
                       P: <span className="text-slate-200">{r.probabilidadResidual || 1}</span> / I: <span className="text-slate-200">{r.impactoResidual || 1}</span>
                     </div>
-                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase ${score >= 16 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : score >= 10 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} font-mono`}>
+                    <span className="text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
                       SCORE {score}
                     </span>
                   </div>
