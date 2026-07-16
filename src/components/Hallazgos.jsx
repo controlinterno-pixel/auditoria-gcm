@@ -427,10 +427,10 @@ export default function Hallazgos({
                    return (
                      <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
                        <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
-                         <div className="flex items-center space-x-3">
-                           <span className="text-xl">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : agruparPor === 'Nivel de Riesgo' ? '⚠️' : '👤'}</span>
-                           <h4 className="text-sm sm:text-base font-black text-slate-800 max-w-[150px] truncate" title={grupo}>{grupo} <span className="text-slate-400 font-medium text-xs ml-1">({hzs.length})</span></h4>
-                           {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm">Actual</span>}
+                         <div className="flex items-center space-x-3 flex-1 pr-4">
+                           <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : agruparPor === 'Nivel de Riesgo' ? '⚠️' : '👤'}</span>
+                           <h4 className="text-sm sm:text-base font-black text-slate-800 leading-tight">{grupo} <span className="text-slate-400 font-medium text-xs ml-1 whitespace-nowrap">({hzs.length})</span></h4>
+                           {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm shrink-0">Actual</span>}
                          </div>
                          {!isExpanded && (
                            <div className="hidden md:flex items-center space-x-4 text-[10px] font-bold bg-white px-4 py-1.5 rounded-xl border border-slate-100 shadow-sm">
@@ -489,10 +489,10 @@ export default function Hallazgos({
                                <tbody className="divide-y divide-slate-50">
                                  {hzs.slice(0, 10).map(h => (
                                    <tr key={h.id} className="hover:bg-slate-50 transition-colors">
-                                     <td className="py-2.5 font-mono font-black text-slate-700">{h.ref}</td>
-                                     <td className="py-2.5 font-bold text-slate-600 max-w-[150px] truncate" title={h.titulo}>{h.titulo}</td>
-                                     <td className="py-2.5 font-medium text-slate-500 truncate max-w-[100px]" title={h.proceso}>{h.proceso}</td>
-                                     <td className="py-2.5 text-center">
+                                     <td className="py-2.5 font-mono font-black text-slate-700 align-top">{h.ref}</td>
+                                     <td className="py-2.5 font-bold text-slate-600 pr-3 leading-tight align-top" title={h.titulo}>{h.titulo}</td>
+                                     <td className="py-2.5 font-medium text-slate-500 pr-3 leading-tight align-top" title={h.proceso}>{h.proceso}</td>
+                                     <td className="py-2.5 text-center align-top">
                                        <span className={`px-2 py-0.5 rounded-md font-black uppercase tracking-wider border ${
                                          h.severidad === 'Crítico' ? 'bg-red-50 text-red-600 border-red-200' :
                                          h.severidad === 'Alto' ? 'bg-orange-50 text-orange-600 border-orange-200' :
