@@ -697,7 +697,7 @@ export default function Planes({
                     <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
                       <option value="Cerrado">Cerrado (100%)</option>
-                      <option value="En Proceso">En Proceso (> 0%)</option>
+                      <option value="En Proceso">En Proceso (&gt; 0%)</option>
                       <option value="Pendiente">Pendiente (0%)</option>
                       <option value="Vencido">Vencido</option>
                     </select>
