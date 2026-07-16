@@ -251,6 +251,19 @@ const [sedeForm, setSedeForm] = useState('Administrativos');
     
     return { label: 'Bajo', color: 'bg-emerald-500 text-white' };
   };
+const handleDeleteRiesgo = async (id) => {
+    if (window.confirm("⚠️ ¿Estás seguro de que deseas eliminar este riesgo de la matriz corporativa?")) {
+      try {
+        const updatedList = safeRiesgos.filter(r => r.id !== id);
+        setRiesgos(updatedList);
+        await saveToCloud({ riesgos: updatedList });
+        showNotification("Riesgo eliminado con éxito", "success");
+      } catch (error) {
+        console.error("Error al eliminar:", error);
+        showNotification("Error al intentar eliminar el riesgo.", "error");
+      }
+    }
+  };
   const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
