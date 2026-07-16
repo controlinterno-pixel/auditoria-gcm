@@ -6,13 +6,13 @@ const TIPOS_COMITE = [
   "Daily Scrum Meeting de Auditoría ST",
   "Comité de ambiente y control"
 ];
-
 export default function Comites({
   isAdmin,
   editComite,
   setEditComite,
   handleComiteSubmit,
   setFormResetKey,
+  formResetKey,
   scrollToForm,
   handleDeleteItem,
   applyFilters,
