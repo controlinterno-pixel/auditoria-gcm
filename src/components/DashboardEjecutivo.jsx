@@ -772,28 +772,21 @@ export default function DashboardEjecutivo({
         {/* GRÁFICA 1: EVOLUCIÓN DE IMPACTO FINANCIERO */}
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
           {(() => {
-            // 🧠 CÁLCULO ESTRICTO GRÁFICO 1: EVOLUCIÓN FINANCIERA (INCIDENTES)
-            const infoFinanciera = defaultMeses.map((mText, mIdx) => {
+            const infoFinanciera = defaultMeses.map((mText) => {
               if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
               
               const totalCostoMes = safeIncidentes.filter(inc => {
-                let anioInc = 2026;
-                let mesIncText = "Junio";
-                
-                if (inc.fecha) {
-                  const d = new Date(inc.fecha);
-                  if (!isNaN(d.getTime())) {
-                    anioInc = d.getFullYear();
-                    mesIncText = defaultMeses[d.getMonth()] || "Junio";
-                  }
-                } else if (inc.anio && inc.mes) {
-                  anioInc = Number(inc.anio);
-                  mesIncText = inc.mes;
-                }
+                // Extracción segura que ignora la zona horaria
+                const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
+                const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
                 
                 const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
                 return passAnio && mesIncText === mText;
-              }).reduce((acc, current) => acc + (Number(current.costo) || 0), 0);
+              }).reduce((acc, current) => {
+                // Sumamos costo antiguo + los nuevos campos de sobrante/faltante que creamos
+                const perdida = (Number(current.costo) || 0) + (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
+                return acc + perdida;
+              }, 0);
               
               return { mes: mText, valor: totalCostoMes };
             });
@@ -807,7 +800,10 @@ export default function DashboardEjecutivo({
                   color="#ef4444"
                   fillColor="rgba(239, 68, 68, 0.15)"
                   onPointClick={(pt) => {
-                    const filtrados = (safeIncidentes || []).filter(inc => getItemMesText(inc) === pt.mes);
+                    const filtrados = (safeIncidentes || []).filter(inc => {
+                      const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
+                      return mesIncText === pt.mes;
+                    });
                     setChartDetail({
                       tipo: 'Incidentes Financiados',
                       mesCompleto: pt.mes,
@@ -823,24 +819,13 @@ export default function DashboardEjecutivo({
         {/* GRÁFICA 2: VOLUMEN DE DESVIACIONES Y HALLAZGOS */}
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
           {(() => {
-            // 🧠 CÁLCULO ESTRICTO GRÁFICO 2: VOLUMEN DE DESVIACIONES (HALLAZGOS)
             const infoDesviaciones = defaultMeses.map(mText => {
               if (!hallazgosBase || hallazgosBase.length === 0) return { mes: mText, valor: 0 };
               
               const totalHallazgosMes = hallazgosBase.filter(hal => {
-                let anioHal = 2026;
-                let mesHalText = "Junio";
-                
-                if (hal.fecha) {
-                  const d = new Date(hal.fecha);
-                  if (!isNaN(d.getTime())) {
-                    anioHal = d.getFullYear();
-                    mesHalText = defaultMeses[d.getMonth()] || "Junio";
-                  }
-                } else if (hal.anio && hal.mes) {
-                  anioHal = Number(hal.anio);
-                  mesHalText = hal.mes;
-                }
+                // Extracción segura que ignora la zona horaria
+                const anioHal = hal.fecha ? Number(hal.fecha.split('-')[0]) : Number(hal.anio);
+                const mesHalText = hal.fecha ? defaultMeses[parseInt(hal.fecha.split('-')[1], 10) - 1] : (hal.mes || "Junio");
                 
                 const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioHal) || selectedAnios.includes(String(anioHal));
                 return passAnio && mesHalText === mText;
@@ -858,7 +843,10 @@ export default function DashboardEjecutivo({
                   color="#3b82f6"
                   fillColor="rgba(59, 130, 246, 0.15)"
                   onPointClick={(pt) => {
-                    const filtrados = (hallazgosBase || []).filter(hal => getItemMesText(hal) === pt.mes);
+                    const filtrados = (hallazgosBase || []).filter(hal => {
+                      const mesHalText = hal.fecha ? defaultMeses[parseInt(hal.fecha.split('-')[1], 10) - 1] : hal.mes;
+                      return mesHalText === pt.mes;
+                    });
                     setChartDetail({
                       tipo: 'Hallazgos del Periodo',
                       mesCompleto: pt.mes,
