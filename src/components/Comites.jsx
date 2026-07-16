@@ -70,6 +70,7 @@ export default function Comites({
 
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
+
       const data = await response.json();
       const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
 
