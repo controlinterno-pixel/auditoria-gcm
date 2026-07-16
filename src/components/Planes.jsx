@@ -575,7 +575,8 @@ export default function Planes({
                  <p className="text-2xl font-black text-slate-800">{totalPlanes}</p>
                </div>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+           {/* 🚀 TARJETAS INTERACTIVAS: Al hacer clic, aplican filtro de Estado */}
+            <div onClick={() => setDashFiltroEstado('Cerrado')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Cerrado' ? 'border-emerald-500 ring-4 ring-emerald-500/20' : 'border-emerald-200 hover:border-emerald-500'}`}>
                <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-1">Cerrados</p>
                <div className="flex items-center space-x-2">
                  <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-black shadow-sm">✓</div>
@@ -585,7 +586,7 @@ export default function Planes({
                  </div>
                </div>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+            <div onClick={() => setDashFiltroEstado('En Proceso')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'En Proceso' ? 'border-amber-500 ring-4 ring-amber-500/20' : 'border-amber-200 hover:border-amber-500'}`}>
                <p className="text-[9px] font-black text-amber-700 uppercase tracking-widest mb-1">En Proceso</p>
                <div className="flex items-center space-x-2">
                  <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-black shadow-sm">🕒</div>
@@ -595,14 +596,14 @@ export default function Planes({
                  </div>
                </div>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-orange-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+            <div onClick={() => setDashFiltroEstado('En Proceso')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'En Proceso' && pendientes > 0 ? 'border-orange-500 ring-4 ring-orange-500/20' : 'border-orange-200 hover:border-orange-500'}`}>
                <p className="text-[9px] font-black text-orange-700 uppercase tracking-widest mb-1">Pendientes</p>
                <div className="flex items-center space-x-2">
                  <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black shadow-sm">?</div>
                  <p className="text-2xl font-black text-slate-800">{pendientes}</p>
                </div>
             </div>
-            <div className="bg-white p-4 rounded-2xl border border-red-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+            <div onClick={() => setDashFiltroEstado('Vencido')} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroEstado === 'Vencido' ? 'border-red-500 ring-4 ring-red-500/20' : 'border-red-200 hover:border-red-500'}`}>
                <p className="text-[9px] font-black text-red-700 uppercase tracking-widest mb-1">Vencidos</p>
                <div className="flex items-center space-x-2">
                  <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center text-xs font-black shadow-sm animate-pulse">!</div>
@@ -611,7 +612,7 @@ export default function Planes({
                    <p className="text-[9px] font-bold text-red-500 mt-0.5">{pct(vencidos)}% del total</p>
                  </div>
                </div>
-            </div>
+            </div> 
             <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
                <p className="text-[9px] font-black text-blue-700 uppercase tracking-widest mb-1">Cumplimiento</p>
                <div className="flex items-center space-x-2">
@@ -746,15 +747,28 @@ export default function Planes({
                                </thead>
                                <tbody className="divide-y divide-slate-50">
                                  {items.map(p => (
-                                   <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                                     <td className="py-2.5 font-mono font-black text-slate-700">PLA-{p.id.toString().substring(0,3)}</td>
-                                     <td className="py-2.5 font-bold text-slate-600 max-w-[140px] truncate" title={p.accion}>{p.accion}</td>
+                                   <tr 
+                                     key={p.id} 
+                                     onClick={() => {
+                                        // 🚀 NAVEGACIÓN INTELIGENTE: Viaja a historial, abre acordeón y carga datos.
+                                        setEditPlan(p);
+                                        setVistaActiva('nuevo');
+                                        scrollToForm();
+                                     }}
+                                     className="hover:bg-blue-50 transition-colors cursor-pointer group/row"
+                                     title="Clic para gestionar este plan de acción"
+                                   >
+                                     <td className="py-2.5 font-mono font-black text-slate-700 group-hover/row:text-blue-700">PLA-{p.id.toString().substring(0,3)}</td>
+                                     <td className="py-2.5 font-bold text-slate-600 max-w-[140px] truncate group-hover/row:text-blue-900" title={p.accion}>{p.accion}</td>
                                      <td className="py-2.5 font-medium text-slate-500 truncate max-w-[80px]">{p.proceso}</td>
                                      <td className="py-2.5 text-center">
                                        <span className={`px-1.5 py-0.5 rounded-md font-black text-[8px] border ${p.severidad === 'Crítico' ? 'bg-red-50 text-red-600 border-red-200' : p.severidad === 'Alto' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>{p.severidad}</span>
                                      </td>
                                      <td className={`py-2.5 text-center font-bold ${p.esVencido ? 'text-red-500' : 'text-slate-400'}`}>{p.fecha || 'N/A'}</td>
-                                     <td className="py-2.5 text-right font-black text-emerald-600">{p.progreso}%</td>
+                                     <td className="py-2.5 text-right font-black text-emerald-600 flex items-center justify-end space-x-2">
+                                       <span>{p.progreso}%</span>
+                                       <span className="text-[10px] opacity-0 group-hover/row:opacity-100 text-blue-600 transition-all font-bold">⚙️</span>
+                                     </td>
                                    </tr>
                                  ))}
                                </tbody>
