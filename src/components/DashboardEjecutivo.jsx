@@ -766,10 +766,10 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-      {/* ─── NUEVAS GRÁFICAS DE TENDENCIA GRC INTERACTIVAS LINEALES ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+     {/* ─── NUEVAS GRÁFICAS DE TENDENCIA GRC INTERACTIVAS LINEALES ─── */}
+      <div className="grid grid-cols-1 gap-6 mt-6">
         
-        {/* GRÁFICA 1: EVOLUCIÓN DE IMPACTO FINANCIERO */}
+        {/* GRÁFICA 1: EVOLUCIÓN DE IMPACTO FINANCIERO (ANCHO COMPLETO) */}
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
           {(() => {
             const infoFinanciera = defaultMeses.map((mText) => {
@@ -800,10 +800,15 @@ export default function DashboardEjecutivo({
                   color="#ef4444"
                   fillColor="rgba(239, 68, 68, 0.15)"
                   onPointClick={(pt) => {
+                    // 💡 FIX DEL MODAL: Sumamos el nuevo formato de costos y se lo pasamos al modal con el nombre antiguo 'costo'
                     const filtrados = (safeIncidentes || []).filter(inc => {
                       const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
                       return mesIncText === pt.mes;
-                    });
+                    }).map(inc => ({
+                      ...inc,
+                      costo: (Number(inc.costo) || 0) + (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
+                    }));
+                    
                     setChartDetail({
                       tipo: 'Incidentes Financiados',
                       mesCompleto: pt.mes,
@@ -816,51 +821,7 @@ export default function DashboardEjecutivo({
           })()}
         </div>
 
-        {/* GRÁFICA 2: VOLUMEN DE DESVIACIONES Y HALLAZGOS */}
-        <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
-          {(() => {
-            const infoDesviaciones = defaultMeses.map(mText => {
-              if (!hallazgosBase || hallazgosBase.length === 0) return { mes: mText, valor: 0 };
-              
-              const totalHallazgosMes = hallazgosBase.filter(hal => {
-                // Extracción segura que ignora la zona horaria
-                const anioHal = hal.fecha ? Number(hal.fecha.split('-')[0]) : Number(hal.anio);
-                const mesHalText = hal.fecha ? defaultMeses[parseInt(hal.fecha.split('-')[1], 10) - 1] : (hal.mes || "Junio");
-                
-                const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioHal) || selectedAnios.includes(String(anioHal));
-                return passAnio && mesHalText === mText;
-              }).length;
-              
-              return { mes: mText, valor: totalHallazgosMes };
-            });
-
-            return (
-              <div className="bg-[#0a1122]">
-                <TrendChart 
-                  data={infoDesviaciones}
-                  title="Volumen de Desviaciones (5 Años)"
-                  isCurrency={false}
-                  color="#3b82f6"
-                  fillColor="rgba(59, 130, 246, 0.15)"
-                  onPointClick={(pt) => {
-                    const filtrados = (hallazgosBase || []).filter(hal => {
-                      const mesHalText = hal.fecha ? defaultMeses[parseInt(hal.fecha.split('-')[1], 10) - 1] : hal.mes;
-                      return mesHalText === pt.mes;
-                    });
-                    setChartDetail({
-                      tipo: 'Hallazgos del Periodo',
-                      mesCompleto: pt.mes,
-                      items: filtrados
-                    });
-                  }}
-                />
-              </div>
-            );
-          })()}
-        </div>
-
       </div>
-
       {/* ─── ALERTAS INTELIGENTES (IA) ─── */}
       <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3 mt-6">
         <div className="flex justify-between items-center border-b border-slate-800 pb-2">
