@@ -824,6 +824,7 @@ export default function DashboardEjecutivo({
             );
           })()}
         </div>
+
       </div>
                  const infoFinanciera = defaultMeses.map((mText) => {
               if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
