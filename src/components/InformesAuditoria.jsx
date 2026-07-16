@@ -407,10 +407,10 @@ export default function InformesAuditoria({
                    return (
                      <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
                        <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
-                         <div className="flex items-center space-x-3">
-                           <span className="text-xl">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
-                           <h4 className="text-sm sm:text-base font-black text-slate-800 max-w-[200px] truncate" title={grupo}>{grupo} <span className="text-slate-400 font-medium text-xs ml-1">({infs.length})</span></h4>
-                           {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm">Actual</span>}
+<div className="flex items-center space-x-3 flex-1 pr-4">
+                           <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
+                           <h4 className="text-sm sm:text-base font-black text-slate-800 leading-tight">{grupo} <span className="text-slate-400 font-medium text-xs ml-1 whitespace-nowrap">({infs.length})</span></h4>
+                           {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm shrink-0">Actual</span>}
                          </div>
                          {!isExpanded && (
                            <div className="hidden md:flex items-center space-x-4 text-xs font-bold bg-white px-4 py-1.5 rounded-xl border border-slate-100 shadow-sm">
@@ -446,10 +446,10 @@ export default function InformesAuditoria({
                            <div className="space-y-2">
                              {infs.slice(0, 5).map(inf => (
                                <div key={inf.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-200">
-                                 <div className="flex items-center space-x-4 w-full md:w-1/3">
-                                   <div className={`w-1 h-10 rounded-full ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
-                                   <div className="overflow-hidden">
-                                     <p className="text-xs font-bold text-slate-800 truncate" title={inf.proceso}>{inf.proceso}</p>
+                                 <div className="flex items-center space-x-4 w-full md:w-1/2">
+                                   <div className={`w-1 h-10 rounded-full shrink-0 ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
+                                   <div>
+                                     <p className="text-xs font-bold text-slate-800 leading-tight" title={inf.proceso}>{inf.proceso}</p>
                                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">{inf.ref}</p>
                                    </div>
                                  </div>
