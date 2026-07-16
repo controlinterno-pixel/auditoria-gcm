@@ -769,7 +769,7 @@ export default function DashboardEjecutivo({
 {/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA A ANCHO COMPLETO ─── */}
       <div className="grid grid-cols-1 gap-6 mt-6">
         
-       {/* GRÁFICA: EVOLUCIÓN DE IMPACTO FINANCIERO */}
+        {/* GRÁFICA: EVOLUCIÓN DE IMPACTO FINANCIERO */}
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden">
           {(() => {
             const infoFinanciera = defaultMeses.map((mText) => {
@@ -824,7 +824,6 @@ export default function DashboardEjecutivo({
             );
           })()}
         </div>
-
       </div>
                  const infoFinanciera = defaultMeses.map((mText) => {
               if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
