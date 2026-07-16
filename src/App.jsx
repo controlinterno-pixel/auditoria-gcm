@@ -1174,6 +1174,10 @@ const handleComiteSubmit = async (e) => {
     setComites(updated);
     await saveToCloud({ comites: updated });
     e.target.reset();
+    
+    // 🛡️ LIMPIEZA FORZADA DE ESTADOS INTERNOS DEL REPOSITORIO DOCUMENTAL
+    setFormResetKey(Date.now());
+    
     showNotification("Sesión de comité guardada con éxito.");
   };
   const handleIncidenteSubmit = async (e) => {

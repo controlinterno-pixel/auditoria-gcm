@@ -31,7 +31,15 @@ export default function Comites({
   const [uploadProgressActa, setUploadProgressActa] = useState(0);
   const [isUploadingActa, setIsUploadingActa] = useState(false);
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
-
+// Efecto limpiador: Se dispara cada vez que el formulario guarda o se cancela la edición
+  React.useEffect(() => {
+    if (!editComite) {
+      setPresentacionSubidaUrl('');
+      setActaSubidaUrl('');
+      setUploadProgressPres(0);
+      setUploadProgressActa(0);
+    }
+  }, [editComite]);
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
