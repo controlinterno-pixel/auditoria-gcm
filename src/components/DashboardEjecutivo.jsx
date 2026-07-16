@@ -766,7 +766,7 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-     {/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA A ANCHO COMPLETO ─── */}
+{/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA A ANCHO COMPLETO ─── */}
       <div className="grid grid-cols-1 gap-6 mt-6">
         
         {/* GRÁFICA: EVOLUCIÓN DE IMPACTO FINANCIERO */}
@@ -776,14 +776,12 @@ export default function DashboardEjecutivo({
               if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
               
               const totalCostoMes = safeIncidentes.filter(inc => {
-                // Extracción segura que ignora la zona horaria
                 const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
                 const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
                 
                 const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
                 return passAnio && mesIncText === mText;
               }).reduce((acc, current) => {
-                // 💡 FIX: Ignoramos la variable vieja 'costo' de los ensayos. Solo sumamos Faltante y Sobrante reales.
                 const perdida = (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
                 return acc + perdida;
               }, 0);
@@ -803,15 +801,11 @@ export default function DashboardEjecutivo({
                     const filtrados = (safeIncidentes || [])
                       .filter(inc => {
                         const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
-                        // 💡 FIX: Calculamos la pérdida real ignorando datos viejos
                         const perdidaReal = (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0);
-                        
-                        // Solo filtramos si coincide el mes y si de verdad hubo impacto financiero mayor a 0
                         return mesIncText === pt.mes && perdidaReal > 0;
                       })
                       .map(inc => ({
                         ...inc,
-                        // Asignamos el valor final mapeado para que el modal lo lea correctamente
                         costo: (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
                       }));
                     
@@ -822,7 +816,6 @@ export default function DashboardEjecutivo({
                         items: filtrados
                       });
                     } else {
-                       // Si la gráfica no tiene datos reales en ese mes, no abrimos un modal vacío
                        alert(`No hay registros operativos con pérdida financiera en ${pt.mes}.`);
                     }
                   }}
@@ -833,7 +826,7 @@ export default function DashboardEjecutivo({
         </div>
 
       </div>
-            const infoFinanciera = defaultMeses.map((mText) => {
+                 const infoFinanciera = defaultMeses.map((mText) => {
               if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
               
               const totalCostoMes = safeIncidentes.filter(inc => {

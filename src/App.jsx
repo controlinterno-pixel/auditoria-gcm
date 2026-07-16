@@ -577,7 +577,6 @@ const handleLogout = async () => {
     reader.readAsText(file);
   };
 
-
 const handleImportExcelRiesgos = (e) => {
     if (!window.XLSX) {
       showNotification("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.", "error");
@@ -595,127 +594,59 @@ const handleImportExcelRiesgos = (e) => {
         const worksheet = workbook.Sheets[firstSheetName];
         const json = window.XLSX.utils.sheet_to_json(worksheet);
 
-        if(window.confirm("⚠️ ALERTA: ¿Deseas procesar la Matriz con todas las columnas del Manual (Clasificación, Atributos de Control y Seguimientos)?")) {
+        if(window.confirm("⚠️ ALERTA: ¿Deseas cargar esta Matriz de Riesgos? Los campos avanzados de COSO ERM (Apetito, KRI, etc.) de los riesgos existentes se mantendrán intactos.")) {
           setIsCloudLoaded(false);
           
-          const extractPct = (str) => {
-            if (!str) return 0;
-            const match = String(str).match(/\((\d+)%\)/);
-            return match ? parseInt(match[1]) / 100 : 0;
-          };
-
-          const splitCamelCase = (str) => {
-            if (!str) return [];
-            return String(str).match(/[A-Z][a-záéíóúñ]+/g) || [];
-          };
-
-          const splitSentences = (str) => {
-             if (!str) return [];
-             return String(str)
-               .split(/\s{3,}|\r?\n/) 
-               .map(s => s.trim())
-               .filter(s => s.length > 5);
-          };
-
           const riesgosAgrupados = {};
 
           json.forEach((r, index) => {
-             const idRiesgo = r['No'] || (Date.now() + index);
-             const p_inh = extractPct(r['Probabilidad Inherente']);
-             const i_inh = extractPct(r['Impacto Inherente']);
+             // Adaptabilidad a los nombres de columnas de tu CSV
+             const idRaw = r['No'] || r['ID'] || r['Id'] || r['id'] || (Date.now() + index);
+             const idRiesgo = parseInt(idRaw) || idRaw;
              
+             // 🛡️ EL ESCUDO: Buscamos si el riesgo ya existe para NO borrar sus datos avanzados
+             const riesgoExistente = safeRiesgos?.find(existente => String(existente.id) === String(idRiesgo)) || {};
+
              if (!riesgosAgrupados[idRiesgo]) {
-                const causaInm = String(r['Causa Inmediata'] || '').toLowerCase();
-                const causaRaiz = String(r['Causa Raíz'] || '').toLowerCase();
-                const afectacion = String(r['Afectacion'] || '').toLowerCase();
-                
                 riesgosAgrupados[idRiesgo] = {
+                  ...riesgoExistente, 
                   id: idRiesgo,
-                  sede: 'Hotel',
-                  proceso: r['Proceso/Subproceso'] || 'Proceso General',
-                  categoria: r['Categoría'] || 'Operativo',
-                  clasificacionRiesgo: r['Clasificación del riesgo'] || 'Ejecución y administracion del proceso',
-                  normativa: 'Ninguna',
-                  responsable: r['Responsable'] || 'Sin Asignar',
-                  descripcion: `Posibilidad de afectación ${afectacion} por ${causaInm} debido a ${causaRaiz}`,
-                  probabilidadInherente: Math.round(p_inh * 100) || 60,
-                  impactoInherente: Math.round(i_inh * 100) || 60,
-                  probabilidadResidual: Math.round(p_inh * 100) || 60,
-                  impactoResidual: Math.round(i_inh * 100) || 60, 
-                  descripcionControl: '',
-                  controlesDetallados: [],
+                  sede: r['Sede'] || riesgoExistente.sede || 'Administrativos',
+                  proceso: r['Proceso/Subproceso'] || r['Proceso'] || riesgoExistente.proceso || 'Proceso General',
+                  categoria: r['Categoría'] || r['Categoria'] || riesgoExistente.categoria || 'Operativo',
+                  clasificacionRiesgo: r['Clasificación del riesgo'] || riesgoExistente.clasificacionRiesgo || 'Ejecución',
+                  normativa: r['Normativa'] || riesgoExistente.normativa || 'Interna',
+                  responsable: r['Responsable'] || riesgoExistente.responsable || 'Sin Asignar',
+                  descripcion: r['Descripción'] || r['Riesgo'] || r['Descripción del Riesgo'] || riesgoExistente.descripcion || '',
+                  causa: r['Causas'] || r['Causa'] || riesgoExistente.causa || '',
                   
-                  // Nuevas columnas de Gobernanza y Seguimiento del Excel
-                  tratamiento: r['Tratamiento'] || 'Reducir el riesgo',
-                  planAccionRiesgo: r['Plan de Acción'] || '',
-                  fechaSeguimiento: r['Fecha seguimiento'] || '',
-                  seguimientoBitacora: r['Seguimiento'] || '',
-                  
-                  anio: new Date().getFullYear(),
-                  mes: "Junio",
-                  historialCambios: [{ fecha: new Date().toLocaleString(), accion: 'Importado con Matriz Completa Metodológica' }]
+                  // 🔥 Variables COSO ERM protegidas
+                  capacidadRiesgo: riesgoExistente.capacidadRiesgo || 0,
+                  toleranciaFinanciera: riesgoExistente.toleranciaFinanciera || 0,
+                  apetitoFinanciero: riesgoExistente.apetitoFinanciero || 0,
+                  posturaEstrategica: riesgoExistente.posturaEstrategica || 'No definida',
+                  kriScore: riesgoExistente.kriScore || 0,
+                  impactoOperativo: riesgoExistente.impactoOperativo || 'No definido',
+                  impactoReputacional: riesgoExistente.impactoReputacional || 'No definido',
+                  impactoLegal: riesgoExistente.impactoLegal || 'No definido',
+                  escalamiento: riesgoExistente.escalamiento || 'Jefe de Área',
+
+                  anio: riesgoExistente.anio || new Date().getFullYear(),
+                  mes: riesgoExistente.mes || "Julio",
+                  historialCambios: [...(riesgoExistente.historialCambios || []), { fecha: new Date().toLocaleString(), usuario: user?.email || 'Sistema', accion: 'Actualizado vía Carga Masiva (CSV)' }]
                 };
              }
-
-             const descControles = splitSentences(r['Descripción del Control']);
-             const tipos = splitCamelCase(r['Tipo']);
-             const impls = splitCamelCase(r['Implementación']);
-             const docs = splitCamelCase(r['Documentación']);
-             const frecs = splitCamelCase(r['Frecuencia']);
-             const evids = splitCamelCase(r['Evidencia']);
-
-             let curr_p = riesgosAgrupados[idRiesgo].probabilidadResidual / 100;
-             let curr_i = riesgosAgrupados[idRiesgo].impactoResidual / 100;
-             
-             descControles.forEach((c_desc, i) => {
-                const c_tipo = tipos[i] || (String(r['Tipo'] || '').includes('Correctivo') ? 'Correctivo' : 'Preventivo');
-                const c_impl = impls[i] || 'Manual';
-                const c_doc = docs[i] || 'Documentado';
-                const c_frec = frecs[i] || 'Continua';
-                const c_evid = evids[i] || 'Con registro';
-                
-                // 🧮 CÁLCULO DE SOLIDEZ CON LOS 5 PARÁMETROS DEL MANUAL DE TERMINALES
-                let weight = 0;
-                if(c_tipo === 'Preventivo') weight += 0.20;
-                else if(c_tipo === 'Detectivo') weight += 0.12;
-                else if(c_tipo === 'Correctivo') weight += 0.08;
-                
-                if(c_impl === 'Automático' || c_impl === 'Automatico') weight += 0.10;
-                else if(c_impl === 'Manual') weight += 0.05;
-
-                if(c_doc === 'Documentado') weight += 0.05;
-                if(c_frec === 'Continua') weight += 0.05;
-                if(c_evid === 'Con registro') weight += 0.05;
-
-                if(c_tipo === 'Correctivo') {
-                   curr_i = curr_i - (curr_i * weight);
-                } else {
-                   curr_p = curr_p - (curr_p * weight);
-                }
-                
-                riesgosAgrupados[idRiesgo].controlesDetallados.push({ 
-                  descripcion: c_desc, 
-                  tipo: c_tipo, 
-                  implementacion: c_impl,
-                  documentacion: c_doc,
-                  frecuencia: c_frec,
-                  evidencia: c_evid
-                });
-                riesgosAgrupados[idRiesgo].descripcionControl += `🔹 [${c_tipo}] ${c_desc} (${c_doc} - ${c_frec})\n`;
-             });
-             
-             riesgosAgrupados[idRiesgo].probabilidadResidual = Math.max(Math.round(curr_p * 100), 0);
-             riesgosAgrupados[idRiesgo].impactoResidual = Math.max(Math.round(curr_i * 100), 0);
           });
 
           const nuevosRiesgos = Object.values(riesgosAgrupados);
+          setRiesgos(nuevosRiesgos);
           await saveToCloud({ riesgos: nuevosRiesgos });
-          showNotification(`Éxito: Matriz cargada con ${nuevosRiesgos.length} riesgos metodológicos completos.`, "success");
+          showNotification(`Éxito: Matriz cargada. Las variables COSO fueron protegidas.`, "success");
           setIsCloudLoaded(true);
         }
       } catch (error) {
         console.error(error);
-        showNotification("Error al procesar el archivo Excel estructural.", "error");
+        showNotification("Error al procesar el archivo. Verifica el formato.", "error");
         setIsCloudLoaded(true);
       }
       e.target.value = null;
