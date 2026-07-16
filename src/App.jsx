@@ -2436,6 +2436,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                     setEditComite={setEditComite}
                     handleComiteSubmit={handleComiteSubmit}
                     setFormResetKey={setFormResetKey}
+                    formResetKey={formResetKey}
                     scrollToForm={scrollToForm}
                     handleDeleteItem={handleDeleteItem}
                     applyFilters={applyFilters}

@@ -31,7 +31,8 @@ export default function Comites({
   const [uploadProgressActa, setUploadProgressActa] = useState(0);
   const [isUploadingActa, setIsUploadingActa] = useState(false);
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
-// Efecto limpiador: Se dispara cada vez que el formulario guarda o se cancela la edición
+
+  // 🧹 Efecto limpiador: Reacciona a la llave maestra para vaciar los recuadros de archivos
   React.useEffect(() => {
     if (!editComite) {
       setPresentacionSubidaUrl('');
@@ -39,7 +40,8 @@ export default function Comites({
       setUploadProgressPres(0);
       setUploadProgressActa(0);
     }
-  }, [editComite]);
+  }, [editComite, formResetKey]);
+
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -110,8 +112,7 @@ export default function Comites({
           )}
         </div>
 
-        <form onSubmit={handleComiteSubmit} key={editComite?.id || 'nuevo-comite'} className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
-          
+<form onSubmit={handleComiteSubmit} key={editComite ? `edit-${editComite.id}-${formResetKey}` : `nuevo-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">          
           <div>
             <label className="font-bold text-gray-600 block mb-1">Nombre de la Sesión / Tema Central</label>
             <input 
