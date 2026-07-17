@@ -8,41 +8,20 @@ const AUDITORES_OFICIALES = [
   "Luz Angela Chico"
 ];
 
-const PROCESOS_OFICIALES = [
-  "Gestión comercial",
-  "Gestión de la mejora continua (SIGCAS)",
-  "Gestión de mercadeo y comunicaciones",
-  "Gestión de servicio al cliente",
-  "Gestión estratégica",
- "Gestión de Operaciones",
-"Gestión Administrativa y Financiera ",
-"Gestión Talento Humano ",
-  "I+D+i",
-  "Subproceso alojamiento",
-  "Subproceso alimentos y bebidas",
-  "Subproceso compras",
-  "Subproceso desarrollo de competencias",
-  "Subproceso gestión administrativa",
-  "Subproceso gestión de almacenes",
-  "Subproceso gestión de cartera",
-  "Subproceso gestión de contabilidad",
-  "Subproceso gestión de costos",
-  "Subproceso gestión de inventarios",
-  "Subproceso gestión de tesorería",
-  "Subproceso gestión del bienestar y la compensación",
-  "Subproceso gestionar los activos fijos de la empresa",
-  "Subproceso mantenimiento",
-  "Subproceso recreación",
-"Subproceso Seguridad y salud en trabajo",
-"Subproceso Gestion de calidad",
-"Subproceso Gestión Ambiental",
-"Subproceso Control interno y Gestion de riesgos",
-"Subproceso Proteccion de datos personales",
-  "Subproceso selección, vinculación y administración de colaboradores",
-  "Tecnologías de la información y la comunicación"
-];
+// 🗺️ NUEVA TAXONOMÍA JERÁRQUICA: MACROPROCESO -> SUBPROCESO
+const MAPA_PROCESOS = {
+  "Gestión de Operaciones": ["Alojamiento", "Alimentos y bebidas", "Mantenimiento", "Recreación", "General"],
+  "Gestión Administrativa y Financiera": ["Compras", "Gestión de almacenes", "Gestión de cartera", "Gestión de contabilidad", "Gestión de costos", "Gestión de inventarios", "Gestión de tesorería", "Gestionar los activos fijos de la empresa", "General"],
+  "Gestión Talento Humano": ["Desarrollo de competencias", "Gestión del bienestar y la compensación", "Selección, vinculación y administración de colaboradores", "Seguridad y salud en trabajo", "General"],
+  "Gestión estratégica": ["General"],
+  "Gestión comercial": ["General"],
+  "Gestión de mercadeo y comunicaciones": ["General"],
+  "Gestión de servicio al cliente": ["General"],
+  "Gestión de la mejora continua (SIGCAS)": ["Gestión de calidad", "Gestión Ambiental", "Control interno y Gestion de riesgos", "General"],
+  "I+D+i": ["General"],
+  "Tecnologías de la información y la comunicación": ["Proteccion de datos personales", "General"]
+};
 
-// 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
 // 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
 const CARGOS_POR_SEDE = {
   "Hotel": [
@@ -68,6 +47,7 @@ const CARGOS_POR_SEDE = {
     "Líder Táctico desarrollo de Software", "Coordinador de Marketing digital",
   ]
 };
+
 export default function Hallazgos({
   isAdmin,
   informesAuditoria = [], 
@@ -83,19 +63,25 @@ export default function Hallazgos({
   setSearchTerm,
   columnFilters,
   handleColFilterChange,
-  FilterInput
+  FilterInput,
+  exportToExcel // Asegúrate de recibirlo por props o declararlo si se usará en este nivel
 }) {
 
 // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
+
 // 🏢 NUEVOS ESTADOS PARA SEDES Y CARGOS MÚLTIPLES
   const [sedesMultiples, setSedesMultiples] = React.useState(['Administrativos']);
   const [sedeTemp, setSedeTemp] = React.useState('');
   
   const [responsablesMultiples, setResponsablesMultiples] = React.useState([]);
   const [responsableTemp, setResponsableTemp] = React.useState('');
+
+// 🌟 NUEVOS ESTADOS PARA MACRO Y SUBPROCESO
+  const [macroprocesoForm, setMacroprocesoForm] = useState('');
+  const [subprocesoForm, setSubprocesoForm] = useState('');
 
   // 🧠 TRADUCTOR AUTOMÁTICO PARA EL BOTÓN "EDITAR"
   React.useEffect(() => {
@@ -106,14 +92,20 @@ export default function Hallazgos({
       if (editHallazgo.responsable) {
         setResponsablesMultiples(editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable]);
       }
+      // Restaurar valores jerárquicos
+      setMacroprocesoForm(editHallazgo.macroproceso || editHallazgo.proceso || '');
+      setSubprocesoForm(editHallazgo.subproceso || 'General');
     } else {
       setSedesMultiples(['Administrativos']);
       setResponsablesMultiples([]);
+      setMacroprocesoForm('');
+      setSubprocesoForm('');
     }
   }, [editHallazgo]);
 
   // Consolidar todos los cargos de las sedes elegidas
   const cargosDisponibles = sedesMultiples.flatMap(s => CARGOS_POR_SEDE[s] || []);
+
   // 🎛️ ESTADOS DEL PANEL LATERAL (DASHBOARD)
   const [agruparPor, setAgruparPor] = useState('Año'); 
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
@@ -171,13 +163,15 @@ export default function Hallazgos({
   const hallazgosEnriquecidos = hFiltrados.map(h => {
     const informeBase = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
     const fechaReal = informeBase?.fecha || h.fecha || 'Sin Fecha';
-    return { ...h, fechaReal, anioReal: fechaReal !== 'Sin Fecha' ? fechaReal.split('-')[0] : 'Sin Fecha' };
+    // Generar campo unificado para soporte a datos viejos y nuevos
+    const procesoLimpio = h.macroproceso || h.proceso || 'Sin Proceso';
+    return { ...h, fechaReal, anioReal: fechaReal !== 'Sin Fecha' ? fechaReal.split('-')[0] : 'Sin Fecha', procesoLimpio };
   });
 
   // 1. Filtrar los datos del Dashboard según el menú lateral
   const hallazgosDashboard = hallazgosEnriquecidos.filter(h => {
     if (dashFiltroAnio !== 'Todos' && h.anioReal !== dashFiltroAnio) return false;
-    if (dashFiltroProceso !== 'Todos' && h.proceso !== dashFiltroProceso) return false;
+    if (dashFiltroProceso !== 'Todos' && h.procesoLimpio !== dashFiltroProceso) return false;
     if (dashFiltroSeveridad !== 'Todos' && h.severidad !== dashFiltroSeveridad) return false;
     if (dashFiltroEstado !== 'Todos' && h.estado !== dashFiltroEstado) return false;
     if (dashFiltroResponsable !== 'Todos' && h.responsable !== dashFiltroResponsable) return false;
@@ -198,7 +192,7 @@ export default function Hallazgos({
   const hallazgosAgrupados = hallazgosDashboard.reduce((acc, h) => {
     let key = 'Sin clasificar';
     if (agruparPor === 'Año') key = h.anioReal;
-    if (agruparPor === 'Proceso') key = h.proceso || 'Sin Proceso';
+    if (agruparPor === 'Proceso') key = h.procesoLimpio;
     if (agruparPor === 'Estado') key = h.estado || 'Abierto';
     if (agruparPor === 'Nivel de Riesgo') key = h.severidad || 'Bajo';
     if (agruparPor === 'Responsable') key = h.responsable || 'Sin Asignar';
@@ -211,7 +205,7 @@ export default function Hallazgos({
 
   // 4. Lógica para el Top 5 de Procesos
   const conteoProcesos = hallazgosDashboard.reduce((acc, h) => {
-    acc[h.proceso] = (acc[h.proceso] || 0) + 1;
+    acc[h.procesoLimpio] = (acc[h.procesoLimpio] || 0) + 1;
     return acc;
   }, {});
   const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -229,8 +223,7 @@ export default function Hallazgos({
   });
 
   const aniosDisponibles = [...new Set(hallazgosEnriquecidos.map(h => h.anioReal).filter(a => a !== 'Sin Fecha'))].sort().reverse();
-  const responsablesDisponibles = [...new Set(hallazgosEnriquecidos.map(h => h.responsable).filter(Boolean))].sort();
-
+  
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
@@ -248,7 +241,7 @@ export default function Hallazgos({
               <span className="mr-2">➕</span> Nuevo Hallazgo
             </button>
           )}
-          {vistaActiva === 'historial' && (
+          {vistaActiva === 'historial' && typeof exportToExcel === 'function' && (
              <button type="button" onClick={() => exportToExcel(hFiltrados, 'Historico_Hallazgos')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2.5 rounded-xl text-[11px] uppercase tracking-widest shadow-md transition-colors flex items-center"><span className="mr-2">📥</span> Exportar</button>
           )}
         </div>
@@ -258,7 +251,7 @@ export default function Hallazgos({
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
-          {/* 🚀 TARJETAS INTERACTIVAS: Al hacer clic, aplican filtro de Severidad o Estado */}
+          {/* 🚀 TARJETAS INTERACTIVAS */}
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
              <div onClick={() => { setDashFiltroSeveridad('Todos'); setDashFiltroEstado('Todos'); }} className={`bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center relative overflow-hidden cursor-pointer transition-all hover:scale-105 ${dashFiltroSeveridad === 'Todos' && dashFiltroEstado === 'Todos' ? 'border-slate-800 ring-4 ring-slate-800/10' : 'border-slate-200 hover:border-slate-400'}`}>
                 <div className="absolute -right-4 -bottom-4 text-5xl opacity-5">📄</div>
@@ -324,6 +317,7 @@ export default function Hallazgos({
                 </div>
              </div>
           </div>          
+          
           {/* ESTRUCTURA 3 COLUMNAS: SIDEBAR | ACORDEONES | GRÁFICOS */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
              
@@ -365,10 +359,10 @@ export default function Hallazgos({
                   </div>
                   
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Macroproceso</label>
                     <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
-                      {PROCESOS_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
+                      {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
 
@@ -500,7 +494,10 @@ export default function Hallazgos({
                                    >
                                      <td className="py-2.5 font-mono font-black text-slate-700 align-top group-hover/row:text-red-700">{h.ref}</td>
                                      <td className="py-2.5 font-bold text-slate-600 pr-3 leading-tight align-top group-hover/row:text-red-900" title={h.titulo}>{h.titulo}</td>
-                                     <td className="py-2.5 font-medium text-slate-500 pr-3 leading-tight align-top" title={h.proceso}>{h.proceso}</td>
+                                     <td className="py-2.5 pr-3 leading-tight align-top">
+                                        <span className="block font-medium text-slate-500">{h.macroproceso || h.proceso}</span>
+                                        {h.subproceso && h.subproceso !== 'General' && <span className="block text-[8px] font-bold text-slate-400 mt-0.5">↳ {h.subproceso}</span>}
+                                     </td>
                                      <td className="py-2.5 text-center align-top">
                                        <span className={`px-2 py-0.5 rounded-md font-black uppercase tracking-wider border ${
                                          h.severidad === 'Crítico' ? 'bg-red-50 text-red-600 border-red-200' :
@@ -595,7 +592,7 @@ export default function Hallazgos({
         </div>
       )}
 
-{/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO (Con Severidad Agregada) */}
+      {/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO CON JERARQUÍA MACRO-SUB */}
       {vistaActiva === 'nuevo' && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           <div className="flex justify-between items-center border-b pb-4">
@@ -606,6 +603,9 @@ export default function Hallazgos({
           </div>
 
           <form onSubmit={(e) => { handleHallazgoSubmit(e); setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+            
+            {/* Input Oculto de Compatibilidad (Legacy) */}
+            <input type="hidden" name="proceso" value={macroprocesoForm} />
             
             {/* ================= FILA 1: DATOS MAESTROS REBALANCED (1 + 1 + 2 = 4) ================= */}
             <div className="md:col-span-1">
@@ -630,7 +630,8 @@ export default function Hallazgos({
                 {AUDITORES_OFICIALES.map(aud => <option key={aud} value={aud}>{aud}</option>)}
               </select>
             </div>
-            {/* ================= FILA 2: ORIGEN Y CONTEXTO (2 + 2 = 4) ================= */}
+            
+            {/* ================= FILA 2: ORIGEN Y CONTEXTO JERÁRQUICO (2 + 1 + 1 = 4) ================= */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
               <select name="idInforme" defaultValue={editHallazgo?.idInforme||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
@@ -641,14 +642,37 @@ export default function Hallazgos({
               </select>
             </div>
             
-            {/* 🔍 PROCESO AUDITADO */}
-            <div className="md:col-span-2">
-              <label className="font-bold text-gray-600 block mb-1">Proceso Auditado</label>
-              <input name="proceso" list="lista-procesos" defaultValue={editHallazgo?.proceso||''} required autoComplete="off" placeholder="Escribe o selecciona..." className="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500 outline-none font-medium" />
-              <datalist id="lista-procesos">
-                {PROCESOS_OFICIALES.map(proc => <option key={proc} value={proc} />)}
-              </datalist>
+            {/* 🔍 MACROPROCESO */}
+            <div className="md:col-span-1">
+               <label className="font-bold text-gray-600 block mb-1">Macroproceso</label>
+               <select 
+                 name="macroproceso" 
+                 value={macroprocesoForm} 
+                 onChange={(e) => { setMacroprocesoForm(e.target.value); setSubprocesoForm('General'); }} 
+                 required 
+                 className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700"
+               >
+                 <option value="">-- Seleccione --</option>
+                 {Object.keys(MAPA_PROCESOS).map(m => <option key={m} value={m}>{m}</option>)}
+               </select>
             </div>
+
+            {/* 🔍 SUBPROCESO */}
+            <div className="md:col-span-1">
+               <label className="font-bold text-gray-600 block mb-1">Subproceso</label>
+               <select 
+                 name="subproceso" 
+                 value={subprocesoForm} 
+                 onChange={(e) => setSubprocesoForm(e.target.value)} 
+                 required 
+                 className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:opacity-50"
+                 disabled={!macroprocesoForm}
+               >
+                 <option value="">-- Seleccione --</option>
+                 {(MAPA_PROCESOS[macroprocesoForm] || []).map(s => <option key={s} value={s}>{s}</option>)}
+               </select>
+            </div>
+
             {/* ================= FILA 3: ASIGNACIÓN COMPUESTA (2 + 2 = 4) ================= */}
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
@@ -815,7 +839,7 @@ export default function Hallazgos({
                   
                   const refInforme = informeBase ? informeBase.ref : "INF-S/N";
                   const tituloInforme = informeBase ? informeBase.titulo : "Informe general o registros huérfanos";
-                  const procesoInforme = informeBase ? informeBase.proceso : "Varios Procesos";
+                  const procesoInforme = informeBase ? (informeBase.macroproceso || informeBase.proceso) : "Varios Procesos";
                   const fechaInforme = informeBase ? informeBase.fecha : "Sin Fecha";
 
                   const nAbiertos = hzsDelInforme.filter(h => h.estado !== 'Cerrado').length;
@@ -863,9 +887,9 @@ export default function Hallazgos({
                                   <div className="mb-1">ID / REF</div>
                                   <FilterInput colKey="ref" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                                 </th>
-                                <th className="p-3 w-36">
+                                <th className="p-3 w-40">
                                   <div className="mb-1">PROCESO / SEDE</div>
-                                  <FilterInput colKey="proceso" placeholder="Filtrar..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                  <FilterInput colKey="macroproceso" placeholder="Filtrar Macro..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                                 </th>
                                 <th className="p-3 w-2/5">
                                   <div className="mb-1">DESCRIPCIÓN DEL HALLAZGO</div>
@@ -889,8 +913,9 @@ export default function Hallazgos({
                                     <div className="text-[9px] text-slate-400 mt-0.5">INT-#{h.id}</div>
                                   </td>
                                   <td className="p-3">
-                                    <div className="font-bold text-slate-700 truncate max-w-[130px]" title={h.proceso}>{h.proceso}</div>
-                                    <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-0.5">{h.sede || 'Hotel'}</div>
+                                    <div className="font-bold text-slate-700 truncate max-w-[150px]" title={h.macroproceso || h.proceso}>{h.macroproceso || h.proceso}</div>
+                                    {h.subproceso && h.subproceso !== 'General' && <div className="text-[8px] text-slate-500 font-bold mt-0.5">↳ {h.subproceso}</div>}
+                                    <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-1">{h.sede || 'Hotel'}</div>
                                   </td>
                                   <td className="p-3">
                                     <div className="font-medium text-slate-800 leading-relaxed">{h.titulo}</div>

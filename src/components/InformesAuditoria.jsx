@@ -1,38 +1,26 @@
 import React, { useState } from 'react';
 
-const PROCESOS_OFICIALES = [
-  "Gestión comercial",
-  "Gestión de la mejora continua (SIGCAS)",
-  "Gestión de mercadeo y comunicaciones",
-  "Gestión de servicio al cliente",
-  "Gestión estratégica",
- "Gestión de Operaciones",
-"Gestión Administrativa y Financiera ",
-"Gestión Talento Humano ",
-  "I+D+i",
-  "Subproceso alojamiento",
-  "Subproceso alimentos y bebidas",
-  "Subproceso compras",
-  "Subproceso desarrollo de competencias",
-  "Subproceso gestión administrativa",
-  "Subproceso gestión de almacenes",
-  "Subproceso gestión de cartera",
-  "Subproceso gestión de contabilidad",
-  "Subproceso gestión de costos",
-  "Subproceso gestión de inventarios",
-  "Subproceso gestión de tesorería",
-  "Subproceso gestión del bienestar y la compensación",
-  "Subproceso gestionar los activos fijos de la empresa",
-  "Subproceso mantenimiento",
-  "Subproceso recreación",
-"Subproceso Seguridad y salud en trabajo",
-"Subproceso Gestion de calidad",
-"Subproceso Gestión Ambiental",
-"Subproceso Control interno y Gestion de riesgos",
-"Subproceso Proteccion de datos personales",
-  "Subproceso selección, vinculación y administración de colaboradores",
-  "Tecnologías de la información y la comunicación"
+// 📚 LISTAS MAESTRAS EXTRAÍDAS DE LOS MANUALES OFICIALES DE TERMALES
+const AUDITORES_OFICIALES = [
+  "Rodolfo González",
+  "Yehison Pineda",
+  "Angelica Hernandez",
+  "Luz Angela Chico"
 ];
+
+// 🗺️ NUEVA TAXONOMÍA JERÁRQUICA: MACROPROCESO -> SUBPROCESO
+const MAPA_PROCESOS = {
+  "Gestión de Operaciones": ["Alojamiento", "Alimentos y bebidas", "Mantenimiento", "Recreación", "General"],
+  "Gestión Administrativa y Financiera": ["Compras", "Gestión de almacenes", "Gestión de cartera", "Gestión de contabilidad", "Gestión de costos", "Gestión de inventarios", "Gestión de tesorería", "Gestionar los activos fijos de la empresa", "General"],
+  "Gestión Talento Humano": ["Desarrollo de competencias", "Gestión del bienestar y la compensación", "Selección, vinculación y administración de colaboradores", "Seguridad y salud en trabajo", "General"],
+  "Gestión estratégica": ["General"],
+  "Gestión comercial": ["General"],
+  "Gestión de mercadeo y comunicaciones": ["General"],
+  "Gestión de servicio al cliente": ["General"],
+  "Gestión de la mejora continua (SIGCAS)": ["Gestión de calidad", "Gestión Ambiental", "Control interno y Gestion de riesgos", "General"],
+  "I+D+i": ["General"],
+  "Tecnologías de la información y la comunicación": ["Proteccion de datos personales", "General"]
+};
 
 // 👔 LISTA MAESTRA DE CARGOS PARA PARTICIPANTES DE SOCIALIZACIÓN
 const CARGOS_SOCIALIZACION = [
@@ -100,19 +88,30 @@ export default function InformesAuditoria({
   onActualizarAuditores 
 }) {
 
-// 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN (PEGAR AQUÍ)
+// 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
   const [participanteTemp, setParticipanteTemp] = useState('');
 
+// 🌟 NUEVOS ESTADOS PARA MACRO Y SUBPROCESO
+  const [macroprocesoForm, setMacroprocesoForm] = useState('');
+  const [subprocesoForm, setSubprocesoForm] = useState('');
+
   // Sincronizador automático si se carga un informe en modo edición (Compatible con ambos esquemas de datos)
   React.useEffect(() => {
-    const datosCargos = editInformeAuditoria?.participantes || editInformeAuditoria?.socializadoCon || '';
-    if (datosCargos) {
-      setParticipantesMultiples(datosCargos.includes(',') ? datosCargos.split(',').map(p => p.trim()) : [datosCargos]);
+    if (editInformeAuditoria) {
+      const datosCargos = editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '';
+      setParticipantesMultiples(datosCargos.includes(',') ? datosCargos.split(',').map(p => p.trim()) : (datosCargos ? [datosCargos] : []));
+      
+      // Restaurar valores jerárquicos
+      setMacroprocesoForm(editInformeAuditoria.macroproceso || editInformeAuditoria.proceso || '');
+      setSubprocesoForm(editInformeAuditoria.subproceso || 'General');
     } else {
       setParticipantesMultiples([]);
+      setMacroprocesoForm('');
+      setSubprocesoForm('');
     }
   }, [editInformeAuditoria]);
+
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
@@ -130,8 +129,14 @@ export default function InformesAuditoria({
   const [filtroAnio, setFiltroAnio] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
 
+  // 🧠 LÓGICA DE ENRIQUECIMIENTO (Soporte Legacy para Proceso)
+  const informesEnriquecidos = safeInformes.map(inf => ({
+    ...inf,
+    procesoLimpio: inf.macroproceso || inf.proceso || 'Sin Proceso'
+  }));
+
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
-  const informesFiltradosPorFecha = safeInformes.filter(inf => {
+  const informesFiltradosPorFecha = informesEnriquecidos.filter(inf => {
     if (!filtroAnio && !filtroMes) return true;
     if (!inf.fecha) return false;
     const [anio, mes] = inf.fecha.split('-'); 
@@ -145,9 +150,9 @@ export default function InformesAuditoria({
   // =========================================================
   
   // 1. Filtrar los datos del Dashboard según el menú lateral
-  const informesDashboard = safeInformes.filter(inf => {
+  const informesDashboard = informesEnriquecidos.filter(inf => {
     if (dashFiltroAnio !== 'Todos' && inf.fecha?.split('-')[0] !== dashFiltroAnio) return false;
-    if (dashFiltroProceso !== 'Todos' && inf.proceso !== dashFiltroProceso) return false;
+    if (dashFiltroProceso !== 'Todos' && inf.procesoLimpio !== dashFiltroProceso) return false;
     if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
     if (dashFiltroResponsable !== 'Todos' && inf.elaboradoPor !== dashFiltroResponsable) return false;
     return true;
@@ -159,7 +164,7 @@ export default function InformesAuditoria({
   const pctSocializados = totalInformes > 0 ? Math.round((socializados / totalInformes) * 100) : 0;
   const pendientes = totalInformes - socializados;
   const pctPendientes = totalInformes > 0 ? Math.round((pendientes / totalInformes) * 100) : 0;
-  const procesosAuditados = new Set(informesDashboard.map(i => i.proceso)).size;
+  const procesosAuditados = new Set(informesDashboard.map(i => i.procesoLimpio)).size;
   const sortedInformes = [...informesDashboard].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   const ultimoInforme = sortedInformes.length > 0 ? sortedInformes[0] : null;
 
@@ -167,7 +172,7 @@ export default function InformesAuditoria({
   const informesAgrupados = informesDashboard.reduce((acc, inf) => {
     let key = 'Sin clasificar';
     if (agruparPor === 'Año') key = inf.fecha ? inf.fecha.split('-')[0] : 'Sin Fecha';
-    if (agruparPor === 'Proceso') key = inf.proceso || 'Sin Proceso';
+    if (agruparPor === 'Proceso') key = inf.procesoLimpio;
     if (agruparPor === 'Estado') key = inf.socializado === 'Sí' ? 'Socializados' : 'Pendientes';
     if (agruparPor === 'Responsable') key = inf.elaboradoPor || 'Sin Asignar';
 
@@ -180,7 +185,7 @@ export default function InformesAuditoria({
 
   // 4. Lógica para el Top 5 de Procesos
   const conteoProcesos = informesDashboard.reduce((acc, inf) => {
-    acc[inf.proceso] = (acc[inf.proceso] || 0) + 1;
+    acc[inf.procesoLimpio] = (acc[inf.procesoLimpio] || 0) + 1;
     return acc;
   }, {});
   const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -253,7 +258,7 @@ export default function InformesAuditoria({
               <span className="mr-2">➕</span> Nuevo Informe
             </button>
           )}
-          {vistaActiva === 'historial' && (
+          {vistaActiva === 'historial' && typeof exportToExcel === 'function' && (
              <button type="button" onClick={() => exportToExcel(safeInformes, 'Historico_Informes_Auditoria')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2.5 rounded-xl text-[11px] uppercase tracking-widest shadow-md transition-colors flex items-center"><span className="mr-2">📥</span> Exportar</button>
           )}
         </div>
@@ -304,7 +309,7 @@ export default function InformesAuditoria({
                 <div className="overflow-hidden">
                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Último Informe</p>
                    <p className="text-[13px] font-black text-slate-800 truncate mt-1">{ultimoInforme ? ultimoInforme.fecha : '---'}</p>
-                   <p className="text-[9px] font-bold text-slate-400 truncate">{ultimoInforme ? ultimoInforme.proceso : 'Sin datos'}</p>
+                   <p className="text-[9px] font-bold text-slate-400 truncate">{ultimoInforme ? ultimoInforme.procesoLimpio : 'Sin datos'}</p>
                 </div>
              </div>
           </div>
@@ -353,10 +358,10 @@ export default function InformesAuditoria({
                   </div>
                   
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Macroproceso</label>
                     <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
-                      {PROCESOS_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
+                      {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
 
@@ -401,13 +406,13 @@ export default function InformesAuditoria({
                    const infs = informesAgrupados[grupo];
                    const soc = infs.filter(i => i.socializado === 'Sí').length;
                    const pend = infs.length - soc;
-                   const procs = new Set(infs.map(i => i.proceso)).size;
+                   const procs = new Set(infs.map(i => i.procesoLimpio)).size;
                    const isExpanded = grupoExpandido === grupo;
 
                    return (
                      <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
                        <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
-<div className="flex items-center space-x-3 flex-1 pr-4">
+                         <div className="flex items-center space-x-3 flex-1 pr-4">
                            <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
                            <h4 className="text-sm sm:text-base font-black text-slate-800 leading-tight">{grupo} <span className="text-slate-400 font-medium text-xs ml-1 whitespace-nowrap">({infs.length})</span></h4>
                            {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm shrink-0">Actual</span>}
@@ -449,7 +454,7 @@ export default function InformesAuditoria({
                                  <div className="flex items-center space-x-4 w-full md:w-1/2">
                                    <div className={`w-1 h-10 rounded-full shrink-0 ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
                                    <div>
-                                     <p className="text-xs font-bold text-slate-800 leading-tight" title={inf.proceso}>{inf.proceso}</p>
+                                     <p className="text-xs font-bold text-slate-800 leading-tight" title={inf.procesoLimpio}>{inf.procesoLimpio}</p>
                                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">{inf.ref}</p>
                                    </div>
                                  </div>
@@ -528,7 +533,7 @@ export default function InformesAuditoria({
         </div>
       )}
 
-      {/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO */}
+      {/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO CON JERARQUÍA MACRO-SUB */}
       {vistaActiva === 'nuevo' && isAdmin && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           
@@ -540,10 +545,14 @@ export default function InformesAuditoria({
           </div>
 
           <form key={editInformeAuditoria?.ref || 'form-nuevo'} onSubmit={(e) => { handleInformeAuditoriaSubmit(e); setVistaActiva('dashboard'); }} className="space-y-6 text-xs">
+            
+            {/* Input Oculto de Compatibilidad (Legacy) */}
+            <input type="hidden" name="proceso" value={macroprocesoForm} />
+
             {/* 📊 REJILLA DE CAMPOS PERFECTAMENTE ALINEADA (4 COLUMNAS) */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
               
-              {/* 📝 COLUMNA: TÍTULO */}
+              {/* ================= FILA 1: TÍTULO Y PROCESOS ================= */}
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 block mb-1.5">Título del Informe Formal</label>
                 <input 
@@ -555,25 +564,40 @@ export default function InformesAuditoria({
                 />
               </div>
 
-              {/* 📋 COLUMNA: SELECCIÓN DE PROCESO */}
-              <div>
-                <label className="font-bold text-gray-600 block mb-1.5">📋 Proceso Auditado</label>
-                <select 
-                  name="proceso" 
-                  defaultValue={editInformeAuditoria?.proceso || ''} 
-                  required 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm"
-                >
-                  <option value="">-- Seleccionar Proceso --</option>
-                  {PROCESOS_OFICIALES.map((proc) => (
-                    <option key={proc} value={proc}>{proc}</option>
-                  ))}
-                </select>
-              </div>               
+              {/* 🔍 COLUMNA: MACROPROCESO */}
+              <div className="md:col-span-1">
+                 <label className="font-bold text-gray-600 block mb-1.5">📋 Macroproceso</label>
+                 <select 
+                   name="macroproceso" 
+                   value={macroprocesoForm} 
+                   onChange={(e) => { setMacroprocesoForm(e.target.value); setSubprocesoForm('General'); }} 
+                   required 
+                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm"
+                 >
+                   <option value="">-- Seleccionar --</option>
+                   {Object.keys(MAPA_PROCESOS).map(m => <option key={m} value={m}>{m}</option>)}
+                 </select>
+              </div>
 
-              {/* 📅 COLUMNA: FECHA DE EMISIÓN */}
-              <div>
-                <label className="font-bold text-gray-600 block mb-1.5">Fecha de Emisión</label>
+              {/* 🔍 COLUMNA: SUBPROCESO */}
+              <div className="md:col-span-1">
+                 <label className="font-bold text-gray-600 block mb-1.5">↳ Subproceso</label>
+                 <select 
+                   name="subproceso" 
+                   value={subprocesoForm} 
+                   onChange={(e) => setSubprocesoForm(e.target.value)} 
+                   required 
+                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50"
+                   disabled={!macroprocesoForm}
+                 >
+                   <option value="">-- Seleccionar --</option>
+                   {(MAPA_PROCESOS[macroprocesoForm] || []).map(s => <option key={s} value={s}>{s}</option>)}
+                 </select>
+              </div>
+
+              {/* ================= FILA 2: FECHA Y FIRMAS ================= */}
+              <div className="md:col-span-1">
+                <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>
                 <input 
                   name="fecha" 
                   type="date" 
@@ -583,8 +607,7 @@ export default function InformesAuditoria({
                 />
               </div>
 
-              {/* ✍️ COLUMNA: ELABORADO POR */}
-              <div>
+              <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">✍️ Elaborado Por (Auditor)</label>
                 <select 
                   name="elaboradoPor" 
@@ -597,8 +620,7 @@ export default function InformesAuditoria({
                 </select>
               </div>
 
-              {/* 🔍 COLUMNA: REVISADO POR */}
-              <div>
+              <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">🔍 Revisado Por (Líder)</label>
                 <select 
                   name="revisadoPor" 
@@ -611,8 +633,7 @@ export default function InformesAuditoria({
                 </select>
               </div>
 
-              {/* 🔒 COLUMNA: APROBADO POR */}
-              <div>
+              <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">🔒 Aprobado Por (Gerencia)</label>
                 <select 
                   name="aprobadoPor" 
@@ -625,8 +646,8 @@ export default function InformesAuditoria({
                 </select>
               </div>
 
-              {/* 📢 COLUMNA: ¿FUE SOCIALIZADO? */}
-              <div>
+              {/* ================= FILA 3: SOCIALIZACIÓN Y PARTICIPANTES ================= */}
+              <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📢 ¿Fue Socializado?</label>
                 <select 
                   name="socializado" 
@@ -638,56 +659,52 @@ export default function InformesAuditoria({
                 </select>
               </div>
 
-             {/* 👥 SECTOR MÚLTIPLE: PARTICIPANTES DE LA SOCIALIZACIÓN */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 col-span-full space-y-2">
-              <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Cargos)</label>
-              <div className="flex gap-2">
-                <select 
-                  value={participanteTemp} 
-                  onChange={(e) => setParticipanteTemp(e.target.value)} 
-                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 text-xs shadow-sm cursor-pointer"
-                >
-                  <option value="">-- Seleccionar Cargo Participante --</option>
-                  {CARGOS_SOCIALIZACION.map(cargo => (
-                    <option key={cargo} value={cargo} disabled={participantesMultiples.includes(cargo)}>{cargo}</option>
+              <div className="md:col-span-3 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Cargos)</label>
+                <div className="flex gap-2">
+                  <select 
+                    value={participanteTemp} 
+                    onChange={(e) => setParticipanteTemp(e.target.value)} 
+                    className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 text-xs shadow-sm cursor-pointer"
+                  >
+                    <option value="">-- Seleccionar Cargo Participante --</option>
+                    {CARGOS_SOCIALIZACION.map(cargo => (
+                      <option key={cargo} value={cargo} disabled={participantesMultiples.includes(cargo)}>{cargo}</option>
+                    ))}
+                  </select>
+                  <button 
+                    type="button" 
+                    onClick={() => { 
+                      if(participanteTemp && !participantesMultiples.includes(participanteTemp)) {
+                        setParticipantesMultiples([...participantesMultiples, participanteTemp]); 
+                      }
+                      setParticipanteTemp(''); 
+                    }} 
+                    className="bg-[#0A3B32] text-white px-5 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm flex items-center"
+                  >
+                    ➕ Añadir
+                  </button>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
+                  {participantesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún cargo seleccionado aún...</span>}
+                  {participantesMultiples.map(cargo => (
+                    <span key={cargo} className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
+                      {cargo} 
+                      <button 
+                        type="button" 
+                        onClick={() => setParticipantesMultiples(participantesMultiples.filter(item => item !== cargo))} 
+                        className="ml-1.5 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors font-sans"
+                      >
+                        ✕
+                      </button>
+                    </span>
                   ))}
-                </select>
-                <button 
-                  type="button" 
-                  onClick={() => { 
-                    if(participanteTemp && !participantesMultiples.includes(participanteTemp)) {
-                      setParticipantesMultiples([...participantesMultiples, participanteTemp]); 
-                    }
-                    setParticipanteTemp(''); 
-                  }} 
-                  className="bg-[#0A3B32] text-white px-5 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm flex items-center"
-                >
-                  ➕ Añadir
-                </button>
+                </div>
+                <input type="hidden" name="participantes" value={participantesMultiples.join(', ')} />
               </div>
-              
-              {/* 🏷️ VISUALIZADOR DE CHIPS / FICHAS SELECCIONADAS */}
-              <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
-                {participantesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún cargo seleccionado aún...</span>}
-                {participantesMultiples.map(cargo => (
-                  <span key={cargo} className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
-                    {cargo} 
-                    <button 
-                      type="button" 
-                      onClick={() => setParticipantesMultiples(participantesMultiples.filter(item => item !== cargo))} 
-                      className="ml-1.5 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors font-sans"
-                    >
-                      ✕
-                    </button>
-                  </span>
-                ))}
-              </div>
-              
-              {/* 🔒 INPUT OCULTO: Envía los cargos unificados por comas automáticamente */}
-              <input type="hidden" name="participantes" value={participantesMultiples.join(', ')} />
-            </div>
             </div>            
-           
+            
             {/* 📧 DISTRIBUCIÓN ELECTRÓNICA */}
             <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl shadow-inner mt-4">
               <label className="font-black text-blue-900 block mb-2 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
@@ -759,7 +776,7 @@ export default function InformesAuditoria({
               </div>
             </div>
 
-<div className="md:col-span-4 flex justify-end pt-4">
+            <div className="md:col-span-4 flex justify-end pt-4">
               <button 
                 type="submit" 
                 disabled={isSubmitting} 
@@ -897,8 +914,13 @@ export default function InformesAuditoria({
                       <tr key={inf.id || idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="p-4 font-mono font-black text-sm text-slate-800 bg-slate-50/50">{inf.ref || `INF-2026-${String(idx + 1).padStart(3, '0')}`}</td>
                         <td className="p-4">
-                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-100 font-black rounded uppercase text-[9px] tracking-wider mb-1 inline-block">{inf.proceso}</span>
-                          <div className="font-bold text-slate-900 text-sm leading-tight">{inf.titulo}</div>
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-100 font-black rounded uppercase text-[9px] tracking-wider mb-1 inline-block">
+                            {inf.macroproceso || inf.proceso}
+                          </span>
+                          {inf.subproceso && inf.subproceso !== 'General' && (
+                            <div className="text-[10px] text-slate-500 font-bold mt-0.5 mb-1.5">↳ {inf.subproceso}</div>
+                          )}
+                          <div className="font-bold text-slate-900 text-sm leading-tight mt-1">{inf.titulo}</div>
                           <div className="text-[9px] text-slate-400 font-medium mt-1">Emitido el: {inf.fecha}</div>
                         </td>
                         <td className="p-4">
