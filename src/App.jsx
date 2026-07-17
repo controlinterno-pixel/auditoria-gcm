@@ -874,63 +874,102 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     setRiesgos(updated); await saveToCloud({ riesgos: updated }); e.target.reset(); showNotification("Riesgo estructurado.");
   };
 
-  const handleHallazgoSubmit = async (e) => {
-    e.preventDefault(); 
-    const formData = new FormData(e.target);
-    const ts = new Date().toLocaleString();
-    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
-    const causaVal = formData.get('causa') || '';
-    const claseObservacionVal = formData.get('claseObservacion') || 'Oportunidad de Mejora';
-    const idInformeVal = formData.get('idInforme') || '';
-    let updated;
-    if (editHallazgo) {
-      const mod = { 
-        ...editHallazgo, 
-        idInforme: idInformeVal, 
-        sede: formData.get('sede'), 
-        ref: formData.get('ref'), 
-        proceso: formData.get('proceso'),
-        subproceso: formData.get('subproceso'),
-        responsable: formData.get('responsable'), 
-        auditor: formData.get('auditor'), 
-        titulo: formData.get('titulo'), 
-        severidad: formData.get('severidad'), 
-        evidenciaUrl: evidenciaUrlOut, 
-        causa: causaVal, 
-        claseObservacion: claseObservacionVal, 
-        historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
-      };
-      updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
-      setEditHallazgo(null);
-    } else {
-      const nuevo = { 
-        id: Date.now(), 
-        idInforme: idInformeVal, 
-        sede: formData.get('sede'), 
-        ref: formData.get('ref'), 
-        proceso: formData.get('proceso'),
-        subproceso: formData.get('subproceso'),
-        responsable: formData.get('responsable'), 
-        auditor: formData.get('auditor'), 
-        titulo: formData.get('titulo'), 
-        severidad: formData.get('severidad'), 
-        estado: 'Abierto', 
-        fecha: new Date().toISOString().split('T')[0], 
-        anio: 2026, 
-        mes: "Junio", 
-        evidenciaUrl: evidenciaUrlOut, 
-        causa: causaVal, 
-        claseObservacion: claseObservacionVal, 
-        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] 
-      };
-      updated = [...safeHallazgos, nuevo];
-    }
-    setHallazgos(updated); 
-    await saveToCloud({ hallazgos: updated }); 
-    e.target.reset(); 
-    showNotification("Desviación conectada al informe de origen correctamente.");
-  };
+  const handleInformeAuditoriaSubmit = async (e) => {
+    e.preventDefault(); setIsSubmitting(true);
+    const limpiarTildesParaCorreo = (texto) => texto ? texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : '';
+    try {
+      const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
+      const formData = new FormData(e.target);
+      const tituloVal = formData.get('titulo') || 'Sin título';
+      
+      // 🛡️ Blindaje de lectura para la jerarquía del informe
+      const procesoVal = formData.get('proceso') || formData.get('Proceso') || 'Sin proceso';
+      const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || 'General';
+      
+      const evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
+      const correosNotificacionOut = String(formData.get('correosNotificacionInput') || '').trim();
+      const tsActual = new Date().toLocaleString();
+      let updated; let refConsecutivoFinal = '';
 
+      if (editInformeAuditoria) {
+        refConsecutivoFinal = editInformeAuditoria.ref;
+        const mod = { 
+          ...editInformeAuditoria, 
+          titulo: tituloVal, 
+          proceso: procesoVal, 
+          subproceso: subprocesoVal, 
+          fecha: formData.get('fecha') || editInformeAuditoria.fecha, 
+          elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '', 
+          revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '', 
+          aprobadoPor: formData.get('aprobadoPor') || formData.get('approvedPor') || editInformeAuditoria.aprobadoPor || '', 
+          socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No', 
+          socializadoCon: formData.get('socializadoCon') || editInformeAuditoria.socializadoCon || '', 
+          evidenciaUrl: evidenciaUrlOut, 
+          actaSocializacionUrl: formData.get('actaSocializacionUrlInput') || editInformeAuditoria.actaSocializacionUrl || '', 
+          objetivo: formData.get('objetivo') || editInformeAuditoria.objetivo || '', 
+          alcance: formData.get('alcance') || editInformeAuditoria.alcance || '', 
+          conclusion: formData.get('conclusion') || editInformeAuditoria.conclusion || '', 
+          fortalezas: formData.get('fortalezas') || editInformeAuditoria.fortalezas || '', 
+          img1Url: formData.get('img1Url') || editInformeAuditoria.img1Url || '', 
+          img1Desc: formData.get('img1Desc') || editInformeAuditoria.img1Desc || '', 
+          img2Url: formData.get('img2Url') || editInformeAuditoria.img2Url || '', 
+          img2Desc: formData.get('img2Desc') || editInformeAuditoria.img2Desc || '', 
+          img3Url: formData.get('img3Url') || editInformeAuditoria.img3Url || '', 
+          img3Desc: formData.get('img3Desc') || editInformeAuditoria.img3Desc || '', 
+          img4Url: formData.get('img4Url') || editInformeAuditoria.img4Url || '', 
+          img4Desc: formData.get('img4Desc') || editInformeAuditoria.img4Desc || '', 
+          correoEnviadoA: correosNotificacionOut !== '' ? correosNotificacionOut : (editInformeAuditoria.correoEnviadoA || ''), 
+          fechaCorreoEnviado: correosNotificacionOut !== '' ? tsActual : (editInformeAuditoria.fechaCorreoEnviado || '') 
+        };
+        updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf); 
+        setEditInformeAuditoria(null);
+      } else {
+        const ultimo = Math.max(...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)), 0);
+        refConsecutivoFinal = `INF-2026-${String(ultimo + 1).padStart(3, '0')}`;
+        const nuevo = { 
+          id: crypto.randomUUID(), 
+          ref: refConsecutivoFinal, 
+          titulo: tituloVal, 
+          proceso: procesoVal, 
+          subproceso: subprocesoVal, 
+          fecha: formData.get('fecha') || new Date().toISOString().split('T')[0], 
+          elaboradoPor: formData.get('elaboradoPor') || '', 
+          revisadoPor: formData.get('revisadoPor') || '', 
+          aprobadoPor: formData.get('aprobadoPor') || '', 
+          socializado: formData.get('socializado') || 'No', 
+          socializadoCon: formData.get('socializadoCon') || '', 
+          evidenciaUrl: evidenciaUrlOut, 
+          actaSocializacionUrl: formData.get('actaSocializacionUrlInput') || '', 
+          objetivo: formData.get('objetivo') || '', 
+          alcance: formData.get('alcance') || '', 
+          conclusion: formData.get('conclusion') || '', 
+          fortalezas: formData.get('fortalezas') || '', 
+          img1Url: formData.get('img1Url') || '', 
+          img1Desc: formData.get('img1Desc') || '', 
+          img2Url: formData.get('img2Url') || '', 
+          img2Desc: formData.get('img2Desc') || '', 
+          img3Url: formData.get('img3Url') || '', 
+          img3Desc: formData.get('img3Desc') || '', 
+          img4Url: formData.get('img4Url') || '', 
+          img4Desc: formData.get('img4Desc') || '', 
+          correoEnviadoA: correosNotificacionOut, 
+          fechaCorreoEnviado: correosNotificacionOut !== '' ? tsActual : '' 
+        };
+        updated = [nuevo, ...safeInformes];
+      }
+      if (correosNotificacionOut !== '') {
+        await ejecutarDespachoGmailApi({ ref_consecutivo: refConsecutivoFinal, titulo_informe: limpiarTildesParaCorreo(`Radicacion de Informe: ${tituloVal}`), proceso_auditado: limpiarTildesParaCorreo(procesoVal), enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app', destinatarios: correosNotificacionOut });
+      }
+      setInformesAuditoria(updated); 
+      await saveToCloud({ informesAuditoria: updated }); 
+      e.target.reset(); 
+      showNotification("Informe guardado correctamente.");
+    } catch (error) {
+      showNotification("Error al procesar el informe.", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const handlePlanSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);
