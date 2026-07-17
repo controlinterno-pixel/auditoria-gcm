@@ -8,7 +8,7 @@ const AUDITORES_OFICIALES = [
   "Luz Angela Chico"
 ];
 
-// 🗺️ NUEVA TAXONOMÍA JERÁRQUICA: MACROPROCESO -> SUBPROCESO
+// 🗺️ NUEVA TAXONOMÍA JERÁRQUICA: ROPROCESO -> SUBPROCESO
 const MAPA_PROCESOS = {
   "Gestión de Operaciones": ["Alojamiento", "Alimentos y bebidas", "Mantenimiento", "Recreación", "General"],
   "Gestión Administrativa y Financiera": ["Compras", "Gestión de almacenes", "Gestión de cartera", "Gestión de contabilidad", "Gestión de costos", "Gestión de inventarios", "Gestión de tesorería", "Gestionar los activos fijos de la empresa", "General"],
@@ -642,7 +642,7 @@ export default function Hallazgos({
               </select>
             </div>
             
-            {/* 🔍 MACROPROCESO */}
+            {/* 🔍 ROPROCESO */}
             <div className="md:col-span-1">
                <label className="font-bold text-gray-600 block mb-1">Macroproceso</label>
                <select 

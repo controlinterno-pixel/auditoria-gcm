@@ -209,7 +209,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   const [macroproceso, setMacroproceso] = useState(listadoMacros[0]);
   const [subproceso, setSubproceso] = useState(MAPA_PROCESOS[listadoMacros[0]][0]);
 
-  // Función inteligente para manejar el cambio del Macroproceso
+  // Función inteligente para manejar el cambio del proceso
   const handleMacroprocesoChange = (e) => {
     const nuevoMacro = e.target.value;
     setMacroproceso(nuevoMacro);
@@ -316,7 +316,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     // 🏢 Recuperar Sede
     setSedeForm(riesgo.sede || 'Administrativos');
     
-    // 🌟 Recuperar Macroproceso y Subproceso (Manteniendo compatibilidad con datos viejos)
+    // 🌟 Recuperar proceso y Subproceso (Manteniendo compatibilidad con datos viejos)
     setMacroproceso(riesgo.macroproceso || riesgo.proceso || listadoMacros[0]);
     setSubproceso(riesgo.subproceso || 'General');
 
@@ -369,8 +369,8 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
         id: editRiesgo ? editRiesgo.id : crypto.randomUUID(),
         sede: sedeForm,
         // 🌟 Guardamos tanto la compatibilidad de "proceso" para el Dashboard, como el desglose
-        proceso: macroproceso,
-        macroproceso: macroproceso,
+        proceso: proceso,
+        proceso: proceso,
         subproceso: subproceso,
         categoria,
         clasificacionRiesgo,
