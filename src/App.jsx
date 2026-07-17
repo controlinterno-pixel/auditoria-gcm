@@ -821,271 +821,61 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
     return selectedAnios.length === 0 || selectedAnios.includes(anio);
   }), [safeCronograma, selectedAnios]);
 
-// ⚡ MOTOR NATIVO GOOGLE GMAIL API OAUTH2 (REEMPLAZO TOTAL DE EMAILJS)
-  // =====================================================================
-  const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
+const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
 
- const handleRiesgoSubmit = async (e) => {
+  const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     let updated;
     if (editRiesgo) {
-      const mod = { ...editRiesgo, sede: formData.get('sede'), proceso: formData.get('proceso'), categoria: formData.get('categoria'), normativa: formData.get('normativa'), responsable: formData.get('responsable'), descripcionControl: formData.get('control'), descripcion: formData.get('descripcion'), probabilidadInherente: formData.get('probInh'), impactoInherente: formData.get('impInh'), probabilidadResidual: formData.get('probRes'), impactoResidual: formData.get('impRes'), capacidadRiesgo: editRiesgo.capacidadRiesgo||null, toleranciaFinanciera: editRiesgo.toleranciaFinanciera||null, apetitoFinanciero: editRiesgo.apetitoFinanciero||null, posturaEstrategica: editRiesgo.posturaEstrategica||null, kriScore: editRiesgo.kriScore||null, historialCambios: [...(editRiesgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Modificado en matriz' }] };
+      const mod = { 
+        ...editRiesgo, 
+        sede: formData.get('sede'), 
+        proceso: formData.get('proceso'), 
+        subproceso: formData.get('subproceso'), 
+        categoria: formData.get('categoria'), 
+        normativa: formData.get('normativa'), 
+        responsable: formData.get('responsable'), 
+        descripcionControl: formData.get('control'), 
+        descripcion: formData.get('descripcion'), 
+        probabilidadInherente: formData.get('probInh'), 
+        impactoInherente: formData.get('impInh'), 
+        probabilidadResidual: formData.get('probRes'), 
+        impactoResidual: formData.get('impRes'), 
+        capacidadRiesgo: editRiesgo.capacidadRiesgo||null, 
+        toleranciaFinanciera: editRiesgo.toleranciaFinanciera||null, 
+        apetitoFinanciero: editRiesgo.apetitoFinanciero||null, 
+        posturaEstrategica: editRiesgo.posturaEstrategica||null, 
+        kriScore: editRiesgo.kriScore||null, 
+        historialCambios: [...(editRiesgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Modificado en matriz' }] 
+      };
       updated = safeRiesgos.map(r => r.id === editRiesgo.id ? mod : r); setEditRiesgo(null);
     } else {
-      const nuevo = { id: Date.now(), sede: formData.get('sede'), proceso: formData.get('proceso'), categoria: formData.get('categoria'), normativa: formData.get('normativa'), responsable: formData.get('responsable'), noControl: 'C-' + Math.floor(Math.random() * 100 + 100), descripcionControl: formData.get('control'), descripcion: formData.get('descripcion'), probabilidadInherente: formData.get('probInh'), impactoInherente: formData.get('impInh'), probabilidadResidual: formData.get('probRes'), impactoResidual: formData.get('impRes'), anio: 2026, mes: "Junio", historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Creado' }] };
+      const nuevo = { 
+        id: Date.now(), 
+        sede: formData.get('sede'), 
+        proceso: formData.get('proceso'), 
+        subproceso: formData.get('subproceso'), 
+        categoria: formData.get('categoria'), 
+        normativa: formData.get('normativa'), 
+        responsable: formData.get('responsable'), 
+        noControl: 'C-' + Math.floor(Math.random() * 100 + 100), 
+        descripcionControl: formData.get('control'), 
+        descripcion: formData.get('descripcion'), 
+        probabilidadInherente: formData.get('probInh'), 
+        impactoInherente: formData.get('impInh'), 
+        probabilidadResidual: formData.get('probRes'), 
+        impactoResidual: formData.get('impRes'), 
+        anio: 2026, 
+        mes: "Junio", 
+        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Creado' }] 
+      };
       updated = [nuevo, ...safeRiesgos];
     }
     setRiesgos(updated); await saveToCloud({ riesgos: updated }); e.target.reset(); showNotification("Riesgo estructurado.");
   };
 
-const handlePlanSubmit = async (e) => {
-    e.preventDefault(); 
-    const formData = new FormData(e.target);
-    const ts = new Date().toLocaleString();
-    
-    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editPlan?.evidenciaUrl || '';
-    const progresoVal = parseInt(formData.get('progreso') || 0);
-    
-    // 🟢 CAMPOS CONECTADOS
-    const fechaInicioVal = formData.get('fechaInicio') || '';
-    const mecanismoVal = formData.get('mecanismo') || '';
-
-    let updatedList;
-    let dispararCorreo = false;
-    let auditorNotificar = '';
-    let accionNotificar = '';
-
-    if (editPlan && isAdmin) {
-      // Flujo Admin: Guarda y si es 100% cierra automáticamente
-      const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
-      const workflowVal = progresoVal === 100 ? 'Cerrado' : (editPlan.estadoWorkflow || 'Borrador');
-      
-      const modificado = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, estadoWorkflow: workflowVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan actualizado' }] };
-      
-      if(progresoVal === 100 && !modificado.fechaCierre) {
-          modificado.fechaCierre = new Date().toISOString().split('T')[0];
-      }
-      updatedList = safePlanes.map(p => p.id === editPlan.id ? modificado : p);
-      setEditPlan(null);
-
-    } else if (!isAdmin) {
-      // 🛡️ Flujo Líder de Proceso: Interceptar el 100%
-      const idHallazgo = parseInt(formData.get('idHallazgo'));
-      const planToUpdate = safePlanes.find(p => p.idHallazgo === idHallazgo);
-      
-      if (planToUpdate) {
-        let estadoVal = 'En Proceso'; 
-        let workflowVal = planToUpdate.estadoWorkflow || 'Borrador';
-
-        if (progresoVal === 100 && workflowVal !== 'Cerrado') {
-            workflowVal = 'En Revisión'; // Pasa a gobernanza del auditor
-            dispararCorreo = true;
-            auditorNotificar = planToUpdate.auditorAsignado;
-            accionNotificar = planToUpdate.accion;
-        } else if (progresoVal < 100) {
-            workflowVal = 'Borrador';
-        }
-
-        const mod = { ...planToUpdate, progreso: progresoVal, estado: estadoVal, estadoWorkflow: workflowVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: progresoVal === 100 ? 'Reportado al 100% - Pendiente de revisión' : 'Avance reportado por Jefe de área' }] };
-        updatedList = safePlanes.map(p => p.id === planToUpdate.id ? mod : p);
-      } else {
-        showNotification("Error: No se encontró el plan asociado a este hallazgo.", "error");
-        return;
-      }
-    } else {
-      // Nuevo plan
-      const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
-      const workflowVal = progresoVal === 100 ? 'Cerrado' : 'Borrador';
-      const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, estadoWorkflow: workflowVal, anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, fechaInicio: fechaInicioVal, mecanismo: mecanismoVal, historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan asignado' }] };
-      updatedList = [...safePlanes, nuevo];
-    }
-    
-    setPlanes(updatedList); 
-    await saveToCloud({ planes: updatedList }); 
-
-    // ✉️ DISPARAR CORREO AL AUDITOR ASIGNADO
-    if (dispararCorreo && auditorNotificar) {
-        const diccionarioCorreos = {
-            "Rodolfo González": "auditoria@termales.com.co",
-            "Yehison Pineda": "controlinterno@termales.com.co",
-            "Angelica Hernandez": "analista.auditoria@termales.com.co",
-            "Luz Angela Chico": "analista.controlinterno@termales.com.co"
-        };
-        const correoDestino = diccionarioCorreos[auditorNotificar] || "controlinterno@termales.com.co";
-
-        await ejecutarDespachoGmailApi({
-          ref_consecutivo: `APROBACION-100`,
-          titulo_informe: 'Verificar soportes cargados al 100 por ciento para proceder con el cierre',
-          proceso_auditado: 'Plan de accion pendiente por aprobar',
-          enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
-          destinatarios: correoDestino
-        });
-        showNotification("Avance al 100% guardado. Se notificó al auditor para el cierre.", "success");
-    } else {
-        showNotification("Progreso del plan guardado correctamente.");
-    }
-    e.target.reset();
-};
-
-const handleAprobarCierrePlan = async (plan) => {
-    if (!window.confirm("¿Aprobar evidencias y cerrar definitivamente este plan y su hallazgo vinculado?")) return;
-    
-    const ts = new Date().toLocaleString();
-    const fechaCierreStr = new Date().toISOString().split('T')[0];
-
-    // 1. Cerrar el Plan
-    const planModificado = {
-        ...plan,
-        estado: 'Cerrado',
-        estadoWorkflow: 'Cerrado',
-        progreso: 100,
-        fechaCierre: fechaCierreStr,
-        historialCambios: [...(plan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: '✅ Plan aprobado y cerrado por el Auditor' }]
-    };
-    const updatedPlanes = safePlanes.map(p => p.id === plan.id ? planModificado : p);
-    
-    // 2. Buscar y Cerrar el Hallazgo Vinculado
-    let updatedHallazgos = safeHallazgos;
-    const hallazgoPadre = safeHallazgos.find(h => h.id === plan.idHallazgo);
-    if (hallazgoPadre) {
-        const hallazgoModificado = {
-            ...hallazgoPadre,
-            estado: 'Cerrado',
-            fechaCierre: fechaCierreStr,
-            historialCambios: [...(hallazgoPadre.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: '✅ Hallazgo cerrado tras validación de evidencias del plan' }]
-        };
-        updatedHallazgos = safeHallazgos.map(h => h.id === hallazgoPadre.id ? hallazgoModificado : h);
-        setHallazgos(updatedHallazgos);
-    }
-
-    setPlanes(updatedPlanes);
-    await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
-
-    // 3. 📧 DISPARAR CORREO DE CIERRE AL DUEÑO DEL PROCESO
-    // Toma el correo que el usuario digitó en la matriz. Si es un plan viejo, usa el de control interno por defecto.
-    let correoDestino = plan.correoResponsable;
-    if (!correoDestino || !correoDestino.includes('@')) {
-        correoDestino = "controlinterno@termales.com.co"; 
-    }
-
-    await ejecutarDespachoGmailApi({
-        ref_consecutivo: `CIERRE-PLAN-${plan.id}`,
-        titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito',
-        proceso_auditado: plan.accion.substring(0, 50) + '...',
-        enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
-        destinatarios: correoDestino
-    });
-
-    showNotification("¡Ciclo cerrado! Plan marcado como 'Cerrado' y notificación enviada al líder.", "success");
-  };
-
- const handleEvaluacionSubmit = async (e) => {
-    e.preventDefault(); 
-    const formData = new FormData(e.target);
-    const calif = (formData.get('diseno') === 'Eficaz' && formData.get('ejecucion') === 'Eficaz') ? 100 : 0;
-    const ts = new Date().toLocaleString();
-    
-    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editEvaluacion?.evidenciaUrl || '';
-    const idRiesgoVal = parseInt(formData.get('idRiesgo'));
-    const noControlVal = formData.get('noControl') || ''; // 🆕 Capturamos el Control seleccionado
-
-    let updatedList;
-    if (editEvaluacion && isAdmin) {
-      const mod = { 
-        ...editEvaluacion, 
-        idRiesgo: idRiesgoVal, 
-        noControl: noControlVal, // 🆕 Guardamos el control en la edición
-        diseño: formData.get('diseno'), 
-        ejecucion: formData.get('ejecucion'), 
-        calificacion: calif, 
-        comentarios: formData.get('comentarios'), 
-        evidenciaUrl: evidenciaUrlOut, 
-        historialCambios: [...(editEvaluacion.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evaluación modificada' }] 
-      };
-      updatedList = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? mod : ev);
-      setEditEvaluacion(null);
-    } else {
-      const nuevo = { 
-        id: Date.now(), 
-        idRiesgo: idRiesgoVal, 
-        noControl: noControlVal, // 🆕 Guardamos el control en el registro nuevo
-        fecha: new Date().toISOString().split('T')[0], 
-        diseño: formData.get('diseno'), 
-        ejecucion: formData.get('ejecucion'), 
-        calificacion: calif, 
-        comentarios: formData.get('comentarios'), 
-        auditor: user.email, 
-        anio: 2026, 
-        mes: "Junio", 
-        evidenciaUrl: evidenciaUrlOut, 
-        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evaluación de control registrada' }] 
-      };
-      updatedList = [...safeEvaluaciones, nuevo];
-    }
-    setEvaluaciones(updatedList); 
-    await saveToCloud({ evaluaciones: updatedList }); 
-    e.target.reset(); 
-    showNotification("Evaluación registrada exitosamente.");
-  };
-const handleHallazgoSubmit = async (e) => {
-  e.preventDefault(); 
-  const formData = new FormData(e.target);
-  const ts = new Date().toLocaleString();
-
-  let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
-  const causaVal = formData.get('causa') || '';
-  const claseObservacionVal = formData.get('claseObservacion') || 'Oportunidad de Mejora';
-
-  // 🔗 Captura del ID del informe seleccionado
-  const idInformeVal = formData.get('idInforme') || '';
-
-  let updated;
-  if (editHallazgo) {
-    const mod = { 
-      ...editHallazgo, 
-      idInforme: idInformeVal, 
-      sede: formData.get('sede'), 
-      ref: formData.get('ref'), 
-      proceso: formData.get('proceso'), 
-      responsable: formData.get('responsable'), 
-      auditor: formData.get('auditor'), 
-      titulo: formData.get('titulo'), 
-      severidad: formData.get('severidad'), 
-      evidenciaUrl: evidenciaUrlOut, 
-      causa: causaVal, 
-      claseObservacion: claseObservacionVal, 
-      historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
-    };
-    updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
-    setEditHallazgo(null);
-  } else {
-    const nuevo = { 
-      id: Date.now(), 
-      idInforme: idInformeVal, 
-      sede: formData.get('sede'), 
-      ref: formData.get('ref'), 
-      proceso: formData.get('proceso'), 
-      responsable: formData.get('responsable'), 
-      auditor: formData.get('auditor'), 
-      titulo: formData.get('titulo'), 
-      severidad: formData.get('severidad'), 
-      estado: 'Abierto', 
-      fecha: new Date().toISOString().split('T')[0], 
-      anio: 2026, 
-      mes: "Junio", 
-      evidenciaUrl: evidenciaUrlOut, 
-      causa: causaVal, 
-      claseObservacion: claseObservacionVal, 
-      historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] 
-    };
-    updated = [...safeHallazgos, nuevo];
-  }
-  setHallazgos(updated); 
-  await saveToCloud({ hallazgos: updated }); 
-  e.target.reset(); 
-  showNotification("Desviación conectada al informe de origen correctamente.");
-};
+ 
 const handleComiteSubmit = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -1324,13 +1114,11 @@ if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); se
     await saveToCloud({ monitoreo: updatedList });
     e.target.reset();
   };
-
 const handleInformeAuditoriaSubmit = async (e) => {
     e.preventDefault(); 
     setIsSubmitting(true); 
     console.log("🚀 Ejecución global V5 (Con Campos PDF Big-4)...");
     
-    // 🛡️ Filtro purificador para erradicar errores de codificación (ÃƒÂ³) en Gmail
     const limpiarTildesParaCorreo = (texto) => {
       if (!texto) return '';
       return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -1342,6 +1130,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
 
       const tituloVal = formData.get('titulo') || 'Sin título';
       const procesoVal = formData.get('proceso') || 'Sin proceso';
+      const subprocesoVal = formData.get('subproceso') || 'General';
       const evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
       const actaSocializacionUrlOut = formData.get('actaSocializacionUrlInput') || editInformeAuditoria?.actaSocializacionUrl || '';
       const correosNotificacionOut = String(formData.get('correosNotificacionInput') || '').trim();
@@ -1377,7 +1166,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
       if (editInformeAuditoria) {
         refConsecutivoFinal = editInformeAuditoria.ref;
         const mod = { 
-          ...editInformeAuditoria, titulo: tituloVal, proceso: procesoVal, fecha: fechaVal,
+          ...editInformeAuditoria, titulo: tituloVal, proceso: procesoVal, subproceso: subprocesoVal, fecha: fechaVal,
           elaboradoPor: elaboradoPorVal, revisadoPor: revisadoPorVal, aprobadoPor: aprobadoPorVal,
           socializado: socializadoVal, socializadoCon: socializadoConVal,
           evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut,
@@ -1393,7 +1182,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
 
         refConsecutivoFinal = `INF-2026-${String(idx).padStart(3, '0')}`;
         const nuevo = {
-          id: crypto.randomUUID(), ref: refConsecutivoFinal, titulo: tituloVal, proceso: procesoVal,
+          id: crypto.randomUUID(), ref: refConsecutivoFinal, titulo: tituloVal, proceso: procesoVal, subproceso: subprocesoVal,
           fecha: fechaVal, elaboradoPor: elaboradoPorVal, revisadoPor: revisadoPorVal,
           aprobadoPor: aprobadoPorVal, socializado: socializadoVal, socializadoCon: socializadoConVal,
           evidenciaUrl: evidenciaUrlOut, actaSocializacionUrl: actaSocializacionUrlOut,
@@ -1404,7 +1193,6 @@ const handleInformeAuditoriaSubmit = async (e) => {
         updated = [nuevo, ...safeInformes];
       }
 
-      // 🟢 DESPACHO SANITIZADO: Limpiamos el asunto y el proceso de acentos problemáticos
       if (correosNotificacionOut !== '') {
         await ejecutarDespachoGmailApi({
           ref_consecutivo: refConsecutivoFinal,
@@ -1426,6 +1214,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
       setIsSubmitting(false); 
     }
   };
+
 const renderHeaderFiltros = (titulo, subtitulo) => (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
