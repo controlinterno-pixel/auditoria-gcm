@@ -823,6 +823,223 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
   const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
 
   const handleRiesgoSubmit = async (e) => {
+    e.preventDefault(); 
+    const formData = new FormData(e.target);
+    const ts = new Date().toLocaleString();
+    let updated;
+    if (editRiesgo) {
+      const mod = { 
+        ...editRiesgo, 
+        sede: formData.get('sede'), 
+        proceso: formData.get('proceso'), 
+        subproceso: formData.get('subproceso'), 
+        categoria: formData.get('categoria'), 
+        normativa: formData.get('normativa'), 
+        responsable: formData.get('responsable'), 
+        descripcionControl: formData.get('control'), 
+        descripcion: formData.get('descripcion'), 
+        probabilidadInherente: formData.get('probInh'), 
+        impactoInherente: formData.get('impInh'), 
+        probabilidadResidual: formData.get('probRes'), 
+        impactoResidual: formData.get('impRes'), 
+        historialCambios: [...(editRiesgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Modificado en matriz' }] 
+      };
+      updated = safeRiesgos.map(r => r.id === editRiesgo.id ? mod : r); 
+      setEditRiesgo(null);
+    } else {
+      const nuevo = { 
+        id: Date.now(), 
+        sede: formData.get('sede'), 
+        proceso: formData.get('proceso'), 
+        subproceso: formData.get('subproceso'), 
+        categoria: formData.get('categoria'), 
+        normativa: formData.get('normativa'), 
+        responsable: formData.get('responsable'), 
+        noControl: 'C-' + Math.floor(Math.random() * 100 + 100), 
+        descripcionControl: formData.get('control'), 
+        descripcion: formData.get('descripcion'), 
+        probabilidadInherente: formData.get('probInh'), 
+        impactoInherente: formData.get('impInh'), 
+        probabilidadResidual: formData.get('probRes'), 
+        impactoResidual: formData.get('impRes'), 
+        anio: 2026, 
+        mes: "Junio", 
+        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Creado' }] 
+      };
+      updated = [nuevo, ...safeRiesgos];
+    }
+    setRiesgos(updated); 
+    await saveToCloud({ riesgos: updated }); 
+    e.target.reset(); 
+    showNotification("Riesgo estructurado con éxito.");
+  };
+
+  const handleHallazgoSubmit = async (e) => {
+    e.preventDefault(); 
+    const formData = new FormData(e.target);
+    const ts = new Date().toLocaleString();
+    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
+    let updated;
+    if (editHallazgo) {
+      const mod = { 
+        ...editHallazgo, 
+        idInforme: formData.get('idInforme') || '', 
+        sede: formData.get('sede'), 
+        ref: formData.get('ref'), 
+        proceso: formData.get('proceso'),
+        subproceso: formData.get('subproceso'),
+        responsable: formData.get('responsable'), 
+        auditor: formData.get('auditor'), 
+        titulo: formData.get('titulo'), 
+        severidad: formData.get('severidad'), 
+        evidenciaUrl: evidenciaUrlOut, 
+        causa: formData.get('causa') || '', 
+        claseObservacion: formData.get('claseObservacion') || 'Oportunidad de Mejora', 
+        historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
+      };
+      updated = safeHallazgos.map(h => h.id === editHallazgo.id ? mod : h);
+      setEditHallazgo(null);
+    } else {
+      const nuevo = { 
+        id: Date.now(), 
+        idInforme: formData.get('idInforme') || '', 
+        sede: formData.get('sede'), 
+        ref: formData.get('ref'), 
+        proceso: formData.get('proceso'),
+        subproceso: formData.get('subproceso'),
+        responsable: formData.get('responsable'), 
+        auditor: formData.get('auditor'), 
+        titulo: formData.get('titulo'), 
+        severidad: formData.get('severidad'), 
+        estado: 'Abierto', 
+        fecha: new Date().toISOString().split('T')[0], 
+        anio: 2026, 
+        mes: "Junio", 
+        evidenciaUrl: evidenciaUrlOut, 
+        causa: formData.get('causa') || '', 
+        claseObservacion: formData.get('claseObservacion') || 'Oportunidad de Mejora', 
+        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] 
+      };
+      updated = [...safeHallazgos, nuevo];
+    }
+    setHallazgos(updated); 
+    await saveToCloud({ hallazgos: updated }); 
+    e.target.reset(); 
+    showNotification("Hallazgo registrado con éxito.");
+  };
+
+  const handlePlanSubmit = async (e) => {
+    e.preventDefault(); 
+    const formData = new FormData(e.target);
+    const ts = new Date().toLocaleString();
+    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editPlan?.evidenciaUrl || '';
+    const progresoVal = parseInt(formData.get('progreso') || 0);
+    let updatedList;
+    let dispararCorreo = false;
+    let auditorNotificar = '';
+
+    if (editPlan && isAdmin) {
+      const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
+      const workflowVal = progresoVal === 100 ? 'Cerrado' : (editPlan.estadoWorkflow || 'Borrador');
+      const modificado = { ...editPlan, idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, estadoWorkflow: workflowVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: formData.get('fechaInicio') || '', mecanismo: formData.get('mecanismo') || '', historialCambios: [...(editPlan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan actualizado' }] };
+      if(progresoVal === 100 && !modificado.fechaCierre) {
+          modificado.fechaCierre = new Date().toISOString().split('T')[0];
+      }
+      updatedList = safePlanes.map(p => p.id === editPlan.id ? modificado : p);
+      setEditPlan(null);
+    } else if (!isAdmin) {
+      const idHallazgo = parseInt(formData.get('idHallazgo'));
+      const planToUpdate = safePlanes.find(p => p.idHallazgo === idHallazgo);
+      if (planToUpdate) {
+        let workflowVal = planToUpdate.estadoWorkflow || 'Borrador';
+        if (progresoVal === 100 && workflowVal !== 'Cerrado') {
+            workflowVal = 'En Revisión'; 
+            dispararCorreo = true;
+            auditorNotificar = planToUpdate.auditorAsignado || 'Rodolfo González';
+        }
+        const mod = { ...planToUpdate, progreso: progresoVal, estadoWorkflow: workflowVal, evidenciaUrl: evidenciaUrlOut, fechaInicio: formData.get('fechaInicio') || '', mecanismo: formData.get('mecanismo') || '', historialCambios: [...(planToUpdate.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: progresoVal === 100 ? 'Reportado al 100% - Pendiente de revisión' : 'Avance reportado' }] };
+        updatedList = safePlanes.map(p => p.id === planToUpdate.id ? mod : p);
+      } else {
+        showNotification("No se encontró el plan asociado.", "error");
+        return;
+      }
+    } else {
+      const estadoVal = progresoVal === 100 ? 'Cerrado' : 'En Proceso';
+      const nuevo = { id: Date.now(), idHallazgo: parseInt(formData.get('idHallazgo')), accion: formData.get('accion'), responsable: formData.get('responsable'), fecha: formData.get('fecha'), progreso: progresoVal, estado: estadoVal, estadoWorkflow: 'Borrador', anio: 2026, mes: "Junio", evidenciaUrl: evidenciaUrlOut, fechaInicio: formData.get('fechaInicio') || '', mecanismo: formData.get('mecanismo') || '', historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Plan asignado' }] };
+      updatedList = [...safePlanes, nuevo];
+    }
+    setPlanes(updatedList); 
+    await saveToCloud({ planes: updatedList }); 
+    e.target.reset();
+    showNotification("Plan de acción guardado.");
+  };
+
+  const handleAprobarCierrePlan = async (plan) => {
+    if (!window.confirm("¿Aprobar evidencias y cerrar definitivamente este plan?")) return;
+    const ts = new Date().toLocaleString();
+    const fechaCierreStr = new Date().toISOString().split('T')[0];
+    const planModificado = { ...plan, estado: 'Cerrado', estadoWorkflow: 'Cerrado', progreso: 100, fechaCierre: fechaCierreStr, historialCambios: [...(plan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: 'Plan cerrado por auditor' }] };
+    const updatedPlanes = safePlanes.map(p => p.id === plan.id ? planModificado : p);
+    let updatedHallazgos = safeHallazgos;
+    const hallazgoPadre = safeHallazgos.find(h => h.id === plan.idHallazgo);
+    if (hallazgoPadre) {
+        const hallazgoModificado = { ...hallazgoPadre, estado: 'Cerrado', fechaCierre: fechaCierreStr, historialCambios: [...(hallazgoPadre.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: 'Hallazgo cerrado' }] };
+        updatedHallazgos = safeHallazgos.map(h => h.id === hallazgoPadre.id ? hallazgoModificado : h);
+        setHallazgos(updatedHallazgos);
+    }
+    setPlanes(updatedPlanes);
+    await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
+    showNotification("Plan y hallazgo cerrados con éxito.", "success");
+  };
+
+  const handleEvaluacionSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const ts = new Date().toLocaleString();
+    let updated;
+    if (editEvaluacion) {
+      const mod = {
+        ...editEvaluacion,
+        proceso: formData.get('proceso'),
+        control: formData.get('control'),
+        calificacion: parseInt(formData.get('calificacion') || 0),
+        diseno: formData.get('diseno') || 'No evaluado',
+        ejecucion: formData.get('ejecucion') || 'No evaluado',
+        evidenciaUrl: formData.get('evidenciaUrlInput') || editEvaluacion.evidenciaUrl || '',
+        comentarios: formData.get('comentarios') || '',
+        historialCambios: [...(editEvaluacion.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Evaluación modificada' }]
+      };
+      updated = safeEvaluaciones.map(ev => ev.id === editEvaluacion.id ? mod : ev);
+      setEditEvaluacion(null);
+    } else {
+      const nuevo = {
+        id: Date.now(),
+        proceso: formData.get('proceso'),
+        control: formData.get('control'),
+        calificacion: parseInt(formData.get('calificacion') || 0),
+        diseno: formData.get('diseno') || 'No evaluado',
+        ejecucion: formData.get('ejecucion') || 'No evaluado',
+        evidenciaUrl: formData.get('evidenciaUrlInput') || '',
+        comentarios: formData.get('comentarios') || '',
+        auditor: user?.email || 'Sistema',
+        anio: 2026,
+        mes: "Junio",
+        historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Control evaluado' }]
+      };
+      updated = [nuevo, ...safeEvaluaciones];
+    }
+    setEvaluaciones(updated);
+    await saveToCloud({ evaluaciones: updated });
+    e.target.reset();
+    setFormResetKey(Date.now());
+    showNotification("Evaluación de control guardada.");
+  };
+
+  const handleAuthorizationSubmit = handleEvaluacionSubmit;
+
+  const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
+
+  const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     let updated;
