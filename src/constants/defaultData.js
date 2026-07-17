@@ -1,4 +1,19 @@
 // --- DATOS POR DEFECTO ACTUALIZADOS DE LA IMAGEN (20 PROCESOS) ---
+// --- NUEVO MAPA DE PROCESOS (CASCADA) ---
+export const MAPA_PROCESOS = {
+  "Gestión de mercadeo y comunicaciones": ["General"],
+  "Gestión comercial": ["General"],
+  "Gestión de Operaciones": ["Alojamiento", "Alimentos y bebidas", "Recreación", "Mantenimiento"],
+  "Gestión de servicio al cliente": ["General"],
+  "Gestión de la cadena de abastecimiento": ["Compras", "Gestión de almacenes", "Gestionar los activos fijos de la empresa", "Gestión de inventarios"],
+  "Gestión del Talento Humano": ["Desarrollo de competencias", "Gestión del bienestar y la compensación", "Selección, vinculación y administración de colaboradores"],
+  "Gestión Administrativa y Financiera": ["Gestión administrativa", "Gestión de cartera", "Gestión de contabilidad", "Gestión de costos", "Gestión de tesorería"],
+  "Tecnologías de la información y la comunicación": ["General"],
+  "Gestión estratégica": ["General"],
+  "I+D+i": ["General"],
+  "Gestión de la mejora continua (SIGCAS)": ["General", "Control interno y gestión de riesgos", "Protección de datos personales", "Gestión de calidad", "Seguridad y salud en el trabajo", "Gestión ambiental"]
+};
+
 export const defaultCronograma = [
   { id: 1, codigo: '01', periodo: 'Diciembre', proceso: 'Cumplimiento Normativo', enfoque: 'Verificación de cumplimiento normativo y legal.', cumplimiento: 0, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo González G.', meses: ['Diciembre'] },
   { id: 2, codigo: '02', periodo: 'Mayo - Junio', proceso: 'Compras', enfoque: 'Auditoría a procesos de selección, cotización y pagos de proveedores.', cumplimiento: 100, responsable: 'Yehison J Pineda.', apoyo: 'Rodolfo Gonzalez G.', meses: ['Mayo', 'Junio'] },

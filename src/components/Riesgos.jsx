@@ -1,38 +1,63 @@
 import React, { useState } from 'react';
 
-const PROCESOS_OFICIALES = [
-  "Gestión comercial",
-  "Gestión de la mejora continua (SIGCAS)",
-  "Gestión de mercadeo y comunicaciones",
-  "Gestión de servicio al cliente",
-  "Gestión estratégica",
- "Gestión de Operaciones",
-"Gestión Administrativa y Financiera ",
-"Gestión Talento Humano ",
-  "I+D+i",
-  "Subproceso alojamiento",
-  "Subproceso alimentos y bebidas",
-  "Subproceso compras",
-  "Subproceso desarrollo de competencias",
-  "Subproceso gestión administrativa",
-  "Subproceso gestión de almacenes",
-  "Subproceso gestión de cartera",
-  "Subproceso gestión de contabilidad",
-  "Subproceso gestión de costos",
-  "Subproceso gestión de inventarios",
-  "Subproceso gestión de tesorería",
-  "Subproceso gestión del bienestar y la compensación",
-  "Subproceso gestionar los activos fijos de la empresa",
-  "Subproceso mantenimiento",
-  "Subproceso recreación",
-"Subproceso Seguridad y salud en trabajo",
-"Subproceso Gestion de calidad",
-"Subproceso Gestión Ambiental",
-"Subproceso Control interno y Gestion de riesgos",
-"Subproceso Proteccion de datos personales",
-  "Subproceso selección, vinculación y administración de colaboradores",
-  "Tecnologías de la información y la comunicación"
-];
+// 🌳 MAPA DE PROCESOS EN CASCADA (MACROPROCESO -> SUBPROCESOS)
+const MAPA_PROCESOS = {
+  // 🚀 PROCESOS MISIONALES
+  "Gestión de mercadeo y comunicaciones": [
+    "General"
+  ],
+  "Gestión comercial": [
+    "General"
+  ],
+  "Gestión de Operaciones": [
+    "Alojamiento",
+    "Alimentos y bebidas",
+    "Recreación",
+    "Mantenimiento"
+  ],
+  "Gestión de servicio al cliente": [
+    "General"
+  ],
+  "Gestión de la cadena de abastecimiento": [
+    "Compras",
+    "Gestión de almacenes",
+    "Gestionar los activos fijos de la empresa",
+    "Gestión de inventarios"
+  ],
+
+  // 🛠️ PROCESOS DE SOPORTE
+  "Gestión del Talento Humano": [
+    "Desarrollo de competencias",
+    "Gestión del bienestar y la compensación",
+    "Selección, vinculación y administración de colaboradores"
+  ],
+  "Gestión Administrativa y Financiera": [
+    "Gestión administrativa",
+    "Gestión de cartera",
+    "Gestión de contabilidad",
+    "Gestión de costos",
+    "Gestión de tesorería"
+  ],
+  "Tecnologías de la información y la comunicación": [
+    "General"
+  ],
+
+  // 🎯 PROCESOS ESTRATÉGICOS
+  "Gestión estratégica": [
+    "General"
+  ],
+  "I+D+i": [
+    "General"
+  ],
+  "Gestión de la mejora continua (SIGCAS)": [
+    "General",
+    "Control interno y gestión de riesgos",
+    "Protección de datos personales",
+    "Gestión de calidad",
+    "Seguridad y salud en el trabajo",
+    "Gestión ambiental"
+  ]
+};
 
 // 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
 const CARGOS_POR_SEDE = {
@@ -45,7 +70,8 @@ const CARGOS_POR_SEDE = {
     "Coordinación de recepción",
     "Supervisor (a) de operaciones",
     "Coordinación SPA",
-    "Coordinador de Mantenimiento"
+    "Coordinador de Mantenimiento",
+    "Ama de llaves"
   ],
   "Ecoparque": [
     "Líderes Ecoparque",
@@ -166,7 +192,7 @@ const EXPLICACIONES_CAMPOS = {
 };
 
 export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud, showNotification }) {
-// 🤖 ESTADOS PARA EL DICTAMEN DE INTELIGENCIA ARTIFICIAL EN EL DASHBOARD
+  // 🤖 ESTADOS PARA EL DICTAMEN DE INTELIGENCIA ARTIFICIAL EN EL DASHBOARD
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
@@ -177,11 +203,31 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [riesgoId, setRiesgoId] = useState('');
-  const [proceso, setProceso] = useState(PROCESOS_OFICIALES[0]);
+  
+  // 🌟 NUEVOS ESTADOS EN CASCADA PARA PROCESOS
+  const listadoMacros = Object.keys(MAPA_PROCESOS);
+  const [macroproceso, setMacroproceso] = useState(listadoMacros[0]);
+  const [subproceso, setSubproceso] = useState(MAPA_PROCESOS[listadoMacros[0]][0]);
+
+  // Función inteligente para manejar el cambio del Macroproceso
+  const handleMacroprocesoChange = (e) => {
+    const nuevoMacro = e.target.value;
+    setMacroproceso(nuevoMacro);
+    
+    if (MAPA_PROCESOS[nuevoMacro] && MAPA_PROCESOS[nuevoMacro].length > 0) {
+      setSubproceso(MAPA_PROCESOS[nuevoMacro][0]);
+    } else {
+      setSubproceso('');
+    }
+  };
+
+  const subprocesosDisponibles = MAPA_PROCESOS[macroproceso] || [];
+  const tieneSubprocesosReales = subprocesosDisponibles.length > 1 || (subprocesosDisponibles.length === 1 && subprocesosDisponibles[0] !== "General");
+
   const [categoria, setCategoria] = useState('');
   const [clasificacionRiesgo, setClasificacionRiesgo] = useState(CLASIFICACIONES_MANUAL[0]);
   const [normativa, setNormativa] = useState('');
-const [sedeForm, setSedeForm] = useState('Administrativos');
+  const [sedeForm, setSedeForm] = useState('Administrativos');
   const [responsablesMultiples, setResponsablesMultiples] = useState([]);
   const [responsableTemp, setResponsableTemp] = useState('');  
   const [afectacion, setAfectacion] = useState('Económico');
@@ -230,15 +276,12 @@ const [sedeForm, setSedeForm] = useState('Administrativos');
   const descripcionAutomatica = `Posibilidad de afectación ${afectacion.toLowerCase()} por ${causaInmediata.toLowerCase()} debido a ${causaRaiz.toLowerCase()}`;
 
   const getSeverityZone = (prob, imp) => {
-    // 1. Convertir a número por seguridad
     let p = Number(prob) || 1;
     let i = Number(imp) || 1;
     
-    // 2. Si vienen como porcentajes (20, 40, 60, 80, 100), los convertimos a la escala 1-5
     if (p > 5) p = Math.ceil(p / 20);
     if (i > 5) i = Math.ceil(i / 20);
     
-    // 3. Aplicar la lógica exacta de la matriz 5x5
     if (p >= 4 && i >= 4) {
       return { label: 'Extremo', color: 'bg-red-600 text-white' };
     } 
@@ -251,7 +294,8 @@ const [sedeForm, setSedeForm] = useState('Administrativos');
     
     return { label: 'Bajo', color: 'bg-emerald-500 text-white' };
   };
-const handleDeleteRiesgo = async (id) => {
+
+  const handleDeleteRiesgo = async (id) => {
     if (window.confirm("⚠️ ¿Estás seguro de que deseas eliminar este riesgo de la matriz corporativa?")) {
       try {
         const updatedList = safeRiesgos.filter(r => r.id !== id);
@@ -264,6 +308,7 @@ const handleDeleteRiesgo = async (id) => {
       }
     }
   };
+
   const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
@@ -271,23 +316,21 @@ const handleDeleteRiesgo = async (id) => {
     // 🏢 Recuperar Sede
     setSedeForm(riesgo.sede || 'Administrativos');
     
-    setProceso(riesgo.proceso);
+    // 🌟 Recuperar Macroproceso y Subproceso (Manteniendo compatibilidad con datos viejos)
+    setMacroproceso(riesgo.macroproceso || riesgo.proceso || listadoMacros[0]);
+    setSubproceso(riesgo.subproceso || 'General');
+
     setCategoria(riesgo.categoria);
     setClasificacionRiesgo(riesgo.clasificacionRiesgo || CLASIFICACIONES_MANUAL[0]);
     setNormativa(riesgo.normativa);
     
     // 👥 Recuperar Múltiples Responsables
     if (riesgo.responsable) {
-      // Si ya venía como arreglo (versiones nuevas)
       if (Array.isArray(riesgo.responsable)) {
         setResponsablesMultiples(riesgo.responsable);
-      } 
-      // Si venía como texto separado por comas (versión de transición)
-      else if (riesgo.responsable.includes(',')) {
+      } else if (riesgo.responsable.includes(',')) {
         setResponsablesMultiples(riesgo.responsable.split(',').map(r => r.trim()));
-      } 
-      // Si venía como un solo texto (versiones antiguas)
-      else if (riesgo.responsable !== 'Sin Asignar') {
+      } else if (riesgo.responsable !== 'Sin Asignar') {
         setResponsablesMultiples([riesgo.responsable]);
       } else {
         setResponsablesMultiples([]);
@@ -309,7 +352,7 @@ const handleDeleteRiesgo = async (id) => {
     setSeguimientoBitacora(riesgo.seguimientoBitacora || '');
     
     setVistaActiva('nuevo');
-    setTimeout(scrollToForm, 100);
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
   };
   
   const handleRiesgoSubmit = async (e) => {
@@ -322,10 +365,13 @@ const handleDeleteRiesgo = async (id) => {
       const textoControlesConsolidados = controles.map(c => `🔹 [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n');
 
       const nuevoRiesgo = {
-        ...(editRiesgo || {}), // 🛡️ EL BLINDAJE: Esto obliga al sistema a "recordar" y heredar los datos financieros del Apetito antes de sobreescribir.
+        ...(editRiesgo || {}),
         id: editRiesgo ? editRiesgo.id : crypto.randomUUID(),
         sede: sedeForm,
-        proceso,
+        // 🌟 Guardamos tanto la compatibilidad de "proceso" para el Dashboard, como el desglose
+        proceso: macroproceso,
+        macroproceso: macroproceso,
+        subproceso: subproceso,
         categoria,
         clasificacionRiesgo,
         normativa,
@@ -372,7 +418,6 @@ const handleDeleteRiesgo = async (id) => {
     }
   };
 
-  // 🏷️ COMPONENTE INTERNO REUTILIZABLE PARA TITULOS CON LA PALOMITA DE INFORMACIÓN
   const LabelConPalomita = ({ idCampo, dark }) => {
     const dataAyuda = EXPLICACIONES_CAMPOS[idCampo];
     if (!dataAyuda) return null;
@@ -391,7 +436,7 @@ const handleDeleteRiesgo = async (id) => {
     );
   };
 
- const renderDashboard = () => {
+  const renderDashboard = () => {
     const totalRiesgos = safeRiesgos.length;
     const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
     const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
@@ -405,7 +450,6 @@ const handleDeleteRiesgo = async (id) => {
 
     const topProcesos = Object.entries(conteoProcesos).sort((a,b) => b[1] - a[1]).slice(0, 5);
 
-    // 🤖 FUNCIÓN REACTIVA DE LA IA PARA LEER LAS BARRAS
     const solicitarDictamenIA = () => {
       setProcesandoIA(true);
       setDictamenIA(null);
@@ -436,12 +480,8 @@ const handleDeleteRiesgo = async (id) => {
 
     return (
       <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 relative">
-        
-        {/* ─── 🤖 CAPA DE ENFOQUE INTELIGENTE (FIXED BACKDROP BLUR) ─── */}
         {(procesandoIA || dictamenIA) && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-            
-            {/* Carga Animada Inline */}
             {procesandoIA && (
               <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl flex items-center gap-4 shadow-2xl max-w-xl border-l-4 border-l-blue-500 scale-100 transition-transform">
                 <span className="text-2xl animate-spin">🤖</span>
@@ -452,27 +492,22 @@ const handleDeleteRiesgo = async (id) => {
               </div>
             )}
 
-            {/* Recuadro de Resultados Nítido */}
             {dictamenIA && (
               <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-2xl relative border-l-4 border-l-emerald-500 w-full">
                 <button onClick={() => setDictamenIA(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2.5 py-1 rounded-xl transition-colors">✕ Cerrar</button>
-                
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-base">🤖</span>
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial para Gerencia</h4>
                 </div>
-
                 <h3 className="text-sm font-black text-white uppercase tracking-tight mb-4 border-b border-slate-800/80 pb-2.5">
                   {dictamenIA.titulo}
                 </h3>
-
                 <div className="text-emerald-300 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20 text-xs leading-relaxed font-medium">
                   <b className="text-emerald-400 uppercase block text-[9px] mb-1.5 tracking-wider">🎯 Diagnóstico Estratégico:</b> 
                   <span dangerouslySetInnerHTML={{ __html: dictamenIA.dictamen.replace(/\*\*(.*?)\*\*/g, '<b class="text-white bg-emerald-900/40 px-1 py-0.5 rounded">$1</b>') }}></span>
                 </div>
               </div>
             )}
-            
           </div>
         )}
 
@@ -555,6 +590,10 @@ const handleDeleteRiesgo = async (id) => {
                       <td className="p-3">
                         <div className="font-mono font-black text-slate-900">RSK-{String(r.id).substring(0,4)}</div>
                         <div className="font-bold text-[#0A3B32] text-[10px] mt-0.5">{r.proceso}</div>
+                        {/* 🌟 Muestra el subproceso en letras pequeñas si aplica */}
+                        {r.subproceso && r.subproceso !== 'General' && (
+                          <div className="font-medium text-slate-500 text-[9px] mt-0.5">↳ {r.subproceso}</div>
+                        )}
                       </td>
                       <td className="p-3 leading-tight">
                         <span className="bg-slate-100 text-slate-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase block w-max mb-1">{r.clasificacionRiesgo || 'General'}</span>
@@ -654,12 +693,49 @@ const handleDeleteRiesgo = async (id) => {
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">1. Datos Generales de la Fila</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <LabelConPalomita idCampo="proceso" />
-                <select value={proceso} onChange={(e) => setProceso(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
-                  {PROCESOS_OFICIALES.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
+              
+              {/* 🌟 AQUÍ ESTÁ EL NUEVO CONTENEDOR LADO A LADO PARA MACRO Y SUBPROCESO */}
+              <div className="md:col-span-2 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <LabelConPalomita idCampo="proceso" />
+                  <select 
+                    value={macroproceso} 
+                    onChange={handleMacroprocesoChange} 
+                    className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white font-bold text-slate-800"
+                    required
+                  >
+                    <option value="" disabled>Seleccione...</option>
+                    {listadoMacros.map(macro => (
+                      <option key={macro} value={macro}>{macro}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 mt-1">
+                    Subproceso Específico
+                  </label>
+                  <select 
+                    value={subproceso} 
+                    onChange={(e) => setSubproceso(e.target.value)} 
+                    disabled={!tieneSubprocesosReales || !macroproceso}
+                    className={`w-full text-xs p-2 border rounded-lg transition-colors ${
+                      (!tieneSubprocesosReales || !macroproceso)
+                        ? 'bg-slate-100 cursor-not-allowed border-slate-200 text-slate-400' 
+                        : 'bg-white border-slate-300 text-slate-800 font-semibold focus:ring-2 focus:ring-[#0A3B32]'      
+                    }`}
+                    required
+                  >
+                    {!macroproceso && <option value="">Esperando selección...</option>}
+                    {macroproceso && subprocesosDisponibles.map(sub => (
+                      <option key={sub} value={sub}>
+                        {!tieneSubprocesosReales && sub === "General" ? "No aplica subdivisión" : sub}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
+
               <div>
                 <LabelConPalomita idCampo="categoria" />
                 <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required>
@@ -671,6 +747,7 @@ const handleDeleteRiesgo = async (id) => {
                   <option value="Tecnológico">Tecnológico</option>
                 </select>
               </div>
+              
               <div>
                 <LabelConPalomita idCampo="clasificacion" />
                 <select value={clasificacionRiesgo} onChange={(e) => setClasificacionRiesgo(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
@@ -691,9 +768,9 @@ const handleDeleteRiesgo = async (id) => {
               </div>
 
               {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2 lg:col-span-3">
                 <LabelConPalomita idCampo="responsable" />
-                <div className="flex gap-2 mb-2">
+                <div className="flex gap-2 mb-2 md:w-1/2">
                   <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white">
                     <option value="">-- Escoger de {sedeForm} --</option>
                     {CARGOS_POR_SEDE[sedeForm].map(cargo => (
@@ -842,7 +919,7 @@ const handleDeleteRiesgo = async (id) => {
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-slate-400 uppercase block mb-0.5">Soporte Evidencia</label>
-                    <select value={ctrl.evidence} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].evidencia = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border bg-white rounded-md">
+                    <select value={ctrl.evidencia} onChange={(e) => { const nuevos = [...controles]; nuevos[idx].evidencia = e.target.value; setControles(nuevos); }} className="w-full text-[11px] p-1.5 border bg-white rounded-md">
                       <option value="Con registro">Con registro / Trazable</option>
                       <option value="Sin registro">Sin registro</option>
                     </select>
