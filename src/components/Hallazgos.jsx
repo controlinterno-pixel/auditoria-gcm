@@ -80,7 +80,7 @@ export default function Hallazgos({
   const [responsableTemp, setResponsableTemp] = React.useState('');
 
 // 🌟 NUEVOS ESTADOS PARA MACRO Y SUBPROCESO
-  const [macroprocesoForm, setMacroprocesoForm] = useState('');
+  const [procesoForm, setprocesoForm] = useState('');
   const [subprocesoForm, setSubprocesoForm] = useState('');
 
   // 🧠 TRADUCTOR AUTOMÁTICO PARA EL BOTÓN "EDITAR"
@@ -93,12 +93,12 @@ export default function Hallazgos({
         setResponsablesMultiples(editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable]);
       }
       // Restaurar valores jerárquicos
-      setMacroprocesoForm(editHallazgo.macroproceso || editHallazgo.proceso || '');
+      setprocesoForm(editHallazgo.proceso || editHallazgo.proceso || '');
       setSubprocesoForm(editHallazgo.subproceso || 'General');
     } else {
       setSedesMultiples(['Administrativos']);
       setResponsablesMultiples([]);
-      setMacroprocesoForm('');
+      setprocesoForm('');
       setSubprocesoForm('');
     }
   }, [editHallazgo]);
@@ -164,7 +164,7 @@ export default function Hallazgos({
     const informeBase = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
     const fechaReal = informeBase?.fecha || h.fecha || 'Sin Fecha';
     // Generar campo unificado para soporte a datos viejos y nuevos
-    const procesoLimpio = h.macroproceso || h.proceso || 'Sin Proceso';
+    const procesoLimpio = h.proceso || h.proceso || 'Sin Proceso';
     return { ...h, fechaReal, anioReal: fechaReal !== 'Sin Fecha' ? fechaReal.split('-')[0] : 'Sin Fecha', procesoLimpio };
   });
 
@@ -359,7 +359,7 @@ export default function Hallazgos({
                   </div>
                   
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Macroproceso</label>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">proceso</label>
                     <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
                       {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
@@ -495,7 +495,7 @@ export default function Hallazgos({
                                      <td className="py-2.5 font-mono font-black text-slate-700 align-top group-hover/row:text-red-700">{h.ref}</td>
                                      <td className="py-2.5 font-bold text-slate-600 pr-3 leading-tight align-top group-hover/row:text-red-900" title={h.titulo}>{h.titulo}</td>
                                      <td className="py-2.5 pr-3 leading-tight align-top">
-                                        <span className="block font-medium text-slate-500">{h.macroproceso || h.proceso}</span>
+                                        <span className="block font-medium text-slate-500">{h.proceso || h.proceso}</span>
                                         {h.subproceso && h.subproceso !== 'General' && <span className="block text-[8px] font-bold text-slate-400 mt-0.5">↳ {h.subproceso}</span>}
                                      </td>
                                      <td className="py-2.5 text-center align-top">
@@ -605,7 +605,7 @@ export default function Hallazgos({
           <form onSubmit={(e) => { handleHallazgoSubmit(e); setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
             {/* Input Oculto de Compatibilidad (Legacy) */}
-            <input type="hidden" name="proceso" value={macroprocesoForm} />
+            <input type="hidden" name="proceso" value={procesoForm} />
             
             {/* ================= FILA 1: DATOS MAESTROS REBALANCED (1 + 1 + 2 = 4) ================= */}
             <div className="md:col-span-1">
@@ -644,11 +644,11 @@ export default function Hallazgos({
             
             {/* 🔍 ROPROCESO */}
             <div className="md:col-span-1">
-               <label className="font-bold text-gray-600 block mb-1">Macroproceso</label>
+               <label className="font-bold text-gray-600 block mb-1">proceso</label>
                <select 
-                 name="macroproceso" 
-                 value={macroprocesoForm} 
-                 onChange={(e) => { setMacroprocesoForm(e.target.value); setSubprocesoForm('General'); }} 
+                 name="proceso" 
+                 value={procesoForm} 
+                 onChange={(e) => { setprocesoForm(e.target.value); setSubprocesoForm('General'); }} 
                  required 
                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700"
                >
@@ -666,10 +666,10 @@ export default function Hallazgos({
                  onChange={(e) => setSubprocesoForm(e.target.value)} 
                  required 
                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:opacity-50"
-                 disabled={!macroprocesoForm}
+                 disabled={!procesoForm}
                >
                  <option value="">-- Seleccione --</option>
-                 {(MAPA_PROCESOS[macroprocesoForm] || []).map(s => <option key={s} value={s}>{s}</option>)}
+                 {(MAPA_PROCESOS[procesoForm] || []).map(s => <option key={s} value={s}>{s}</option>)}
                </select>
             </div>
 
@@ -839,7 +839,7 @@ export default function Hallazgos({
                   
                   const refInforme = informeBase ? informeBase.ref : "INF-S/N";
                   const tituloInforme = informeBase ? informeBase.titulo : "Informe general o registros huérfanos";
-                  const procesoInforme = informeBase ? (informeBase.macroproceso || informeBase.proceso) : "Varios Procesos";
+                  const procesoInforme = informeBase ? (informeBase.proceso || informeBase.proceso) : "Varios Procesos";
                   const fechaInforme = informeBase ? informeBase.fecha : "Sin Fecha";
 
                   const nAbiertos = hzsDelInforme.filter(h => h.estado !== 'Cerrado').length;
@@ -889,7 +889,7 @@ export default function Hallazgos({
                                 </th>
                                 <th className="p-3 w-40">
                                   <div className="mb-1">PROCESO / SEDE</div>
-                                  <FilterInput colKey="macroproceso" placeholder="Filtrar Macro..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
+                                  <FilterInput colKey="proceso" placeholder="Filtrar Macro..." columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} />
                                 </th>
                                 <th className="p-3 w-2/5">
                                   <div className="mb-1">DESCRIPCIÓN DEL HALLAZGO</div>
@@ -913,7 +913,7 @@ export default function Hallazgos({
                                     <div className="text-[9px] text-slate-400 mt-0.5">INT-#{h.id}</div>
                                   </td>
                                   <td className="p-3">
-                                    <div className="font-bold text-slate-700 truncate max-w-[150px]" title={h.macroproceso || h.proceso}>{h.macroproceso || h.proceso}</div>
+                                    <div className="font-bold text-slate-700 truncate max-w-[150px]" title={h.proceso || h.proceso}>{h.proceso || h.proceso}</div>
                                     {h.subproceso && h.subproceso !== 'General' && <div className="text-[8px] text-slate-500 font-bold mt-0.5">↳ {h.subproceso}</div>}
                                     <div className="text-[9px] uppercase tracking-widest text-slate-400 font-black mt-1">{h.sede || 'Hotel'}</div>
                                   </td>
