@@ -211,7 +211,7 @@ export default function DashboardEjecutivo({
     items.forEach(item => {
       if (item.historialCambios && item.historialCambios.length > 0) {
         const last = item.historialCambios[item.historialCambios.length - 1];
-        allActivity.push({ timestamp: parseDateStr(last.fecha), fechaStr: last.fecha, accion: last.accion, usuario: last.usuario || 'Sistema', ref: item.ref || (item.id ? `${type.substring(0,3).toUpperCase()}-${String(item.id).substring(0,5)}` : 'N/A'), proceso: item.proceso || 'General', type, icon, colorClass });
+        allActivity.push({ timestamp: parseDateStr(last.fecha), fechaStr: last.fecha, accion: last.accion, usuario: last.usuario || 'Sistema', ref: item.ref || (item.id ? `${type.substring(0,3).toUpperCase()}-${String(item.id).substring(0,5)}` : 'N/A'), proceso: item.macroproceso || item.proceso || 'General', type, icon, colorClass });
       }
     });
   };
@@ -247,7 +247,20 @@ export default function DashboardEjecutivo({
   const pathMedios = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.med)}`).join(' ');
   const pathBajos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.baj)}`).join(' ');
 
-  const procesosCount = Object.entries(riesgosBase.reduce((acc, r) => { const proc = r.proceso || 'General / Otros'; acc[proc] = (acc[proc] || 0) + 1; return acc; }, {}));
+  // 🌟 NUEVA LÓGICA DE AGRUPACIÓN INTELIGENTE (MACRO + SUBPROCESO)
+  const procesosEstructurados = riesgosBase.reduce((acc, r) => {
+    const macro = r.macroproceso || r.proceso || 'General / Otros';
+    const sub = (r.subproceso && r.subproceso !== 'General') ? r.subproceso : null;
+    
+    if (!acc[macro]) acc[macro] = { count: 0, subprocesos: {} };
+    acc[macro].count += 1;
+    if (sub) {
+      acc[macro].subprocesos[sub] = (acc[macro].subprocesos[sub] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  const procesosCountArray = Object.entries(procesosEstructurados).sort((a,b) => b[1].count - a[1].count);
   const coloresMini = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7', '#06b6d4', '#ec4899'];
   let offsetCirculo = 0;
 
@@ -403,7 +416,7 @@ export default function DashboardEjecutivo({
           </div>       
         </div>
 
-        {/* CARDA 5 (Alineada a la izquierda para no salirse de pantalla) */}
+        {/* CARDA 5 */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
@@ -456,7 +469,7 @@ export default function DashboardEjecutivo({
                           <span>{cant}</span>
                         </div>
                       );
-                    })}                      
+                    })}                    
                   </div>
                 );
               })}
@@ -499,7 +512,8 @@ export default function DashboardEjecutivo({
               <div className="w-16 h-16 relative shrink-0">
                 <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                   <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
-                  {totalRiesgos > 0 && procesosCount.map(([proc, cant], idx) => {
+                  {totalRiesgos > 0 && procesosCountArray.map(([proc, data], idx) => {
+                    const cant = data.count;
                     const p = (cant / totalRiesgos) * 100;
                     const color = coloresMini[idx % coloresMini.length];
                     const dash = `${p} 100`;
@@ -513,17 +527,38 @@ export default function DashboardEjecutivo({
                    <span className="text-[7px] text-slate-400 font-bold leading-none mt-0.5">Total</span>
                 </div>
               </div>
-              <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400 overflow-y-auto max-h-20 scrollbar-none">
-                {procesosCount.map(([procesoNombre, cantidad], idx) => {
+              
+              {/* 🌟 LÓGICA DE DRIL-DOWN PARA MOSTRAR SUBPROCESOS */}
+              <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400 overflow-y-auto max-h-[130px] scrollbar-none pr-1">
+                {procesosCountArray.map(([procesoNombre, data], idx) => {
+                  const cantidad = data.count;
                   const porcentaje = Math.round((cantidad / totalRiesgos) * 100);
                   const colorActual = coloresMini[idx % coloresMini.length];
+                  
+                  // Extraer y ordenar subprocesos si existen
+                  const subs = Object.entries(data.subprocesos).sort((a,b) => b[1] - a[1]);
+
                   return (
-                    <div key={`proc-dist-${idx}`} className="flex justify-between items-center hover:bg-slate-800/50 p-0.5 rounded transition-colors">
-                      <span className="flex items-center truncate max-w-[140px]" title={procesoNombre}>
-                        <span className="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0" style={{ backgroundColor: colorActual }}></span>
-                        {procesoNombre}
-                      </span>
-                      <span className="text-white ml-2 shrink-0">{porcentaje}% ({cantidad})</span>
+                    <div key={`proc-dist-${idx}`} className="flex flex-col justify-center hover:bg-slate-800/50 p-1.5 rounded transition-colors border-b border-slate-800/50 last:border-0">
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center truncate max-w-[140px] font-black text-slate-200" title={procesoNombre}>
+                          <span className="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0" style={{ backgroundColor: colorActual }}></span>
+                          {procesoNombre}
+                        </span>
+                        <span className="text-white ml-2 shrink-0">{porcentaje}% ({cantidad})</span>
+                      </div>
+                      
+                      {/* Desplegable de Subprocesos */}
+                      {subs.length > 0 && (
+                        <div className="pl-3 mt-1 space-y-0.5">
+                          {subs.map(([subNombre, subCant]) => (
+                             <div key={subNombre} className="flex justify-between text-[8px] text-slate-500 font-medium">
+                               <span className="truncate max-w-[120px]">↳ {subNombre}</span>
+                               <span>{subCant}</span>
+                             </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -813,7 +848,7 @@ export default function DashboardEjecutivo({
             <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
               <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Cronograma Aprobado.</p>
               <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Visibilidad para agendar recursos logísticos en campo.</p>
-<p><b className="text-slate-200 uppercase">📝 Explicación:</b> Procesos oficiales con cumplimiento &lt; 100%.</p>
+              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Procesos oficiales con cumplimiento &lt; 100%.</p>
             </div>
           </div>
         </div>
@@ -872,12 +907,18 @@ export default function DashboardEjecutivo({
               return (
                 <div key={`risk-row-${idx}`} className="bg-[#060b16] border border-slate-800/80 p-3 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-slate-700 transition-all">
                   <div className="flex items-start space-x-3">
-                    <span className="bg-blue-600/10 text-blue-400 px-2 py-1 rounded-lg font-mono text-[10px] font-black border border-blue-500/10">
-                      {r.id ? `RSG-${r.id}` : `RSG-${idx + 101}`}
+                    <span className="bg-blue-600/10 text-blue-400 px-2 py-1 rounded-lg font-mono text-[10px] font-black border border-blue-500/10 mt-0.5">
+                      {r.id ? `RSG-${String(r.id).substring(0,4)}` : `RSG-${idx + 101}`}
                     </span>
                     <div>
-                      <h4 className="text-xs font-black text-slate-200">{r.proceso || 'Proceso No Asignado'} — <span className="font-semibold text-slate-400">{r.riesgo || r.descripcion || 'Riesgo sin descripción'}</span></h4>
-                      <p className="text-[9px] text-slate-500 font-medium mt-0.5">Factor/Causa: {r.factorRiesgo || r.causa || 'No especificada'} | Clasificación: {r.clasificacion || r.categoria || 'Operativo'}</p>
+                      {/* 🌟 AQUÍ SE IMPRIME EL MACRO Y EL SUBPROCESO DE FORMA ELEGANTE */}
+                      <h4 className="text-xs font-black text-slate-200">
+                        {r.macroproceso || r.proceso || 'Proceso No Asignado'} 
+                        {r.subproceso && r.subproceso !== 'General' && <span className="text-slate-500 font-bold ml-1.5 text-[10px]">↳ {r.subproceso}</span>}
+                        <span className="mx-1.5 text-slate-700">—</span> 
+                        <span className="font-semibold text-slate-400">{r.riesgo || r.descripcion || 'Riesgo sin descripción'}</span>
+                      </h4>
+                      <p className="text-[9px] text-slate-500 font-medium mt-0.5">Factor/Causa: {r.factorRiesgo || r.causa || 'No especificada'} | Clasificación: {r.clasificacion || r.clasificacionRiesgo || r.categoria || 'Operativo'}</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-4 text-right self-end sm:self-auto">
