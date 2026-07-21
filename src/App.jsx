@@ -163,10 +163,9 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
 
   // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
-    setSearchTerm('');
-    setColumnFilters({});
-    setFiltroHeatMap(null);
-  }, [activeTab]);
+  setSearchTerm('');
+  setColumnFilters({});
+}, [activeTab]);
 
   const handleColFilterChange = (key, value) => {
     setColumnFilters(prev => ({ ...prev, [key]: value }));
