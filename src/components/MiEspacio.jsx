@@ -90,14 +90,29 @@ export default function MiEspacio({
     return homologarProcesoUniversal(selectedProceso, PROCESOS_OFICIALES);
   }, [selectedProceso]);
 
+  // 🛑 FORZAR SCROLL ARRIBA AL CAMBIAR DE PROCESO O NAVEGAR
   useEffect(() => {
-    // Al seleccionar o cambiar de proceso, resetea el scroll para ver la pantalla desde arriba
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    const contenedorPrincipal = document.querySelector('.overflow-y-auto') || document.documentElement;
-    if (contenedorPrincipal) {
-      contenedorPrincipal.scrollTop = 0;
-    }
-  }, [selectedProceso]);
+    const resetearScroll = () => {
+      // 1. Resetear scroll del navegador
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+
+      // 2. Resetear scroll de contenedores internos (divs con overflow)
+      const contenedoresScroll = document.querySelectorAll('main, .main-content, .overflow-y-auto, [style*="overflow"]');
+      contenedoresScroll.forEach(el => {
+        el.scrollTop = 0;
+      });
+    };
+
+    // Ejecutar inmediatamente
+    resetearScroll();
+
+    // Ejecutar con un pequeño delay para ganar a cualquier auto-focus de React
+    const timer = setTimeout(resetearScroll, 100);
+
+    return () => clearTimeout(timer);
+  }, [procesoHomologado]);
 
   const expedienteSeleccionado = useMemo(() => {
     if (!procesoHomologado) return null;
