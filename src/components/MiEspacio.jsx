@@ -91,11 +91,11 @@ export default function MiEspacio({
   }, [selectedProceso]);
 
   useEffect(() => {
-    if (selectedProceso && expedienteRef.current) {
-      const timer = setTimeout(() => {
-        expedienteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 150);
-      return () => clearTimeout(timer);
+    // Al seleccionar o cambiar de proceso, resetea el scroll para ver la pantalla desde arriba
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const contenedorPrincipal = document.querySelector('.overflow-y-auto') || document.documentElement;
+    if (contenedorPrincipal) {
+      contenedorPrincipal.scrollTop = 0;
     }
   }, [selectedProceso]);
 
