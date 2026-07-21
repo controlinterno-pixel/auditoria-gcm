@@ -45,12 +45,15 @@ export const dbService = {
       const localKey = `grc_${coleccion}`;
       const localData = localStorage.getItem(localKey);
 
-      // 1. Si existen datos en LocalStorage, devolverlos
-      if (localData) {
-        return JSON.parse(localData);
+      // Convertimos los datos locales (si existen) o creamos un arreglo vacío
+      const parsedData = localData ? JSON.parse(localData) : [];
+
+      // 💡 SOLUCIÓN: Verificamos si realmente hay información (length > 0)
+      if (parsedData.length > 0) {
+        return parsedData;
       }
 
-      // 2. Si tampoco hay datos en LocalStorage, cargar datos semilla y guardarlos
+      // Si está vacío (o no existía), inyectamos los datos semilla
       const datosIniciales = DATOS_SEMILLA[coleccion] || [];
       localStorage.setItem(localKey, JSON.stringify(datosIniciales));
       return datosIniciales;
