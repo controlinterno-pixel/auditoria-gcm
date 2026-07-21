@@ -993,33 +993,6 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     setRiesgos(updatedList); setEditApetito(null); await saveToCloud({ riesgos: updatedList }); showNotification("Perfil de Apetito guardado.");
   };
 
-  // 🗑️ Eliminación Centralizada y asíncrona mediante dbService
-const handleDeleteItem = async (listType, id) => {
-  if (!isAdmin) return; 
-  if (!window.confirm('¿Eliminar registro permanentemente?')) return;
-
-  try {
-    // 1. Ejecuta la eliminación directa en dbService
-    await ejecutarPeticion(dbService.eliminar(listType, id));
-
-    // 2. Actualiza reactivamente el estado local en pantalla
-    const filtrar = (lista) => lista.filter(item => item.id !== id);
-
-    if (listType === 'riesgos') setRiesgos(prev => filtrar(prev));
-    if (listType === 'evaluaciones') setEvaluaciones(prev => filtrar(prev));
-    if (listType === 'hallazgos') setHallazgos(prev => filtrar(prev));
-    if (listType === 'planes') setPlanes(prev => filtrar(prev));
-    if (listType === 'incidentes') setIncidentes(prev => filtrar(prev));
-    if (listType === 'cronograma') setCronograma(prev => filtrar(prev));
-    if (listType === 'monitoreo') setMonitoreo(prev => filtrar(prev));
-    if (listType === 'informesAuditoria') setInformesAuditoria(prev => filtrar(prev));
-    if (listType === 'comites') setComites(prev => filtrar(prev));
-
-    showNotification("Registro eliminado con éxito.", "success");
-  } catch (error) {
-    showNotification(`Error al eliminar registro: ${error.message}`, "error");
-  }
-};
 
   const handleMonitoreoSubmit = async (e) => {
     e.preventDefault(); if (!isAdmin) return;
