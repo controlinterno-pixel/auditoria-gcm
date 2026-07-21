@@ -1,10 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
-} from 'firebase/auth'; 
+import { signOut, onAuthStateChanged } from 'firebase/auth'; 
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 // 🔥 NUEVA CONEXIÓN MODULAR Y SERVICIOS CENTRALIZADOS
 import { auth, db } from './services/firebase';
@@ -34,6 +29,9 @@ import MiEspacio from './components/MiEspacio';
 import ModalIA from './components/ModalIA';
 import ModalDetalleGrafico from './components/ModalDetalleGrafico';
 import WelcomeScreen from './components/WelcomeScreen';
+import AuthScreen from './components/AuthScreen';
+import { ProgressBar, Gauge, FilterInput, StepIndicatorHUD, HeaderFiltros } from './components/UIComponents';
+import Navbar from './components/Navbar';
 import { enviarCorreoGmail } from './services/gmailService';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
@@ -54,101 +52,6 @@ const ADMIN_EMAILS = [
 // =====================================================================
 // 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
 // =====================================================================
-
-// --- COMPONENTES VISUALES ---
-const ProgressBar = ({ progress }) => {
-  const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
-  let color = "bg-red-500";
-  if (safeProgress >= 40) color = "bg-amber-500";
-  if (safeProgress >= 80) color = "bg-emerald-500";
-  
-  return (
-    <div className="w-full">
-      <div className="flex justify-between text-[10px] font-bold mb-1">
-        <span className="text-slate-500">PROGRESO</span>
-        <span className="text-slate-800 notranslate" translate="no">{safeProgress}%</span>
-      </div>
-      <div className="w-full bg-slate-200 rounded-full h-2">
-        <div className={`${color} h-2 rounded-full transition-all duration-1000`} style={{ width: `${safeProgress}%` }}></div>
-      </div>
-    </div>
-  );
-};
-
-const Gauge = ({ value, label, sublabel, colorClass }) => {
-  const safeValue = Math.min(Math.max(Math.round(Number(value) || 0), 0), 100);
-  
-  // 💡 Lógica para identificar y mostrar el Tooltip (title) correcto
-  let tooltipText = "";
-  if (label === "MITIGACIÓN GLOBAL" || label === "PLANES DE ACCIÓN") {
-    tooltipText = "📍 ORIGEN: Planes de Acción\n❓ POR QUÉ: Mide el esfuerzo de mitigación\n📝 EXPLICACIÓN: Tareas y acciones correctivas que el equipo tiene actualmente en progreso o pendientes.";
-  } else if (label === "CONTROLES DE SALUD" || label === "SALUD DE CONTROLES") {
-    tooltipText = "📍 ORIGEN: Auditoría de Controles\n❓ POR QUÉ: Indica la cobertura de nuestro aseguramiento\n📝 EXPLICACIÓN: Porcentaje de controles que han sido evaluados frente al universo total de riesgos.";
-  }
-
-  return (
-    <div 
-      className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full hover:shadow-md transition-shadow cursor-help"
-      title={tooltipText}
-    >
-      <div className="relative w-32 h-32 flex items-center justify-center">
-        <svg className="w-full h-full transform -rotate-90">
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" 
-            strokeDasharray={339} strokeDashoffset={339 - (339 * safeValue) / 100}
-            className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
-        </svg>
-        <span className="absolute text-3xl font-black text-slate-800 notranslate" translate="no">{safeValue} %</span>
-      </div>
-      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
-      <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
-    </div>
-  );
-};
-
-const FilterInput = ({ colKey, placeholder, dark, columnFilters, handleColFilterChange }) => (
-  <input 
-    type="text" 
-    placeholder={placeholder || "Filtrar..."}
-    className={`mt-2 w-full text-[10px] px-2 py-1.5 font-medium rounded-md border focus:outline-none focus:ring-2 transition-all ${
-      dark 
-        ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:ring-blue-500' 
-        : 'bg-white border-slate-200 text-slate-800 placeholder-slate-400 focus:ring-[#004d40]'
-    }`}
-    value={columnFilters[colKey] || ''}
-    onChange={(e) => handleColFilterChange(colKey, e.target.value)}
-    onClick={(e) => e.stopPropagation()} 
-  />
-);
-// 🛤️ COMPONENTE ASISTENTE: BARRA DE PROGRESO DE FASE (STEPPER HUD)
-const StepIndicatorHUD = ({ activeStep }) => {
-  const steps = [
-    { label: "1. Planificación", key: "plan_anual_tab" },
-    { label: "2. Campo", key: "evaluaciones" },
-    { label: "3. Resultados", key: "resultados_tab" },
-    { label: "4. Planes", key: "planes_tab" },
-    { label: "5. Gobernanza", key: "gobernanza_tab" }
-  ];
-  return (
-    <div className="bg-[#0b1329] border-b border-slate-800 px-8 py-2.5 flex items-center justify-between gap-4 text-xs font-bold text-slate-400">
-      <span className="text-slate-400 text-[10px] uppercase tracking-wider font-black">Flujo de Trabajo GRC Activo:</span>
-      <div className="flex items-center space-x-3 overflow-x-auto py-0.5">
-        {steps.map((st, i) => {
-          const isCurrent = activeStep === st.key;
-          return (
-            <React.Fragment key={st.key}>
-              <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${isCurrent ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-900 border border-slate-800 text-slate-500'}`}>
-                <span>{i + 1}.</span>
-                <span>{st.label.split('. ')[1]}</span>
-              </div>
-              {i < steps.length - 1 && <span className="text-slate-700 font-bold">➔</span>}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
@@ -189,12 +92,6 @@ const { ejecutarPeticion, isLoading: isDbLoading, error: dbError } = useDataFetc
   const [auditorInput, setAuditorInput] = useState('');
   const [auditorRespuesta, setAuditorRespuesta] = useState('');
   const [isAuditorThinking, setIsAuditorThinking] = useState(false);
-
-// 🔐 ESTADOS DE AUTENTICACIÓN
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
 
   // ✏️ ESTADOS DE EDICIÓN Y COMPONENTES
   const [editRiesgo, setEditRiesgo] = useState(null);
@@ -368,14 +265,6 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     script.onload = () => setXlsxLoaded(true);
     document.head.appendChild(script);
   }, []);
-
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault(); setAuthError('');
-    try {
-      if (isRegistering) { await createUserWithEmailAndPassword(auth, authEmail, authPassword); }
-      else { await signInWithEmailAndPassword(auth, authEmail, authPassword); }
-    } catch (error) { setAuthError('Error en credenciales.'); }
-  };
 
 const handleLogout = async () => { 
     await signOut(auth); 
@@ -1248,443 +1137,11 @@ const handleDeleteItem = async (listType, id) => {
       setIsSubmitting(false);
     }
   };
-const renderHeaderFiltros = (titulo, subtitulo) => (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-50"></div>
-      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800">{titulo}</h2>
-          <p className="text-xs text-slate-500 font-bold mt-1">{subtitulo}</p>
-        </div>
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="flex flex-col">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Años de Análisis</label>
-            <div className="flex flex-wrap gap-2">
-              {defaultAnios.map(anio => (
-                <button key={`filt-anio-${anio}`} onClick={() => toggleAnio(anio)} className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all shadow-sm border ${selectedAnios.includes(anio) ? 'bg-slate-800 text-white border-slate-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
-                  {anio}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Meses de Análisis</label>
-            <div className="flex flex-wrap gap-1.5">
-              {defaultMeses.map(mes => (
-                <button key={`filt-mes-${mes}`} onClick={() => toggleMes(mes)} className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border shadow-sm notranslate ${selectedMeses.includes(mes) ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`} translate="no" title={mes}>
-                  {mes.substring(0,3)}
-                </button>
-              ))}
-            </div>
-          </div>
-          {(selectedAnios.length > 0 || selectedMeses.length > 0) && (
-            <div className="flex items-end">
-              <button onClick={() => { setSelectedAnios([]); setSelectedMeses([]); }} className="h-[30px] px-3 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg text-[10px] font-bold transition-colors">
-                Limpiar Filtros
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 
-  // =====================================================================
-  // RENDERS DE VISTAS (ADMIN INTERFACE)
-  // =====================================================================
-
-
-const renderConfiguracion = () => (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="border-b pb-4">
-        <h2 className="text-2xl font-black text-slate-800">⚙️ Configuración y Cargas Masivas</h2>
-        <p className="text-xs text-slate-500 font-bold mt-1">Gestión avanzada de la base de datos y copias de seguridad.</p>
-      </div>
-
-      <div className="bg-amber-50 p-6 rounded-3xl border border-amber-200">
-        <div className="flex justify-between items-center">
-           <div>
-              <h3 className="font-black text-amber-900 uppercase tracking-widest text-sm mb-1">🚀 Forzar Actualización de Cronograma (NUEVO)</h3>
-              <p className="text-xs text-amber-700 max-w-2xl">Utiliza este botón para borrar el cronograma de prueba antiguo de tu base de datos y cargar automáticamente los <b>procesos auditables</b> oficiales de Termales Santa Rosa.</p>
-           </div>
-           <button onClick={forceUpdateCronograma} className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase tracking-widest px-6 py-3 rounded-xl shadow-md transition-all">
-             Cargar Procesos
-           </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* NUEVO BOTON PARA IMPORTAR MATRIZ RIESGOS DESDE EXCEL */}
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-emerald-600">
-          <h3 className="font-black text-emerald-700 uppercase tracking-widest text-sm mb-4">📊 Cargar Matriz de Riesgos (Excel)</h3>
-          <p className="text-xs text-slate-600 mb-6">Sube un archivo .xlsx para actualizar masivamente <b>solo la Matriz de Riesgos</b>. Asegúrate de usar la plantilla descargada previamente.</p>
-          
-          <label className="block w-full cursor-pointer bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-black uppercase tracking-widest py-3 text-center rounded-xl shadow-sm border border-emerald-200 transition-all">
-            Seleccionar Archivo Excel
-            <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcelRiesgos} />
-          </label>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-          <h3 className="font-black text-slate-700 uppercase tracking-widest text-sm mb-4">📥 Exportar Backup (Descarga)</h3>
-          <p className="text-xs text-slate-600 mb-6">Descarga una copia completa de toda tu base de datos actual en formato JSON. Útil para tener respaldos de seguridad o para editar los datos masivamente en un editor de texto o Excel.</p>
-          <button onClick={exportToJSON} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black uppercase tracking-widest py-3 rounded-xl shadow-md transition-all">
-            Descargar Base de Datos (.JSON)
-          </button>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 border-t-4 border-t-red-600">
-          <h3 className="font-black text-red-600 uppercase tracking-widest text-sm mb-4">📤 Carga Masiva Completa DB</h3>
-          <p className="text-xs text-slate-600 mb-6">Sube un archivo JSON con la estructura correcta para actualizar masivamente. <b>ADVERTENCIA:</b> Esta acción borrará todos los datos actuales de todos los módulos.</p>
-          
-          <label className="block w-full cursor-pointer bg-red-50 hover:bg-red-100 text-red-700 font-black uppercase tracking-widest py-3 text-center rounded-xl shadow-sm border border-red-200 transition-all">
-            Seleccionar Archivo JSON
-            <input type="file" accept=".json" className="hidden" onChange={handleImportJSON} />
-          </label>
-        </div>
-      </div>
-      
-      <div className="bg-blue-50 p-6 rounded-3xl border border-blue-200">
-        <h3 className="font-black text-blue-800 uppercase tracking-widest text-sm mb-2">💡 ¿Cómo hacer una carga masiva desde Excel?</h3>
-        <ol className="list-decimal pl-5 text-xs text-blue-900 space-y-2 mt-4 font-medium">
-          <li>Ve a la pestaña <b>Matriz de Riesgos</b> y presiona el botón de <b>Exportar</b> para obtener la estructura actual en Excel.</li>
-          <li>Abre el Excel y agrega tus cientos de filas nuevas en el Excel asegurándote de no cambiar los nombres de las columnas (ej. <i>id, proceso, sede</i>).</li>
-          <li>Ve a esta pestaña de Configuración y usa el botón verde <b>Cargar Matriz de Riesgos (Excel)</b> para subir el archivo actualizado.</li>
-        </ol>
-      </div>
-    </div>
-  );
-
-const renderDashboardRiesgos = () => {
-    // 🧠 TRADUCTOR INTELIGENTE UNIVERSAL (Porcentajes y Textos del Manual)
-    const extraerNumeroPuro = (valor) => {
-      if (valor === undefined || valor === null || valor === '') return 0;
-      
-      const str = String(valor).toLowerCase().trim();
-      
-      // 🟢 SI YA ES UN PORCENTAJE NUMÉRICO DIRECTO (20, 40, 60, 80, 100)
-      if (str === '20') return 1;
-      if (str === '40') return 2;
-      if (str === '60') return 3;
-      if (str === '80') return 4;
-      if (str === '100') return 5;
-      if (str === '0') return 1; // Control de seguridad por si baja a cero
-
-      // 🔵 SI VIENE COMO TEXTO DEL EXCEL ANTERIOR
-      const num = parseInt(str.charAt(0), 10);
-      if (!isNaN(num) && num >= 1 && num <= 5) return num;
-      
-      if (str.includes('rara') || str.includes('muy baja')) return 1;
-      if (str.includes('improbable') || str.includes('baja')) return 2;
-      if (str.includes('posible') || str.includes('media')) return 3;
-      if (str.includes('probable') || str.includes('alta')) return 4;
-      if (str.includes('casi seguro') || str.includes('muy alta')) return 5;
-      
-      if (str.includes('insignificante') || str.includes('leve')) return 1;
-      if (str.includes('menor')) return 2;
-      if (str.includes('moderado') || stroke.includes('medio')) return 3;
-      if (str.includes('mayor') || str.includes('alto')) return 4;
-      if (str.includes('catastrófico') || str.includes('crítico')) return 5;
-      
-      return 0;
-    };
-
-    // Copia de los riesgos con los números traducidos con total precisión
-    const riesgosLimpiosParaMatriz = (rFiltrados || []).map(r => ({
-      ...r,
-      probabilidadResidual: extraerNumeroPuro(r.probabilidadResidual),
-      impactoResidual: extraerNumeroPuro(r.impactoResidual),
-      probabilidadInherente: extraerNumeroPuro(r.probabilidadInherente),
-      impactoInherente: extraerNumeroPuro(r.impactoInherente)
-    }));
-
-    return (
-      <DashboardRiesgos 
-        tipoMatriz={tipoMatriz}
-        rFiltrados={riesgosLimpiosParaMatriz} 
-        incFiltrados={incFiltrados}
-        hFiltrados={hFiltrados}
-        calcularMatriz5x5={calcularMatriz5x5}
-        getItemMesText={getItemMesText}
-        selectedAnios={selectedAnios}
-        setChartDetail={setChartDetail}
-        filtroHeatMap={filtroHeatMap}
-        setFiltroHeatMap={setFiltroHeatMap}
-        searchTerm={searchTerm}
-        columnFilters={columnFilters}
-        applyFilters={applyFilters}
-        renderHeaderFiltros={renderHeaderFiltros}
-      />
-    );
-  };    
-const renderPlanAnual = () => {
-    return (
-      <PlanAnual 
-        isAdmin={isAdmin}
-        cFiltrados={cFiltrados}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        columnFilters={columnFilters}
-        handleColFilterChange={handleColFilterChange}
-        FilterInput={FilterInput}
-        applyFilters={applyFilters}
-        editCronograma={editCronograma}
-        setEditCronograma={setEditCronograma}
-        handleCronogramaSubmit={handleCronogramaSubmit}
-        formResetKey={formResetKey}
-        setFormResetKey={setFormResetKey}
-        scrollToForm={scrollToForm}
-        handleDeleteItem={handleDeleteItem}
-        safeMonitoreo={safeMonitoreo}
-        editMonitoreo={editMonitoreo}
-        setEditMonitoreo={setEditMonitoreo}
-        handleMonitoreoSubmit={handleMonitoreoSubmit}
-        selectedAnios={selectedAnios}
-        renderHeaderFiltros={renderHeaderFiltros}
-      />
-    );
-  };  
-  const renderRiesgos = () => {
-    return (
-      <Riesgos 
-        isAdmin={isAdmin}
-        editRiesgo={editRiesgo}
-        setEditRiesgo={setEditRiesgo}
-        handleRiesgoSubmit={handleRiesgoSubmit}
-        setFormResetKey={setFormResetKey}
-        scrollToForm={scrollToForm}
-        handleDeleteItem={handleDeleteItem}
-        applyFilters={applyFilters}
-        FilterInput={FilterInput}
-        rFiltrados={rFiltrados}
-        calcularMatriz5x5={calcularMatriz5x5}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        columnFilters={columnFilters}
-        handleColFilterChange={handleColFilterChange}
-        exportToExcel={exportToExcel}
-        safeRiesgos={safeRiesgos}
-      />
-    );
-  };
-const renderApetito = () => {
-    return (
-      <Apetito 
-        isAdmin={isAdmin}
-        editApetito={editApetito}
-        setEditApetito={setEditApetito}
-        handleApetitoSubmit={handleApetitoSubmit}
-        activeTooltip={activeTooltip}
-        setActiveTooltip={setActiveTooltip}
-        setFormResetKey={setFormResetKey}
-        formResetKey={formResetKey}
-        scrollToForm={scrollToForm}
-        rFiltrados={rFiltrados}
-        incFiltrados={incFiltrados}
-        calcularMatriz5x5={calcularMatriz5x5}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        columnFilters={columnFilters}
-        handleColFilterChange={handleColFilterChange}
-        FilterInput={FilterInput}
-        applyFilters={applyFilters}
-      />
-    );
-  };
-  const renderEvaluaciones = () => {
-    return (
-      <Evaluaciones 
-        isAdmin={isAdmin}
-        editEvaluacion={editEvaluacion}
-        setEditEvaluacion={setEditEvaluacion}
-        handleAuthorizationSubmit={handleEvaluacionSubmit} // Asegura que invoque handleEvaluacionSubmit
-        handleEvaluacionSubmit={handleEvaluacionSubmit}
-        safeRiesgos={safeRiesgos}
-        user={user}
-        analizarEvidenciaIA={analizarEvidenciaIA}
-        safeEvaluaciones={safeEvaluaciones}
-        formatSafeDate={formatSafeDate}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        columnFilters={columnFilters}
-        handleColFilterChange={handleColFilterChange}
-        FilterInput={FilterInput}
-        applyFilters={applyFilters}
-        setFormResetKey={setFormResetKey}
-        scrollToForm={scrollToForm}
-        handleDeleteItem={handleDeleteItem}
-      />
-    );
-  };
-  
-const renderHallazgos = () => {
-  return (
-    <Hallazgos 
-      isAdmin={isAdmin}
-      informesAuditoria={informesAuditoria} // 🟢 Envía los informes a la vista
-      editHallazgo={editHallazgo}
-      setEditHallazgo={setEditHallazgo}
-      handleHallazgoSubmit={handleHallazgoSubmit}
-      setFormResetKey={setFormResetKey}
-      scrollToForm={scrollToForm}
-      handleDeleteItem={handleDeleteItem}
-      applyFilters={applyFilters}
-      hFiltrados={hFiltrados}
-      searchTerm={searchTerm}
-      setSearchTerm={setSearchTerm}
-      columnFilters={columnFilters}
-      handleColFilterChange={handleColFilterChange}
-      FilterInput={FilterInput}
-    />
-  );
-};
-
-const renderPlanes = () => {
-    return (
-      <Planes 
-ejecutarDespachoGmailApi={ejecutarDespachoGmailApi}
-handleAprobarCierrePlan={handleAprobarCierrePlan}
-        isAdmin={isAdmin}
-        editPlan={editPlan}
-        setEditPlan={setEditPlan}
-        handlePlanSubmit={handlePlanSubmit}
-        formResetKey={formResetKey}
-        setFormResetKey={setFormResetKey}
-        scrollToForm={scrollToForm}
-        handleDeleteItem={handleDeleteItem}
-        applyFilters={applyFilters}
-        FilterInput={FilterInput}
-        pFiltrados={pFiltrados}
-        safeHallazgos={safeHallazgos}
-        setHallazgos={setHallazgos}
-        safePlanes={safePlanes} 
-        setPlanes={setPlanes}   
-        saveToCloud={saveToCloud} 
-        formatSafeDate={formatSafeDate}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        columnFilters={columnFilters}
-        handleColFilterChange={handleColFilterChange}
-        informesAuditoria={informesAuditoria} 
-        defaultAnios={defaultAnios}
-        defaultMeses={defaultMeses}
-        selectedAnios={selectedAnios}
-        selectedMeses={selectedMeses}
-        toggleAnio={toggleAnio}
-        toggleMes={toggleMes}
-        setSelectedAnios={setSelectedAnios}
-        setSelectedMeses={setSelectedMeses}
-selectAllAnios={() => setSelectedAnios([...defaultAnios])}
-        clearAllAnios={() => setSelectedAnios([])}
-        selectAllMeses={() => setSelectedMeses([...defaultMeses])}
-        clearAllMeses={() => setSelectedMeses([])}
-        onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
-          try {
-            const ts = new Date().toLocaleString();
-            const logTrazabilidad = {
-              fecha: ts,
-              usuario: user?.email || 'Usuario',
-              accion: `Fase de Gobernanza actualizada a: ${nuevoEstadoWorkflow}`
-            };
-
-            const planActual = safePlanes.find(p => p.id === id);
-            if (!planActual) return;
-
-            const planModificado = {
-              ...planActual,
-              estadoWorkflow: nuevoEstadoWorkflow,
-              historialCambios: [...(planActual.historialCambios || []), logTrazabilidad]
-            };
-
-            const updatedList = safePlanes.map(p => p.id === id ? planModificado : p);
-            setPlanes(updatedList);
-            await saveToCloud({ planes: updatedList });
-
-            setEditPlan(planModificado);
-            setFormResetKey(Date.now());
-
-// 🟢 DISPARADOR GMAIL API INTEGRADO (PLAN DE ACCIÓN EN REVISIÓN)
-            if (nuevoEstadoWorkflow === 'En Revisión') {
-              await ejecutarDespachoGmailApi({
-                ref_consecutivo: `PLAN-${id}`,
-                titulo_informe: 'Plan de Acción Publicado Listo para Validación',
-                proceso_auditado: planModificado.accion.substring(0, 50) + '...',
-                enlace_pdf: 'https://auditoria-gcm.vercel.app',
-                destinatarios: 'controlinterno@termales.com.co'
-              });
-            }           
-
-            if (nuevoEstadoWorkflow === 'En Revisión') {
-               showNotification("Plan enviado a revisión y administrador notificado.");
-            } else {
-               showNotification(`Fase del plan actualizada a: ${nuevoEstadoWorkflow}`);
-            }
-            
-          } catch (err) {
-            console.error("Error al actualizar la fase del Workflow:", err);
-            alert("Hubo un error al actualizar el estado. Revisa la consola.");
-          }
-        }}
-      />
-    );
-  };
-
- const renderIncidentes = () => {
-    return (
-      <Incidentes 
-        incFiltrados={incFiltrados}
-        isAdmin={isAdmin}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        columnFilters={columnFilters}
-        handleColFilterChange={handleColFilterChange}
-        editIncidente={editIncidente}
-        setEditIncidente={setEditIncidente}
-        handleIncidenteSubmit={handleIncidenteSubmit}
-        formResetKey={formResetKey}
-        setFormResetKey={setFormResetKey}
-        scrollToForm={scrollToForm}
-        handleDeleteItem={handleDeleteItem}
-        applyFilters={applyFilters}
-        FilterInput={FilterInput}
-        safeRiesgos={safeRiesgos} 
-      />
-    );
-  };
-  const renderInforme = () => {
-    return (
-      <Trazabilidad 
-        safeRiesgos={safeRiesgos}
-        safeEvaluaciones={safeEvaluaciones}
-        safeHallazgos={safeHallazgos}
-        safePlanes={safePlanes}
-        safeIncidentes={safeIncidentes}
-      />
-    );
-  };
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
-  if (!user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
-        <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
-          <div className="text-center"><span className="text-5xl block animate-bounce">🛡️</span><h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2><p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p></div>
-          <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
-            {authError && <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-medium">⚠️ {authError}</div>}
-            <div className="space-y-3">
-              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Correo</label><input type="email" required value={authEmail} onChange={e => setAuthEmail(e.target.value)} placeholder="tu_correo@termales.com.co" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
-              <div><label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label><input type="password" required value={authPassword} onChange={e => setAuthPassword(e.target.value)} placeholder="••••••••" className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"/></div>
-            </div>
-            <button type="submit" className="w-full flex justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-xs font-bold text-white shadow-md">{isRegistering ? 'Crear Cuenta' : 'Ingresar al Portal'}</button>
-          </form>
-          <div className="text-center pt-2 border-t"><button onClick={() => {setIsRegistering(!isRegistering); setAuthError('');}} className="text-xs font-bold text-blue-600">{isRegistering ? '¿Ya tiene cuenta? Iniciar Sesión' : '¿No tiene acceso? Regístrese aquí'}</button></div>
-        </div>
-      </div>
-    );
-  }
-
+  if (!user) return <AuthScreen />;
 if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
 if (showWelcome) {
   return (
@@ -1787,33 +1244,16 @@ if (showWelcome) {
       </div>
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
-{/* HEADER SUPERIOR */}
-        <header className={`bg-white border-b h-20 items-center justify-between px-8 shadow-sm flex-shrink-0 z-10 ${isPresentationMode ? 'hidden' : 'flex'}`}>
-          <div className="flex items-center space-x-4 bg-slate-100/80 backdrop-blur-md px-6 py-2.5 rounded-full border border-slate-200 shadow-sm transition-all hover:bg-slate-200/80">
-            {/* Logo Corporativo */}
-            <img 
-              src="/logo_termales.png.png" 
-              alt="Logo Termales" 
-              className="h-10 w-auto object-contain drop-shadow-sm transition-transform hover:scale-105" 
-              onError={(e) => { e.target.style.display = 'none'; }} 
-            />
-            
-            {/* Separador vertical sutil */}
-            <div className="h-8 w-px bg-slate-300 hidden sm:block"></div>
-            
-            {/* Texto Corporativo */}
-            <span className="text-xs font-black text-slate-600 uppercase tracking-widest hidden sm:inline-block">
-              Termales de Santa Rosa de Cabal — Sistema de Gestión Integral
-            </span>
-          </div>   
-          
-          <button 
-            onClick={() => setIsPresentationMode(true)} 
-            className="bg-slate-800 text-white hover:bg-slate-700 px-5 py-2.5 rounded-xl text-xs font-bold transition-colors flex items-center space-x-2 shadow-md"
-          >
-            <span>📺</span><span>Modo Presentación</span>
-          </button>
-        </header>
+<Navbar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          user={user} 
+          handleLogout={handleLogout} 
+          dbConnected={isCloudLoaded} 
+          currentUserRole={isAdmin ? 'Administrador' : 'Usuario'} 
+          isPresentationMode={isPresentationMode}
+          setIsPresentationMode={setIsPresentationMode}
+        />
 {/*  Tracks de gobernanza guiada del Workflow en la cabecera */}
         {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}
         
@@ -1910,7 +1350,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                 />
               );
             })()}
-            {/* 1️⃣ FASE DE PLANIFICACIÓN (Subpestañas Anidadas) */}
+{/* 1️⃣ FASE DE PLANIFICACIÓN */}
             {activeTab === 'plan_anual_tab' && (
               <div className="space-y-6">
                 <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
@@ -1918,16 +1358,51 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                   <button onClick={() => setSubTabPlanificar('riesgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'riesgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚠️ Matriz de Riesgos</button>
                   <button onClick={() => setSubTabPlanificar('apetito')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'apetito' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚖️ Apetito de Riesgo</button>
                 </div>
-                {subTabPlanificar === 'plan_anual' && renderPlanAnual()}
-                {subTabPlanificar === 'riesgos' && renderRiesgos()}
-                {subTabPlanificar === 'apetito' && renderApetito()}
+                {subTabPlanificar === 'plan_anual' && (
+                  <PlanAnual 
+                    isAdmin={isAdmin} cFiltrados={cFiltrados} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                    columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}
+                    applyFilters={applyFilters} editCronograma={editCronograma} setEditCronograma={setEditCronograma}
+                    handleCronogramaSubmit={handleCronogramaSubmit} formResetKey={formResetKey} setFormResetKey={setFormResetKey}
+                    scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} safeMonitoreo={safeMonitoreo}
+                    editMonitoreo={editMonitoreo} setEditMonitoreo={setEditMonitoreo} handleMonitoreoSubmit={handleMonitoreoSubmit}
+                    selectedAnios={selectedAnios} renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
+                  />
+                )}
+                {subTabPlanificar === 'riesgos' && (
+                  <Riesgos 
+                    isAdmin={isAdmin} editRiesgo={editRiesgo} setEditRiesgo={setEditRiesgo} handleRiesgoSubmit={handleRiesgoSubmit}
+                    setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
+                    applyFilters={applyFilters} FilterInput={FilterInput} rFiltrados={rFiltrados} calcularMatriz5x5={calcularMatriz5x5}
+                    searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
+                    exportToExcel={exportToExcel} safeRiesgos={safeRiesgos}
+                  />
+                )}
+                {subTabPlanificar === 'apetito' && (
+                  <Apetito 
+                    isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
+                    activeTooltip={activeTooltip} setActiveTooltip={setActiveTooltip} setFormResetKey={setFormResetKey} formResetKey={formResetKey}
+                    scrollToForm={scrollToForm} rFiltrados={rFiltrados} incFiltrados={incFiltrados} calcularMatriz5x5={calcularMatriz5x5}
+                    searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
+                    FilterInput={FilterInput} applyFilters={applyFilters}
+                  />
+                )}
               </div>
             )}
 
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
-            {activeTab === 'evaluaciones' && renderEvaluaciones()}
+            {activeTab === 'evaluaciones' && (
+              <Evaluaciones 
+                isAdmin={isAdmin} editEvaluacion={editEvaluacion} setEditEvaluacion={setEditEvaluacion}
+                handleAuthorizationSubmit={handleEvaluacionSubmit} handleEvaluacionSubmit={handleEvaluacionSubmit}
+                safeRiesgos={safeRiesgos} user={user} analizarEvidenciaIA={analizarEvidenciaIA} safeEvaluaciones={safeEvaluaciones}
+                formatSafeDate={formatSafeDate} searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters}
+                handleColFilterChange={handleColFilterChange} FilterInput={FilterInput} applyFilters={applyFilters}
+                setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
+              />
+            )}
 
-            {/* 3️⃣ FASE DE RESULTADOS & BRECHAS (Subpestañas Anidadas) */}
+            {/* 3️⃣ FASE DE RESULTADOS & BRECHAS */}
             {activeTab === 'resultados_tab' && (
               <div className="space-y-6">
                 <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
@@ -1936,53 +1411,85 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                     <button onClick={() => setSubTabResultados('informes')} className={`px-4 py-2 rounded-xl transition-all ${subTabResultados === 'informes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📁 Informes Emitidos</button>
                   )}
                 </div>
-                {subTabResultados === 'hallazgos' && renderHallazgos()}
+                {subTabResultados === 'hallazgos' && (
+                  <Hallazgos 
+                    isAdmin={isAdmin} informesAuditoria={informesAuditoria} editHallazgo={editHallazgo} setEditHallazgo={setEditHallazgo}
+                    handleHallazgoSubmit={handleHallazgoSubmit} setFormResetKey={setFormResetKey} scrollToForm={scrollToForm}
+                    handleDeleteItem={handleDeleteItem} applyFilters={applyFilters} hFiltrados={hFiltrados} searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}
+                  />
+                )}
                 {subTabResultados === 'informes' && isAdmin && (
                   <InformesAuditoria 
-                    informesAuditoria={informesAuditoria}
-                    setInformesAuditoria={setInformesAuditoria}
-                    editInformeAuditoria={editInformeAuditoria}
-                    setEditInformeAuditoria={setEditInformeAuditoria}
-                    isAdmin={isAdmin}
-                    user={user}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    columnFilters={columnFilters}
-                    handleColFilterChange={handleColFilterChange}
-                    exportToExcel={exportToExcel}
-                    handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit}
-                    isSubmitting={isSubmitting}
-                    setFormResetKey={setFormResetKey}
-                    scrollToForm={scrollToForm}
-                    handleDeleteItem={handleDeleteItem}
-                    applyFilters={applyFilters}
-                    FilterInput={FilterInput}
-                    safeHallazgos={safeHallazgos}
-                    safePlanes={safePlanes}
-                    formatSafeDate={formatSafeDate}
-                    auditoresLista={auditoresLista}
-                    onActualizarAuditores={async (nuevaLista) => {
-                      setAuditoresLista(nuevaLista);
-                      await saveToCloud({ auditoresLista: nuevaLista });
-                    }}
+                    informesAuditoria={informesAuditoria} setInformesAuditoria={setInformesAuditoria} editInformeAuditoria={editInformeAuditoria}
+                    setEditInformeAuditoria={setEditInformeAuditoria} isAdmin={isAdmin} user={user} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                    columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} exportToExcel={exportToExcel}
+                    handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit} isSubmitting={isSubmitting} setFormResetKey={setFormResetKey}
+                    scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters} FilterInput={FilterInput}
+                    safeHallazgos={safeHallazgos} safePlanes={safePlanes} formatSafeDate={formatSafeDate} auditoresLista={auditoresLista}
+                    onActualizarAuditores={async (nuevaLista) => { setAuditoresLista(nuevaLista); await saveToCloud({ auditoresLista: nuevaLista }); }}
                   />
                 )}
               </div>
             )}
 
-            {/* 4️⃣ FASE DE PLANES DE ACCIÓN (Subpestañas Anidadas) */}
+            {/* 4️⃣ FASE DE PLANES DE ACCIÓN */}
             {activeTab === 'planes_tab' && (
               <div className="space-y-6">
                 <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
                   <button onClick={() => setSubTabPlanes('planes')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanes === 'planes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>✅ Seguimiento de Planes</button>
                   <button onClick={() => setSubTabPlanes('incidentes')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanes === 'incidentes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🚨 Eventos de Pérdida</button>
                 </div>
-                {subTabPlanes === 'planes' && renderPlanes()}
-                {subTabPlanes === 'incidentes' && renderIncidentes()}
+                {subTabPlanes === 'planes' && (
+                  <Planes 
+                    ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin}
+                    editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
+                    setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
+                    FilterInput={FilterInput} pFiltrados={pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}
+                    safePlanes={safePlanes} setPlanes={setPlanes} saveToCloud={saveToCloud} formatSafeDate={formatSafeDate}
+                    searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
+                    informesAuditoria={informesAuditoria} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios}
+                    selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses}
+                    selectAllAnios={() => setSelectedAnios([...defaultAnios])} clearAllAnios={() => setSelectedAnios([])}
+                    selectAllMeses={() => setSelectedMeses([...defaultMeses])} clearAllMeses={() => setSelectedMeses([])}
+                    onUpdateItemStatus={async (coleccion, id, nuevoEstadoWorkflow) => {
+                      try {
+                        const ts = new Date().toLocaleString();
+                        const logTrazabilidad = { fecha: ts, usuario: user?.email || 'Usuario', accion: `Fase de Gobernanza actualizada a: ${nuevoEstadoWorkflow}` };
+                        const planActual = safePlanes.find(p => p.id === id);
+                        if (!planActual) return;
+                        const planModificado = { ...planActual, estadoWorkflow: nuevoEstadoWorkflow, historialCambios: [...(planActual.historialCambios || []), logTrazabilidad] };
+                        const updatedList = safePlanes.map(p => p.id === id ? planModificado : p);
+                        setPlanes(updatedList);
+                        await saveToCloud({ planes: updatedList });
+                        setEditPlan(planModificado);
+                        setFormResetKey(Date.now());
+                        if (nuevoEstadoWorkflow === 'En Revisión') {
+                          await ejecutarDespachoGmailApi({ ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: 'https://auditoria-gcm.vercel.app', destinatarios: 'controlinterno@termales.com.co' });
+                          showNotification("Plan enviado a revisión y administrador notificado.");
+                        } else {
+                          showNotification(`Fase del plan actualizada a: ${nuevoEstadoWorkflow}`);
+                        }
+                      } catch (err) {
+                        console.error("Error al actualizar la fase del Workflow:", err);
+                        alert("Hubo un error al actualizar el estado. Revisa la consola.");
+                      }
+                    }}
+                  />
+                )}
+                {subTabPlanes === 'incidentes' && (
+                  <Incidentes 
+                    incFiltrados={incFiltrados} isAdmin={isAdmin} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                    columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} editIncidente={editIncidente}
+                    setEditIncidente={setEditIncidente} handleIncidenteSubmit={handleIncidenteSubmit} formResetKey={formResetKey}
+                    setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
+                    applyFilters={applyFilters} FilterInput={FilterInput} safeRiesgos={safeRiesgos}
+                  />
+                )}
               </div>
             )}
 
-            {/* 5️⃣ FASE DE GOBERNANZA, COMITÉS Y CIERRE (Subpestañas Anidadas) */}
+            {/* 5️⃣ FASE DE GOBERNANZA, COMITÉS Y CIERRE */}
             {activeTab === 'gobernanza_tab' && (
               <div className="space-y-6">
                 <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
@@ -1993,29 +1500,30 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                 </div>
                 {subTabGobernanza === 'comites' && (
                   <Comites 
-                    isAdmin={isAdmin}
-                    editComite={editComite}
-                    setEditComite={setEditComite}
-                    handleComiteSubmit={handleComiteSubmit}
-                    setFormResetKey={setFormResetKey}
-                    formResetKey={formResetKey}
-                    scrollToForm={scrollToForm}
-                    handleDeleteItem={handleDeleteItem}
-                    applyFilters={applyFilters}
-                    comitesFiltrados={comitesFiltrados}
-                    searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm}
-                    columnFilters={columnFilters}
-                    handleColFilterChange={handleColFilterChange}
-                    FilterInput={FilterInput}
+                    isAdmin={isAdmin} editComite={editComite} setEditComite={setEditComite} handleComiteSubmit={handleComiteSubmit}
+                    setFormResetKey={setFormResetKey} formResetKey={formResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
+                    applyFilters={applyFilters} comitesFiltrados={comitesFiltrados} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                    columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}
                   />
                 )}
-                {subTabGobernanza === 'trazabilidad' && isAdmin && renderInforme()}
+                {subTabGobernanza === 'trazabilidad' && isAdmin && (
+                  <Trazabilidad 
+                    safeRiesgos={safeRiesgos} safeEvaluaciones={safeEvaluaciones} safeHallazgos={safeHallazgos}
+                    safePlanes={safePlanes} safeIncidentes={safeIncidentes}
+                  />
+                )}
               </div>
             )}
 
             {/* ⚙️ CONFIGURACIÓN */}
-            {activeTab === 'config' && renderConfiguracion()}
+            {activeTab === 'config' && (
+              <Configuracion 
+                forceUpdateCronograma={forceUpdateCronograma}
+                handleImportExcelRiesgos={handleImportExcelRiesgos}
+                exportToJSON={exportToJSON}
+                handleImportJSON={handleImportJSON}
+              />
+            )}
           </div>
         </main>
       </div>
