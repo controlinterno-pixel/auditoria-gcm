@@ -4,14 +4,20 @@ export default function Navbar({ isPresentationMode, setIsPresentationMode }) {
   return (
     <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
       
-      {/* Espaciador izquierdo para centrar perfectamente la píldora */}
+      {/* Espaciador izquierdo para mantener la píldora centrada */}
       <div className="flex-1"></div>
 
-      {/* Título Central Corporativo (Píldora) */}
+      {/* Título Central Corporativo (Píldora con Logo) */}
       <div className="flex justify-center">
         <div className="bg-slate-50 border border-slate-200 rounded-full px-8 py-2 flex items-center space-x-3 shadow-sm">
-          {/* Si tienes un logo local en tu proyecto, puedes cambiar este emoji por una etiqueta <img /> */}
-          <div className="text-teal-600 text-xl">♨️</div>
+          
+          {/* LOGO DE TERMALES */}
+          <img 
+            src="/logo.png" 
+            alt="Logo Termales" 
+            className="h-8 w-auto object-contain" 
+          />
+          
           <span className="text-xs font-black text-slate-700 tracking-widest uppercase">
             Termales de Santa Rosa de Cabal — Sistema de Gestión Integral
           </span>
