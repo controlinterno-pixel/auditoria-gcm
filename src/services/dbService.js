@@ -1,26 +1,32 @@
 /**
  * 🗄️ dbService.js - Capa Centralizada de Datos para GRC
- * Encargada de comunicarse con la base de datos o backend central.
+ * Incluye respaldo (fallback) en LocalStorage si la API falla o da 404.
  */
 
-// URL base del backend o servicio de persistencia
 const BASE_URL = 'https://repos.termalessantarosa.com.co/api/grc';
 
 export const dbService = {
   /**
-   * 📥 Obtener todos los elementos de una colección (Ej: "riesgos", "incidentes")
+   * 📥 Obtener todos los elementos de una colección
    */
   async obtenerTodos(coleccion) {
-    const response = await fetch(`${BASE_URL}/${coleccion}`);
-    if (!response.ok) {
-      throw new Error(`Error al consultar la colección: ${coleccion}`);
+    try {
+      const response = await fetch(`${BASE_URL}/${coleccion}`);
+      if (!response.ok) {
+        throw new Error(`Servidor devolvió status ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.warn(`⚠️ No se pudo conectar a la API para '${coleccion}'. Cargando desde LocalStorage.`, error);
+      
+      // Respaldo en LocalStorage
+      const localData = localStorage.getItem(`grc_${coleccion}`);
+      return localData ? JSON.parse(localData) : [];
     }
-    return await response.json();
   },
 
   /**
-   * 💾 Guardar o Actualizar un registro (Reemplaza la lógica dispersa de saveToCloud)
-   * Detecta automáticamente si es CREAR (POST) o ACTUALIZAR (PUT) si trae ID.
+   * 💾 Guardar o Actualizar un registro
    */
   async guardarOActualizar(coleccion, registro) {
     const esEdicion = Boolean(registro.id);
@@ -30,33 +36,51 @@ export const dbService = {
     
     const method = esEdicion ? 'PUT' : 'POST';
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(registro),
-    });
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registro),
+      });
 
-    if (!response.ok) {
-      throw new Error(`No se pudo ${esEdicion ? 'actualizar' : 'crear'} el registro en ${coleccion}.`);
+      if (!response.ok) throw new Error('Error en backend');
+      return await response.json();
+    } catch (error) {
+      console.warn(`⚠️ Error de red al guardar en API (${coleccion}). Guardando localmente.`, error);
+
+      // Respaldo de guardado en LocalStorage
+      const localData = JSON.parse(localStorage.getItem(`grc_${coleccion}`) || '[]');
+      let actualizados;
+
+      if (esEdicion) {
+        actualizados = localData.map(item => item.id === registro.id ? registro : item);
+      } else {
+        const nuevoRegistro = { ...registro, id: registro.id || Date.now().toString() };
+        actualizados = [...localData, nuevoRegistro];
+      }
+
+      localStorage.setItem(`grc_${coleccion}`, JSON.stringify(actualizados));
+      return registro;
     }
-
-    return await response.json();
   },
 
   /**
    * 🗑️ Eliminar un registro por ID
    */
   async eliminar(coleccion, id) {
-    const response = await fetch(`${BASE_URL}/${coleccion}/${id}`, {
-      method: 'DELETE',
-    });
+    try {
+      const response = await fetch(`${BASE_URL}/${coleccion}/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Error al eliminar en backend');
+      return await response.json();
+    } catch (error) {
+      console.warn(`⚠️ Error de red al eliminar. Actualizando LocalStorage.`, error);
 
-    if (!response.ok) {
-      throw new Error(`Error al eliminar el registro #${id} de ${coleccion}.`);
+      const localData = JSON.parse(localStorage.getItem(`grc_${coleccion}`) || '[]');
+      const filtrados = localData.filter(item => item.id !== id);
+      localStorage.setItem(`grc_${coleccion}`, JSON.stringify(filtrados));
+      return { success: true, id };
     }
-
-    return await response.json();
   }
 };
