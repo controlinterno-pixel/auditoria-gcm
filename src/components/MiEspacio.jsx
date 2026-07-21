@@ -314,14 +314,14 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
       </button>
     </div>
 
-    {/* CONTENIDO DEL INFORME (PESTAÑA 1) */}
+   {/* CONTENIDO DEL INFORME (PESTAÑA 1) */}
     {pestanaActiva === 'resumen' && (
       <div className="relative animate-in fade-in duration-500 pt-4 pl-6 sm:pl-10">
         <InformeProceso 
           datosProceso={{
             nombreProceso: expedienteSeleccionado.proceso,
             fechaGeneracion: new Date().toLocaleDateString(),
-            cumplimiento: 91,
+            cumplimiento: expedienteSeleccionado.hallazgos.filter(h => h.estado !== 'Abierto').length === expedienteSeleccionado.hallazgos.length && expedienteSeleccionado.hallazgos.length > 0 ? 100 : 91,
             totales: {
               auditorias: 1,
               riesgos: expedienteSeleccionado.riesgos.length,
@@ -329,7 +329,11 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
               planes: expedienteSeleccionado.planes.length,
             },
             topRiesgos: expedienteSeleccionado.riesgos.slice(0, 5),
-            topHallazgos: expedienteSeleccionado.hallazgos.filter(h => h.estado === 'Abierto').slice(0, 5)
+            topHallazgos: expedienteSeleccionado.hallazgos.slice(0, 5),
+            estadisticas: {
+              hallazgosAbiertos: expedienteSeleccionado.hallazgos.filter(h => h.estado === 'Abierto').length,
+              riesgosCriticos: expedienteSeleccionado.riesgos.filter(r => (Number(r.probabilidadResidual || 1) * Number(r.impactoResidual || 1)) >= 16).length
+            }
           }} 
         />
       </div>

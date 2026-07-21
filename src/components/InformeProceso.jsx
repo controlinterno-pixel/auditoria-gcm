@@ -1,7 +1,26 @@
 import React from 'react';
 
 const InformeProceso = ({ datosProceso }) => {
-  const { nombreProceso, fechaGeneracion, cumplimiento, totales, topRiesgos, topHallazgos } = datosProceso;
+  const { nombreProceso, fechaGeneracion, cumplimiento, totales, topRiesgos, topHallazgos, estadisticas } = datosProceso;
+
+  // 🧠 MOTOR DINÁMICO DE ANÁLISIS DE IA
+  const generarAnalisisIA = () => {
+    const abiertos = estadisticas?.hallazgosAbiertos || 0;
+    const riesgosCrit = estadisticas?.riesgosCriticos || 0;
+
+    if (totales.hallazgos > 0 && abiertos === 0) {
+      return `"El proceso de ${nombreProceso} presenta un entorno de control maduro y destacable. Se evidencia una gestión efectiva al contar con sus hallazgos formalmente cerrados o con calificaciones positivas. Se recomienda mantener el monitoreo preventivo sobre la matriz de riesgos para asegurar la sostenibilidad de estas buenas prácticas."`;
+    } 
+    else if (abiertos > 0) {
+      return `"El proceso de ${nombreProceso} requiere atención prioritaria. Actualmente existen ${abiertos} hallazgo(s) en estado abierto. Se recomienda ejecutar inmediatamente los planes de acción vinculados, priorizando aquellos asociados a los ${riesgosCrit} riesgos más críticos, para reducir la exposición de la compañía."`;
+    } 
+    else if (totales.riesgos > 0 && totales.hallazgos === 0) {
+      return `"El proceso de ${nombreProceso} no presenta desviaciones ni hallazgos vigentes en el ciclo de auditoría actual, lo cual indica un diseño adecuado de controles. La atención debe centrarse en el monitoreo continuo de los riesgos mapeados en la matriz corporativa."`;
+    } 
+    else {
+      return `"El proceso de ${nombreProceso} se encuentra en parámetros estables. No se registran riesgos extremos ni desviaciones críticas en los repositorios actuales."`;
+    }
+  };
 
   return (
     <div className="bg-white text-gray-800 p-8 max-w-4xl mx-auto shadow-2xl border rounded-sm">
@@ -54,39 +73,50 @@ const InformeProceso = ({ datosProceso }) => {
           </thead>
           <tbody>
             {topRiesgos.length === 0 && topHallazgos.length === 0 && (
-              <tr><td colSpan="3" className="p-4 text-center text-slate-500 italic">No hay riesgos o hallazgos críticos detectados.</td></tr>
+              <tr><td colSpan="3" className="p-4 text-center text-slate-500 italic">No hay riesgos o hallazgos reportados.</td></tr>
             )}
             
             {/* Riesgos */}
             {topRiesgos.map((riesgo, idx) => (
-              <tr key={`r-${idx}`} className="border-b border-slate-100">
+              <tr key={`r-${idx}`} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="p-3 font-bold text-orange-600 text-xs">RIESGO</td>
                 <td className="p-3 text-xs text-slate-700">{riesgo.riesgo || riesgo.descripcion || 'Sin descripción'}</td>
                 <td className="p-3 text-xs font-bold">{riesgo.nivelRiesgoResidual || 'Alto'}</td>
               </tr>
             ))}
             
-            {/* Hallazgos */}
-            {topHallazgos.map((hallazgo, idx) => (
-              <tr key={`h-${idx}`} className="border-b border-slate-100">
-                <td className="p-3 font-bold text-red-600 text-xs">HALLAZGO</td>
-                <td className="p-3 text-xs text-slate-700">{hallazgo.titulo || hallazgo.hallazgo || 'Sin descripción'}</td>
-                <td className="p-3 text-xs font-bold text-red-500">{hallazgo.estado || 'Abierto'}</td>
-              </tr>
-            ))}
+            {/* Hallazgos (Ya no ocultamos los cerrados) */}
+            {topHallazgos.map((hallazgo, idx) => {
+              const esCerrado = hallazgo.estado?.toUpperCase() === 'CERRADO';
+              return (
+                <tr key={`h-${idx}`} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="p-3 font-bold text-blue-700 text-xs">HALLAZGO</td>
+                  <td className="p-3 text-xs text-slate-700">{hallazgo.titulo || hallazgo.hallazgo || 'Sin descripción'}</td>
+                  <td className="p-3 text-xs font-bold">
+                    <span className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider ${esCerrado ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {hallazgo.estado || 'Abierto'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* CONCLUSIÓN (IA) */}
-      <div className="bg-blue-50 border-l-4 border-blue-900 p-5 rounded-r">
-        <h3 className="text-xs font-black uppercase tracking-widest text-blue-900 mb-2 flex items-center gap-2">
+      <div className={`border-l-4 p-5 rounded-r ${
+        (totales.hallazgos > 0 && estadisticas?.hallazgosAbiertos === 0) 
+          ? 'bg-emerald-50 border-emerald-600' 
+          : 'bg-blue-50 border-blue-900'
+      }`}>
+        <h3 className={`text-xs font-black uppercase tracking-widest mb-2 flex items-center gap-2 ${
+          (totales.hallazgos > 0 && estadisticas?.hallazgosAbiertos === 0) ? 'text-emerald-800' : 'text-blue-900'
+        }`}>
           <span>🤖</span> Análisis Inteligente Preliminar
         </h3>
         <p className="text-sm text-slate-700 italic leading-relaxed">
-          "El proceso de {nombreProceso} requiere atención prioritaria en el cierre de hallazgos abiertos. 
-          Se recomienda ejecutar inmediatamente los planes de acción vinculados a los riesgos de mayor severidad 
-          para reducir la exposición de la compañía y mejorar el índice de cumplimiento global."
+          {generarAnalisisIA()}
         </p>
       </div>
 
