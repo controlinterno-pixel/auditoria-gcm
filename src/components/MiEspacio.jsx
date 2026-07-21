@@ -1,6 +1,4 @@
-import React, { useState, useMemo } from 'react';
-
-
+import React, { useMemo } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 // 🧠 Generador Automático: Construye la lista unificada leyendo el diccionario central
@@ -17,11 +15,9 @@ const PROCESOS_OFICIALES = Object.keys(MAPA_PROCESOS).reduce((acc, macro) => {
 export default function MiEspacio({
   user, safePlanes, safeHallazgos, safeComites, safeCronograma,
   safeRiesgos, safeEvaluaciones, informesAuditoria,
-  activeTab, setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm
+  activeTab, setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm,
+  selectedProceso, setSelectedProceso
 }) {
-  // 🔌 ESTADO PARA EL PROCESO SELECCIONADO (Ahora filtra por nombre limpio)
-  const [selectedProceso, setSelectedProceso] = useState('');
-
   const usuarioNombre = user?.email?.split('@')[0] || 'Líder de GRC';
   const totalVencidos = safePlanes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length;
   const totalAbiertos = safeHallazgos.filter(h => h.estado === 'Abierto').length;
@@ -66,6 +62,7 @@ export default function MiEspacio({
       informes: informesVinculados
     };
   }, [selectedProceso, safeCronograma, safeRiesgos, safeEvaluaciones, safeHallazgos, safePlanes, informesAuditoria]);
+
   return (
     <div className="space-y-6 text-left">
       {/* BANNER DE BIENVENIDA PREMIUM */}
@@ -177,8 +174,8 @@ export default function MiEspacio({
             <p className="text-[10px] text-slate-400 font-medium mt-1">Visión panorámica de la auditoría. Navegación End-to-End sin cambiar de módulo.</p>
           </div>
           <select
-            value={selectedProceso}
-            onChange={(e) => setSelectedProceso(e.target.value)}
+            value={selectedProceso || ''}
+            onChange={(e) => setSelectedProceso && setSelectedProceso(e.target.value)}
             className="bg-[#060b16] border border-blue-500/30 rounded-xl text-xs font-black py-3.5 px-4 text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-96 shadow-inner cursor-pointer"
           >
             <option value="">-- Seleccionar Proceso --</option>
@@ -186,7 +183,7 @@ export default function MiEspacio({
               <option key={`opt-${idx}`} value={proc}>📁 {proc}</option>
             ))}
           </select>
-                  </div>
+        </div>
 
         {expedienteSeleccionado ? (
           <div className="relative animate-in fade-in duration-700 pl-6 sm:pl-10 pt-4 pb-4">
@@ -256,7 +253,7 @@ export default function MiEspacio({
                 <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-red-500/40 transition-colors shadow-lg">
                   <span className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">4. Hallazgos y Desviaciones Detectadas</span>
                  
-{expedienteSeleccionado.hallazgos.length === 0 ? (
+                  {expedienteSeleccionado.hallazgos.length === 0 ? (
                      <div className="text-[11px] text-slate-500 italic py-2">✅ Proceso limpio. No hay hallazgos registrados o conectados.</div>
                   ) : (
                     <div className="space-y-2.5">
@@ -264,16 +261,9 @@ export default function MiEspacio({
                         <div 
                           key={i} 
                           onClick={() => {
-                            // 🚀 Redirección y precarga del Hallazgo
                             setActiveTab('resultados_tab'); 
                             setSubTabResultados('hallazgos');
                             scrollToForm();
-                            // Invocamos el disparador global simulando un clic en editar
-                            const btnEditar = document.querySelector(`button[onClick*="setEditHallazgo"]`);
-                            if (btnEditar) {
-                              // Esto forzará el estado en el componente si se expone la función, 
-                              // pero por seguridad redirige al flujo de control.
-                            }
                           }}
                           className="flex justify-between items-center bg-[#060b16] hover:bg-[#0c162b] p-3 rounded-xl border border-slate-800 hover:border-red-500/40 shadow-inner cursor-pointer transition-all group/item"
                           title="Clic para viajar y gestionar este Hallazgo"
@@ -307,7 +297,6 @@ export default function MiEspacio({
                         <div 
                           key={i} 
                           onClick={() => {
-                            // 🚀 Redirección y precarga del Plan de Acción
                             setActiveTab('planes_tab'); 
                             setSubTabPlanes('planes');
                             scrollToForm();

@@ -55,7 +55,8 @@ export default function App() {
   const [subTabResultados, setSubTabResultados] = useState('hallazgos');
   const [subTabPlanes, setSubTabPlanes] = useState('planes');
   const [subTabGobernanza, setSubTabGobernanza] = useState('comites');
-
+// 🔌 ESTADO PARA NAVEGACIÓN DIRECTA DE PROCESOS AL EXPEDIENTE 360°
+const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
   // 🔌 ESTADO PARA EL CASO ACTIVO DEL EXPEDIENTE ÚNICO
 
   const [auditoresLista, setAuditoresLista] = useState(["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
@@ -1328,9 +1329,10 @@ if (showWelcome) {
                 setSubTabResultados={setSubTabResultados}
                 setSubTabPlanes={setSubTabPlanes}
                 scrollToForm={scrollToForm}
+                selectedProceso={selectedProcesoExpediente}
+                setSelectedProceso={setSelectedProcesoExpediente}
               />
             )}
-
 {/* 📈 DASHBOARD INTELIGENTE — RECONECTADO AQUÍ */}
             {activeTab === 'dashboard_riesgos' && (() => {
               const ajustarCoordenada = (valor) => {
@@ -1400,6 +1402,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                   toggleAnio={toggleAnio} toggleMes={toggleMes}
                   setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses}
                   setActiveTab={setActiveTab}
+                  setSelectedProcesoExpediente={setSelectedProcesoExpediente}
                 />
               );
             })()}

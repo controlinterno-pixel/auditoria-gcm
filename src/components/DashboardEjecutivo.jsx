@@ -67,7 +67,8 @@ export default function DashboardEjecutivo({
   cFiltrados, cronograma, informesAuditoria, safeIncidentes,
   matrizFiltro, setMatrizFiltro, setChartDetail, defaultMeses, defaultAnios,
   selectedAnios, selectedMeses, toggleAnio, toggleMes,
-  setSelectedAnios, setSelectedMeses, setActiveTab, evalFiltrados
+  setSelectedAnios, setSelectedMeses, setActiveTab, evalFiltrados,
+  setSelectedProcesoExpediente // 🚀 Callback de conexión hacia Mi Espacio
 }) {
   const hoy = new Date();
 
@@ -247,7 +248,7 @@ export default function DashboardEjecutivo({
   const pathMedios = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.med)}`).join(' ');
   const pathBajos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.baj)}`).join(' ');
 
-  // 🌟 NUEVA LÓGICA DE AGRUPACIÓN INTELIGENTE (MACRO + SUBPROCESO)
+  // 🌟 AGRUPACIÓN INTELIGENTE (MACRO + SUBPROCESO)
   const procesosEstructurados = riesgosBase.reduce((acc, r) => {
     const macro = r.macroproceso || r.proceso || 'General / Otros';
     const sub = (r.subproceso && r.subproceso !== 'General') ? r.subproceso : null;
@@ -320,7 +321,6 @@ export default function DashboardEjecutivo({
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{avancePlanesGlobal}%</span>
           </div>
-          {/* TOOLTIP 1 */}
           <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Control</h4>
@@ -350,7 +350,6 @@ export default function DashboardEjecutivo({
             <span className="text-amber-400">{riesgosModerados} Mod</span>
             <span className="text-emerald-400">{riesgosBajos} Bajos</span>
           </div>
-          {/* TOOLTIP 2 */}
           <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Riesgo</h4>
@@ -374,7 +373,6 @@ export default function DashboardEjecutivo({
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{efectividadControlesGlobal}%</span>
           </div>
-          {/* TOOLTIP 3 */}
           <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Aseguramiento</h4>
@@ -401,7 +399,6 @@ export default function DashboardEjecutivo({
           <div className="mt-3 text-[10px] font-black uppercase text-red-400 tracking-wider">
             🚨 {hallazgosCriticosCount} Con Alerta Crítica
           </div> 
-          {/* TOOLTIP 4 */}
           <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Desviaciones</h4>
@@ -428,7 +425,6 @@ export default function DashboardEjecutivo({
           <div className="mt-3 text-[10px] font-black uppercase text-amber-500 tracking-wider">
             ⚠️ {planesVencidos} Vencidos / Retrasados
           </div>
-          {/* TOOLTIP 5 */}
           <div className="absolute top-[105%] left-[80%] -translate-x-[80%] w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -top-2 left-[80%] -translate-x-[80%] w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Gestión</h4>
@@ -480,7 +476,6 @@ export default function DashboardEjecutivo({
               </div>
             </div>
           </div>
-          {/* TOOLTIP MATRIZ */}
           <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Distribución Residual COSO</h4>
@@ -528,14 +523,11 @@ export default function DashboardEjecutivo({
                 </div>
               </div>
               
-              {/* 🌟 LÓGICA DE DRIL-DOWN PARA MOSTRAR SUBPROCESOS */}
               <div className="flex-1 text-[9px] font-bold space-y-1 text-slate-400 overflow-y-auto max-h-[130px] scrollbar-none pr-1">
                 {procesosCountArray.map(([procesoNombre, data], idx) => {
                   const cantidad = data.count;
                   const porcentaje = Math.round((cantidad / totalRiesgos) * 100);
                   const colorActual = coloresMini[idx % coloresMini.length];
-                  
-                  // Extraer y ordenar subprocesos si existen
                   const subs = Object.entries(data.subprocesos).sort((a,b) => b[1] - a[1]);
 
                   return (
@@ -547,8 +539,6 @@ export default function DashboardEjecutivo({
                         </span>
                         <span className="text-white ml-2 shrink-0">{porcentaje}% ({cantidad})</span>
                       </div>
-                      
-                      {/* Desplegable de Subprocesos */}
                       {subs.length > 0 && (
                         <div className="pl-3 mt-1 space-y-0.5">
                           {subs.map(([subNombre, subCant]) => (
@@ -565,7 +555,6 @@ export default function DashboardEjecutivo({
               </div>
             </div>
           </div>
-          {/* TOOLTIP TENDENCIAS */}
           <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Análisis de Tendencia</h4>
@@ -578,7 +567,7 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-      {/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA A ANCHO COMPLETO ─── */}
+      {/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA ─── */}
       <div className="grid grid-cols-1 gap-6 mt-6">
         <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden relative group cursor-help">
           <div className="bg-[#0a1122]">
@@ -649,7 +638,7 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-      {/* ─── SECCIÓN INFERIOR DE COMPONENTES RESTAURADA ─── */}
+      {/* ─── SECCIÓN INFERIOR DE COMPONENTES ─── */}
       {(() => {
         const totalHallazgosReal = hallazgosBase.length || 1; 
         const hCrit = hallazgosBase.filter(h => h.severidad === 'Crítico' || h.severidad === 'Crítica').length;
@@ -689,7 +678,6 @@ export default function DashboardEjecutivo({
                   <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Bajos</span><span className="text-white">{hBaj} ({pBaj}%)</span></div>
                 </div>
               </div>
-              {/* TOOLTIP SEVERIDAD */}
               <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
                 <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
                 <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Desglose de Severidad</h4>
@@ -715,7 +703,6 @@ export default function DashboardEjecutivo({
                   <span className="text-slate-400 flex items-center">🚨 Vencidos</span><span className="text-red-400 font-black">{planesVencidos}</span>
                 </div>
               </div>
-              {/* TOOLTIP MÉTRICAS */}
               <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
                 <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
                 <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Salud de la Remediación</h4>
@@ -750,7 +737,6 @@ export default function DashboardEjecutivo({
                   </tbody>
                 </table>
               </div>
-              {/* TOOLTIP KPI */}
               <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
                 <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
                 <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Tablero de Control Operativo</h4>
@@ -800,7 +786,6 @@ export default function DashboardEjecutivo({
           <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
              <button onClick={() => setActiveTab('planes_tab')} className="text-red-400 text-[10px] font-bold hover:underline transition-colors">Ver todos los planes vencidos →</button>
           </div>
-          {/* TOOLTIP PLANES VENCIDOS */}
           <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Frenos Operativos</h4>
@@ -841,7 +826,6 @@ export default function DashboardEjecutivo({
           <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
              <button onClick={() => setActiveTab('plan_anual_tab')} className="text-blue-400 text-[10px] font-bold hover:underline transition-colors">Ver calendario completo →</button>
           </div>
-          {/* TOOLTIP AUDITORIAS */}
           <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Avance Plan Anual</h4>
@@ -853,7 +837,7 @@ export default function DashboardEjecutivo({
           </div>
         </div>
 
-        {/* ACTIVIDAD RECIENTE (AUDIT TRAIL) */}
+        {/* ACTIVIDAD RECIENTE */}
         <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-black text-slate-200">Actividad Reciente</h3>
@@ -873,7 +857,6 @@ export default function DashboardEjecutivo({
               ))}
                {recentActivityList.length === 0 && (<div className="py-4 text-center text-slate-500 italic text-[10px]">No hay actividad reciente registrada en sistema</div>)}
           </div>
-          {/* TOOLTIP ACTIVIDAD */}
           <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
             <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
             <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Trazabilidad de Movimientos</h4>
@@ -888,7 +871,7 @@ export default function DashboardEjecutivo({
       </div>
 
       {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO ─── */}
-      <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+      <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible hover:border-slate-700 transition-all cursor-help mb-6">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">
             {matrizFiltro ? `🔍 Riesgos en Cuadrante (Probabilidad: ${matrizFiltro.p} | Impacto: ${matrizFiltro.i})` : '📋 Resumen de Riesgos Críticos Recientes'}
@@ -911,7 +894,6 @@ export default function DashboardEjecutivo({
                       {r.id ? `RSG-${String(r.id).substring(0,4)}` : `RSG-${idx + 101}`}
                     </span>
                     <div>
-                      {/* 🌟 AQUÍ SE IMPRIME EL MACRO Y EL SUBPROCESO DE FORMA ELEGANTE */}
                       <h4 className="text-xs font-black text-slate-200">
                         {r.macroproceso || r.proceso || 'Proceso No Asignado'} 
                         {r.subproceso && r.subproceso !== 'General' && <span className="text-slate-500 font-bold ml-1.5 text-[10px]">↳ {r.subproceso}</span>}
@@ -931,7 +913,6 @@ export default function DashboardEjecutivo({
           )}
         </div>
         
-        {/* TOOLTIP ANEXO RIESGOS */}
         <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
           <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Inspección de Cuadrante</h4>
@@ -940,6 +921,85 @@ export default function DashboardEjecutivo({
             <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Despliega el detalle exacto de los riesgos que componen cada casilla.</p>
             <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Listado dinámico filtrado por la coordenada Probabilidad x Impacto.</p>
           </div>
+        </div>
+      </div>
+
+      {/* 🚀 ─── CENTRO DE CONTROL DINÁMICO POR PROCESOS (NUEVA SECCIÓN DE NAVEGACIÓN) ─── */}
+      <div className="mt-8 space-y-4 text-left border-t border-slate-800/80 pt-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-3 gap-2">
+          <div>
+            <h3 className="text-sm font-black tracking-widest uppercase text-white flex items-center gap-2">
+              <span>🚀</span> Centro de Control por Procesos
+            </h3>
+            <p className="text-[10px] text-slate-400 font-medium">
+              Monitoreo en tiempo real. Haz clic en cualquier área para desplegar su Expediente Único 360°.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            "Gestión Administrativa", 
+            "Servicio al Cliente", 
+            "Tecnología (TI)", 
+            "Gestión Financiera", 
+            "Compras y Abastecimiento", 
+            "SST y Medio Ambiente"
+          ].map((nombreProceso, idx) => {
+            const hallazgosProc = (hFiltrados || []).filter(h => 
+              (h.proceso || '').toLowerCase().includes(nombreProceso.toLowerCase())
+            );
+            const abiertos = hallazgosProc.filter(h => h.estado === 'Abierto').length;
+            const criticos = hallazgosProc.filter(h => h.estado === 'Abierto' && (h.severidad === 'Alta' || h.severidad === 'Crítica' || h.severidad === 'Crítico')).length;
+
+            let semaforo = "border-emerald-500/30 hover:border-emerald-500 text-emerald-400";
+            let badge = "🟢 Controlado";
+            if (criticos > 0) {
+              semaforo = "border-red-500/30 hover:border-red-500 text-red-400";
+              badge = "🔴 Crítico";
+            } else if (abiertos > 0) {
+              semaforo = "border-amber-500/30 hover:border-amber-500 text-amber-400";
+              badge = "🟡 En Atención";
+            }
+
+            return (
+              <div
+                key={idx}
+                onClick={() => {
+                  if (setSelectedProcesoExpediente) setSelectedProcesoExpediente(nombreProceso);
+                  setActiveTab('tablero'); // Navega directo a Mi Espacio GRC
+                }}
+                className={`bg-[#0a1122] border ${semaforo} p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between group shadow-lg`}
+              >
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider group-hover:text-blue-400 transition-colors">
+                      🏢 {nombreProceso}
+                    </h4>
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded border border-current">
+                      {badge}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="bg-[#060b16] p-2 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block font-bold">Hallazgos Abiertos</span>
+                      <span className="text-sm font-black text-white">{abiertos}</span>
+                    </div>
+                    <div className="bg-[#060b16] p-2 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block font-bold">Alertas Críticas</span>
+                      <span className="text-sm font-black text-red-400">{criticos}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-blue-400 font-bold group-hover:translate-x-1 transition-transform">
+                  <span>Abrir Expediente 360°</span>
+                  <span>➔</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

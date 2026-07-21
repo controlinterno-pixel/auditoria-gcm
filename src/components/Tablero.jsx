@@ -1,86 +1,183 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
-const Gauge = ({ value, label, sublabel, colorClass }) => {
-  const safeValue = Math.min(Math.max(Math.round(Number(value) || 0), 0), 100);
+// Generador de lista de procesos a monitorear
+const LISTA_PROCESOS_OFICIALES = Object.keys(MAPA_PROCESOS).sort();
 
-  // 💡 Lógica interna para inyectar la explicación flotante exacta según el título del velocímetro
-  let tooltipText = "";
-  if (label === "MITIGACIÓN GLOBAL" || label === "PLANES DE ACCIÓN") {
-    tooltipText = "📍 ORIGEN: Planes de Acción\n❓ POR QUÉ: Mide el esfuerzo de mitigación\n📝 EXPLICACIÓN: Promedio de avance físico y tareas correctivas en progreso o pendientes por el equipo.";
-  } else if (label === "CONTROLES DE SALUD" || label === "SALUD DE CONTROLES") {
-    tooltipText = "📍 ORIGEN: Auditoría de Controles\n❓ POR QUÉ: Indica la cobertura de nuestro aseguramiento\n📝 EXPLICACIÓN: Porcentaje de controles evaluados como eficaces frente al universo total evaluado.";
-  }
-
-  return (
-    <div 
-      className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col items-center text-center h-full hover:shadow-md transition-shadow cursor-help"
-      title={tooltipText}
-    >
-      <div className="relative w-32 h-32 flex items-center justify-center">
-        <svg className="w-full h-full transform -rotate-90">
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" className="text-slate-100" />
-          <circle cx="64" cy="64" r="54" stroke="currentColor" strokeWidth="12" fill="transparent" 
-            strokeDasharray={339} strokeDashoffset={339 - (339 * safeValue) / 100}
-            className={`${colorClass} transition-all duration-1000`} strokeLinecap="round" />
-        </svg>
-        <span className="absolute text-3xl font-black text-slate-800 notranslate" translate="no">{safeValue} %</span>
-      </div>
-      <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-6">{label}</p>
-      <p className="text-[10px] font-bold text-slate-500 mt-1">{sublabel}</p>
-    </div>
-  );
-};
-
-export default function Tablero({
-  avanceGlobal,
-  rendimientoControles,
-  hAbiertos,
-  hFiltrados,
-  renderHeaderFiltros
+export default function TableroCentroControl({
+  safeHallazgos = [],
+  safePlanes = [],
+  safeRiesgos = [],
+  safeEvaluaciones = [],
+  setActiveTab,
+  setSelectedProcesoExpediente // Callback para precargar el proceso en MiEspacio
 }) {
-  return (
-    <div className="space-y-6 animate-in fade-in duration-300">
-      {renderHeaderFiltros("Tablero Analítico de Auditoría", "Análisis integral de desviaciones operativas.")}
+
+  // 🧹 Normalizador estricto de texto (idéntico al de MiEspacio)
+  const normalizeStr = (str) => {
+    if (!str) return "";
+    return String(str)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+  };
+
+  // 📊 Mapeo y cálculo de KPIs en tiempo real por cada proceso
+  const saludPorProceso = useMemo(() => {
+    return LISTA_PROCESOS_OFICIALES.map(proceso => {
+      const target = normalizeStr(proceso);
+
+      // 1. Filtrado de entidades vinculadas
+      const riesgos = safeRiesgos.filter(r => normalizeStr(r.proceso) === target);
+      const evaluaciones = safeEvaluaciones.filter(ev => riesgos.some(r => r.id === ev.idRiesgo));
+      const hallazgos = safeHallazgos.filter(h => normalizeStr(h.proceso) === target || riesgos.some(r => r.id === h.idRiesgo));
+      const planes = safePlanes.filter(p => hallazgos.some(h => h.id === p.idHallazgo));
+
+      // 2. Indicadores Clave
+      const hallazgosAbiertos = hallazgos.filter(h => h.estado === 'Abierto');
+      const hallazgosCriticos = hallazgosAbiertos.filter(h => h.nivelImpacto === 'Alto' || h.nivelImpacto === 'Crítico');
       
-      <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">INDICADORES KRI EN TIEMPO REAL</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Gauge value={avanceGlobal} label="MITIGACIÓN GLOBAL" sublabel="Promedio Planes de Acción" colorClass="text-blue-500" />
-        <Gauge value={rendimientoControles} label="CONTROLES DE SALUD" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-        
-        {/* RECUADRO: ALERTA CRÍTICA GENERAL */}
-        <div 
-          className="bg-[#0f172a] text-white p-6 rounded-2xl flex flex-col justify-center text-center shadow-lg border border-slate-800 hover:shadow-xl transition-shadow cursor-help"
-          title={"📍 ORIGEN: Módulo de Hallazgos\n❓ POR QUÉ: Alerta sobre desviaciones pendientes de atención\n📝 EXPLICACIÓN: Cantidad total de hallazgos detectados que se encuentran actualmente abiertos y pendientes de un cierre definitivo."}
-        >
-          <span className="text-[10px] font-black text-rose-500 uppercase tracking-widest">ALERTA CRÍTICA</span>
-          <span className="text-6xl font-black mt-4 notranslate" translate="no">{hAbiertos}</span>
-          <p className="text-xs font-bold text-slate-300 mt-4">Hallazgos Pendientes de Cierre</p>
+      const planesVencidos = planes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length;
+      
+      const progresoPlanes = planes.length > 0 
+        ? Math.round(planes.reduce((acc, p) => acc + (Number(p.progreso) || 0), 0) / planes.length)
+        : 100;
+
+      const eficaciaControles = evaluaciones.length > 0
+        ? Math.round((evaluaciones.filter(e => e.calificacion === 100).length / evaluaciones.length) * 100)
+        : 100;
+
+      // 3. Determinación del Semáforo
+      let estadoSemaforo = 'verde'; // 🟢
+      if (hallazgosCriticos.length > 0 || planesVencidos > 2) {
+        estadoSemaforo = 'rojo'; // 🔴
+      } else if (hallazgosAbiertos.length > 0 || planesVencidos > 0) {
+        estadoSemaforo = 'amarillo'; // 🟡
+      }
+
+      return {
+        proceso,
+        hallazgosTotales: hallazgosAbiertos.length,
+        hallazgosCriticos: hallazgosCriticos.length,
+        planesVencidos,
+        progresoPlanes,
+        eficaciaControles,
+        estadoSemaforo,
+        totalRiesgos: riesgos.length
+      };
+    });
+  }, [safeHallazgos, safePlanes, safeRiesgos, safeEvaluaciones]);
+
+  // Handler para navegar directamente al Expediente 360°
+  const handleAbrirExpediente = (procesoNombre) => {
+    if (setSelectedProcesoExpediente) {
+      setSelectedProcesoExpediente(procesoNombre);
+    }
+    setActiveTab('mi_espacio'); // Cambia a la pestaña de Mi Espacio GRC
+  };
+
+  return (
+    <div className="space-y-4 mt-8 text-left">
+      {/* CABECERA DE LA SECCIÓN */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-3 gap-2">
+        <div>
+          <h3 className="text-sm font-black tracking-widest uppercase text-white flex items-center gap-2">
+            <span>🚀</span> Centro de Control por Procesos
+          </h3>
+          <p className="text-[10px] text-slate-400 font-medium">
+            Monitor de salud integral. Haz clic en cualquier área para desplegar su Expediente Único 360°.
+          </p>
         </div>
+        <span className="text-[10px] bg-blue-500/10 border border-blue-500/20 text-blue-400 font-black px-3 py-1 rounded-full uppercase tracking-wider">
+          {saludPorProceso.length} Procesos Monitoreados
+        </span>
       </div>
 
-      <div className="space-y-4 mt-8">
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">DESEMPEÑO POR UNIDAD DE NEGOCIO</h3>
-        
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm">
-          <h4 className="text-xl font-black text-slate-800 mb-6 border-b pb-2">Hotel</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* RECUADRO: HALLAZGOS ABIERTOS POR UNIDAD (HOTEL) */}
-            <div 
-              className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center text-center hover:shadow-md transition-shadow cursor-help"
-              title={"📍 ORIGEN: Módulo de Hallazgos (Sede: Hotel)\n❓ POR QUÉ: Controla el foco de brechas específicas del área\n📝 EXPLICACIÓN: Total de desviaciones o no conformidades operacionales identificadas propiamente en la unidad de negocio Hotel."}
-            >
-              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">HALLAZGOS ABIERTOS</span>
-              <span className="text-5xl font-black mt-4 text-slate-800 notranslate" translate="no">
-                {hFiltrados.filter(h => h.sede === 'Hotel' && h.estado === 'Abierto').length}
-              </span>
-              <p className="text-[10px] font-bold mt-4 opacity-60 text-slate-500">Pendientes de Cierre</p>
-            </div>
+      {/* GRID DE TARJETAS DE PROCESO */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {saludPorProceso.map((item, idx) => {
+          // Estilos dinámicos según semáforo
+          const semaforoConfig = {
+            rojo: {
+              border: 'border-red-500/30 hover:border-red-500',
+              bgBadge: 'bg-red-500/10 text-red-400 border-red-500/30',
+              label: '🔴 Crítico',
+              glow: 'hover:shadow-[0_0_20px_rgba(239,68,68,0.15)]'
+            },
+            amarillo: {
+              border: 'border-amber-500/30 hover:border-amber-500',
+              bgBadge: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+              label: '🟡 En Atención',
+              glow: 'hover:shadow-[0_0_20px_rgba(245,158,11,0.15)]'
+            },
+            verde: {
+              border: 'border-emerald-500/30 hover:border-emerald-500',
+              bgBadge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+              label: '🟢 Controlado',
+              glow: 'hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]'
+            }
+          }[item.estadoSemaforo];
 
-            <Gauge value={rendimientoControles} label="SALUD DE CONTROLES" sublabel="Test Auditoría Exitosos" colorClass="text-emerald-500" />
-            <Gauge value={avanceGlobal} label="PLANES DE ACCIÓN" sublabel="Promedio de Avance Físico" colorClass="text-blue-500" />
-          </div>
-        </div>
+          return (
+            <div
+              key={idx}
+              onClick={() => handleAbrirExpediente(item.proceso)}
+              className={`bg-[#0a1122] border ${semaforoConfig.border} ${semaforoConfig.glow} p-5 rounded-2xl cursor-pointer transition-all duration-300 flex flex-col justify-between group relative overflow-hidden`}
+            >
+              <div className="space-y-3">
+                {/* Header de la tarjeta */}
+                <div className="flex justify-between items-start gap-2">
+                  <h4 className="text-xs font-black text-white group-hover:text-blue-400 transition-colors uppercase tracking-wider">
+                    🏢 {item.proceso}
+                  </h4>
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${semaforoConfig.bgBadge}`}>
+                    {semaforoConfig.label}
+                  </span>
+                </div>
+
+                {/* Métricas rápidas */}
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/60 text-[10px]">
+                  <div className="bg-[#060b16] p-2 rounded-lg border border-slate-800">
+                    <span className="text-slate-400 block font-bold">Hallazgos Abiertos</span>
+                    <span className="text-sm font-black text-white">{item.hallazgosTotales}</span>
+                    {item.hallazgosCriticos > 0 && (
+                      <span className="text-[8px] text-red-400 block font-bold">({item.hallazgosCriticos} Críticos)</span>
+                    )}
+                  </div>
+
+                  <div className="bg-[#060b16] p-2 rounded-lg border border-slate-800">
+                    <span className="text-slate-400 block font-bold">Avance de Planes</span>
+                    <span className="text-sm font-black text-emerald-400">{item.progresoPlanes}%</span>
+                    {item.planesVencidos > 0 && (
+                      <span className="text-[8px] text-amber-400 block font-bold">({item.planesVencidos} Vencidos)</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Barra de salud de controles */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[9px] font-bold">
+                    <span className="text-slate-400">Eficacia de Controles</span>
+                    <span className="text-slate-200">{item.eficaciaControles}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-500 to-emerald-400 transition-all duration-500" 
+                      style={{ width: `${item.eficaciaControles}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Pie con llamada a la acción */}
+              <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-blue-400 font-bold group-hover:translate-x-1 transition-transform">
+                <span>Explorar Expediente 360°</span>
+                <span>➔</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
