@@ -199,13 +199,8 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     });
     return () => unsubscribe();
   }, []);
-// 📥 Carga Inicial Centralizada con dbService (Lecturas en Paralelo)
+// 📥 Carga Inicial Centralizada con Firebase
   useEffect(() => {
-    if (!user) return;
-    setIsCloudLoaded(false);
-
-    
-useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
     
