@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 
-// 📚 LISTA MAESTRA DE PROCESOS OFICIALES DE TERMALES
 const PROCESOS_OFICIALES = [
   "Gestión comercial",
   "Gestión de la mejora continua (SIGCAS)",
