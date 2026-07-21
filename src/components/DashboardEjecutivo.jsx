@@ -1,5 +1,27 @@
 import React, { useState } from 'react';
-import { formatSafeDate, getItemAnio, getItemMesText } from '../utils/helpers';
+import { formatSafeDate } from '../utils/helpers';
+
+// 🧹 Normalizador estricto para emparejar cadenas
+const normalizeStr = (str) => {
+  if (!str) return "";
+  return String(str)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/[^a-z0-9]/g, ""); 
+};
+
+// 📋 LISTA CON TODOS LOS PROCESOS REALES Y OFICIALES DE LA BASE DE DATOS
+const PROCESOS_OFICIALES_CARDS = [
+  { nombreOficial: "Gestión Administrativa y Financiera", icono: "🏢" },
+  { nombreOficial: "Gestión de servicio al cliente", icono: "🎧" },
+  { nombreOficial: "I+D+i", icono: "💻" },
+  { nombreOficial: "Gestión de la cadena de abastecimiento", icono: "📦" },
+  { nombreOficial: "Subproceso gestión ambiental", icono: "🌱" },
+  { nombreOficial: "Gestión de talento humano", icono: "👥" },
+  { nombreOficial: "Gestión de operaciones y servicios", icono: "⚙️" },
+  { nombreOficial: "Gestión comercial y mercadeo", icono: "📈" }
+];
 
 const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick }) => {
   const maxVal = Math.max(...data.map(d => d.valor), 1);
@@ -68,15 +90,13 @@ export default function DashboardEjecutivo({
   matrizFiltro, setMatrizFiltro, setChartDetail, defaultMeses, defaultAnios,
   selectedAnios, selectedMeses, toggleAnio, toggleMes,
   setSelectedAnios, setSelectedMeses, setActiveTab, evalFiltrados,
-  setSelectedProcesoExpediente // 🚀 Callback de conexión hacia Mi Espacio
+  setSelectedProcesoExpediente
 }) {
   const hoy = new Date();
 
-  // 🤖 ESTADOS PARA EL CAPTURADOR INTELIGENTE DE DICTÁMENES
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
 
-  // 📊 CÁLCULO SEGURO Y AISLADO DE LA EVOLUCIÓN FINANCIERA MULTI-CAMPOS
   const infoFinancieraLimpia = (defaultMeses || []).map((mText) => {
     if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
     const totalCostoMes = safeIncidentes.filter(inc => {
@@ -91,7 +111,6 @@ export default function DashboardEjecutivo({
     return { mes: mText, valor: totalCostoMes };
   });
 
-  // 🧠 FILTRADOS EXACTOS
   const riesgosBase = (riesgos || []).filter(r => {
     const anioR = Number(r.anio) || 2026;
     return selectedAnios.length === 0 || selectedAnios.includes(anioR) || selectedAnios.includes(String(anioR));
@@ -160,7 +179,6 @@ export default function DashboardEjecutivo({
   const evaluacionesEficaces = evaluacionesBase.filter(e => Number(e.calificacion) === 100).length;
   const efectividadControlesGlobal = totalEvaluaciones > 0 ? Math.round((evaluacionesEficaces / totalEvaluaciones) * 100) : 0;
 
-  const totalHallazgos = hallazgosBase.length;
   const hallazgosAbiertos = hallazgosBase.filter(h => h.estado !== 'Cerrado').length; 
   const hallazgosCriticosCount = hallazgosBase.filter(h => h.estado !== 'Cerrado' && (h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico')).length;
 
@@ -248,7 +266,6 @@ export default function DashboardEjecutivo({
   const pathMedios = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.med)}`).join(' ');
   const pathBajos = trendData.map((d, i) => `${i===0?'M':'L'}${getX(i)},${getY(d.baj)}`).join(' ');
 
-  // 🌟 AGRUPACIÓN INTELIGENTE (MACRO + SUBPROCESO)
   const procesosEstructurados = riesgosBase.reduce((acc, r) => {
     const macro = r.macroproceso || r.proceso || 'General / Otros';
     const sub = (r.subproceso && r.subproceso !== 'General') ? r.subproceso : null;
@@ -268,7 +285,7 @@ export default function DashboardEjecutivo({
   return (
     <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none relative">
       
-      {/* ─── 🤖 CAPA DE ENFOQUE INTELIGENTE ─── */}
+      {/* 🤖 CAPA DE ENFOQUE INTELIGENTE */}
       {(procesandoIA || dictamenIA) && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in">
           {dictamenIA && (
@@ -281,7 +298,7 @@ export default function DashboardEjecutivo({
         </div>
       )}
 
-      {/* ─── ENCABEZADO PREMIUM Y FILTROS ─── */}
+      {/* ENCABEZADO Y FILTROS */}
       <div className="bg-[#0a1122] border border-blue-500/10 p-5 rounded-2xl shadow-md space-y-4 mb-4 relative z-50">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800/80 pb-4 gap-4">
           <div>
@@ -309,10 +326,8 @@ export default function DashboardEjecutivo({
         </div>
       </div>
 
-      {/* ─── TARJETAS SUPERIORES CON TOOLTIPS ─── */}
+      {/* TARJETAS SUPERIORES */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        
-        {/* CARDA 1 */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Cumplimiento Global</span>
@@ -321,21 +336,8 @@ export default function DashboardEjecutivo({
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{avancePlanesGlobal}%</span>
           </div>
-          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Control</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Matriz Integrada de Planes de Acción.</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Mide la velocidad de mitigación frente a las brechas.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Porcentaje de tareas de mejora completadas al 100%.</p>
-              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-emerald-400 text-[8px]">
-                FÓRMULA: (Planes Cerrados / Total Planes) * 100
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* CARDA 2 */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Riesgos Activos</span>
@@ -350,21 +352,8 @@ export default function DashboardEjecutivo({
             <span className="text-amber-400">{riesgosModerados} Mod</span>
             <span className="text-emerald-400">{riesgosBajos} Bajos</span>
           </div>
-          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Riesgo</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Mapa de Calor Empresarial (Matriz 5x5).</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Cuantifica la exposición residual total del hotel.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Riesgos corporativos actualmente abiertos.</p>
-              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-red-400 text-[8px]">
-                FÓRMULA: Sumatoria (Riesgos Registrados)
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* CARDA 3 */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Controles Auditados</span>
@@ -373,21 +362,8 @@ export default function DashboardEjecutivo({
           <div className="mt-2 flex items-baseline space-x-2">
             <span className="text-3xl font-black text-white">{efectividadControlesGlobal}%</span>
           </div>
-          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Aseguramiento</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Trabajo de Campo (Auditoría).</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Evalúa la robustez operativa de las defensas (Controles).</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Porcentaje de controles evaluados como eficaces al 100%.</p>
-              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-cyan-400 text-[8px]">
-                FÓRMULA: (Evaluaciones Calificadas 100 / Total Evaluaciones) * 100
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* CARDA 4 */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Hallazgos Abiertos</span>
@@ -399,21 +375,8 @@ export default function DashboardEjecutivo({
           <div className="mt-3 text-[10px] font-black uppercase text-red-400 tracking-wider">
             🚨 {hallazgosCriticosCount} Con Alerta Crítica
           </div> 
-          <div className="absolute top-[105%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Desviaciones</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes Emitidos.</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Refleja cantidad de brechas normativas no resueltas.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Conteo de no conformidades con estado 'Abierto'.</p>
-              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-amber-400 text-[8px]">
-                FÓRMULA: Sumatoria (Hallazgos donde Estado === 'Abierto')
-              </div>
-            </div>
-          </div>       
         </div>
 
-        {/* CARDA 5 */}
         <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-blue-500/50 transition-colors cursor-help">
           <div className="flex justify-between items-start">
             <span className="text-xs font-black tracking-wider text-slate-400 uppercase">Planes en Ejecución</span>
@@ -425,26 +388,12 @@ export default function DashboardEjecutivo({
           <div className="mt-3 text-[10px] font-black uppercase text-amber-500 tracking-wider">
             ⚠️ {planesVencidos} Vencidos / Retrasados
           </div>
-          <div className="absolute top-[105%] left-[80%] -translate-x-[80%] w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -top-2 left-[80%] -translate-x-[80%] w-4 h-4 bg-[#0f172a] border-t border-l border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Contexto de Gestión</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Planes de Acción.</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Indica la saturación operativa para cierre de brechas.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Sumatoria de planes con progreso menor a 100%.</p>
-              <div className="mt-2 p-1.5 bg-[#020617] border border-slate-800 rounded-md font-mono text-purple-400 text-[8px]">
-                FÓRMULA: Conteo (Planes donde Estado !== 'Cerrado')
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* ─── PANEL CENTRAL CON MATRIZ 5X5 ─── */}
+      {/* PANEL CENTRAL CON MATRIZ Y GRÁFICA */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* MAPA DE CALOR */}
-        <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+        <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative">
           <h3 className="text-xs font-black uppercase text-slate-300 mb-4">Mapa de Riesgos (Matriz 5x5)</h3>
           <div className="flex items-center space-x-4 flex-1">
             <div className="flex-1 flex flex-col space-y-1">
@@ -476,19 +425,9 @@ export default function DashboardEjecutivo({
               </div>
             </div>
           </div>
-          <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Distribución Residual COSO</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Matriz Integral de Riesgos.</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Muestra dónde se concentra la severidad corporativa.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Intersección Probabilidad x Impacto en su fase Residual.</p>
-            </div>
-          </div>
         </div>
 
-        {/* TENDENCIA HISTÓRICA & PROCESOS */}
-        <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+        <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between">
           <h3 className="text-xs font-black uppercase text-slate-300">Tendencia Histórica</h3>
           <div className="w-full h-36 mt-2 relative">
             <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
@@ -528,403 +467,51 @@ export default function DashboardEjecutivo({
                   const cantidad = data.count;
                   const porcentaje = Math.round((cantidad / totalRiesgos) * 100);
                   const colorActual = coloresMini[idx % coloresMini.length];
-                  const subs = Object.entries(data.subprocesos).sort((a,b) => b[1] - a[1]);
-
                   return (
-                    <div key={`proc-dist-${idx}`} className="flex flex-col justify-center hover:bg-slate-800/50 p-1.5 rounded transition-colors border-b border-slate-800/50 last:border-0">
-                      <div className="flex justify-between items-center">
-                        <span className="flex items-center truncate max-w-[140px] font-black text-slate-200" title={procesoNombre}>
-                          <span className="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0" style={{ backgroundColor: colorActual }}></span>
-                          {procesoNombre}
-                        </span>
-                        <span className="text-white ml-2 shrink-0">{porcentaje}% ({cantidad})</span>
-                      </div>
-                      {subs.length > 0 && (
-                        <div className="pl-3 mt-1 space-y-0.5">
-                          {subs.map(([subNombre, subCant]) => (
-                             <div key={subNombre} className="flex justify-between text-[8px] text-slate-500 font-medium">
-                               <span className="truncate max-w-[120px]">↳ {subNombre}</span>
-                               <span>{subCant}</span>
-                             </div>
-                          ))}
-                        </div>
-                      )}
+                    <div key={`proc-dist-${idx}`} className="flex justify-between items-center hover:bg-slate-800/50 p-1.5 rounded transition-colors border-b border-slate-800/50 last:border-0">
+                      <span className="flex items-center truncate max-w-[140px] font-black text-slate-200" title={procesoNombre}>
+                        <span className="w-1.5 h-1.5 rounded-full mr-1.5 shrink-0" style={{ backgroundColor: colorActual }}></span>
+                        {procesoNombre}
+                      </span>
+                      <span className="text-white ml-2 shrink-0">{porcentaje}% ({cantidad})</span>
                     </div>
                   );
                 })}
               </div>
             </div>
           </div>
-          <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Análisis de Tendencia</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Histórico de Módulo de Riesgos.</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Monitorea evolución mensual de criticidades y concentración por área.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Picos históricos a 6 meses.</p>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* ─── GRÁFICA ÚNICA DE TENDENCIA FINANCIERA ─── */}
+      {/* GRÁFICA IMPACTO FINANCIERO */}
       <div className="grid grid-cols-1 gap-6 mt-6">
-        <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden relative group cursor-help">
-          <div className="bg-[#0a1122]">
-            <TrendChart 
-              data={infoFinancieraLimpia}
-              title="Evolución de Impacto Financiero (5 Años)"
-              isCurrency={true}
-              color="#ef4444"
-              fillColor="rgba(239, 68, 68, 0.15)"
-              onPointClick={(pt) => {
-                const filtrados = (safeIncidentes || [])
-                  .filter(inc => {
-                    const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
-                    const perdidaReal = (Number(inc.costo) || 0) + (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0);
-                    return mesIncText === pt.mes && perdidaReal > 0;
-                  })
-                  .map(inc => ({
-                    ...inc,
-                    costo: (Number(inc.costo) || 0) + (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
-                  }));
-                if (filtrados.length > 0) {
-                  setChartDetail({ tipo: 'Incidentes Financiados', mesCompleto: pt.mes, items: filtrados });
-                }
-              }}
-            />
-          </div>
+        <div className="bg-[#0a1122] p-4 rounded-3xl border border-slate-800 shadow-xl overflow-hidden relative">
+          <TrendChart 
+            data={infoFinancieraLimpia}
+            title="Evolución de Impacto Financiero (5 Años)"
+            isCurrency={true}
+            color="#ef4444"
+            fillColor="rgba(239, 68, 68, 0.15)"
+            onPointClick={(pt) => {
+              const filtrados = (safeIncidentes || [])
+                .filter(inc => {
+                  const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : inc.mes;
+                  const perdidaReal = (Number(inc.costo) || 0) + (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0);
+                  return mesIncText === pt.mes && perdidaReal > 0;
+                })
+                .map(inc => ({
+                  ...inc,
+                  costo: (Number(inc.costo) || 0) + (Number(inc.montoFaltante) || 0) + (Number(inc.montoSobrante) || 0)
+                }));
+              if (filtrados.length > 0) {
+                setChartDetail({ tipo: 'Incidentes Financiados', mesCompleto: pt.mes, items: filtrados });
+              }
+            }}
+          />
         </div>
       </div>
 
-      {/* ─── ALERTAS INTELIGENTES (IA) ─── */}
-      <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl space-y-3 mt-6">
-        <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-          <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 flex items-center">
-            <span className="text-base mr-1.5">🤖</span> Alertas y Recomendaciones IA
-          </h3>
-          <span className="text-[9px] font-black uppercase text-blue-400 cursor-pointer hover:underline">Monitoreo en vivo</span>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-left">
-          <div className="bg-[#1c0d15] border border-red-500/20 p-3 rounded-xl flex items-start space-x-3">
-            <div className="text-red-400 text-lg bg-red-500/10 p-1.5 rounded-lg">⚠️</div>
-            <div className="space-y-0.5">
-              <h4 className="text-[11px] font-black text-red-400">{riesgosExtremos + riesgosAltos} Riesgos Extremos/Altos</h4>
-              <p className="text-[9px] text-slate-400 font-medium">Requieren priorización de controles</p>
-            </div>
-          </div>
-          <div className="bg-[#1c140d] border border-amber-500/20 p-3 rounded-xl flex items-start space-x-3">
-            <div className="text-amber-400 text-lg bg-amber-500/10 p-1.5 rounded-lg">📝</div>
-            <div className="space-y-0.5">
-              <h4 className="text-[11px] font-black text-amber-400">{planesVencidos} Planes Vencidos</h4>
-              <p className="text-[9px] text-slate-400 font-medium">Fuera de la fecha límite establecida</p>
-            </div>
-          </div>
-          <div className="bg-[#0d1624] border border-blue-500/20 p-3 rounded-xl flex items-start space-x-3">
-            <div className="text-blue-400 text-lg bg-blue-500/10 p-1.5 rounded-lg">🔬</div>
-            <div className="space-y-0.5">
-              <h4 className="text-[11px] font-black text-blue-400">{hallazgosCriticosCount} Hallazgos Críticos/Altos</h4>
-              <p className="text-[9px] text-slate-400 font-medium">Pendientes de apertura de Plan</p>
-            </div>
-          </div>
-          <div className="bg-[#091819] border border-cyan-500/20 p-3 rounded-xl flex items-start space-x-3">
-            <div className="text-cyan-400 text-lg bg-cyan-500/10 p-1.5 rounded-lg">💡</div>
-            <div className="space-y-0.5">
-              <h4 className="text-[11px] font-black text-cyan-400">Eficiencia Global: {efectividadControlesGlobal}%</h4>
-              <p className="text-[9px] text-slate-400 font-medium">Efectividad ponderada de la matriz</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── SECCIÓN INFERIOR DE COMPONENTES ─── */}
-      {(() => {
-        const totalHallazgosReal = hallazgosBase.length || 1; 
-        const hCrit = hallazgosBase.filter(h => h.severidad === 'Crítico' || h.severidad === 'Crítica').length;
-        const hAlt = hallazgosBase.filter(h => h.severidad === 'Alto' || h.severidad === 'Alta').length;
-        const hMed = hallazgosBase.filter(h => h.severidad === 'Medio' || h.severidad === 'Media').length;
-        const hBaj = hallazgosBase.filter(h => h.severidad === 'Bajo' || h.severidad === 'Baja').length;
-        
-        const pCrit = Math.round((hCrit / totalHallazgosReal) * 100) || 0;
-        const pAlt = Math.round((hAlt / totalHallazgosReal) * 100) || 0;
-        const pMed = Math.round((hMed / totalHallazgosReal) * 100) || 0;
-        const pBaj = Math.round((hBaj / totalHallazgosReal) * 100) || 0;
-
-        const cronogramaIniciados = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) > 0);
-        const kpiPlanAnual = cronogramaIniciados.length > 0 ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) : 0;
-        const kpiOportunidad = totalPlanes > 0 ? Math.round(((totalPlanes - planesVencidos) / totalPlanes) * 100) : 100;
-
-        return (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-left mt-6">
-            
-            {/* SEVERIDAD DE HALLAZGOS */}
-            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Severidad de Hallazgos</h3>
-              <div className="flex items-center justify-around h-32">
-                <div className="w-24 h-24 relative">
-                  <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90 drop-shadow-md">
-                    <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
-                    {pCrit > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#ff4444" strokeWidth="4" strokeDasharray={`${pCrit} 100`} strokeDashoffset="0" className="transition-all duration-1000" />}
-                    {pAlt > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#fbbf24" strokeWidth="4" strokeDasharray={`${pAlt} 100`} strokeDashoffset={`-${pCrit}`} className="transition-all duration-1000" />}
-                    {pMed > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#3b82f6" strokeWidth="4" strokeDasharray={`${pMed} 100`} strokeDashoffset={`-${pCrit + pAlt}`} className="transition-all duration-1000" />}
-                    {pBaj > 0 && <circle cx="18" cy="18" r="15.915" fill="none" stroke="#10b981" strokeWidth="4" strokeDasharray={`${pBaj} 100`} strokeDashoffset={`-${pCrit + pAlt + pMed}`} className="transition-all duration-1000" />}
-                  </svg>
-                </div>
-                <div className="text-[10px] font-bold text-slate-400 space-y-1">
-                  <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-red-500 mr-1.5"></span>Críticos</span><span className="text-white">{hCrit} ({pCrit}%)</span></div>
-                  <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span>Altos</span><span className="text-white">{hAlt} ({pAlt}%)</span></div>
-                  <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>Medios</span><span className="text-white">{hMed} ({pMed}%)</span></div>
-                  <div className="flex items-center justify-between w-28"><span className="flex items-center"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>Bajos</span><span className="text-white">{hBaj} ({pBaj}%)</span></div>
-                </div>
-              </div>
-              <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-                <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-                <h4 className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Desglose de Severidad</h4>
-                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-                  <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Repositorio de Informes.</p>
-                  <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Identifica la urgencia de atención operativa.</p>
-                  <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Participación porcentual de no conformidades (Críticas a Bajas).</p>
-                </div>
-              </div>
-            </div>
-
-            {/* MÉTRICAS DE PLANES */}
-            <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-3">Métricas de Planes</h3>
-              <div className="space-y-3 font-bold text-xs text-slate-400">
-                <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-blue-500/30 transition-colors">
-                  <span className="flex items-center">📈 Cumplimiento</span><span className="text-white font-black text-sm">{avancePlanesGlobal}%</span>
-                </div>
-                <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-cyan-500/30 transition-colors">
-                  <span className="flex items-center">📂 Abiertos</span><span className="text-cyan-400 font-black">{planesActivos}</span>
-                </div>
-                <div className="bg-[#060b16] border border-slate-800/60 p-2.5 rounded-xl flex justify-between items-center hover:border-red-500/30 transition-colors">
-                  <span className="text-slate-400 flex items-center">🚨 Vencidos</span><span className="text-red-400 font-black">{planesVencidos}</span>
-                </div>
-              </div>
-              <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-                <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Salud de la Remediación</h4>
-                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-                  <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo Planes de Acción.</p>
-                  <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Control de tiempos y cuellos de botella.</p>
-                  <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Resumen dinámico del estado de las tareas preventivas.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* INDICADORES KPI */}
-            <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-lg relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-              <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-2">Indicadores (KPI)</h3>
-              <div className="overflow-x-auto w-full flex-1">
-                <table className="w-full text-left text-[10px] font-bold text-slate-400 border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-500 uppercase tracking-wider text-[9px]">
-                      <th className="py-2 font-black">Indicador</th><th className="py-2 font-black text-center">Valor Real</th><th className="py-2 font-black text-center">Meta</th><th className="py-2 font-black text-right">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2 text-white truncate max-w-[120px]">Ejecución Plan Anual</td><td className="py-2 text-center text-slate-200">{kpiPlanAnual}%</td><td className="py-2 text-center text-slate-500">85%</td><td className="py-2 text-right">{kpiPlanAnual >= 85 ? '✅' : (kpiPlanAnual >= 60 ? '⚠️' : '🚨')}</td>
-                    </tr>
-                    <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2 text-white truncate max-w-[120px]">Salud de Controles</td><td className="py-2 text-center text-slate-200">{efectividadControlesGlobal}%</td><td className="py-2 text-center text-slate-500">80%</td><td className="py-2 text-right">{efectividadControlesGlobal >= 80 ? '✅' : (efectividadControlesGlobal >= 60 ? '⚠️' : '🚨')}</td>
-                    </tr>
-                    <tr className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2 text-white truncate max-w-[120px]">Oportunidad Planes</td><td className="py-2 text-center text-slate-200">{kpiOportunidad}%</td><td className="py-2 text-center text-slate-500">85%</td><td className="py-2 text-right">{kpiOportunidad >= 85 ? '✅' : (kpiOportunidad >= 60 ? '⚠️' : '🚨')}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-                <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-                <h4 className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Tablero de Control Operativo</h4>
-                <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-                  <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Fusión Transversal de Módulos GRC.</p>
-                  <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Indicadores Clave de Riesgo (KRI).</p>
-                  <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Comparativa de rendimiento real en vivo frente al umbral aprobado.</p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        );
-      })()}
-
-      {/* ─── SECCIÓN DE OPERACIONES Y CALENDARIO ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 mt-6">
-        
-        {/* PLANES VENCIDOS */}
-        <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center space-x-3">
-              <h3 className="text-sm font-black text-slate-200">Planes Vencidos</h3>
-              <span className="bg-red-500/20 text-red-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{planesVencidosList.length}</span>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
-            <table className="w-full text-left text-[10px]">
-              <thead className="text-slate-500 border-b border-slate-800">
-                <tr><th className="pb-2 font-bold">Plan</th><th className="pb-2 font-bold">Proceso</th><th className="pb-2 font-bold">Vencimiento</th><th className="pb-2 font-bold">Responsable</th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                {planesVencidosList.map((p, i) => {
-                  const hallazgoAsociado = hallazgosBase.find(h => h.id === p.idHallazgo) || {};
-                  return (
-                  <tr key={`venc-${i}`} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 flex items-center space-x-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span><span className="font-bold text-slate-300">PLAN-{p.id}</span></td>
-                    <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={hallazgoAsociado.proceso || 'N/A'}>{hallazgoAsociado.proceso || 'N/A'}</td>
-                    <td className="py-2.5 text-slate-400">{formatSafeDate(p.fecha)}</td>
-                    <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={p.responsable}>{p.responsable}</td>
-                  </tr>
-                )})}
-                {planesVencidosList.length === 0 && (<tr><td colSpan="4" className="py-4 text-center text-slate-500 italic">No hay planes vencidos registrados</td></tr>)}
-              </tbody>
-            </table>
-          </div>
-          <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
-             <button onClick={() => setActiveTab('planes_tab')} className="text-red-400 text-[10px] font-bold hover:underline transition-colors">Ver todos los planes vencidos →</button>
-          </div>
-          <div className="absolute bottom-[102%] left-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -bottom-2 left-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Frenos Operativos</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Módulo de Planes.</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Son contingencias o brechas prolongadas innecesariamente.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Compromisos correctivos que han superado el plazo formal de entrega en el servidor.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* PRÓXIMAS AUDITORÍAS */}
-        <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center space-x-3">
-              <h3 className="text-sm font-black text-slate-200">Próximas Auditorías</h3>
-              <span className="bg-blue-500/20 text-blue-400 font-bold px-2 py-0.5 rounded-md text-[10px]">{proximasAuditorias.length}</span>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin">
-             <table className="w-full text-left text-[10px]">
-              <thead className="text-slate-500 border-b border-slate-800">
-                <tr><th className="pb-2 font-bold">Auditoría</th><th className="pb-2 font-bold">Proceso</th><th className="pb-2 font-bold">Periodo</th><th className="pb-2 font-bold">Auditor</th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                {proximasAuditorias.map((c, i) => (
-                  <tr key={`aud-${i}`} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="py-2.5 font-bold text-slate-300">AUD-{c.codigo || `2026-${i+1}`}</td>
-                    <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={c.proceso}>{c.proceso}</td>
-                    <td className="py-2.5 text-slate-400 truncate max-w-[70px]">{c.periodo}</td>
-                    <td className="py-2.5 text-slate-400 truncate max-w-[80px]" title={c.responsable}>{c.responsable}</td>
-                  </tr>
-                ))}
-                 {proximasAuditorias.length === 0 && (<tr><td colSpan="4" className="py-4 text-center text-slate-500 italic">No hay auditorías pendientes en cronograma</td></tr>)}
-              </tbody>
-            </table>
-          </div>
-          <div className="pt-3 mt-auto border-t border-slate-800/50 text-left">
-             <button onClick={() => setActiveTab('plan_anual_tab')} className="text-blue-400 text-[10px] font-bold hover:underline transition-colors">Ver calendario completo →</button>
-          </div>
-          <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Avance Plan Anual</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Cronograma Aprobado.</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Visibilidad para agendar recursos logísticos en campo.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Procesos oficiales con cumplimiento &lt; 100%.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* ACTIVIDAD RECIENTE */}
-        <div className="bg-[#0a1122] border border-slate-800 rounded-2xl shadow-xl p-5 flex flex-col relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-black text-slate-200">Actividad Reciente</h3>
-          </div>
-          <div className="flex-1 overflow-y-auto max-h-[220px] scrollbar-thin space-y-4">
-              {recentActivityList.map((act, i) => (
-                <div key={`act-${i}`} className="flex items-start space-x-3 text-left">
-                  <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${act.colorClass} shrink-0`}>
-                    {act.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-slate-300 leading-snug"><span className="font-bold text-white">{act.type} {act.ref}</span> {String(act.accion).toLowerCase()}</p>
-                    <p className="text-[9px] text-slate-500 truncate mt-0.5">Por: {act.usuario}</p>
-                  </div>
-                  <div className="text-[9px] text-slate-500 shrink-0 text-right whitespace-nowrap">{act.fechaStr.split(',')[0]}</div>
-                </div>
-              ))}
-               {recentActivityList.length === 0 && (<div className="py-4 text-center text-slate-500 italic text-[10px]">No hay actividad reciente registrada en sistema</div>)}
-          </div>
-          <div className="absolute bottom-[102%] right-4 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-            <div className="absolute -bottom-2 right-8 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-            <h4 className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Trazabilidad de Movimientos</h4>
-            <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-              <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Logs en Vivo (Audit Trail).</p>
-              <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Principio de responsabilidad y transparencia para revisiones fiscales.</p>
-              <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Últimas acciones, cambios y modificaciones registradas de forma segura.</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* ─── ANEXO INTERACTIVO DE TRAZABILIDAD COMPLETO ─── */}
-      <div className="bg-[#0a1122] border border-slate-800 p-4 rounded-2xl shadow-xl text-left relative group overflow-visible hover:border-slate-700 transition-all cursor-help mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-xs font-black tracking-widest uppercase text-slate-300">
-            {matrizFiltro ? `🔍 Riesgos en Cuadrante (Probabilidad: ${matrizFiltro.p} | Impacto: ${matrizFiltro.i})` : '📋 Resumen de Riesgos Críticos Recientes'}
-          </h3>
-          <span className="text-[10px] font-black text-slate-400 bg-[#060b16] px-2 py-1 rounded-lg border border-slate-800">Registros: {riesgosFiltradosPorMatriz.length}</span>
-        </div>
-
-        <div className="space-y-2">
-          {riesgosFiltradosPorMatriz.length === 0 ? (
-            <p className="text-xs font-medium text-slate-500 py-4 text-center">No se registran riesgos mapeados en esta coordenada exacta.</p>
-          ) : (
-            riesgosFiltradosPorMatriz.map((r, idx) => {
-              const pRes = extraerNumeroPuro(r.probabilidadResidual) || 1;
-              const iRes = extraerNumeroPuro(r.impactoResidual) || 1;
-              const score = pRes * iRes;
-              return (
-                <div key={`risk-row-${idx}`} className="bg-[#060b16] border border-slate-800/80 p-3 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:border-slate-700 transition-all">
-                  <div className="flex items-start space-x-3">
-                    <span className="bg-blue-600/10 text-blue-400 px-2 py-1 rounded-lg font-mono text-[10px] font-black border border-blue-500/10 mt-0.5">
-                      {r.id ? `RSG-${String(r.id).substring(0,4)}` : `RSG-${idx + 101}`}
-                    </span>
-                    <div>
-                      <h4 className="text-xs font-black text-slate-200">
-                        {r.macroproceso || r.proceso || 'Proceso No Asignado'} 
-                        {r.subproceso && r.subproceso !== 'General' && <span className="text-slate-500 font-bold ml-1.5 text-[10px]">↳ {r.subproceso}</span>}
-                        <span className="mx-1.5 text-slate-700">—</span> 
-                        <span className="font-semibold text-slate-400">{r.riesgo || r.descripcion || 'Riesgo sin descripción'}</span>
-                      </h4>
-                      <p className="text-[9px] text-slate-500 font-medium mt-0.5">Factor/Causa: {r.factorRiesgo || r.causa || 'No especificada'} | Clasificación: {r.clasificacion || r.clasificacionRiesgo || r.categoria || 'Operativo'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4 text-right self-end sm:self-auto">
-                    <div className="text-[10px] font-bold text-slate-400">P: <span className="text-slate-200">{r.probabilidadResidual || 1}</span> / I: <span className="text-slate-200">{r.impactoResidual || 1}</span></div>
-                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-md tracking-wider uppercase ${score >= 16 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : score >= 10 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'} font-mono`}>SCORE {score}</span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-        
-        <div className="absolute bottom-[102%] left-1/2 -translate-x-1/2 w-72 bg-[#0f172a]/95 backdrop-blur-md border border-slate-700/80 p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.6)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[100] pointer-events-none translate-y-2 group-hover:translate-y-0 text-left">
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#0f172a] border-b border-r border-slate-700/80 rotate-45"></div>
-          <h4 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-2 border-b border-slate-700/80 pb-1.5">Inspección de Cuadrante</h4>
-          <div className="space-y-1.5 text-[9px] leading-relaxed text-slate-300 font-medium">
-            <p><b className="text-emerald-400 uppercase">📍 Origen:</b> Clic Interactivo en Mapa de Calor.</p>
-            <p><b className="text-amber-400 uppercase">❓ Por qué:</b> Despliega el detalle exacto de los riesgos que componen cada casilla.</p>
-            <p><b className="text-slate-200 uppercase">📝 Explicación:</b> Listado dinámico filtrado por la coordenada Probabilidad x Impacto.</p>
-          </div>
-        </div>
-      </div>
-
-      {/* 🚀 ─── CENTRO DE CONTROL DINÁMICO POR PROCESOS (NUEVA SECCIÓN DE NAVEGACIÓN) ─── */}
+      {/* 🚀 ─── CENTRO DE CONTROL DINÁMICO POR PROCESOS (NOMBRES OFICIALES) ─── */}
       <div className="mt-8 space-y-4 text-left border-t border-slate-800/80 pt-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-800 pb-3 gap-2">
           <div>
@@ -938,17 +525,15 @@ export default function DashboardEjecutivo({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[
-            "Gestión Administrativa", 
-            "Servicio al Cliente", 
-            "Tecnología (TI)", 
-            "Gestión Financiera", 
-            "Compras y Abastecimiento", 
-            "SST y Medio Ambiente"
-          ].map((nombreProceso, idx) => {
-            const hallazgosProc = (hFiltrados || []).filter(h => 
-              (h.proceso || '').toLowerCase().includes(nombreProceso.toLowerCase())
-            );
+          {PROCESOS_OFICIALES_CARDS.map((proc, idx) => {
+            const normTarget = normalizeStr(proc.nombreOficial);
+
+            // Filtrado dinámico por coincidencia oficial
+            const hallazgosProc = (hallazgosBase || []).filter(h => {
+              const normH = normalizeStr(h.proceso);
+              return normH === normTarget || normH.includes(normTarget) || normTarget.includes(normH);
+            });
+
             const abiertos = hallazgosProc.filter(h => h.estado === 'Abierto').length;
             const criticos = hallazgosProc.filter(h => h.estado === 'Abierto' && (h.severidad === 'Alta' || h.severidad === 'Crítica' || h.severidad === 'Crítico')).length;
 
@@ -966,17 +551,17 @@ export default function DashboardEjecutivo({
               <div
                 key={idx}
                 onClick={() => {
-                  if (setSelectedProcesoExpediente) setSelectedProcesoExpediente(nombreProceso);
-                  setActiveTab('tablero'); // Navega directo a Mi Espacio GRC
+                  if (setSelectedProcesoExpediente) setSelectedProcesoExpediente(proc.nombreOficial);
+                  if (setActiveTab) setActiveTab('miespacio'); // Redirige a Mi Espacio
                 }}
                 className={`bg-[#0a1122] border ${semaforo} p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between group shadow-lg`}
               >
                 <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <h4 className="text-xs font-black text-white uppercase tracking-wider group-hover:text-blue-400 transition-colors">
-                      🏢 {nombreProceso}
+                  <div className="flex justify-between items-center gap-2">
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider group-hover:text-blue-400 transition-colors flex items-center gap-1.5 truncate">
+                      <span>{proc.icono}</span> <span className="truncate">{proc.nombreOficial}</span>
                     </h4>
-                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded border border-current">
+                    <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded border border-current shrink-0">
                       {badge}
                     </span>
                   </div>
