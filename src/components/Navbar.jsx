@@ -11,9 +11,9 @@ export default function Navbar({ isPresentationMode, setIsPresentationMode }) {
       <div className="flex justify-center">
         <div className="bg-slate-50 border border-slate-200 rounded-full px-8 py-2 flex items-center space-x-3 shadow-sm">
           
-          {/* LOGO DE TERMALES */}
+          {/* LOGO DE TERMALES CON LA RUTA CORRECTA */}
           <img 
-            src="/logo.png" 
+            src="/logo_termales.png" 
             alt="Logo Termales" 
             className="h-8 w-auto object-contain" 
           />
