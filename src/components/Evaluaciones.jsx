@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+// 1. Importamos nuestras nuevas herramientas centralizadas
+import { useDataFetching } from '../hooks/useDataFetching';
+import { apiService } from '../services/apiService';
 
 export default function Evaluaciones({
   isAdmin,
@@ -22,53 +25,40 @@ export default function Evaluaciones({
 }) {
   const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
 
-  // 1. Estado local para manejar el Riesgo seleccionado y filtrar los controles
+  // Estado local para manejar el Riesgo seleccionado y filtrar los controles
   const [riesgoSeleccionadoId, setRiesgoSeleccionadoId] = useState('');
 
-  // 2. Efecto para cargar el riesgo automáticamente cuando le damos a "Editar"
+  // Efecto para cargar el riesgo automáticamente cuando le damos a "Editar"
   useEffect(() => {
     setRiesgoSeleccionadoId(editEvaluacion?.idRiesgo || '');
   }, [editEvaluacion]);
 
-// ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  // 2. ☁️ NUEVO MOTOR LIMPIO CON CUSTOM HOOKS
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
+  // Extraemos isLoading (lo renombramos a isUploading para no romper tu diseño) y ejecutarPeticion
+  const { isLoading: isUploading, error: uploadError, ejecutarPeticion } = useDataFetching();
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    setIsUploading(true);
-    setUploadProgress(20);
-
-    const formData = new FormData();
-    formData.append('appName', 'controlInterno'); 
-    formData.append('description', 'Evidencia de Test de Control'); 
-    formData.append('file', file); 
-
     try {
-      setUploadProgress(50);
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      // 3. Llamamos al servicio central, pasándole el archivo y la metadata
+      const data = await ejecutarPeticion(
+        apiService.subirEvidencia(file, {
+          appName: 'controlInterno',
+          description: 'Evidencia de Test de Control'
+        })
+      );
 
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
-      const data = await response.json();
       const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
-
       setArchivoSubidoUrl(urlFinal);
-      setIsUploading(false);
-      setUploadProgress(100);
       alert("🎉 ¡Soporte de evaluación guardado con éxito en el servidor de Termales!");
     } catch (err) {
-      console.error(err);
       alert("Error al conectar con el servidor de archivos.");
-      setIsUploading(false);
     }
   };
+
   return (
     <div className="space-y-6">
       <div className="border-b pb-4">
@@ -82,7 +72,6 @@ export default function Evaluaciones({
           </h3>
           <form onSubmit={handleEvaluacionSubmit} key={editEvaluacion?.id || 'nueva-evaluacion'} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
             
-            {/* NUEVO: Selector de Riesgo */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">🎯 Seleccionar Riesgo a Auditar</label>
               <select 
@@ -101,7 +90,6 @@ export default function Evaluaciones({
               </select>
             </div>
 
-            {/* NUEVO: Selector de Control Dependiente */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">🛡️ Seleccionar Control Asociado</label>
               <select 
@@ -122,7 +110,6 @@ export default function Evaluaciones({
               </select>
             </div>
 
-            {/* Ajusté las columnas de Diseño y Ejecución para que queden simétricas */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600">Diseño</label>
               <select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white">
@@ -138,7 +125,7 @@ export default function Evaluaciones({
               </select>
             </div>
             
-{/* ☁️ BÓVEDA SERVIDOR TERMALES: EVIDENCIA DEL TEST DE CONTROL */}
+            {/* ☁️ BÓVEDA SERVIDOR TERMALES: EVIDENCIA DEL TEST DE CONTROL */}
             <div className="md:col-span-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner mt-2">
               <div className="border-b pb-2 border-slate-200 flex justify-between items-center mb-4">
                 <div>
@@ -148,17 +135,17 @@ export default function Evaluaciones({
                 <div className="text-slate-300 text-3xl">☁️</div>
               </div>
 
-              {/* INPUT OCULTO: Guarda la URL en el formulario */}
               <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editEvaluacion?.evidenciaUrl || ''} />
 
               <div className="bg-white border-2 border-dashed border-indigo-300 p-6 rounded-2xl text-center relative hover:border-indigo-500 hover:bg-indigo-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">
                 {isUploading ? (
                   <div className="space-y-3 w-full">
                     <div className="text-3xl animate-bounce">🚀</div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
-                      <div className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden relative">
+                       {/* Barra de carga indeterminada animada */}
+                      <div className="bg-indigo-500 h-2.5 rounded-full w-full animate-pulse"></div>
                     </div>
-                    <p className="text-[9px] font-bold text-slate-500">{uploadProgress}% Subiendo al servidor...</p>
+                    <p className="text-[9px] font-bold text-indigo-600 animate-pulse">Procesando y subiendo al servidor, por favor espera...</p>
                   </div>
                 ) : archivoSubidoUrl || editEvaluacion?.evidenciaUrl ? (
                   <div className="space-y-2">
@@ -176,6 +163,8 @@ export default function Evaluaciones({
                     <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
                   </label>
                 )}
+                {/* Mostramos el error si el hook falla */}
+                {uploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{uploadError}</p>}
               </div>
             </div>            
             <div className="md:col-span-4">
@@ -183,8 +172,8 @@ export default function Evaluaciones({
               <textarea name="comentarios" defaultValue={editEvaluacion?.comentarios||''} required className="w-full border rounded-lg p-2 mt-1" rows="2"></textarea>
             </div>
             <div className="md:col-span-4 flex justify-end">
-              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-lg shadow-md hover:bg-indigo-700">
-                Guardar Test
+              <button type="submit" disabled={isUploading} className={`font-bold px-6 py-2 rounded-lg shadow-md ${isUploading ? 'bg-slate-400 cursor-not-allowed text-slate-200' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                {isUploading ? 'Subiendo archivo...' : 'Guardar Test'}
               </button>
             </div>
           </form>
@@ -230,7 +219,6 @@ export default function Evaluaciones({
               <tr key={`eval-row-${ev.id}-${index}`} className="hover:bg-slate-50">
                 <td className="p-3">
                   <div className="font-mono text-slate-400 font-bold mb-1">#TEST-{ev.id}</div>
-                  {/* Pequeño detalle: Muestro el Control en la tabla para mejor visibilidad */}
                   {ev.noControl && (
                     <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-indigo-100">
                       {ev.noControl}

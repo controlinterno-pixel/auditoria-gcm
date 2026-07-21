@@ -6,8 +6,10 @@ import {
   onAuthStateChanged 
 } from 'firebase/auth'; 
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
-// 🔥 NUEVA CONEXIÓN MODULAR A FIREBASE
+// 🔥 NUEVA CONEXIÓN MODULAR Y SERVICIOS CENTRALIZADOS
 import { auth, db } from './services/firebase';
+import { dbService } from './services/dbService';
+import { useDataFetching } from './hooks/useDataFetching';
 import { obtenerSugerenciaIA, obtenerAnalisisEvidenciaIA } from './services/gemini';
 import { 
   formatSafeDate, getMonthFromDate, getYearFromDate, 
@@ -31,6 +33,7 @@ import DashboardEjecutivo from './components/DashboardEjecutivo';
 import MiEspacio from './components/MiEspacio';
 import ModalIA from './components/ModalIA';
 import ModalDetalleGrafico from './components/ModalDetalleGrafico';
+import WelcomeScreen from './components/WelcomeScreen';
 import { enviarCorreoGmail } from './services/gmailService';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
@@ -149,7 +152,8 @@ const StepIndicatorHUD = ({ activeStep }) => {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
-  
+  // 🔌 Hook para gestionar peticiones a la base de datos
+const { ejecutarPeticion, isLoading: isDbLoading, error: dbError } = useDataFetching();
   // 🔌 ESTADOS PARA NAVEGACIÓN ANIDADA DE PROCESOS (WORKFLOW)
   const [subTabPlanificar, setSubTabPlanificar] = useState('plan_anual');
   const [subTabResultados, setSubTabResultados] = useState('hallazgos');
@@ -301,50 +305,60 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     });
     return () => unsubscribe();
   }, []);
-
- useEffect(() => {
+// 📥 Carga Inicial Centralizada con dbService (Lecturas en Paralelo)
+  useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
-    
-    // 🛡️ Seguro anti-congelamiento: Si Firebase no responde en 4 segundos, fuerza la entrada
-    const timeoutSeguridad = setTimeout(() => {
-      console.warn("⚠️ Firebase está tardando demasiado o Storage no está activo. Forzando entrada...");
-      setIsCloudLoaded(true);
-    }, 4000);
 
-    const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
-    
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      clearTimeout(timeoutSeguridad); // Si responde bien, cancela el timer
-      if (docSnap.exists()) {
-        const data = docSnap.data() || {};
-        setRiesgos(data.riesgos || defaultRiesgos);
-        setHallazgos(data.hallazgos || defaultHallazgos);
-        setPlanes(data.planes || defaultPlanes);
-        setIncidentes(data.incidentes || []);
-        setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
-        setCronograma(data.cronograma || defaultCronograma);
-        setMonitoreo(data.monitoreo || defaultMonitoreo);
-        setInformesAuditoria(data.informesAuditoria || []);
-        setComites(data.comites || []);
-        setAuditoresLista(data.auditoresLista || ["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
-      } else {
-        if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
-           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [], comites: [] });
+    const cargarDatos = async () => {
+      try {
+        const [
+          dataRiesgos, 
+          dataHallazgos, 
+          dataPlanes, 
+          dataIncidentes, 
+          dataEvaluaciones, 
+          dataCronograma, 
+          dataMonitoreo, 
+          dataInformes, 
+          dataComites,
+          dataAuditores
+        ] = await Promise.all([
+          dbService.obtenerTodos('riesgos'),
+          dbService.obtenerTodos('hallazgos'),
+          dbService.obtenerTodos('planes'),
+          dbService.obtenerTodos('incidentes'),
+          dbService.obtenerTodos('evaluaciones'),
+          dbService.obtenerTodos('cronograma'),
+          dbService.obtenerTodos('monitoreo'),
+          dbService.obtenerTodos('informesAuditoria'),
+          dbService.obtenerTodos('comites'),
+          dbService.obtenerTodos('auditoresLista')
+        ]);
+
+        setRiesgos(dataRiesgos);
+        setHallazgos(dataHallazgos);
+        setPlanes(dataPlanes);
+        setIncidentes(dataIncidentes);
+        setEvaluaciones(dataEvaluaciones);
+        setCronograma(dataCronograma);
+        setMonitoreo(dataMonitoreo);
+        setInformesAuditoria(dataInformes);
+        setComites(dataComites);
+
+        // Si existen auditores guardados en la base de datos, actualiza la lista por defecto
+        if (Array.isArray(dataAuditores) && dataAuditores.length > 0) {
+          setAuditoresLista(dataAuditores);
         }
+      } catch (err) {
+        console.error("⚠️ Error durante la carga inicial con dbService:", err);
+      } finally {
+        setIsCloudLoaded(true);
       }
-      setIsCloudLoaded(true);
-    }, (error) => {
-      clearTimeout(timeoutSeguridad);
-      console.error("🔥 Error de Firebase:", error);
-      setIsCloudLoaded(true); // Forzamos entrada aunque haya error
-    });
-
-    return () => {
-      clearTimeout(timeoutSeguridad);
-      unsubscribe();
     };
-  }, [user]);    
+
+    cargarDatos();
+  }, [user]);   
 
   useEffect(() => {
     if (window.XLSX) { setXlsxLoaded(true); return; }
@@ -367,7 +381,18 @@ const handleLogout = async () => {
     await signOut(auth); 
     setShowWelcome(true); // 🛡️ Asegura que al dar clic al botón se active la pantalla de nuevo
   };
-  const saveToCloud = async (partialData) => { await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); };
+// 💾 Guardado/Actualización delegada a la capa dbService
+const saveToCloud = async (partialData) => {
+  try {
+    const colecciones = Object.keys(partialData);
+    for (const col of colecciones) {
+      await ejecutarPeticion(dbService.guardarOActualizar(col, partialData[col]));
+    }
+  } catch (error) {
+    console.error("Error al guardar con dbService:", error);
+    throw error;
+  }
+};
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
   // SOLUCIÓN AL SCROLL DE EDICIÓN: Búsqueda precisa del contenedor central para evitar el salto
@@ -1088,20 +1113,33 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     setRiesgos(updatedList); setEditApetito(null); await saveToCloud({ riesgos: updatedList }); showNotification("Perfil de Apetito guardado.");
   };
 
-  const handleDeleteItem = async (listType, id) => {
-    if (!isAdmin) return; if (!window.confirm('¿Eliminar registro permanentemente?')) return;
-    let updated;
-    if (listType === 'riesgos') { updated = safeRiesgos.filter(r => r.id !== id); setRiesgos(updated); }
-    if (listType === 'evaluaciones') { updated = safeEvaluaciones.filter(e => e.id !== id); setEvaluaciones(updated); }
-    if (listType === 'hallazgos') { updated = safeHallazgos.filter(h => h.id !== id); setHallazgos(updated); }
-    if (listType === 'planes') { updated = safePlanes.filter(p => p.id !== id); setPlanes(updated); }
-    if (listType === 'incidentes') { updated = safeIncidentes.filter(i => i.id !== id); setIncidentes(updated); }
-    if (listType === 'cronograma') { updated = safeCronograma.filter(c => c.id !== id); setCronograma(updated); }
-    if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
-    if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); }
-    if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); setComites(updated); }
-    await saveToCloud({ [listType]: updated }); showNotification("Registro eliminado.", "success");
-  };
+  // 🗑️ Eliminación Centralizada y asíncrona mediante dbService
+const handleDeleteItem = async (listType, id) => {
+  if (!isAdmin) return; 
+  if (!window.confirm('¿Eliminar registro permanentemente?')) return;
+
+  try {
+    // 1. Ejecuta la eliminación directa en dbService
+    await ejecutarPeticion(dbService.eliminar(listType, id));
+
+    // 2. Actualiza reactivamente el estado local en pantalla
+    const filtrar = (lista) => lista.filter(item => item.id !== id);
+
+    if (listType === 'riesgos') setRiesgos(prev => filtrar(prev));
+    if (listType === 'evaluaciones') setEvaluaciones(prev => filtrar(prev));
+    if (listType === 'hallazgos') setHallazgos(prev => filtrar(prev));
+    if (listType === 'planes') setPlanes(prev => filtrar(prev));
+    if (listType === 'incidentes') setIncidentes(prev => filtrar(prev));
+    if (listType === 'cronograma') setCronograma(prev => filtrar(prev));
+    if (listType === 'monitoreo') setMonitoreo(prev => filtrar(prev));
+    if (listType === 'informesAuditoria') setInformesAuditoria(prev => filtrar(prev));
+    if (listType === 'comites') setComites(prev => filtrar(prev));
+
+    showNotification("Registro eliminado con éxito.", "success");
+  } catch (error) {
+    showNotification(`Error al eliminar registro: ${error.message}`, "error");
+  }
+};
 
   const handleMonitoreoSubmit = async (e) => {
     e.preventDefault(); if (!isAdmin) return;
@@ -1626,225 +1664,6 @@ selectAllAnios={() => setSelectedAnios([...defaultAnios])}
     );
   };
 
-// =====================================================================
-  // PANTALLA DE BIENVENIDA DINÁMICA (ADMINISTRADORES Y JEFES DE ÁREA)
-  // =====================================================================
-  const renderWelcomeScreen = () => {
-    // Logo Vectorial (SVG Puro)
-    const LogoTermales = () => (
-      <svg viewBox="0 0 100 100" className="w-[75px] h-[75px] drop-shadow-sm shrink-0">
-        <circle cx="16" cy="45" r="2" fill="#203d4a" />
-        <circle cx="12" cy="49" r="1.5" fill="#203d4a" />
-        <circle cx="18" cy="52" r="1.2" fill="#203d4a" />
-        <circle cx="85" cy="42" r="1.8" fill="#203d4a" />
-        <circle cx="92" cy="45" r="2.5" fill="#203d4a" />
-        <circle cx="90" cy="50" r="1.5" fill="#203d4a" />
-        <circle cx="84" cy="54" r="1.2" fill="#203d4a" />
-        <path d="M 68 28 C 76 20, 88 22, 90 28 C 82 32, 72 32, 68 28 Z" fill="#4CAF50" />
-        <path d="M 63 15 C 68 8, 76 10, 78 14 C 72 17, 65 18, 63 15 Z" fill="#4CAF50" />
-        <path d="M 32 72 C 24 80, 12 78, 10 72 C 18 68, 28 68, 32 72 Z" fill="#4CAF50" />
-        <path d="M 37 85 C 32 92, 24 90, 22 86 C 28 83, 35 82, 37 85 Z" fill="#4CAF50" />
-        <circle cx="50" cy="50" r="25" stroke="#203d4a" strokeWidth="11" fill="none" />
-        <circle cx="43" cy="55" r="7" stroke="#203d4a" strokeWidth="3.5" fill="none" />
-        <circle cx="58" cy="62" r="4.5" stroke="#203d4a" strokeWidth="2.5" fill="none" />
-        <circle cx="59" cy="48" r="2.2" fill="#203d4a" />
-        <circle cx="53" cy="45" r="1.5" fill="#203d4a" />
-      </svg>
-    );
-
-    return (
-      <div className="relative flex min-h-screen w-full bg-[#f8fbfa] font-sans overflow-hidden">
-        
-        {/* ================= 1. FONDOS PRINCIPALES ================= */}
-        
-        {/* Lado Izquierdo: Cascada */}
-        <div 
-          className="absolute left-0 top-0 w-[45%] h-full bg-cover bg-center z-0"
-          style={{ backgroundImage: "url('/cascada.jpg'), linear-gradient(to right, #0A1A12, #11322A)" }}
-        >
-          {/* Difuminado suave hacia el centro */}
-          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#f8fbfa] to-transparent z-10"></div>
-        </div>
-
-        {/* ================= 2. GEOMETRÍA Y VECTORES EXACTOS (HUD) ================= */}
-        
-        {/* A. Esquina Superior Derecha (Polígono verde oscuro con láser) */}
-        <svg className="absolute top-0 right-0 w-[400px] h-[400px] z-10 pointer-events-none" viewBox="0 0 400 400">
-          <defs>
-            <linearGradient id="grad-top-right" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#051f15" />
-              <stop offset="100%" stopColor="#0a3b2a" />
-            </linearGradient>
-            <filter id="glow-green" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-            <filter id="glow-dot" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-          </defs>
-          {/* Forma oscura */}
-          <polygon points="120,0 400,0 400,280" fill="url(#grad-top-right)" />
-          {/* Línea láser verde brillante en el borde diagonal */}
-          <line x1="120" y1="0" x2="400" y2="280" stroke="#00FF87" strokeWidth="4" filter="url(#glow-green)" />
-          {/* Destello/Estrella cerca del borde */}
-          <circle cx="280" cy="80" r="2.5" fill="#eab308" filter="url(#glow-dot)" />
-          <path d="M280,70 L280,90 M270,80 L290,80" stroke="#eab308" strokeWidth="1" filter="url(#glow-dot)" opacity="0.6"/>
-        </svg>
-
-        {/* B. Esquina Inferior Izquierda (Polígono oscuro con borde neón exacto a la maqueta) */}
-        <svg className="absolute bottom-0 left-0 w-[250px] h-[250px] z-10 pointer-events-none" viewBox="0 0 250 250">
-          <defs>
-            <linearGradient id="grad-bottom-left" x1="0" y1="1" x2="1" y2="0">
-              <stop offset="0%" stopColor="#051f15" />
-              <stop offset="100%" stopColor="#0a3b2a" />
-            </linearGradient>
-            <filter id="glow-green-bl" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-          </defs>
-          {/* Forma oscura anclada a la esquina */}
-          <polygon points="0,100 150,250 0,250" fill="url(#grad-bottom-left)" />
-          {/* Línea láser verde brillante en el borde diagonal */}
-          <line x1="0" y1="100" x2="150" y2="250" stroke="#00FF87" strokeWidth="3" filter="url(#glow-green-bl)" />
-          {/* Pequeños nodos decorativos de conexión */}
-          <circle cx="75" cy="175" r="2.5" fill="#00FF87" filter="url(#glow-green-bl)" />
-          <line x1="75" y1="175" x2="110" y2="175" stroke="#00FF87" strokeWidth="1" filter="url(#glow-green-bl)" opacity="0.5"/>
-          <line x1="110" y1="175" x2="125" y2="190" stroke="#00FF87" strokeWidth="1" filter="url(#glow-green-bl)" opacity="0.5"/>
-          <circle cx="125" cy="190" r="1.5" fill="#00FF87" opacity="0.8"/>
-        </svg>
-
-        {/* C. Fondo Tecnológico Derecho (Hexágonos y Líneas de puntos exactas) */}
-        <svg className="absolute top-0 right-0 w-full h-full opacity-60 z-0 pointer-events-none" viewBox="0 0 1000 1000" preserveAspectRatio="xMaxYMid slice">
-          {/* Línea segmentada principal */}
-          <path d="M550,-50 L850,250 L850,600 L600,850 L200,850" fill="none" stroke="#64A338" strokeWidth="1.2" strokeDasharray="8,8" />
-          {/* Nodos de intersección */}
-          <circle cx="850" cy="250" r="4" fill="#64A338" />
-          <circle cx="850" cy="600" r="4" fill="#64A338" />
-          <circle cx="600" cy="850" r="4" fill="#64A338" />
-          
-          {/* Grupo de Hexágonos */}
-          <g stroke="#64A338" strokeWidth="1.2" fill="none">
-            {/* Hexágono Centro-Derecha */}
-            <polygon points="760,400 785,415 785,445 760,460 735,445 735,415" />
-            {/* Hexágono Pequeño anidado */}
-            <polygon points="820,470 835,480 835,500 820,510 805,500 805,480" />
-            {/* Hexágono Inferior */}
-            <polygon points="680,700 700,712 700,736 680,748 660,736 660,712" />
-          </g>
-        </svg>
-
-        {/* ================= 3. TARJETA CENTRAL ================= */}
-        <div className="absolute inset-0 flex items-center justify-center p-4 z-20">
-          
-          <div className="relative w-full max-w-[620px] animate-in zoom-in-95 duration-700">
-            
-            {/* Resplandor Neon Verde debajo de la tarjeta */}
-            <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-400 to-green-200 rounded-[3rem] blur-xl opacity-50"></div>
-            
-            {/* Contenedor Blanco Principal */}
-            <div className="relative bg-white rounded-[2.5rem] shadow-2xl p-3 overflow-hidden">
-              
-              {/* --- EL MARCO TECNOLÓGICO INTERNO (Idéntico a tu maqueta) --- */}
-              <div className="relative border-[1.5px] border-gray-200 rounded-[2rem] p-10 sm:p-14">
-                
-                {/* Ocultadores para hacer los "cortes" del marco */}
-                {/* Corte superior izquierdo */}
-                <div className="absolute top-[-2px] left-10 w-8 h-1 bg-white"></div>
-                <div className="absolute top-10 left-[-2px] w-1 h-8 bg-white"></div>
-                <div className="absolute top-5 left-5 w-5 h-5 border-t-2 border-l-2 border-gray-300 rounded-tl-xl pointer-events-none"></div>
-
-                {/* Corte superior derecho (con los 9 puntos) */}
-                <div className="absolute top-[-2px] right-10 w-16 h-1 bg-white"></div>
-                <div className="absolute top-10 right-[-2px] w-1 h-12 bg-white"></div>
-                <div className="absolute top-6 right-6 grid grid-cols-3 gap-[4px] opacity-40 bg-white p-1">
-                  {[...Array(9)].map((_, i) => <div key={i} className="w-[5px] h-[5px] bg-[#4A5D66] rounded-full"></div>)}
-                </div>
-
-                {/* Corte inferior derecho */}
-                <div className="absolute bottom-[-2px] right-10 w-8 h-1 bg-white"></div>
-                <div className="absolute bottom-10 right-[-2px] w-1 h-8 bg-white"></div>
-                <div className="absolute bottom-5 right-5 w-5 h-5 border-b-2 border-r-2 border-gray-300 rounded-br-xl pointer-events-none"></div>
-
-                {/* ---------------- CONTENIDO ---------------- */}
-                
-                {/* LOGO */}
-                <div className="flex flex-col items-center mb-6 mt-1">
-                  <div className="flex items-center space-x-2">
-                    <LogoTermales />
-                    <div className="flex flex-col leading-none ml-2">
-                      <h1 className="text-[34px] font-black text-[#0B2A36] tracking-tight mt-1" style={{ fontFamily: 'Arial, sans-serif' }}>
-                        TERMALES
-                      </h1>
-                      <p className="text-[17px] font-bold text-[#64A338] -mt-1 tracking-wide">
-                        Santa Rosa de Cabal
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* TÍTULO Y SEPARADOR */}
-                <div className="text-center mb-6">
-                  <h2 className="text-[26px] font-black text-[#0A3B32] tracking-tight">
-                    {isAdmin ? 'Centro de Mando GRC' : 'Portal Operativo GRC'}
-                  </h2>
-                  <div className="flex items-center justify-center my-4 opacity-80">
-                    <div className="h-[1px] bg-gray-300 w-10"></div>
-                    <div className="w-[5px] h-[5px] rounded-full bg-[#64A338] mx-2"></div>
-                    <div className="h-[1px] bg-gray-300 w-10"></div>
-                  </div>
-                </div>
-
-                {/* TEXTO DESCRIPTIVO */}
-                <div className="text-center mb-10 px-2">
-                  <p className="text-[14px] text-gray-500 leading-relaxed font-medium max-w-sm mx-auto">
-                    {isAdmin
-                      ? 'Bienvenido al panel de Administración y Auditoría. Desde aquí podrá supervisar los riesgos corporativos, emitir informes formales, aprobar planes de acción y gestionar la base de datos global.'
-                      : 'Bienvenido, Líder de Proceso. Desde aquí podrá visualizar los tableros analíticos, reportar el avance de sus planes de acción y registrar eventos de pérdida operativos.'}
-                  </p>
-                </div>
-
-                {/* BOTONES */}
-                <div className="space-y-4 max-w-[400px] mx-auto relative z-20">
-                  <button 
-                    onClick={() => setShowWelcome(false)} 
-                    className="w-full bg-[#0A3B32] hover:bg-[#062620] text-white py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-lg transition-all flex items-center justify-center space-x-3 active:scale-95 group"
-                  >
-                    <svg className="w-4 h-4 text-emerald-400 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
-                    <span>Acceder al Tablero de Control</span>
-                  </button>
-
-                  <button 
-                    onClick={handleLogout} 
-                    className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-[#64A338] py-3.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all flex items-center justify-center space-x-3 active:scale-95 group shadow-sm"
-                  >
-                    <svg className="w-4 h-4 text-[#64A338]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    <span>Cerrar Sesión</span>
-                  </button>
-                </div>
-                
-                {/* PUNTOS INFERIORES */}
-                <div className="flex justify-center items-center space-x-2 mt-8">
-                  <div className="w-[7px] h-[7px] rounded-full border border-[#64A338] bg-transparent"></div>
-                  <div className="w-[7px] h-[7px] rounded-full border border-[#64A338] bg-transparent"></div>
-                  <div className="w-[7px] h-[7px] rounded-full bg-[#64A338]"></div>
-                  <div className="w-[7px] h-[7px] rounded-full bg-[#64A338]"></div>
-                </div>
-
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
   if (!user) {
@@ -1867,7 +1686,15 @@ selectAllAnios={() => setSelectedAnios([...defaultAnios])}
   }
 
 if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
-  if (showWelcome) return renderWelcomeScreen();
+if (showWelcome) {
+  return (
+    <WelcomeScreen 
+      isAdmin={isAdmin} 
+      onEnter={() => setShowWelcome(false)} 
+      onLogout={handleLogout} 
+    />
+  );
+}
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
       

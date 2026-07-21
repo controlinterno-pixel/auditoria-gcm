@@ -1,38 +1,18 @@
 import React, { useState } from 'react';
+import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
+// 1. Importamos el componente reutilizable
+import FileUploader from '../components/FileUploader';
 
-const PROCESOS_OFICIALES = [
-  "Gestión comercial",
-  "Gestión de la mejora continua (SIGCAS)",
-  "Gestión de mercadeo y comunicaciones",
-  "Gestión de servicio al cliente",
-  "Gestión estratégica",
-  "Gestión de Operaciones",
-  "Gestión Administrativa y Financiera ",
-  "Gestión Talento Humano ",
-  "I+D+i",
-  "Subproceso alojamiento",
-  "Subproceso alimentos y bebidas",
-  "Subproceso compras",
-  "Subproceso desarrollo de competencias",
-  "Subproceso gestión administrativa",
-  "Subproceso gestión de almacenes",
-  "Subproceso gestión de cartera",
-  "Subproceso gestión de contabilidad",
-  "Subproceso gestión de costos",
-  "Subproceso gestión de inventarios",
-  "Subproceso gestión de tesorería",
-  "Subproceso gestión del bienestar y la compensación",
-  "Subproceso gestionar los activos fijos de la empresa",
-  "Subproceso mantenimiento",
-  "Subproceso recreación",
-  "Subproceso Seguridad y salud en trabajo",
-  "Subproceso Gestion de calidad",
-  "Subproceso Gestión Ambiental",
-  "Subproceso Control interno y Gestion de riesgos",
-  "Subproceso Proteccion de datos personales",
-  "Subproceso selección, vinculación y administración de colaboradores",
-  "Tecnologías de la información y la comunicación"
-];
+// 🧠 Generador Automático: Construye la lista unificada leyendo el diccionario central
+const PROCESOS_OFICIALES = Object.keys(MAPA_PROCESOS).reduce((acc, macro) => {
+  acc.push(macro); // Añade el Macroproceso
+  MAPA_PROCESOS[macro].forEach(sub => {
+    if (sub !== 'General' && !acc.includes(sub)) {
+      acc.push(`Subproceso ${sub.toLowerCase()}`); // Añade los Subprocesos formateados
+    }
+  });
+  return acc;
+}, []).sort();
 
 export default function Incidentes({
   incFiltrados,
@@ -53,9 +33,7 @@ export default function Incidentes({
   safeRiesgos = [] // Recibimos los riesgos desde el Dashboard (Main)
 }) {
 
-  // ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  // ☁️ URL del archivo subido
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
 
   // Limpiar la URL de la evidencia cuando se inicia un nuevo registro
@@ -64,41 +42,6 @@ export default function Incidentes({
       setArchivoSubidoUrl('');
     }
   }, [editIncidente]);
-
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    setUploadProgress(20);
-
-    const formData = new FormData();
-    formData.append('appName', 'controlInterno');
-    formData.append('description', 'Soporte Evento de Pérdida GCM');
-    formData.append('file', file);
-
-    try {
-      setUploadProgress(50);
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
-      const data = await response.json();
-      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
-
-      setArchivoSubidoUrl(urlFinal);
-      setIsUploading(false);
-      setUploadProgress(100);
-      alert("🎉 ¡Soporte del evento guardado con éxito en el servidor de Termales!");
-    } catch (err) {
-      console.error(err);
-      alert("Error al conectar con el servidor de archivos.");
-      setIsUploading(false);
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -115,7 +58,7 @@ export default function Incidentes({
           
           <form onSubmit={handleIncidenteSubmit} key={editIncidente ? `edit-incidente-${editIncidente.id}-${formResetKey}` : `new-incidente-${formResetKey}`} className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs shadow-sm">
             
-            {/* NUEVO: Selector de Proceso (Homologado) */}
+            {/* Selector de Proceso (Homologado) */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">🏛️ Proceso Afectado</label>
               <select name="proceso" defaultValue={editIncidente?.proceso || ''} required className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-800">
@@ -126,7 +69,7 @@ export default function Incidentes({
               </select>
             </div>
 
-            {/* NUEVO: Selector de Riesgo desde Matriz */}
+            {/* Selector de Riesgo desde Matriz */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">🎯 Riesgo Vinculado</label>
               <select name="idRiesgo" defaultValue={editIncidente?.idRiesgo || ''} required className="w-full border rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-800">
@@ -172,49 +115,27 @@ export default function Incidentes({
               <textarea name="descripcion" defaultValue={editIncidente?.descripcion || ''} required placeholder="Detalle cómo ocurrió el evento..." className="w-full border p-2 rounded-lg" rows="3"></textarea>
             </div>
 
-            {/* ☁️ BÓVEDA SERVIDOR TERMALES: EVIDENCIA DEL EVENTO */}
-            <div className="md:col-span-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner mt-2">
-              <div className="border-b pb-2 border-slate-200 flex justify-between items-center mb-4">
-                <div>
-                  <label className="font-black text-slate-700 uppercase tracking-widest text-[11px]">Soporte del Evento (Evidencia)</label>
-                  <p className="text-[9px] text-slate-500 font-medium">Sube fotografías, actas o PDFs relacionados al evento de pérdida.</p>
-                </div>
-                <div className="text-slate-300 text-3xl">☁️</div>
-              </div>
+            {/* INPUT OCULTO: Inyecta la URL obtenida en el envío del formulario */}
+            <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editIncidente?.evidenciaUrl || ''} />
 
-              {/* INPUT OCULTO: Guarda la URL en el formulario */}
-              <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editIncidente?.evidenciaUrl || ''} />
-
-              <div className="bg-white border-2 border-dashed border-red-300 p-6 rounded-2xl text-center relative hover:border-red-500 hover:bg-red-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">
-                {isUploading ? (
-                  <div className="space-y-3 w-full">
-                    <div className="text-3xl animate-bounce">🚀</div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
-                      <div className="bg-red-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
-                    </div>
-                    <p className="text-[9px] font-bold text-slate-500">{uploadProgress}% Subiendo soporte...</p>
-                  </div>
-                ) : archivoSubidoUrl || editIncidente?.evidenciaUrl ? (
-                  <div className="space-y-2">
-                    <div className="text-4xl text-red-500">✅</div>
-                    <a href={archivoSubidoUrl || editIncidente?.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1 rounded-md">Ver Soporte Subido</a>
-                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-red-600 text-[9px] font-bold uppercase tracking-wider transition-colors underline">
-                      Reemplazar Soporte
-                      <input type="file" className="hidden" accept=".pdf, .jpg, .png, .jpeg" onChange={handleFileUpload} />
-                    </label>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
-                    <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-1.5 rounded-lg group-hover:bg-red-100 group-hover:text-red-700 transition-colors">Seleccionar Archivo (Imagen o PDF)</p>
-                    <input type="file" className="hidden" accept=".pdf, .jpg, .png, .jpeg" onChange={handleFileUpload} />
-                  </label>
-                )}
-              </div>
+            {/* ☁️ NUEVO COMPONENTE REUTILIZABLE DE SUBIDA */}
+            <div className="md:col-span-4 mt-2">
+              <FileUploader 
+                label="Soporte del Evento (Evidencia)"
+                subtext="Sube fotografías, actas o PDFs relacionados al evento de pérdida."
+                fileUrl={archivoSubidoUrl || editIncidente?.evidenciaUrl}
+                onUploadSuccess={(url) => setArchivoSubidoUrl(url)}
+                themeColor="red"
+                maxSizeMB={8}
+                description="Soporte Evento de Pérdida GCM"
+              />
             </div>
 
             <div className="md:col-span-4 flex justify-end mt-2">
-              <button type="submit" className="bg-[#004d40] text-white px-6 py-2.5 rounded-lg font-bold hover:bg-[#003d33] transition-colors shadow-sm">
+              <button 
+                type="submit" 
+                className="bg-[#004d40] text-white px-6 py-2.5 rounded-lg font-bold hover:bg-[#003d33] transition-colors shadow-sm"
+              >
                 {editIncidente ? 'Actualizar Evento' : 'Registrar Evento'}
               </button>
             </div>

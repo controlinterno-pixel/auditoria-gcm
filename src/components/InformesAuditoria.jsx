@@ -6,6 +6,10 @@ import {
   CARGOS_SOCIALIZACION 
 } from '../constants/diccionariosGRC';
 
+// 1. Importamos la arquitectura centralizada
+import { useDataFetching } from '../hooks/useDataFetching';
+import { apiService } from '../services/apiService';
+
 export default function InformesAuditoria({ 
   informesAuditoria, 
   editInformeAuditoria, 
@@ -27,15 +31,15 @@ export default function InformesAuditoria({
   onActualizarAuditores 
 }) {
 
-// 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
+  // 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
   const [participanteTemp, setParticipanteTemp] = useState('');
 
-// 🌟 NUEVOS ESTADOS PARA MACRO Y SUBPROCESO
+  // 🌟 NUEVOS ESTADOS PARA MACRO Y SUBPROCESO
   const [macroprocesoForm, setMacroprocesoForm] = useState('');
   const [subprocesoForm, setSubprocesoForm] = useState('');
 
-  // Sincronizador automático si se carga un informe en modo edición (Compatible con ambos esquemas de datos)
+  // Sincronizador automático si se carga un informe en modo edición
   React.useEffect(() => {
     if (editInformeAuditoria) {
       const datosCargos = editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '';
@@ -57,7 +61,7 @@ export default function InformesAuditoria({
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(null);
 
-  // 🎛️ ESTADOS DEL PANEL LATERAL (NUEVO)
+  // 🎛️ ESTADOS DEL PANEL LATERAL
   const [agruparPor, setAgruparPor] = useState('Año'); 
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
   const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
@@ -84,10 +88,6 @@ export default function InformesAuditoria({
     return true;
   });
 
-  // =========================================================
-  // 🧠 NUEVA LÓGICA DASHBOARD: FILTROS + AGRUPACIÓN DINÁMICA
-  // =========================================================
-  
   // 1. Filtrar los datos del Dashboard según el menú lateral
   const informesDashboard = informesEnriquecidos.filter(inf => {
     if (dashFiltroAnio !== 'Todos' && inf.fecha?.split('-')[0] !== dashFiltroAnio) return false;
@@ -134,45 +134,48 @@ export default function InformesAuditoria({
     setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
   };
 
-  // ☁️ ESTADOS DE CARGA PARA API TERMALES
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isUploading, setIsUploading] = useState(false);
+  // ☁️ 2. DOS INSTANCIAS DE BÓVEDA (Informe Principal y Acta de Reunión)
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
-  const [actaProgress, setActaProgress] = useState(0);
-  const [isActaUploading, setIsActaUploading] = useState(false);
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
+
+  const { isLoading: isUploading, error: uploadError, ejecutarPeticion: ejecutarSubidaInforme } = useDataFetching();
+  const { isLoading: isActaUploading, error: actaUploadError, ejecutarPeticion: ejecutarSubidaActa } = useDataFetching();
 
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    if (type === 'informe') { setIsUploading(true); setUploadProgress(20); } 
-    else { setIsActaUploading(true); setActaProgress(20); }
-
-    const formData = new FormData();
-    formData.append('appName', 'controlInterno'); 
-    formData.append('description', `Documento adjunto desde GCM Auditor - ${type}`); 
-    formData.append('file', file); 
-
     try {
-      if (type === 'informe') setUploadProgress(50); else setActaProgress(50);
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', { method: 'POST', body: formData });
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-      const data = await response.json();
-      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
-
-      if (type === 'informe') { setArchivoSubidoUrl(urlFinal); setIsUploading(false); setUploadProgress(100); } 
-      else { setActaSubidaUrl(urlFinal); setIsActaUploading(false); setActaProgress(100); }
+      if (type === 'informe') {
+        const data = await ejecutarSubidaInforme(
+          apiService.subirEvidencia(file, {
+            appName: 'controlInterno',
+            description: `Documento adjunto desde GCM Auditor - ${type}`
+          })
+        );
+        const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+        setArchivoSubidoUrl(urlFinal);
+      } else {
+        const data = await ejecutarSubidaActa(
+          apiService.subirEvidencia(file, {
+            appName: 'controlInterno',
+            description: `Documento adjunto desde GCM Auditor - ${type}`
+          })
+        );
+        const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+        setActaSubidaUrl(urlFinal);
+      }
       alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
-      console.error(err); alert("Error en la conexión con el servidor. Revisa la consola.");
-      if (type === 'informe') setIsUploading(false); else setIsActaUploading(false);
+      alert("Error en la conexión con el servidor.");
     }
   };
 
   const handleResetForm = () => {
-    setEditInformeAuditoria(null); setArchivoSubidoUrl(''); setActaSubidaUrl('');
-    setUploadProgress(0); setActaProgress(0); setFormResetKey(Date.now());
+    setEditInformeAuditoria(null); 
+    setArchivoSubidoUrl(''); 
+    setActaSubidaUrl('');
+    setFormResetKey(Date.now());
     setVistaActiva('dashboard');
   };
 
@@ -207,7 +210,6 @@ export default function InformesAuditoria({
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
-          {/* Fila de 5 Tarjetas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-slate-300 transition-colors">
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-xl shrink-0">📄</div>
@@ -253,13 +255,10 @@ export default function InformesAuditoria({
              </div>
           </div>
 
-          {/* ESTRUCTURA 3 COLUMNAS: SIDEBAR | ACORDEONES | GRÁFICOS */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
              
-             {/* 🎛️ COLUMNA IZQUIERDA: MENÚ LATERAL DE ORGANIZACIÓN */}
+             {/* 🎛️ MENÚ LATERAL DE ORGANIZACIÓN */}
              <div className="lg:col-span-1 space-y-4">
-                
-                {/* Bloque: Organizar Por */}
                 <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm overflow-hidden">
                   <div className="bg-[#f8fafa] p-4 border-b border-[#1A4B42]/10 flex items-center justify-between">
                     <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest">ORGANIZAR POR</h3>
@@ -284,7 +283,6 @@ export default function InformesAuditoria({
                   </div>
                 </div>
 
-                {/* Bloque: Filtros */}
                 <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm p-4 space-y-4">
                   <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest border-b border-slate-100 pb-2">FILTROS</h3>
                   
@@ -327,7 +325,7 @@ export default function InformesAuditoria({
                 </div>
              </div>
 
-             {/* 🗂️ COLUMNA CENTRAL: ACORDEONES */}
+             {/* 🗂️ ACORDEONES */}
              <div className="lg:col-span-2 space-y-4">
                <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center space-x-2 text-xs font-bold text-slate-600 ml-2">
@@ -427,7 +425,7 @@ export default function InformesAuditoria({
                )}
              </div>
              
-             {/* 🍩 COLUMNA DERECHA: GRÁFICOS Y TOP 5 */}
+             {/* 🍩 RESUMEN VISUAL */}
              <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 h-fit sticky top-24">
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">RESUMEN VISUAL</h3>
                 
@@ -472,7 +470,7 @@ export default function InformesAuditoria({
         </div>
       )}
 
-      {/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO CON JERARQUÍA MACRO-SUB */}
+      {/* 🚀 VISTA 2: FORMULARIO NUEVO / EDICIÓN */}
       {vistaActiva === 'nuevo' && isAdmin && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           
@@ -485,13 +483,10 @@ export default function InformesAuditoria({
 
           <form key={editInformeAuditoria?.ref || 'form-nuevo'} onSubmit={(e) => { handleInformeAuditoriaSubmit(e); setVistaActiva('dashboard'); }} className="space-y-6 text-xs">
             
-            {/* Input Oculto de Compatibilidad (Legacy) */}
             <input type="hidden" name="proceso" value={macroprocesoForm} />
 
-            {/* 📊 REJILLA DE CAMPOS PERFECTAMENTE ALINEADA (4 COLUMNAS) */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
               
-              {/* ================= FILA 1: TÍTULO Y PROCESOS ================= */}
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 block mb-1.5">Título del Informe Formal</label>
                 <input 
@@ -503,7 +498,6 @@ export default function InformesAuditoria({
                 />
               </div>
 
-              {/* 🔍 COLUMNA: ROPROCESO */}
               <div className="md:col-span-1">
                  <label className="font-bold text-gray-600 block mb-1.5">📋 proceso</label>
                  <select 
@@ -518,7 +512,6 @@ export default function InformesAuditoria({
                  </select>
               </div>
 
-              {/* 🔍 COLUMNA: SUBPROCESO */}
               <div className="md:col-span-1">
                  <label className="font-bold text-gray-600 block mb-1.5">↳ Subproceso</label>
                  <select 
@@ -534,7 +527,6 @@ export default function InformesAuditoria({
                  </select>
               </div>
 
-              {/* ================= FILA 2: FECHA Y FIRMAS ================= */}
               <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>
                 <input 
@@ -585,7 +577,6 @@ export default function InformesAuditoria({
                 </select>
               </div>
 
-              {/* ================= FILA 3: SOCIALIZACIÓN Y PARTICIPANTES ================= */}
               <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📢 ¿Fue Socializado?</label>
                 <select 
@@ -644,7 +635,6 @@ export default function InformesAuditoria({
               </div>
             </div>            
             
-            {/* 📧 DISTRIBUCIÓN ELECTRÓNICA */}
             <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl shadow-inner mt-4">
               <label className="font-black text-blue-900 block mb-2 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
               <input name="correosNotificacionInput" type="text" placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm" />
@@ -664,14 +654,16 @@ export default function InformesAuditoria({
               <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || ''} />
               <input type="hidden" name="actaSocializacionUrlInput" value={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || ''} />
 
+              {/* ARCHIVO 1: INFORME PRINCIPAL */}
               <div className="bg-white border-2 border-dashed border-emerald-300 p-6 rounded-2xl text-center relative hover:border-emerald-500 hover:bg-emerald-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
                 <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-emerald-600 tracking-widest bg-emerald-50 px-2 py-0.5 rounded">📄 Documento Principal</span>
                 {isUploading ? (
                   <div className="space-y-3 w-full mt-4">
                     <div className="text-3xl animate-bounce">🚀</div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
-                      <div className="bg-emerald-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden relative">
+                      <div className="bg-emerald-500 h-2.5 rounded-full w-full animate-pulse"></div>
                     </div>
+                    <p className="text-[9px] font-bold text-emerald-600 animate-pulse">Subiendo Informe al servidor...</p>
                   </div>
                 ) : archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl ? (
                   <div className="space-y-2 mt-4">
@@ -687,16 +679,19 @@ export default function InformesAuditoria({
                     <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
                   </label>
                 )}
+                {uploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{uploadError}</p>}
               </div>
 
+              {/* ARCHIVO 2: ACTA DE REUNIÓN */}
               <div className="bg-white border-2 border-dashed border-purple-300 p-6 rounded-2xl text-center relative hover:border-purple-500 hover:bg-purple-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
                  <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-purple-600 tracking-widest bg-purple-50 px-2 py-0.5 rounded">🤝 Acta de Reunión</span>
                 {isActaUploading ? (
                   <div className="space-y-3 w-full mt-4">
                     <div className="text-3xl animate-bounce">🚀</div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden">
-                      <div className="bg-purple-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${actaProgress}%` }}></div>
+                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden relative">
+                      <div className="bg-purple-500 h-2.5 rounded-full w-full animate-pulse"></div>
                     </div>
+                    <p className="text-[9px] font-bold text-purple-600 animate-pulse">Subiendo Acta al servidor...</p>
                   </div>
                 ) : actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl ? (
                   <div className="space-y-2 mt-4">
@@ -712,27 +707,25 @@ export default function InformesAuditoria({
                     <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
                   </label>
                 )}
+                {actaUploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{actaUploadError}</p>}
               </div>
             </div>
 
             <div className="md:col-span-4 flex justify-end pt-4">
               <button 
                 type="submit" 
-                disabled={isSubmitting} 
+                disabled={isSubmitting || isUploading || isActaUploading} 
                 onClick={(e) => {
                   const form = e.target.closest('form');
                   if (!form) return;
 
-                  // 🛡️ ENLACE RIGUROSO: Sincroniza la cadena de cargos unificada en el input oculto
                   const cadenaCargos = participantesMultiples.join(', ');
                   
-                  // Guardar en 'participantes'
                   const inputParticipantes = form.querySelector('input[name="participantes"]');
                   if (inputParticipantes) {
                     inputParticipantes.value = cadenaCargos;
                   }
 
-                  // 🚀 CLAVE DE LA SOLUCIÓN: Forzar la inyección en 'socializadoCon' para sobrescribir los datos de texto antiguos
                   let inputSocializadoCon = form.querySelector('input[name="socializadoCon"]');
                   if (!inputSocializadoCon) {
                     inputSocializadoCon = document.createElement('input');
@@ -747,16 +740,15 @@ export default function InformesAuditoria({
                   if (inputEvidencia && archivoSubidoUrl) inputEvidencia.value = archivoSubidoUrl;
                   if (inputActa && actaSubidaUrl) inputActa.value = actaSubidaUrl;
 
-                  // ⏳ RETRASO DE SEGURIDAD EXTENDIDO: Permite el envío completo de datos a Firebase antes del reinicio
                   setTimeout(() => {
                     handleResetForm();
                     form.reset();
                     if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
                   }, 4500);
                 }}
-                className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
+                className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting || isUploading || isActaUploading ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
               >
-                {isSubmitting ? '⏳ Procesando...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
+                {isSubmitting ? '⏳ Procesando...' : isUploading || isActaUploading ? 'Subiendo archivos...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
               </button>
             </div>
           </form>
@@ -802,7 +794,7 @@ export default function InformesAuditoria({
         </div>
       )}
 
-      {/* 🚀 VISTA 3: TABLA DE HISTORIAL EXACTA INTACTA */}
+      {/* 🚀 VISTA 3: TABLA DE HISTORIAL */}
       {vistaActiva === 'historial' && (
         <div className="space-y-6 animate-in slide-in-from-left-8 duration-500">
           <div className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -872,7 +864,6 @@ export default function InformesAuditoria({
                         <td className="p-4">
                           <div className="flex flex-col items-start space-y-1.5">
                             <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest border inline-block ${inf.socializado === 'Sí' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>📢 Socializado: {inf.socializado || 'No'}</span>
-                            {/* 👔 TRAZABILIDAD DE CARGOS HOMOLOGADOS */}
                             {(inf.participantes || inf.socializadoCon) && (
                               <div className="text-[10px] text-slate-500 font-bold leading-relaxed bg-slate-50 px-2 py-1 rounded-md border border-slate-200/60 mt-1">
                                 <span className="text-slate-400 font-normal">Cargos:</span> {inf.participantes || inf.socializadoCon}
