@@ -3,8 +3,6 @@ import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
 // 🔥 NUEVA CONEXIÓN MODULAR Y SERVICIOS CENTRALIZADOS
 import { auth, db } from './services/firebase';
-import { dbService } from './services/dbService';
-import { useDataFetching } from './hooks/useDataFetching';
 import { obtenerSugerenciaIA, obtenerAnalisisEvidenciaIA } from './services/gemini';
 import { 
   formatSafeDate, getMonthFromDate, getYearFromDate, 
@@ -56,7 +54,6 @@ const ADMIN_EMAILS = [
 export default function App() {
   const [activeTab, setActiveTab] = useState('tablero');
   // 🔌 Hook para gestionar peticiones a la base de datos
-const { ejecutarPeticion, isLoading: isDbLoading, error: dbError } = useDataFetching();
   // 🔌 ESTADOS PARA NAVEGACIÓN ANIDADA DE PROCESOS (WORKFLOW)
   const [subTabPlanificar, setSubTabPlanificar] = useState('plan_anual');
   const [subTabResultados, setSubTabResultados] = useState('hallazgos');
@@ -207,56 +204,49 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     if (!user) return;
     setIsCloudLoaded(false);
 
-    const cargarDatos = async () => {
-      try {
-        const [
-          dataRiesgos, 
-          dataHallazgos, 
-          dataPlanes, 
-          dataIncidentes, 
-          dataEvaluaciones, 
-          dataCronograma, 
-          dataMonitoreo, 
-          dataInformes, 
-          dataComites,
-          dataAuditores
-        ] = await Promise.all([
-          dbService.obtenerTodos('riesgos'),
-          dbService.obtenerTodos('hallazgos'),
-          dbService.obtenerTodos('planes'),
-          dbService.obtenerTodos('incidentes'),
-          dbService.obtenerTodos('evaluaciones'),
-          dbService.obtenerTodos('cronograma'),
-          dbService.obtenerTodos('monitoreo'),
-          dbService.obtenerTodos('informesAuditoria'),
-          dbService.obtenerTodos('comites'),
-          dbService.obtenerTodos('auditoresLista')
-        ]);
+    
+useEffect(() => {
+    if (!user) return;
+    setIsCloudLoaded(false);
+    
+    const timeoutSeguridad = setTimeout(() => {
+      console.warn("⚠️ Firebase está tardando. Forzando entrada...");
+      setIsCloudLoaded(true);
+    }, 4000);
 
-        setRiesgos(dataRiesgos);
-        setHallazgos(dataHallazgos);
-        setPlanes(dataPlanes);
-        setIncidentes(dataIncidentes);
-        setEvaluaciones(dataEvaluaciones);
-        setCronograma(dataCronograma);
-        setMonitoreo(dataMonitoreo);
-        setInformesAuditoria(dataInformes);
-        setComites(dataComites);
-
-        // Si existen auditores guardados en la base de datos, actualiza la lista por defecto
-        if (Array.isArray(dataAuditores) && dataAuditores.length > 0) {
-          setAuditoresLista(dataAuditores);
+    const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
+    
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      clearTimeout(timeoutSeguridad); 
+      if (docSnap.exists()) {
+        const data = docSnap.data() || {};
+        setRiesgos(data.riesgos || defaultRiesgos);
+        setHallazgos(data.hallazgos || defaultHallazgos);
+        setPlanes(data.planes || defaultPlanes);
+        setIncidentes(data.incidentes || []);
+        setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
+        setCronograma(data.cronograma || defaultCronograma);
+        setMonitoreo(data.monitoreo || defaultMonitoreo);
+        setInformesAuditoria(data.informesAuditoria || []);
+        setComites(data.comites || []);
+        setAuditoresLista(data.auditoresLista || ["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
+      } else {
+        if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
+           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [], comites: [] });
         }
-      } catch (err) {
-        console.error("⚠️ Error durante la carga inicial con dbService:", err);
-      } finally {
-        setIsCloudLoaded(true);
       }
+      setIsCloudLoaded(true);
+    }, (error) => {
+      clearTimeout(timeoutSeguridad);
+      console.error("🔥 Error de Firebase:", error);
+      setIsCloudLoaded(true);
+    });
+
+    return () => {
+      clearTimeout(timeoutSeguridad);
+      unsubscribe();
     };
-
-    cargarDatos();
-  }, [user]);   
-
+  }, [user]);
   useEffect(() => {
     if (window.XLSX) { setXlsxLoaded(true); return; }
     const script = document.createElement('script');
@@ -270,18 +260,24 @@ const handleLogout = async () => {
     await signOut(auth); 
     setShowWelcome(true); // 🛡️ Asegura que al dar clic al botón se active la pantalla de nuevo
   };
-// 💾 Guardado/Actualización delegada a la capa dbService
-const saveToCloud = async (partialData) => {
-  try {
-    const colecciones = Object.keys(partialData);
-    for (const col of colecciones) {
-      await ejecutarPeticion(dbService.guardarOActualizar(col, partialData[col]));
-    }
-  } catch (error) {
-    console.error("Error al guardar con dbService:", error);
-    throw error;
-  }
-};
+const saveToCloud = async (partialData) => { 
+    await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); 
+  };
+
+  const handleDeleteItem = async (listType, id) => {
+    if (!isAdmin) return; if (!window.confirm('¿Eliminar registro permanentemente?')) return;
+    let updated;
+    if (listType === 'riesgos') { updated = safeRiesgos.filter(r => r.id !== id); setRiesgos(updated); }
+    if (listType === 'evaluaciones') { updated = safeEvaluaciones.filter(e => e.id !== id); setEvaluaciones(updated); }
+    if (listType === 'hallazgos') { updated = safeHallazgos.filter(h => h.id !== id); setHallazgos(updated); }
+    if (listType === 'planes') { updated = safePlanes.filter(p => p.id !== id); setPlanes(updated); }
+    if (listType === 'incidentes') { updated = safeIncidentes.filter(i => i.id !== id); setIncidentes(updated); }
+    if (listType === 'cronograma') { updated = safeCronograma.filter(c => c.id !== id); setCronograma(updated); }
+    if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
+    if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); }
+    if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); setComites(updated); }
+    await saveToCloud({ [listType]: updated }); showNotification("Registro eliminado.", "success");
+  };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
   
   // SOLUCIÓN AL SCROLL DE EDICIÓN: Búsqueda precisa del contenedor central para evitar el salto
