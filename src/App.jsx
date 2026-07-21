@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { signOut, onAuthStateChanged } from 'firebase/auth'; 
-import { doc, setDoc, onSnapshot, updateDoc, arrayUnion } from 'firebase/firestore';
-// 🔥 NUEVA CONEXIÓN MODULAR Y SERVICIOS CENTRALIZADOS
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+// 🔥 CONEXIÓN MODULAR Y SERVICIOS CENTRALIZADOS
 import { auth, db } from './services/firebase';
-import { obtenerSugerenciaIA, obtenerAnalisisEvidenciaIA } from './services/gemini';
 import { 
-  formatSafeDate, getMonthFromDate, getYearFromDate, 
-  getItemAnio, getItemMesText, calcularMatriz5x5, applyFilters, mapMesNumATexto 
+  formatSafeDate, getItemAnio, getItemMesText, calcularMatriz5x5, applyFilters 
 } from './utils/helpers';
 import InformesAuditoria from './components/InformesAuditoria';
 import Configuracion from './components/Configuracion';
@@ -18,8 +16,6 @@ import Evaluaciones from './components/Evaluaciones';
 import Riesgos from './components/Riesgos';
 import Apetito from './components/Apetito';
 import PlanAnual from './components/PlanAnual';
-import Tablero from './components/Tablero';
-import DashboardRiesgos from './components/DashboardRiesgos';
 import AuditorIA from './components/AuditorIA';
 import Comites from './components/Comites';
 import DashboardEjecutivo from './components/DashboardEjecutivo';
@@ -28,7 +24,7 @@ import ModalIA from './components/ModalIA';
 import ModalDetalleGrafico from './components/ModalDetalleGrafico';
 import WelcomeScreen from './components/WelcomeScreen';
 import AuthScreen from './components/AuthScreen';
-import { ProgressBar, Gauge, FilterInput, StepIndicatorHUD, HeaderFiltros } from './components/UIComponents';
+import { FilterInput, StepIndicatorHUD, HeaderFiltros } from './components/UIComponents';
 import Navbar from './components/Navbar';
 import { enviarCorreoGmail } from './services/gmailService';
 import { 
@@ -64,7 +60,6 @@ export default function App() {
 
   const [auditoresLista, setAuditoresLista] = useState(["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
   const [notification, setNotification] = useState(null);
-  const [tipoMatriz, setTipoMatriz] = useState('residual'); 
   const [isPresentationMode, setIsPresentationMode] = useState(false); 
   const [formResetKey, setFormResetKey] = useState(Date.now()); 
 
@@ -73,7 +68,6 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-  const [filtroHeatMap, setFiltroHeatMap] = useState(null);
   const [xlsxLoaded, setXlsxLoaded] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [aiModal, setAiModal] = useState(null);
@@ -1024,7 +1018,6 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     setFormResetKey(Date.now()); 
     showNotification("Evaluación guardada.");
   };
-  const handleAuthorizationSubmit = handleEvaluacionSubmit;
 
   const handleComiteSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
@@ -1452,17 +1445,16 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
             )}
 
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
-            {activeTab === 'evaluaciones' && (
-              <Evaluaciones 
-                isAdmin={isAdmin} editEvaluacion={editEvaluacion} setEditEvaluacion={setEditEvaluacion}
-                handleAuthorizationSubmit={handleEvaluacionSubmit} handleEvaluacionSubmit={handleEvaluacionSubmit}
-                safeRiesgos={safeRiesgos} user={user} analizarEvidenciaIA={analizarEvidenciaIA} safeEvaluaciones={safeEvaluaciones}
-                formatSafeDate={formatSafeDate} searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters}
-                handleColFilterChange={handleColFilterChange} FilterInput={FilterInput} applyFilters={applyFilters}
-                setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
-              />
-            )}
-
+{activeTab === 'evaluaciones' && (
+  <Evaluaciones 
+    isAdmin={isAdmin} editEvaluacion={editEvaluacion} setEditEvaluacion={setEditEvaluacion}
+    handleEvaluacionSubmit={handleEvaluacionSubmit}
+    safeRiesgos={safeRiesgos} user={user} analizarEvidenciaIA={analizarEvidenciaIA} safeEvaluaciones={safeEvaluaciones}
+    formatSafeDate={formatSafeDate} searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters}
+    handleColFilterChange={handleColFilterChange} FilterInput={FilterInput} applyFilters={applyFilters}
+    setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
+  />
+)}
             {/* 3️⃣ FASE DE RESULTADOS & BRECHAS */}
             {activeTab === 'resultados_tab' && (
               <div className="space-y-6">
