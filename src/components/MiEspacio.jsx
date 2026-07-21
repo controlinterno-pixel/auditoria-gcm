@@ -1,16 +1,61 @@
 import React, { useMemo } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
-// 🧠 Generador Automático: Construye la lista unificada leyendo el diccionario central
+// 🧠 Generador Automático: Lista oficial limpia desde el diccionario
 const PROCESOS_OFICIALES = Object.keys(MAPA_PROCESOS).reduce((acc, macro) => {
-  acc.push(macro); // Añade el Macroproceso
+  acc.push(macro);
   MAPA_PROCESOS[macro].forEach(sub => {
     if (sub !== 'General' && !acc.includes(sub)) {
-      acc.push(`Subproceso ${sub.toLowerCase()}`); // Añade los Subprocesos formateados
+      acc.push(`Subproceso ${sub.toLowerCase()}`);
     }
   });
   return acc;
 }, []).sort();
+
+// 🧹 NORMALIZADOR ESTRICTO
+const normalizeStr = (str) => {
+  if (!str) return "";
+  return String(str)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") 
+    .replace(/[^a-z0-9]/g, ""); 
+};
+
+// 🗺️ MOTOR HOMOLOGADOR UNIVERSAL
+const homologarProcesoUniversal = (nombreEntrante, listaOficial = []) => {
+  if (!nombreEntrante) return "";
+
+  const normEntrante = normalizeStr(nombreEntrante);
+
+  // 1. Mapeo directo para abreviaturas o nombres ejecutivos de tarjetas
+  const MAPA_EXCEPCIONES = {
+    "servicioalcliente": "Gestión de servicio al cliente",
+    "gestionadministrativa": "Gestión Administrativa y Financiera",
+    "gestionfinanciera": "Gestión Administrativa y Financiera",
+    "comprasyabastecimiento": "Gestión de la cadena de abastecimiento",
+    "tecnologiati": "I+D+i",
+    "ti": "I+D+i",
+    "sstymedioambiente": "Subproceso gestión ambiental",
+    "medioambiente": "Subproceso gestión ambiental"
+  };
+
+  if (MAPA_EXCEPCIONES[normEntrante]) {
+    return MAPA_EXCEPCIONES[normEntrante];
+  }
+
+  // 2. Búsqueda por coincidencia exacta normalizada
+  const coincidenciaExacta = listaOficial.find(p => normalizeStr(p) === normEntrante);
+  if (coincidenciaExacta) return coincidenciaExacta;
+
+  // 3. Búsqueda por inclusión de texto (Ej: "servicio al cliente" en "Gestión de servicio al cliente")
+  const coincidenciaParcial = listaOficial.find(p => {
+    const normOficial = normalizeStr(p);
+    return normOficial.includes(normEntrante) || normEntrante.includes(normOficial);
+  });
+
+  return coincidenciaParcial || nombreEntrante;
+};
 
 export default function MiEspacio({
   user, safePlanes, safeHallazgos, safeComites, safeCronograma,
@@ -23,29 +68,22 @@ export default function MiEspacio({
   const totalAbiertos = safeHallazgos.filter(h => h.estado === 'Abierto').length;
   const totalRevision = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
 
+  // 🎯 HOMOLOGACIÓN EN TIEMPO REAL
+  const procesoHomologado = useMemo(() => {
+    return homologarProcesoUniversal(selectedProceso, PROCESOS_OFICIALES);
+  }, [selectedProceso]);
+
   // =====================================================================
   // 🧭 MOTOR FASE 2: EXPEDIENTE ÚNICO 360° (TRAZABILIDAD TOTAL)
   // =====================================================================
   const expedienteSeleccionado = useMemo(() => {
-    if (!selectedProceso) return null;
+    if (!procesoHomologado) return null;
 
-    // 🧹 NORMALIZADOR ESTRICTO: Quita tildes, espacios, símbolos y mayúsculas
-    const normalizeStr = (str) => {
-      if (!str) return "";
-      return String(str)
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") 
-        .replace(/[^a-z0-9]/g, ""); 
-    };
+    const target = normalizeStr(procesoHomologado);
 
-    const target = normalizeStr(selectedProceso);
-
-    // 1. Busca si hay cronograma planeado (toma el más reciente si hay varios)
     const auditorias = safeCronograma.filter(c => normalizeStr(c.proceso) === target);
     const auditoria = auditorias.length > 0 ? auditorias[auditorias.length - 1] : { responsable: 'Múltiples / No asignado', enfoque: 'N/A', meses: [] };
 
-    // 2. Extrae en cascada comparando con la cadena purificada
     const riesgosVinculados = safeRiesgos.filter(r => normalizeStr(r.proceso) === target);
     const evaluacionesVinculadas = safeEvaluaciones.filter(ev => riesgosVinculados.some(r => r.id === ev.idRiesgo));
     const hallazgosVinculados = safeHallazgos.filter(h => normalizeStr(h.proceso) === target || riesgosVinculados.some(r => r.id === h.idRiesgo));
@@ -54,18 +92,18 @@ export default function MiEspacio({
 
     return {
       auditoria,
-      proceso: selectedProceso,
+      proceso: procesoHomologado,
       riesgos: riesgosVinculados,
       evaluaciones: evaluacionesVinculadas,
       hallazgos: hallazgosVinculados,
       planes: planesVinculados,
       informes: informesVinculados
     };
-  }, [selectedProceso, safeCronograma, safeRiesgos, safeEvaluaciones, safeHallazgos, safePlanes, informesAuditoria]);
+  }, [procesoHomologado, safeCronograma, safeRiesgos, safeEvaluaciones, safeHallazgos, safePlanes, informesAuditoria]);
 
   return (
     <div className="space-y-6 text-left">
-      {/* BANNER DE BIENVENIDA PREMIUM */}
+      {/* BANNER DE BIENVENIDA */}
       <div className="bg-[#0a1122] border border-blue-500/20 p-6 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
         <div className="space-y-1 relative z-10">
@@ -82,7 +120,7 @@ export default function MiEspacio({
         </div>
       </div>
 
-      {/* CUE DE TRABAJO ACTUAL */}
+      {/* CUE DE TRABAJO */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className="bg-[#1c0d15] hover:bg-[#25101b] transition-all border border-red-500/10 p-5 rounded-2xl shadow-md cursor-pointer flex flex-col justify-between">
           <div className="flex justify-between items-center text-red-400">
@@ -129,7 +167,7 @@ export default function MiEspacio({
         </div>
       </div>
 
-      {/* 🗺️ STEPPER WORKFLOW ASSISTANT (EL RUTA GRC) */}
+      {/* 🛤️ WORKFLOW STEPPER */}
       <div className="bg-[#0a1122] border border-slate-800 p-6 rounded-3xl shadow-xl">
         <h3 className="text-xs font-black tracking-widest uppercase text-slate-300 mb-6 flex items-center">
           <span className="mr-2">🛤️</span> Ruta Guiada de Auditoría (GRC Assistant)
@@ -163,7 +201,7 @@ export default function MiEspacio({
         </div>
       </div>
       
-      {/* 📁 FASE 2: EXPEDIENTE ÚNICO MAESTRO (360° VIEW) */}
+      {/* 📁 FASE 2: EXPEDIENTE ÚNICO MAESTRO */}
       <div className="bg-[#0a1122] border border-blue-500/20 p-6 sm:p-8 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.06)] space-y-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
         
@@ -174,7 +212,7 @@ export default function MiEspacio({
             <p className="text-[10px] text-slate-400 font-medium mt-1">Visión panorámica de la auditoría. Navegación End-to-End sin cambiar de módulo.</p>
           </div>
           <select
-            value={selectedProceso || ''}
+            value={procesoHomologado || ''}
             onChange={(e) => setSelectedProceso && setSelectedProceso(e.target.value)}
             className="bg-[#060b16] border border-blue-500/30 rounded-xl text-xs font-black py-3.5 px-4 text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-96 shadow-inner cursor-pointer"
           >
@@ -188,12 +226,11 @@ export default function MiEspacio({
         {expedienteSeleccionado ? (
           <div className="relative animate-in fade-in duration-700 pl-6 sm:pl-10 pt-4 pb-4">
             
-            {/* LÍNEA VERTICAL CON DEGRADADO NEÓN */}
             <div className="absolute left-[34px] sm:left-[50px] top-8 bottom-8 w-[3px] bg-gradient-to-b from-blue-500 via-purple-500 to-emerald-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
 
             <div className="space-y-10 relative z-10">
               
-              {/* NODO 1: PLANIFICACIÓN Y PROCESO */}
+              {/* NODO 1: PLANIFICACIÓN */}
               <div className="relative flex items-start group">
                 <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-blue-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(59,130,246,0.5)] group-hover:scale-110 transition-transform">
                   🏢
@@ -211,7 +248,7 @@ export default function MiEspacio({
                 </div>
               </div>
 
-              {/* NODO 2: MATRIZ DE RIESGOS */}
+              {/* NODO 2: RIESGOS */}
               <div className="relative flex items-start group">
                 <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-orange-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(249,115,22,0.5)] group-hover:scale-110 transition-transform">
                   🔥
@@ -228,7 +265,7 @@ export default function MiEspacio({
                 </div>
               </div>
 
-              {/* NODO 3: TRABAJO DE CAMPO / CONTROLES */}
+              {/* NODO 3: PRUEBAS */}
               <div className="relative flex items-start group">
                 <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-cyan-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(6,182,212,0.5)] group-hover:scale-110 transition-transform">
                   🛡️
@@ -245,7 +282,7 @@ export default function MiEspacio({
                 </div>
               </div>
 
-              {/* NODO 4: HALLAZGOS Y DESVIACIONES */}
+              {/* NODO 4: HALLAZGOS */}
               <div className="relative flex items-start group">
                 <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-red-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(239,68,68,0.5)] group-hover:scale-110 transition-transform">
                   🔎
