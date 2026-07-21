@@ -1,71 +1,10 @@
 import React, { useState } from 'react';
 
-// 📚 LISTAS MAESTRAS EXTRAÍDAS DE LOS MANUALES OFICIALES DE TERMALES
-const AUDITORES_OFICIALES = [
-  "Rodolfo González",
-  "Yehison Pineda",
-  "Angelica Hernandez",
-  "Luz Angela Chico"
-];
-
-// 🗺️ NUEVA TAXONOMÍA JERÁRQUICA: ROPROCESO -> SUBPROCESO
-const MAPA_PROCESOS = {
-  "Gestión de Operaciones": ["Alojamiento", "Alimentos y bebidas", "Mantenimiento", "Recreación", "General"],
-  "Gestión Administrativa y Financiera": ["Compras", "Gestión de almacenes", "Gestión de cartera", "Gestión de contabilidad", "Gestión de costos", "Gestión de inventarios", "Gestión de tesorería", "Gestionar los activos fijos de la empresa", "Gestión Administrativa", "General"],
-  "Gestión Talento Humano": ["Desarrollo de competencias", "Gestión del bienestar y la compensación", "Selección, vinculación y administración de colaboradores", "Seguridad y salud en trabajo", "General"],
-  "Gestión estratégica": ["General"],
-  "Gestión comercial": ["General"],
-  "Gestión de mercadeo y comunicaciones": ["General"],
-  "Gestión de servicio al cliente": ["General"],
-  "Gestión de la mejora continua (SIGCAS)": ["Gestión de calidad", "Gestión Ambiental", "Control interno y Gestion de riesgos", "General"],
-  "I+D+i": ["General"],
-  "Tecnologías de la información y la comunicación": ["Proteccion de datos personales", "General"]
-};
-
-// 👔 LISTA MAESTRA DE CARGOS PARA PARTICIPANTES DE SOCIALIZACIÓN
-const CARGOS_SOCIALIZACION = [
-  "Auditoría Interna",
-  "Chef Hotel",
-  "Contador",
-  "Contadora de Socios",
-  "Coordinación Administrativa Family Office",
-  "Coordinación Comercial y Contact Center",
-  "Coordinación de Mercadeo y Comunicaciones",
-  "Coordinación de Recepción",
-  "Coordinación Seguridad y Salud en el Trabajo",
-  "Coordinación SPA",
-  "Coordinador de Mantenimiento",
-  "Coordinador de Marketing Digital",
-  "Coordinador de Servicio al Cliente",
-  "Coordinador de Operaciones",
-  "Desarrollador Junior",
-  "Dirección Administrativa y Financiera",
-  "Dirección Comercial",
-  "Dirección de Mercadeo y Comunicaciones",
-  "Dirección de Talento Humano",
-  "Director de TICS",
-  "Gerente Administrativa y Judicial",
-  "Jefe de Control Interno",
-  "Jefe de Cocina",
-  "Líder Administrativa",
-  "Líder de Compras y Almacén",
-  "Líder de Costos y Presupuestos",
-  "Líder de Contabilidad",
-  "Líder de Gestión Ambiental",
-  "Líder de Proceso de Alimentos y Bebidas",
-  "Líder de Tesorería y Cartera",
-  "Líder Táctico de Infraestructura Tecnológica",
-  "Líder Táctico de Mejora Continua",
-  "Líder Táctico de Desarrollo de Software",
-  "Subdirección de Operaciones Balneario",
-  "Subdirector de Operaciones Hotel",
-  "Supervisor (a) de Operaciones",
-  "Supervisor (a) Mesa y Servicio",
-  "Supervisor de Operaciones",
-  "Supervisor Ruta Ecológica",
-  "Terapeuta SPA",
-  "Ama de llaves"
-];
+import { 
+  AUDITORES_OFICIALES, 
+  MAPA_PROCESOS, 
+  CARGOS_SOCIALIZACION 
+} from '../constants/diccionariosGRC';
 
 export default function InformesAuditoria({ 
   informesAuditoria, 

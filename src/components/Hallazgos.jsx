@@ -1,52 +1,10 @@
 import React, { useState } from 'react';
 
-// 📚 LISTAS MAESTRAS EXTRAÍDAS DE LOS MANUALES OFICIALES DE TERMALES
-const AUDITORES_OFICIALES = [
-  "Rodolfo González",
-  "Yehison Pineda",
-  "Angelica Hernandez",
-  "Luz Angela Chico"
-];
-
-// 🗺️ NUEVA TAXONOMÍA JERÁRQUICA: ROPROCESO -> SUBPROCESO
-const MAPA_PROCESOS = {
-  "Gestión de Operaciones": ["Alojamiento", "Alimentos y bebidas", "Mantenimiento", "Recreación", "General"],
-  "Gestión Administrativa y Financiera": ["Compras", "Gestión de almacenes", "Gestión de cartera", "Gestión de contabilidad", "Gestión de costos", "Gestión de inventarios", "Gestión de tesorería", "Gestionar los activos fijos de la empresa","Gestión Administrativa", "General"],
-  "Gestión Talento Humano": ["Desarrollo de competencias", "Gestión del bienestar y la compensación", "Selección, vinculación y administración de colaboradores", "Seguridad y salud en trabajo", "General"],
-  "Gestión estratégica": ["General"],
-  "Gestión comercial": ["General"],
-  "Gestión de mercadeo y comunicaciones": ["General"],
-  "Gestión de servicio al cliente": ["General"],
-  "Gestión de la mejora continua (SIGCAS)": ["Gestión de calidad", "Gestión Ambiental", "Control interno y Gestion de riesgos", "General"],
-  "I+D+i": ["General"],
-  "Tecnologías de la información y la comunicación": ["Proteccion de datos personales", "General"]
-};
-
-// 🏢 DICCIONARIO INTELIGENTE EN CASCADA (SEDE -> CARGOS)
-const CARGOS_POR_SEDE = {
-  "Hotel": [
-    "Líderes Hotel", "Subdirector de Operaciones Hotel", "Líder de Proceso de alimentos y bebidas",
-    "Chef Hotel", "Supervisor (a) mesa y servicio", "Coordinación de recepción",
-    "Supervisor (a) de operaciones", "Coordinación SPA", "Coordinador de Mantenimiento","Ama de llaves"
-  ],
-  "Ecoparque": [
-    "Líderes Ecoparque", "Subdirección de Operaciones Balneario", "Líder táctico de alimentos y bebidas",
-    "Jefe de Cocina", "Supervisor (a) mesa y servicio", "Coordinador Operaciones",
-    "Supervisor Operaciones", "Coordinación SPA", "Terapeuta SPA", "Coordinador de mantenimiento",
-    "Supervisor Ruta Ecológica"
-  ],
-  "Administrativos": [
-    "Administrativos", "Gerente Administrativa y Judicial", "Auditoría Interna",
-    "Líder Táctico de mejora Continua", "Coordinador de Servicio al Cliente", "Dirección Administrativa y Financiera",
-    "Líder de de Compras y Almacen", "Líder de Costos y Presupuestos", "Líder de Tesorería y Cartera",
-    "Contadora de Socios", "Coordinación Administrativa Family Office", "Jefe de control interno",
-    "Líder de Contabilidad", "Contador", "Líder Administrativa", "Dirección de Mercadeo y Comunicaciones",
-    "Coordinación de Mercadeo y Comunicaciones", "Dirección Comercial", "Coordinación Comercial y Contact Center",
-    "Dirección Talento Humano", "Coordinación Seguridad Y Salud en el trabajo", "Líder de Gestión Ambiental",
-    "Lider Tactico de Infraestructura Tecnológica", "Director de TICS", "Desarrollador Junior",
-    "Líder Táctico desarrollo de Software", "Coordinador de Marketing digital",
-  ]
-};
+import { 
+  AUDITORES_OFICIALES, 
+  MAPA_PROCESOS, 
+  CARGOS_POR_SEDE 
+} from '../constants/diccionariosGRC';
 
 export default function Hallazgos({
   isAdmin,

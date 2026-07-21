@@ -1,39 +1,18 @@
 import React, { useState, useMemo } from 'react';
 
 
-const PROCESOS_OFICIALES = [
-  "Gestión comercial",
-  "Gestión de la mejora continua (SIGCAS)",
-  "Gestión de mercadeo y comunicaciones",
-  "Gestión de servicio al cliente",
-  "Gestión estratégica",
-  "Gestión de Operaciones",
-  "Gestión Administrativa y Financiera ",
-  "Gestión Talento Humano ",
-  "I+D+i",
-  "Subproceso alojamiento",
-  "Subproceso alimentos y bebidas",
-  "Subproceso compras",
-  "Subproceso desarrollo de competencias",
-  "Subproceso gestión administrativa",
-  "Subproceso gestión de almacenes",
-  "Subproceso gestión de cartera",
-  "Subproceso gestión de contabilidad",
-  "Subproceso gestión de costos",
-  "Subproceso gestión de inventarios",
-  "Subproceso gestión de tesorería",
-  "Subproceso gestión del bienestar y la compensación",
-  "Subproceso gestionar los activos fijos de la empresa",
-  "Subproceso mantenimiento",
-  "Subproceso recreación",
-  "Subproceso Seguridad y salud en trabajo",
-  "Subproceso Gestion de calidad",
-  "Subproceso Gestión Ambiental",
-  "Subproceso Control interno y Gestion de riesgos",
-  "Subproceso Proteccion de datos personales",
-  "Subproceso selección, vinculación y administración de colaboradores",
-  "Tecnologías de la información y la comunicación"
-];
+import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
+
+// 🧠 Generador Automático: Construye la lista unificada leyendo el diccionario central
+const PROCESOS_OFICIALES = Object.keys(MAPA_PROCESOS).reduce((acc, macro) => {
+  acc.push(macro); // Añade el Macroproceso
+  MAPA_PROCESOS[macro].forEach(sub => {
+    if (sub !== 'General' && !acc.includes(sub)) {
+      acc.push(`Subproceso ${sub.toLowerCase()}`); // Añade los Subprocesos formateados
+    }
+  });
+  return acc;
+}, []).sort();
 
 export default function MiEspacio({
   user, safePlanes, safeHallazgos, safeComites, safeCronograma,
