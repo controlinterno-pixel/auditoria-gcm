@@ -104,14 +104,23 @@ export default function MiEspacio({
 
     const target = normalizeStr(procesoHomologado);
 
-    const auditorias = cronogramaList.filter(c => normalizeStr(c.proceso) === target);
+    // Helper flexible para hacer match en proceso o subproceso
+    const matchesTarget = (itemStr) => {
+      if (!itemStr) return false;
+      const norm = normalizeStr(itemStr);
+      return norm === target || norm.includes(target) || target.includes(norm);
+    };
+
+    const auditorias = cronogramaList.filter(c => matchesTarget(c.proceso) || matchesTarget(c.subproceso));
     const auditoria = auditorias.length > 0 ? auditorias[auditorias.length - 1] : { responsable: 'Múltiples / No asignado', enfoque: 'N/A', meses: [] };
 
-    const riesgosVinculados = riesgosList.filter(r => normalizeStr(r.proceso) === target || normalizeStr(r.macroproceso) === target);
-    const evaluacionesVinculadas = evaluacionesList.filter(ev => riesgosVinculados.some(r => r.id === ev.idRiesgo));
-    const hallazgosVinculados = hallazgosList.filter(h => normalizeStr(h.proceso) === target || riesgosVinculados.some(r => r.id === h.idRiesgo));
-    const planesVinculados = planesList.filter(p => hallazgosVinculados.some(h => h.id === p.idHallazgo));
-    const informesVinculados = informesList.filter(inf => normalizeStr(inf.proceso) === target);
+    const riesgosVinculados = riesgosList.filter(r => matchesTarget(r.proceso) || matchesTarget(r.macroproceso) || matchesTarget(r.subproceso));
+    const evaluacionesVinculadas = evaluacionesList.filter(ev => riesgosVinculados.some(r => r.id === ev.idRiesgo) || matchesTarget(ev.proceso) || matchesTarget(ev.subproceso));
+    const hallazgosVinculados = hallazgosList.filter(h => matchesTarget(h.proceso) || matchesTarget(h.subproceso) || riesgosVinculados.some(r => r.id === h.idRiesgo));
+    const planesVinculados = planesList.filter(p => hallazgosVinculados.some(h => h.id === p.idHallazgo) || matchesTarget(p.proceso) || matchesTarget(p.subproceso));
+    
+    // 🔍 AHORA BUSCA EN PROCESO, SUBPROCESO Y MACROPROCESO
+    const informesVinculados = informesList.filter(inf => matchesTarget(inf.proceso) || matchesTarget(inf.subproceso) || matchesTarget(inf.macroproceso));
 
     return {
       auditoria,
@@ -123,7 +132,6 @@ export default function MiEspacio({
       informes: informesVinculados
     };
   }, [procesoHomologado, cronogramaList, riesgosList, evaluacionesList, hallazgosList, planesList, informesList]);
-
   return (
     <div className="space-y-6 text-left">
       
