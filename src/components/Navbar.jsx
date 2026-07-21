@@ -16,8 +16,7 @@ export default function Navbar({ isPresentationMode, setIsPresentationMode }) {
             src="/logo_termales.png" 
             alt="Logo Termales" 
             className="h-8 w-auto object-contain" 
-          />
-          
+          />          
           <span className="text-xs font-black text-slate-700 tracking-widest uppercase">
             Termales de Santa Rosa de Cabal — Sistema de Gestión Integral
           </span>
