@@ -1,9 +1,32 @@
 /**
  * 🗄️ dbService.js - Capa Centralizada de Datos para GRC
- * Incluye respaldo (fallback) en LocalStorage si la API falla o da 404.
+ * Soporta API Backend + LocalStorage Fallback + Datos Semilla Iniciales
  */
 
 const BASE_URL = 'https://repos.termalessantarosa.com.co/api/grc';
+
+// 🌿 Datos Semilla por defecto (Para cuando la API falle y LocalStorage esté vacío)
+const DATOS_SEMILLA = {
+  riesgos: [
+    { id: '1', codigo: 'RIE-001', titulo: 'Falla de Servidores Principales', nivel: 'Alto', estado: 'Mitigado' },
+    { id: '2', codigo: 'RIE-002', titulo: 'Incumplimiento Normativo GRC', nivel: 'Medio', estado: 'En Revisión' }
+  ],
+  hallazgos: [
+    { id: '1', codigo: 'HAL-001', titulo: 'Ausencia de políticas de respaldo', severidad: 'Alta' }
+  ],
+  planes: [
+    { id: '1', codigo: 'PLA-001', titulo: 'Implementación de backup en nube', avance: 60, estado: 'En Proceso' }
+  ],
+  incidentes: [
+    { id: '1', codigo: 'INC-001', titulo: 'Caída de red local', fecha: '2025-01-15' }
+  ],
+  auditoresLista: [],
+  comites: [],
+  cronograma: [],
+  evaluaciones: [],
+  monitoreo: [],
+  informesAuditoria: []
+};
 
 export const dbService = {
   /**
@@ -17,11 +40,20 @@ export const dbService = {
       }
       return await response.json();
     } catch (error) {
-      console.warn(`⚠️ No se pudo conectar a la API para '${coleccion}'. Cargando desde LocalStorage.`, error);
+      console.warn(`⚠️ API no disponible para '${coleccion}'. Usando almacenamiento local.`);
       
-      // Respaldo en LocalStorage
-      const localData = localStorage.getItem(`grc_${coleccion}`);
-      return localData ? JSON.parse(localData) : [];
+      const localKey = `grc_${coleccion}`;
+      const localData = localStorage.getItem(localKey);
+
+      // 1. Si existen datos en LocalStorage, devolverlos
+      if (localData) {
+        return JSON.parse(localData);
+      }
+
+      // 2. Si tampoco hay datos en LocalStorage, cargar datos semilla y guardarlos
+      const datosIniciales = DATOS_SEMILLA[coleccion] || [];
+      localStorage.setItem(localKey, JSON.stringify(datosIniciales));
+      return datosIniciales;
     }
   },
 
@@ -46,10 +78,10 @@ export const dbService = {
       if (!response.ok) throw new Error('Error en backend');
       return await response.json();
     } catch (error) {
-      console.warn(`⚠️ Error de red al guardar en API (${coleccion}). Guardando localmente.`, error);
+      console.warn(`⚠️ Guardando localmente en '${coleccion}'.`);
 
-      // Respaldo de guardado en LocalStorage
-      const localData = JSON.parse(localStorage.getItem(`grc_${coleccion}`) || '[]');
+      const localKey = `grc_${coleccion}`;
+      const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
       let actualizados;
 
       if (esEdicion) {
@@ -59,7 +91,7 @@ export const dbService = {
         actualizados = [...localData, nuevoRegistro];
       }
 
-      localStorage.setItem(`grc_${coleccion}`, JSON.stringify(actualizados));
+      localStorage.setItem(localKey, JSON.stringify(actualizados));
       return registro;
     }
   },
@@ -75,11 +107,12 @@ export const dbService = {
       if (!response.ok) throw new Error('Error al eliminar en backend');
       return await response.json();
     } catch (error) {
-      console.warn(`⚠️ Error de red al eliminar. Actualizando LocalStorage.`, error);
+      console.warn(`⚠️ Eliminando localmente de '${coleccion}'.`);
 
-      const localData = JSON.parse(localStorage.getItem(`grc_${coleccion}`) || '[]');
+      const localKey = `grc_${coleccion}`;
+      const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
       const filtrados = localData.filter(item => item.id !== id);
-      localStorage.setItem(`grc_${coleccion}`, JSON.stringify(filtrados));
+      localStorage.setItem(localKey, JSON.stringify(filtrados));
       return { success: true, id };
     }
   }
