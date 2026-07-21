@@ -40,4 +40,36 @@ export const obtenerAnalisisEvidenciaIA = async (contextoItem, tipoItem) => {
   const data = await response.json();
   if (data.error) throw new Error(data.error.message);
   return data.candidates[0].content.parts[0].text.trim();
+}; // <--- AQUÍ TERMINA TU CÓDIGO ACTUAL
+
+
+// 👇 PEGA LA NUEVA FUNCIÓN JUSTO AQUÍ ABAJO 👇
+
+export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
+  const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) throw new Error("La clave de API de Gemini no se ha cargado correctamente.");
+
+  const prompt = `
+  Eres el "Auditor IA", un asistente experto en Gobierno, Riesgo y Cumplimiento (GRC) de Termales Santa Rosa.
+  
+  Aquí tienes los datos actuales de la plataforma del usuario en formato JSON:
+  ${JSON.stringify(contextoDatos)}
+
+  El usuario te ha preguntado lo siguiente: "${preguntaUsuario}"
+
+  Responde de manera profesional, técnica, concisa y basada ÚNICAMENTE en los datos proporcionados. Si el usuario pide tendencias, calcula porcentajes o destaca lo más grave. No uses saludos largos.
+  `;
+
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3 }
+    })
+  });
+
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.candidates[0].content.parts[0].text.trim();
 };

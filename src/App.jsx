@@ -27,6 +27,7 @@ import AuthScreen from './components/AuthScreen';
 import { FilterInput, StepIndicatorHUD, HeaderFiltros } from './components/UIComponents';
 import Navbar from './components/Navbar';
 import { enviarCorreoGmail } from './services/gmailService';
+import { consultarCopilotoIA } from './services/gemini';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
   defaultPlanes, defaultIncidentes, defaultEvaluaciones, defaultMonitoreo 
@@ -285,21 +286,14 @@ const saveToCloud = async (partialData) => {
   };
 
   // =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (SOPORTE DE CLIC AUTOMÁTICO E INTEGRAL)
+  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CONECTADA A GEMINI.JS)
   // =====================================================================
   const handleAuditorSubmit = async (e, textoDirecto = null) => {
-    if (e) e.preventDefault(); // Evita recargar la página si viene de un formulario
+    if (e) e.preventDefault(); 
     
     // Si viene de un clic directo usa ese texto, si no, usa el del input bar
     const consultaFinal = textoDirecto || auditorInput;
     if (!consultaFinal.trim()) return;
-
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GOOGLE_API_KEY;
-
-    if (!apiKey) {
-      setAuditorRespuesta("⚠️ Error: No se encontró la API Key en tu archivo .env local o en Vercel.");
-      return;
-    }
 
     setIsAuditorThinking(true);
     setAuditorRespuesta('');
@@ -307,123 +301,69 @@ const saveToCloud = async (partialData) => {
     try {
       const hoy = new Date();
 
-      // 🛑 EXTRACCIÓN DE DATOS FILTRADOS POR EL PERIODO SELECCIONADO
+      // 🛑 1. RECOLECCIÓN DE DATOS (Aprovechando tus filtros actuales)
       const riesgosBase = rFiltrados;
       const hallazgosBase = hFiltrados;
       const planesBase = pFiltrados;
       const incidentesBase = incFiltrados;
       const cronogramaBase = cFiltrados;
 
-      // 🛑 MÓDULO 1: MATRIZ DE RIESGOS
-      const totalRiesgos = riesgosBase.length;
       let criticosTotal = 0;
-      let riesgosOperativos = riesgosBase.filter(r => r.categoria === 'Operativo').length;
-      let riesgosEstrategicos = riesgosBase.filter(r => r.categoria === 'Estratégico').length;
-      let riesgosTecnologicos = riesgosBase.filter(r => r.categoria === 'Tecnológico').length;
-      try {
-        criticosTotal = riesgosBase.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length;
-      } catch(err) {}
-
-      // 📄 MÓDULO 2 & 3: HALLAZGOS Y PLANES
-      const totalHallazgos = hallazgosBase.length;
-      const hallazgosAbiertos = hallazgosBase.filter(h => h.estado === 'Abierto').length;
-      const hallazgosCerrados = totalHallazgos - hallazgosAbiertos;
-      const totalPlanes = planesBase.length;
-      const planesVencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
-      const avancePlanesGlobal = totalPlanes > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / totalPlanes) : 0;
-
-      // 🚨 MÓDULO 4: INCIDENTES Y PÉRDIDAS
-      const totalIncidentes = incidentesBase.length;
-      const lossesAcumuladas = incidentesBase.reduce((acc, i) => acc + (Number(i.costo) || 0), 0);
-
-      // 🔬 MÓDULO 5: AUDITORÍA DE CONTROLES
+      try { criticosTotal = riesgosBase.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length; } catch(err) {}
+      
       const evalFiltradas = safeEvaluaciones.filter(filterByGlobalPeriod);
       const totalEvaluaciones = evalFiltradas.length;
       const controlesEficaces = evalFiltradas.filter(ev => ev.calificacion === 100).length;
       const efectividadControlesGlobal = totalEvaluaciones > 0 ? Math.round((controlesEficaces / totalEvaluaciones) * 100) : 0;
 
-      // 🗓️ MÓDULO 6: PLAN ANUAL DE AUDITORÍA
-      const totalCronograma = cronogramaBase.length;
       const cronogramaIniciados = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) > 0);
-      const avanceCronogramaGlobal = cronogramaIniciados.length > 0 
-        ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) 
-        : 0;
-      const pendientesArray = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) < 100).map(c => c.proceso);
-      const listadoPendientesCronograma = pendientesArray.length > 0 ? pendientesArray.join(', ') : 'Ninguno (100% de ejecución)';
+      const avanceCronogramaGlobal = cronogramaIniciados.length > 0 ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) : 0;
 
-      // 📁 NUEVO MÓDULO 7: INFORMES EMITIDOS
-      const totalInformes = (Array.isArray(informesAuditoria) ? informesAuditoria : []).length;
+      // 📦 2. EMPAQUETADO DEL CONTEXTO PARA LA IA
+      const contextoDatos = {
+        dashboard: {
+          cumplimientoPlanAnual: avanceCronogramaGlobal + '%',
+          avancePlanesAccion: (planesBase.length > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / planesBase.length) : 0) + '%',
+          efectividadControles: efectividadControlesGlobal + '%'
+        },
+        riesgos: {
+          total: riesgosBase.length,
+          criticos: criticosTotal,
+          operativos: riesgosBase.filter(r => r.categoria === 'Operativo').length,
+          estrategicos: riesgosBase.filter(r => r.categoria === 'Estratégico').length,
+          tecnologicos: riesgosBase.filter(r => r.categoria === 'Tecnológico').length
+        },
+        hallazgos_y_planes: {
+          hallazgosAbiertos: hallazgosBase.filter(h => h.estado === 'Abierto').length,
+          hallazgosCerrados: hallazgosBase.filter(h => h.estado !== 'Abierto').length,
+          planesTotales: planesBase.length,
+          planesVencidos: planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length
+        },
+        incidentes: {
+          total: incidentesBase.length,
+          perdidasAcumuladas: '$' + incidentesBase.reduce((acc, i) => acc + (Number(i.costo) || 0), 0).toLocaleString('es-CO') + ' COP'
+        },
+        informes: {
+          emitidos: (Array.isArray(informesAuditoria) ? informesAuditoria : []).length
+        },
+        indicadores: {
+          alertas: safeMonitoreo.filter(m => m.valor > m.limite).map(m => m.indicador).join(', ') || 'Ninguno bajo alerta crítica'
+        }
+      };
 
-      // 📈 NUEVO MÓDULO 8: INDICADORES DE MONITOREO
-      const totalIndicadores = safeMonitoreo.length;
-      const alertasIndicadores = safeMonitoreo.filter(m => m.valor > m.limite).map(m => m.indicador).join(', ') || 'Ninguno bajo alerta crítica';
-
-      // 2. RE-ESTRUCTURACIÓN COMPLETA DEL PROMPT CON TODOS LOS MÓDULOS
-      const megaContexto = `
-        Actúas como el "Auditor IA", un asistente senior del equipo de CONTROL INTERNO de TERMALES DE SANTA ROSA.
-        Eres directo, ejecutivo y experto en GRC. Responde utilizando únicamente esta radiografía matemática filtrada del sistema:
-
-        [DATOS DEL DASHBOARD EJECUTIVO Y GENERAL]
-        - Cumplimiento de Ejecución del Plan Anual: ${avanceCronogramaGlobal}%
-        - Avance Físico de Planes de Mejoramiento: ${avancePlanesGlobal}%
-        - Efectividad General de Controles Auditados: ${efectividadControlesGlobal}%
-
-        [DATOS DE MATRIZ DE RIESGOS]
-        - Total Riesgos Identificados: ${totalRiesgos}
-        - Riesgos Críticos o Extremos (Zona Roja Crítica): ${criticosTotal}
-        - Clasificación: Operativos (${riesgosOperativos}), Estratégicos (${riesgosEstrategicos}), Tecnológicos (${riesgosTecnologicos}).
-
-        [DATOS DE PLANES DE MEJORAMIENTO Y GOBERNANZA]
-        - Planes de Acción Totales: ${totalPlanes} (Planes Vencidos: ${planesVencidos})
-        - Hallazgos/Desviaciones Abiertas detectadas: ${hallazgosAbiertos} (Cerradas: ${hallazgosCerrados})
-
-        [DATOS DE EVENTOS DE PÉRDIDA E INCIDENTES]
-        - Total Incidentes Materializados: ${totalIncidentes}
-        - Impacto Financiero Acumulado: $${lossesAcumuladas.toLocaleString('es-CO')} COP
-
-        [DATOS DE INFORMES EMITIDOS]
-        - Total Informes Radicados Formalmente en el Repositorio: ${totalInformes} informes emitidos.
-
-        [DATOS DE INDICADORES DE MONITOREO]
-        - Total Indicadores en Seguimiento Continuo: ${totalIndicadores}
-        - Indicadores que superan límites máximos de alerta: [ ${alertasIndicadores} ]
-
-        REGLAS OBLIGATORIAS DE RESPUESTA:
-        1. RESPONDE EXCLUSIVAMENTE SOBRE EL TEMA DE LA PREGUNTA. Si seleccionan Riesgos, habla de riesgos. Si seleccionan Informes, habla de informes. No mezcles métricas de otros módulos.
-        2. COMIENZA RESPONDIENDO AL GRANO. La primera línea debe contener el dato exacto de forma contundente (Ej: "A hoy Control Interno registra un total de ${totalInformes} informes emitidos...", "La efectividad general de los controles se encuentra en un ${efectividadControlesGlobal}%...").
-        3. SÉ UN CONSULTOR DE CONTROL INTERNO. Añade un breve párrafo analítico corporativo senior evaluando si la gestión de ese módulo va por buen camino o si requiere atención urgente según las cifras expuestas.
-      `;
-
-      const promptFinal = `${megaContexto}\n\nConsulta del Líder: "${consultaFinal}"`;
-
-      // 3. LLAMADO DE BAJA TEMPERATURA A GEMINI 2.5 FLASH
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptFinal }] }],
-          generationConfig: { temperature: 0.1 }
-        })
-      });
-
-      const data = await response.json();
-      if (!response.ok || data.error) throw new Error(data.error?.message || `Error HTTP ${response.status}`);
+      // 🚀 3. LLAMADA LIMPIA A TU ARCHIVO GEMINI.JS
+      const respuestaIA = await consultarCopilotoIA(consultaFinal, contextoDatos);
       
-      if (data.candidates && data.candidates[0].content.parts[0].text) {
-        setAuditorRespuesta(data.candidates[0].content.parts[0].text.trim());
-      } else {
-        throw new Error("Respuesta vacía del servidor.");
-      }
+      setAuditorRespuesta(respuestaIA);
 
     } catch (error) {
       console.error("🔍 Error IA:", error);
-      setAuditorRespuesta(`❌ Error en consolidación de datos: ${error.message}`);
+      setAuditorRespuesta(`❌ Error al consultar al asistente: ${error.message}`);
     } finally {
       setIsAuditorThinking(false);
       setAuditorInput(''); 
     }
   };
-
 // =====================================================================
   // 📥 FUNCIONES DE EXPORTACIÓN (EXCEL Y JSON)
   // =====================================================================
