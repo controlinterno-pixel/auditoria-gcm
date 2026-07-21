@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 // 🧠 Generador Automático: Lista oficial limpia desde el diccionario
@@ -12,7 +12,7 @@ const PROCESOS_OFICIALES = Object.keys(MAPA_PROCESOS).reduce((acc, macro) => {
   return acc;
 }, []).sort();
 
-// 🧹 NORMALIZADOR ESTRICTO
+// 🧹 NORMALIZADOR ESTRICTO (Limpia tildes, caracteres especiales y espacios)
 const normalizeStr = (str) => {
   if (!str) return "";
   return String(str)
@@ -48,7 +48,7 @@ const homologarProcesoUniversal = (nombreEntrante, listaOficial = []) => {
   const coincidenciaExacta = listaOficial.find(p => normalizeStr(p) === normEntrante);
   if (coincidenciaExacta) return coincidenciaExacta;
 
-  // 3. Búsqueda por inclusión de texto (Ej: "servicio al cliente" en "Gestión de servicio al cliente")
+  // 3. Búsqueda por inclusión de texto
   const coincidenciaParcial = listaOficial.find(p => {
     const normOficial = normalizeStr(p);
     return normOficial.includes(normEntrante) || normEntrante.includes(normOficial);
@@ -68,9 +68,22 @@ export default function MiEspacio({
   const totalAbiertos = safeHallazgos.filter(h => h.estado === 'Abierto').length;
   const totalRevision = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
 
+  // 🎯 REFERENCIA Y AUTO-SCROLL AL EXPEDIENTE 360°
+  const expedienteRef = useRef(null);
+
   // 🎯 HOMOLOGACIÓN EN TIEMPO REAL
   const procesoHomologado = useMemo(() => {
     return homologarProcesoUniversal(selectedProceso, PROCESOS_OFICIALES);
+  }, [selectedProceso]);
+
+  // 🚀 EFECTO DE DESPLAZAMIENTO SUAVE
+  useEffect(() => {
+    if (selectedProceso && expedienteRef.current) {
+      const timer = setTimeout(() => {
+        expedienteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 150);
+      return () => clearTimeout(timer);
+    }
   }, [selectedProceso]);
 
   // =====================================================================
@@ -202,7 +215,10 @@ export default function MiEspacio({
       </div>
       
       {/* 📁 FASE 2: EXPEDIENTE ÚNICO MAESTRO */}
-      <div className="bg-[#0a1122] border border-blue-500/20 p-6 sm:p-8 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.06)] space-y-6 relative overflow-hidden">
+      <div 
+        ref={expedienteRef}
+        className="bg-[#0a1122] border border-blue-500/20 p-6 sm:p-8 rounded-3xl shadow-[0_0_40px_rgba(59,130,246,0.06)] space-y-6 relative overflow-hidden scroll-mt-6"
+      >
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
         
         <div className="border-b border-slate-800/80 pb-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
