@@ -313,8 +313,7 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
         ⚙️ Detalle Operativo (6 Nodos)
       </button>
     </div>
-
-   {/* CONTENIDO DEL INFORME (PESTAÑA 1) */}
+{/* CONTENIDO DEL INFORME (PESTAÑA 1) */}
     {pestanaActiva === 'resumen' && (
       <div className="relative animate-in fade-in duration-500 pt-4 pl-6 sm:pl-10">
         <InformeProceso 
@@ -332,13 +331,16 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
             topHallazgos: expedienteSeleccionado.hallazgos.slice(0, 5),
             estadisticas: {
               hallazgosAbiertos: expedienteSeleccionado.hallazgos.filter(h => h.estado === 'Abierto').length,
-              riesgosCriticos: expedienteSeleccionado.riesgos.filter(r => (Number(r.probabilidadResidual || 1) * Number(r.impactoResidual || 1)) >= 16).length
+              riesgosCriticos: expedienteSeleccionado.riesgos.filter(r => (Number(r.probabilidadResidual || 1) * Number(r.impactoResidual || 1)) >= 16).length,
+              // Nuevos datos para la IA:
+              planesTotales: expedienteSeleccionado.planes.length,
+              planesCerrados: expedienteSeleccionado.planes.filter(p => p.estado === 'Cerrado').length,
+              planesVencidos: expedienteSeleccionado.planes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length
             }
           }} 
         />
       </div>
     )}
-
     {/* CONTENIDO DE LOS NODOS (PESTAÑA 2) */}
     {pestanaActiva === 'nodos' && (
       <div className="relative animate-in fade-in duration-700 pl-6 sm:pl-10 pt-4 pb-4">            

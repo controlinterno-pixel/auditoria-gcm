@@ -3,23 +3,44 @@ import React from 'react';
 const InformeProceso = ({ datosProceso }) => {
   const { nombreProceso, fechaGeneracion, cumplimiento, totales, topRiesgos, topHallazgos, estadisticas } = datosProceso;
 
-  // 🧠 MOTOR DINÁMICO DE ANÁLISIS DE IA
+  // 🧠 MOTOR DINÁMICO MULTI-VARIABLES (Riesgos + Hallazgos + Planes)
   const generarAnalisisIA = () => {
     const abiertos = estadisticas?.hallazgosAbiertos || 0;
     const riesgosCrit = estadisticas?.riesgosCriticos || 0;
+    const pTotales = estadisticas?.planesTotales || 0;
+    const pVencidos = estadisticas?.planesVencidos || 0;
+    const pCerrados = estadisticas?.planesCerrados || 0;
+    const pEnCurso = pTotales - pCerrados - pVencidos;
 
-    if (totales.hallazgos > 0 && abiertos === 0) {
-      return `"El proceso de ${nombreProceso} presenta un entorno de control maduro y destacable. Se evidencia una gestión efectiva al contar con sus hallazgos formalmente cerrados o con calificaciones positivas. Se recomienda mantener el monitoreo preventivo sobre la matriz de riesgos para asegurar la sostenibilidad de estas buenas prácticas."`;
-    } 
-    else if (abiertos > 0) {
-      return `"El proceso de ${nombreProceso} requiere atención prioritaria. Actualmente existen ${abiertos} hallazgo(s) en estado abierto. Se recomienda ejecutar inmediatamente los planes de acción vinculados, priorizando aquellos asociados a los ${riesgosCrit} riesgos más críticos, para reducir la exposición de la compañía."`;
-    } 
-    else if (totales.riesgos > 0 && totales.hallazgos === 0) {
-      return `"El proceso de ${nombreProceso} no presenta desviaciones ni hallazgos vigentes en el ciclo de auditoría actual, lo cual indica un diseño adecuado de controles. La atención debe centrarse en el monitoreo continuo de los riesgos mapeados en la matriz corporativa."`;
-    } 
-    else {
-      return `"El proceso de ${nombreProceso} se encuentra en parámetros estables. No se registran riesgos extremos ni desviaciones críticas en los repositorios actuales."`;
+    // Escenario 1: Proceso impecable (Cero hallazgos)
+    if (totales.hallazgos === 0) {
+      return `"El proceso de ${nombreProceso} presenta un alto nivel de madurez. No se registran desviaciones ni hallazgos vigentes en el ciclo de auditoría actual. La atención debe centrarse en el monitoreo preventivo de los riesgos mapeados."`;
     }
+
+    // Escenario 2: Todo cerrado positivamente
+    if (totales.hallazgos > 0 && abiertos === 0) {
+      return `"El entorno de control en el proceso de ${nombreProceso} es destacable. Se evidencia una gestión diligente: todos los hallazgos detectados han sido subsanados y cerrados exitosamente. Se recomienda mantener esta cultura de mejora continua."`;
+    }
+
+    // Escenario 3: Hay hallazgos abiertos (Analizamos los planes de acción)
+    if (abiertos > 0) {
+      let baseText = `"El proceso de ${nombreProceso} requiere atención prioritaria sobre ${abiertos} hallazgo(s) actualmente en estado abierto. `;
+      
+      if (pTotales === 0) {
+        // Justo el caso de tu imagen: Hallazgos abiertos pero 0 planes creados
+        baseText += `⚠️ ALERTA: Aún no se han formulado los planes de acción correspondientes. Se requiere alinear de inmediato a los responsables para diseñar planes de choque, priorizando la revisión de los ${totales.riesgos} riesgos vinculados al proceso."`;
+      } 
+      else if (pVencidos > 0) {
+        baseText += `La gestión presenta desviaciones: existen ${pVencidos} plan(es) de acción vencido(s). Es urgente exigir el cumplimiento de los compromisos adquiridos para evitar la materialización de los ${riesgosCrit} riesgos más críticos asociados."`;
+      } 
+      else {
+        baseText += `Se registran ${pTotales} plan(es) de acción vinculados (${pEnCurso} en curso regular). Es vital asegurar la ejecución en los tiempos establecidos para lograr el cierre efectivo de las desviaciones."`;
+      }
+      
+      return baseText;
+    }
+
+    return `"El proceso de ${nombreProceso} se encuentra en parámetros estables dentro de la matriz de evaluación."`;
   };
 
   return (
@@ -85,7 +106,7 @@ const InformeProceso = ({ datosProceso }) => {
               </tr>
             ))}
             
-            {/* Hallazgos (Ya no ocultamos los cerrados) */}
+            {/* Hallazgos */}
             {topHallazgos.map((hallazgo, idx) => {
               const esCerrado = hallazgo.estado?.toUpperCase() === 'CERRADO';
               return (
