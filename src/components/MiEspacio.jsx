@@ -1,20 +1,63 @@
 import React, { useState, useMemo } from 'react';
 
-// 📚 LISTA OFICIAL HOMOLOGADA Y LIMPIA
-const PROCESOS_OFICIALES = [
-  "Gestión comercial", "Gestión de la mejora continua (SIGCAS)", "Gestión de mercadeo y comunicaciones",
-  "Gestión de servicio al cliente", "Gestión estratégica", "Gestión de Operaciones",
-  "Gestión Administrativa y Financiera", "Gestión Talento Humano", "I+D+i",
-  "Subproceso alojamiento", "Subproceso alimentos y bebidas", "Subproceso compras",
-  "Subproceso desarrollo de competencias", "Subproceso gestión administrativa",
-  "Subproceso gestión de almacenes", "Subproceso gestión de cartera", "Subproceso gestión de contabilidad",
-  "Subproceso gestión de costos", "Subproceso gestión de inventarios", "Subproceso gestión de tesorería",
-  "Subproceso gestión del bienestar y la compensación", "Subproceso gestionar los activos fijos de la empresa",
-  "Subproceso mantenimiento", "Subproceso recreación", "Subproceso Seguridad y salud en trabajo",
-  "Subproceso Gestion de calidad", "Subproceso Gestión Ambiental", "Subproceso Control interno y Gestion de riesgos",
-  "Subproceso Proteccion de datos personales", "Subproceso selección, vinculación y administración de colaboradores",
-  "Tecnologías de la información y la comunicación", "Proceso General"
-];
+// 🌳 MAPA DE PROCESOS EN CASCADA (MACROPROCESO -> SUBPROCESOS)
+const MAPA_PROCESOS = {
+  // 🚀 PROCESOS MISIONALES
+  "Gestión de mercadeo y comunicaciones": [
+    "General"
+  ],
+  "Gestión comercial": [
+    "General"
+  ],
+  "Gestión de Operaciones": [
+    "Alojamiento",
+    "Alimentos y bebidas",
+    "Recreación",
+    "Mantenimiento"
+  ],
+  "Gestión de servicio al cliente": [
+    "General"
+  ],
+  "Gestión de la cadena de abastecimiento": [
+    "Compras",
+    "Gestión de almacenes",
+    "Gestionar los activos fijos de la empresa",
+    "Gestión de inventarios"
+  ],
+
+  // 🛠️ PROCESOS DE SOPORTE
+  "Gestión del Talento Humano": [
+    "Desarrollo de competencias",
+    "Gestión del bienestar y la compensación",
+    "Selección, vinculación y administración de colaboradores"
+  ],
+  "Gestión Administrativa y Financiera": [
+    "Gestión administrativa",
+    "Gestión de cartera",
+    "Gestión de contabilidad",
+    "Gestión de costos",
+    "Gestión de tesorería"
+  ],
+  "Tecnologías de la información y la comunicación": [
+    "General"
+  ],
+
+  // 🎯 PROCESOS ESTRATÉGICOS
+  "Gestión estratégica": [
+    "General"
+  ],
+  "I+D+i": [
+    "General"
+  ],
+  "Gestión de la mejora continua (SIGCAS)": [
+    "General",
+    "Control interno y gestión de riesgos",
+    "Protección de datos personales",
+    "Gestión de calidad",
+    "Seguridad y salud en el trabajo",
+    "Gestión ambiental"
+  ]
+};
 
 export default function MiEspacio({
   user, safePlanes, safeHallazgos, safeComites, safeCronograma,

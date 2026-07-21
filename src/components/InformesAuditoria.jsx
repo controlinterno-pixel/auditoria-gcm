@@ -11,7 +11,7 @@ const AUDITORES_OFICIALES = [
 // 🗺️ NUEVA TAXONOMÍA JERÁRQUICA: ROPROCESO -> SUBPROCESO
 const MAPA_PROCESOS = {
   "Gestión de Operaciones": ["Alojamiento", "Alimentos y bebidas", "Mantenimiento", "Recreación", "General"],
-  "Gestión Administrativa y Financiera": ["Compras", "Gestión de almacenes", "Gestión de cartera", "Gestión de contabilidad", "Gestión de costos", "Gestión de inventarios", "Gestión de tesorería", "Gestionar los activos fijos de la empresa", "General"],
+  "Gestión Administrativa y Financiera": ["Compras", "Gestión de almacenes", "Gestión de cartera", "Gestión de contabilidad", "Gestión de costos", "Gestión de inventarios", "Gestión de tesorería", "Gestionar los activos fijos de la empresa", "Gestión Administrativa", "General"],
   "Gestión Talento Humano": ["Desarrollo de competencias", "Gestión del bienestar y la compensación", "Selección, vinculación y administración de colaboradores", "Seguridad y salud en trabajo", "General"],
   "Gestión estratégica": ["General"],
   "Gestión comercial": ["General"],
