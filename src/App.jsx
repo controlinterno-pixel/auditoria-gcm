@@ -291,7 +291,6 @@ const saveToCloud = async (partialData) => {
   const handleAuditorSubmit = async (e, textoDirecto = null) => {
     if (e) e.preventDefault(); 
     
-    // Si viene de un clic directo usa ese texto, si no, usa el del input bar
     const consultaFinal = textoDirecto || auditorInput;
     if (!consultaFinal.trim()) return;
 
@@ -301,7 +300,6 @@ const saveToCloud = async (partialData) => {
     try {
       const hoy = new Date();
 
-      // 🛑 1. RECOLECCIÓN DE DATOS (Aprovechando tus filtros actuales)
       const riesgosBase = rFiltrados;
       const hallazgosBase = hFiltrados;
       const planesBase = pFiltrados;
@@ -318,6 +316,15 @@ const saveToCloud = async (partialData) => {
 
       const cronogramaIniciados = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) > 0);
       const avanceCronogramaGlobal = cronogramaIniciados.length > 0 ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) : 0;
+
+      // 🌟 NUEVO: Extraemos la "carne" de los informes sin saturar la memoria de la IA
+      const resumenInformes = (Array.isArray(informesAuditoria) ? informesAuditoria : []).map(inf => ({
+        referencia: inf.ref,
+        titulo: inf.titulo,
+        proceso: inf.proceso || inf.macroproceso,
+        estado: inf.socializado === 'Sí' ? 'Socializado' : 'Pendiente',
+        fecha: inf.fecha
+      }));
 
       // 📦 2. EMPAQUETADO DEL CONTEXTO PARA LA IA
       const contextoDatos = {
@@ -344,7 +351,8 @@ const saveToCloud = async (partialData) => {
           perdidasAcumuladas: '$' + incidentesBase.reduce((acc, i) => acc + (Number(i.costo) || 0), 0).toLocaleString('es-CO') + ' COP'
         },
         informes: {
-          emitidos: (Array.isArray(informesAuditoria) ? informesAuditoria : []).length
+          totalEmitidos: resumenInformes.length,
+          detalleInformes: resumenInformes // ✅ ¡AQUÍ ESTÁ LA MAGIA! Ahora la IA ve los detalles.
         },
         indicadores: {
           alertas: safeMonitoreo.filter(m => m.valor > m.limite).map(m => m.indicador).join(', ') || 'Ninguno bajo alerta crítica'
