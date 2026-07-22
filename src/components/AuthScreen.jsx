@@ -1,82 +1,287 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  sendEmailVerification 
+} from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function AuthScreen() {
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authError, setAuthError] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault(); 
-    setAuthError('');
+  // Campos del Formulario
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [cargo, setCargo] = useState('');
+  const [area, setArea] = useState('');
+
+  // 1. Manejo del Registro
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 🛡️ Validación de Dominio Corporativo
+    if (!cleanEmail.endsWith('@termales.com.co')) {
+      alert("⛔ Acceso denegado: Solo se permiten correos institucionales (@termales.com.co)");
+      return;
+    }
+
+    setLoading(true);
     try {
-      if (isRegistering) { 
-        await createUserWithEmailAndPassword(auth, authEmail, authPassword); 
-      } else { 
-        await signInWithEmailAndPassword(auth, authEmail, authPassword); 
-      }
-    } catch (error) { 
-      setAuthError('Error en credenciales.'); 
+      // Crear usuario en Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      const user = userCredential.user;
+
+      // Guardar datos extendidos del perfil en Firestore
+      await setDoc(doc(db, 'usuarios', user.uid), {
+        uid: user.uid,
+        email: cleanEmail,
+        nombre: nombre,
+        cargo: cargo,
+        area: area,
+        rol: 'lider', // Rol por defecto
+        emailVerified: false,
+        fechaRegistro: new Date().toISOString()
+      });
+
+      // ✉️ ENVIAR CORREO DE VERIFICACIÓN DE FIREBASE
+      await sendEmailVerification(user);
+
+      // Cambiar a pantalla elegante de verificación
+      setPendingVerification(true);
+    } catch (error) {
+      console.error("Error en registro:", error);
+      alert("❌ Error al crear la cuenta: " + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4 py-12">
-      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-2xl">
-        <div className="text-center">
-          <span className="text-5xl block animate-bounce">🛡️</span>
-          <h2 className="mt-4 text-3xl font-extrabold text-slate-900">GCM Auditor v5</h2>
-          <p className="text-xs text-blue-600 font-bold uppercase tracking-widest mt-1">Termales GRC Platform</p>
-        </div>
-        
-        <form className="mt-8 space-y-4" onSubmit={handleAuthSubmit}>
-          {authError && (
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-xs font-medium">
-              ⚠️ {authError}
-            </div>
-          )}
-          <div className="space-y-3">
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Correo</label>
-              <input 
-                type="email" 
-                required 
-                value={authEmail} 
-                onChange={e => setAuthEmail(e.target.value)} 
-                placeholder="tu_correo@termales.com.co" 
-                className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase">Contraseña</label>
-              <input 
-                type="password" 
-                required 
-                value={authPassword} 
-                onChange={e => setAuthPassword(e.target.value)} 
-                placeholder="••••••••" 
-                className="block w-full rounded-lg border px-3 py-2 text-xs mt-1"
-              />
-            </div>
+  // 2. Manejo del Login con bloqueo de correo no verificado
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      const user = userCredential.user;
+
+      // 🛡️ Verificar si confirmó su correo (Excepción opcional para desarrollo)
+      if (!user.emailVerified && user.email !== 'controlinterno@termales.com.co') {
+        alert("⚠️ Tu correo aún no ha sido verificado. Revisa tu bandeja de entrada o spam.");
+        setPendingVerification(true);
+        setLoading(false);
+        return;
+      }
+    } catch (error) {
+      alert("❌ Error al ingresar: Credenciales inválidas o correo no registrado.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔄 Reenviar correo de verificación
+  const handleResendEmail = async () => {
+    if (auth.currentUser) {
+      try {
+        await sendEmailVerification(auth.currentUser);
+        alert("📩 Correo de verificación reenviado con éxito.");
+      } catch (err) {
+        alert("Espera un momento antes de solicitar otro correo.");
+      }
+    }
+  };
+
+  // ----------------------------------------------------
+  // VISTA 1: PANTALLA ELEGANTE DE VERIFICACIÓN DE CORREO
+  // ----------------------------------------------------
+  if (pendingVerification) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-300">
+          <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">
+            ✉️
           </div>
-          <button 
-            type="submit" 
-            className="w-full flex justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-xs font-bold text-white shadow-md"
-          >
-            {isRegistering ? 'Crear Cuenta' : 'Ingresar al Portal'}
-          </button>
-        </form>
+          <div>
+            <h2 className="text-2xl font-black text-slate-800">¡Confirma tu correo!</h2>
+            <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed">
+              Hemos enviado un enlace de confirmación a: <br/>
+              <span className="font-bold text-slate-800 font-mono">{email}</span>
+            </p>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left">
+            <p className="text-[11px] text-amber-800 font-semibold leading-normal">
+              💡 <b>Paso final de seguridad:</b> Haz clic en el enlace del correo para activar tu acceso a GCM Auditor v5. Si no lo ves, revisa tu carpeta de <i>Spam</i> o <i>Correo no deseado</i>.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all"
+            >
+              Ya lo confirmé, Iniciar Sesión
+            </button>
+
+            <button
+              onClick={handleResendEmail}
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-3 rounded-xl transition-all"
+            >
+               Reenviar correo de confirmación
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // VISTA 2: FORMULARIO MODERNO (LOGIN / REGISTRO EXTENDIDO)
+  // ----------------------------------------------------
+  return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="max-w-lg w-full bg-white rounded-3xl p-8 shadow-2xl border border-slate-100">
         
-        <div className="text-center pt-2 border-t">
-          <button 
-            onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }} 
-            className="text-xs font-bold text-blue-600"
+        {/* Encabezado */}
+        <div className="text-center mb-8">
+          <div className="inline-block p-3 bg-blue-50 rounded-2xl mb-3">
+            <span className="text-2xl">🛡️</span>
+          </div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight">GCM Auditor v5</h1>
+          <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Termales Santa Rosa de Cabal</p>
+        </div>
+
+        {/* Formularios */}
+        {isRegistering ? (
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="border-b pb-2 mb-4">
+              <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Registro de Nuevo Colaborador</h3>
+              <p className="text-[11px] text-slate-400">Ingresa tus datos institucionales completos</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Nombre Completo *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Ana María Gómez"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Cargo / Puesto *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej. Coor. de Gestión"
+                  value={cargo}
+                  onChange={(e) => setCargo(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Área / Proceso *</label>
+              <input
+                type="text"
+                required
+                placeholder="Ej. Operaciones, Gestión Humana, Financiera..."
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Correo Institucional (@termales.com.co) *</label>
+              <input
+                type="email"
+                required
+                placeholder="usuario@termales.com.co"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Contraseña Segura *</label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all mt-2"
+            >
+              {loading ? "Creando cuenta..." : "Crear Cuenta y Enviar Verificación ✉️"}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Correo Corporativo</label>
+              <input
+                type="email"
+                required
+                placeholder="usuario@termales.com.co"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Contraseña</label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all"
+            >
+              {loading ? "Verificando..." : "Iniciar Sesión"}
+            </button>
+          </form>
+        )}
+
+        {/* Toggle Login / Registro */}
+        <div className="mt-6 text-center border-t pt-4">
+          <button
+            onClick={() => setIsRegistering(!isRegistering)}
+            className="text-xs font-bold text-blue-600 hover:underline"
           >
-            {isRegistering ? '¿Ya tiene cuenta? Iniciar Sesión' : '¿No tiene acceso? Regístrese aquí'}
+            {isRegistering 
+              ? "¿Ya tienes una cuenta? Inicia Sesión aquí" 
+              : "¿Nuevo usuario? Crea tu cuenta con perfil extendido aquí"}
           </button>
         </div>
+
       </div>
     </div>
   );
