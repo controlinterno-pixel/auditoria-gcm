@@ -15,12 +15,17 @@ const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 // 1. Función para el Copiloto IA (Chat)
 export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
   try {
+    // LA MAGIA ESTÁ AQUÍ: Convertimos el objeto de datos a texto legible para la IA
+    const contextoLegible = typeof contextoDatos === 'object' 
+      ? JSON.stringify(contextoDatos, null, 2) 
+      : contextoDatos;
+
     const prompt = `
     Eres 'Auditor IA', un asistente experto en auditoría, GRC y control interno.
     Tu objetivo es ayudar al usuario analizando los datos del sistema y respondiendo sus dudas.
     
     DATOS DE CONTEXTO DEL SISTEMA ACTUAL:
-    ${contextoDatos}
+    ${contextoLegible}
     
     PREGUNTA DEL USUARIO:
     ${preguntaUsuario}
@@ -36,7 +41,6 @@ export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
     throw new Error("No se pudo obtener respuesta del modelo. Revisa la consola.");
   }
 };
-
 // 2. Dejo aquí la estructura de tus otras funciones por si las usas en otros componentes
 export const obtenerSugerenciaIA = async (texto) => {
   // Lógica de sugerencia (puedes implementarla igual que arriba)
