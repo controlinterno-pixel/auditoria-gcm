@@ -132,13 +132,16 @@ export default function AuthScreen() {
       return;
     }
     try {
+      // 1. Forzamos el idioma de Firebase a Español
+      auth.languageCode = 'es'; 
+      
+      // 2. Enviamos el correo
       await sendPasswordResetEmail(auth, email.trim().toLowerCase());
       alert("✅ ¡Listo! Revisa tu bandeja de entrada o spam. Te hemos enviado un enlace para restablecer tu contraseña.");
     } catch (error) {
       alert("❌ Hubo un error. Verifica que el correo esté bien escrito.");
     }
   };
-
   if (pendingVerification) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
