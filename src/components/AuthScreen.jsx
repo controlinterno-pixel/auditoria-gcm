@@ -127,29 +127,28 @@ export default function AuthScreen() {
   };
 
 // 🔑 Recuperar Contraseña
-  const handleResetPassword = async () => {
-    if (!email) {
-      alert("⚠️ Por favor, ingresa tu correo corporativo en el campo de arriba para enviarte el enlace.");
-      return;
-    }
-    try {
-      // 1. Forzamos el idioma de Firebase a Español
-      auth.languageCode = 'es'; 
-      
-      // 2. Definimos la URL exacta de redirección hacia Vercel
-      const actionCodeSettings = {
-        url: 'https://auditoria-gcm.vercel.app',
-        handleCodeInApp: true,
-      };
+const handleResetPassword = async () => {
+  if (!email) {
+    alert("⚠️ Por favor, ingresa tu correo corporativo en el campo de arriba para enviarte el enlace.");
+    return;
+  }
+  try {
+    // 1. Forzamos el idioma de Firebase a Español
+    auth.languageCode = 'es'; 
 
-      // 3. Enviamos el correo con la configuración personalizada
-      await sendPasswordResetEmail(auth, email.trim().toLowerCase(), actionCodeSettings);
-      alert("✅ ¡Listo! Revisa tu bandeja de entrada o spam. Te hemos enviado un enlace para restablecer tu contraseña.");
-    } catch (error) {
-      console.error("Error al restablecer contraseña:", error);
-      alert("❌ Hubo un error. Verifica que el correo esté bien escrito.");
-    }
-  };
+    // 2. Definimos únicamente la URL de retorno
+    const actionCodeSettings = {
+      url: 'https://auditoria-gcm.vercel.app',
+    };
+
+    // 3. Enviamos el correo
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase(), actionCodeSettings);
+    alert("✅ ¡Listo! Revisa tu bandeja de entrada o spam. Te hemos enviado un enlace para restablecer tu contraseña.");
+  } catch (error) {
+    console.error("Error exacto de Firebase:", error);
+    alert(`❌ Hubo un error: ${error.message}`);
+  }
+};
   if (pendingVerification) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
