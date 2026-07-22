@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { signOut, onAuthStateChanged } from 'firebase/auth'; 
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 // 🔥 CONEXIÓN MODULAR Y SERVICIOS CENTRALIZADOS
 import { auth, db } from './services/firebase';
 import { 
@@ -36,14 +36,6 @@ import {
 // 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
 // =====================================================================
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-// --- CONTROL DE ACCESO (ROLES) ---
-const ADMIN_EMAILS = [
-  "controlinterno@termales.com.co",
-  "auditoria@termales.com.co",
-  "analista.auditoria@termales.com.co",
-  "analista.controlinterno@termales.com.co"
-];
-
 // =====================================================================
 // 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
 // =====================================================================
@@ -180,21 +172,42 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   const toggleMes = (mes) => {
     setSelectedMeses(prev => prev.includes(mes) ? prev.filter(m => m !== mes) : [...prev, mes]);
   };
+// 🛡️ Nuevo estado para guardar todo el perfil del usuario
+  const [perfilUsuario, setPerfilUsuario] = useState(null);
 
- useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const emailNorm = currentUser.email?.toLowerCase().trim();
-        setIsAdmin(ADMIN_EMAILS.includes(emailNorm));
+        // Consultar el perfil real en Firestore
+        try {
+          const docRef = doc(db, 'usuarios', currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            const datosPerfil = docSnap.data();
+            setPerfilUsuario(datosPerfil);
+            
+            // Si en la base de datos su rol es admin, le damos acceso total
+            setIsAdmin(datosPerfil.rol === 'admin'); 
+          } else {
+            // Si el perfil no existe, por seguridad no es admin
+            setPerfilUsuario(null);
+            setIsAdmin(false);
+          }
+        } catch (error) {
+          console.error("Error obteniendo perfil:", error);
+          setIsAdmin(false);
+        }
       } else {
+        setPerfilUsuario(null);
         setIsAdmin(false);
-        setShowWelcome(true); // 🛡️ ¡LÍNEA NUEVA! Cada vez que se cierre sesión, reinicia la bienvenida a true
+        setShowWelcome(true); // 🛡️ Reinicia la bienvenida al cerrar sesión
       }
     });
     return () => unsubscribe();
   }, []);
-// 📥 Carga Inicial Centralizada con Firebase
+ // 📥 Carga Inicial Centralizada con Firebase
   useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
@@ -220,11 +233,12 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
         setInformesAuditoria(data.informesAuditoria || []);
         setComites(data.comites || []);
         setAuditoresLista(data.auditoresLista || ["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
-      } else {
-        if (ADMIN_EMAILS.some(email => email.toLowerCase().trim() === user.email?.toLowerCase().trim())) {
+} else {
+        // Solo un admin validado puede inicializar la base de datos vacía
+        if (isAdmin) {
            setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [], comites: [] });
         }
-      }
+      }      
       setIsCloudLoaded(true);
     }, (error) => {
       clearTimeout(timeoutSeguridad);
