@@ -7,6 +7,9 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
+// 🔗 IMPORTAMOS TUS DICCIONARIOS REALES DE GRC
+import { MAPA_PROCESOS, CARGOS_SOCIALIZACION } from '../constants/diccionariosGRC';
+
 export default function AuthScreen() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
@@ -18,6 +21,10 @@ export default function AuthScreen() {
   const [nombre, setNombre] = useState('');
   const [cargo, setCargo] = useState('');
   const [area, setArea] = useState('');
+
+  // 📋 Extraemos las áreas principales del MAPA_PROCESOS
+  const AREAS_OPCIONES = Object.keys(MAPA_PROCESOS);
+  const CARGOS_OPCIONES = CARGOS_SOCIALIZACION;
 
   // 🛡️ Helper para medir la fortaleza de la contraseña
   const getPasswordStrength = (pass) => {
@@ -46,6 +53,12 @@ export default function AuthScreen() {
       return;
     }
 
+    // 🛡️ Validación de Selección de Cargo y Área
+    if (!cargo || !area) {
+      alert("⚠️ Debe seleccionar un Cargo y un Área válida de las opciones desplegables.");
+      return;
+    }
+
     // 🛡️ Validación de Fortaleza de Contraseña
     const strength = getPasswordStrength(password);
     if (strength.score < 75) {
@@ -55,26 +68,21 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      // Crear usuario en Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const user = userCredential.user;
 
-      // Guardar datos extendidos del perfil en Firestore
       await setDoc(doc(db, 'usuarios', user.uid), {
         uid: user.uid,
         email: cleanEmail,
         nombre: nombre,
         cargo: cargo,
         area: area,
-        rol: 'lider', // Rol por defecto
+        rol: 'lider',
         emailVerified: false,
         fechaRegistro: new Date().toISOString()
       });
 
-      // ✉️ ENVIAR CORREO DE VERIFICACIÓN DE FIREBASE
       await sendEmailVerification(user);
-
-      // Cambiar a pantalla elegante de verificación
       setPendingVerification(true);
     } catch (error) {
       console.error("Error en registro:", error);
@@ -84,7 +92,7 @@ export default function AuthScreen() {
     }
   };
 
-  // 2. Manejo del Login con bloqueo de correo no verificado
+  // 2. Manejo del Login
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -92,7 +100,6 @@ export default function AuthScreen() {
       const userCredential = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
       const user = userCredential.user;
 
-      // 🛡️ Verificar si confirmó su correo (Excepción opcional para desarrollo)
       if (!user.emailVerified && user.email !== 'controlinterno@termales.com.co') {
         alert("⚠️ Tu correo aún no ha sido verificado. Revisa tu bandeja de entrada o spam.");
         setPendingVerification(true);
@@ -106,7 +113,7 @@ export default function AuthScreen() {
     }
   };
 
-  // 🔄 Reenviar correo de verificación
+  // 🔄 Reenviar correo
   const handleResendEmail = async () => {
     if (auth.currentUser) {
       try {
@@ -118,42 +125,28 @@ export default function AuthScreen() {
     }
   };
 
-  // ----------------------------------------------------
-  // VISTA 1: PANTALLA ELEGANTE DE VERIFICACIÓN DE CORREO
-  // ----------------------------------------------------
   if (pendingVerification) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-300">
-          <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">
-            ✉️
-          </div>
+          <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">✉️</div>
           <div>
-            <h2 className="text-2xl font-black text-slate-800">¡Confirms tu correo!</h2>
+            <h2 className="text-2xl font-black text-slate-800">¡Confirma tu correo!</h2>
             <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed">
               Hemos enviado un enlace de confirmación a: <br/>
               <span className="font-bold text-slate-800 font-mono">{email}</span>
             </p>
           </div>
-
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left">
             <p className="text-[11px] text-amber-800 font-semibold leading-normal">
-              💡 <b>Paso final de seguridad:</b> Haz clic en el enlace del correo para activar tu acceso a GCM Auditor v5. Si no lo ves, revisa tu carpeta de <i>Spam</i> o <i>Correo no deseado</i>.
+              💡 <b>Paso final de seguridad:</b> Haz clic en el enlace del correo para activar tu acceso a GCM Auditor v5. Si no lo ves, revisa tu carpeta de <i>Spam</i>.
             </p>
           </div>
-
           <div className="space-y-3 pt-2">
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all"
-            >
+            <button onClick={() => window.location.reload()} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all">
               Ya lo confirmé, Iniciar Sesión
             </button>
-
-            <button
-              onClick={handleResendEmail}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-3 rounded-xl transition-all"
-            >
+            <button onClick={handleResendEmail} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-3 rounded-xl transition-all">
                Reenviar correo de confirmación
             </button>
           </div>
@@ -162,23 +155,15 @@ export default function AuthScreen() {
     );
   }
 
-  // ----------------------------------------------------
-  // VISTA 2: FORMULARIO MODERNO (LOGIN / REGISTRO EXTENDIDO)
-  // ----------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="max-w-lg w-full bg-white rounded-3xl p-8 shadow-2xl border border-slate-100">
-        
-        {/* Encabezado */}
         <div className="text-center mb-8">
-          <div className="inline-block p-3 bg-blue-50 rounded-2xl mb-3">
-            <span className="text-2xl">🛡️</span>
-          </div>
+          <div className="inline-block p-3 bg-blue-50 rounded-2xl mb-3"><span className="text-2xl">🛡️</span></div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">GCM Auditor v5</h1>
           <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Termales Santa Rosa de Cabal</p>
         </div>
 
-        {/* Formularios */}
         {isRegistering ? (
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="border-b pb-2 mb-4">
@@ -189,95 +174,51 @@ export default function AuthScreen() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Nombre Completo *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Ana María Gómez"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+                <input type="text" required placeholder="Ej. Ana María Gómez" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
-
+              
+              {/* DESPLEGABLE DE CARGO CON DATOS REALES */}
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Cargo / Puesto *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ej. Coor. de Gestión"
-                  value={cargo}
-                  onChange={(e) => setCargo(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+                <select required value={cargo} onChange={(e) => setCargo(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700">
+                  <option value="">-- Seleccionar --</option>
+                  {CARGOS_OPCIONES.map((item, idx) => (
+                    <option key={`cargo-${idx}`} value={item}>{item}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
+            {/* DESPLEGABLE DE ÁREA CON DATOS REALES */}
             <div>
-              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Área / Proceso *</label>
-              <input
-                type="text"
-                required
-                placeholder="Ej. Operaciones, Gestión Humana, Financiera..."
-                value={area}
-                onChange={(e) => setArea(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Macroproceso / Área *</label>
+              <select required value={area} onChange={(e) => setArea(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700">
+                <option value="">-- Seleccionar Proceso --</option>
+                {AREAS_OPCIONES.map((item, idx) => (
+                  <option key={`area-${idx}`} value={item}>{item}</option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Correo Institucional (@termales.com.co) *</label>
-              <input
-                type="email"
-                required
-                placeholder="usuario@termales.com.co"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-              />
+              <input type="email" required placeholder="usuario@termales.com.co" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono" />
             </div>
 
-            {/* Campo de Contraseña con Evaluación Dinámica */}
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-[10px] font-black uppercase text-slate-500">
-                  Contraseña Segura *
-                </label>
-                {password && (
-                  <span className="text-[10px] font-bold">
-                    {getPasswordStrength(password).label}
-                  </span>
-                )}
+                <label className="block text-[10px] font-black uppercase text-slate-500">Contraseña Segura *</label>
+                {password && <span className="text-[10px] font-bold">{getPasswordStrength(password).label}</span>}
               </div>
-
-              <input
-                type="password"
-                required
-                placeholder="Mínimo 8 caracteres, mayúscula, número y símbolo"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
-              />
-
-              {/* Barrita visual de fortaleza */}
+              <input type="password" required placeholder="Mínimo 8 caracteres, mayúscula, número y símbolo" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none" />
               {password && (
                 <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
-                  <div 
-                    className={`h-full transition-all duration-300 ${getPasswordStrength(password).color}`}
-                    style={{ width: `${getPasswordStrength(password).score}%` }}
-                  />
+                  <div className={`h-full transition-all duration-300 ${getPasswordStrength(password).color}`} style={{ width: `${getPasswordStrength(password).score}%` }} />
                 </div>
               )}
-
-              <p className="text-[10px] text-slate-400 mt-1">
-                Requisitos: mínimo 8 caracteres, 1 mayúscula, 1 número y 1 símbolo (!@#$).
-              </p>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all mt-2 disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all mt-2 disabled:opacity-50">
               {loading ? "Creando cuenta..." : "Crear Cuenta y Enviar Verificación ✉️"}
             </button>
           </form>
@@ -285,47 +226,21 @@ export default function AuthScreen() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Correo Corporativo</label>
-              <input
-                type="email"
-                required
-                placeholder="usuario@termales.com.co"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-              />
+              <input type="email" required placeholder="usuario@termales.com.co" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono" />
             </div>
-
             <div>
               <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Contraseña</label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
-              />
+              <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all disabled:opacity-50">
               {loading ? "Verificando..." : "Iniciar Sesión"}
             </button>
           </form>
         )}
 
-        {/* Toggle Login / Registro */}
         <div className="mt-6 text-center border-t pt-4">
-          <button
-            onClick={() => setIsRegistering(!isRegistering)}
-            className="text-xs font-bold text-blue-600 hover:underline"
-          >
-            {isRegistering 
-              ? "¿Ya tienes una cuenta? Inicia Sesión aquí" 
-              : "¿Nuevo usuario? Crea tu cuenta con perfil extendido aquí"}
+          <button onClick={() => setIsRegistering(!isRegistering)} className="text-xs font-bold text-blue-600 hover:underline">
+            {isRegistering ? "¿Ya tienes una cuenta? Inicia Sesión aquí" : "¿Nuevo usuario? Crea tu cuenta con perfil extendido aquí"}
           </button>
         </div>
 
