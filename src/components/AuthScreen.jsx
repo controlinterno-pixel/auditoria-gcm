@@ -19,6 +19,22 @@ export default function AuthScreen() {
   const [cargo, setCargo] = useState('');
   const [area, setArea] = useState('');
 
+  // 🛡️ Helper para medir la fortaleza de la contraseña
+  const getPasswordStrength = (pass) => {
+    let score = 0;
+    if (!pass) return { score: 0, label: 'Muy débil', color: 'bg-slate-200' };
+
+    if (pass.length >= 8) score += 25;
+    if (/[A-Z]/.test(pass)) score += 25;
+    if (/[0-9]/.test(pass)) score += 25;
+    if (/[^A-Za-z0-9]/.test(pass)) score += 25;
+
+    if (score <= 25) return { score, label: 'Muy débil ❌', color: 'bg-red-500' };
+    if (score <= 50) return { score, label: 'Aceptable ⚠️', color: 'bg-amber-500' };
+    if (score <= 75) return { score, label: 'Buena 👍', color: 'bg-blue-500' };
+    return { score, label: 'Muy Segura 🛡️', color: 'bg-emerald-500' };
+  };
+
   // 1. Manejo del Registro
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -27,6 +43,13 @@ export default function AuthScreen() {
     // 🛡️ Validación de Dominio Corporativo
     if (!cleanEmail.endsWith('@termales.com.co')) {
       alert("⛔ Acceso denegado: Solo se permiten correos institucionales (@termales.com.co)");
+      return;
+    }
+
+    // 🛡️ Validación de Fortaleza de Contraseña
+    const strength = getPasswordStrength(password);
+    if (strength.score < 75) {
+      alert("⚠️ La contraseña es muy débil. Debe incluir al menos 8 caracteres, una mayúscula, un número y un símbolo especial (!@#$).");
       return;
     }
 
@@ -106,7 +129,7 @@ export default function AuthScreen() {
             ✉️
           </div>
           <div>
-            <h2 className="text-2xl font-black text-slate-800">¡Confirma tu correo!</h2>
+            <h2 className="text-2xl font-black text-slate-800">¡Confirms tu correo!</h2>
             <p className="text-xs text-slate-500 mt-2 font-medium leading-relaxed">
               Hemos enviado un enlace de confirmación a: <br/>
               <span className="font-bold text-slate-800 font-mono">{email}</span>
@@ -213,23 +236,47 @@ export default function AuthScreen() {
               />
             </div>
 
+            {/* Campo de Contraseña con Evaluación Dinámica */}
             <div>
-              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Contraseña Segura *</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[10px] font-black uppercase text-slate-500">
+                  Contraseña Segura *
+                </label>
+                {password && (
+                  <span className="text-[10px] font-bold">
+                    {getPasswordStrength(password).label}
+                  </span>
+                )}
+              </div>
+
               <input
                 type="password"
                 required
-                minLength={6}
-                placeholder="••••••••"
+                placeholder="Mínimo 8 caracteres, mayúscula, número y símbolo"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none"
               />
+
+              {/* Barrita visual de fortaleza */}
+              {password && (
+                <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-300 ${getPasswordStrength(password).color}`}
+                    style={{ width: `${getPasswordStrength(password).score}%` }}
+                  />
+                </div>
+              )}
+
+              <p className="text-[10px] text-slate-400 mt-1">
+                Requisitos: mínimo 8 caracteres, 1 mayúscula, 1 número y 1 símbolo (!@#$).
+              </p>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all mt-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all mt-2 disabled:opacity-50"
             >
               {loading ? "Creando cuenta..." : "Crear Cuenta y Enviar Verificación ✉️"}
             </button>
@@ -263,7 +310,7 @@ export default function AuthScreen() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all"
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all disabled:opacity-50"
             >
               {loading ? "Verificando..." : "Iniciar Sesión"}
             </button>
