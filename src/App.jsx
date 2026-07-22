@@ -44,12 +44,17 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 export default function App() {
   // 🔑 Detectar si el usuario viene desde el correo de restablecer contraseña
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [oobCode, setOobCode] = useState(null); // <-- NUEVO ESTADO PARA EL CÓDIGO
 
   useEffect(() => {
     // Leemos la URL para ver si Firebase nos mandó un código secreto
     const params = new URLSearchParams(window.location.search);
-    if (params.get('mode') === 'resetPassword') {
+    const mode = params.get('mode');
+    const code = params.get('oobCode');
+
+    if (mode === 'resetPassword' && code) {
       setIsResettingPassword(true);
+      setOobCode(code); // <-- GUARDAMOS EL CÓDIGO
     }
   }, []);
 
@@ -1182,7 +1187,7 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
   
   // 🛑 SI VIENE DEL CORREO, INTERCEPTAMOS Y MOSTRAMOS LA PANTALLA NUEVA
-  if (isResettingPassword) return <ResetPassword />;
+  if (isResettingPassword) return <ResetPassword oobCode={oobCode} />;
 
   if (!user) return <AuthScreen />;
 if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
