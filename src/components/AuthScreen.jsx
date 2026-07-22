@@ -3,7 +3,8 @@ import { auth, db } from '../services/firebase';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
-  sendEmailVerification 
+  sendEmailVerification,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -124,6 +125,19 @@ export default function AuthScreen() {
       }
     }
   };
+// 🔑 Recuperar Contraseña
+  const handleResetPassword = async () => {
+    if (!email) {
+      alert("⚠️ Por favor, ingresa tu correo corporativo en el campo de arriba para enviarte el enlace.");
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+      alert("✅ ¡Listo! Revisa tu bandeja de entrada o spam. Te hemos enviado un enlace para restablecer tu contraseña.");
+    } catch (error) {
+      alert("❌ Hubo un error. Verifica que el correo esté bien escrito.");
+    }
+  };
 
   if (pendingVerification) {
     return (
@@ -234,10 +248,22 @@ export default function AuthScreen() {
               <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Correo Corporativo</label>
               <input type="email" required placeholder="usuario@termales.com.co" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono" />
             </div>
-            <div>
+<div>
               <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Contraseña</label>
               <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
+            
+            {/* NUEVO BOTÓN DE OLVIDÉ CONTRASEÑA */}
+            <div className="flex justify-end -mt-2 mb-2">
+              <button 
+                type="button" 
+                onClick={handleResetPassword}
+                className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            </div>
+
             <button type="submit" disabled={loading} className="w-full bg-slate-800 hover:bg-slate-900 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all disabled:opacity-50">
               {loading ? "Verificando..." : "Iniciar Sesión"}
             </button>
