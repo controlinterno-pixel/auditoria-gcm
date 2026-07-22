@@ -172,14 +172,24 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   const toggleMes = (mes) => {
     setSelectedMeses(prev => prev.includes(mes) ? prev.filter(m => m !== mes) : [...prev, mes]);
   };
-// 🛡️ Nuevo estado para guardar todo el perfil del usuario
+// 🛡️ Estado y validación robusta de perfil/rol de usuario
   const [perfilUsuario, setPerfilUsuario] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // Consultar el perfil real en Firestore
+        const emailLimpio = (currentUser.email || '').trim().toLowerCase();
+
+        // 🚨 1. Hardcode / Bypass de emergencia para el correo principal de Control Interno
+        if (emailLimpio === 'controlinterno@termales.com.co') {
+          console.log("🛡️ Superadmin identificado por correo corporativo.");
+          setPerfilUsuario({ email: currentUser.email, rol: 'admin' });
+          setIsAdmin(true);
+          return;
+        }
+
+        // 🔍 2. Validación secundaria en Firestore si no es el correo principal
         try {
           const docRef = doc(db, 'usuarios', currentUser.uid);
           const docSnap = await getDoc(docRef);
@@ -187,16 +197,13 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
           if (docSnap.exists()) {
             const datosPerfil = docSnap.data();
             setPerfilUsuario(datosPerfil);
-            
-            // Si en la base de datos su rol es admin, le damos acceso total
             setIsAdmin(datosPerfil.rol === 'admin'); 
           } else {
-            // Si el perfil no existe, por seguridad no es admin
             setPerfilUsuario(null);
             setIsAdmin(false);
           }
         } catch (error) {
-          console.error("Error obteniendo perfil:", error);
+          console.error("Error obteniendo perfil en Firestore:", error);
           setIsAdmin(false);
         }
       } else {
