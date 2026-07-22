@@ -134,13 +134,17 @@ const handleResetPassword = async () => {
   }
 
   try {
-    // Forzamos idioma español para el correo
     auth.languageCode = 'es'; 
 
-    // Envio directo sin objeto actionCodeSettings
-    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+    // Configuración para que el correo redirija a TU APP en Vercel
+    const actionCodeSettings = {
+      url: 'https://auditoria-gcm.vercel.app/reset-password',
+      handleCodeInApp: true,
+    };
+
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase(), actionCodeSettings);
     
-    alert("✅ ¡Correo enviado con éxito! Revisa tu bandeja de entrada o SPAM.");
+    alert("✅ ¡Correo enviado con éxito! Revisa tu bandeja de entrada o SPAM para restablecer la contraseña.");
   } catch (error) {
     console.error("Error al enviar correo:", error);
     if (error.code === 'auth/user-not-found') {
