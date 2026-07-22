@@ -132,21 +132,31 @@ const handleResetPassword = async () => {
     alert("⚠️ Por favor, ingresa tu correo corporativo en el campo de arriba para enviarte el enlace.");
     return;
   }
+
   try {
-    // 1. Forzamos el idioma de Firebase a Español
+    // 1. Idioma en español
     auth.languageCode = 'es'; 
 
-    // 2. Definimos únicamente la URL de retorno
+    // 2. Configuración de la URL de redirección
     const actionCodeSettings = {
-      url: 'https://auditoria-gcm.vercel.app',
+      // URL exacta a la que debe volver el usuario
+      url: 'https://auditoria-gcm.vercel.app', 
     };
 
-    // 3. Enviamos el correo
+    // 3. Envío del correo
     await sendPasswordResetEmail(auth, email.trim().toLowerCase(), actionCodeSettings);
-    alert("✅ ¡Listo! Revisa tu bandeja de entrada o spam. Te hemos enviado un enlace para restablecer tu contraseña.");
+    
+    alert("✅ ¡Correo enviado! Revisa tu bandeja de entrada o la carpeta de SPAM.");
   } catch (error) {
     console.error("Error exacto de Firebase:", error);
-    alert(`❌ Hubo un error: ${error.message}`);
+    
+    if (error.code === 'auth/unauthorized-continue-uri') {
+      alert("❌ El dominio aún no está autorizado en la consola de Firebase. Revisa el Paso 1.");
+    } else if (error.code === 'auth/user-not-found') {
+      alert("❌ No existe ninguna cuenta registrada con este correo.");
+    } else {
+      alert(`❌ Error: ${error.message}`);
+    }
   }
 };
   if (pendingVerification) {
