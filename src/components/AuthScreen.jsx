@@ -158,12 +158,18 @@ export default function AuthScreen() {
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="max-w-lg w-full bg-white rounded-3xl p-8 shadow-2xl border border-slate-100">
+        {/* Encabezado con Logo Corporativo */}
         <div className="text-center mb-8">
-          <div className="inline-block p-3 bg-blue-50 rounded-2xl mb-3"><span className="text-2xl">🛡️</span></div>
+          <div className="inline-block p-2 bg-white rounded-2xl mb-3 shadow-sm border border-slate-100">
+            <img 
+              src="/logo_termales.png" 
+              alt="Logo Termales Santa Rosa de Cabal" 
+              className="w-16 h-16 object-contain mx-auto"
+            />
+          </div>
           <h1 className="text-2xl font-black text-slate-800 tracking-tight">GCM Auditor v5</h1>
           <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Termales Santa Rosa de Cabal</p>
         </div>
-
         {isRegistering ? (
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="border-b pb-2 mb-4">
