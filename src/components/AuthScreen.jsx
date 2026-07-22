@@ -129,30 +129,21 @@ export default function AuthScreen() {
 // 🔑 Recuperar Contraseña
 const handleResetPassword = async () => {
   if (!email) {
-    alert("⚠️ Por favor, ingresa tu correo corporativo en el campo de arriba para enviarte el enlace.");
+    alert("⚠️ Por favor, ingresa tu correo corporativo en el campo de arriba.");
     return;
   }
 
   try {
-    // 1. Idioma en español
+    // Forzamos idioma español para el correo
     auth.languageCode = 'es'; 
 
-    // 2. Configuración de la URL de redirección
-    const actionCodeSettings = {
-      // URL exacta a la que debe volver el usuario
-      url: 'https://auditoria-gcm.vercel.app', 
-    };
-
-    // 3. Envío del correo
-    await sendPasswordResetEmail(auth, email.trim().toLowerCase(), actionCodeSettings);
+    // Envio directo sin objeto actionCodeSettings
+    await sendPasswordResetEmail(auth, email.trim().toLowerCase());
     
-    alert("✅ ¡Correo enviado! Revisa tu bandeja de entrada o la carpeta de SPAM.");
+    alert("✅ ¡Correo enviado con éxito! Revisa tu bandeja de entrada o SPAM.");
   } catch (error) {
-    console.error("Error exacto de Firebase:", error);
-    
-    if (error.code === 'auth/unauthorized-continue-uri') {
-      alert("❌ El dominio aún no está autorizado en la consola de Firebase. Revisa el Paso 1.");
-    } else if (error.code === 'auth/user-not-found') {
+    console.error("Error al enviar correo:", error);
+    if (error.code === 'auth/user-not-found') {
       alert("❌ No existe ninguna cuenta registrada con este correo.");
     } else {
       alert(`❌ Error: ${error.message}`);
