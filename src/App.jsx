@@ -285,7 +285,7 @@ const saveToCloud = async (partialData) => {
     }, 100);
   };
 
-  // =====================================================================
+// =====================================================================
   // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CONECTADA A GEMINI.JS)
   // =====================================================================
   const handleAuditorSubmit = async (e, textoDirecto = null) => {
@@ -300,16 +300,17 @@ const saveToCloud = async (partialData) => {
     try {
       const hoy = new Date();
 
-      const riesgosBase = rFiltrados;
-      const hallazgosBase = hFiltrados;
-      const planesBase = pFiltrados;
-      const incidentesBase = incFiltrados;
-      const cronogramaBase = cFiltrados;
+      // 🛑 1. RECOLECCIÓN DE DATOS (Usamos la base "safe" para visión CONSOLIDADA)
+      const riesgosBase = safeRiesgos;
+      const hallazgosBase = safeHallazgos;
+      const planesBase = safePlanes;
+      const incidentesBase = safeIncidentes;
+      const cronogramaBase = safeCronograma;
 
       let criticosTotal = 0;
       try { criticosTotal = riesgosBase.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length; } catch(err) {}
       
-      const evalFiltradas = safeEvaluaciones.filter(filterByGlobalPeriod);
+      const evalFiltradas = safeEvaluaciones; // También consolidado
       const totalEvaluaciones = evalFiltradas.length;
       const controlesEficaces = evalFiltradas.filter(ev => ev.calificacion === 100).length;
       const efectividadControlesGlobal = totalEvaluaciones > 0 ? Math.round((controlesEficaces / totalEvaluaciones) * 100) : 0;
@@ -317,7 +318,6 @@ const saveToCloud = async (partialData) => {
       const cronogramaIniciados = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) > 0);
       const avanceCronogramaGlobal = cronogramaIniciados.length > 0 ? Math.round(cronogramaIniciados.reduce((acc, c) => acc + (Number(c.cumplimiento) || 0), 0) / cronogramaIniciados.length) : 0;
 
-      // 🌟 NUEVO: Extraemos la "carne" de los informes sin saturar la memoria de la IA
       const resumenInformes = (Array.isArray(informesAuditoria) ? informesAuditoria : []).map(inf => ({
         referencia: inf.ref,
         titulo: inf.titulo,
@@ -326,7 +326,7 @@ const saveToCloud = async (partialData) => {
         fecha: inf.fecha
       }));
 
-      // 📦 2. EMPAQUETADO DEL CONTEXTO PARA LA IA
+      // 📦 2. EMPAQUETADO DEL CONTEXTO PARA LA IA (Enriquecido para cuadrar con tu Dashboard)
       const contextoDatos = {
         dashboard: {
           cumplimientoPlanAnual: avanceCronogramaGlobal + '%',
@@ -341,10 +341,14 @@ const saveToCloud = async (partialData) => {
           tecnologicos: riesgosBase.filter(r => r.categoria === 'Tecnológico').length
         },
         hallazgos_y_planes: {
+          hallazgosTotales: hallazgosBase.length,
           hallazgosAbiertos: hallazgosBase.filter(h => h.estado === 'Abierto').length,
           hallazgosCerrados: hallazgosBase.filter(h => h.estado !== 'Abierto').length,
+          // 🎯 Aquí alineamos la IA con las tarjetas de tu Dashboard
           planesTotales: planesBase.length,
-          planesVencidos: planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length
+          planesCerrados: planesBase.filter(p => p.estado === 'Cerrado' || p.progreso === 100).length,
+          planesVencidos: planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length,
+          planesEnProceso: planesBase.filter(p => p.estado === 'En Proceso').length
         },
         incidentes: {
           total: incidentesBase.length,
@@ -352,7 +356,7 @@ const saveToCloud = async (partialData) => {
         },
         informes: {
           totalEmitidos: resumenInformes.length,
-          detalleInformes: resumenInformes // ✅ ¡AQUÍ ESTÁ LA MAGIA! Ahora la IA ve los detalles.
+          detalleInformes: resumenInformes
         },
         indicadores: {
           alertas: safeMonitoreo.filter(m => m.valor > m.limite).map(m => m.indicador).join(', ') || 'Ninguno bajo alerta crítica'
@@ -371,7 +375,7 @@ const saveToCloud = async (partialData) => {
       setIsAuditorThinking(false);
       setAuditorInput(''); 
     }
-  };
+  };  
 // =====================================================================
   // 📥 FUNCIONES DE EXPORTACIÓN (EXCEL Y JSON)
   // =====================================================================
