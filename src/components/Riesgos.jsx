@@ -815,38 +815,38 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
               </div>
 
               {/* Cuerpo Renderizado con Barras Elegantes HTML/Tailwind */}
-              <div className="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
+              <div className="p-6 overflow-y-auto space-y-3 text-xs leading-relaxed text-slate-300 font-sans">
                 {dictamenIA.dictamen.split('\n').map((linea, i) => {
                   const trimmed = linea.trim();
                   if (!trimmed) return null;
 
-                  // Separadores elegantes
-                  if (trimmed.startsWith('═') || trimmed.startsWith('---')) {
-                    return <div key={i} className="border-b border-slate-800/80 my-3"></div>;
+                  // Separadores (líneas horizontales)
+                  if (trimmed.startsWith('---') || trimmed.startsWith('===') || trimmed.includes('═')) {
+                    return <div key={i} className="border-b border-slate-800 my-4"></div>;
                   }
 
-                  // Secciones Nivel 2 (##)
+                  // Títulos Nivel 2 (##)
                   if (trimmed.startsWith('## ')) {
                     return (
-                      <h2 key={i} className="text-xs font-black text-emerald-400 border-b border-slate-800 pb-1.5 mt-5 mb-2 uppercase tracking-wider flex items-center gap-2">
+                      <h2 key={i} className="text-xs font-black text-emerald-400 border-b border-slate-800/80 pb-1 mt-5 mb-2 uppercase tracking-wider flex items-center gap-2">
                         {trimmed.replace('## ', '')}
                       </h2>
                     );
                   }
 
-                  // Secciones Nivel 3 (###)
+                  // Títulos Nivel 3 (###)
                   if (trimmed.startsWith('### ')) {
                     return (
-                      <h3 key={i} className="text-[11px] font-black text-slate-100 uppercase tracking-wider mt-4 mb-2 bg-slate-900/90 p-2 rounded-lg border-l-2 border-emerald-400">
+                      <h3 key={i} className="text-[11px] font-black text-slate-100 uppercase tracking-wider mt-3 mb-1 bg-slate-900/90 p-2 rounded-lg border-l-2 border-emerald-400">
                         {trimmed.replace('### ', '')}
                       </h3>
                     );
                   }
 
-                  // Citas / Bloque del Socio (>)
+                  // Citas del Socio Directivo (>)
                   if (trimmed.startsWith('> ')) {
                     return (
-                      <blockquote key={i} className="p-3 bg-emerald-950/30 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
+                      <blockquote key={i} className="p-3 bg-emerald-950/40 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
                         <span dangerouslySetInnerHTML={{ 
                           __html: trimmed.replace('> ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
                         }} />
@@ -854,13 +854,11 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // 🎨 TRANSFORMADOR VIRTUAL DE BARRAS (Sustituye ASCII por Barras de Progreso Reales)
-                  if (trimmed.includes('█') || trimmed.includes('%') && (trimmed.includes('Inherente') || trimmed.includes('Residual') || trimmed.includes('Objetivo') || trimmed.includes('Salud') || trimmed.includes('Estado Actual'))) {
-                    // Extraer porcentaje si existe
+                  // Barras de progreso Tailwind
+                  if (trimmed.includes('█') || (trimmed.includes('%') && (trimmed.includes('Inherente') || trimmed.includes('Residual') || trimmed.includes('Objetivo') || trimmed.includes('Salud') || trimmed.includes('Estado Actual')))) {
                     const pctMatch = trimmed.match(/(\d+)%/);
                     const pct = pctMatch ? parseInt(pctMatch[1], 10) : 50;
 
-                    // Determinar el color según el contexto
                     let colorBarra = "from-emerald-500 to-teal-400";
                     let bgBadge = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
 
@@ -872,10 +870,10 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                       bgBadge = "bg-amber-500/10 text-amber-400 border-amber-500/20";
                     }
 
-                    // Limpiar el texto para la etiqueta
                     const etiquetaLimpia = trimmed
                       .replace(/█|░/g, '')
-                      .replace(/\[|\]/g, '')
+                      .replace(/\[\vert{}\]/g, '')
+                      .replace(/```text/g, '')
                       .replace(/```/g, '')
                       .replace(/\d+%/g, '')
                       .trim();
@@ -888,7 +886,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                             {pct}%
                           </span>
                         </div>
-                        {/* Barra estilizada en Tailwind */}
                         <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden p-0.5 border border-slate-800">
                           <div 
                             className={`h-full rounded-full bg-gradient-to-r ${colorBarra} transition-all duration-700 shadow-sm`}
@@ -899,15 +896,15 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // Omitir bloques de código Markdown innecesarios
+                  // Omitir etiquetas Markdown innecesarias
                   if (trimmed.startsWith('```')) return null;
 
                   // Filas de Tabla (|)
                   if (trimmed.startsWith('|')) {
-                    if (trimmed.includes('---')) return null;
+                    if (trimmed.includes('---')) return null; 
                     const celdas = trimmed.split('|').filter(c => c.trim() !== '');
                     return (
-                      <div key={i} className="grid grid-cols-3 gap-2 bg-slate-900/80 p-2 my-0.5 rounded-lg border border-slate-800/80 text-[11px]">
+                      <div key={i} className="grid grid-cols-3 gap-2 bg-slate-900/90 p-2 my-1 rounded-lg border border-slate-800 text-[11px]">
                         {celdas.map((c, idx) => (
                           <span key={idx} className={idx === 0 ? "font-bold text-slate-200" : "text-slate-300"} dangerouslySetInnerHTML={{ 
                             __html: c.trim().replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
@@ -917,11 +914,11 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // Listas de viñetas (* o -)
+                  // Listas (* o -)
                   if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
                     const contenido = trimmed.substring(2);
                     return (
-                      <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
+                      <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/30 p-1.5 rounded-lg border border-slate-800/40">
                         <span className="text-emerald-400 font-bold">•</span>
                         <span className="text-slate-200" dangerouslySetInnerHTML={{ 
                           __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
@@ -930,15 +927,19 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // Párrafos Estándar
+                  // Párrafos regulares
                   return (
-                    <p key={i} className="my-1.5 text-slate-300" dangerouslySetInnerHTML={{ 
+                    <p key={i} className="my-1 text-slate-300" dangerouslySetInnerHTML={{ 
                       __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
                     }} />
                   );
                 })}
-              </div>
 
+                {/* Cursor de escritura en vivo */}
+                {procesandoIA && (
+                  <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse align-middle"></span>
+                )}
+              </div>
               {/* Pie del Modal */}
               <div className="p-4 border-t border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
                 <span className="text-[10px] text-slate-500 font-medium">Termales S.A. GRC Suite • Nivel Big Four</span>
