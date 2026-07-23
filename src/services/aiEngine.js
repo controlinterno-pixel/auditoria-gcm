@@ -7,7 +7,18 @@ if (!GEMINI_API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+// ==========================================
+// ⚡ CONFIGURACIÓN DE ALTA VELOCIDAD Y RENDIMIENTO
+// ==========================================
+const model = genAI.getGenerativeModel({ 
+  model: "gemini-2.5-flash",
+  generationConfig: {
+    temperature: 0.2,       // Menor aleatoriedad = Respuestas más rápidas y consistentes
+    topP: 0.8,
+    maxOutputTokens: 2048,  // Limita el output a lo estrictamente necesario sin cortar el formato
+  }
+});
 
 // ==========================================
 // 🏛️ CAPA 1: SYSTEM PROMPT (Executive Advisory & ERIR Engine)
@@ -24,6 +35,11 @@ DIRECTRICES CRÍTICAS DE AUDITORÍA Y METODOLOGÍA:
    - ⚡ [Estimación IA Basada en Supuestos de Industria] si es una proyección simulada.
 4. **Interconexión y Estrategia:** Mapea el impacto directo en Objetivos Estratégicos y los Riesgos Relacionados (interdependencia).
 5. **Tiempo de Recuperación:** Estimación del tiempo necesario (meses) para llevar el riesgo a un estado de control aceptable.
+
+REGLAS CRÍTICAS DE RENDIMIENTO Y CONCISIÓN EJECUTIVA:
+- Sé quirúrgico, directo y contundente en el análisis.
+- Evita párrafos introductorios, saludos o texto de relleno.
+- Genera explicaciones breves y precisas (máximo 2-3 líneas por punto). Un C-Level valora la síntesis precisa sobre la longitud.
 `;
 
 // ==========================================
@@ -189,6 +205,11 @@ DATOS EXTRAÍDOS DEL SISTEMA PARA INFORME ERIR®:
 `;
 }
 
+// ==========================================
+// 🚀 FUNCIONES DE EJECUCIÓN (Estándar y Streaming)
+// ==========================================
+
+// Llamada Estándar (Optimizada para responder en 2 a 3 segundos)
 export const ejecutarDictamenIA = async (tipoModulo = 'RIESGO', datos) => {
   try {
     const contexto = buildRiskContext(datos);
@@ -211,6 +232,37 @@ ${OUTPUT_FORMAT_INSTRUCTIONS}
   } catch (error) {
     console.error("Error en ejecutarDictamenIA:", error);
     throw new Error("No se pudo conectar con el motor de IA. Verifica tu API Key.");
+  }
+};
+
+// Llamada Streaming (Permite renderizar en tiempo real mientras se genera)
+export const ejecutarDictamenIAStream = async (datos, onChunk) => {
+  try {
+    const contexto = buildRiskContext(datos);
+    const fullPrompt = `
+${SYSTEM_PROMPT_CORE}
+
+--------------------------------------------------
+REGISTRO EVALUADO EN SISTEMA:
+${contexto}
+--------------------------------------------------
+
+${OUTPUT_FORMAT_INSTRUCTIONS}
+`;
+
+    const resultStream = await model.generateContentStream(fullPrompt);
+
+    let textoAcumulado = "";
+    for await (const chunk of resultStream.stream) {
+      const chunkText = chunk.text();
+      textoAcumulado += chunkText;
+      if (onChunk) onChunk(textoAcumulado);
+    }
+
+    return textoAcumulado;
+  } catch (error) {
+    console.error("Error en ejecutarDictamenIAStream:", error);
+    throw new Error("Error en la transmisión del informe de IA.");
   }
 };
 
