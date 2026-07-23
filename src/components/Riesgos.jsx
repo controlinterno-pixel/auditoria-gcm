@@ -596,16 +596,16 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
         </div>
       )}
 
-     {/* 🤖 MODAL DE DICTAMEN EJECUTIVO GRC IA (EDICIÓN BIG FOUR) */}
+{/* 🤖 MODAL DE DICTAMEN EJECUTIVO GRC IA (EDICIÓN 10/10 C-SUITE) */}
       {(procesandoIA || dictamenIA) && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
           
           {procesandoIA && (
             <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl flex items-center gap-4 shadow-2xl max-w-xl border-l-4 border-l-emerald-500 animate-pulse">
               <span className="text-3xl animate-spin">🤖</span>
               <div className="text-xs">
                 <span className="font-black text-emerald-400 block uppercase tracking-wider text-[11px] mb-0.5">GRC Copilot - Auditing Hub</span>
-                <span className="text-slate-300 font-medium">Auditando madurez, coherencia metodológica e impacto de negocio...</span>
+                <span className="text-slate-300 font-medium">Generando Ficha Técnica, IA Predictiva e Índice Global...</span>
               </div>
             </div>
           )}
@@ -618,7 +618,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 <div className="flex items-center gap-3">
                   <span className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xl">👔</span>
                   <div>
-                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Informe de Consultoría & Auditoría GRC</span>
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Informe Executive C-Suite & Junta Directiva</span>
                     <h3 className="text-sm font-black text-white uppercase tracking-tight">{dictamenIA.titulo}</h3>
                   </div>
                 </div>
@@ -630,11 +630,16 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 </button>
               </div>
 
-              {/* Cuerpo Renderizado */}
+              {/* Cuerpo Renderizado con Renderizador ASCII / Gauges */}
               <div className="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
                 {dictamenIA.dictamen.split('\n').map((linea, i) => {
                   const trimmed = linea.trim();
                   if (!trimmed) return null;
+
+                  // Líneas decorativas dobles
+                  if (trimmed.startsWith('═')) {
+                    return <div key={i} className="border-b-2 border-emerald-500/40 my-3"></div>;
+                  }
 
                   // Secciones Nivel 2 (##)
                   if (trimmed.startsWith('## ')) {
@@ -648,16 +653,16 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                   // Secciones Nivel 3 (###)
                   if (trimmed.startsWith('### ')) {
                     return (
-                      <h3 key={i} className="text-xs font-black text-slate-100 uppercase tracking-wider mt-4 mb-2 bg-slate-900/80 p-2 rounded-lg border-l-2 border-emerald-400">
+                      <h3 key={i} className="text-xs font-black text-slate-100 uppercase tracking-wider mt-4 mb-2 bg-slate-900/90 p-2 rounded-lg border-l-2 border-emerald-400">
                         {trimmed.replace('### ', '')}
                       </h3>
                     );
                   }
 
-                  // Citas / Bloque de Opinión del Socio (>)
+                  // Opinión del Socio / Quotes (>)
                   if (trimmed.startsWith('> ')) {
                     return (
-                      <blockquote key={i} className="p-3 bg-emerald-950/30 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
+                      <blockquote key={i} className="p-3 bg-emerald-950/40 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
                         <span dangerouslySetInnerHTML={{ 
                           __html: trimmed.replace('> ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
                         }} />
@@ -665,25 +670,22 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // Listas de viñetas (* o -)
-                  if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
-                    const contenido = trimmed.substring(2);
+                  // Gauges o Cajas de Código Textual (Velocímetros ASCII)
+                  if (trimmed.startsWith('```')) return null;
+                  if (trimmed.includes('████') || trimmed.includes('CALIDAD DEL REGISTRO')) {
                     return (
-                      <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/40 p-2 rounded-lg border border-slate-800/50">
-                        <span className="text-emerald-400 font-bold">•</span>
-                        <span className="text-slate-200" dangerouslySetInnerHTML={{ 
-                          __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
-                        }} />
-                      </div>
+                      <pre key={i} className="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-emerald-400 text-xs my-2 overflow-x-auto font-bold leading-relaxed">
+                        {trimmed}
+                      </pre>
                     );
                   }
 
-                  // Filas de Tabla (|)
+                  // Filas de Tablas Markdown (|)
                   if (trimmed.startsWith('|')) {
-                    if (trimmed.includes('---')) return null; // Saltar separadores markdown
+                    if (trimmed.includes('---')) return null;
                     const celdas = trimmed.split('|').filter(c => c.trim() !== '');
                     return (
-                      <div key={i} className="grid grid-cols-3 gap-2 bg-slate-900/90 p-2 my-0.5 rounded border border-slate-800 text-[11px]">
+                      <div key={i} className="grid grid-cols-3 gap-2 bg-slate-900/80 p-2 my-0.5 rounded-lg border border-slate-800/80 text-[11px]">
                         {celdas.map((c, idx) => (
                           <span key={idx} className={idx === 0 ? "font-bold text-slate-200" : "text-slate-300"} dangerouslySetInnerHTML={{ 
                             __html: c.trim().replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
@@ -693,7 +695,20 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // Párrafos regulares
+                  // Viñetas (* o -)
+                  if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+                    const contenido = trimmed.substring(2);
+                    return (
+                      <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
+                        <span className="text-emerald-400 font-bold">•</span>
+                        <span className="text-slate-200" dangerouslySetInnerHTML={{ 
+                          __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
+                        }} />
+                      </div>
+                    );
+                  }
+
+                  // Párrafos
                   return (
                     <p key={i} className="my-1.5 text-slate-300" dangerouslySetInnerHTML={{ 
                       __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
@@ -716,7 +731,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
             </div>
           )}
         </div>
-      )}
+      )}    
       {/* CABECERA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>

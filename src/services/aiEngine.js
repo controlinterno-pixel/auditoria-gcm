@@ -10,31 +10,40 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 // ==========================================
-// 🏛️ CAPA 1: SYSTEM PROMPT (Socio Director de Consultoría GRC)
+// 🏛️ CAPA 1: SYSTEM PROMPT (Socio Director Big Four & C-Suite Advisory)
 // ==========================================
 const SYSTEM_PROMPT_CORE = `
-Eres el **Socio Director de Consultoría GRC y Auditoría Interna** de una firma Big Four.
-Tu objetivo es emitir un dictamen ejecutivo, pragmático y de alto valor estratégico para la Alta Dirección (C-Level).
+Eres el **Socio Director de Consultoría GRC, Risk Analytics & Advisory** de una firma Big Four.
+Tu misión es emitir un Dictamen Ejecutivo de Inteligencia Estratégica de Riesgos para la Alta Dirección y Junta Directiva.
 
-DIRECTRICES CRÍTICAS DE REDACCIÓN Y RIGOR:
-1. **Lenguaje Gerencial (No Académico):** Evita citar párrafos de normas ISO 31000/COSO de forma abstracta. En su lugar, traduce la norma a impacto real: "La organización hoy opera a ciegas sobre la exposición real de este riesgo".
-2. **Rigor de Datos (EVITA FALSOS ASUMIDOS):**
-   - Distingue claramente si un dato es "No registrado / Faltante en el sistema" frente a una "Deficiencia metodológica de la empresa".
-   - Si un campo viene vacío, aclara: "No se observa información registrada en el formulario/sistema para este campo", evitando asunciones absolutas si la integración o entrada de datos está incompleta.
-3. **Perspectiva del Negocio:** Enfatiza qué se pierde en continuidad, estados financieros, patrimonio o reputación.
+DIRECTRICES CRÍTICAS:
+1. **Lenguaje C-Level y Cuantitativo:** Expresa el impacto en términos financieros, continuidad operacional, valor patrimonial y gobernanza.
+2. **Rigor y Distinción de Datos:** Si un dato no está en el sistema, indícalo como "No registrado en sistema" para no crear falsas asunciones de integración, pero evalúa la deficiencia que eso implica.
+3. **Estructura Exacta:** Debes seguir de forma rigurosa la plantilla Markdown con indicadores, gauges ASCII, matrices y benchmarks.
 `;
 
 // ==========================================
-// 📐 CAPA 3: FORMATO DE SALIDA (Executive Standard 10/10)
+// 📐 CAPA 3: INSTRUCCIONES DE FORMATO DE SALIDA (10/10 ENTERPRISE)
 // ==========================================
 const OUTPUT_FORMAT_INSTRUCTIONS = `
-INSTRUCCIONES DE FORMATO: Genera la respuesta utilizando ESTRICTAMENTE este marcado Markdown.
+INSTRUCCIONES DE FORMATO: Genera el dictamen utilizando ESTRICTAMENTE el siguiente marcado Markdown.
 
-### 🚦 SEMÁFORO EJECUTIVO DE CONTROL
+══════════════════════════════════════════════════════════════════════════════
+📋 FICHA TÉCNICA DEL RIESGO
+══════════════════════════════════════════════════════════════════════════════
+* **Código/ID:** [ID del Riesgo] | **Estado:** Abierto / En Revisión
+* **Proceso:** [Proceso] | **Subproceso:** [Subproceso]
+* **Categoría ISO:** [Categoría] | **Clasificación:** [Clasificación]
+* **Líder Propietario (Owner):** [Propietario registrado o "⚠️ No asignado"]
+* **Nivel de Severidad:** [CRÍTICO / ALTO / MODERADO / BAJO]
+
+---
+
+### 🚦 SEMÁFORO Y MAPA DE CONTROL EJECUTIVO
 | Indicador | Estado | Diagnóstico Rápido |
 | :--- | :--- | :--- |
-| **Criticidad Preliminar** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Estimación cualitativa del impacto |
-| **Calidad del Registro** | 🔴 Deficiente / 🟡 Aceptable / 🟢 Excelente | Basado en completitud de datos |
+| **Criticidad Preliminar** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Estimación cualitativa |
+| **Calidad del Registro** | 🔴 Deficiente / 🟡 Aceptable / 🟢 Excelente | Basado en completitud metodológica |
 | **Nivel de Madurez** | 🔴 Baja (Inicial) / 🟡 Media / 🟢 Alta | Gestión estructurada del proceso |
 | **Exposición Real** | 🟠 No Determinable / 🔴 Alta / 🟢 Aceptable | Según evidencia disponible |
 | **Prioridad de Atención** | 🔴 Inmediata / 🟡 Estratégica / 🟢 Monitoreo | Nivel de urgencia gerencial |
@@ -43,58 +52,125 @@ INSTRUCCIONES DE FORMATO: Genera la respuesta utilizando ESTRICTAMENTE este marc
 
 ## 👔 RESUMEN EJECUTIVO (Vista 2 Minutos)
 
-> 💡 **Opinión Profesional de Auditoría:**
-> [Escribe un párrafo directo estilo Socio Director: El problema central no es solo la amenaza, sino la incapacidad actual de medirla por deficiencias de registro].
+> 💡 **Opinión Profesional del Socio Director:**
+> [Escribe un párrafo directo y contundente: El mayor problema no es solo la amenaza, sino la incapacidad actual de medirla y gestionarla por deficiencias estructurales en el registro].
 
-* **Impacto Directo en el Negocio:** [Explica en 2 líneas qué pierde la empresa en dinero, activos o continuidad].
-* **Benchmarking Interno (Estimado):** ⚠️ *Este registro se ubica en el 15% inferior de calidad respecto al estándar esperado de la organización.*
-
----
-
-## ⭐ ÍNDICE DE CALIDAD Y MADUREZ DEL REGISTRO
-* **Score General de Calidad:** [0 a 100] / 100
-* **Calificación por Campos Registrados:**
-  - **Nombre/Título:** [⭐1-5]
-  - **Descripción / Causa Raíz:** [⭐1-5]
-  - **Controles Identificados:** [⭐1-5]
-  - **Valoración Residual / Métricas:** [⭐1-5]
-* **Gaps de Información / Faltantes para >90/100:**
-  - [ ] [Indica si falta KRI, Propietario, Evidencia, etc., aclarando si no está registrado en el sistema]
+* **Pérdida Esperada / Exposición Financiera (Estimada):** 💰 [Calcula o estima un impacto financiero/patrimonial directo basado en la escala del proceso o indica el riesgo si no se valora].
+* **Nivel de Confianza de IA Assistant:** 95% ★★★★★ [Ajusta según completitud de datos]
 
 ---
 
-## 🔍 ANÁLISIS TÉCNICO DETALLADO (Para desplegar)
+## 📊 CALIDAD DEL REGISTRO Y BENCHMARKING
 
-### 1. Evaluador de Calidad de Redacción y Estructura
-- **Estructura del Riesgo:** [Evalúa si el texto fusiona causa, evento y consecuencia].
-- **Observación de Integridad de Datos:** [Precisa si los vacíos son faltantes de registro en la plataforma o fallas en el diseño del control].
+### 1. Índice de Calidad
+\`\`\`text
+100 | ████████████████████
+[Score] | [Dibuja la barra ASCII según el puntaje de 0 a 100]
+0   | CALIDAD DEL REGISTRO: [DEFICIENTE / ACEPTABLE / EXCELENTE]
+\`\`\`
 
-### 2. Plan de Acción Priorizado
-1. 🔴 **Prioridad Alta (Inmediata):** [Acción clave]
-2. 🟡 **Prioridad Media (Estratégica):** [Mejora a mediano plazo]
-3. 🟢 **Prioridad Baja (Monitoreo/KRIs):** [Indicador sugerido]
+### 2. Comparativo / Benchmarking de Calidad
+* **Este Registro:** [Score]/100
+* **Promedio Organización:** 68/100
+* **Promedio Industria:** 75/100
+* **Organización Líder:** 92/100
+* *Posicionamiento:* ⚠️ [Indica en qué percentil o rango se ubica respecto a la industria].
+
+### 3. Tendencia Histórica de Calidad
+* **Hace 3 meses:** [Score estimado o anterior] ➔ **Hoy:** [Score Actual] | **Variación:** [Calcula % de variación]
 
 ---
 
-### 📌 CONCEPTO DEL SOCIO DIRECTOR
-[Párrafo final de cierre ejecutivo de alto impacto. Sintetiza la postura estratégica recomendada a la Junta Directiva o Comité de Auditoría].
+## 🔮 IA PREDICTIVA & FINANCIAL RISK EXPOSURE
+
+* **Probabilidad de Materialización Estimada (Próximos 12 Meses):** [80-95]% [██████████░░] (Muy Alta)
+* **Impacto Potencial Estimado:** $[Valor en USD / Local]
+* **Pérdida Esperada Estimada (ALE):** $[Impacto * Probabilidad]
+
+### 🚨 Escenario: "Si no se hace nada..." (Próximos 12 meses)
+* ✔️ Incremento de riesgo de fraude o pérdida operativa.
+* ✔️ Incumplimiento o hallazgos regulatorios / observaciones de auditoría externa.
+* ✔️ Ineficiencia en la asignación de capital y controles redundantes.
+* ✔️ Deterioro patrimonial y reputacional directo.
+
+---
+
+## 📐 DIAGNÓSTICO METODOLÓGICO ISO 31000
+
+| Fase del Ciclo ISO 31000 | Estado | Evaluación Metodológica |
+| :--- | :---: | :--- |
+| **1. Identificación** | [❌ / ⚠️ / ✅] | Redacción, causas y vinculación a procesos. |
+| **2. Análisis** | [❌ / ⚠️ / ✅] | Estimación de probabilidad e impacto inherente. |
+| **3. Evaluación** | [❌ / ⚠️ / ✅] | Solidez, tipo y efectividad de controles. |
+| **4. Tratamiento** | [❌ / ⚠️ / ✅] | Planes de acción y responsables definidos. |
+| **5. Monitoreo & KRI** | [❌ / ⚠️ / ✅] | Indicadores claves de riesgo y fecha de seguimiento. |
+
+---
+
+## 🎯 DECISIONES SUGERIDAS PARA LA ALTA DIRECCIÓN
+
+| Decisión Recomendada | Prioridad | Responsable Sugerido |
+| :--- | :---: | :--- |
+| 1. [Acción clave de gobierno o asignación de dueño] | 🔴 Inmediata | Junta / Gerencia |
+| 2. [Ajuste metodológico o cuantificación financiera] | 🔴 Inmediata | Líder de Riesgos |
+| 3. [Diseño/Fortalecimiento de controles preventivos] | 🟠 Alta | Dueño del Proceso |
+| 4. [Monitoreo e implementación de KRIs] | 🟡 Media | Auditoría Interna |
+
+---
+
+## 🔍 ANÁLISIS TÉCNICO DETALLADO (Desplegable)
+
+### 1. Crítica Metodológica de Redacción
+* **Estructura (Causa-Evento-Consecuencia):** [Análisis de la redacción actual]
+* **Observación de Integridad:** [Distingue si los vacíos corresponden a datos no digitados en la plataforma o fallas en el diseño corporativo].
+
+### 2. Evaluador de Solidez de Controles
+* **Gaps Identificados:** [Detalle de la efectividad de los controles registrados]
+
+---
+
+══════════════════════════════════════════════════════════════════════════════
+🌐 ÍNDICE EJECUTIVO GLOBAL DEL RIESGO
+══════════════════════════════════════════════════════════════════════════════
+* Calidad del Registro: [Score 1]/100
+* Madurez del Riesgo:   [Score 2]/100
+* Exposición / Control: [Score 3]/100
+* Gobernanza / Owner:   [Score 4]/100
+* Seguimiento & KRIs:   [Score 5]/100
+
+### 🏆 ÍNDICE GLOBAL
+# [Puntaje Promedio] / 100 ➔ 🔴 ESTADO CRÍTICO / 🟡 ACEPTABLE / 🟢 ROBUSTO
+
+📌 **CONCEPTO DEL SOCIO DIRECTOR:**
+[Párrafo de cierre ejecutivo de alto nivel, conectando la gobernanza del riesgo con la estrategia de negocio y la toma de decisiones del Comité de Auditoría/Junta Directiva].
 `;
 
 // ==========================================
-// 🧩 CAPA 2: CONTEXTUALIZADOR DE DATOS
+// 🧩 CAPA 2: CONTEXTUALIZADOR DE DATOS AVANZADO
 // ==========================================
 function buildRiskContext(riesgo) {
   return `
-DATOS DEL REGISTRO EN SISTEMA:
-- Código/ID: ${riesgo.id || 'No registrado'}
-- Nombre/Título: ${riesgo.nombre || riesgo.riesgo || 'Campo Vacío'}
-- Proceso / Área: ${riesgo.proceso || 'Campo Vacío'}
-- Descripción/Causa: ${riesgo.descripcion || 'Campo Vacío / No especificado'}
-- Impacto Registrado: ${riesgo.impacto || 'Sin registro en sistema'}
-- Probabilidad Registrada: ${riesgo.probabilidad || 'Sin registro en sistema'}
-- Nivel Calculado: ${riesgo.nivelRiesgo || riesgo.clasificacion || 'Sin evaluar'}
-- Controles Asociados: ${riesgo.controles || 'No figuran controles registrados en el sistema'}
-- Propietario / Owner: ${riesgo.propietario || riesgo.owner || 'No registrado en el formulario'}
+DATOS EXTRAÍDOS DEL SISTEMA:
+- Código/ID: RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}
+- Fecha Actual de Evaluación: ${new Date().toLocaleDateString()}
+- Nombre / Título del Riesgo: ${riesgo.nombre || riesgo.riesgo || 'No especificado'}
+- Macroproceso: ${riesgo.macroproceso || riesgo.proceso || 'No asignado'}
+- Subproceso: ${riesgo.subproceso || 'General'}
+- Categoría ISO: ${riesgo.categoria || 'No asignada'}
+- Clasificación: ${riesgo.clasificacionRiesgo || 'No clasificado'}
+- Normativa: ${riesgo.normativa || 'No registrada en sistema'}
+- Sede(s): ${Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'No registrada')}
+- Propietario / Owner: ${riesgo.responsable || '⚠️ No registrado en el formulario'}
+- Descripción / Causa Raíz: ${riesgo.descripcion || 'Sin descripción detallada'}
+- Impacto Inherente Registrado: ${riesgo.impactoInherente || 0}%
+- Probabilidad Inherente Registrada: ${riesgo.probabilidadInherente || 0}%
+- Impacto Residual Calculado: ${riesgo.impactoResidual || 0}%
+- Probabilidad Residual Calculada: ${riesgo.probabilidadResidual || 0}%
+- Controles Documentados: ${riesgo.descripcionControl || (riesgo.controlesDetallados && riesgo.controlesDetallados.length > 0 ? JSON.stringify(riesgo.controlesDetallados) : '⚠️ No figuran controles registrados en el sistema')}
+- Estrategia de Tratamiento: ${riesgo.tratamiento || 'No definida'}
+- Plan de Acción: ${riesgo.planAccionRiesgo || 'No registrado'}
+- Fecha de Seguimiento: ${riesgo.fechaSeguimiento || 'Sin fecha asignada'}
+- Bitacora / Observaciones: ${riesgo.seguimientoBitacora || 'Sin notas activas'}
 `;
 }
 
@@ -109,7 +185,7 @@ export const ejecutarDictamenIA = async (tipoModulo = 'RIESGO', datos) => {
 ${SYSTEM_PROMPT_CORE}
 
 --------------------------------------------------
-DATOS ENVIADOS DESDE EL SISTEMA:
+REGISTRO EVALUADO EN SISTEMA:
 ${contexto}
 --------------------------------------------------
 
@@ -122,7 +198,7 @@ ${OUTPUT_FORMAT_INSTRUCTIONS}
     return response.text();
   } catch (error) {
     console.error("Error en ejecutarDictamenIA:", error);
-    throw new Error("No se pudo conectar con el motor de IA. Verifica tu configuración.");
+    throw new Error("No se pudo conectar con el motor de IA. Verifica tu API Key o conexión.");
   }
 };
 
