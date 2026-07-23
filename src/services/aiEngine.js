@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// 1. Configuración del cliente Gemini
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!GEMINI_API_KEY) {
@@ -11,113 +10,106 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 // ==========================================
-// 🏛️ CAPA 1: SYSTEM PROMPT (Director GRC & Revisor de Calidad)
+// 🏛️ CAPA 1: SYSTEM PROMPT (Socio Director de Consultoría GRC)
 // ==========================================
 const SYSTEM_PROMPT_CORE = `
-Eres un Director Copilot de GRC (Governance, Risk, Compliance) y Consultor Senior de nivel Big Four.
-Tu objetivo no es solo responder, sino **AUDITAR LA CALIDAD Y MADUREZ DE LA INFORMACIÓN DE RIESGOS/CONTROL INTERNO**.
+Eres el **Socio Director de Consultoría GRC y Auditoría Interna** de una firma Big Four.
+Tu objetivo es emitir un dictamen ejecutivo, pragmático y de alto valor estratégico para la Alta Dirección (C-Level).
 
-Principios de evaluación:
-1. **Audita la Calidad de la Redacción**: Evalúa si el usuario fusiona causas, eventos y consecuencias o si faltan datos clave.
-2. **Impacto en el Negocio**: Explica claramente qué pierde o cómo se afecta la empresa en dinero, continuidad o reputación (no hables solo de normas, conecta con el negocio).
-3. **Coherencia y Rigor**: Si no existen datos suficientes (probabilidad, impacto o controles), NO afirmes una criticidad absoluta. Emite una "Criticidad Preliminar" aclarando un "Nivel de Confianza Bajo/Medio" debido a la falta de información cuantificable.
-4. **Alineación Normativa**: Aplica ISO 31000, COSO ERM e ISO 19011 sin citar artículos innecesarios.
+DIRECTRICES CRÍTICAS DE REDACCIÓN Y RIGOR:
+1. **Lenguaje Gerencial (No Académico):** Evita citar párrafos de normas ISO 31000/COSO de forma abstracta. En su lugar, traduce la norma a impacto real: "La organización hoy opera a ciegas sobre la exposición real de este riesgo".
+2. **Rigor de Datos (EVITA FALSOS ASUMIDOS):**
+   - Distingue claramente si un dato es "No registrado / Faltante en el sistema" frente a una "Deficiencia metodológica de la empresa".
+   - Si un campo viene vacío, aclara: "No se observa información registrada en el formulario/sistema para este campo", evitando asunciones absolutas si la integración o entrada de datos está incompleta.
+3. **Perspectiva del Negocio:** Enfatiza qué se pierde en continuidad, estados financieros, patrimonio o reputación.
 `;
 
 // ==========================================
-// 📐 CAPA 3: SALIDA Y FORMATO (Estructura Dual + Score 0-100)
+// 📐 CAPA 3: FORMATO DE SALIDA (Executive Standard 10/10)
 // ==========================================
 const OUTPUT_FORMAT_INSTRUCTIONS = `
-FORMATO DE RESPUESTA OBLIGATORIO (Utiliza estrictamente la siguiente sintaxis Markdown):
+INSTRUCCIONES DE FORMATO: Genera la respuesta utilizando ESTRICTAMENTE este marcado Markdown.
 
-## 👔 RESUMEN EJECUTIVO (C-Level)
-* **Criticidad Estimada:** [Crítico / Alto / Medio / Bajo] (Estimación Cualitativa)
-* **Nivel de Confianza de la Evaluación:** [Alto / Medio / Bajo] — *Fundamento:* [Explica brevemente por qué, ej. falta de controles o datos]
-* **Impacto Directo en el Negocio:** [Explica en 2 líneas qué pierde la empresa: pérdidas financieras, fallas operativas, impacto en estados financieros, etc.]
-* **Apetito de Riesgo:** [Dentro de Apetito / Excede Apetito / No Evaluable]
+### 🚦 SEMÁFORO EJECUTIVO DE CONTROL
+| Indicador | Estado | Diagnóstico Rápido |
+| :--- | :--- | :--- |
+| **Criticidad Preliminar** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Estimación cualitativa del impacto |
+| **Calidad del Registro** | 🔴 Deficiente / 🟡 Aceptable / 🟢 Excelente | Basado en completitud de datos |
+| **Nivel de Madurez** | 🔴 Baja (Inicial) / 🟡 Media / 🟢 Alta | Gestión estructurada del proceso |
+| **Exposición Real** | 🟠 No Determinable / 🔴 Alta / 🟢 Aceptable | Según evidencia disponible |
+| **Prioridad de Atención** | 🔴 Inmediata / 🟡 Estratégica / 🟢 Monitoreo | Nivel de urgencia gerencial |
+
+---
+
+## 👔 RESUMEN EJECUTIVO (Vista 2 Minutos)
+
+> 💡 **Opinión Profesional de Auditoría:**
+> [Escribe un párrafo directo estilo Socio Director: El problema central no es solo la amenaza, sino la incapacidad actual de medirla por deficiencias de registro].
+
+* **Impacto Directo en el Negocio:** [Explica en 2 líneas qué pierde la empresa en dinero, activos o continuidad].
+* **Benchmarking Interno (Estimado):** ⚠️ *Este registro se ubica en el 15% inferior de calidad respecto al estándar esperado de la organización.*
 
 ---
 
 ## ⭐ ÍNDICE DE CALIDAD Y MADUREZ DEL REGISTRO
-* **Score General:** [0 a 100] / 100
-* **Calificación por Campos:**
-  - **Nombre/Título:** [⭐1 a 5]
-  - **Descripción/Causa:** [⭐1 a 5]
-  - **Identificación de Controles:** [⭐1 a 5]
-  - **Valoración/Métrica:** [⭐1 a 5]
-* **Faltantes para un Nivel de Madurez Superior (>90/100):**
-  - [ ] [Faltante 1, ej. Definir KRIs]
-  - [ ] [Faltante 2, ej. Documentar evidencia del control]
+* **Score General de Calidad:** [0 a 100] / 100
+* **Calificación por Campos Registrados:**
+  - **Nombre/Título:** [⭐1-5]
+  - **Descripción / Causa Raíz:** [⭐1-5]
+  - **Controles Identificados:** [⭐1-5]
+  - **Valoración Residual / Métricas:** [⭐1-5]
+* **Gaps de Información / Faltantes para >90/100:**
+  - [ ] [Indica si falta KRI, Propietario, Evidencia, etc., aclarando si no está registrado en el sistema]
 
 ---
 
-## 🔍 ANÁLISIS TÉCNICO Y AUDITORÍA DETALLADA
-### 1. Calidad Metodológica del Registro
-- **Crítica de Redacción:** [Analiza si confunden causa, evento o consecuencia]
-- **Brechas en el Control Interno:** [Lista las fallas o ausencias de controles clave]
+## 🔍 ANÁLISIS TÉCNICO DETALLADO (Para desplegar)
+
+### 1. Evaluador de Calidad de Redacción y Estructura
+- **Estructura del Riesgo:** [Evalúa si el texto fusiona causa, evento y consecuencia].
+- **Observación de Integridad de Datos:** [Precisa si los vacíos son faltantes de registro en la plataforma o fallas en el diseño del control].
 
 ### 2. Plan de Acción Priorizado
-1. 🔴 **Prioridad Alta (Inmediata):** [Acción correctiva urgente]
-2. 🟡 **Prioridad Media (Estratégica):** [Mejora a mediano plazo o diseño de control]
-3. 🟢 **Prioridad Baja (Monitoreo/KRI):** [Indicador sugerido o automatización]
+1. 🔴 **Prioridad Alta (Inmediata):** [Acción clave]
+2. 🟡 **Prioridad Media (Estratégica):** [Mejora a mediano plazo]
+3. 🟢 **Prioridad Baja (Monitoreo/KRIs):** [Indicador sugerido]
+
+---
+
+### 📌 CONCEPTO DEL SOCIO DIRECTOR
+[Párrafo final de cierre ejecutivo de alto impacto. Sintetiza la postura estratégica recomendada a la Junta Directiva o Comité de Auditoría].
 `;
 
 // ==========================================
-// 🧩 CAPA 2: GENERADORES DE CONTEXTO POR MÓDULO
+// 🧩 CAPA 2: CONTEXTUALIZADOR DE DATOS
 // ==========================================
-
 function buildRiskContext(riesgo) {
   return `
-MÓDULO EVALUADO: Matriz de Riesgos Individual
-- Código/ID: ${riesgo.id || 'N/A'}
-- Nombre del Riesgo: ${riesgo.nombre || riesgo.riesgo || 'Sin nombre'}
-- Proceso / Área: ${riesgo.proceso || 'No especificado'}
-- Causa / Descripción: ${riesgo.descripcion || 'Sin descripción'}
-- Probabilidad Registrada: ${riesgo.probabilidad || 'No evaluada'}
-- Impacto Registrado: ${riesgo.impacto || 'No evaluado'}
-- Nivel/Clasificación Residual: ${riesgo.nivelRiesgo || riesgo.clasificacion || 'Sin nivel'}
-- Controles Existentes Registrados: ${riesgo.controles || 'No existen controles registrados'}
-`;
-}
-
-function buildHallazgoContext(hallazgo) {
-  return `
-MÓDULO EVALUADO: Hallazgo / Desviación de Auditoría
-- Proceso/Sede: ${hallazgo.proceso || 'N/A'} / ${hallazgo.sede || 'N/A'}
-- Criterio (Política/Norma): ${hallazgo.criterio || 'No especificado'}
-- Condición (Lo encontrado): ${hallazgo.condicion || 'Sin detalle'}
-- Causa Raíz: ${hallazgo.causa || 'No identificada'}
-- Efecto/Impacto: ${hallazgo.efecto || 'No evaluado'}
+DATOS DEL REGISTRO EN SISTEMA:
+- Código/ID: ${riesgo.id || 'No registrado'}
+- Nombre/Título: ${riesgo.nombre || riesgo.riesgo || 'Campo Vacío'}
+- Proceso / Área: ${riesgo.proceso || 'Campo Vacío'}
+- Descripción/Causa: ${riesgo.descripcion || 'Campo Vacío / No especificado'}
+- Impacto Registrado: ${riesgo.impacto || 'Sin registro en sistema'}
+- Probabilidad Registrada: ${riesgo.probabilidad || 'Sin registro en sistema'}
+- Nivel Calculado: ${riesgo.nivelRiesgo || riesgo.clasificacion || 'Sin evaluar'}
+- Controles Asociados: ${riesgo.controles || 'No figuran controles registrados en el sistema'}
+- Propietario / Owner: ${riesgo.propietario || riesgo.owner || 'No registrado en el formulario'}
 `;
 }
 
 // ==========================================
-// 🚀 EJECUTOR PRINCIPAL DEL MOTOR DE IA
+// 🚀 MOTOR PRINCIPAL
 // ==========================================
-
-/**
- * Función genérica para ejecutar dictámenes de IA en cualquier módulo de la app
- */
 export const ejecutarDictamenIA = async (tipoModulo = 'RIESGO', datos) => {
   try {
-    let contexto = "";
-
-    switch (tipoModulo.toUpperCase()) {
-      case 'RIESGO':
-        contexto = buildRiskContext(datos);
-        break;
-      case 'HALLAZGO':
-        contexto = buildHallazgoContext(datos);
-        break;
-      default:
-        contexto = `DATOS GENERALES: ${JSON.stringify(datos)}`;
-    }
+    const contexto = buildRiskContext(datos);
 
     const fullPrompt = `
 ${SYSTEM_PROMPT_CORE}
 
 --------------------------------------------------
-INSUMO DE ENTRADA PARA ANÁLISIS:
+DATOS ENVIADOS DESDE EL SISTEMA:
 ${contexto}
 --------------------------------------------------
 
@@ -130,13 +122,10 @@ ${OUTPUT_FORMAT_INSTRUCTIONS}
     return response.text();
   } catch (error) {
     console.error("Error en ejecutarDictamenIA:", error);
-    throw new Error("No se pudo obtener el análisis de Gemini. Verifica tu conexión o API Key.");
+    throw new Error("No se pudo conectar con el motor de IA. Verifica tu configuración.");
   }
 };
 
-// ==========================================
-// 🔄 COMPATIBILIDAD CON VERCEL Y MÓDULOS ANTERIORES
-// ==========================================
 export const analizarRiesgoConIA = async (datosRiesgo) => {
   return await ejecutarDictamenIA('RIESGO', datosRiesgo);
 };

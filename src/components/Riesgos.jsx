@@ -596,91 +596,127 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
         </div>
       )}
 
-      {/* 🤖 EL POPUP MODAL DE INTELIGENCIA ARTIFICIAL GLOBAL */}           
+     {/* 🤖 MODAL DE DICTAMEN EJECUTIVO GRC IA (EDICIÓN BIG FOUR) */}
       {(procesandoIA || dictamenIA) && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+          
           {procesandoIA && (
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl flex items-center gap-4 shadow-2xl max-w-xl border-l-4 border-l-blue-500 scale-100 transition-transform">
-              <span className="text-2xl animate-spin">🤖</span>
+            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl flex items-center gap-4 shadow-2xl max-w-xl border-l-4 border-l-emerald-500 animate-pulse">
+              <span className="text-3xl animate-spin">🤖</span>
               <div className="text-xs">
-                <span className="font-black text-white block uppercase tracking-wider text-[11px] mb-0.5">GCM Auditor v5 IA Assistant</span>
-                <span className="text-slate-400 font-medium">Analizando variables y evaluando solidez de los controles...</span>
+                <span className="font-black text-emerald-400 block uppercase tracking-wider text-[11px] mb-0.5">GRC Copilot - Auditing Hub</span>
+                <span className="text-slate-300 font-medium">Auditando madurez, coherencia metodológica e impacto de negocio...</span>
               </div>
             </div>
           )}
 
           {dictamenIA && (
-  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
-    <div className="bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col relative border-l-4 border-l-emerald-500 overflow-hidden animate-in zoom-in-95 duration-200">
-      
-      {/* Cabecera del Modal */}
-      <div className="p-6 border-b border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
-        <div className="flex items-center gap-3">
-          <span className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-lg">🤖</span>
-          <div>
-            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Dictamen de Inteligencia Artificial</span>
-            <h3 className="text-sm font-black text-white uppercase tracking-tight">{dictamenIA.titulo}</h3>
-          </div>
-        </div>
-        <button 
-          onClick={() => setDictamenIA(null)} 
-          className="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] hover:bg-slate-700 px-3 py-1.5 rounded-xl transition-colors"
-        >
-          ✕ Cerrar
-        </button>
-      </div>
-
-      {/* Cuerpos del Dictamen con Formateo Markdown Pro */}
-      <div className="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
-        {dictamenIA.dictamen.split('\n').map((linea, i) => {
-          const trimmed = linea.trim();
-          if (!trimmed) return null;
-
-          // Títulos principales (##)
-          if (trimmed.startsWith('## ')) {
-            return <h2 key={i} className="text-base font-black text-white border-b border-slate-800 pb-2 mt-4 mb-2 text-emerald-400">{trimmed.replace('## ', '')}</h2>;
-          }
-          // Subtítulos (###)
-          if (trimmed.startsWith('### ')) {
-            return <h3 key={i} className="text-xs font-black text-emerald-300 uppercase tracking-wider mt-3 mb-1">{trimmed.replace('### ', '')}</h3>;
-          }
-          // Listas o Viñetas (- o *)
-          if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-            const contenido = trimmed.substring(2);
-            return (
-              <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/50 p-2 rounded-lg border border-slate-800/60">
-                <span className="text-emerald-400 font-bold">•</span>
-                <span className="text-slate-200" dangerouslySetInnerHTML={{ 
-                  __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
-                }} />
+            <div className="bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[88vh] flex flex-col relative border-l-4 border-l-emerald-500 overflow-hidden animate-in zoom-in-95 duration-200">
+              
+              {/* Cabecera */}
+              <div className="p-5 border-b border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-3">
+                  <span className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xl">👔</span>
+                  <div>
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Informe de Consultoría & Auditoría GRC</span>
+                    <h3 className="text-sm font-black text-white uppercase tracking-tight">{dictamenIA.titulo}</h3>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setDictamenIA(null)} 
+                  className="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] hover:bg-slate-700 px-3 py-1.5 rounded-xl transition-colors"
+                >
+                  ✕ Cerrar
+                </button>
               </div>
-            );
-          }
-          // Párrafos o listas numeradas
-          return (
-            <p key={i} className="my-1.5 text-slate-300" dangerouslySetInnerHTML={{ 
-              __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
-            }} />
-          );
-        })}
-      </div>
 
-      {/* Pie del Modal */}
-      <div className="p-4 border-t border-slate-800 bg-[#0b1329] flex justify-end shrink-0">
-        <button 
-          onClick={() => setDictamenIA(null)} 
-          className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-lg transition-all"
-        >
-          Entendido / Entrar en revisión
-        </button>
-      </div>
+              {/* Cuerpo Renderizado */}
+              <div className="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
+                {dictamenIA.dictamen.split('\n').map((linea, i) => {
+                  const trimmed = linea.trim();
+                  if (!trimmed) return null;
 
-    </div>
-  </div>
-)}
+                  // Secciones Nivel 2 (##)
+                  if (trimmed.startsWith('## ')) {
+                    return (
+                      <h2 key={i} className="text-sm font-black text-emerald-400 border-b border-slate-800 pb-1.5 mt-5 mb-2 uppercase tracking-wider flex items-center gap-2">
+                        {trimmed.replace('## ', '')}
+                      </h2>
+                    );
+                  }
+
+                  // Secciones Nivel 3 (###)
+                  if (trimmed.startsWith('### ')) {
+                    return (
+                      <h3 key={i} className="text-xs font-black text-slate-100 uppercase tracking-wider mt-4 mb-2 bg-slate-900/80 p-2 rounded-lg border-l-2 border-emerald-400">
+                        {trimmed.replace('### ', '')}
+                      </h3>
+                    );
+                  }
+
+                  // Citas / Bloque de Opinión del Socio (>)
+                  if (trimmed.startsWith('> ')) {
+                    return (
+                      <blockquote key={i} className="p-3 bg-emerald-950/30 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
+                        <span dangerouslySetInnerHTML={{ 
+                          __html: trimmed.replace('> ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
+                        }} />
+                      </blockquote>
+                    );
+                  }
+
+                  // Listas de viñetas (* o -)
+                  if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+                    const contenido = trimmed.substring(2);
+                    return (
+                      <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/40 p-2 rounded-lg border border-slate-800/50">
+                        <span className="text-emerald-400 font-bold">•</span>
+                        <span className="text-slate-200" dangerouslySetInnerHTML={{ 
+                          __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
+                        }} />
+                      </div>
+                    );
+                  }
+
+                  // Filas de Tabla (|)
+                  if (trimmed.startsWith('|')) {
+                    if (trimmed.includes('---')) return null; // Saltar separadores markdown
+                    const celdas = trimmed.split('|').filter(c => c.trim() !== '');
+                    return (
+                      <div key={i} className="grid grid-cols-3 gap-2 bg-slate-900/90 p-2 my-0.5 rounded border border-slate-800 text-[11px]">
+                        {celdas.map((c, idx) => (
+                          <span key={idx} className={idx === 0 ? "font-bold text-slate-200" : "text-slate-300"} dangerouslySetInnerHTML={{ 
+                            __html: c.trim().replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
+                          }} />
+                        ))}
+                      </div>
+                    );
+                  }
+
+                  // Párrafos regulares
+                  return (
+                    <p key={i} className="my-1.5 text-slate-300" dangerouslySetInnerHTML={{ 
+                      __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
+                    }} />
+                  );
+                })}
+              </div>
+
+              {/* Pie del Modal */}
+              <div className="p-4 border-t border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
+                <span className="text-[10px] text-slate-500 font-medium">Termales S.A. GRC Suite • Nivel Big Four</span>
+                <button 
+                  onClick={() => setDictamenIA(null)} 
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-lg transition-all"
+                >
+                  Entendido / Integrar al Plan de Trabajo
+                </button>
+              </div>
+
+            </div>
+          )}
         </div>
       )}
-
       {/* CABECERA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>
