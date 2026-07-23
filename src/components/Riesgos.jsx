@@ -360,6 +360,37 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     );
   };
 
+  const solicitarAnalisisFilaIA = (r) => {
+    setProcesandoIA(true);
+    setDictamenIA(null);
+
+    // Prompt estructurado para la IA basado en la fila seleccionada
+    const promptIA = `
+      Actúa como un auditor experto en gestión de riesgos corporativos (ISO 31000).
+      Analiza el siguiente riesgo identificado en Termales S.A.:
+      
+      - Proceso: ${r.proceso}
+      - Escenario de Riesgo: ${r.descripcion}
+      - Riesgo Inherente: Probabilidad ${r.probabilidadInherente}% | Impacto ${r.impactoInherente}%
+      - Riesgo Residual: Probabilidad ${r.probabilidadResidual}% | Impacto ${r.impactoResidual}%
+      - Controles aplicados: ${r.descripcionControl || 'Ninguno'}
+      
+      Por favor, redacta un dictamen profesional y conciso en 3 puntos:
+      1. Diagnóstico de la exposición residual actual.
+      2. Breve evaluación de la calidad de los controles descritos.
+      3. Dos recomendaciones estratégicas y precisas para mejorar la mitigación.
+    `;
+
+    // Simulación del análisis (Reemplazar con llamada real a API de IA si es necesario)
+    setTimeout(() => {
+      setDictamenIA({
+        titulo: `Auditoría IA - Riesgo: RSK-${String(r.id).substring(0,4)}`,
+        dictamen: `**1. Diagnóstico Residual:** El riesgo del proceso **${r.proceso}** mantiene una exposición residual de P:${r.probabilidadResidual}% e I:${r.impactoResidual}%. Esto indica que, aunque hay gestión, el impacto en caso de materialización sigue latente para la compañía.<br/><br/>**2. Evaluación de Controles:** Se identifican ${r.controlesDetallados?.length || 0} controles. Su enfoque es adecuado, pero su eficacia recae fuertemente en la ejecución disciplinada del personal asignado.<br/><br/>**3. Recomendaciones:** <br/>• Explorar la automatización parcial de la revisión documentada para restar error humano.<br/>• Evaluar controles **Correctivos** (ej. fondos de contingencia o pólizas) para amortiguar directamente el impacto del ${r.impactoResidual}%.`
+      });
+      setProcesandoIA(false);
+    }, 1500);
+  };
+
   const renderDashboard = () => {
     const totalRiesgos = safeRiesgos.length;
     const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
@@ -499,6 +530,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 <th className="p-3 text-center">Residual</th>
                 <th className="p-3">Controles Mitigantes</th>
                 <th className="p-3">Monitoreo / Tratamiento</th>
+                <th className="p-3 text-center">Análisis IA</th>
                 <th className="p-3 text-center">Gestión</th>
               </tr>
             </thead>
@@ -537,6 +569,16 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                         {r.planAccionRiesgo && <div className="text-slate-500 mt-0.5 text-[9px]"><span className="font-bold">Plan:</span> {r.planAccionRiesgo}</div>}
                         {r.fechaSeguimiento && <div className="text-[8px] font-black text-blue-600 mt-1">📅 Seg: {r.fechaSeguimiento}</div>}
                       </td>
+                      
+                      <td className="p-3 text-center">
+                        <button 
+                          onClick={() => solicitarAnalisisFilaIA(r)}
+                          className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-purple-600 hover:text-white transition-all flex items-center gap-1.5 mx-auto shadow-sm group"
+                        >
+                          <span className="group-hover:scale-110 transition-transform">✨</span> Analizar
+                        </button>
+                      </td>
+
                       <td className="p-3 text-center flex flex-col space-y-1">
                         <button onClick={() => handleEditRiesgo(r)} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">Editar</button>
                         {isAdmin && <button onClick={() => handleDeleteRiesgo(r.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">Eliminar</button>}
