@@ -10,58 +10,116 @@ if (!GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-// 2. Capa de Sistema
-const SYSTEM_PROMPT = `
-Eres un Director de Auditoría Interna y Riesgos (GRC Copilot) de nivel Executive / Senior Consultant.
-Tu objetivo es realizar evaluaciones metodológicas, objetivas y de alto impacto sobre los riesgos de la organización.
-Usa terminología técnica alineada a marcos internacionales (ISO 31000, COSO ERM).
-Tu tono es analítico, formal, directo y orientado a la toma de decisiones ejecutivas.
+// ==========================================
+// 🏛️ CAPA 1: SYSTEM PROMPT (Director GRC & Revisor de Calidad)
+// ==========================================
+const SYSTEM_PROMPT_CORE = `
+Eres un Director Copilot de GRC (Governance, Risk, Compliance) y Consultor Senior de nivel Big Four.
+Tu objetivo no es solo responder, sino **AUDITAR LA CALIDAD Y MADUREZ DE LA INFORMACIÓN DE RIESGOS/CONTROL INTERNO**.
+
+Principios de evaluación:
+1. **Audita la Calidad de la Redacción**: Evalúa si el usuario fusiona causas, eventos y consecuencias o si faltan datos clave.
+2. **Impacto en el Negocio**: Explica claramente qué pierde o cómo se afecta la empresa en dinero, continuidad o reputación (no hables solo de normas, conecta con el negocio).
+3. **Coherencia y Rigor**: Si no existen datos suficientes (probabilidad, impacto o controles), NO afirmes una criticidad absoluta. Emite una "Criticidad Preliminar" aclarando un "Nivel de Confianza Bajo/Medio" debido a la falta de información cuantificable.
+4. **Alineación Normativa**: Aplica ISO 31000, COSO ERM e ISO 19011 sin citar artículos innecesarios.
 `;
 
-// 3. Capa de Módulo
-const buildRiskContextPrompt = (riesgo) => {
+// ==========================================
+// 📐 CAPA 3: SALIDA Y FORMATO (Estructura Dual + Score 0-100)
+// ==========================================
+const OUTPUT_FORMAT_INSTRUCTIONS = `
+FORMATO DE RESPUESTA OBLIGATORIO (Utiliza estrictamente la siguiente sintaxis Markdown):
+
+## 👔 RESUMEN EJECUTIVO (C-Level)
+* **Criticidad Estimada:** [Crítico / Alto / Medio / Bajo] (Estimación Cualitativa)
+* **Nivel de Confianza de la Evaluación:** [Alto / Medio / Bajo] — *Fundamento:* [Explica brevemente por qué, ej. falta de controles o datos]
+* **Impacto Directo en el Negocio:** [Explica en 2 líneas qué pierde la empresa: pérdidas financieras, fallas operativas, impacto en estados financieros, etc.]
+* **Apetito de Riesgo:** [Dentro de Apetito / Excede Apetito / No Evaluable]
+
+---
+
+## ⭐ ÍNDICE DE CALIDAD Y MADUREZ DEL REGISTRO
+* **Score General:** [0 a 100] / 100
+* **Calificación por Campos:**
+  - **Nombre/Título:** [⭐1 a 5]
+  - **Descripción/Causa:** [⭐1 a 5]
+  - **Identificación de Controles:** [⭐1 a 5]
+  - **Valoración/Métrica:** [⭐1 a 5]
+* **Faltantes para un Nivel de Madurez Superior (>90/100):**
+  - [ ] [Faltante 1, ej. Definir KRIs]
+  - [ ] [Faltante 2, ej. Documentar evidencia del control]
+
+---
+
+## 🔍 ANÁLISIS TÉCNICO Y AUDITORÍA DETALLADA
+### 1. Calidad Metodológica del Registro
+- **Crítica de Redacción:** [Analiza si confunden causa, evento o consecuencia]
+- **Brechas en el Control Interno:** [Lista las fallas o ausencias de controles clave]
+
+### 2. Plan de Acción Priorizado
+1. 🔴 **Prioridad Alta (Inmediata):** [Acción correctiva urgente]
+2. 🟡 **Prioridad Media (Estratégica):** [Mejora a mediano plazo o diseño de control]
+3. 🟢 **Prioridad Baja (Monitoreo/KRI):** [Indicador sugerido o automatización]
+`;
+
+// ==========================================
+// 🧩 CAPA 2: GENERADORES DE CONTEXTO POR MÓDULO
+// ==========================================
+
+function buildRiskContext(riesgo) {
   return `
-Petición de Análisis de Riesgo Individual:
-- ID/Código del Riesgo: ${riesgo.id || 'N/A'}
+MÓDULO EVALUADO: Matriz de Riesgos Individual
+- Código/ID: ${riesgo.id || 'N/A'}
 - Nombre del Riesgo: ${riesgo.nombre || riesgo.riesgo || 'Sin nombre'}
 - Proceso / Área: ${riesgo.proceso || 'No especificado'}
-- Descripción / Causa: ${riesgo.descripcion || 'Sin descripción'}
-- Impacto Registrado: ${riesgo.impacto || 'N/A'}
-- Probabilidad Registrada: ${riesgo.probabilidad || 'N/A'}
-- Nivel de Riesgo Calculado: ${riesgo.nivelRiesgo || riesgo.clasificacion || 'N/A'}
-- Controles Actuales: ${riesgo.controles || 'No especificados'}
+- Causa / Descripción: ${riesgo.descripcion || 'Sin descripción'}
+- Probabilidad Registrada: ${riesgo.probabilidad || 'No evaluada'}
+- Impacto Registrado: ${riesgo.impacto || 'No evaluado'}
+- Nivel/Clasificación Residual: ${riesgo.nivelRiesgo || riesgo.clasificacion || 'Sin nivel'}
+- Controles Existentes Registrados: ${riesgo.controles || 'No existen controles registrados'}
 `;
-};
+}
 
-// 4. Capa de Salida
-const OUTPUT_FORMAT_INSTRUCTIONS = `
-INSTRUCCIONES DE FORMATO OBLIGATORIAS:
-Estructura tu dictamen utilizando estrictamente el siguiente formato Markdown:
-
-## 📊 Dictamen Profesional de Riesgo
-
-### 1. Evaluación Técnica
-- **Alineación con Metodología:** (Evalúa la coherencia entre causa, impacto y probabilidad)
-- **Brechas Identificadas:** (Lista 2 o 3 vacíos clave en los controles o en la redacción)
-
-### 2. Clasificación Sugerida
-- **Criticidad Estimada:** (Crítico / Alto / Medio / Bajo)
-- **Justificación:** (Breve argumento técnico)
-
-### 3. Plan de Acción Recomendado
-1. (Acción preventiva/correctiva inmediata)
-2. (Monitoreo o indicador sugerido)
+function buildHallazgoContext(hallazgo) {
+  return `
+MÓDULO EVALUADO: Hallazgo / Desviación de Auditoría
+- Proceso/Sede: ${hallazgo.proceso || 'N/A'} / ${hallazgo.sede || 'N/A'}
+- Criterio (Política/Norma): ${hallazgo.criterio || 'No especificado'}
+- Condición (Lo encontrado): ${hallazgo.condicion || 'Sin detalle'}
+- Causa Raíz: ${hallazgo.causa || 'No identificada'}
+- Efecto/Impacto: ${hallazgo.efecto || 'No evaluado'}
 `;
+}
+
+// ==========================================
+// 🚀 EJECUTOR PRINCIPAL DEL MOTOR DE IA
+// ==========================================
 
 /**
- * Función principal que llama a la API real de Gemini
+ * Función genérica para ejecutar dictámenes de IA en cualquier módulo de la app
  */
-export const analizarRiesgoConIA = async (datosRiesgo) => {
+export const ejecutarDictamenIA = async (tipoModulo = 'RIESGO', datos) => {
   try {
-    const fullPrompt = `
-${SYSTEM_PROMPT}
+    let contexto = "";
 
-${buildRiskContextPrompt(datosRiesgo)}
+    switch (tipoModulo.toUpperCase()) {
+      case 'RIESGO':
+        contexto = buildRiskContext(datos);
+        break;
+      case 'HALLAZGO':
+        contexto = buildHallazgoContext(datos);
+        break;
+      default:
+        contexto = `DATOS GENERALES: ${JSON.stringify(datos)}`;
+    }
+
+    const fullPrompt = `
+${SYSTEM_PROMPT_CORE}
+
+--------------------------------------------------
+INSUMO DE ENTRADA PARA ANÁLISIS:
+${contexto}
+--------------------------------------------------
 
 ${OUTPUT_FORMAT_INSTRUCTIONS}
 `;
@@ -71,10 +129,16 @@ ${OUTPUT_FORMAT_INSTRUCTIONS}
     
     return response.text();
   } catch (error) {
-    console.error("Error al consultar Gemini en aiEngine:", error);
+    console.error("Error en ejecutarDictamenIA:", error);
     throw new Error("No se pudo obtener el análisis de Gemini. Verifica tu conexión o API Key.");
   }
 };
 
-// 🌟 ESTA LÍNEA ES LA QUE SOLUCIONA EL ERROR DE VERCEL
+// ==========================================
+// 🔄 COMPATIBILIDAD CON VERCEL Y MÓDULOS ANTERIORES
+// ==========================================
+export const analizarRiesgoConIA = async (datosRiesgo) => {
+  return await ejecutarDictamenIA('RIESGO', datosRiesgo);
+};
+
 export const generarPromptDictamenRiesgo = analizarRiesgoConIA;
