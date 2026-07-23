@@ -361,30 +361,190 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     );
   };
 
-const solicitarAnalisisFilaIA = async (r) => {
-    // Abrimos de inmediato el modal con el primer mensaje
-    setDictamenIA({
-      titulo: `Dictamen ERIR®: RSK-${String(r.id).substring(0,4)}`,
-      dictamen: "⚡ Conectando con el motor de inteligencia ERIR®..."
-    });
-    setProcesandoIA(false);
+{/* 🤖 MODAL DE DICTAMEN EJECUTIVO GRC IA (EDICIÓN 10/10 C-SUITE) */}
+      {dictamenIA && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[88vh] flex flex-col relative border-l-4 border-l-emerald-500 overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* 🟢 BARRA DE AVANCE Y PROGRESO ANIMADA EN LA PARTE SUPERIOR */}
+            {procesandoIA && (
+              <div className="w-full bg-slate-900 h-1.5 overflow-hidden relative shrink-0">
+                <div className="bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 h-full w-full animate-pulse"></div>
+              </div>
+            )}
 
-    try {
-      // Flujo continuo de lectura en tiempo real palabra por palabra
-      await ejecutarDictamenIAStream(r, (textoEnTiempoReal) => {
-        setDictamenIA({
-          titulo: `Dictamen ERIR®: RSK-${String(r.id).substring(0,4)}`,
-          dictamen: textoEnTiempoReal
-        });
-      });
-    } catch (error) {
-      console.error("Error en GRC Copilot:", error);
-      setDictamenIA({
-        titulo: `⚠️ Error del Sistema`,
-        dictamen: `El motor IA no pudo procesar la solicitud: ${error.message}`
-      });
-    }
-  };
+            {/* Cabecera del Modal */}
+            <div className="p-5 border-b border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xl">👔</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">
+                      Informe Executive C-Suite & Junta Directiva
+                    </span>
+                    {procesandoIA && (
+                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></span> Transmitiendo...
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-tight">{dictamenIA.titulo}</h3>
+                </div>
+              </div>
+              <button 
+                onClick={() => { setDictamenIA(null); setProcesandoIA(false); }} 
+                className="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] hover:bg-slate-700 px-3 py-1.5 rounded-xl transition-colors"
+              >
+                ✕ Cerrar
+              </button>
+            </div>
+
+            {/* Cuerpo del Dictamen con Cursor Parpadeante en vivo */}
+            <div className="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
+              {dictamenIA.dictamen.split('\n').map((linea, i) => {
+                const trimmed = linea.trim();
+                if (!trimmed) return null;
+
+                // Separadores elegantes
+                if (trimmed.startsWith('═') || trimmed.startsWith('---')) {
+                  return <div key={i} className="border-b border-slate-800/80 my-3"></div>;
+                }
+
+                // Secciones Nivel 2 (##)
+                if (trimmed.startsWith('## ')) {
+                  return (
+                    <h2 key={i} className="text-xs font-black text-emerald-400 border-b border-slate-800 pb-1.5 mt-5 mb-2 uppercase tracking-wider flex items-center gap-2">
+                      {trimmed.replace('## ', '')}
+                    </h2>
+                  );
+                }
+
+                // Secciones Nivel 3 (###)
+                if (trimmed.startsWith('### ')) {
+                  return (
+                    <h3 key={i} className="text-[11px] font-black text-slate-100 uppercase tracking-wider mt-4 mb-2 bg-slate-900/90 p-2 rounded-lg border-l-2 border-emerald-400">
+                      {trimmed.replace('### ', '')}
+                    </h3>
+                  );
+                }
+
+                // Citas / Bloque del Socio (>)
+                if (trimmed.startsWith('> ')) {
+                  return (
+                    <blockquote key={i} className="p-3 bg-emerald-950/30 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
+                      <span dangerouslySetInnerHTML={{ 
+                        __html: trimmed.replace('> ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
+                      }} />
+                    </blockquote>
+                  );
+                }
+
+                // 🎨 TRANSFORMADOR DE BARRAS DE PROGRESO CON TAILWIND CSS
+                if (trimmed.includes('█') || (trimmed.includes('%') && (trimmed.includes('Inherente') || trimmed.includes('Residual') || trimmed.includes('Objetivo') || trimmed.includes('Salud') || trimmed.includes('Estado Actual')))) {
+                  const pctMatch = trimmed.match(/(\d+)%/);
+                  const pct = pctMatch ? parseInt(pctMatch[1], 10) : 50;
+
+                  let colorBarra = "from-emerald-500 to-teal-400";
+                  let bgBadge = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+
+                  if (trimmed.includes('Inherente') || pct >= 80) {
+                    colorBarra = "from-red-600 to-rose-400";
+                    bgBadge = "bg-red-500/10 text-red-400 border-red-500/20";
+                  } else if (trimmed.includes('Residual') || pct >= 50) {
+                    colorBarra = "from-amber-500 to-orange-400";
+                    bgBadge = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                  }
+
+                  const etiquetaLimpia = trimmed
+                    .replace(/█|░/g, '')
+                    .replace(/\[|\]/g, '')
+                    .replace(/```/g, '')
+                    .replace(/\d+%/g, '')
+                    .trim();
+
+                  return (
+                    <div key={i} className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl my-2 space-y-2">
+                      <div className="flex justify-between items-center text-[11px] font-bold text-slate-200">
+                        <span className="truncate pr-2">{etiquetaLimpia || 'Indicador de Exposición'}</span>
+                        <span className={`px-2 py-0.5 rounded-full border font-black text-[10px] ${bgBadge}`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                        <div 
+                          className={`h-full rounded-full bg-gradient-to-r ${colorBarra} transition-all duration-700 shadow-sm`}
+                          style={{ width: `${Math.min(Math.max(pct, 2), 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                if (trimmed.startsWith('```')) return null;
+
+                // Tablas (|)
+                if (trimmed.startsWith('|')) {
+                  if (trimmed.includes('---')) return null;
+                  const celdas = trimmed.split('|').filter(c => c.trim() !== '');
+                  return (
+                    <div key={i} className="grid grid-cols-3 gap-2 bg-slate-900/80 p-2 my-0.5 rounded-lg border border-slate-800/80 text-[11px]">
+                      {celdas.map((c, idx) => (
+                        <span key={idx} className={idx === 0 ? "font-bold text-slate-200" : "text-slate-300"} dangerouslySetInnerHTML={{ 
+                          __html: c.trim().replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
+                        }} />
+                      ))}
+                    </div>
+                  );
+                }
+
+                // Listas (* o -)
+                if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+                  const contenido = trimmed.substring(2);
+                  return (
+                    <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
+                      <span className="text-emerald-400 font-bold">•</span>
+                      <span className="text-slate-200" dangerouslySetInnerHTML={{ 
+                        __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
+                      }} />
+                    </div>
+                  );
+                }
+
+                // Párrafos
+                return (
+                  <p key={i} className="my-1.5 text-slate-300" dangerouslySetInnerHTML={{ 
+                    __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
+                  }} />
+                );
+              })}
+
+              {/* Cursor de escritura en vivo mientras procesa */}
+              {procesandoIA && (
+                <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse align-middle"></span>
+              )}
+            </div>
+
+            {/* Pie del Modal */}
+            <div className="p-4 border-t border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
+              <span className="text-[10px] text-slate-500 font-medium">
+                Termales S.A. GRC Suite • Powered by Gemini 2.5 Flash
+              </span>
+              <button 
+                onClick={() => setDictamenIA(null)} 
+                disabled={procesandoIA}
+                className={`font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-lg transition-all ${
+                  procesandoIA 
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                }`}
+              >
+                {procesandoIA ? 'Generando Dictamen...' : 'Entendido / Integrar al Plan de Trabajo'}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
   const renderDashboard = () => {
     const totalRiesgos = safeRiesgos.length;
     const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;

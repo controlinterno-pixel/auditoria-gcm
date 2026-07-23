@@ -14,7 +14,7 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ 
   model: "gemini-2.5-flash",
   generationConfig: {
-    temperature: 0.2,       // Menor aleatoriedad = Respuestas más rápidas y consistentes
+    temperature: 0.1,       // Ajustado a 0.1 para máxima velocidad, precisión y respuestas directas
     topP: 0.8,
     maxOutputTokens: 2048,  // Limita el output a lo estrictamente necesario sin cortar el formato
   }
@@ -209,7 +209,7 @@ DATOS EXTRAÍDOS DEL SISTEMA PARA INFORME ERIR®:
 // 🚀 FUNCIONES DE EJECUCIÓN (Estándar y Streaming)
 // ==========================================
 
-// Llamada Estándar (Optimizada para responder en 2 a 3 segundos)
+// Llamada Estándar
 export const ejecutarDictamenIA = async (tipoModulo = 'RIESGO', datos) => {
   try {
     const contexto = buildRiskContext(datos);
@@ -235,7 +235,7 @@ ${OUTPUT_FORMAT_INSTRUCTIONS}
   }
 };
 
-// Llamada Streaming (Permite renderizar en tiempo real mientras se genera)
+// Llamada Streaming con Gemini 2.5 Flash
 export const ejecutarDictamenIAStream = async (datos, onChunk) => {
   try {
     const contexto = buildRiskContext(datos);
