@@ -433,39 +433,8 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
       }, 800);
     };
 
-    return (
+   return (
       <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 relative">
-        {(procesandoIA || dictamenIA) && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
-            {procesandoIA && (
-              <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl flex items-center gap-4 shadow-2xl max-w-xl border-l-4 border-l-blue-500 scale-100 transition-transform">
-                <span className="text-2xl animate-spin">🤖</span>
-                <div className="text-xs">
-                  <span className="font-black text-white block uppercase tracking-wider text-[11px] mb-0.5">GCM Auditor v5 IA Assistant</span>
-                  <span className="text-slate-400 font-medium">Analizando barras de concentración y cruzando estadísticas operativas...</span>
-                </div>
-              </div>
-            )}
-
-            {dictamenIA && (
-              <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-2xl relative border-l-4 border-l-emerald-500 w-full">
-                <button onClick={() => setDictamenIA(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2.5 py-1 rounded-xl transition-colors">✕ Cerrar</button>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-base">🤖</span>
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial para Gerencia</h4>
-                </div>
-                <h3 className="text-sm font-black text-white uppercase tracking-tight mb-4 border-b border-slate-800/80 pb-2.5">
-                  {dictamenIA.titulo}
-                </h3>
-                <div className="text-emerald-300 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20 text-xs leading-relaxed font-medium">
-                  <b className="text-emerald-400 uppercase block text-[9px] mb-1.5 tracking-wider">🎯 Diagnóstico Estratégico:</b> 
-                  <span dangerouslySetInnerHTML={{ __html: dictamenIA.dictamen.replace(/\*\*(.*?)\*\*/g, '<b class="text-white bg-emerald-900/40 px-1 py-0.5 rounded">$1</b>') }}></span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Riesgos</p>
@@ -631,6 +600,50 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
               </button>
             </div>
           </div>
+        </div>
+      )}
+<div className="mt-6 flex justify-end relative z-10">
+              <button
+                type="button"
+                onClick={() => setAyudaModal(null)}
+                className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🤖 EL POPUP MODAL DE INTELIGENCIA ARTIFICIAL GLOBAL */}
+      {(procesandoIA || dictamenIA) && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
+          {procesandoIA && (
+            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl flex items-center gap-4 shadow-2xl max-w-xl border-l-4 border-l-blue-500 scale-100 transition-transform">
+              <span className="text-2xl animate-spin">🤖</span>
+              <div className="text-xs">
+                <span className="font-black text-white block uppercase tracking-wider text-[11px] mb-0.5">GCM Auditor v5 IA Assistant</span>
+                <span className="text-slate-400 font-medium">Analizando variables y evaluando solidez de los controles...</span>
+              </div>
+            </div>
+          )}
+
+          {dictamenIA && (
+            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-2xl relative border-l-4 border-l-emerald-500 w-full animate-in zoom-in-95 duration-300">
+              <button onClick={() => setDictamenIA(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2.5 py-1 rounded-xl transition-colors">✕ Cerrar</button>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">🤖</span>
+                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial</h4>
+              </div>
+              <h3 className="text-sm font-black text-white uppercase tracking-tight mb-4 border-b border-slate-800/80 pb-2.5">
+                {dictamenIA.titulo}
+              </h3>
+              <div className="text-emerald-300 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20 text-xs leading-relaxed font-medium">
+                <b className="text-emerald-400 uppercase block text-[9px] mb-1.5 tracking-wider">🎯 Análisis y Recomendaciones:</b> 
+                <span dangerouslySetInnerHTML={{ __html: dictamenIA.dictamen.replace(/\*\*(.*?)\*\*/g, '<b class="text-white bg-emerald-900/40 px-1 py-0.5 rounded">$1</b>') }}></span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
