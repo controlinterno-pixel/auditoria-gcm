@@ -590,18 +590,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end relative z-10">
-              <button
-                type="button"
-                onClick={() => setAyudaModal(null)}
-                className="bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest px-5 py-2.5 rounded-xl shadow-md transition-all active:scale-95"
-              >
-                Entendido
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 <div className="mt-6 flex justify-end relative z-10">
               <button
                 type="button"
@@ -615,7 +603,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
         </div>
       )}
 
-      {/* 🤖 EL POPUP MODAL DE INTELIGENCIA ARTIFICIAL GLOBAL */}
+      {/* 🤖 EL POPUP MODAL DE INTELIGENCIA ARTIFICIAL GLOBAL */}           
       {(procesandoIA || dictamenIA) && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-300">
           {procesandoIA && (
