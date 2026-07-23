@@ -6,8 +6,7 @@ import {
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
 
-import { ejecutarDictamenIAStream } from '../services/aiEngine';
-
+import { analizarRiesgoConIA } from '../services/aiEngine';
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
 const EXPLICACIONES_CAMPOS = {
   proceso: {
@@ -235,19 +234,18 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     }
   };
 // 🤖 FUNCIÓN DE ANALISIS CON IA EN TIEMPO REAL (STREAMING)
+  // 🤖 FUNCIÓN DE ANALISIS ESTABLE CON CARGA ELEGANTE
   const solicitarAnalisisFilaIA = async (riesgo) => {
     setProcesandoIA(true);
-    setDictamenIA({
-      titulo: `Dictamen Técnico ERIR® — ${riesgo.proceso || 'Riesgo Corporativo'}`,
-      dictamen: ''
-    });
+    setDictamenIA(null); // Limpiamos para mostrar la animación de carga
 
     try {
-      await ejecutarDictamenIAStream(riesgo, (chunk) => {
-        setDictamenIA(prev => ({
-          ...prev,
-          dictamen: (prev?.dictamen || '') + chunk
-        }));
+      // 🚀 Usamos la versión estable que descarga el 100% del texto (Evita errores de renderizado)
+      const textoCompleto = await analizarRiesgoConIA(riesgo);
+      
+      setDictamenIA({
+        titulo: `Dictamen Técnico ERIR® — ${riesgo.proceso || 'Riesgo Corporativo'}`,
+        dictamen: textoCompleto
       });
     } catch (error) {
       console.error("Error transmitiendo análisis de IA:", error);
@@ -384,191 +382,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     );
   };
 
-{/* 🤖 MODAL DE DICTAMEN EJECUTIVO GRC IA (EDICIÓN 10/10 C-SUITE) */}
-      {dictamenIA && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[88vh] flex flex-col relative border-l-4 border-l-emerald-500 overflow-hidden animate-in zoom-in-95 duration-200">
-            
-            {/* 🟢 BARRA DE AVANCE Y PROGRESO ANIMADA EN LA PARTE SUPERIOR */}
-            {procesandoIA && (
-              <div className="w-full bg-slate-900 h-1.5 overflow-hidden relative shrink-0">
-                <div className="bg-gradient-to-r from-emerald-500 via-teal-300 to-emerald-500 h-full w-full animate-pulse"></div>
-              </div>
-            )}
 
-            {/* Cabecera del Modal */}
-            <div className="p-5 border-b border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-3">
-                <span className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xl">👔</span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">
-                      Informe Executive C-Suite & Junta Directiva
-                    </span>
-                    {procesandoIA && (
-                      <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></span> Transmitiendo...
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-sm font-black text-white uppercase tracking-tight">{dictamenIA.titulo}</h3>
-                </div>
-              </div>
-              <button 
-                onClick={() => { setDictamenIA(null); setProcesandoIA(false); }} 
-                className="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] hover:bg-slate-700 px-3 py-1.5 rounded-xl transition-colors"
-              >
-                ✕ Cerrar
-              </button>
-            </div>
-
-           {/* Cuerpo del Dictamen con Cursor Parpadeante en vivo */}
-            <div className="p-6 overflow-y-auto space-y-3 text-xs leading-relaxed text-slate-300 font-sans">
-              {dictamenIA.dictamen.split('\n').map((linea, i) => {
-                const trimmed = linea.trim();
-                if (!trimmed) return null;
-
-                // Separadores (líneas horizontales)
-                if (trimmed.startsWith('---') || trimmed.startsWith('===') || trimmed.includes('═')) {
-                  return <div key={i} className="border-b border-slate-800/80 my-4"></div>;
-                }
-
-                // Títulos Nivel 2 (##)
-                if (trimmed.startsWith('## ')) {
-                  return (
-                    <h2 key={i} className="text-xs font-black text-emerald-400 border-b border-slate-800/80 pb-1 mt-5 mb-2 uppercase tracking-wider flex items-center gap-2">
-                      {trimmed.replace('## ', '')}
-                    </h2>
-                  );
-                }
-
-                // Títulos Nivel 3 (###)
-                if (trimmed.startsWith('### ')) {
-                  return (
-                    <h3 key={i} className="text-[11px] font-black text-slate-100 uppercase tracking-wider mt-3 mb-1 bg-slate-900/90 p-2 rounded-lg border-l-2 border-emerald-400">
-                      {trimmed.replace('### ', '')}
-                    </h3>
-                  );
-                }
-
-                // Citas del Socio Directivo (>)
-                if (trimmed.startsWith('> ')) {
-                  return (
-                    <blockquote key={i} className="p-3 bg-emerald-950/40 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
-                      <span dangerouslySetInnerHTML={{ 
-                        __html: trimmed.replace('> ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
-                      }} />
-                    </blockquote>
-                  );
-                }
-
-                // 🎨 TRANSFORMADOR DE BARRAS DE PROGRESO CON TAILWIND CSS
-                if (trimmed.includes('█') || (trimmed.includes('%') && (trimmed.includes('Inherente') || trimmed.includes('Residual') || trimmed.includes('Objetivo') || trimmed.includes('Salud') || trimmed.includes('Estado Actual')))) {
-                  const pctMatch = trimmed.match(/(\d+)%/);
-                  const pct = pctMatch ? parseInt(pctMatch[1], 10) : 50;
-
-                  let colorBarra = "from-emerald-500 to-teal-400";
-                  let bgBadge = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-
-                  if (trimmed.includes('Inherente') || pct >= 80) {
-                    colorBarra = "from-red-600 to-rose-400";
-                    bgBadge = "bg-red-500/10 text-red-400 border-red-500/20";
-                  } else if (trimmed.includes('Residual') || pct >= 50) {
-                    colorBarra = "from-amber-500 to-orange-400";
-                    bgBadge = "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                  }
-
-                  const etiquetaLimpia = trimmed
-                    .replace(/█|░/g, '')
-                    .replace(/\[\vert{}\]/g, '')
-                    .replace(/```text/g, '')
-                    .replace(/```/g, '')
-                    .replace(/\d+%/g, '')
-                    .trim();
-
-                  return (
-                    <div key={i} className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl my-2 space-y-2">
-                      <div className="flex justify-between items-center text-[11px] font-bold text-slate-200">
-                        <span className="truncate pr-2">{etiquetaLimpia || 'Indicador de Exposición'}</span>
-                        <span className={`px-2 py-0.5 rounded-full border font-black text-[10px] ${bgBadge}`}>
-                          {pct}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden p-0.5 border border-slate-800">
-                        <div 
-                          className={`h-full rounded-full bg-gradient-to-r ${colorBarra} transition-all duration-700 shadow-sm`}
-                          style={{ width: `${Math.min(Math.max(pct, 2), 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Omitir etiquetas Markdown innecesarias
-                if (trimmed.startsWith('```')) return null;
-
-                // Filas de Tabla (|)
-                if (trimmed.startsWith('|')) {
-                  if (trimmed.includes('---')) return null;
-                  const celdas = trimmed.split('|').filter(c => c.trim() !== '');
-                  return (
-                    <div key={i} className="grid grid-cols-3 gap-2 bg-slate-900/80 p-2 my-0.5 rounded-lg border border-slate-800/80 text-[11px]">
-                      {celdas.map((c, idx) => (
-                        <span key={idx} className={idx === 0 ? "font-bold text-slate-200" : "text-slate-300"} dangerouslySetInnerHTML={{ 
-                          __html: c.trim().replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
-                        }} />
-                      ))}
-                    </div>
-                  );
-                }
-
-                // Listas (* o -)
-                if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
-                  const contenido = trimmed.substring(2);
-                  return (
-                    <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/40 p-2 rounded-lg border border-slate-800/40">
-                      <span className="text-emerald-400 font-bold">•</span>
-                      <span className="text-slate-200" dangerouslySetInnerHTML={{ 
-                        __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
-                      }} />
-                    </div>
-                  );
-                }
-
-                // Párrafos
-                return (
-                  <p key={i} className="my-1.5 text-slate-300" dangerouslySetInnerHTML={{ 
-                    __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
-                  }} />
-                );
-              })}
-
-              {/* Cursor de escritura en vivo mientras procesa */}
-              {procesandoIA && (
-                <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse align-middle"></span>
-              )}
-            </div>
-            {/* Pie del Modal */}
-            <div className="p-4 border-t border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
-              <span className="text-[10px] text-slate-500 font-medium">
-                Termales S.A. GRC Suite • Powered by Gemini 2.5 Flash
-              </span>
-              <button 
-                onClick={() => setDictamenIA(null)} 
-                disabled={procesandoIA}
-                className={`font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-lg transition-all ${
-                  procesandoIA 
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                }`}
-              >
-                {procesandoIA ? 'Generando Dictamen...' : 'Entendido / Integrar al Plan de Trabajo'}
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
   const renderDashboard = () => {
     const totalRiesgos = safeRiesgos.length;
     const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
@@ -781,181 +595,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
         </div>
       )}
 
-{/* 🤖 MODAL DE DICTAMEN EJECUTIVO GRC IA (EDICIÓN 10/10 C-SUITE) */}
-      {(procesandoIA || dictamenIA) && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          
-          {procesandoIA && (
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl flex items-center gap-4 shadow-2xl max-w-xl border-l-4 border-l-emerald-500 animate-pulse">
-              <span className="text-3xl animate-spin">🤖</span>
-              <div className="text-xs">
-                <span className="font-black text-emerald-400 block uppercase tracking-wider text-[11px] mb-0.5">GRC Copilot - Auditing Hub</span>
-                <span className="text-slate-300 font-medium">Generando Ficha Técnica, IA Predictiva e Índice Global...</span>
-              </div>
-            </div>
-          )}
 
-          {dictamenIA && (
-            <div className="bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[88vh] flex flex-col relative border-l-4 border-l-emerald-500 overflow-hidden animate-in zoom-in-95 duration-200">
-              
-              {/* Cabecera */}
-              <div className="p-5 border-b border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
-                <div className="flex items-center gap-3">
-                  <span className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xl">👔</span>
-                  <div>
-                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Informe Executive C-Suite & Junta Directiva</span>
-                    <h3 className="text-sm font-black text-white uppercase tracking-tight">{dictamenIA.titulo}</h3>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setDictamenIA(null)} 
-                  className="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] hover:bg-slate-700 px-3 py-1.5 rounded-xl transition-colors"
-                >
-                  ✕ Cerrar
-                </button>
-              </div>
-
-              {/* Cuerpo Renderizado con Barras Elegantes HTML/Tailwind */}
-              <div className="p-6 overflow-y-auto space-y-3 text-xs leading-relaxed text-slate-300 font-sans">
-                {dictamenIA.dictamen.split('\n').map((linea, i) => {
-                  const trimmed = linea.trim();
-                  if (!trimmed) return null;
-
-                  // Separadores (líneas horizontales)
-                  if (trimmed.startsWith('---') || trimmed.startsWith('===') || trimmed.includes('═')) {
-                    return <div key={i} className="border-b border-slate-800 my-4"></div>;
-                  }
-
-                  // Títulos Nivel 2 (##)
-                  if (trimmed.startsWith('## ')) {
-                    return (
-                      <h2 key={i} className="text-xs font-black text-emerald-400 border-b border-slate-800/80 pb-1 mt-5 mb-2 uppercase tracking-wider flex items-center gap-2">
-                        {trimmed.replace('## ', '')}
-                      </h2>
-                    );
-                  }
-
-                  // Títulos Nivel 3 (###)
-                  if (trimmed.startsWith('### ')) {
-                    return (
-                      <h3 key={i} className="text-[11px] font-black text-slate-100 uppercase tracking-wider mt-3 mb-1 bg-slate-900/90 p-2 rounded-lg border-l-2 border-emerald-400">
-                        {trimmed.replace('### ', '')}
-                      </h3>
-                    );
-                  }
-
-                  // Citas del Socio Directivo (>)
-                  if (trimmed.startsWith('> ')) {
-                    return (
-                      <blockquote key={i} className="p-3 bg-emerald-950/40 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
-                        <span dangerouslySetInnerHTML={{ 
-                          __html: trimmed.replace('> ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
-                        }} />
-                      </blockquote>
-                    );
-                  }
-
-                  // Barras de progreso Tailwind
-                  if (trimmed.includes('█') || (trimmed.includes('%') && (trimmed.includes('Inherente') || trimmed.includes('Residual') || trimmed.includes('Objetivo') || trimmed.includes('Salud') || trimmed.includes('Estado Actual')))) {
-                    const pctMatch = trimmed.match(/(\d+)%/);
-                    const pct = pctMatch ? parseInt(pctMatch[1], 10) : 50;
-
-                    let colorBarra = "from-emerald-500 to-teal-400";
-                    let bgBadge = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-
-                    if (trimmed.includes('Inherente') || pct >= 80) {
-                      colorBarra = "from-red-600 to-rose-400";
-                      bgBadge = "bg-red-500/10 text-red-400 border-red-500/20";
-                    } else if (trimmed.includes('Residual') || pct >= 50) {
-                      colorBarra = "from-amber-500 to-orange-400";
-                      bgBadge = "bg-amber-500/10 text-amber-400 border-amber-500/20";
-                    }
-
-                    const etiquetaLimpia = trimmed
-                      .replace(/█|░/g, '')
-                      .replace(/\[\vert{}\]/g, '')
-                      .replace(/```text/g, '')
-                      .replace(/```/g, '')
-                      .replace(/\d+%/g, '')
-                      .trim();
-
-                    return (
-                      <div key={i} className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl my-2 space-y-2">
-                        <div className="flex justify-between items-center text-[11px] font-bold text-slate-200">
-                          <span className="truncate pr-2">{etiquetaLimpia || 'Indicador de Exposición'}</span>
-                          <span className={`px-2 py-0.5 rounded-full border font-black text-[10px] ${bgBadge}`}>
-                            {pct}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden p-0.5 border border-slate-800">
-                          <div 
-                            className={`h-full rounded-full bg-gradient-to-r ${colorBarra} transition-all duration-700 shadow-sm`}
-                            style={{ width: `${Math.min(Math.max(pct, 2), 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Omitir etiquetas Markdown innecesarias
-                  if (trimmed.startsWith('```')) return null;
-
-                  // Filas de Tabla (|)
-                  if (trimmed.startsWith('|')) {
-                    if (trimmed.includes('---')) return null; 
-                    const celdas = trimmed.split('|').filter(c => c.trim() !== '');
-                    return (
-                      <div key={i} className="grid grid-cols-3 gap-2 bg-slate-900/90 p-2 my-1 rounded-lg border border-slate-800 text-[11px]">
-                        {celdas.map((c, idx) => (
-                          <span key={idx} className={idx === 0 ? "font-bold text-slate-200" : "text-slate-300"} dangerouslySetInnerHTML={{ 
-                            __html: c.trim().replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
-                          }} />
-                        ))}
-                      </div>
-                    );
-                  }
-
-                  // Listas (* o -)
-                  if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
-                    const contenido = trimmed.substring(2);
-                    return (
-                      <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/30 p-1.5 rounded-lg border border-slate-800/40">
-                        <span className="text-emerald-400 font-bold">•</span>
-                        <span className="text-slate-200" dangerouslySetInnerHTML={{ 
-                          __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
-                        }} />
-                      </div>
-                    );
-                  }
-
-                  // Párrafos regulares
-                  return (
-                    <p key={i} className="my-1 text-slate-300" dangerouslySetInnerHTML={{ 
-                      __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
-                    }} />
-                  );
-                })}
-
-                {/* Cursor de escritura en vivo */}
-                {procesandoIA && (
-                  <span className="inline-block w-2 h-4 bg-emerald-400 ml-1 animate-pulse align-middle"></span>
-                )}
-              </div>
-              {/* Pie del Modal */}
-              <div className="p-4 border-t border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
-                <span className="text-[10px] text-slate-500 font-medium">Termales S.A. GRC Suite • Nivel Big Four</span>
-                <button 
-                  onClick={() => setDictamenIA(null)} 
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-lg transition-all"
-                >
-                  Entendido / Integrar al Plan de Trabajo
-                </button>
-              </div>
-
-            </div>
-          )}
-        </div>
-      )}    
       {/* CABECERA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>
