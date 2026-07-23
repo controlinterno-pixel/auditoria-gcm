@@ -6,8 +6,7 @@ import {
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
 
-// ✨ AQUÍ VA EL PASO 1 (NUEVA LÍNEA):
-import { generarPromptDictamenRiesgo } from '../services/aiEngine';
+import { ejecutarDictamenIAStream } from '../services/aiEngine';
 
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
 const EXPLICACIONES_CAMPOS = {
@@ -362,26 +361,28 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     );
   };
 
-  const solicitarAnalisisFilaIA = async (r) => {
-    setProcesandoIA(true);
-    setDictamenIA(null);
+const solicitarAnalisisFilaIA = async (r) => {
+    // Abrimos de inmediato el modal con el primer mensaje
+    setDictamenIA({
+      titulo: `Dictamen ERIR®: RSK-${String(r.id).substring(0,4)}`,
+      dictamen: "⚡ Conectando con el motor de inteligencia ERIR®..."
+    });
+    setProcesandoIA(false);
 
     try {
-      // ✅ CORREGIDO: Llamada asíncrona directa y limpia a Gemini
-      const dictamenReal = await generarPromptDictamenRiesgo(r);
-
-      setDictamenIA({
-        titulo: `Dictamen GRC Copilot: RSK-${String(r.id).substring(0,4)}`,
-        dictamen: dictamenReal
+      // Flujo continuo de lectura en tiempo real palabra por palabra
+      await ejecutarDictamenIAStream(r, (textoEnTiempoReal) => {
+        setDictamenIA({
+          titulo: `Dictamen ERIR®: RSK-${String(r.id).substring(0,4)}`,
+          dictamen: textoEnTiempoReal
+        });
       });
-      setProcesandoIA(false);
     } catch (error) {
       console.error("Error en GRC Copilot:", error);
       setDictamenIA({
-        titulo: `⚠ Error del Sistema`,
-        dictamen: `El Director IA no pudo procesar la solicitud: ${error.message}`
+        titulo: `⚠️ Error del Sistema`,
+        dictamen: `El motor IA no pudo procesar la solicitud: ${error.message}`
       });
-      setProcesandoIA(false);
     }
   };
   const renderDashboard = () => {
