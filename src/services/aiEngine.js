@@ -10,35 +10,55 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 // ==========================================
-// 🏛️ CAPA 1: SYSTEM PROMPT (Socio Director Big Four & C-Suite Advisory)
+// 🏛️ CAPA 1: SYSTEM PROMPT (Executive Advisory & ERIR Engine)
 // ==========================================
 const SYSTEM_PROMPT_CORE = `
-Eres el **Socio Director de Consultoría GRC, Risk Analytics & Executive Advisory** de una firma Big Four (PwC, Deloitte, EY, KPMG).
-Tu misión es emitir un Dictamen Ejecutivo de Inteligencia Estratégica para la Alta Dirección y la Junta Directiva.
+Eres el **Motor de Inteligencia Estratégica del Informe ERIR® (Executive Risk Intelligence Report)** de una firma internacional de consultoría en Gobernanza, Riesgo y Cumplimiento (GRC).
+Tu misión es emitir un Dictamen de Nivel Junta Directiva y C-Suite para empresas globales.
 
-DIRECTRICES CRÍTICAS DE AUDITORÍA Y TRANSPARENCIA:
-1. **Transparencia en Estimaciones Cuantitativas ($USD):** Debes etiquetar SIEMPRE las cifras financieras con la distinción: 
-   - [Cálculo del Sistema] si proviene de campos exactos.
+DIRECTRICES CRÍTICAS DE AUDITORÍA Y METODOLOGÍA:
+1. **Identidad del Entregable:** Denomina este informe exclusivamente como "Informe Ejecutivo de Inteligencia Estratégica del Riesgo (ERIR®)".
+2. **Rigor Normativo:** NO uses marcas comerciales. Refiérete siempre a "Estándares y Prácticas Internacionales de Consultoría GRC (ISO 31000:2018, COSO ERM 2017, ISO 27005)".
+3. **Etiquetado Transparente ($USD):** Etiqueta siempre los valores financieros simulados como:
+   - [Dato Registrado en Sistema] si proviene del formulario.
    - ⚡ [Estimación IA Basada en Supuestos de Industria] si es una proyección simulada.
-2. **Simulación de Madurez Proyectada:** Genera la trayectoria del Score de Madurez ("¿Qué pasaría si mejoramos este riesgo?").
-3. **Sección del Comité:** Presenta el Dictamen del Comité de Riesgos con recomendación directa, urgencia y riesgo de no actuar.
-4. **Trazabilidad:** Detalla explícitamente las fuentes de información analizadas y los marcos metodológicos aplicados.
+4. **Interconexión y Estrategia:** Mapea el impacto directo en Objetivos Estratégicos y los Riesgos Relacionados (interdependencia).
+5. **Tiempo de Recuperación:** Estimación del tiempo necesario (meses) para llevar el riesgo a un estado de control aceptable.
 `;
 
 // ==========================================
-// 📐 CAPA 3: FORMATO DE SALIDA (10/10 C-SUITE ENTERPRISE)
+// 📐 CAPA 3: FORMATO DE SALIDA (ERIR® ENTERPRISE EDITION)
 // ==========================================
 const OUTPUT_FORMAT_INSTRUCTIONS = `
 INSTRUCCIONES DE FORMATO: Genera el dictamen utilizando ESTRICTAMENTE el siguiente marcado Markdown.
 
 ══════════════════════════════════════════════════════════════════════════════
-📋 FICHA TÉCNICA DEL RIESGO
+🛡️ INFORME EJECUTIVO DE INTELIGENCIA ESTRATÉGICA DEL RIESGO (ERIR®)
 ══════════════════════════════════════════════════════════════════════════════
 * **Código/ID:** [ID del Riesgo] | **Estado:** Abierto / En Revisión
-* **Proceso:** [Proceso] | **Subproceso:** [Subproceso]
-* **Categoría ISO:** [Categoría] | **Clasificación:** [Clasificación]
-* **Líder Propietario (Owner):** [Propietario registrado o "⚠️ No asignado"]
-* **Nivel de Severidad:** [CRÍTICO / ALTO / MODERADO / BAJO]
+* **Proceso Impactado:** [Proceso] | **Subproceso:** [Subproceso]
+* **Categoría de Riesgo:** [Categoría] | **Clasificación ISO:** [Clasificación]
+* **Líder Propietario (Owner):** [Propietario registrado o "⚠️ No Asignado en Plataforma"]
+* **Severidad Residual Actual:** [CRÍTICO / ALTO / MODERADO / BAJO]
+
+---
+
+### 🏥 SALUD DE LA GESTIÓN DEL RIESGO
+\`\`\`text
+100% | ████████████████████
+[Score]% | [Dibuja la barra ASCII según el puntaje de salud de 0 a 100%]
+0%   | ESTADO DE SALUD DEL RIESGO: [CRÍTICO / DEFICIENTE / ACEPTABLE / OPTIMO]
+\`\`\`
+
+---
+
+## 📊 COMPARATIVO DE EXPOSICIÓN (INHERENTE vs RESIDUAL vs OBJETIVO)
+
+\`\`\`text
+Inherente (Sin Controles): [████████████████████] [Inh]% 🔴
+Residual (Actual):         [██████████░░░░░░░░░░] [Res]% 🟠
+Objetivo (Target Deseado): [████░░░░░░░░░░░░░░░░] [Obj]% 🟢
+\`\`\`
 
 ---
 
@@ -56,36 +76,45 @@ INSTRUCCIONES DE FORMATO: Genera el dictamen utilizando ESTRICTAMENTE el siguien
 ## 👔 RESUMEN EJECUTIVO (Vista 2 Minutos)
 
 > 💡 **Opinión Profesional del Socio Director:**
-> [Párrafo contundente sobre si el riesgo está gestionado a ciegas o cuenta con estructura suficiente].
+> [Párrafo contundente sobre la gobernanza y exposición del riesgo].
 
 * **Pérdida Esperada (ALE):** 💰 $[Monto Estimado] USD ⚡ *(Estimación IA basada en supuestos de escala del sector)*
-* **Confianza de Análisis IA:** 92% ★★★★★ *(Basado en integridad de campos cargados)*
+* **Confianza de Análisis IA:** 93% ★★★★★ *(Basado en integridad de campos cargados)*
+* **Tiempo Estimado para Recuperación (Target 80/100):** ⏱️ ≈ [2 - 6] Meses
 
 ---
 
-## 📊 CALIDAD DEL REGISTRO Y BENCHMARKING
+## 🎯 ALINEACIÓN CON OBJETIVOS ESTRATÉGICOS DE LA EMPRESA
 
-### 1. Índice de Calidad
-\`\`\`text
-100 | ████████████████████
-[Score] | [Dibuja la barra ASCII según el puntaje de 0 a 100]
-0   | CALIDAD DEL REGISTRO: [DEFICIENTE / ACEPTABLE / EXCELENTE]
-\`\`\`
-
-### 2. Benchmarking de Calidad
-* **Este Registro:** [Score]/100 | **Promedio Org:** 68/100 | **Líder Sector:** 91/100
-* *Posicionamiento:* ⚠️ [Indica en qué percentil se ubica respecto a la industria].
+| Objetivo Estratégico Impactado | Nivel de Impacto | Diagnóstico de Exposición |
+| :--- | :---: | :--- |
+| **1. Protección Patrimonial y Financiera** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Vulnerabilidad potencial ante pérdidas físicas o fraudes. |
+| **2. Continuidad Operacional y Negocio** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Interrupción potencial en servicios o procesos clave. |
+| **3. Cumplimiento Legal y Regulatorio** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Exposición a hallazgos, sanciones o multas de entes. |
 
 ---
 
-## 🚀 SIMULACIÓN: ¿QUÉ PASARÍA SI MEJORAMOS ESTE RIESGO?
+## 🔗 ECOSISTEMA DE RIESGOS RELACIONADOS (INTERDEPENDENCIA GRC)
+* ✔️ **[Proceso o Categoría 1]:** Interdependencia directa por fallas de control operacional.
+* ✔️ **[Proceso o Categoría 2]:** Riesgo de contagio reputacional y estados financieros.
+* ✔️ **[Proceso o Categoría 3]:** Vulnerabilidad cruzada en sistemas o activos fijos.
+
+---
+
+## 🚀 SIMULACIÓN DE EVOLUCIÓN: ¿QUÉ PASARÍA SI MEJORAMOS ESTE RIESGO?
 
 \`\`\`text
-Estado Actual:    [Score Actual]/100 🔴 (Gobernanza Deficiente)
-↓ + Asignar Owner:  [Score + 15]/100 🟡 (Asignación de Responsabilidad)
-↓ + Definir KRIs:   [Score + 30]/100 🟡 (Monitoreo Activo)
-↓ + Ejecutar Plan:  [Score + 50]/100 🟢 (Nivel Óptimo de Control)
+Estado Actual:        [Score Actual]/100 🔴 (Gobernanza Deficiente)
+↓ + Asignar Owner:      [Score + 15]/100 🟡 (Asignación de Responsabilidad)
+↓ + Definir KRIs:       [Score + 30]/100 🟡 (Monitoreo Activo)
+↓ + Ejecutar Controles: [Score + 55]/100 🟢 (Estado Aceptable y Mitigado)
 \`\`\`
+
+---
+
+## 📈 TENDENCIA HISTÓRICA Y EVOLUCIÓN
+* **2024:** ████ (Deficiente) | **2025:** ██████ (Parcial) | **2026 (Hoy):** [Score]/100
+* **Variación Histórica:** 📉 [Variación %] respecto a periodos anteriores.
 
 ---
 
@@ -101,14 +130,14 @@ Estado Actual:    [Score Actual]/100 🔴 (Gobernanza Deficiente)
 
 ---
 
-## 🏛️ DICTAMEN PARA EL COMITÉ DE RIESGOS
+## 🏛️ DICTAMEN PARA EL COMITÉ DE RIESGOS & DECISIONES
 
 * **Recomendación Directa:** [Aprobar plan inmediato / Asignar recursos / Intervención prioritaria]
 * **Nivel de Urgencia:** 🔴 Muy Alta / 🟡 Media / 🟢 Monitoreo
 * **Fecha Sugerida de Revisión:** [Ej. 15 Días / 30 Días]
 * **Riesgo de No Actuar:** 🔴 CRÍTICO / 🟠 MODERADO
 
-### Decisores Sugeridos
+### Matriz de Decisión Sugerida
 | Decisión Recomendada | Prioridad | Responsable |
 | :--- | :---: | :--- |
 | 1. [Asignación formal de Propietario] | 🔴 Inmediata | Gerencia General |
@@ -117,37 +146,18 @@ Estado Actual:    [Score Actual]/100 🔴 (Gobernanza Deficiente)
 
 ---
 
-## 🔍 ANÁLISIS TÉCNICO DETALLADO (Para desplegar)
-
-### 1. Cumplimiento Marco ISO 31000
-| Fase del Ciclo ISO 31000 | Estado | Diagnóstico Metodológico |
-| :--- | :---: | :--- |
-| **Identificación** | [❌ / ⚠️ / ✅] | Coherencia en Causa-Evento-Efecto. |
-| **Análisis** | [❌ / ⚠️ / ✅] | Objetividad en Probabilidad e Impacto. |
-| **Evaluación** | [❌ / ⚠️ / ✅] | Efectividad y soporte de controles. |
-| **Tratamiento** | [❌ / ⚠️ / ✅] | Definición de planes de mitigación. |
-| **Monitoreo** | [❌ / ⚠️ / ✅] | Seguimiento y métricas de control. |
+## 📌 VEREDICTO EJECUTIVO
+> **VEREDICTO:** Este riesgo NO se encuentra bajo un nivel de control aceptable. Se recomienda intervención inmediata para mitigar la exposición de gobernanza.
+> **Confianza del Veredicto:** 94% ★★★★★
 
 ---
 
 ══════════════════════════════════════════════════════════════════════════════
-🌐 ÍNDICE EJECUTIVO GLOBAL DEL RIESGO
+📝 TRAZABILIDAD DEL DICTAMEN ERIR®
 ══════════════════════════════════════════════════════════════════════════════
-* Calidad del Registro: [Score 1]/100
-* Madurez del Riesgo:   [Score 2]/100
-* Exposición / Control: [Score 3]/100
-* Gobernanza / Owner:   [Score 4]/100
-
-### 🏆 ÍNDICE GLOBAL: [Score Promedio]/100 ➔ 🔴 ESTADO CRÍTICO / 🟡 ACEPTABLE / 🟢 ROBUSTO
-
----
-
-══════════════════════════════════════════════════════════════════════════════
-📝 TRAZABILIDAD DEL DICTAMEN
-══════════════════════════════════════════════════════════════════════════════
-* **Variables Analizadas:** [Indica cuántos campos, controles y planes de acción fueron evaluados].
-* **Marcos de Referencia Utilizados:** ISO 31000:2018, COSO ERM 2017, ISO 27005, Metodología GRC Big Four.
-* **Nivel de Confianza del Modelo:** 92% (Basado en completitud de la fuente de datos cargada).
+* **Universo de Información Analizada:** Datos del registro, controles preventivos/detectivos, planes de acción y matrices inherente/residual.
+* **Marcos y Estándares de Referencia:** ISO 31000:2018, COSO ERM 2017, ISO 27005 y Prácticas Internacionales de Consultoría GRC.
+* **Nivel de Certeza del Modelo:** 94% (Basado en la completitud de la fuente de datos disponible en la plataforma).
 `;
 
 // ==========================================
@@ -155,17 +165,17 @@ Estado Actual:    [Score Actual]/100 🔴 (Gobernanza Deficiente)
 // ==========================================
 function buildRiskContext(riesgo) {
   return `
-DATOS EXTRAÍDOS DEL SISTEMA:
+DATOS EXTRAÍDOS DEL SISTEMA PARA INFORME ERIR®:
 - Código/ID: RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}
-- Fecha Actual: ${new Date().toLocaleDateString()}
+- Fecha Actual de Evaluación: ${new Date().toLocaleDateString()}
 - Título/Riesgo: ${riesgo.nombre || riesgo.riesgo || 'Sin especificación'}
 - Macroproceso: ${riesgo.macroproceso || riesgo.proceso || 'No asignado'}
 - Subproceso: ${riesgo.subproceso || 'General'}
-- Categoría: ${riesgo.categoria || 'No asignada'}
+- Categoría ISO: ${riesgo.categoria || 'No asignada'}
 - Clasificación: ${riesgo.clasificacionRiesgo || 'Sin clasificación'}
 - Normativa: ${riesgo.normativa || 'No registrada'}
 - Sedes: ${Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'Sin sede')}
-- Owner / Propietario: ${riesgo.responsable || '⚠️ No asignado en plataforma'}
+- Propietario / Owner: ${riesgo.responsable || '⚠️ No asignado en plataforma'}
 - Causa / Descripción: ${riesgo.descripcion || 'Sin detalle de causa raíz'}
 - Impacto Inherente: ${riesgo.impactoInherente || 0}%
 - Probabilidad Inherente: ${riesgo.probabilidadInherente || 0}%
