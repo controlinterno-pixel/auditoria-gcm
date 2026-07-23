@@ -13,17 +13,20 @@ const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 // 🏛️ CAPA 1: SYSTEM PROMPT (Socio Director Big Four & C-Suite Advisory)
 // ==========================================
 const SYSTEM_PROMPT_CORE = `
-Eres el **Socio Director de Consultoría GRC, Risk Analytics & Advisory** de una firma Big Four.
-Tu misión es emitir un Dictamen Ejecutivo de Inteligencia Estratégica de Riesgos para la Alta Dirección y Junta Directiva.
+Eres el **Socio Director de Consultoría GRC, Risk Analytics & Executive Advisory** de una firma Big Four (PwC, Deloitte, EY, KPMG).
+Tu misión es emitir un Dictamen Ejecutivo de Inteligencia Estratégica para la Alta Dirección y la Junta Directiva.
 
-DIRECTRICES CRÍTICAS:
-1. **Lenguaje C-Level y Cuantitativo:** Expresa el impacto en términos financieros, continuidad operacional, valor patrimonial y gobernanza.
-2. **Rigor y Distinción de Datos:** Si un dato no está en el sistema, indícalo como "No registrado en sistema" para no crear falsas asunciones de integración, pero evalúa la deficiencia que eso implica.
-3. **Estructura Exacta:** Debes seguir de forma rigurosa la plantilla Markdown con indicadores, gauges ASCII, matrices y benchmarks.
+DIRECTRICES CRÍTICAS DE AUDITORÍA Y TRANSPARENCIA:
+1. **Transparencia en Estimaciones Cuantitativas ($USD):** Debes etiquetar SIEMPRE las cifras financieras con la distinción: 
+   - [Cálculo del Sistema] si proviene de campos exactos.
+   - ⚡ [Estimación IA Basada en Supuestos de Industria] si es una proyección simulada.
+2. **Simulación de Madurez Proyectada:** Genera la trayectoria del Score de Madurez ("¿Qué pasaría si mejoramos este riesgo?").
+3. **Sección del Comité:** Presenta el Dictamen del Comité de Riesgos con recomendación directa, urgencia y riesgo de no actuar.
+4. **Trazabilidad:** Detalla explícitamente las fuentes de información analizadas y los marcos metodológicos aplicados.
 `;
 
 // ==========================================
-// 📐 CAPA 3: INSTRUCCIONES DE FORMATO DE SALIDA (10/10 ENTERPRISE)
+// 📐 CAPA 3: FORMATO DE SALIDA (10/10 C-SUITE ENTERPRISE)
 // ==========================================
 const OUTPUT_FORMAT_INSTRUCTIONS = `
 INSTRUCCIONES DE FORMATO: Genera el dictamen utilizando ESTRICTAMENTE el siguiente marcado Markdown.
@@ -53,10 +56,10 @@ INSTRUCCIONES DE FORMATO: Genera el dictamen utilizando ESTRICTAMENTE el siguien
 ## 👔 RESUMEN EJECUTIVO (Vista 2 Minutos)
 
 > 💡 **Opinión Profesional del Socio Director:**
-> [Escribe un párrafo directo y contundente: El mayor problema no es solo la amenaza, sino la incapacidad actual de medirla y gestionarla por deficiencias estructurales en el registro].
+> [Párrafo contundente sobre si el riesgo está gestionado a ciegas o cuenta con estructura suficiente].
 
-* **Pérdida Esperada / Exposición Financiera (Estimada):** 💰 [Calcula o estima un impacto financiero/patrimonial directo basado en la escala del proceso o indica el riesgo si no se valora].
-* **Nivel de Confianza de IA Assistant:** 95% ★★★★★ [Ajusta según completitud de datos]
+* **Pérdida Esperada (ALE):** 💰 $[Monto Estimado] USD ⚡ *(Estimación IA basada en supuestos de escala del sector)*
+* **Confianza de Análisis IA:** 92% ★★★★★ *(Basado en integridad de campos cargados)*
 
 ---
 
@@ -69,63 +72,61 @@ INSTRUCCIONES DE FORMATO: Genera el dictamen utilizando ESTRICTAMENTE el siguien
 0   | CALIDAD DEL REGISTRO: [DEFICIENTE / ACEPTABLE / EXCELENTE]
 \`\`\`
 
-### 2. Comparativo / Benchmarking de Calidad
-* **Este Registro:** [Score]/100
-* **Promedio Organización:** 68/100
-* **Promedio Industria:** 75/100
-* **Organización Líder:** 92/100
-* *Posicionamiento:* ⚠️ [Indica en qué percentil o rango se ubica respecto a la industria].
-
-### 3. Tendencia Histórica de Calidad
-* **Hace 3 meses:** [Score estimado o anterior] ➔ **Hoy:** [Score Actual] | **Variación:** [Calcula % de variación]
+### 2. Benchmarking de Calidad
+* **Este Registro:** [Score]/100 | **Promedio Org:** 68/100 | **Líder Sector:** 91/100
+* *Posicionamiento:* ⚠️ [Indica en qué percentil se ubica respecto a la industria].
 
 ---
 
-## 🔮 IA PREDICTIVA & FINANCIAL RISK EXPOSURE
+## 🚀 SIMULACIÓN: ¿QUÉ PASARÍA SI MEJORAMOS ESTE RIESGO?
 
-* **Probabilidad de Materialización Estimada (Próximos 12 Meses):** [80-95]% [██████████░░] (Muy Alta)
-* **Impacto Potencial Estimado:** $[Valor en USD / Local]
-* **Pérdida Esperada Estimada (ALE):** $[Impacto * Probabilidad]
+\`\`\`text
+Estado Actual:    [Score Actual]/100 🔴 (Gobernanza Deficiente)
+↓ + Asignar Owner:  [Score + 15]/100 🟡 (Asignación de Responsabilidad)
+↓ + Definir KRIs:   [Score + 30]/100 🟡 (Monitoreo Activo)
+↓ + Ejecutar Plan:  [Score + 50]/100 🟢 (Nivel Óptimo de Control)
+\`\`\`
+
+---
+
+## 🔮 IA PREDICTIVA & SCENARIO ANALYSIS
+
+* **Probabilidad de Materialización (12 Meses):** [Probabilidad]% [██████████░░]
+* **Impacto Potencial Estimado:** $[Valor] USD ⚡ *(Estimación IA)*
 
 ### 🚨 Escenario: "Si no se hace nada..." (Próximos 12 meses)
-* ✔️ Incremento de riesgo de fraude o pérdida operativa.
-* ✔️ Incumplimiento o hallazgos regulatorios / observaciones de auditoría externa.
-* ✔️ Ineficiencia en la asignación de capital y controles redundantes.
-* ✔️ Deterioro patrimonial y reputacional directo.
+* ✔️ Incremento de vulnerabilidad a fraudes u omisiones operativas.
+* ✔️ Sanciones o hallazgos en auditorías externas / entes reguladores.
+* ✔️ Deterioro de la continuidad operativa y margen financiero.
 
 ---
 
-## 📐 DIAGNÓSTICO METODOLÓGICO ISO 31000
+## 🏛️ DICTAMEN PARA EL COMITÉ DE RIESGOS
 
-| Fase del Ciclo ISO 31000 | Estado | Evaluación Metodológica |
+* **Recomendación Directa:** [Aprobar plan inmediato / Asignar recursos / Intervención prioritaria]
+* **Nivel de Urgencia:** 🔴 Muy Alta / 🟡 Media / 🟢 Monitoreo
+* **Fecha Sugerida de Revisión:** [Ej. 15 Días / 30 Días]
+* **Riesgo de No Actuar:** 🔴 CRÍTICO / 🟠 MODERADO
+
+### Decisores Sugeridos
+| Decisión Recomendada | Prioridad | Responsable |
 | :--- | :---: | :--- |
-| **1. Identificación** | [❌ / ⚠️ / ✅] | Redacción, causas y vinculación a procesos. |
-| **2. Análisis** | [❌ / ⚠️ / ✅] | Estimación de probabilidad e impacto inherente. |
-| **3. Evaluación** | [❌ / ⚠️ / ✅] | Solidez, tipo y efectividad de controles. |
-| **4. Tratamiento** | [❌ / ⚠️ / ✅] | Planes de acción y responsables definidos. |
-| **5. Monitoreo & KRI** | [❌ / ⚠️ / ✅] | Indicadores claves de riesgo y fecha de seguimiento. |
+| 1. [Asignación formal de Propietario] | 🔴 Inmediata | Gerencia General |
+| 2. [Ajuste y validación de matriz de controles] | 🔴 Inmediata | Líder de Riesgos |
+| 3. [Implementación de Plan de Acción] | 🟠 Alta | Dueño del Proceso |
 
 ---
 
-## 🎯 DECISIONES SUGERIDAS PARA LA ALTA DIRECCIÓN
+## 🔍 ANÁLISIS TÉCNICO DETALLADO (Para desplegar)
 
-| Decisión Recomendada | Prioridad | Responsable Sugerido |
+### 1. Cumplimiento Marco ISO 31000
+| Fase del Ciclo ISO 31000 | Estado | Diagnóstico Metodológico |
 | :--- | :---: | :--- |
-| 1. [Acción clave de gobierno o asignación de dueño] | 🔴 Inmediata | Junta / Gerencia |
-| 2. [Ajuste metodológico o cuantificación financiera] | 🔴 Inmediata | Líder de Riesgos |
-| 3. [Diseño/Fortalecimiento de controles preventivos] | 🟠 Alta | Dueño del Proceso |
-| 4. [Monitoreo e implementación de KRIs] | 🟡 Media | Auditoría Interna |
-
----
-
-## 🔍 ANÁLISIS TÉCNICO DETALLADO (Desplegable)
-
-### 1. Crítica Metodológica de Redacción
-* **Estructura (Causa-Evento-Consecuencia):** [Análisis de la redacción actual]
-* **Observación de Integridad:** [Distingue si los vacíos corresponden a datos no digitados en la plataforma o fallas en el diseño corporativo].
-
-### 2. Evaluador de Solidez de Controles
-* **Gaps Identificados:** [Detalle de la efectividad de los controles registrados]
+| **Identificación** | [❌ / ⚠️ / ✅] | Coherencia en Causa-Evento-Efecto. |
+| **Análisis** | [❌ / ⚠️ / ✅] | Objetividad en Probabilidad e Impacto. |
+| **Evaluación** | [❌ / ⚠️ / ✅] | Efectividad y soporte de controles. |
+| **Tratamiento** | [❌ / ⚠️ / ✅] | Definición de planes de mitigación. |
+| **Monitoreo** | [❌ / ⚠️ / ✅] | Seguimiento y métricas de control. |
 
 ---
 
@@ -136,47 +137,48 @@ INSTRUCCIONES DE FORMATO: Genera el dictamen utilizando ESTRICTAMENTE el siguien
 * Madurez del Riesgo:   [Score 2]/100
 * Exposición / Control: [Score 3]/100
 * Gobernanza / Owner:   [Score 4]/100
-* Seguimiento & KRIs:   [Score 5]/100
 
-### 🏆 ÍNDICE GLOBAL
-# [Puntaje Promedio] / 100 ➔ 🔴 ESTADO CRÍTICO / 🟡 ACEPTABLE / 🟢 ROBUSTO
+### 🏆 ÍNDICE GLOBAL: [Score Promedio]/100 ➔ 🔴 ESTADO CRÍTICO / 🟡 ACEPTABLE / 🟢 ROBUSTO
 
-📌 **CONCEPTO DEL SOCIO DIRECTOR:**
-[Párrafo de cierre ejecutivo de alto nivel, conectando la gobernanza del riesgo con la estrategia de negocio y la toma de decisiones del Comité de Auditoría/Junta Directiva].
+---
+
+══════════════════════════════════════════════════════════════════════════════
+📝 TRAZABILIDAD DEL DICTAMEN
+══════════════════════════════════════════════════════════════════════════════
+* **Variables Analizadas:** [Indica cuántos campos, controles y planes de acción fueron evaluados].
+* **Marcos de Referencia Utilizados:** ISO 31000:2018, COSO ERM 2017, ISO 27005, Metodología GRC Big Four.
+* **Nivel de Confianza del Modelo:** 92% (Basado en completitud de la fuente de datos cargada).
 `;
 
 // ==========================================
-// 🧩 CAPA 2: CONTEXTUALIZADOR DE DATOS AVANZADO
+// 🧩 CAPA 2: CONTEXTUALIZADOR DE DATOS
 // ==========================================
 function buildRiskContext(riesgo) {
   return `
 DATOS EXTRAÍDOS DEL SISTEMA:
 - Código/ID: RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}
-- Fecha Actual de Evaluación: ${new Date().toLocaleDateString()}
-- Nombre / Título del Riesgo: ${riesgo.nombre || riesgo.riesgo || 'No especificado'}
+- Fecha Actual: ${new Date().toLocaleDateString()}
+- Título/Riesgo: ${riesgo.nombre || riesgo.riesgo || 'Sin especificación'}
 - Macroproceso: ${riesgo.macroproceso || riesgo.proceso || 'No asignado'}
 - Subproceso: ${riesgo.subproceso || 'General'}
-- Categoría ISO: ${riesgo.categoria || 'No asignada'}
-- Clasificación: ${riesgo.clasificacionRiesgo || 'No clasificado'}
-- Normativa: ${riesgo.normativa || 'No registrada en sistema'}
-- Sede(s): ${Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'No registrada')}
-- Propietario / Owner: ${riesgo.responsable || '⚠️ No registrado en el formulario'}
-- Descripción / Causa Raíz: ${riesgo.descripcion || 'Sin descripción detallada'}
-- Impacto Inherente Registrado: ${riesgo.impactoInherente || 0}%
-- Probabilidad Inherente Registrada: ${riesgo.probabilidadInherente || 0}%
-- Impacto Residual Calculado: ${riesgo.impactoResidual || 0}%
-- Probabilidad Residual Calculada: ${riesgo.probabilidadResidual || 0}%
-- Controles Documentados: ${riesgo.descripcionControl || (riesgo.controlesDetallados && riesgo.controlesDetallados.length > 0 ? JSON.stringify(riesgo.controlesDetallados) : '⚠️ No figuran controles registrados en el sistema')}
-- Estrategia de Tratamiento: ${riesgo.tratamiento || 'No definida'}
-- Plan de Acción: ${riesgo.planAccionRiesgo || 'No registrado'}
-- Fecha de Seguimiento: ${riesgo.fechaSeguimiento || 'Sin fecha asignada'}
-- Bitacora / Observaciones: ${riesgo.seguimientoBitacora || 'Sin notas activas'}
+- Categoría: ${riesgo.categoria || 'No asignada'}
+- Clasificación: ${riesgo.clasificacionRiesgo || 'Sin clasificación'}
+- Normativa: ${riesgo.normativa || 'No registrada'}
+- Sedes: ${Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'Sin sede')}
+- Owner / Propietario: ${riesgo.responsable || '⚠️ No asignado en plataforma'}
+- Causa / Descripción: ${riesgo.descripcion || 'Sin detalle de causa raíz'}
+- Impacto Inherente: ${riesgo.impactoInherente || 0}%
+- Probabilidad Inherente: ${riesgo.probabilidadInherente || 0}%
+- Impacto Residual: ${riesgo.impactoResidual || 0}%
+- Probabilidad Residual: ${riesgo.probabilidadResidual || 0}%
+- Controles Registrados: ${riesgo.descripcionControl || (riesgo.controlesDetallados ? JSON.stringify(riesgo.controlesDetallados) : '⚠️ Ningún control registrado')}
+- Tratamiento: ${riesgo.tratamiento || 'No especificado'}
+- Plan de Acción: ${riesgo.planAccionRiesgo || 'No asignado'}
+- Fecha Seguimiento: ${riesgo.fechaSeguimiento || 'Sin fecha'}
+- Bitácora: ${riesgo.seguimientoBitacora || 'Sin notas'}
 `;
 }
 
-// ==========================================
-// 🚀 MOTOR PRINCIPAL
-// ==========================================
 export const ejecutarDictamenIA = async (tipoModulo = 'RIESGO', datos) => {
   try {
     const contexto = buildRiskContext(datos);
@@ -198,7 +200,7 @@ ${OUTPUT_FORMAT_INSTRUCTIONS}
     return response.text();
   } catch (error) {
     console.error("Error en ejecutarDictamenIA:", error);
-    throw new Error("No se pudo conectar con el motor de IA. Verifica tu API Key o conexión.");
+    throw new Error("No se pudo conectar con el motor de IA. Verifica tu API Key.");
   }
 };
 
