@@ -97,7 +97,35 @@ export default function Planes({
       anioTexto: p.fecha ? p.fecha.split('-')[0] : 'Sin Fecha'
     };
   });
+// 🚨 NUEVO: MOTOR DE ALERTAS DE VENCIMIENTO (Calcula días hábiles)
+  const calcularDiasHabilesParaVencer = (fechaLimite) => {
+    if (!fechaLimite) return 999;
+    let hoy = new Date();
+    hoy.setHours(0,0,0,0);
+    let limite = new Date(`${fechaLimite}T00:00:00`);
+    
+    // Si la fecha ya pasó
+    if (hoy > limite) return -1;
 
+    let diasHabiles = 0;
+    let diaTemporal = new Date(hoy);
+    
+    // Contamos los días saltando sábados (6) y domingos (0)
+    while (diaTemporal < limite) {
+      diaTemporal.setDate(diaTemporal.getDate() + 1);
+      if (diaTemporal.getDay() !== 0 && diaTemporal.getDay() !== 6) {
+        diasHabiles++;
+      }
+    }
+    return diasHabiles;
+  };
+
+  // Filtramos los planes que están a 2 días o menos de vencer
+  const planesEnAlerta = planesEnriquecidos.filter(p => {
+    if (p.progreso === 100) return false; // Ignorar los cerrados
+    const diasFaltantes = calcularDiasHabilesParaVencer(p.fecha);
+    return diasFaltantes <= 2 && diasFaltantes >= 0; 
+  });
   // 1. Filtrado Base (Desde el menú lateral)
   const planesFiltradosBase = planesEnriquecidos.filter(p => {
     if (dashFiltroAnio !== 'Todos' && p.anioTexto !== dashFiltroAnio) return false;
@@ -521,7 +549,36 @@ export default function Planes({
           )}
         </div>
       </div>
-
+{/* 🚨 BANNER DE ALERTAS DE VENCIMIENTO */}
+      {planesEnAlerta.length > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 animate-in slide-in-from-top-4 duration-500">
+          <div>
+            <h3 className="text-orange-800 font-black text-sm flex items-center gap-2">
+              <span>⚠️</span> ¡Atención! Hay {planesEnAlerta.length} plan(es) de acción a 2 días hábiles o menos de vencerse.
+            </h3>
+            <p className="text-orange-700 text-xs font-medium mt-1">
+              Se recomienda notificar a los dueños del proceso para evitar retrasos de acuerdo a los procedimientos de la compañía.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            {planesEnAlerta.slice(0, 3).map(plan => {
+              const asunto = encodeURIComponent(`⚠️ ALERTA: Faltan 2 días para vencimiento de Plan de Acción (PLA-${plan.id.toString().slice(-4)})`);
+              const cuerpo = encodeURIComponent(`Estimado/a Líder del Proceso,\n\nDe acuerdo con los procedimientos de la compañía, usted cuenta con 7 días hábiles para subir su plan de acción a la plataforma.\n\nDe acuerdo a la fecha estipulada, le quedan exactamente 2 días hábiles (o menos) para el vencimiento de la siguiente actividad:\n\n📌 Acción requerida: "${plan.accion}"\n📅 Fecha límite: ${plan.fecha}\n\nSe le recomienda subir el plan de acción en este tiempo restante para evitar escalamientos a la Gerencia.\n\nCordialmente,\nAuditoría GCM`);
+              return (
+                <a 
+                  key={plan.id}
+                  href={`mailto:${plan.correoResponsable || ''}?subject=${asunto}&body=${cuerpo}`}
+                  className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-2 transition-all hover:scale-105"
+                  title={`Clic para enviar correo a ${plan.responsable}`}
+                >
+                  <span>📧 Notificar PLA-{plan.id.toString().slice(-4)}</span>
+                </a>
+              )
+            })}
+            {planesEnAlerta.length > 3 && <span className="text-[10px] text-orange-600 font-bold self-center">+ {planesEnAlerta.length - 3} alertas más en la tabla</span>}
+          </div>
+        </div>
+      )}
       {/* 🚀 VISTA 1: DASHBOARD FIEL A TU MAQUETA */}
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
