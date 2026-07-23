@@ -65,8 +65,12 @@ export const CARGOS_SOCIALIZACION = [
   "Supervisor (a) Mesa y Servicio", "Supervisor de Operaciones", "Supervisor Ruta Ecológica", "Terapeuta SPA", "Ama de llaves"
 ];
 
-// 📋 5. CLASIFICACIONES MANUAL DE RIESGO
 export const CLASIFICACIONES_MANUAL = [
-  "Ejecución y administracion del proceso", "Fraude interno", "Usuarios, productos y practicas", 
-  "Fallas tecnologicas", "Daños a activos fisicos", "Relaciones laborales y seguridad en el puesto de trabajo"
+  "Ejecución y administración de procesos",
+  "Fraude Externo",
+  "Fraude Interno",
+  "Fallas Tecnológicas",
+  "Relaciones Laborales",
+  "Usuarios, productos y practicas",
+  "Daños a activos fijos/ eventos externos"
 ];
