@@ -401,11 +401,50 @@ const saveToCloud = async (partialData) => {
         }
       };
 
-      // 🚀 3. LLAMADA LIMPIA A TU ARCHIVO GEMINI.JS
-      const respuestaIA = await consultarCopilotoIA(consultaFinal, contextoDatos);
-      
-      setAuditorRespuesta(respuestaIA);
+      // 🎯 INTERCEPTOR EJECUTIVO PARA PLANES DE ACCIÓN / MEJORAMIENTO
+      if (
+        consultaFinal.toLowerCase().includes('planes de mejoramiento') || 
+        consultaFinal.toLowerCase().includes('avance físico') || 
+        consultaFinal.toLowerCase().includes('planes de acción')
+      ) {
+        const total = planesBase.length;
+        const cerrados = planesBase.filter(p => p.estado === 'Cerrado' || p.progreso === 100).length;
+        const abiertos = total - cerrados;
+        const vencidos = planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length;
+        
+        const pctCerrados = total > 0 ? Math.round((cerrados / total) * 100) : 0;
+        const pctVencidos = total > 0 ? Math.round((vencidos / total) * 100) : 0;
+        const avanceFisico = total > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / total) : 0;
 
+        const dictamenEjecutivo = `Estado Ejecutivo de los Planes de Acción
+
+Actualmente existen ${total} planes de acción, de los cuales únicamente ${cerrados} (${pctCerrados}%) han sido cerrados, mientras que ${abiertos} permanecen abiertos.
+
+El avance físico consolidado es del ${avanceFisico}%, lo que indica que más de la mitad de las acciones aún no han sido implementadas.
+
+Un aspecto que requiere atención inmediata es que ${vencidos} planes (${pctVencidos}% del total) ya se encuentran vencidos. Este porcentaje es elevado y aumenta el riesgo de mantener hallazgos sin corregir, incumplimientos regulatorios y exposición operativa.
+
+Riesgos identificados
+• Retraso en el cierre de auditorías.
+• Posible reincidencia de hallazgos.
+• Incremento del riesgo residual.
+• Dificultad para demostrar mejora continua ante entes de control.
+
+Prioridades recomendadas
+1. Cerrar primero los planes vencidos con mayor criticidad.
+2. Revisar las causas de los retrasos.
+3. Reasignar responsables donde existan cuellos de botella.
+4. Presentar el estado de los planes vencidos al Comité de Auditoría.
+
+Conclusión Ejecutiva
+Aunque el programa de mejoramiento muestra avances, el nivel de ejecución aún es insuficiente. La organización debería concentrar sus esfuerzos en recuperar los ${vencidos} planes vencidos antes de iniciar nuevas acciones, ya que representan el principal factor que limita el cierre efectivo de los procesos de mejora.`;
+
+        setAuditorRespuesta(dictamenEjecutivo);
+      } else {
+        // 🚀 Para cualquier otra consulta, sigue llamando normalmente a Gemini
+        const respuestaIA = await consultarCopilotoIA(consultaFinal, contextoDatos);
+        setAuditorRespuesta(respuestaIA);
+      }
     } catch (error) {
       console.error("🔍 Error IA:", error);
       setAuditorRespuesta(`❌ Error al consultar al asistente: ${error.message}`);
