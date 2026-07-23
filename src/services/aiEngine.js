@@ -11,7 +11,6 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 // ==========================================
 // 🛡️ APAGADO DE FILTROS PARA AUDITORÍA GRC
 // ==========================================
-// Necesario porque términos como "fraude", "pérdida" o "sanciones" bloquean la IA.
 const safetySettings = [
   {
     category: HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -38,9 +37,9 @@ const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash",
   safetySettings,
   generationConfig: {
-    temperature: 0.15,      // Ligeramente ajustado para análisis más natural  
+    temperature: 0.15,      
     topP: 0.8,
-    maxOutputTokens: 2500,  // Aumentado para evitar cortes por longitud
+    maxOutputTokens: 2500,  
   }
 });
 
@@ -64,7 +63,7 @@ DIRECTRICES CRÍTICAS DE AUDITORÍA Y METODOLOGÍA:
 // 📐 CAPA 3: FORMATO DE SALIDA 10/10 (ERIR® C-SUITE EDITION)
 // ==========================================
 const OUTPUT_FORMAT_INSTRUCTIONS = `
-INSTRUCCIONES DE FORMATO: Genera ÚNICAMENTE la estructura Markdown exacta detallada a continuación. Inventa los datos predictivos basándote en el contexto del riesgo, pero mantén EXACTAMENTE esta estructura visual. 
+INSTRUCCIONES DE FORMATO: Genera ÚNICAMENTE la estructura Markdown exacta detallada a continuación. Inventa los datos predictivos basándote en el contexto del riesgo, pero mantén EXACTAMENTE esta estructura visual.
 
 ## 🛡️ INFORME EJECUTIVO DE INTELIGENCIA ESTRATÉGICA DEL RIESGO (ERIR®)
 * **Código/ID:** [ID del Riesgo] | **Estado:** Abierto
@@ -192,7 +191,6 @@ DATOS EXTRAÍDOS DEL SISTEMA PARA INFORME ERIR®:
 - Probabilidad Inherente: ${riesgo.probabilidadInherente || 0}%
 - Impacto Residual: ${riesgo.impactoResidual || 0}%
 - Probabilidad Residual: ${riesgo.probabilidadResidual || 0}%
-- Controles Registrados: ${riesgo.descripcionControl || (riesgo.controlesDetallados ? JSON.stringify(riesgo.controlesDetallados) : '⚠️ Ningún control registrado')}
 - Tratamiento: ${riesgo.tratamiento || 'No especificado'}
 `;
 }
@@ -240,7 +238,7 @@ export const ejecutarDictamenIAStream = async (datos, onChunk) => {
   } catch (error) {
     console.error("Error en ejecutarDictamenIAStream:", error);
     if (onChunk) {
-      onChunk("\n\n⚠️ **Aviso:** El análisis se interrumpió o completó tempranamente debido a los límites de seguridad de la red.");
+      onChunk("\n\n⚠️ **Aviso:** El análisis se interrumpió tempranamente.");
     }
     throw new Error("Error en la transmisión del informe de IA.");
   }
