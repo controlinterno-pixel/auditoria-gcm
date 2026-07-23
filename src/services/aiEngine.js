@@ -24,96 +24,125 @@ const model = genAI.getGenerativeModel({
 // 🏛️ CAPA 1: SYSTEM PROMPT (Executive Advisory & ERIR Engine)
 // ==========================================
 const SYSTEM_PROMPT_CORE = `
-Eres el Socio Director de Consultoría GRC y Auditoría de Nivel Big Four. Debes generar un Dictamen Ejecutivo de Inteligencia Estratégica del Riesgo (ERIR®) completo, riguroso y exhaustivo en formato Markdown estructurado.
+Eres el Motor de Inteligencia Estratégica del Informe ERIR® (Executive Risk Intelligence Report) basado en metodologías de gestión de riesgos ampliamente utilizadas por firmas internacionales de consultoría.
+Tu misión es emitir un Dictamen de Nivel Junta Directiva y C-Suite.
 
-DIRECTRICES CRÍTICAS:
+DIRECTRICES CRÍTICAS DE AUDITORÍA Y METODOLOGÍA:
 1. Denomina este informe "Informe Ejecutivo de Inteligencia Estratégica del Riesgo (ERIR®)".
-2. NO uses marcas comerciales. Refiérete a "Estándares GRC (ISO 31000, COSO ERM, ISO 27005)".
-3. NO utilices el carácter '═' bajo ninguna circunstancia. Utiliza únicamente el separador estándar '---'.
-4. Etiqueta siempre los valores financieros simulados como: *(Estimación IA)*.
+2. NO uses marcas comerciales. Refiérete siempre a "Buenas prácticas internacionales de GRC (ISO 31000, COSO ERM, ISO 27005)".
+3. Etiqueta siempre los valores financieros simulados como: ⚡ *(Estimación IA Basada en Supuestos de Industria)*.
+4. Genera el análisis de Trazabilidad, Ecosistema de Riesgos e Impacto Estratégico de forma exhaustiva.
+5. NO utilices el carácter '═' bajo ninguna circunstancia. Utiliza únicamente el separador estándar '---'.
 `;
 
 // ==========================================
 // 📐 CAPA 3: FORMATO DE SALIDA (ERIR® ENTERPRISE EDITION)
 // ==========================================
 const OUTPUT_FORMAT_INSTRUCTIONS = `
-INSTRUCCIONES DE FORMATO: Genera ÚNICAMENTE la estructura Markdown exacta detallada a continuación:
+INSTRUCCIONES DE FORMATO: Genera ÚNICAMENTE la estructura Markdown exacta detallada a continuación. Inventa los datos predictivos basándote en el contexto del riesgo, pero mantén EXACTAMENTE esta estructura visual:
 
 ## 🛡️ INFORME EJECUTIVO DE INTELIGENCIA ESTRATÉGICA DEL RIESGO (ERIR®)
-- **Código/ID:** [ID del Riesgo] | **Estado:** Abierto
-- **Proceso Impactado:** [Proceso] | **Subproceso:** [Subproceso]
-- **Categoría de Riesgo:** [Categoría] | **Clasificación ISO:** [Clasificación]
-- **Líder Propietario (Owner):** [Propietario registrado o "⚠️ No Asignado en Plataforma"]
-- **Severidad Residual Actual:** [CRÍTICO / ALTO / MODERADO / BAJO]
+* **Código/ID:** [ID del Riesgo] | **Estado:** Abierto
+* **Proceso Impactado:** [Proceso] | **Subproceso:** [Subproceso]
+* **Categoría de Riesgo:** [Categoría] | **Clasificación ISO:** [Clasificación]
+* **Líder Propietario (Owner):** [Propietario registrado o "⚠️ No Asignado en Plataforma"]
+* **Severidad Residual Actual:** [CRÍTICO / ALTO / MODERADO / BAJO]
 
 ---
 
 ## 🏥 SALUD DE LA GESTIÓN DEL RIESGO
-**[Score]%** | [Exposición Alta/Media/Baja]
-**ESTADO DE SALUD DEL RIESGO:** [CRÍTICO / DEFICIENTE / ACEPTABLE / OPTIMO]
+**[Score]%** | [Dibuja la barra de progreso ASCII usando █ y ░, ej: ████████░░░░░░░░░░░░]
+**ESTADO DE SALUD DEL RIESGO:** [CRÍTICA / DEFICIENTE / ACEPTABLE / ÓPTIMA]
 
 ---
 
 ## 📊 COMPARATIVO DE EXPOSICIÓN
-- **Inherente (Sin Controles):** [Inh]% 🔴
-- **Residual (Actual):** [Res]% 🟠
-- **Objetivo (Target Deseado):** 20% 🟢
+* **Inherente (Sin Controles):** [████████████████████] [Inh]% 🔴
+* **Residual (Actual):** [██████████░░░░░░░░░░] [Res]% 🟠
+* **Objetivo (Target Deseado):** [████░░░░░░░░░░░░░░░░] 20% 🟢
 
 ---
 
 ## 🚦 SEMÁFORO Y MAPA DE CONTROL EJECUTIVO
 | Indicador | Estado | Diagnóstico Rápido |
 | --- | --- | --- |
-| **Criticidad Preliminar** | 🔴 Alto | Falla de gobernanza o controles débiles. |
-| **Calidad del Registro** | [🔴 Deficiente / 🟢 Excelente] | [Falta asignación / Propietario asignado]. |
-| **Nivel de Madurez** | 🔴 Baja (Inicial) | Gestión estructurada del proceso. |
-| **Exposición Real** | 🔴 Alta | Requiere atención de la alta gerencia. |
-| **Prioridad de Atención** | 🔴 Inmediata | Nivel de urgencia gerencial. |
-
----
-
-## 👔 RESUMEN EJECUTIVO (Vista 2 Minutos)
-> **Opinión Profesional del Socio Director:** [Redacta aquí un análisis exhaustivo y profesional sobre el impacto estratégico de este riesgo en la operación, fallas de control e imprevistos financieros].
-
-- **Pérdida Esperada (ALE):** 💰 $[Monto Estimado] USD ⚡ *(Estimación IA)*
-- **Confianza de Análisis IA:** 94% ★★★★★
-- **Tiempo Estimado para Recuperación:** ⏱️ ≈ 6-9 Meses
-
----
-
-## 🎯 ALINEACIÓN CON OBJETIVOS ESTRATÉGICOS
-| Objetivo Estratégico | Nivel de Impacto | Diagnóstico de Exposición |
-| --- | --- | --- |
-| **1. Protección Patrimonial** | 🔴 Alto | Vulnerabilidad directa a pérdidas. |
-| **2. Continuidad Operacional** | 🔴 Alto | Riesgo de interrupción en actividades. |
-| **3. Cumplimiento Legal** | 🟠 Medio | Exposición a hallazgos de auditoría. |
-
----
-
-## 🚀 SIMULACIÓN DE EVOLUCIÓN: ¿QUÉ PASARÍA SI MEJORAMOS?
-- **Estado Actual:** 15/100 🔴 (Gobernanza Deficiente)
-- **+ Asignar Owner:** 30/100 🟡 (Asignación de Responsabilidad)
-- **+ Ejecutar Controles:** 70/100 🟢 (Estado Aceptable y Mitigado)
-
----
-
-## 🔮 IA PREDICTIVA & SCENARIO ANALYSIS
-- **Probabilidad de Materialización (12 Meses):** [Probabilidad]%
-- **Impacto Potencial Estimado:** $[Valor] USD
-🚨 **Escenario ("Si no se hace nada"):** Incremento de vulnerabilidad a fraudes, sanciones en auditorías externas y deterioro del margen financiero.
-
----
-
-## 🏛️ DICTAMEN PARA EL COMITÉ DE RIESGOS
-- **Recomendación Directa:** Intervención prioritaria para establecer gobernanza y control robustos.
-- **Nivel de Urgencia:** 🔴 Muy Alta
-- **Fecha Sugerida de Revisión:** 15 Días
+| **Criticidad Preliminar** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Estimación cualitativa |
+| **Calidad del Registro** | 🔴 Deficiente / 🟢 Aceptable | Basado en completitud metodológica |
+| **Nivel de Madurez** | 🔴 Baja (Inicial) | Gestión estructurada del proceso |
+| **Exposición Real** | 🔴 Alta | Requiere atención de la alta gerencia |
+| **Prioridad de Atención** | 🔴 Inmediata / 🟡 Estratégica | Nivel de urgencia gerencial |
 
 ---
 
 ## 📌 VEREDICTO EJECUTIVO
-**VEREDICTO:** Este riesgo NO se encuentra bajo un nivel de control aceptable. Se recomienda intervención inmediata para mitigar la exposición de gobernanza.
-- **Confianza del Veredicto:** 94% ★★★★★
+**VEREDICTO:** Este riesgo NO se encuentra bajo control. Se recomienda intervención inmediata.
+* **Nivel de confianza del análisis IA:** [Ej: 85%] ★★★★☆
+
+---
+
+## 👔 RESUMEN EJECUTIVO (Vista 2 Minutos)
+> **Opinión Profesional:** [Redacta aquí un análisis contundente, frío y calculador sobre la gobernanza y exposición del riesgo, ideal para un CEO o Junta Directiva].
+
+* **Pérdida Esperada (ALE):** 💰 $[Monto Estimado] USD ⚡ *(Estimación IA Basada en Supuestos de Industria)*
+* **Tiempo Estimado para Recuperación:** ⏱️ Tiempo estimado para llevar este riesgo de [Score]/100 a 80/100 ≈ [2 a 9] meses.
+
+---
+
+## 🎯 IMPACTO ESTRATÉGICO
+| Objetivo Estratégico | Impacto | Diagnóstico de Exposición |
+| --- | --- | --- |
+| **Protección Patrimonial** | 🔴 ALTO / 🟡 MEDIO | Vulnerabilidad directa a pérdidas financieras y operativas. |
+| **Rentabilidad y Operación** | 🔴 ALTO / 🟡 MEDIO | Riesgo de interrupción en actividades clave. |
+| **Cumplimiento Legal** | 🔴 ALTO / 🟡 MEDIO | Exposición a hallazgos de auditoría y sanciones. |
+
+---
+
+## 🔗 ECOSISTEMA DE RIESGOS RELACIONADOS
+Este riesgo tiene relación transversal con:
+* ✔️ [Ej: Riesgo de Fraude Interno y Mala Gestión]
+* ✔️ [Ej: Riesgo de Obsolescencia de Activos Fijos]
+* ✔️ [Ej: Riesgo de Exactitud en Estados Financieros]
+* ✔️ [Ej: Riesgo de Continuidad de Negocio]
+
+---
+
+## 🚀 SIMULACIÓN DE EVOLUCIÓN (Plan de Mejora)
+* **Estado Actual:** [Score]/100 🔴 (Gobernanza Deficiente)
+* **↓ Asignar Owner:** [Score + 15]/100 🟡 (Asignación de Responsabilidad)
+* **↓ Definir KRIs:** [Score + 30]/100 🟡 (Monitoreo Activo)
+* **↓ Ejecutar Controles:** [Score + 55]/100 🟢 (Estado Aceptable y Mitigado)
+
+---
+
+## 📈 TENDENCIA HISTÓRICA Y EVOLUCIÓN
+* **2024:** ████░░░░░░ (40/100)
+* **2025:** ███████░░░ (70/100)
+* **2026 (Hoy):** ██░░░░░░░░ ([Score]/100)
+* **Variación:** 📉 La situación histórica muestra un evidente deterioro de las defensas.
+
+---
+
+## 🔮 IA PREDICTIVA & SCENARIO ANALYSIS
+* **Probabilidad de Materialización (12 Meses):** [Probabilidad]% [██████████░░]
+* **Impacto Potencial Estimado:** $[Valor] USD ⚡ *(Estimación IA Basada en Supuestos de Industria)*
+🚨 **Escenario ("Si no se hace nada"):** Incremento de vulnerabilidad a fraudes u omisiones operativas, sanciones en auditorías externas y deterioro de la rentabilidad.
+
+---
+
+## 🏛️ DICTAMEN PARA EL COMITÉ DE RIESGOS & DECISIONES
+* **Recomendación Directa:** Intervención prioritaria para establecer gobernanza y control robustos.
+* **Nivel de Urgencia:** 🔴 Muy Alta
+| Decisión Recomendada | Prioridad | Responsable |
+| --- | --- | --- |
+| 1. Asignación formal de Propietario del riesgo. | 🔴 Inmediata | Gerencia General |
+| 2. Auditoría interna exhaustiva. | 🔴 Inmediata | Líder de Auditoría Interna |
+| 3. Implementación urgente de Plan de Acción. | 🟠 Alta | Dueño del Proceso |
+
+---
+
+## 📝 TRAZABILIDAD DEL DICTAMEN ERIR®
+* **Universo de Información Analizada:** Datos del registro evaluado, controles preventivos/detectivos, y la ausencia o presencia de propietario, plan de acción y fechas de seguimiento.
+* **Marcos y Estándares de Referencia:** Buenas prácticas internacionales de GRC (ISO 31000:2018, COSO ERM 2017, ISO 27005) y metodologías de gestión de riesgos corporativos.
 `;
 
 // ==========================================
@@ -123,17 +152,25 @@ function buildRiskContext(riesgo) {
   return `
 DATOS EXTRAÍDOS DEL SISTEMA PARA INFORME ERIR®:
 - Código/ID: RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}
+- Fecha Actual de Evaluación: ${new Date().toLocaleDateString()}
+- Título/Riesgo: ${riesgo.nombre || riesgo.riesgo || 'Sin especificación'}
 - Macroproceso: ${riesgo.macroproceso || riesgo.proceso || 'No asignado'}
 - Subproceso: ${riesgo.subproceso || 'General'}
 - Categoría ISO: ${riesgo.categoria || 'No asignada'}
 - Clasificación: ${riesgo.clasificacionRiesgo || 'Sin clasificación'}
+- Normativa: ${riesgo.normativa || 'No registrada'}
+- Sedes: ${Array.isArray(riesgo.sede) ? riesgo.sede.join(', ') : (riesgo.sede || 'Sin sede')}
 - Propietario / Owner: ${riesgo.responsable || '⚠️ No asignado en plataforma'}
 - Causa / Descripción: ${riesgo.descripcion || 'Sin detalle de causa raíz'}
 - Impacto Inherente: ${riesgo.impactoInherente || 0}%
 - Probabilidad Inherente: ${riesgo.probabilidadInherente || 0}%
 - Impacto Residual: ${riesgo.impactoResidual || 0}%
 - Probabilidad Residual: ${riesgo.probabilidadResidual || 0}%
+- Controles Registrados: ${riesgo.descripcionControl || (riesgo.controlesDetallados ? JSON.stringify(riesgo.controlesDetallados) : '⚠️ Ningún control registrado')}
 - Tratamiento: ${riesgo.tratamiento || 'No especificado'}
+- Plan de Acción: ${riesgo.planAccionRiesgo || 'No asignado'}
+- Fecha Seguimiento: ${riesgo.fechaSeguimiento || 'Sin fecha'}
+- Bitácora: ${riesgo.seguimientoBitacora || 'Sin notas'}
 `;
 }
 
@@ -144,7 +181,8 @@ DATOS EXTRAÍDOS DEL SISTEMA PARA INFORME ERIR®:
 export const ejecutarDictamenIA = async (tipoModulo = 'RIESGO', datos) => {
   try {
     const contexto = buildRiskContext(datos);
-    const fullPrompt = `${SYSTEM_PROMPT_CORE}\n\n${contexto}\n\n${OUTPUT_FORMAT_INSTRUCTIONS}`;
+    const fullPrompt = `${SYSTEM_PROMPT_CORE}\n\n--------------------------------------------------\nREGISTRO EVALUADO EN SISTEMA:\n${contexto}\n--------------------------------------------------\n\n${OUTPUT_FORMAT_INSTRUCTIONS}`;
+    
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
     return response.text();
@@ -157,7 +195,7 @@ export const ejecutarDictamenIA = async (tipoModulo = 'RIESGO', datos) => {
 export const ejecutarDictamenIAStream = async (datos, onChunk) => {
   try {
     const contexto = buildRiskContext(datos);
-    const fullPrompt = `${SYSTEM_PROMPT_CORE}\n\n${contexto}\n\n${OUTPUT_FORMAT_INSTRUCTIONS}`;
+    const fullPrompt = `${SYSTEM_PROMPT_CORE}\n\n--------------------------------------------------\nREGISTRO EVALUADO EN SISTEMA:\n${contexto}\n--------------------------------------------------\n\n${OUTPUT_FORMAT_INSTRUCTIONS}`;
     
     const resultStream = await model.generateContentStream(fullPrompt);
 
@@ -165,7 +203,9 @@ export const ejecutarDictamenIAStream = async (datos, onChunk) => {
     for await (const chunk of resultStream.stream) {
       const chunkText = chunk.text();
       textoAcumulado += chunkText;
-      if (onChunk) onChunk(textoAcumulado);
+      
+      // ✅ Solución al error de duplicación ("bola de nieve"): se pasa solo el chunkText nuevo
+      if (onChunk) onChunk(chunkText); 
     }
 
     return textoAcumulado;
@@ -174,3 +214,9 @@ export const ejecutarDictamenIAStream = async (datos, onChunk) => {
     throw new Error("Error en la transmisión del informe de IA.");
   }
 };
+
+export const analizarRiesgoConIA = async (datosRiesgo) => {
+  return await ejecutarDictamenIA('RIESGO', datosRiesgo);
+};
+
+export const generarPromptDictamenRiesgo = analizarRiesgoConIA;
