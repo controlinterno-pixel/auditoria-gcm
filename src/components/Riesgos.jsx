@@ -111,7 +111,9 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   const [categoria, setCategoria] = useState('');
   const [clasificacionRiesgo, setClasificacionRiesgo] = useState(CLASIFICACIONES_MANUAL[0]);
   const [normativa, setNormativa] = useState('');
-  const [sedeForm, setSedeForm] = useState('Administrativos');
+  // Modificamos sedeForm para que sea un arreglo (Array) y añadimos sedeTemp
+  const [sedeForm, setSedeForm] = useState(['Administrativos']);
+  const [sedeTemp, setSedeTemp] = useState('');
   const [responsablesMultiples, setResponsablesMultiples] = useState([]);
   const [responsableTemp, setResponsableTemp] = useState('');  
   const [afectacion, setAfectacion] = useState('Económico');
@@ -197,8 +199,8 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
     
-    // 🏢 Recuperar Sede
-    setSedeForm(riesgo.sede || 'Administrativos');
+// 🏢 Recuperar Sede (Soporta versiones viejas de texto único y versiones nuevas de selección múltiple)
+    setSedeForm(Array.isArray(riesgo.sede) ? riesgo.sede : (riesgo.sede ? [riesgo.sede] : ['Administrativos']));
     
     // 🌟 Recuperar proceso y Subproceso (Manteniendo compatibilidad con datos viejos)
     setMacroproceso(riesgo.macroproceso || riesgo.proceso || listadoMacros[0]);
@@ -643,22 +645,55 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 <input type="text" value={normativa} onChange={(e) => setNormativa(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" placeholder="Ej. ISO 31000..." />
               </div>
               
-              {/* 🏢 SELECTOR EN CASCADA: SEDE */}
+              {/* 🏢 SELECTOR MÚLTIPLE: SEDES AFECTADAS */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Sede Afectada</label>
-                <select value={sedeForm} onChange={(e) => { setSedeForm(e.target.value); setResponsableTemp(''); }} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 bg-white">
-                  {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s}>{s}</option>)}
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1 block">Sedes Afectadas</label>
+                <select 
+                  value={sedeTemp} 
+                  onChange={(e) => { 
+                    const nuevaSede = e.target.value;
+                    if(nuevaSede && !sedeForm.includes(nuevaSede)) {
+                      setSedeForm([...sedeForm, nuevaSede]);
+                    }
+                    setSedeTemp(''); 
+                  }} 
+                  className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-blue-900 bg-white mb-2"
+                >
+                  <option value="">-- Añadir Sede --</option>
+                  {Object.keys(CARGOS_POR_SEDE).map(s => (
+                    <option key={s} value={s} disabled={sedeForm.includes(s)}>{s}</option>
+                  ))}
                 </select>
+
+                {/* 🏷️ CHIPS DE SEDES */}
+                <div className="flex flex-wrap gap-2 min-h-[32px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
+                  {sedeForm.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Seleccione al menos una sede...</span>}
+                  {sedeForm.map(s => (
+                    <span key={s} className="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
+                      {s} 
+                      {sedeForm.length > 1 && (
+                        <button type="button" onClick={() => setSedeForm(sedeForm.filter(item => item !== s))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                      )}
+                    </span>
+                  ))}
+                </div>
               </div>
 
-              {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO */}
+              {/* 👥 SELECTOR MÚLTIPLE: DUEÑO DEL PROCESO (AGRUPADO POR SEDES SELECCIONADAS) */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2 lg:col-span-3">
                 <LabelConPalomita idCampo="responsable" />
                 <div className="flex gap-2 mb-2 md:w-1/2">
                   <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white">
-                    <option value="">-- Escoger de {sedeForm} --</option>
-                    {CARGOS_POR_SEDE[sedeForm].map(cargo => (
-                      <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>
+                    <option value="">-- Escoger Líder --</option>
+                    {/* Iteramos sobre TODAS las sedes seleccionadas para extraer sus líderes */}
+                    {sedeForm.map(sedeSeleccionada => (
+                      <optgroup key={sedeSeleccionada} label={`📍 ${sedeSeleccionada}`}>
+                        {(CARGOS_POR_SEDE[sedeSeleccionada] || []).map(cargo => (
+                          <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>
+                            {cargo}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                   <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setResponsablesMultiples([...responsablesMultiples, responsableTemp]); setResponsableTemp(''); }} className="bg-[#0A3B32] text-white px-4 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm">➕ Añadir</button>
@@ -674,7 +709,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     </span>
                   ))}
                 </div>
-              </div>  
+              </div> 
             </div>
           </div>
 
