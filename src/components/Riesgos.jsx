@@ -630,21 +630,21 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 </button>
               </div>
 
-              {/* Cuerpo Renderizado con Renderizador ASCII / Gauges */}
+              {/* Cuerpo Renderizado con Barras Elegantes HTML/Tailwind */}
               <div className="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
                 {dictamenIA.dictamen.split('\n').map((linea, i) => {
                   const trimmed = linea.trim();
                   if (!trimmed) return null;
 
-                  // Líneas decorativas dobles
-                  if (trimmed.startsWith('═')) {
-                    return <div key={i} className="border-b-2 border-emerald-500/40 my-3"></div>;
+                  // Separadores elegantes
+                  if (trimmed.startsWith('═') || trimmed.startsWith('---')) {
+                    return <div key={i} className="border-b border-slate-800/80 my-3"></div>;
                   }
 
                   // Secciones Nivel 2 (##)
                   if (trimmed.startsWith('## ')) {
                     return (
-                      <h2 key={i} className="text-sm font-black text-emerald-400 border-b border-slate-800 pb-1.5 mt-5 mb-2 uppercase tracking-wider flex items-center gap-2">
+                      <h2 key={i} className="text-xs font-black text-emerald-400 border-b border-slate-800 pb-1.5 mt-5 mb-2 uppercase tracking-wider flex items-center gap-2">
                         {trimmed.replace('## ', '')}
                       </h2>
                     );
@@ -653,16 +653,16 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                   // Secciones Nivel 3 (###)
                   if (trimmed.startsWith('### ')) {
                     return (
-                      <h3 key={i} className="text-xs font-black text-slate-100 uppercase tracking-wider mt-4 mb-2 bg-slate-900/90 p-2 rounded-lg border-l-2 border-emerald-400">
+                      <h3 key={i} className="text-[11px] font-black text-slate-100 uppercase tracking-wider mt-4 mb-2 bg-slate-900/90 p-2 rounded-lg border-l-2 border-emerald-400">
                         {trimmed.replace('### ', '')}
                       </h3>
                     );
                   }
 
-                  // Opinión del Socio / Quotes (>)
+                  // Citas / Bloque del Socio (>)
                   if (trimmed.startsWith('> ')) {
                     return (
-                      <blockquote key={i} className="p-3 bg-emerald-950/40 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
+                      <blockquote key={i} className="p-3 bg-emerald-950/30 border-l-4 border-emerald-500 text-emerald-200 rounded-r-xl my-2 italic font-medium">
                         <span dangerouslySetInnerHTML={{ 
                           __html: trimmed.replace('> ', '').replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
                         }} />
@@ -670,17 +670,55 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // Gauges o Cajas de Código Textual (Velocímetros ASCII)
-                  if (trimmed.startsWith('```')) return null;
-                  if (trimmed.includes('████') || trimmed.includes('CALIDAD DEL REGISTRO')) {
+                  // 🎨 TRANSFORMADOR VIRTUAL DE BARRAS (Sustituye ASCII por Barras de Progreso Reales)
+                  if (trimmed.includes('█') || trimmed.includes('%') && (trimmed.includes('Inherente') || trimmed.includes('Residual') || trimmed.includes('Objetivo') || trimmed.includes('Salud') || trimmed.includes('Estado Actual'))) {
+                    // Extraer porcentaje si existe
+                    const pctMatch = trimmed.match(/(\d+)%/);
+                    const pct = pctMatch ? parseInt(pctMatch[1], 10) : 50;
+
+                    // Determinar el color según el contexto
+                    let colorBarra = "from-emerald-500 to-teal-400";
+                    let bgBadge = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+
+                    if (trimmed.includes('Inherente') || pct >= 80) {
+                      colorBarra = "from-red-600 to-rose-400";
+                      bgBadge = "bg-red-500/10 text-red-400 border-red-500/20";
+                    } else if (trimmed.includes('Residual') || pct >= 50) {
+                      colorBarra = "from-amber-500 to-orange-400";
+                      bgBadge = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+                    }
+
+                    // Limpiar el texto para la etiqueta
+                    const etiquetaLimpia = trimmed
+                      .replace(/█|░/g, '')
+                      .replace(/\[|\]/g, '')
+                      .replace(/```/g, '')
+                      .replace(/\d+%/g, '')
+                      .trim();
+
                     return (
-                      <pre key={i} className="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-emerald-400 text-xs my-2 overflow-x-auto font-bold leading-relaxed">
-                        {trimmed}
-                      </pre>
+                      <div key={i} className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl my-2 space-y-2">
+                        <div className="flex justify-between items-center text-[11px] font-bold text-slate-200">
+                          <span className="truncate pr-2">{etiquetaLimpia || 'Indicador de Exposición'}</span>
+                          <span className={`px-2 py-0.5 rounded-full border font-black text-[10px] ${bgBadge}`}>
+                            {pct}%
+                          </span>
+                        </div>
+                        {/* Barra estilizada en Tailwind */}
+                        <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                          <div 
+                            className={`h-full rounded-full bg-gradient-to-r ${colorBarra} transition-all duration-700 shadow-sm`}
+                            style={{ width: `${Math.min(Math.max(pct, 2), 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
                     );
                   }
 
-                  // Filas de Tablas Markdown (|)
+                  // Omitir bloques de código Markdown innecesarios
+                  if (trimmed.startsWith('```')) return null;
+
+                  // Filas de Tabla (|)
                   if (trimmed.startsWith('|')) {
                     if (trimmed.includes('---')) return null;
                     const celdas = trimmed.split('|').filter(c => c.trim() !== '');
@@ -695,7 +733,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // Viñetas (* o -)
+                  // Listas de viñetas (* o -)
                   if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
                     const contenido = trimmed.substring(2);
                     return (
@@ -708,7 +746,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                     );
                   }
 
-                  // Párrafos
+                  // Párrafos Estándar
                   return (
                     <p key={i} className="my-1.5 text-slate-300" dangerouslySetInnerHTML={{ 
                       __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
