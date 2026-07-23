@@ -234,7 +234,30 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
       }
     }
   };
+// 🤖 FUNCIÓN DE ANALISIS CON IA EN TIEMPO REAL (STREAMING)
+  const solicitarAnalisisFilaIA = async (riesgo) => {
+    setProcesandoIA(true);
+    setDictamenIA({
+      titulo: `Dictamen Técnico ERIR® — ${riesgo.proceso || 'Riesgo Corporativo'}`,
+      dictamen: ''
+    });
 
+    try {
+      await ejecutarDictamenIAStream(riesgo, (chunk) => {
+        setDictamenIA(prev => ({
+          ...prev,
+          dictamen: (prev?.dictamen || '') + chunk
+        }));
+      });
+    } catch (error) {
+      console.error("Error transmitiendo análisis de IA:", error);
+      if (showNotification) {
+        showNotification("Error al conectar con la Inteligencia Artificial.", "error");
+      }
+    } finally {
+      setProcesandoIA(false);
+    }
+  };
   const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
