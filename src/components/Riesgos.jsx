@@ -163,23 +163,26 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
   const [fechaSeguimiento, setFechaSeguimiento] = useState('');
   const [seguimientoBitacora, setSeguimientoBitacora] = useState('');
 
-  const calcularRiesgoResidual = () => {
+ const calcularRiesgoResidual = () => {
     let curr_p = probInherente / 100;
     let curr_i = impInherente / 100;
 
     controles.forEach(c => {
       let weight = 0;
-      if (c.tipo === 'Preventivo') weight += 0.20;
-      else if (c.tipo === 'Detectivo') weight += 0.12;
-      else if (c.tipo === 'Correctivo') weight += 0.08;
+      
+      // 1. Tipo de Control según Manual (Tabla 6)
+      if (c.tipo === 'Preventivo') weight += 0.25;
+      else if (c.tipo === 'Detectivo') weight += 0.15;
+      else if (c.tipo === 'Correctivo') weight += 0.10;
 
-      if (c.implementacion === 'Automático') weight += 0.10;
-      else if (c.implementacion === 'Manual') weight += 0.05;
+      // 2. Implementación según Manual (Tabla 6)
+      if (c.implementacion === 'Automático') weight += 0.25;
+      else if (c.implementacion === 'Manual') weight += 0.15;
 
-      if (c.documentacion === 'Documentado') weight += 0.05;
-      if (c.frecuencia === 'Continua') weight += 0.05;
-      if (c.evidencia === 'Con registro') weight += 0.05;
+      // 3. Documentación según Manual (Tabla 6)
+      if (c.documentacion === 'Documentado') weight += 0.15;
 
+      // 4. Aplicación a Probabilidad o Impacto (Gráfica 9)
       if (c.tipo === 'Correctivo') {
         curr_i = curr_i - (curr_i * weight);
       } else {
