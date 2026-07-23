@@ -375,14 +375,14 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
       // vamos a imprimir el "prompt gigante" dentro del modal después de 2 segundos.
       // Cuando conectes tu API real (OpenAI/Anthropic), reemplazarás este setTimeout
       // por un await fetch() a tu servicio de IA.
-      setTimeout(() => {
-         setDictamenIA({
-          titulo: `Dictamen GRC Copilot: RSK-${String(r.id).substring(0,4)}`,
-          dictamen: `<pre class="whitespace-pre-wrap font-mono text-[10px] text-slate-300 bg-slate-900 p-4 rounded-xl overflow-y-auto max-h-[60vh]">${promptEstructurado}</pre>`
-        });
-        setProcesandoIA(false);
-      }, 2000);
+      // ✅ PEGAR ESTO EN SU LUGAR:
+      const dictamenReal = await generarPromptDictamenRiesgo(r);
 
+      setDictamenIA({
+        titulo: `Dictamen GRC Copilot: RSK-${String(r.id).substring(0,4)}`,
+        dictamen: dictamenReal
+      });
+      setProcesandoIA(false);
     } catch (error) {
       console.error("Error en GRC Copilot:", error);
       setDictamenIA({
