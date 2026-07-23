@@ -295,9 +295,9 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
         ...(editRiesgo || {}),
         id: editRiesgo ? editRiesgo.id : crypto.randomUUID(),
         sede: sedeForm,
-        // 🌟 Guardamos tanto la compatibilidad de "proceso" para el Dashboard, como el desglose
-        proceso: proceso,
-        proceso: proceso,
+        // ✅ CORREGIDO: Se usa macroproceso para no romper el guardado
+        proceso: macroproceso,
+        macroproceso: macroproceso,
         subproceso: subproceso,
         categoria,
         clasificacionRiesgo,
@@ -344,7 +344,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
       setIsSubmitting(false);
     }
   };
-
   const LabelConPalomita = ({ idCampo, dark }) => {
     const dataAyuda = EXPLICACIONES_CAMPOS[idCampo];
     if (!dataAyuda) return null;
@@ -368,14 +367,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     setDictamenIA(null);
 
     try {
-      // 1. Pasamos el riesgo por nuestro motor de 3 capas
-      const promptEstructurado = generarPromptDictamenRiesgo(r);
-
-      // 2. TEMPORAL: Para probar que la arquitectura funciona en tu pantalla,
-      // vamos a imprimir el "prompt gigante" dentro del modal después de 2 segundos.
-      // Cuando conectes tu API real (OpenAI/Anthropic), reemplazarás este setTimeout
-      // por un await fetch() a tu servicio de IA.
-      // ✅ PEGAR ESTO EN SU LUGAR:
+      // ✅ CORREGIDO: Llamada asíncrona directa y limpia a Gemini
       const dictamenReal = await generarPromptDictamenRiesgo(r);
 
       setDictamenIA({
@@ -618,21 +610,74 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           )}
 
           {dictamenIA && (
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-2xl relative border-l-4 border-l-emerald-500 w-full animate-in zoom-in-95 duration-300">
-              <button onClick={() => setDictamenIA(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] px-2.5 py-1 rounded-xl transition-colors">✕ Cerrar</button>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-base">🤖</span>
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dictamen de Inteligencia Artificial</h4>
+  <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col relative border-l-4 border-l-emerald-500 overflow-hidden animate-in zoom-in-95 duration-200">
+      
+      {/* Cabecera del Modal */}
+      <div className="p-6 border-b border-slate-800 bg-[#0b1329] flex justify-between items-center shrink-0">
+        <div className="flex items-center gap-3">
+          <span className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-lg">🤖</span>
+          <div>
+            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest block">Dictamen de Inteligencia Artificial</span>
+            <h3 className="text-sm font-black text-white uppercase tracking-tight">{dictamenIA.titulo}</h3>
+          </div>
+        </div>
+        <button 
+          onClick={() => setDictamenIA(null)} 
+          className="text-slate-400 hover:text-white text-xs font-bold uppercase tracking-wider bg-[#1e293b] hover:bg-slate-700 px-3 py-1.5 rounded-xl transition-colors"
+        >
+          ✕ Cerrar
+        </button>
+      </div>
+
+      {/* Cuerpos del Dictamen con Formateo Markdown Pro */}
+      <div className="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
+        {dictamenIA.dictamen.split('\n').map((linea, i) => {
+          const trimmed = linea.trim();
+          if (!trimmed) return null;
+
+          // Títulos principales (##)
+          if (trimmed.startsWith('## ')) {
+            return <h2 key={i} className="text-base font-black text-white border-b border-slate-800 pb-2 mt-4 mb-2 text-emerald-400">{trimmed.replace('## ', '')}</h2>;
+          }
+          // Subtítulos (###)
+          if (trimmed.startsWith('### ')) {
+            return <h3 key={i} className="text-xs font-black text-emerald-300 uppercase tracking-wider mt-3 mb-1">{trimmed.replace('### ', '')}</h3>;
+          }
+          // Listas o Viñetas (- o *)
+          if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            const contenido = trimmed.substring(2);
+            return (
+              <div key={i} className="flex gap-2 my-1 pl-2 bg-slate-900/50 p-2 rounded-lg border border-slate-800/60">
+                <span className="text-emerald-400 font-bold">•</span>
+                <span className="text-slate-200" dangerouslySetInnerHTML={{ 
+                  __html: contenido.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>') 
+                }} />
               </div>
-              <h3 className="text-sm font-black text-white uppercase tracking-tight mb-4 border-b border-slate-800/80 pb-2.5">
-                {dictamenIA.titulo}
-              </h3>
-              <div className="text-emerald-300 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20 text-xs leading-relaxed font-medium">
-                <b className="text-emerald-400 uppercase block text-[9px] mb-1.5 tracking-wider">🎯 Análisis y Recomendaciones:</b> 
-                <span dangerouslySetInnerHTML={{ __html: dictamenIA.dictamen.replace(/\*\*(.*?)\*\*/g, '<b class="text-white bg-emerald-900/40 px-1 py-0.5 rounded">$1</b>') }}></span>
-              </div>
-            </div>
-          )}
+            );
+          }
+          // Párrafos o listas numeradas
+          return (
+            <p key={i} className="my-1.5 text-slate-300" dangerouslySetInnerHTML={{ 
+              __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<strong class="text-emerald-300 font-bold">$1</strong>') 
+            }} />
+          );
+        })}
+      </div>
+
+      {/* Pie del Modal */}
+      <div className="p-4 border-t border-slate-800 bg-[#0b1329] flex justify-end shrink-0">
+        <button 
+          onClick={() => setDictamenIA(null)} 
+          className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase tracking-widest px-6 py-2.5 rounded-xl shadow-lg transition-all"
+        >
+          Entendido / Entrar en revisión
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
         </div>
       )}
 
