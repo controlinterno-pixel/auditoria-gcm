@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -9,14 +9,38 @@ if (!GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 
 // ==========================================
+// 🛡️ APAGADO DE FILTROS PARA AUDITORÍA GRC
+// ==========================================
+// Necesario porque términos como "fraude", "pérdida" o "sanciones" bloquean la IA.
+const safetySettings = [
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_NONE,
+  },
+];
+
+// ==========================================
 // ⚡ CONFIGURACIÓN DE ALTA VELOCIDAD Y RENDIMIENTO
 // ==========================================
 const model = genAI.getGenerativeModel({ 
   model: "gemini-2.5-flash",
+  safetySettings,
   generationConfig: {
-    temperature: 0.1,       
+    temperature: 0.15,      // Ligeramente ajustado para análisis más natural  
     topP: 0.8,
-    maxOutputTokens: 2048,  
+    maxOutputTokens: 2500,  // Aumentado para evitar cortes por longitud
   }
 });
 
@@ -33,13 +57,14 @@ DIRECTRICES CRÍTICAS DE AUDITORÍA Y METODOLOGÍA:
 3. Etiqueta siempre los valores financieros simulados como: ⚡ *(Estimación IA Basada en Supuestos de Industria)*.
 4. Genera el análisis de Trazabilidad, Ecosistema de Riesgos e Impacto Estratégico de forma exhaustiva.
 5. NO utilices el carácter '═' bajo ninguna circunstancia. Utiliza únicamente el separador estándar '---'.
+6. Usa el formato de viñeta normal (*) para listas.
 `;
 
 // ==========================================
-// 📐 CAPA 3: FORMATO DE SALIDA (ERIR® ENTERPRISE EDITION)
+// 📐 CAPA 3: FORMATO DE SALIDA 10/10 (ERIR® C-SUITE EDITION)
 // ==========================================
 const OUTPUT_FORMAT_INSTRUCTIONS = `
-INSTRUCCIONES DE FORMATO: Genera ÚNICAMENTE la estructura Markdown exacta detallada a continuación. Inventa los datos predictivos basándote en el contexto del riesgo, pero mantén EXACTAMENTE esta estructura visual:
+INSTRUCCIONES DE FORMATO: Genera ÚNICAMENTE la estructura Markdown exacta detallada a continuación. Inventa los datos predictivos basándote en el contexto del riesgo, pero mantén EXACTAMENTE esta estructura visual. 
 
 ## 🛡️ INFORME EJECUTIVO DE INTELIGENCIA ESTRATÉGICA DEL RIESGO (ERIR®)
 * **Código/ID:** [ID del Riesgo] | **Estado:** Abierto
@@ -51,8 +76,8 @@ INSTRUCCIONES DE FORMATO: Genera ÚNICAMENTE la estructura Markdown exacta detal
 ---
 
 ## 🏥 SALUD DE LA GESTIÓN DEL RIESGO
-**[Score]%** | [Dibuja la barra de progreso ASCII usando █ y ░, ej: ████████░░░░░░░░░░░░]
-**ESTADO DE SALUD DEL RIESGO:** [CRÍTICA / DEFICIENTE / ACEPTABLE / ÓPTIMA]
+* **Salud del Riesgo:** [██████░░░░░░░░░░░░░░] [Score]%
+* **Estado de Salud:** [CRÍTICA / DEFICIENTE / ACEPTABLE / ÓPTIMA]
 
 ---
 
@@ -115,9 +140,9 @@ Este riesgo tiene relación transversal con:
 ---
 
 ## 📈 TENDENCIA HISTÓRICA Y EVOLUCIÓN
-* **2024:** ████░░░░░░ (40/100)
-* **2025:** ███████░░░ (70/100)
-* **2026 (Hoy):** ██░░░░░░░░ ([Score]/100)
+* **2024:** ████░░░░░░ (40%)
+* **2025:** ███████░░░ (70%)
+* **2026 (Hoy):** ██░░░░░░░░ ([Score]%)
 * **Variación:** 📉 La situación histórica muestra un evidente deterioro de las defensas.
 
 ---
@@ -132,6 +157,7 @@ Este riesgo tiene relación transversal con:
 ## 🏛️ DICTAMEN PARA EL COMITÉ DE RIESGOS & DECISIONES
 * **Recomendación Directa:** Intervención prioritaria para establecer gobernanza y control robustos.
 * **Nivel de Urgencia:** 🔴 Muy Alta
+
 | Decisión Recomendada | Prioridad | Responsable |
 | --- | --- | --- |
 | 1. Asignación formal de Propietario del riesgo. | 🔴 Inmediata | Gerencia General |
@@ -141,8 +167,8 @@ Este riesgo tiene relación transversal con:
 ---
 
 ## 📝 TRAZABILIDAD DEL DICTAMEN ERIR®
-* **Universo de Información Analizada:** Datos del registro evaluado, controles preventivos/detectivos, y la ausencia o presencia de propietario, plan de acción y fechas de seguimiento.
-* **Marcos y Estándares de Referencia:** Buenas prácticas internacionales de GRC (ISO 31000:2018, COSO ERM 2017, ISO 27005) y metodologías de gestión de riesgos corporativos.
+* **Universo de Información Analizada:** Datos del registro evaluado, controles preventivos/detectivos, y variables del riesgo.
+* **Marcos y Estándares de Referencia:** Buenas prácticas internacionales de GRC (ISO 31000:2018, COSO ERM 2017, ISO 27005).
 `;
 
 // ==========================================
@@ -168,9 +194,6 @@ DATOS EXTRAÍDOS DEL SISTEMA PARA INFORME ERIR®:
 - Probabilidad Residual: ${riesgo.probabilidadResidual || 0}%
 - Controles Registrados: ${riesgo.descripcionControl || (riesgo.controlesDetallados ? JSON.stringify(riesgo.controlesDetallados) : '⚠️ Ningún control registrado')}
 - Tratamiento: ${riesgo.tratamiento || 'No especificado'}
-- Plan de Acción: ${riesgo.planAccionRiesgo || 'No asignado'}
-- Fecha Seguimiento: ${riesgo.fechaSeguimiento || 'Sin fecha'}
-- Bitácora: ${riesgo.seguimientoBitacora || 'Sin notas'}
 `;
 }
 
@@ -201,16 +224,24 @@ export const ejecutarDictamenIAStream = async (datos, onChunk) => {
 
     let textoAcumulado = "";
     for await (const chunk of resultStream.stream) {
-      const chunkText = chunk.text();
-      textoAcumulado += chunkText;
-      
-      // ✅ Solución al error de duplicación ("bola de nieve"): se pasa solo el chunkText nuevo
-      if (onChunk) onChunk(chunkText); 
+      try {
+        const chunkText = chunk.text();
+        if (chunkText) {
+          textoAcumulado += chunkText;
+          // Solo se envía el fragmento nuevo para no duplicar en el renderizado de React
+          if (onChunk) onChunk(chunkText); 
+        }
+      } catch (err) {
+        console.warn("Fragmento ignorado o bloqueado durante el stream:", err);
+      }
     }
 
     return textoAcumulado;
   } catch (error) {
     console.error("Error en ejecutarDictamenIAStream:", error);
+    if (onChunk) {
+      onChunk("\n\n⚠️ **Aviso:** El análisis se interrumpió o completó tempranamente debido a los límites de seguridad de la red.");
+    }
     throw new Error("Error en la transmisión del informe de IA.");
   }
 };
