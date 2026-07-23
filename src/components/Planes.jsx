@@ -113,7 +113,27 @@ export default function Planes({
     return diasFaltantes >= 0 && diasFaltantes <= 2;
   });
 
-  const planesVencidosNotificables = planesEnriquecidos.filter(p => p.esVencido);
+const planesVencidosNotificables = planesEnriquecidos.filter(p => p.esVencido);
+
+// 🕒 Registrar envío de recordatorio en la trazabilidad del plan
+const handleNotificarPlan = (planId) => {
+  const ts = new Date().toLocaleString();
+  const updated = safePlanes.map(p => {
+    if (p.id === planId) {
+      return {
+        ...p,
+        ultimoRecordatorio: ts,
+        historialCambios: [
+          ...(p.historialCambios || []), 
+          { fecha: ts, usuario: 'Auditor', accion: 'Recordatorio de vencimiento enviado por correo' }
+        ]
+      };
+    }
+    return p;
+  });
+  setPlanes(updated);
+  saveToCloud({ planes: updated });
+};
   // 1. Filtrado Base (Desde el menú lateral)
   const planesFiltradosBase = planesEnriquecidos.filter(p => {
     if (dashFiltroAnio !== 'Todos' && p.anioTexto !== dashFiltroAnio) return false;
@@ -789,16 +809,77 @@ export default function Planes({
 
                            <div className="overflow-x-auto">
                              <table className="w-full text-[10px] text-left">
-                               <thead className="text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                                 <tr>
-                                   <th className="pb-2 font-bold">Plan</th>
-                                   <th className="pb-2 font-bold">Actividad Remedial</th>
-                                   <th className="pb-2 font-bold">Proceso</th>
-                                   <th className="pb-2 font-bold text-center">Prioridad</th>
-                                   <th className="pb-2 font-bold text-center">Vencimiento</th>
-                                   <th className="pb-2 font-bold text-right">Avance</th>
-                                 </tr>
-                               </thead>
+<thead className="text-slate-400 uppercase tracking-widest border-b border-slate-100">
+  <tr>
+    <th className="pb-2 font-bold">Plan</th>
+    <th className="pb-2 font-bold">Actividad Remedial</th>
+    <th className="pb-2 font-bold">Proceso</th>
+    <th className="pb-2 font-bold text-center">Prioridad</th>
+    <th className="pb-2 font-bold text-center">Vencimiento</th>
+    <th className="pb-2 font-bold text-center">Último Envío</th>
+    <th className="pb-2 font-bold text-right">Avance / Reclamo</th>
+  </tr>
+</thead>
+<tbody className="divide-y divide-slate-50">
+  {items.map(p => {
+    const asuntoReclamo = encodeURIComponent(`❌ URGENTE: Plan VENCIDO (PLA-${p.id.toString().slice(-4)})`);
+    const cuerpoReclamo = encodeURIComponent(`Estimado/a ${p.responsable || 'Líder'},\n\nLe recordamos que el plan de acción: "${p.accion}" venció el ${p.fecha}.\n\nPor favor ingrese a la plataforma para actualizar el estado.\n\nAtentamente,\nAuditoría GCM`);
+
+    return (
+      <tr 
+        key={p.id} 
+        className="hover:bg-blue-50 transition-colors group/row"
+      >
+        <td 
+          onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }}
+          className="py-2.5 font-mono font-black text-slate-700 group-hover/row:text-blue-700 cursor-pointer"
+        >
+          PLA-{p.id.toString().slice(-4)}
+        </td>
+        <td 
+          onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }}
+          className="py-2.5 font-bold text-slate-600 max-w-[140px] truncate group-hover/row:text-blue-900 cursor-pointer" 
+          title={p.accion}
+        >
+          {p.accion}
+        </td>
+        <td className="py-2.5 font-medium text-slate-500 truncate max-w-[80px]">{p.proceso}</td>
+        <td className="py-2.5 text-center">
+          <span className={`px-1.5 py-0.5 rounded-md font-black text-[8px] border ${p.severidad === 'Crítico' ? 'bg-red-50 text-red-600 border-red-200' : p.severidad === 'Alto' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>{p.severidad}</span>
+        </td>
+        <td className={`py-2.5 text-center font-bold ${p.esVencido ? 'text-red-500' : 'text-slate-400'}`}>{p.fecha || 'N/A'}</td>
+
+        {/* 🕒 TRAZABILIDAD: FECHA DEL ÚLTIMO CORREO */}
+        <td className="py-2.5 text-center">
+          {p.ultimoRecordatorio ? (
+            <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-bold" title="Último correo enviado">
+              ✉️ {p.ultimoRecordatorio}
+            </span>
+          ) : (
+            <span className="text-[9px] text-slate-300 italic">Sin notificar</span>
+          )}
+        </td>
+
+        {/* 📧 ACCIÓN: BOTÓN DE RECLAMO Y AVANCE */}
+        <td className="py-2.5 text-right font-black flex items-center justify-end space-x-2">
+          <span>{p.progreso}%</span>
+          {p.esVencido && (
+            <a 
+              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${p.correoResponsable || ''}&su=${asuntoReclamo}&body=${cuerpoReclamo}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => handleNotificarPlan(p.id)}
+              className="bg-red-600 hover:bg-red-700 text-white text-[8px] font-black px-2 py-1 rounded-md uppercase tracking-wider shadow-sm transition-all hover:scale-105 inline-flex items-center gap-1 ml-1"
+              title={`Enviar correo de reclamo a ${p.responsable}`}
+            >
+              ✉️ Reclamar
+            </a>
+          )}
+        </td>
+      </tr>
+    );
+  })}
+</tbody>                               
                                <tbody className="divide-y divide-slate-50">
                                  {items.map(p => (
                                    <tr 
