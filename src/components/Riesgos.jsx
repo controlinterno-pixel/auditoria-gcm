@@ -6,6 +6,9 @@ import {
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
 
+// ✨ AQUÍ VA EL PASO 1 (NUEVA LÍNEA):
+import { generarPromptDictamenRiesgo } from '../services/aiEngine';
+
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
 const EXPLICACIONES_CAMPOS = {
   proceso: {
@@ -360,37 +363,35 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
     );
   };
 
-  const solicitarAnalisisFilaIA = (r) => {
+  const solicitarAnalisisFilaIA = async (r) => {
     setProcesandoIA(true);
     setDictamenIA(null);
 
-    // Prompt estructurado para la IA basado en la fila seleccionada
-    const promptIA = `
-      Actúa como un auditor experto en gestión de riesgos corporativos (ISO 31000).
-      Analiza el siguiente riesgo identificado en Termales S.A.:
-      
-      - Proceso: ${r.proceso}
-      - Escenario de Riesgo: ${r.descripcion}
-      - Riesgo Inherente: Probabilidad ${r.probabilidadInherente}% | Impacto ${r.impactoInherente}%
-      - Riesgo Residual: Probabilidad ${r.probabilidadResidual}% | Impacto ${r.impactoResidual}%
-      - Controles aplicados: ${r.descripcionControl || 'Ninguno'}
-      
-      Por favor, redacta un dictamen profesional y conciso en 3 puntos:
-      1. Diagnóstico de la exposición residual actual.
-      2. Breve evaluación de la calidad de los controles descritos.
-      3. Dos recomendaciones estratégicas y precisas para mejorar la mitigación.
-    `;
+    try {
+      // 1. Pasamos el riesgo por nuestro motor de 3 capas
+      const promptEstructurado = generarPromptDictamenRiesgo(r);
 
-    // Simulación del análisis (Reemplazar con llamada real a API de IA si es necesario)
-    setTimeout(() => {
+      // 2. TEMPORAL: Para probar que la arquitectura funciona en tu pantalla,
+      // vamos a imprimir el "prompt gigante" dentro del modal después de 2 segundos.
+      // Cuando conectes tu API real (OpenAI/Anthropic), reemplazarás este setTimeout
+      // por un await fetch() a tu servicio de IA.
+      setTimeout(() => {
+         setDictamenIA({
+          titulo: `Dictamen GRC Copilot: RSK-${String(r.id).substring(0,4)}`,
+          dictamen: `<pre class="whitespace-pre-wrap font-mono text-[10px] text-slate-300 bg-slate-900 p-4 rounded-xl overflow-y-auto max-h-[60vh]">${promptEstructurado}</pre>`
+        });
+        setProcesandoIA(false);
+      }, 2000);
+
+    } catch (error) {
+      console.error("Error en GRC Copilot:", error);
       setDictamenIA({
-        titulo: `Auditoría IA - Riesgo: RSK-${String(r.id).substring(0,4)}`,
-        dictamen: `**1. Diagnóstico Residual:** El riesgo del proceso **${r.proceso}** mantiene una exposición residual de P:${r.probabilidadResidual}% e I:${r.impactoResidual}%. Esto indica que, aunque hay gestión, el impacto en caso de materialización sigue latente para la compañía.<br/><br/>**2. Evaluación de Controles:** Se identifican ${r.controlesDetallados?.length || 0} controles. Su enfoque es adecuado, pero su eficacia recae fuertemente en la ejecución disciplinada del personal asignado.<br/><br/>**3. Recomendaciones:** <br/>• Explorar la automatización parcial de la revisión documentada para restar error humano.<br/>• Evaluar controles **Correctivos** (ej. fondos de contingencia o pólizas) para amortiguar directamente el impacto del ${r.impactoResidual}%.`
+        titulo: `⚠ Error del Sistema`,
+        dictamen: `El Director IA no pudo procesar la solicitud: ${error.message}`
       });
       setProcesandoIA(false);
-    }, 1500);
+    }
   };
-
   const renderDashboard = () => {
     const totalRiesgos = safeRiesgos.length;
     const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
