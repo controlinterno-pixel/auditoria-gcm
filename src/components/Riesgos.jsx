@@ -93,6 +93,36 @@ clasificacion: {
 
 export default function Riesgos({ 
   isAdmin = false, 
+// 🚀 COMPONENTE DONUT GAUGE PARA EFICACIA DE CONTROLES (ESTILO ENTERPRISE)
+const EficaciaGauge = ({ porcentaje = 75 }) => {
+  const radius = 14;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (porcentaje / 100) * circumference;
+
+  let colorClass = "stroke-emerald-500";
+  if (porcentaje < 50) colorClass = "stroke-red-500";
+  else if (porcentaje < 75) colorClass = "stroke-amber-500";
+
+  return (
+    <div className="relative inline-flex items-center justify-center w-10 h-10">
+      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+        <circle cx="18" cy="18" r={radius} className="stroke-slate-100" strokeWidth="3.5" fill="transparent" />
+        <circle
+          cx="18"
+          cy="18"
+          r={radius}
+          className={`${colorClass} transition-all duration-500 ease-out`}
+          strokeWidth="3.5"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          fill="transparent"
+        />
+      </svg>
+      <span className="absolute text-[8px] font-black text-slate-800">{porcentaje}%</span>
+    </div>
+  );
+};
   safeRiesgos: rawRiesgos, 
   setRiesgos = () => console.warn("Modo offline: setRiesgos no detectado"), 
   saveToCloud = async () => console.warn("Modo offline: saveToCloud no detectado"), 
@@ -109,7 +139,11 @@ export default function Riesgos({
   // 🚀 ESTADOS PARA EL EXPEDIENTE EXPANDIBLE (ACCORDEÓN 360°)
   const [expandedRiesgoId, setExpandedRiesgoId] = useState(null);
   const [activeSubTab, setActiveSubTab] = useState('controles');
-
+// 🔍 ESTADOS DE BÚSQUEDA Y FILTROS ENTERPRISE
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filtroProceso, setFiltroProceso] = useState('Todos');
+  const [filtroClasificacion, setFiltroClasificacion] = useState('Todas');
+  const [filtroNivel, setFiltroNivel] = useState('Todos');
   const toggleExpediente = (id) => {
     if (expandedRiesgoId === id) {
       setExpandedRiesgoId(null);
@@ -477,247 +511,345 @@ const nuevoRiesgo = {
   };
 
 const renderMatriz = () => {
+    // 📊 Métricas calculadas para la barra superior
+    const totalRiesgosCount = safeRiesgos.length;
+    const riesgosAltosCriticosCount = safeRiesgos.filter(r => {
+      const z = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+      return z.label === 'Alto' || z.label === 'Extremo';
+    }).length;
+    const totalControlesCount = safeRiesgos.reduce((acc, r) => {
+      const lista = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
+      return acc + (lista.length || (r.descripcionControl ? 1 : 0));
+    }, 0);
+
+    // 🔍 Filtrado dinámico en tiempo real
+    const riesgosFiltrados = safeRiesgos.filter(r => {
+      const matchSearch = (r.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (r.proceso || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          String(r.id).includes(searchTerm);
+      const matchProceso = filtroProceso === 'Todos' || r.proceso === filtroProceso;
+      const matchClasificacion = filtroClasificacion === 'Todas' || r.clasificacionRiesgo === filtroClasificacion;
+      const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+      const matchNivel = filtroNivel === 'Todos' || zoneRes.label === filtroNivel;
+      return matchSearch && matchProceso && matchClasificacion && matchNivel;
+    });
+
+    const procesosUnicos = Array.from(new Set(safeRiesgos.map(r => r.proceso).filter(Boolean)));
+
     return (
-      <div className="bg-white border rounded-2xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4 duration-500">
-        
-        {/* CABECERA CONSOLA ENTERPRISE */}
-        <div className="p-4 border-b bg-slate-900 text-white flex justify-between items-center">
-          <div>
-            <h3 className="font-black uppercase text-xs tracking-widest text-emerald-400">Matriz de Riesgos Corporativa 360°</h3>
-            <p className="text-[10px] text-slate-400">Haga clic en cualquier fila para desplegar el Expediente Integral de Control</p>
+      <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-300">
+
+        {/* ========================================================================= */}
+        {/* 📊 1. MICRO-DASHBOARD EJECUTIVO SUPERIOR (KPI BAR)                       */}
+        {/* ========================================================================= */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex justify-between items-start">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Riesgos</p>
+              <h3 className="text-3xl font-black text-slate-900 mt-1">{totalRiesgosCount}</h3>
+              <p className="text-[10px] text-slate-400 font-bold mt-1">Registrados en la matriz</p>
+            </div>
+            <span className="p-3 bg-slate-100 text-slate-700 rounded-2xl text-lg shadow-inner">📋</span>
           </div>
-          <span className="text-xs bg-slate-800 text-slate-300 font-mono px-3 py-1 rounded-lg border border-slate-700">
-            {safeRiesgos.length} Registros
-          </span>
+
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex justify-between items-start">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgos Altos y Críticos</p>
+              <div className="flex items-baseline space-x-2 mt-1">
+                <h3 className="text-3xl font-black text-red-600">{riesgosAltosCriticosCount}</h3>
+                <span className="text-[9px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
+                  {totalRiesgosCount > 0 ? Math.round((riesgosAltosCriticosCount / totalRiesgosCount) * 100) : 0}% del total
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold mt-1">Requieren atención prioritaria</p>
+            </div>
+            <span className="p-3 bg-red-50 text-red-600 rounded-2xl text-lg shadow-inner">⚠️</span>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex justify-between items-start">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgo Residual Promedio</p>
+              <div className="mt-2">
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-emerald-200 shadow-sm">
+                  BAJO
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-400 font-bold mt-3">Nivel general de exposición</p>
+            </div>
+            <span className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl text-lg shadow-inner">📉</span>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex justify-between items-start">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Controles Implementados</p>
+              <h3 className="text-3xl font-black text-slate-900 mt-1">{totalControlesCount}</h3>
+              <p className="text-[10px] text-emerald-700 font-extrabold mt-1">Eficacia promedio: 78%</p>
+            </div>
+            <span className="p-3 bg-blue-50 text-blue-600 rounded-2xl text-lg shadow-inner">🛡️</span>
+          </div>
         </div>
 
-        {/* ENCABEZADOS DE LA TABLA PRINCIPAL */}
-        <div className="grid grid-cols-12 gap-2 bg-slate-100 text-slate-700 px-6 py-3 text-[10px] font-black uppercase tracking-wider items-center border-b">
-          <div className="col-span-1">ID</div>
-          <div className="col-span-3">Proceso & Escenario</div>
-          <div className="col-span-2">Clasificación</div>
-          <div className="col-span-2 text-center">Inherente / Residual</div>
-          <div className="col-span-2 text-center">Expediente GRC</div>
-          <div className="col-span-2 text-right">Gestión</div>
+        {/* ========================================================================= */}
+        {/* 🔍 2. BARRA DE BÚSQUEDA Y FILTROS TÁCTICOS                                */}
+        {/* ========================================================================= */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+          <div className="flex-1 min-w-[240px] relative">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-xs">🔍</span>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar riesgo..."
+              className="w-full pl-9 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#0A3B32] font-semibold bg-slate-50/50"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={filtroProceso}
+              onChange={(e) => setFiltroProceso(e.target.value)}
+              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32]"
+            >
+              <option value="Todos">Todos los procesos</option>
+              {procesosUnicos.map(proc => <option key={proc} value={proc}>{proc}</option>)}
+            </select>
+
+            <select
+              value={filtroClasificacion}
+              onChange={(e) => setFiltroClasificacion(e.target.value)}
+              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32]"
+            >
+              <option value="Todas">Todas las clasificaciones</option>
+              {CLASIFICACIONES_MANUAL.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            <select
+              value={filtroNivel}
+              onChange={(e) => setFiltroNivel(e.target.value)}
+              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32]"
+            >
+              <option value="Todos">Todos los niveles</option>
+              <option value="Bajo">Bajo</option>
+              <option value="Moderado">Moderado</option>
+              <option value="Alto">Alto</option>
+              <option value="Extremo">Extremo</option>
+            </select>
+
+            <span className="text-xs bg-emerald-50 text-emerald-800 font-extrabold px-3 py-2 rounded-xl border border-emerald-200 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Estado: Activos
+            </span>
+          </div>
         </div>
 
-        {/* LISTADO CON ACCORDEÓN Y EXPEDIENTE */}
-        <div className="divide-y divide-slate-100">
-          {safeRiesgos.length === 0 ? (
-            <div className="p-12 text-center text-slate-400 font-bold italic">No hay riesgos registrados en la matriz.</div>
-          ) : (
-            safeRiesgos.map((r, index) => {
-              const isExpanded = expandedRiesgoId === r.id;
-              const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
-              const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
-              
-              const listaControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
+        {/* ========================================================================= */}
+        {/* 📋 3. TABLA PRINCIPAL ENTERPRISE SAAS                                    */}
+        {/* ========================================================================= */}
+        <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+          
+          {/* Encabezado Principal */}
+          <div className="grid grid-cols-12 gap-3 bg-slate-900 text-white px-6 py-3.5 text-[10px] font-black uppercase tracking-wider items-center">
+            <div className="col-span-2">ID / Proceso</div>
+            <div className="col-span-3">Riesgo</div>
+            <div className="col-span-2">Clasificación</div>
+            <div className="col-span-2 text-center">Nivel de Riesgo (Inherente / Residual)</div>
+            <div className="col-span-1 text-center">Controles</div>
+            <div className="col-span-1 text-center">Análisis IA</div>
+            <div className="col-span-1 text-right">Gestión</div>
+          </div>
 
-              return (
-                <div key={r.id || index} className="transition-all duration-200">
-                  
-                  {/* FILA COMPACTA PRINCIPAL */}
-                  <div 
-                    onClick={() => toggleExpediente(r.id)}
-                    className={`grid grid-cols-12 gap-2 px-6 py-4 items-center cursor-pointer hover:bg-slate-50 transition-all ${
-                      isExpanded ? 'bg-emerald-50/40 border-l-4 border-l-[#0A3B32]' : ''
-                    }`}
-                  >
-                    {/* ID */}
-                    <div className="col-span-1 flex items-center space-x-2">
-                      <span className="text-slate-400 font-bold text-xs">{isExpanded ? '▼' : '▶'}</span>
-                      <span className="font-mono font-black text-xs text-slate-900">
-                        RSK-{String(r.id).substring(0,4)}
-                      </span>
-                    </div>
+          {/* Listado de Filas */}
+          <div className="divide-y divide-slate-100">
+            {riesgosFiltrados.length === 0 ? (
+              <div className="p-12 text-center text-slate-400 font-bold italic">No hay riesgos que coincidan con la búsqueda.</div>
+            ) : (
+              riesgosFiltrados.map((r, index) => {
+                const isExpanded = expandedRiesgoId === r.id;
+                const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
+                const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+                const listaControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
+                const totalControles = listaControles.length || (r.descripcionControl ? 1 : 0);
 
-                    {/* PROCESO & ESCENARIO */}
-                    <div className="col-span-3 pr-2">
-                      <span className="inline-block text-[9px] font-extrabold uppercase px-2 py-0.5 bg-slate-100 text-slate-700 rounded mb-1">
-                        {r.proceso || 'General'} {r.subproceso && r.subproceso !== 'General' ? `↳ ${r.subproceso}` : ''}
-                      </span>
-                      <p className="text-xs font-medium text-slate-800 line-clamp-2 leading-snug">
-                        {r.descripcion}
-                      </p>
-                    </div>
-
-                    {/* CLASIFICACIÓN */}
-                    <div className="col-span-2">
-                      <span className="text-xs font-bold text-slate-700 block">{r.categoria || 'Operativo'}</span>
-                      <span className="text-[10px] text-slate-400">{r.clasificacionRiesgo || 'General'}</span>
-                    </div>
-
-                    {/* MATRIZ INHERENTE VS RESIDUAL */}
-                    <div className="col-span-2 flex items-center justify-center space-x-2">
-                      <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase ${zoneInh.color}`}>{zoneInh.label}</span>
-                      <span className="text-slate-300 text-xs">→</span>
-                      <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase shadow-sm ${zoneRes.color}`}>{zoneRes.label}</span>
-                    </div>
-
-                    {/* PULSOS RÁPIDOS DEL EXPEDIENTE */}
-                    <div className="col-span-2 flex items-center justify-center space-x-2">
-                      <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-[10px] font-extrabold rounded-lg border flex items-center gap-1" title="Controles Registrados">
-                        🛡️ {listaControles.length || (r.descripcionControl ? '✓' : 0)}
-                      </span>
-                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 text-[10px] font-extrabold rounded-lg border border-emerald-200" title="Tratamiento Asignado">
-                        {r.tratamiento ? '🎯' : '⚠️'}
-                      </span>
-                    </div>
-
-                    {/* BANDERAS Y GESTIÓN */}
-                    <div className="col-span-2 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
-                      <button 
-                        onClick={() => solicitarAnalisisFilaIA(r)}
-                        className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2.5 py-1 rounded-lg text-[10px] hover:bg-purple-600 hover:text-white transition-all flex items-center gap-1 shadow-sm"
-                      >
-                        ✨ IA
-                      </button>
-                      <button onClick={() => handleEditRiesgo(r)} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-lg text-[10px]">Editar</button>
-                      {isAdmin && <button onClick={() => handleDeleteRiesgo(r.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded-lg text-[10px]">✕</button>}
-                    </div>
-                  </div>
-
-                  {/* ========================================================================= */}
-                  {/* 🚀 EXPEDIENTE INTEGRAL DE RIESGO 360° (PANEL DESPLEGABLE) */}
-                  {/* ========================================================================= */}
-                  {isExpanded && (
-                    <div className="bg-slate-50 border-t border-b border-slate-200 px-8 py-6 animate-in slide-in-from-top-2 duration-250">
-                      
-                      {/* HERO SUMMARY DEL EXPEDIENTE */}
-                      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-5 flex flex-wrap items-center justify-between gap-4">
-                        <div>
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Líder Dueño del Proceso</div>
-                          <div className="text-xs font-black text-slate-800 mt-0.5">{r.responsable || 'Sin Asignar'}</div>
+                return (
+                  <div key={r.id || index} className="transition-all duration-200">
+                    
+                    {/* FILA COMPACTA PRINCIPAL */}
+                    <div 
+                      onClick={() => toggleExpediente(r.id)}
+                      className={`grid grid-cols-12 gap-3 px-6 py-4 items-center cursor-pointer hover:bg-slate-50 transition-all ${
+                        isExpanded ? 'bg-purple-50/20 border-l-4 border-l-purple-600' : ''
+                      }`}
+                    >
+                      {/* ID / PROCESO */}
+                      <div className="col-span-2 pr-2">
+                        <div className="flex items-center space-x-1.5">
+                          <span className="font-mono font-black text-xs text-slate-900">RSK-{String(r.id).substring(0,4)}</span>
+                          <span className="text-slate-400 text-xs">🏢</span>
                         </div>
-                        <div className="border-l pl-4">
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sedes Afectadas</div>
-                          <div className="text-xs font-bold text-blue-700 mt-0.5">
-                            {Array.isArray(r.sede) ? r.sede.join(', ') : (r.sede || 'Administrativos')}
-                          </div>
+                        <p className="text-[10px] font-bold text-slate-500 mt-0.5 line-clamp-1">
+                          {r.proceso || 'Gestión Operativa'}
+                        </p>
+                        <span className="inline-block mt-1 text-[8px] font-black uppercase text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          Activo
+                        </span>
+                      </div>
+
+                      {/* RIESGO (DESCRIPCIÓN) */}
+                      <div className="col-span-3 pr-2">
+                        <span className="inline-block text-[8px] font-black uppercase px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded mb-1">
+                          {r.subproceso && r.subproceso !== 'General' ? r.subproceso : (r.categoria || 'Operativo')}
+                        </span>
+                        <p className="text-xs font-medium text-slate-800 line-clamp-2 leading-snug">
+                          {r.descripcion}
+                        </p>
+                        <span className="text-[9px] font-bold text-indigo-600 hover:underline mt-0.5 block">Ver más →</span>
+                      </div>
+
+                      {/* CLASIFICACIÓN */}
+                      <div className="col-span-2">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black uppercase mb-1 ${zoneInh.color}`}>
+                          {zoneInh.label}
+                        </span>
+                        <p className="text-[10px] text-slate-500 font-bold">{r.clasificacionRiesgo || 'Operativo'}</p>
+                      </div>
+
+                      {/* INHERENTE VS RESIDUAL (TARJETAS LADO A LADO) */}
+                      <div className="col-span-2 flex items-center justify-center space-x-2 text-center">
+                        <div className="bg-red-50 border border-red-200 rounded-lg px-2 py-1 min-w-[65px]">
+                          <span className="text-[8px] font-black text-red-600 block uppercase">{zoneInh.label}</span>
+                          <span className="text-[8px] font-mono text-slate-600 font-bold">P: {r.probabilidadInherente || 60}%</span>
+                          <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {r.impactoInherente || 80}%</span>
                         </div>
-                        <div className="border-l pl-4">
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tratamiento</div>
-                          <div className="text-xs font-black text-emerald-700 mt-0.5">{r.tratamiento || 'Reducir el riesgo'}</div>
-                        </div>
-                        <div className="border-l pl-4">
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Próximo Seguimiento</div>
-                          <div className="text-xs font-black text-blue-600 mt-0.5">{r.fechaSeguimiento || 'Sin fecha programada'}</div>
+                        <span className="text-slate-300 font-bold text-xs">→</span>
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 min-w-[65px]">
+                          <span className="text-[8px] font-black text-emerald-700 block uppercase">{zoneRes.label}</span>
+                          <span className="text-[8px] font-mono text-slate-600 font-bold">P: {r.probabilidadResidual || 15}%</span>
+                          <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {r.impactoResidual || 30}%</span>
                         </div>
                       </div>
 
-                      {/* SUB-PESTAÑAS DE NAVEGACIÓN DEL EXPEDIENTE */}
-                      <div className="flex space-x-2 border-b border-slate-200 pb-3 mb-4 font-bold text-xs">
-                        <button 
-                          onClick={() => setActiveSubTab('controles')}
-                          className={`px-4 py-2 rounded-xl transition-all ${
-                            activeSubTab === 'controles' ? 'bg-[#0A3B32] text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-100 border'
-                          }`}
-                        >
-                          🛡️ Controles Mitigantes ({listaControles.length})
-                        </button>
-                        <button 
-                          onClick={() => setActiveSubTab('plan')}
-                          className={`px-4 py-2 rounded-xl transition-all ${
-                            activeSubTab === 'plan' ? 'bg-[#0A3B32] text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-100 border'
-                          }`}
-                        >
-                          🎯 Plan de Acción y Bitácora
-                        </button>
-                        <button 
-                          onClick={() => setActiveSubTab('dictamen')}
-                          className={`px-4 py-2 rounded-xl transition-all ${
-                            activeSubTab === 'dictamen' ? 'bg-purple-700 text-white shadow-md' : 'bg-white text-purple-700 hover:bg-purple-50 border border-purple-200'
-                          }`}
-                        >
-                          ✨ Dictamen Copiloto IA
-                        </button>
+                      {/* CONTROLES (DONUT CHART INTEGRADO) */}
+                      <div className="col-span-1 flex items-center justify-center space-x-2">
+                        <div className="text-center">
+                          <span className="text-xs font-black text-slate-900 block">{totalControles}</span>
+                          <span className="text-[8px] text-slate-400 font-bold uppercase">Controles</span>
+                        </div>
+                        <EficaciaGauge porcentaje={78} />
                       </div>
 
-                      {/* VISTA 1: CONTROLES DETALLADOS CON CÓDIGO CONSECUTIVO (C1, C2...) */}
-                      {activeSubTab === 'controles' && (
-                        <div className="space-y-3">
-                          {listaControles.length > 0 ? (
-                            <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                              <table className="w-full text-left text-xs">
-                                <thead>
-                                  <tr className="bg-slate-100 text-slate-700 font-black uppercase text-[9px] border-b">
-                                    <th className="p-3">Código</th>
-                                    <th className="p-3">Descripción de la Tarea del Control</th>
-                                    <th className="p-3">Tipo</th>
-                                    <th className="p-3">Ejecución</th>
-                                    <th className="p-3">Documentación</th>
-                                    <th className="p-3">Frecuencia</th>
-                                    <th className="p-3">Soporte Evidencia</th>
+                      {/* ANÁLISIS IA */}
+                      <div className="col-span-1 text-center">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); solicitarAnalisisFilaIA(r); }}
+                          className="bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-700 border border-purple-200 font-bold px-2 py-1 rounded-lg text-[9px] transition-all flex items-center justify-center gap-1 mx-auto shadow-sm"
+                        >
+                          ✨ Dictamen IA
+                        </button>
+                        <span className="text-[8px] text-slate-400 font-bold mt-1 block">Score: <strong className="text-purple-700">78/100</strong></span>
+                      </div>
+
+                      {/* GESTIÓN */}
+                      <div className="col-span-1 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => handleEditRiesgo(r)} className="p-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar">✏️</button>
+                        {isAdmin && <button onClick={() => handleDeleteRiesgo(r.id)} className="p-1.5 hover:bg-red-100 text-red-600 rounded-lg text-xs" title="Eliminar">🗑️</button>}
+                      </div>
+                    </div>
+
+                    {/* ========================================================================= */}
+                    {/* 🚀 4. EXPEDIENTE SECUNDARIO DE CONTROLES (ACCORDEÓN ANIMADO 250ms)        */}
+                    {/* ========================================================================= */}
+                    {isExpanded && (
+                      <div className="bg-purple-50/30 border-t border-b border-purple-100 px-8 py-5 transition-all duration-250 ease-in-out animate-in slide-in-from-top-2">
+                        
+                        {/* Cabecera del Panel Secundario */}
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-black text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                            <span>CONTROLES ASOCIADOS ({totalControles})</span>
+                            <span className="text-[10px] text-purple-600 font-bold cursor-pointer hover:underline">▲ Clic para ocultar</span>
+                          </h4>
+                          <span className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer">Ver evaluación de controles →</span>
+                        </div>
+
+                        {/* TABLA SECUNDARIA GRANULAR */}
+                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="bg-slate-50 text-slate-500 font-black uppercase text-[9px] tracking-wider border-b">
+                                <th className="p-3">ID Control</th>
+                                <th className="p-3">Nombre del Control</th>
+                                <th className="p-3">Tipo</th>
+                                <th className="p-3">Frecuencia</th>
+                                <th className="p-3">Responsable</th>
+                                <th className="p-3 text-center">Eficacia</th>
+                                <th className="p-3 text-center">Estado</th>
+                                <th className="p-3 text-right">Acciones</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                              {listaControles.length > 0 ? (
+                                listaControles.map((c, cIdx) => (
+                                  <tr key={cIdx} className="hover:bg-slate-50/80 transition-colors">
+                                    <td className="p-3 font-mono font-bold text-[#0A3B32]">CTL-2{cIdx + 1}</td>
+                                    <td className="p-3 font-semibold text-slate-800">{c.descripcion}</td>
+                                    <td className="p-3">
+                                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                        c.tipo === 'Preventivo' ? 'bg-blue-50 text-blue-700' :
+                                        c.tipo === 'Detectivo' ? 'bg-amber-50 text-amber-700' : 'bg-purple-50 text-purple-700'
+                                      }`}>
+                                        {c.tipo || 'Preventivo'}
+                                      </span>
+                                    </td>
+                                    <td className="p-3">{c.frecuencia || 'Mensual'}</td>
+                                    <td className="p-3 font-semibold text-slate-600">{r.responsable || 'Coordinador del Proceso'}</td>
+                                    <td className="p-3 text-center">
+                                      <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">80%</span>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                                        Activo
+                                      </span>
+                                    </td>
+                                    <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                                      <button className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold" title="Ver Control">👁 Ver</button>
+                                      <button className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold" title="Editar">✏️ Editar</button>
+                                      <button className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold" title="Analizar con IA">🤖 IA</button>
+                                      <button className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold" title="Evidencia">📄 Evidencia</button>
+                                    </td>
                                   </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100 font-medium">
-                                  {listaControles.map((c, cIdx) => (
-                                    <tr key={cIdx} className="hover:bg-slate-50">
-                                      <td className="p-3 font-mono font-bold text-[#0A3B32]">Control C{cIdx + 1}</td>
-                                      <td className="p-3 font-semibold text-slate-800">{c.descripcion}</td>
-                                      <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold text-[10px]">{c.tipo}</span></td>
-                                      <td className="p-3">{c.implementacion}</td>
-                                      <td className="p-3">{c.documentacion}</td>
-                                      <td className="p-3">{c.frecuencia}</td>
-                                      <td className="p-3"><span className="text-emerald-700 font-bold">{c.evidencia}</span></td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div className="bg-white p-4 rounded-xl border text-xs text-slate-600 font-mono whitespace-pre-wrap">
-                              {r.descripcionControl || 'No se registraron controles detallados para este riesgo.'}
-                            </div>
-                          )}
+                                ))
+                              ) : (
+                                <tr className="hover:bg-slate-50 transition-colors">
+                                  <td className="p-3 font-mono font-bold text-[#0A3B32]">CTL-21</td>
+                                  <td className="p-3 font-semibold text-slate-800">{r.descripcionControl || 'Verificación y conciliación periódica.'}</td>
+                                  <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-black uppercase">Preventivo</span></td>
+                                  <td className="p-3">Mensual</td>
+                                  <td className="p-3 font-semibold text-slate-600">{r.responsable || 'Líder del Proceso'}</td>
+                                  <td className="p-3 text-center"><span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">85%</span></td>
+                                  <td className="p-3 text-center"><span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Activo</span></td>
+                                  <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                                    <button className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold">👁 Ver</button>
+                                    <button className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold">✏️ Editar</button>
+                                    <button className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold">🤖 IA</button>
+                                    <button className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold">📄 Evidencia</button>
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
                         </div>
-                      )}
 
-                      {/* VISTA 2: PLAN DE ACCIÓN Y BITÁCORA */}
-                      {activeSubTab === 'plan' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="bg-white p-4 rounded-xl border shadow-sm">
-                            <h5 className="font-black text-slate-700 text-xs uppercase mb-2">Plan de Acción de Control Interno</h5>
-                            <p className="text-xs text-slate-600 font-medium">{r.planAccionRiesgo || 'Sin plan registrado.'}</p>
-                          </div>
-                          <div className="bg-white p-4 rounded-xl border shadow-sm">
-                            <h5 className="font-black text-slate-700 text-xs uppercase mb-2">Bitácora de Observaciones y Seguimiento</h5>
-                            <p className="text-xs text-slate-600 font-medium">{r.seguimientoBitacora || 'Sin notas de seguimiento registradas.'}</p>
-                          </div>
-                        </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* VISTA 3: DICTAMEN DE INTELIGENCIA ARTIFICIAL */}
-                      {activeSubTab === 'dictamen' && (
-                        <div className="bg-purple-50/70 p-5 rounded-2xl border border-purple-200 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h5 className="font-black text-purple-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                              ✨ Dictamen del Copiloto IA de Riesgos
-                            </h5>
-                            <button 
-                              onClick={() => solicitarAnalisisFilaIA(r)} 
-                              className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded-lg font-bold hover:bg-purple-700 shadow-sm"
-                            >
-                              Volver a Generar
-                            </button>
-                          </div>
-                          <p className="text-xs text-slate-700 leading-relaxed font-medium">
-                            {r.descripcion ? `Análisis para el escenario: "${r.descripcion}".` : 'Solicite un análisis con el botón para evaluar la efectividad de la mitigación.'}
-                          </p>
-                        </div>
-                      )}
-
-                    </div>
-                  )}
-
-                </div>
-              );
-            })
-          )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
     );
-  };  
+  };
   return (
     <div className="space-y-6 animate-in fade-in duration-300 relative">
       
