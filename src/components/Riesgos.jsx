@@ -635,9 +635,8 @@ const renderMatriz = () => {
       : 80;
 
     const avgResidualScore = totalRiesgosCount > 0
-      ? safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual || 15) * (r.impactoResidual || 30) / 100), 0) / totalRiesgosCount
-      : 0;
-
+  ? safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgosCount
+  : 0;
     let nivelPromedioText = 'BAJO';
     let nivelPromedioColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
     if (avgResidualScore > 40) {
