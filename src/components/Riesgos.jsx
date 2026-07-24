@@ -276,6 +276,58 @@ export default function Riesgos({
   const residuales = calcularRiesgoResidual();
   const descripcionAutomatica = `Posibilidad de afectación ${afectacion.toLowerCase()} por ${causaInmediata.toLowerCase()} debido a ${causaRaiz.toLowerCase()}`;
 
+// 🧮 GENERADOR DE TRAZA DE AUDITORÍA Y EXPLICACIÓN PASO A PASO POR RIESGO
+  const obtenerExplicacionCalculo = (r) => {
+    const probInh = Number(r.probabilidadInherente) || 60;
+    const impInh = Number(r.impactoInherente) || 60;
+    const lista = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
+
+    // Pasos de Probabilidad (Preventivos / Detectivos)
+    let currP = probInh;
+    const pasosP = [];
+    const prevs = lista.filter(c => !(c.tipo || '').includes('Correctivo'));
+
+    prevs.forEach((c) => {
+      const ef = calcularEficaciaControl(c);
+      const despues = currP - (currP * (ef / 100));
+      pasosP.push({
+        etiqueta: `C${lista.indexOf(c) + 1} (${c.tipo || 'Preventivo'})`,
+        eficacia: ef,
+        antes: Math.round(currP * 100) / 100,
+        despues: Math.round(despues * 100) / 100
+      });
+      currP = despues;
+    });
+
+    // Pasos de Impacto (Correctivos)
+    let currI = impInh;
+    const pasosI = [];
+    const corrects = lista.filter(c => (c.tipo || '').includes('Correctivo'));
+
+    corrects.forEach((c) => {
+      const ef = calcularEficaciaControl(c);
+      const despues = currI - (currI * (ef / 100));
+      pasosI.push({
+        etiqueta: `C${lista.indexOf(c) + 1} (Correctivo)`,
+        eficacia: ef,
+        antes: Math.round(currI * 100) / 100,
+        despues: Math.round(despues * 100) / 100
+      });
+      currI = despues;
+    });
+
+    return {
+      probInh,
+      impInh,
+      pasosP,
+      pasosI,
+      probFinal: Math.max(Math.round(currP), 0),
+      impFinal: Math.max(Math.round(currI), 0),
+      totalPrevs: prevs.length,
+      totalCorrects: corrects.length
+    };
+  };
+
   const getSeverityZone = (prob, imp) => {
     let p = Number(prob) || 1;
     let i = Number(imp) || 1;
@@ -970,7 +1022,95 @@ const renderMatriz = () => {
         </tbody>
       </table>
     </div>
+{(() => {
+      const exp = obtenerExplicacionCalculo(r);
+      return (
+        <div className="bg-[#0A3B32] text-white p-5 rounded-2xl border border-emerald-900 shadow-md space-y-4 mt-4">
+          <div className="flex justify-between items-center border-b border-emerald-800/80 pb-3">
+            <h5 className="text-xs font-black uppercase tracking-wider flex items-center gap-2 text-emerald-300">
+              <span>🧮 AUDITORÍA METODOLÓGICA Y DESGLOSE DEL CÁLCULO RESIDUAL</span>
+            </h5>
+            <span className="text-[10px] bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-mono font-bold px-2.5 py-1 rounded-full">
+              ISO 31000 — Termales S.A.
+            </span>
+          </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+            
+            {/* EXPLICACIÓN PROBABILIDAD */}
+            <div className="bg-slate-900/60 p-4 rounded-xl border border-emerald-800/50 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-emerald-400 text-[11px] uppercase">
+                  📊 Probabilidad Residual Final: <strong className="text-white text-sm font-mono">{exp.probFinal}%</strong>
+                </span>
+                <span className="text-[9px] text-slate-400 font-mono">Inherente: {exp.probInh}%</span>
+              </div>
+
+              {exp.pasosP.length > 0 ? (
+                <div className="space-y-1.5 font-mono text-[11px] text-slate-300 bg-black/30 p-3 rounded-lg border border-slate-800">
+                  <p className="text-[10px] text-slate-400 font-sans italic mb-1">Efecto cascada de mitigación preventiva:</p>
+                  <p>• Probabilidad Inicial: <strong className="text-white">{exp.probInh}%</strong></p>
+                  {exp.pasosP.map((p, pIdx) => (
+                    <p key={pIdx} className="text-emerald-300">
+                      • Tras {p.etiqueta} ({p.eficacia}% efic.): queda <strong className="text-white">{p.despues}%</strong>
+                    </p>
+                  ))}
+                  <p className="border-t border-slate-700 pt-1 mt-1 text-emerald-400 font-bold">
+                    = Resultado Redondeado: {exp.probFinal}%
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[10px] text-amber-300/80 italic bg-amber-950/30 p-2.5 rounded-lg border border-amber-800/40">
+                  ⚠️ No hay controles preventivos aplicados. La probabilidad se mantiene en {exp.probInh}%.
+                </p>
+              )}
+
+              <div className="bg-emerald-950/40 border border-emerald-800/50 p-2.5 rounded-lg text-[10px] text-emerald-200/90 leading-relaxed font-sans">
+                💡 <strong>¿Qué significa?</strong> {exp.probFinal === 0 
+                  ? `Con ${exp.totalPrevs} barrera(s) preventiva(s) simultáneas sobre un evento de baja frecuencia, la probabilidad real de ocurrencia es prácticamente nula.` 
+                  : `Las barreras preventivas lograron reducir la probabilidad de ocurrencia del ${exp.probInh}% inicial a un ${exp.probFinal}% actual.`}
+              </div>
+            </div>
+
+            {/* EXPLICACIÓN IMPACTO */}
+            <div className="bg-slate-900/60 p-4 rounded-xl border border-emerald-800/50 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-emerald-400 text-[11px] uppercase">
+                  🛡️ Impacto Residual Final: <strong className="text-white text-sm font-mono">{exp.impFinal}%</strong>
+                </span>
+                <span className="text-[9px] text-slate-400 font-mono">Inherente: {exp.impInh}%</span>
+              </div>
+
+              {exp.pasosI.length > 0 ? (
+                <div className="space-y-1.5 font-mono text-[11px] text-slate-300 bg-black/30 p-3 rounded-lg border border-slate-800">
+                  <p className="text-[10px] text-slate-400 font-sans italic mb-1">Amortiguación por controles correctivos:</p>
+                  <p>• Impacto Inicial: <strong className="text-white">{exp.impInh}%</strong></p>
+                  {exp.pasosI.map((p, pIdx) => (
+                    <p key={pIdx} className="text-emerald-300">
+                      • Tras {p.etiqueta} ({p.eficacia}% efic.): queda <strong className="text-white">{p.despues}%</strong>
+                    </p>
+                  ))}
+                  <p className="border-t border-slate-700 pt-1 mt-1 text-emerald-400 font-bold">
+                    = Resultado Redondeado: {exp.impFinal}%
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[10px] text-slate-400 italic bg-black/20 p-2.5 rounded-lg border border-slate-800">
+                  ℹ️ Los controles preventivos no reducen impacto. Sin controles correctivos registrados, el impacto se mantiene en {exp.impInh}%.
+                </p>
+              )}
+
+              <div className="bg-emerald-950/40 border border-emerald-800/50 p-2.5 rounded-lg text-[10px] text-emerald-200/90 leading-relaxed font-sans">
+                💡 <strong>¿Qué significa?</strong> {exp.totalCorrects > 0 
+                  ? `Si las barreras preventivas fallan y el riesgo se materializa, la acción correctiva reduce la severidad del daño del ${exp.impInh}% al ${exp.impFinal}%.` 
+                  : `Si el riesgo llega a ocurrir, el impacto financiero/operativo será del ${exp.impInh}% (máximo inherente) al no tener controles de respuesta.`}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      );
+    })()}
   </div>
 )}     
 </div>
