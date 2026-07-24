@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-
+import React, { useState, useRef } from 'react';
+import html2pdf from 'html2pdf.js';
 export default function ModalIA({ aiModal, setAiModal }) {
   if (!aiModal) return null;
 
@@ -23,10 +23,23 @@ export default function ModalIA({ aiModal, setAiModal }) {
   const [openAccordion, setOpenAccordion] = useState('metodologia');
   const toggleAccordion = (key) => setOpenAccordion(openAccordion === key ? null : key);
 
+  const pdfRef = useRef();
+
+  const descargarPDF = () => {
+    const element = pdfRef.current;
+    const opciones = {
+      margin: 0.5,
+      filename: `Dictamen_Riesgo_${data?.encabezado?.codigo || 'ERIR'}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    html2pdf().set(opciones).from(element).save();
+  };
+
   return (
     <div className="fixed inset-0 z-[250] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-        
+<div ref={pdfRef} className="bg-slate-900 border border-slate-800 text-slate-100 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">        
         {/* CABECERA */}
         <div className="bg-slate-900/90 border-b border-slate-800 p-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center space-x-3">
@@ -137,10 +150,17 @@ export default function ModalIA({ aiModal, setAiModal }) {
           )}
         </div>
 
-        {/* FOOTER */}
-        <div className="bg-slate-900/90 border-t border-slate-800 p-4 flex justify-between items-center sticky bottom-0 backdrop-blur-md">
+{/* FOOTER */}
+        <div data-html2canvas-ignore="true" className="bg-slate-900/90 border-t border-slate-800 p-4 flex justify-between items-center sticky bottom-0 backdrop-blur-md z-50">
           <span className="text-[10px] text-slate-500 font-semibold">Enterprise GRC Suite</span>
-          <button onClick={() => setAiModal(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs font-bold transition-colors">Cerrar Panel</button>
+          <div className="flex gap-3">
+            <button onClick={descargarPDF} className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-xl text-xs font-bold transition-colors shadow-lg shadow-blue-500/20">
+              Descargar PDF
+            </button>
+            <button onClick={() => setAiModal(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs font-bold transition-colors">
+              Cerrar Panel
+            </button>
+          </div>
         </div>
       </div>
     </div>

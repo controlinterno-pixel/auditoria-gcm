@@ -34,29 +34,29 @@ Tu objetivo es generar un informe narrativo premium, estratégico y extremadamen
 
 REGLAS ESTRICTAS DE FORMATO (CRÍTICAS PARA EVITAR ERRORES DE LECTURA):
 1. Devuelve ÚNICAMENTE un objeto JSON válido.
-2. NO utilices saltos de línea (Enters) dentro de los textos. Escribe tus respuestas extensas en un solo bloque continuo de texto por campo.
-3. NO utilices comillas dobles dentro de tus textos. Usa comillas simples ('') si necesitas citar algo.
-4. Cíñete exactamente a esta estructura:
+2. NO utilices saltos de línea (Enters) dentro de los textos. Escribe tus respuestas en un solo bloque.
+3. NO utilices comillas dobles dentro de tus textos. Usa comillas simples ('').
+4. Los valores de los KPIs deben ser NÚMEROS ENTEROS (sin comillas en el JSON final).
 
 DATOS DEL RIESGO EN EVALUACIÓN:
 ${JSON.stringify(riesgo, null, 2)}
 
-ESTRUCTURA JSON REQUERIDA:
+ESTRUCTURA JSON REQUERIDA (Calcula los valores según la gravedad del riesgo proporcionado):
 {
   "encabezado": {
     "codigo": "RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}",
     "proceso": "${riesgo.macroproceso || riesgo.proceso || 'Gestión Operativa'}",
     "subproceso": "${riesgo.subproceso || 'General'}",
-    "riesgoInherenteLabel": "Alto",
-    "riesgoResidualLabel": "Bajo",
-    "calidadRegistroScore": 95,
+    "riesgoInherenteLabel": "Evalúa y escribe solo: Alto, Medio o Bajo",
+    "riesgoResidualLabel": "Evalúa y escribe solo: Alto, Medio o Bajo",
+    "calidadRegistroScore": 90,
     "confianzaIA": "Alta"
   },
   "kpis": {
-    "scoreRiesgo": 85,
-    "scoreMadurez": 70,
+    "scoreRiesgo": <REEMPLAZA POR UN NÚMERO ENTERO DE 0 A 100 SEGÚN EL IMPACTO DEL RIESGO>,
+    "scoreMadurez": <REEMPLAZA POR UN NÚMERO ENTERO DE 0 A 100 SEGÚN LOS CONTROLES>,
     "totalControles": ${Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : 1},
-    "coberturaControles": 75
+    "coberturaControles": <REEMPLAZA POR UN NÚMERO ENTERO DE 0 A 100 SEGÚN LA EFECTIVIDAD>
   },
   "hallazgos": [
     "Redacta un hallazgo estratégico extenso en un solo párrafo sin saltos de línea.",
@@ -66,17 +66,16 @@ ESTRUCTURA JSON REQUERIDA:
     "Recomendación nivel Junta Directiva en un solo párrafo continuo.",
     "Segunda recomendación táctica en un solo párrafo continuo."
   ],
-  "planAccion": [{ "prioridad": "Alta", "accion": "Acción detallada y ejecutiva", "responsable": "Comité de Riesgos" }],
-  "dictamenDirector": "Veredicto Ejecutivo principal. Escribe un párrafo extenso, contundente y analítico como Socio Director en un solo bloque de texto continuo, sin usar enters ni comillas dobles.",
+  "planAccion": [{ "prioridad": "Alta", "accion": "Acción detallada", "responsable": "Comité" }],
+  "dictamenDirector": "Veredicto Ejecutivo principal en un solo bloque de texto continuo.",
   "acordeonesTecnicos": {
-    "analisisMetodologico": "Análisis metodológico ISO 31000 extenso. Detalla causas y escenarios en un solo párrafo gigantesco sin interrupciones.",
-    "evaluacionControles": "Evaluación de controles COSO ERM en un solo párrafo continuo.",
+    "analisisMetodologico": "Análisis metodológico ISO 31000 extenso en un solo párrafo.",
+    "evaluacionControles": "Evaluación de controles en un solo párrafo continuo.",
     "isoCosoAlignment": "Alineación estratégica redactada en un solo párrafo.",
-    "krisEvidencias": "Define 3 KRIs detallados en un solo párrafo separados por puntos."
+    "krisEvidencias": "Define 3 KRIs detallados en un solo párrafo."
   }
 }
 `;
-
     const result = await model.generateContent(prompt);
     let jsonText = await result.response.text();
     
