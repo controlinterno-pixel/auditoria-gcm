@@ -19,26 +19,29 @@ const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash", 
   safetySettings,
   generationConfig: { 
-    temperature: 0.3, // Un toque más alto para mejor redacción narrativa
+    temperature: 0.2, 
     topP: 0.8, 
-    maxOutputTokens: 8192, // 🚀 AUMENTADO: Para que el informe extenso no se ampute a la mitad
-    responseMimeType: "application/json" // Esto obliga a Gemini a NO usar Markdown externo
+    maxOutputTokens: 8192,
+    responseMimeType: "application/json"
   }
 });
 
 export const analizarRiesgoConIA = async (riesgo) => {
   try {
     const prompt = `
-Eres el Socio Director de Auditoría (Big Four) de un Software GRC Enterprise.
-Tu objetivo es generar un informe narrativo premium, estratégico y extremadamente extenso dirigido a la Junta Directiva y C-Suite.
-Utiliza lenguaje ejecutivo, diagnóstico metodológico, simulación de evolución y benchmarking.
+Eres el Socio Director de Auditoría de un Software GRC Enterprise.
+Tu objetivo es generar un informe narrativo premium, estratégico y extremadamente extenso.
 
-REGLA ESTRICTA: Devuelve ÚNICAMENTE un objeto JSON. Todo tu informe narrativo debe ir DENTRO de los valores de este JSON. No uses formato Markdown externo.
+REGLAS ESTRICTAS DE FORMATO (CRÍTICAS PARA EVITAR ERRORES DE LECTURA):
+1. Devuelve ÚNICAMENTE un objeto JSON válido.
+2. NO utilices saltos de línea (Enters) dentro de los textos. Escribe tus respuestas extensas en un solo bloque continuo de texto por campo.
+3. NO utilices comillas dobles dentro de tus textos. Usa comillas simples ('') si necesitas citar algo.
+4. Cíñete exactamente a esta estructura:
 
 DATOS DEL RIESGO EN EVALUACIÓN:
 ${JSON.stringify(riesgo, null, 2)}
 
-ESTRUCTURA JSON REQUERIDA (Llena cada campo de texto con párrafos extensos y profundos):
+ESTRUCTURA JSON REQUERIDA:
 {
   "encabezado": {
     "codigo": "RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}",
@@ -56,41 +59,54 @@ ESTRUCTURA JSON REQUERIDA (Llena cada campo de texto con párrafos extensos y pr
     "coberturaControles": 75
   },
   "hallazgos": [
-    "Redacta aquí un hallazgo estratégico extenso y profundo (mínimo 3 líneas).",
-    "Redacta un segundo hallazgo sobre el impacto en el negocio."
+    "Redacta un hallazgo estratégico extenso en un solo párrafo sin saltos de línea.",
+    "Redacta un segundo hallazgo sobre impacto de negocio en un solo párrafo continuo."
   ],
   "recomendaciones": [
-    "Recomendación nivel Junta Directiva (mínimo 3 líneas).",
-    "Segunda recomendación táctica y predictiva."
+    "Recomendación nivel Junta Directiva en un solo párrafo continuo.",
+    "Segunda recomendación táctica en un solo párrafo continuo."
   ],
   "planAccion": [{ "prioridad": "Alta", "accion": "Acción detallada y ejecutiva", "responsable": "Comité de Riesgos" }],
-  "dictamenDirector": "Aquí va tu Veredicto Ejecutivo principal. Escribe un párrafo extenso, contundente y analítico como Socio Director evaluando si el riesgo es aceptable o requiere intervención inmediata.",
+  "dictamenDirector": "Veredicto Ejecutivo principal. Escribe un párrafo extenso, contundente y analítico como Socio Director en un solo bloque de texto continuo, sin usar enters ni comillas dobles.",
   "acordeonesTecnicos": {
-    "analisisMetodologico": "Escribe un análisis metodológico ISO 31000 muy extenso. Detalla causas, probabilidades, vulnerabilidades estructurales y escenarios de estrés.",
-    "evaluacionControles": "Evalúa los controles existentes usando taxonomía COSO ERM. Detalla por qué son fuertes o débiles y simula la evolución del riesgo.",
-    "isoCosoAlignment": "Alineación estratégica y semáforo ejecutivo.",
-    "krisEvidencias": "Define 3 KRIs (Key Risk Indicators) predictivos con sus umbrales de tolerancia para monitoreo continuo."
+    "analisisMetodologico": "Análisis metodológico ISO 31000 extenso. Detalla causas y escenarios en un solo párrafo gigantesco sin interrupciones.",
+    "evaluacionControles": "Evaluación de controles COSO ERM en un solo párrafo continuo.",
+    "isoCosoAlignment": "Alineación estratégica redactada en un solo párrafo.",
+    "krisEvidencias": "Define 3 KRIs detallados en un solo párrafo separados por puntos."
   }
 }
 `;
 
     const result = await model.generateContent(prompt);
-    const jsonText = await result.response.text();
+    let jsonText = await result.response.text();
     
-    // Al usar responseMimeType: "application/json", Gemini garantiza que jsonText sea parseable
-    const parsedObject = JSON.parse(jsonText);
+    // Limpieza de seguridad extrema
+    jsonText = jsonText.replace(/^```(json)?/im, '').replace(/```$/im, '').trim();
+    const startIndex = jsonText.indexOf('{');
+    const endIndex = jsonText.lastIndexOf('}');
+    
+    if (startIndex !== -1 && endIndex !== -1) {
+      jsonText = jsonText.substring(startIndex, endIndex + 1);
+    }
 
-    return JSON.stringify(parsedObject);
+    try {
+        const parsedObject = JSON.parse(jsonText);
+        return JSON.stringify(parsedObject);
+    } catch (parseError) {
+        // SI FALLA, IMPRIMIMOS EL TEXTO CRUDO EN CONSOLA PARA VER DÓNDE SE EQUIVOCÓ GEMINI
+        console.error("❌ ERROR CRÍTICO: El JSON de Gemini tiene mala sintaxis.");
+        console.error("TEXTO CRUDO:", jsonText);
+        throw parseError; // Lanza el error al catch principal
+    }
 
   } catch (error) {
-    console.error("Error procesando JSON en aiEngine:", error);
+    console.error("Fallo general en aiEngine:", error);
     
-    // 🛡️ Devolvemos el fallback también como STRING
     return JSON.stringify({
       encabezado: {
         codigo: `RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}`,
-        proceso: "Error de Conexión IA",
-        subproceso: "Reintento necesario",
+        proceso: "Error de Formato IA",
+        subproceso: "Revisar Consola",
         riesgoInherenteLabel: "-",
         riesgoResidualLabel: "-",
         calidadRegistroScore: 0,
@@ -99,8 +115,8 @@ ESTRUCTURA JSON REQUERIDA (Llena cada campo de texto con párrafos extensos y pr
       kpis: { scoreRiesgo: 0, scoreMadurez: 0, totalControles: 0, coberturaControles: 0 },
       hallazgos: ["La respuesta del servidor fue interrumpida o tuvo un formato inesperado."],
       recomendaciones: ["Vuelve a presionar el botón 'Dictamen IA' para generar un nuevo token."],
-      planAccion: [{ prioridad: "Media", accion: "Reintentar análisis", responsable: "Usuario" }],
-      dictamenDirector: "Se produjo un fallo de lectura en la API. Esto ocurre ocasionalmente cuando el modelo recorta la respuesta.",
+      planAccion: [{ prioridad: "Media", accion: "Revisar consola del navegador", responsable: "Desarrollador" }],
+      dictamenDirector: "Se produjo un fallo de lectura. Revisa la consola del navegador (F12) para ver el JSON crudo.",
       acordeonesTecnicos: { 
         analisisMetodologico: "Datos no disponibles.", evaluacionControles: "Datos no disponibles.",
         isoCosoAlignment: "Datos no disponibles.", krisEvidencias: "Datos no disponibles."
