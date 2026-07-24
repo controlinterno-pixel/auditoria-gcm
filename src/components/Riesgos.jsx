@@ -663,12 +663,12 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
               {/* 🌟 AQUÍ ESTÁ EL NUEVO CONTENEDOR LADO A LADO PARA MACRO Y SUBPROCESO */}
               <div className="md:col-span-2 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+<div>
                   <LabelConPalomita idCampo="proceso" />
                   <select 
                     value={macroproceso} 
                     onChange={handleMacroprocesoChange} 
                     className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] bg-white font-bold text-slate-800"
-                    required
                   >
                     <option value="" disabled>Seleccione...</option>
                     {listadoMacros.map(macro => (
@@ -690,7 +690,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                         ? 'bg-slate-100 cursor-not-allowed border-slate-200 text-slate-400' 
                         : 'bg-white border-slate-300 text-slate-800 font-semibold focus:ring-2 focus:ring-[#0A3B32]'      
                     }`}
-                    required
                   >
                     {!macroproceso && <option value="">Esperando selección...</option>}
                     {macroproceso && subprocesosDisponibles.map(sub => (
@@ -704,7 +703,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
 
               <div>
                 <LabelConPalomita idCampo="categoria" />
-                <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]" required>
+                <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">                  
                   <option value="">Seleccione...</option>
                   <option value="Estratégico">Estratégico</option>
                   <option value="Operativo">Operativo</option>
@@ -806,6 +805,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 </select>
               </div>
               <div>
+               <div>
                 <LabelConPalomita idCampo="causaInmediata" />
                 <textarea
                   rows="2"
@@ -813,7 +813,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                   onChange={e => setCausaInmediata(e.target.value)}
                   placeholder="¿Qué pasa en la operación?"
                   className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
-                  required
                 />
               </div>
               <div>
@@ -824,7 +823,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                   onChange={e => setCausaRaiz(e.target.value)}
                   placeholder="¿Por qué se origina el fallo?"
                   className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
-                  required
                 />
               </div>
             </div>
@@ -870,7 +868,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
             {controles.map((ctrl, idx) => (
               <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3 relative">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                  <div className="md:col-span-11">
+<div className="md:col-span-11">
                     <LabelConPalomita idCampo="controlDesc" />
                     <textarea
                       rows="3"
@@ -878,9 +876,8 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                       onChange={(e) => { const nuevos = [...controles]; nuevos[idx].descripcion = e.target.value; setControles(nuevos); }}
                       className="w-full text-xs p-2 border bg-white rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
                       placeholder="Describa la tarea completa del control..."
-                      required
                     />
-                  </div>
+                  </div>                  
                   <div className="md:col-span-1 flex justify-center">
                     <button type="button" onClick={() => setControles(controles.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700 text-xs font-black uppercase tracking-widest bg-red-50 border border-red-200 px-3 py-2 rounded-xl transition-colors">🗑️ Borrar</button>
                   </div>
