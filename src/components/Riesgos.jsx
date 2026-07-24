@@ -172,6 +172,8 @@ export default function Riesgos({
   const [procesandoIA, setProcesandoIA] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [isSubmitting, setIsSubmitting] = useState(false);
+// 🛡️ Estado para el modal explicativo de eficacia del control
+  const [controlSeleccionadoIA, setControlSeleccionadoIA] = useState(null);
   // 🚀 ESTADOS PARA EL EXPEDIENTE EXPANDIBLE (ACCORDEÓN 360°)
   const [expandedRiesgoId, setExpandedRiesgoId] = useState(null);
   const [activeSubTab, setActiveSubTab] = useState('controles');
@@ -973,7 +975,126 @@ const renderMatriz = () => {
   };               
   return (
     <div className="space-y-6 animate-in fade-in duration-300 relative">
-      
+
+      {/* 🛡️ MODAL EXPLICATIVO DE EFICACIA DEL CONTROL (TABLA 6 DEL MANUAL) */}
+      {controlSeleccionadoIA && (
+        <div className="fixed inset-0 z-[260] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* Encabezado */}
+            <div className="bg-[#0A3B32] text-white p-5 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-500/20 rounded-xl text-emerald-400 font-mono font-black text-lg">
+                  🛡️
+                </div>
+                <div>
+                  <h3 className="font-bold text-xs tracking-wider uppercase">Evaluación de Eficacia del Control</h3>
+                  <p className="text-[10px] text-emerald-200/80 font-medium">Según Manual del Sistema Integral de Riesgos (ISO 31000)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setControlSeleccionadoIA(null)}
+                className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-7 h-7 flex items-center justify-center transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Cuerpo del Modal */}
+            <div className="p-6 space-y-4 text-slate-700 text-xs">
+              
+              {/* Resultado del % */}
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 block">Eficacia Total Calculada</span>
+                  <p className="text-[10px] text-emerald-700 font-medium mt-0.5">Ponderación según atributos del control</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-3xl font-black font-mono text-emerald-800">
+                    {calcularEficaciaControl(controlSeleccionadoIA)}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Tabla con la regla del manual */}
+              <div>
+                <h4 className="font-black text-slate-500 uppercase tracking-wider text-[9px] mb-2">
+                  📊 Desglose según Numeral 8.3.4 (Tabla 6 del Manual):
+                </h4>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left border-collapse text-[11px]">
+                    <thead className="bg-slate-100 border-b border-slate-200 text-slate-600 font-bold">
+                      <tr>
+                        <th className="p-2.5">Atributo</th>
+                        <th className="p-2.5">Seleccionado</th>
+                        <th className="p-2.5 text-right">Aporte</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium">
+                      <tr>
+                        <td className="p-2.5 font-bold text-slate-800">1. Tipo</td>
+                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.tipo || 'Preventivo'}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
+                          +{controlSeleccionadoIA.tipo === 'Preventivo' ? '30%' : controlSeleccionadoIA.tipo === 'Detectivo' ? '20%' : '10%'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-bold text-slate-800">2. Ejecución</td>
+                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.implementacion || 'Manual'}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
+                          +{controlSeleccionadoIA.implementacion === 'Automático' ? '25%' : '15%'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-bold text-slate-800">3. Documentación</td>
+                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.documentacion || 'Documentado'}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
+                          +{controlSeleccionadoIA.documentacion === 'Documentado' ? '15%' : '0%'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-bold text-slate-800">4. Frecuencia</td>
+                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.frecuencia || 'Continua'}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
+                          +{controlSeleccionadoIA.frecuencia === 'Continua' ? '15%' : '10%'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="p-2.5 font-bold text-slate-800">5. Evidencia</td>
+                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.evidencia || 'Con registro'}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
+                          +{controlSeleccionadoIA.evidencia === 'Con registro' ? '15%' : '0%'}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Nota metodológica */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[10px] text-slate-600 leading-relaxed">
+                <p className="font-bold text-slate-800 mb-1">📖 Regla del Manual de Riesgos (Termales S.A.):</p>
+                "Los controles Preventivos y Automáticos otorgan la ponderación más alta (+30% y +25%) debido a que atacan directamente la causa raíz del riesgo antes de que ocurra el evento."
+              </div>
+
+            </div>
+
+            {/* Botón de cierre */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 text-right">
+              <button
+                type="button"
+                onClick={() => setControlSeleccionadoIA(null)}
+                className="px-5 py-2 bg-[#0A3B32] hover:bg-[#062620] text-white font-bold rounded-xl text-xs transition-colors shadow-sm"
+              >
+                Entendido
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* 🔮 EL POPUP MODAL SUTIL Y ELEGANTE CON BASE EN LA MAQUETA DE FORMATO */}
       {ayudaModal && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -1280,13 +1401,25 @@ const renderMatriz = () => {
               <button type="button" onClick={() => setControles([...controles, { descripcion: '', tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro' }])} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-colors">➕ Agregar Control</button>
             </div>
 {controles.map((ctrl, idx) => (
-              <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3 relative mt-6">
-                
-                {/* 🏷️ ETIQUETA VISUAL DEL CÓDIGO CONSECUTIVO */}
-                <div className="absolute -top-3 left-4 bg-[#0A3B32] text-white font-black text-[10px] px-3 py-1 rounded-md shadow-sm uppercase tracking-widest border border-[#062620]">
-                  Control C{idx + 1}
-                </div>
+  <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3 relative mt-6">
+    
+    {/* 🏷️ ETIQUETA VISUAL + BOTÓN DE CÁLCULO DE EFICACIA */}
+    <div className="flex justify-between items-center">
+      <div className="absolute -top-3 left-4 bg-[#0A3B32] text-white font-black text-[10px] px-3 py-1 rounded-md shadow-sm uppercase tracking-widest border border-[#062620]">
+        Control C{idx + 1}
+      </div>
 
+      {/* 📊 BOTÓN CHULITO VERDE QUE ABRE EL DESGLOSE */}
+      <button
+        type="button"
+        onClick={() => setControlSeleccionadoIA(ctrl)}
+        className="ml-auto text-[10px] font-black bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-lg flex items-center gap-1.5 shadow-sm transition-all transform hover:scale-105 cursor-pointer"
+        title="Ver desglose de eficacia según el Manual de Riesgos"
+      >
+        <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[8px] font-bold">✓</span>
+        <span>Ver Eficacia ({calcularEficaciaControl(ctrl)}%)</span>
+      </button>
+    </div>
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">            
 <div className="md:col-span-11">
                     <LabelConPalomita idCampo="controlDesc" />
