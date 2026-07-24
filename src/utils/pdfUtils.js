@@ -4,7 +4,6 @@ import { jsPDF } from 'jspdf';
 export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
   let element = null;
 
-  // Resolución flexible del objetivo (String, Ref o Elemento)
   if (typeof target === 'string') {
     element = document.getElementById(target);
   } else if (target && target.current) {
@@ -19,13 +18,18 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
   }
 
   try {
-    // Usamos html-to-image con el motor nativo del navegador
+    // 🔥 EL SECRETO PARA CONTENEDORES LARGOS:
+    // Obligamos al canvas a tomar las dimensiones totales (incluyendo lo que hay que scrollear)
     const dataUrl = await toPng(element, {
       quality: 1.0,
-      pixelRatio: 2, // Alta resolución para que el texto se lea nítido
-      backgroundColor: '#0f172a', // Fondo slate-900 para evitar transparencias
+      pixelRatio: 2, 
+      backgroundColor: '#0f172a',
+      width: element.scrollWidth,  // Captura el ancho total real
+      height: element.scrollHeight, // Captura el alto total real (lo que está oculto abajo)
       style: {
-        overflow: 'hidden' // Evita que salgan barras de scroll en el PDF
+        overflow: 'visible', // Desactiva la barra de scroll temporalmente
+        maxHeight: 'none',   // Rompe cualquier límite de altura
+        height: 'auto'       // Deja que el contenedor fluya libremente
       }
     });
 
@@ -39,20 +43,21 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
     let heightLeft = imgHeight;
     let position = 0;
 
-    // Primera página
+    // Agregar la primera página
     pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
 
-    // Páginas adicionales si el contenido es muy largo
+    // 🔥 Paginación automática: 
+    // Si la imagen es más alta que una hoja A4, creará nuevas hojas automáticamente
     while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
+      position = heightLeft - imgHeight; 
       pdf.addPage();
       pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
     }
 
     pdf.save(fileName);
-    console.log('✅ ¡PDF generado con éxito!');
+    console.log('✅ ¡PDF generado con el 100% de la información!');
     
   } catch (error) {
     console.error('❌ Error crítico al generar el PDF:', error);
