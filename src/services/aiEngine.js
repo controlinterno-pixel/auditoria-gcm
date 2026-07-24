@@ -20,43 +20,74 @@ const safetySettings = [
 // Lista de modelos a probar en orden de preferencia
 const MODEL_NAMES = ["gemini-2.5-flash", "gemini-3.1-flash-lite"];
 
+const calcularMetricasMatematicas = (riesgo) => {
+  const totalControles = Array.isArray(riesgo.controlesDetallados) 
+    ? riesgo.controlesDetallados.length 
+    : (riesgo.controles ? riesgo.controles.length : 1);
+
+  const impact = Number(riesgo.impacto) || 3;
+  const probabilidad = Number(riesgo.probabilidad) || 3;
+
+  const scoreRiesgo = Math.min(Math.max(Math.round(((impact * probabilidad) / 25) * 100), 15), 95);
+  const scoreMadurez = Math.min(Math.max(totalControles * 15, 20), 90);
+  const coberturaControles = Math.min(Math.round((scoreMadurez * 0.9) + 5), 100);
+
+  let riesgoResidualLabel = "Bajo";
+  if (scoreRiesgo > 60) riesgoResidualLabel = "Alto";
+  else if (scoreRiesgo > 35) riesgoResidualLabel = "Medio";
+
+  let riesgoInherenteLabel = "Alto";
+  if (impact * probabilidad < 8) riesgoInherenteLabel = "Bajo";
+  else if (impact * probabilidad < 16) riesgoInherenteLabel = "Medio";
+
+  return { scoreRiesgo, scoreMadurez, totalControles, coberturaControles, riesgoInherenteLabel, riesgoResidualLabel };
+};
 export const analizarRiesgoConIA = async (riesgo) => {
+  const metricasFijas = calcularMetricasMatematicas(riesgo);
+
   const prompt = `
 Eres el Socio Director de Auditoría de un Software GRC Enterprise.
-Tu objetivo es generar un informe narrativo premium, estratégico y extremadamente extenso.
+Tu objetivo es generar un informe narrativo premium y estratégico adaptado a las siguientes métricas exactas.
 
-REGLAS ESTRICTAS DE FORMATO (CRÍTICAS PARA EVITAR ERRORES DE LECTURA):
+REGLAS ESTRICTAS DE FORMATO:
 1. Devuelve ÚNICAMENTE un objeto JSON válido.
-2. NO utilices saltos de línea (Enters) dentro de los textos. Escribe tus respuestas en un solo bloque.
+2. NO utilices saltos de línea dentro de los textos.
 3. NO utilices comillas dobles dentro de tus textos. Usa comillas simples ('').
-4. Los valores de los KPIs deben ser NÚMEROS ENTEROS (sin comillas en el JSON final).
+4. NO alteres las métricas calculadas que se te proporcionan.
 
 DATOS DEL RIESGO EN EVALUACIÓN:
 ${JSON.stringify(riesgo, null, 2)}
 
-ESTRUCTURA JSON REQUERIDA (Calcula los valores según la gravedad del riesgo proporcionado):
+MÉTRICAS EXACTAS CALCULADAS POR EL SISTEMA (USALAS TAL CUAL EN TU RESPUESTA):
+- Score Riesgo: ${metricasFijas.scoreRiesgo}%
+- Score Madurez: ${metricasFijas.scoreMadurez}%
+- Cobertura: ${metricasFijas.coberturaControles}%
+- Riesgo Inherente: ${metricasFijas.riesgoInherenteLabel}
+- Riesgo Residual: ${metricasFijas.riesgoResidualLabel}
+
+ESTRUCTURA JSON REQUERIDA:
 {
   "encabezado": {
     "codigo": "RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}",
     "proceso": "${riesgo.macroproceso || riesgo.proceso || 'Gestión Operativa'}",
     "subproceso": "${riesgo.subproceso || 'General'}",
-    "riesgoInherenteLabel": "Evalúa y escribe solo: Alto, Medio o Bajo",
-    "riesgoResidualLabel": "Evalúa y escribe solo: Alto, Medio o Bajo",
+    "riesgoInherenteLabel": "${metricasFijas.riesgoInherenteLabel}",
+    "riesgoResidualLabel": "${metricasFijas.riesgoResidualLabel}",
     "calidadRegistroScore": 90,
     "confianzaIA": "Alta"
   },
   "kpis": {
-    "scoreRiesgo": <REEMPLAZA POR UN NÚMERO ENTERO DE 0 A 100 SEGÚN EL IMPACTO DEL RIESGO>,
-    "scoreMadurez": <REEMPLAZA POR UN NÚMERO ENTERO DE 0 A 100 SEGÚN LOS CONTROLES>,
-    "totalControles": ${Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : 1},
-    "coberturaControles": <REEMPLAZA POR UN NÚMERO ENTERO DE 0 A 100 SEGÚN LA EFECTIVIDAD>
+    "scoreRiesgo": ${metricasFijas.scoreRiesgo},
+    "scoreMadurez": ${metricasFijas.scoreMadurez},
+    "totalControles": ${metricasFijas.totalControles},
+    "coberturaControles": ${metricasFijas.coberturaControles}
   },
   "hallazgos": [
-    "Redacta un hallazgo estratégico extenso en un solo párrafo sin saltos de línea.",
+    "Redacta un hallazgo estratégico extenso coherente con el score de riesgo del ${metricasFijas.scoreRiesgo}%.",
     "Redacta un segundo hallazgo sobre impacto de negocio en un solo párrafo continuo."
   ],
   "recomendaciones": [
-    "Recomendación nivel Junta Directiva en un solo párrafo continuo.",
+    "Recomendación para elevar la madurez actual del ${metricasFijas.scoreMadurez}%.",
     "Segunda recomendación táctica en un solo párrafo continuo."
   ],
   "planAccion": [{ "prioridad": "Alta", "accion": "Acción detallada", "responsable": "Comité" }],
@@ -69,7 +100,6 @@ ESTRUCTURA JSON REQUERIDA (Calcula los valores según la gravedad del riesgo pro
   }
 }
 `;
-
   // 🔄 ROTACIÓN DE CLAVES Y MODELOS
   for (let i = 0; i < API_KEYS.length; i++) {
     const currentKey = API_KEYS[i];
@@ -106,9 +136,17 @@ ESTRUCTURA JSON REQUERIDA (Calcula los valores según la gravedad del riesgo pro
         jsonText = jsonText.replace(/[\n\r\t]/g, " ");
 
         const parsedObject = JSON.parse(jsonText);
+
+        // 🛡️ Aseguramos que los KPIs devueltos sean exactamente los matemáticos
+        parsedObject.kpis = {
+          scoreRiesgo: metricasFijas.scoreRiesgo,
+          scoreMadurez: metricasFijas.scoreMadurez,
+          totalControles: metricasFijas.totalControles,
+          coberturaControles: metricasFijas.coberturaControles
+        };
+
         console.log(`✅ ¡Éxito en respuesta generada usando Key #${i + 1}!`);
         return JSON.stringify(parsedObject);
-
       } catch (err) {
         console.warn(`⚠️ Falló Key #${i + 1} con modelo ${modelName}. Motivo: ${err.message || err}`);
         // Si falla, el bucle for continúa probando con la siguiente combinación
