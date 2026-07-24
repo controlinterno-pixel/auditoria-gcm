@@ -298,7 +298,7 @@ export default function Riesgos({
 
     try {
       let updatedList = [...safeRiesgos];
-      const textoControlesConsolidados = controles.map(c => `🔹 [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n');
+const textoControlesConsolidados = controles.map((c, index) => `C${index + 1}. [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n\n');
 
 const nuevoRiesgo = {
         ...(editRiesgo || {}),
@@ -853,9 +853,15 @@ const nuevoRiesgo = {
               <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest">4. Evaluación de Solidez de Controles (5 Variables)</h3>
               <button type="button" onClick={() => setControles([...controles, { descripcion: '', tipo: 'Preventivo', implementacion: 'Manual', documentacion: 'Documentado', frecuencia: 'Continua', evidencia: 'Con registro' }])} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase hover:bg-blue-200 transition-colors">➕ Agregar Control</button>
             </div>
-            {controles.map((ctrl, idx) => (
-              <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3 relative">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+{controles.map((ctrl, idx) => (
+              <div key={idx} className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3 relative mt-6">
+                
+                {/* 🏷️ ETIQUETA VISUAL DEL CÓDIGO CONSECUTIVO */}
+                <div className="absolute -top-3 left-4 bg-[#0A3B32] text-white font-black text-[10px] px-3 py-1 rounded-md shadow-sm uppercase tracking-widest border border-[#062620]">
+                  Control C{idx + 1}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">            
 <div className="md:col-span-11">
                     <LabelConPalomita idCampo="controlDesc" />
                     <textarea
