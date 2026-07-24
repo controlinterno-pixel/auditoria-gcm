@@ -91,7 +91,13 @@ clasificacion: {
   }
 };
 
-export default function Riesgos({ isAdmin, safeRiesgos: rawRiesgos, setRiesgos, saveToCloud, showNotification }) {
+export default function Riesgos({ 
+  isAdmin = false, 
+  safeRiesgos: rawRiesgos, 
+  setRiesgos = () => console.warn("Modo offline: setRiesgos no detectado"), 
+  saveToCloud = async () => console.warn("Modo offline: saveToCloud no detectado"), 
+  showNotification = () => {} 
+}) {
   // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen
   const safeRiesgos = Array.isArray(rawRiesgos) ? rawRiesgos : [];
 
@@ -294,10 +300,11 @@ export default function Riesgos({ isAdmin, safeRiesgos: rawRiesgos, setRiesgos, 
       let updatedList = [...safeRiesgos];
       const textoControlesConsolidados = controles.map(c => `🔹 [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n');
 
-      const nuevoRiesgo = {
+const nuevoRiesgo = {
         ...(editRiesgo || {}),
-        id: editRiesgo ? editRiesgo.id : crypto.randomUUID(),
-        sede: sedeForm,
+        // 🛡️ BLINDAJE: Generador de ID seguro con respaldo si crypto falla
+        id: editRiesgo ? editRiesgo.id : (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `RSK-${Date.now()}`),
+        sede: sedeForm,      
         // ✅ CORREGIDO: Se usa macroproceso para no romper el guardado
         proceso: macroproceso,
         macroproceso: macroproceso,
