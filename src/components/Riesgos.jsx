@@ -903,7 +903,16 @@ const renderMatriz = () => {
     </div>
 
   </div>
-)}                    
+)}     
+</div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };               
   return (
     <div className="space-y-6 animate-in fade-in duration-300 relative">
       
