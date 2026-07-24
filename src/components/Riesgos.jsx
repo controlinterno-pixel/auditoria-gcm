@@ -663,7 +663,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
               {/* 🌟 AQUÍ ESTÁ EL NUEVO CONTENEDOR LADO A LADO PARA MACRO Y SUBPROCESO */}
               <div className="md:col-span-2 lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-<div>
                   <LabelConPalomita idCampo="proceso" />
                   <select 
                     value={macroproceso} 
@@ -795,7 +794,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           {/* SINTAXIS OBLIGATORIA */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">2. Estructura y Redacción (Mandato del Manual)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <LabelConPalomita idCampo="afectacion" />
                 <select value={afectacion} onChange={e => setAfectacion(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
@@ -805,8 +804,7 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 </select>
               </div>
               <div>
-               <div>
-                <LabelConPalomita idCampo="causaInmediata" />
+                <LabelConPalomita idCampo="causaInmediata" />           
                 <textarea
                   rows="2"
                   value={causaInmediata}
