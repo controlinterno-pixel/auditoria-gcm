@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf';
 export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
   let element = null;
 
-  // 1. Resolución flexible del objetivo
+  // Resolución flexible del objetivo (String, Ref o Elemento)
   if (typeof target === 'string') {
     element = document.getElementById(target);
   } else if (target && target.current) {
@@ -19,22 +19,19 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
   }
 
   try {
-    // 2. Usamos html-to-image. Esto usa el motor nativo del navegador (<foreignObject>)
-    // por lo que soporta oklch, oklab, y CSS moderno sin fallar.
+    // Usamos html-to-image con el motor nativo del navegador
     const dataUrl = await toPng(element, {
       quality: 1.0,
-      pixelRatio: 2, // Alta resolución
-      backgroundColor: '#0f172a', // Fondo oscuro por defecto (Tailwind slate-900) para evitar transparencias raras
+      pixelRatio: 2, // Alta resolución para que el texto se lea nítido
+      backgroundColor: '#0f172a', // Fondo slate-900 para evitar transparencias
       style: {
-        // Aseguramos que el contenedor no tenga scrollbars durante la captura
-        overflow: 'hidden'
+        overflow: 'hidden' // Evita que salgan barras de scroll en el PDF
       }
     });
 
-    // 3. Configuración de jsPDF
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgWidth = 210; // Ancho A4 en mm
-    const pageHeight = 297; // Alto A4 en mm
+    const imgWidth = 210; 
+    const pageHeight = 297; 
     
     const imgProps = pdf.getImageProperties(dataUrl);
     const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
@@ -42,11 +39,11 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
     let heightLeft = imgHeight;
     let position = 0;
 
-    // 4. Inserción de la primera página
+    // Primera página
     pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
 
-    // 5. Bucle para múltiples páginas si el contenido es muy largo
+    // Páginas adicionales si el contenido es muy largo
     while (heightLeft > 0) {
       position = heightLeft - imgHeight;
       pdf.addPage();
@@ -54,9 +51,8 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
       heightLeft -= pageHeight;
     }
 
-    // 6. Descarga del archivo
     pdf.save(fileName);
-    console.log('✅ PDF generado con éxito utilizando html-to-image');
+    console.log('✅ ¡PDF generado con éxito!');
     
   } catch (error) {
     console.error('❌ Error crítico al generar el PDF:', error);
