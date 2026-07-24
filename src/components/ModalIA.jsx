@@ -25,13 +25,27 @@ export default function ModalIA({ aiModal, setAiModal }) {
 
   const pdfRef = useRef();
 
-  const descargarPDF = () => {
+const descargarPDF = () => {
     const element = pdfRef.current;
     const opciones = {
       margin: 0.5,
       filename: `Dictamen_Riesgo_${data?.encabezado?.codigo || 'ERIR'}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        backgroundColor: '#0f172a',
+        // 🔽 ESTE BLOQUE RESUELVE EL ERROR "unsupported color function oklch"
+        onclone: (clonedDoc) => {
+          const allElements = clonedDoc.querySelectorAll('*');
+          allElements.forEach((el) => {
+            const style = window.getComputedStyle(el);
+            if (style.color) el.style.color = style.color;
+            if (style.backgroundColor) el.style.backgroundColor = style.backgroundColor;
+            if (style.borderColor) el.style.borderColor = style.borderColor;
+          });
+        }
+      },
       jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
     };
     html2pdf().set(opciones).from(element).save();
