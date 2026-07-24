@@ -3,14 +3,23 @@ import React, { useState } from 'react';
 export default function ModalIA({ aiModal, setAiModal }) {
   if (!aiModal) return null;
 
-  // 🛡️ ESCUDO: Detectar si la data viene en .contenido o si se pasó el objeto directo
-  const rawData = aiModal?.contenido !== undefined ? aiModal.contenido : aiModal;
+  // Extraemos el valor asumiendo que el padre nos mandó un string
+  const rawText = aiModal?.contenido !== undefined ? aiModal.contenido : aiModal;
 
-  // Verificar si es nuestro objeto JSON estructurado para el Dashboard
-  const isDashboardData = rawData && typeof rawData === 'object' && rawData.encabezado;
-  const data = isDashboardData ? rawData : null;
+  let data = null;
+  let isDashboardData = false;
 
-  // Estado para acordeones
+  // 🔄 Intentamos transformar el String de nuevo a Objeto SOLO dentro de este componente
+  try {
+    const parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
+    if (parsed && typeof parsed === 'object' && parsed.encabezado) {
+      data = parsed;
+      isDashboardData = true;
+    }
+  } catch (e) {
+    // Si falla el parseo, lo tratamos como texto normal (Fallback extremo)
+  }
+
   const [openAccordion, setOpenAccordion] = useState('metodologia');
   const toggleAccordion = (key) => setOpenAccordion(openAccordion === key ? null : key);
 
@@ -21,45 +30,27 @@ export default function ModalIA({ aiModal, setAiModal }) {
         {/* CABECERA */}
         <div className="bg-slate-900/90 border-b border-slate-800 p-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">
-              🛡️
-            </div>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">🛡️</div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-950/80 border border-cyan-800/50 px-2 py-0.5 rounded-md">
-                  Panel Ejecutivo Inteligente
-                </span>
-                <span className="text-[10px] font-mono font-bold text-slate-400">
-                  {data?.encabezado?.codigo || 'RSK-ANALYSIS'}
-                </span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-950/80 border border-cyan-800/50 px-2 py-0.5 rounded-md">Panel Ejecutivo Inteligente</span>
+                <span className="text-[10px] font-mono font-bold text-slate-400">{data?.encabezado?.codigo || 'RSK-ANALYSIS'}</span>
               </div>
-              <h3 className="font-extrabold text-base text-slate-100 mt-0.5">
-                {aiModal.titulo || data?.encabezado?.proceso || 'Análisis del Riesgo Corporativo'}
-              </h3>
+              <h3 className="font-extrabold text-base text-slate-100 mt-0.5">{aiModal.titulo || data?.encabezado?.proceso || 'Análisis del Riesgo Corporativo'}</h3>
             </div>
           </div>
-          <button onClick={() => setAiModal(null)} className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm">
-            ✕
-          </button>
+          <button onClick={() => setAiModal(null)} className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm">✕</button>
         </div>
 
         {/* CUERPO DEL WORKSPACE */}
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
-          {data ? (
+          {isDashboardData && data ? (
             <>
               {/* BADGES */}
               <div className="flex flex-wrap items-center gap-2 pb-1">
-                <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-orange-400"></span>
-                  Inh: {data.encabezado.riesgoInherenteLabel || 'Alto'}
-                </span>
-                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  Residual: {data.encabezado.riesgoResidualLabel || 'Bajo'}
-                </span>
-                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">
-                  ⭐ Calidad: {data.encabezado.calidadRegistroScore}/100
-                </span>
+                <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>Inh: {data.encabezado.riesgoInherenteLabel || 'Alto'}</span>
+                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400"></span>Residual: {data.encabezado.riesgoResidualLabel || 'Bajo'}</span>
+                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data.encabezado.calidadRegistroScore}/100</span>
               </div>
 
               {/* KPIS */}
@@ -83,9 +74,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
                   <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">⚠️ Hallazgos</h4>
                   <ul className="space-y-2 text-xs text-slate-300 font-medium">
                     {data.hallazgos?.map((item, idx) => (
-                      <li key={idx} className="flex items-start space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-amber-400 font-bold shrink-0">•</span><span>{item}</span>
-                      </li>
+                      <li key={idx} className="flex items-start space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800"><span className="text-amber-400 font-bold shrink-0">•</span><span>{item}</span></li>
                     ))}
                   </ul>
                 </div>
@@ -93,9 +82,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
                   <h4 className="text-xs font-black uppercase tracking-wider text-cyan-400 flex items-center gap-2">💡 Recomendaciones</h4>
                   <ul className="space-y-2 text-xs text-slate-300 font-medium">
                     {data.recomendaciones?.map((item, idx) => (
-                      <li key={idx} className="flex items-start space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-cyan-400 font-bold shrink-0">✔</span><span>{item}</span>
-                      </li>
+                      <li key={idx} className="flex items-start space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800"><span className="text-cyan-400 font-bold shrink-0">✔</span><span>{item}</span></li>
                     ))}
                   </ul>
                 </div>
@@ -106,19 +93,11 @@ export default function ModalIA({ aiModal, setAiModal }) {
                 <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">📈 Plan de Acción Inmediato</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                        <th className="pb-2">Prioridad</th><th className="pb-2">Acción</th><th className="pb-2 text-right">Responsable</th>
-                      </tr>
-                    </thead>
+                    <thead><tr className="border-b border-slate-800 text-[10px] font-black uppercase text-slate-400 tracking-wider"><th className="pb-2">Prioridad</th><th className="pb-2">Acción</th><th className="pb-2 text-right">Responsable</th></tr></thead>
                     <tbody className="divide-y divide-slate-800/50">
                       {data.planAccion?.map((act, idx) => (
                         <tr key={idx} className="hover:bg-slate-800/20">
-                          <td className="py-2.5">
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${act.prioridad === 'Alta' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                              {act.prioridad}
-                            </span>
-                          </td>
+                          <td className="py-2.5"><span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${act.prioridad === 'Alta' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{act.prioridad}</span></td>
                           <td className="py-2.5 font-medium text-slate-200">{act.accion}</td>
                           <td className="py-2.5 text-right font-bold text-slate-400 whitespace-nowrap">{act.responsable}</td>
                         </tr>
@@ -145,19 +124,15 @@ export default function ModalIA({ aiModal, setAiModal }) {
                     <button onClick={() => toggleAccordion(acc.id)} className="w-full p-3.5 text-left text-xs font-bold text-slate-200 flex justify-between items-center hover:bg-slate-800/60 transition-colors">
                       <span className="flex items-center gap-2"><span>▼</span> {acc.title}</span>
                     </button>
-                    {openAccordion === acc.id && (
-                      <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">
-                        {acc.text || 'Sin información técnica detallada.'}
-                      </div>
-                    )}
+                    {openAccordion === acc.id && <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">{acc.text || 'Sin información técnica detallada.'}</div>}
                   </div>
                 ))}
               </div>
             </>
           ) : (
-            // 🛡️ PREVENCIÓN DEL ERROR #31: Si llega un objeto crudo no estructurado, lo formatea como string seguro
+            // Si llega un string que NO es JSON (ej. fallo grave), lo muestra como texto plano
             <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap font-medium p-4 bg-slate-800/50 rounded-2xl border border-slate-800 overflow-auto">
-              {typeof rawData === 'object' ? JSON.stringify(rawData, null, 2) : String(rawData)}
+              {String(rawText)}
             </div>
           )}
         </div>
@@ -165,9 +140,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
         {/* FOOTER */}
         <div className="bg-slate-900/90 border-t border-slate-800 p-4 flex justify-between items-center sticky bottom-0 backdrop-blur-md">
           <span className="text-[10px] text-slate-500 font-semibold">Enterprise GRC Suite</span>
-          <button onClick={() => setAiModal(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs font-bold transition-colors">
-            Cerrar Panel
-          </button>
+          <button onClick={() => setAiModal(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs font-bold transition-colors">Cerrar Panel</button>
         </div>
       </div>
     </div>
