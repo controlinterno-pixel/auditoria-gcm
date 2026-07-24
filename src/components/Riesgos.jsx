@@ -5,6 +5,8 @@ import {
   CARGOS_POR_SEDE, 
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
+import { analizarRiesgoConIA } from '../services/aiEngine';
+import ModalIA from '../components/ModalIA';
 
 import ModalIA from '../components/ModalIA';
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
