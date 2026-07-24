@@ -106,7 +106,18 @@ export default function Riesgos({
   const [procesandoIA, setProcesandoIA] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  // 🚀 ESTADOS PARA EL EXPEDIENTE EXPANDIBLE (ACCORDEÓN 360°)
+  const [expandedRiesgoId, setExpandedRiesgoId] = useState(null);
+  const [activeSubTab, setActiveSubTab] = useState('controles');
+
+  const toggleExpediente = (id) => {
+    if (expandedRiesgoId === id) {
+      setExpandedRiesgoId(null);
+    } else {
+      setExpandedRiesgoId(id);
+      setActiveSubTab('controles');
+    }
+  };
   // 🍿 ESTADO PARA EL POPUP INTERACTIVO ELEGANTE
   const [ayudaModal, setAyudaModal] = useState(null);
   
@@ -465,86 +476,248 @@ const nuevoRiesgo = {
     );
   };
 
-  const renderMatriz = () => {
+const renderMatriz = () => {
     return (
-      <div className="bg-white border rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4 duration-500">
-        <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
-          <h3 className="font-black text-slate-700 uppercase text-xs tracking-widest">Matriz de Riesgos Corporativa</h3>
+      <div className="bg-white border rounded-2xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4 duration-500">
+        
+        {/* CABECERA CONSOLA ENTERPRISE */}
+        <div className="p-4 border-b bg-slate-900 text-white flex justify-between items-center">
+          <div>
+            <h3 className="font-black uppercase text-xs tracking-widest text-emerald-400">Matriz de Riesgos Corporativa 360°</h3>
+            <p className="text-[10px] text-slate-400">Haga clic en cualquier fila para desplegar el Expediente Integral de Control</p>
+          </div>
+          <span className="text-xs bg-slate-800 text-slate-300 font-mono px-3 py-1 rounded-lg border border-slate-700">
+            {safeRiesgos.length} Registros
+          </span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left divide-y">
-            <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase">
-              <tr>
-                <th className="p-3">ID / Proceso</th>
-                <th className="p-3 w-64">Clasificación y Escenario de Riesgo</th>
-                <th className="p-3 text-center">Inherente</th>
-                <th className="p-3 text-center">Residual</th>
-                <th className="p-3">Controles Mitigantes</th>
-                <th className="p-3">Monitoreo / Tratamiento</th>
-                <th className="p-3 text-center">Análisis IA</th>
-                <th className="p-3 text-center">Gestión</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y text-slate-700">
-              {safeRiesgos.length === 0 ? (
-                <tr><td colSpan="7" className="p-8 text-center text-slate-400 font-bold italic">No hay riesgos registrados.</td></tr>
-              ) : (
-                safeRiesgos.map((r, index) => {
-                  const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
-                  const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
-                  return (
-                    <tr key={index} className="hover:bg-slate-50 transition-colors">
-                      <td className="p-3">
-                        <div className="font-mono font-black text-slate-900">RSK-{String(r.id).substring(0,4)}</div>
-                        <div className="font-bold text-[#0A3B32] text-[10px] mt-0.5">{r.proceso}</div>
-                        {/* 🌟 Muestra el subproceso en letras pequeñas si aplica */}
-                        {r.subproceso && r.subproceso !== 'General' && (
-                          <div className="font-medium text-slate-500 text-[9px] mt-0.5">↳ {r.subproceso}</div>
-                        )}
-                      </td>
-                      <td className="p-3 leading-tight">
-                        <span className="bg-slate-100 text-slate-700 text-[8px] font-black px-1.5 py-0.5 rounded uppercase block w-max mb-1">{r.clasificacionRiesgo || 'General'}</span>
-                        <div className="text-[10px] text-slate-800 font-medium">{r.descripcion}</div>
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={`px-2 py-1 rounded font-black text-[9px] uppercase ${zoneInh.color}`}>{zoneInh.label}</span>
-                        <div className="text-[8px] text-slate-400 mt-1 font-bold">P:{r.probabilidadInherente}% | I:{r.impactoInherente}%</div>
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className={`px-2 py-1 rounded font-black text-[9px] uppercase shadow-sm ${zoneRes.color}`}>{zoneRes.label}</span>
-                        <div className="text-[8px] text-slate-400 mt-1 font-bold">P:{r.probabilidadResidual}% | I:{r.impactoResidual}%</div>
-                      </td>
-                      <td className="p-3 text-[9px] whitespace-pre-wrap leading-tight text-slate-500 font-mono">{r.descripcionControl || 'Sin controles asignados'}</td>
-                      <td className="p-3 text-[10px] leading-snug">
-                        <div className="font-black text-slate-700">🎯 {r.tratamiento || 'Sin tratamiento'}</div>
-                        {r.planAccionRiesgo && <div className="text-slate-500 mt-0.5 text-[9px]"><span className="font-bold">Plan:</span> {r.planAccionRiesgo}</div>}
-                        {r.fechaSeguimiento && <div className="text-[8px] font-black text-blue-600 mt-1">📅 Seg: {r.fechaSeguimiento}</div>}
-                      </td>
-                      
-                      <td className="p-3 text-center">
-                        <button 
-                          onClick={() => solicitarAnalisisFilaIA(r)}
-                          className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-purple-600 hover:text-white transition-all flex items-center gap-1.5 mx-auto shadow-sm group"
-                        >
-                          <span className="group-hover:scale-110 transition-transform">✨</span> Analizar
-                        </button>
-                      </td>
 
-                      <td className="p-3 text-center flex flex-col space-y-1">
-                        <button onClick={() => handleEditRiesgo(r)} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded text-[10px]">Editar</button>
-                        {isAdmin && <button onClick={() => handleDeleteRiesgo(r.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px]">Eliminar</button>}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+        {/* ENCABEZADOS DE LA TABLA PRINCIPAL */}
+        <div className="grid grid-cols-12 gap-2 bg-slate-100 text-slate-700 px-6 py-3 text-[10px] font-black uppercase tracking-wider items-center border-b">
+          <div className="col-span-1">ID</div>
+          <div className="col-span-3">Proceso & Escenario</div>
+          <div className="col-span-2">Clasificación</div>
+          <div className="col-span-2 text-center">Inherente / Residual</div>
+          <div className="col-span-2 text-center">Expediente GRC</div>
+          <div className="col-span-2 text-right">Gestión</div>
+        </div>
+
+        {/* LISTADO CON ACCORDEÓN Y EXPEDIENTE */}
+        <div className="divide-y divide-slate-100">
+          {safeRiesgos.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 font-bold italic">No hay riesgos registrados en la matriz.</div>
+          ) : (
+            safeRiesgos.map((r, index) => {
+              const isExpanded = expandedRiesgoId === r.id;
+              const zoneInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
+              const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+              
+              const listaControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados : [];
+
+              return (
+                <div key={r.id || index} className="transition-all duration-200">
+                  
+                  {/* FILA COMPACTA PRINCIPAL */}
+                  <div 
+                    onClick={() => toggleExpediente(r.id)}
+                    className={`grid grid-cols-12 gap-2 px-6 py-4 items-center cursor-pointer hover:bg-slate-50 transition-all ${
+                      isExpanded ? 'bg-emerald-50/40 border-l-4 border-l-[#0A3B32]' : ''
+                    }`}
+                  >
+                    {/* ID */}
+                    <div className="col-span-1 flex items-center space-x-2">
+                      <span className="text-slate-400 font-bold text-xs">{isExpanded ? '▼' : '▶'}</span>
+                      <span className="font-mono font-black text-xs text-slate-900">
+                        RSK-{String(r.id).substring(0,4)}
+                      </span>
+                    </div>
+
+                    {/* PROCESO & ESCENARIO */}
+                    <div className="col-span-3 pr-2">
+                      <span className="inline-block text-[9px] font-extrabold uppercase px-2 py-0.5 bg-slate-100 text-slate-700 rounded mb-1">
+                        {r.proceso || 'General'} {r.subproceso && r.subproceso !== 'General' ? `↳ ${r.subproceso}` : ''}
+                      </span>
+                      <p className="text-xs font-medium text-slate-800 line-clamp-2 leading-snug">
+                        {r.descripcion}
+                      </p>
+                    </div>
+
+                    {/* CLASIFICACIÓN */}
+                    <div className="col-span-2">
+                      <span className="text-xs font-bold text-slate-700 block">{r.categoria || 'Operativo'}</span>
+                      <span className="text-[10px] text-slate-400">{r.clasificacionRiesgo || 'General'}</span>
+                    </div>
+
+                    {/* MATRIZ INHERENTE VS RESIDUAL */}
+                    <div className="col-span-2 flex items-center justify-center space-x-2">
+                      <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase ${zoneInh.color}`}>{zoneInh.label}</span>
+                      <span className="text-slate-300 text-xs">→</span>
+                      <span className={`px-2 py-0.5 rounded font-black text-[9px] uppercase shadow-sm ${zoneRes.color}`}>{zoneRes.label}</span>
+                    </div>
+
+                    {/* PULSOS RÁPIDOS DEL EXPEDIENTE */}
+                    <div className="col-span-2 flex items-center justify-center space-x-2">
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-[10px] font-extrabold rounded-lg border flex items-center gap-1" title="Controles Registrados">
+                        🛡️ {listaControles.length || (r.descripcionControl ? '✓' : 0)}
+                      </span>
+                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 text-[10px] font-extrabold rounded-lg border border-emerald-200" title="Tratamiento Asignado">
+                        {r.tratamiento ? '🎯' : '⚠️'}
+                      </span>
+                    </div>
+
+                    {/* BANDERAS Y GESTIÓN */}
+                    <div className="col-span-2 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        onClick={() => solicitarAnalisisFilaIA(r)}
+                        className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-2.5 py-1 rounded-lg text-[10px] hover:bg-purple-600 hover:text-white transition-all flex items-center gap-1 shadow-sm"
+                      >
+                        ✨ IA
+                      </button>
+                      <button onClick={() => handleEditRiesgo(r)} className="bg-amber-100 text-amber-800 font-bold px-2 py-1 rounded-lg text-[10px]">Editar</button>
+                      {isAdmin && <button onClick={() => handleDeleteRiesgo(r.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded-lg text-[10px]">✕</button>}
+                    </div>
+                  </div>
+
+                  {/* ========================================================================= */}
+                  {/* 🚀 EXPEDIENTE INTEGRAL DE RIESGO 360° (PANEL DESPLEGABLE) */}
+                  {/* ========================================================================= */}
+                  {isExpanded && (
+                    <div className="bg-slate-50 border-t border-b border-slate-200 px-8 py-6 animate-in slide-in-from-top-2 duration-250">
+                      
+                      {/* HERO SUMMARY DEL EXPEDIENTE */}
+                      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-5 flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Líder Dueño del Proceso</div>
+                          <div className="text-xs font-black text-slate-800 mt-0.5">{r.responsable || 'Sin Asignar'}</div>
+                        </div>
+                        <div className="border-l pl-4">
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sedes Afectadas</div>
+                          <div className="text-xs font-bold text-blue-700 mt-0.5">
+                            {Array.isArray(r.sede) ? r.sede.join(', ') : (r.sede || 'Administrativos')}
+                          </div>
+                        </div>
+                        <div className="border-l pl-4">
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tratamiento</div>
+                          <div className="text-xs font-black text-emerald-700 mt-0.5">{r.tratamiento || 'Reducir el riesgo'}</div>
+                        </div>
+                        <div className="border-l pl-4">
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Próximo Seguimiento</div>
+                          <div className="text-xs font-black text-blue-600 mt-0.5">{r.fechaSeguimiento || 'Sin fecha programada'}</div>
+                        </div>
+                      </div>
+
+                      {/* SUB-PESTAÑAS DE NAVEGACIÓN DEL EXPEDIENTE */}
+                      <div className="flex space-x-2 border-b border-slate-200 pb-3 mb-4 font-bold text-xs">
+                        <button 
+                          onClick={() => setActiveSubTab('controles')}
+                          className={`px-4 py-2 rounded-xl transition-all ${
+                            activeSubTab === 'controles' ? 'bg-[#0A3B32] text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-100 border'
+                          }`}
+                        >
+                          🛡️ Controles Mitigantes ({listaControles.length})
+                        </button>
+                        <button 
+                          onClick={() => setActiveSubTab('plan')}
+                          className={`px-4 py-2 rounded-xl transition-all ${
+                            activeSubTab === 'plan' ? 'bg-[#0A3B32] text-white shadow-md' : 'bg-white text-slate-600 hover:bg-slate-100 border'
+                          }`}
+                        >
+                          🎯 Plan de Acción y Bitácora
+                        </button>
+                        <button 
+                          onClick={() => setActiveSubTab('dictamen')}
+                          className={`px-4 py-2 rounded-xl transition-all ${
+                            activeSubTab === 'dictamen' ? 'bg-purple-700 text-white shadow-md' : 'bg-white text-purple-700 hover:bg-purple-50 border border-purple-200'
+                          }`}
+                        >
+                          ✨ Dictamen Copiloto IA
+                        </button>
+                      </div>
+
+                      {/* VISTA 1: CONTROLES DETALLADOS CON CÓDIGO CONSECUTIVO (C1, C2...) */}
+                      {activeSubTab === 'controles' && (
+                        <div className="space-y-3">
+                          {listaControles.length > 0 ? (
+                            <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
+                              <table className="w-full text-left text-xs">
+                                <thead>
+                                  <tr className="bg-slate-100 text-slate-700 font-black uppercase text-[9px] border-b">
+                                    <th className="p-3">Código</th>
+                                    <th className="p-3">Descripción de la Tarea del Control</th>
+                                    <th className="p-3">Tipo</th>
+                                    <th className="p-3">Ejecución</th>
+                                    <th className="p-3">Documentación</th>
+                                    <th className="p-3">Frecuencia</th>
+                                    <th className="p-3">Soporte Evidencia</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 font-medium">
+                                  {listaControles.map((c, cIdx) => (
+                                    <tr key={cIdx} className="hover:bg-slate-50">
+                                      <td className="p-3 font-mono font-bold text-[#0A3B32]">Control C{cIdx + 1}</td>
+                                      <td className="p-3 font-semibold text-slate-800">{c.descripcion}</td>
+                                      <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-bold text-[10px]">{c.tipo}</span></td>
+                                      <td className="p-3">{c.implementacion}</td>
+                                      <td className="p-3">{c.documentacion}</td>
+                                      <td className="p-3">{c.frecuencia}</td>
+                                      <td className="p-3"><span className="text-emerald-700 font-bold">{c.evidencia}</span></td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="bg-white p-4 rounded-xl border text-xs text-slate-600 font-mono whitespace-pre-wrap">
+                              {r.descripcionControl || 'No se registraron controles detallados para este riesgo.'}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* VISTA 2: PLAN DE ACCIÓN Y BITÁCORA */}
+                      {activeSubTab === 'plan' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="bg-white p-4 rounded-xl border shadow-sm">
+                            <h5 className="font-black text-slate-700 text-xs uppercase mb-2">Plan de Acción de Control Interno</h5>
+                            <p className="text-xs text-slate-600 font-medium">{r.planAccionRiesgo || 'Sin plan registrado.'}</p>
+                          </div>
+                          <div className="bg-white p-4 rounded-xl border shadow-sm">
+                            <h5 className="font-black text-slate-700 text-xs uppercase mb-2">Bitácora de Observaciones y Seguimiento</h5>
+                            <p className="text-xs text-slate-600 font-medium">{r.seguimientoBitacora || 'Sin notas de seguimiento registradas.'}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* VISTA 3: DICTAMEN DE INTELIGENCIA ARTIFICIAL */}
+                      {activeSubTab === 'dictamen' && (
+                        <div className="bg-purple-50/70 p-5 rounded-2xl border border-purple-200 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h5 className="font-black text-purple-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                              ✨ Dictamen del Copiloto IA de Riesgos
+                            </h5>
+                            <button 
+                              onClick={() => solicitarAnalisisFilaIA(r)} 
+                              className="text-[10px] bg-purple-600 text-white px-3 py-1 rounded-lg font-bold hover:bg-purple-700 shadow-sm"
+                            >
+                              Volver a Generar
+                            </button>
+                          </div>
+                          <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                            {r.descripcion ? `Análisis para el escenario: "${r.descripcion}".` : 'Solicite un análisis con el botón para evaluar la efectividad de la mitigación.'}
+                          </p>
+                        </div>
+                      )}
+
+                    </div>
+                  )}
+
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     );
-  };
-
+  };  
   return (
     <div className="space-y-6 animate-in fade-in duration-300 relative">
       
