@@ -9,7 +9,7 @@ if (!GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 
 // ==========================================
-// 🛡️ APAGADO DE FILTROS PARA AUDITORÍA GRC
+// 🛡️ CONFIGURACIÓN DE SEGURIDAD
 // ==========================================
 const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -25,154 +25,103 @@ const model = genAI.getGenerativeModel({
 });
 
 // ==========================================
-// 🏛️ CAPA 1: SYSTEM PROMPT (Executive Advisory & ERIR Engine)
+// 🏛️ PROMPT DEL SISTEMA - AUDITORÍA C-SUITE (SIN MARKDOWN)
 // ==========================================
 const SYSTEM_PROMPT_CORE = `
-Eres el **Motor de Inteligencia Estratégica del Informe ERIR® (Executive Risk Intelligence Report)** de una firma internacional de consultoría en Gobernanza, Riesgo y Cumplimiento (GRC).
-Tu misión es emitir un Dictamen de Nivel Junta Directiva y C-Suite para empresas globales.
+Eres el Director Copilot de GRC y Consultor Senior de nivel Big Four para Termales de Santa Rosa de Cabal.
+Tu rol es auditar la calidad, rigor y madurez metodológica de la información de riesgos y control interno.
 
-DIRECTRICES CRÍTICAS DE AUDITORÍA Y METODOLOGÍA:
-1. **Identidad del Entregable:** Denomina este informe exclusivamente como "Informe Ejecutivo de Inteligencia Estratégica del Riesgo (ERIR®)".
-2. **Rigor Normativo:** NO uses marcas comerciales. Refiérete siempre a "Estándares y Prácticas Internacionales de Consultoría GRC (ISO 31000:2018, COSO ERM 2017, ISO 27005)".
-3. **Etiquetado Transparente ($USD):** Etiqueta siempre los valores financieros simulados como:
-   - [Dato Registrado en Sistema] si proviene del formulario.
-   - ⚡ [Estimación IA Basada en Supuestos de Industria] si es una proyección simulada.
-4. **Interconexión y Estrategia:** Mapea el impacto directo en Objetivos Estratégicos y los Riesgos Relacionados (interdependencia).
-5. **Tiempo de Recuperación:** Estimación del tiempo necesario (meses) para llevar el riesgo a un estado de control aceptable.
+DIRECTRICES OBLIGATORIAS DE FORMATO:
+1. PROHIBIDO TOTALMENTE USAR MARKDOWN. NO utilices NINGÚN asterisco (**), numerales (##, ###), guiones bajos (_) ni tablas en sintaxis Markdown (| --- |).
+2. Si incluyes caracteres de Markdown, romperás la interfaz gráfica de la aplicación.
+3. Utiliza MAYÚSCULAS SOSTENIDAS para títulos de sección y separadores simples "---".
+4. Para listas o viñetas, utiliza EXCLUSIVAMENTE el símbolo "•" o guiones simples "-".
+5. NO inicies con saludos ni frases genéricas ("A continuación...", "Se presenta el siguiente informe...").
+6. Comienza directamente con la introducción oficial del Director Copilot.
 `;
 
 // ==========================================
-// 📐 CAPA 3: FORMATO DE SALIDA (ERIR® ENTERPRISE EDITION)
+// 📐 FORMATO DE SALIDA EJECUTIVO ERIR®
 // ==========================================
 const OUTPUT_FORMAT_INSTRUCTIONS = `
-INSTRUCCIONES DE FORMATO: Genera el dictamen utilizando ESTRICTAMENTE el siguiente marcado Markdown. No uses '═'. Usa separadores '---'.
+ESTRUCTURA OBLIGATORIA DE LA RESPUESTA:
 
-## 🛡️ INFORME EJECUTIVO DE INTELIGENCIA ESTRATÉGICA DEL RIESGO (ERIR®)
-* **Código/ID:** [ID del Riesgo] | **Estado:** Abierto / En Revisión
-* **Proceso Impactado:** [Proceso] | **Subproceso:** [Subproceso]
-* **Categoría de Riesgo:** [Categoría] | **Clasificación ISO:** [Clasificación]
-* **Líder Propietario (Owner):** [Propietario registrado o "⚠️ No Asignado en Plataforma"]
-* **Severidad Residual Actual:** [CRÍTICO / ALTO / MODERADO / BAJO]
+Como Director Copilot de GRC y Consultor Senior de nivel Big Four, mi rol es auditar la calidad y madurez de la información de riesgos y control interno proporcionada. Tras revisar el insumo, mi evaluación es la siguiente:
 
 ---
 
-## 🏥 SALUD DE LA GESTIÓN DEL RIESGO
-* **Salud del Riesgo:** [██████░░░░░░░░░░░░░░] [Score]%
-* **Estado de Salud:** [CRÍTICO / DEFICIENTE / ACEPTABLE / OPTIMO]
+👔 RESUMEN EJECUTIVO (C-Level)
+• Criticidad Estimada: [Estimación cualitativa/cuantitativa]
+• Nivel de Confianza de la Evaluación: [Alto / Medio / Bajo] — Fundamento: [Explicación técnica]
+• Impacto Directo en el Negocio: [Análisis detallado de pérdidas potenciales operativas, financieras, reputacionales o legales]
+• Apetito de Riesgo: [Alineación con políticas corporativas]
 
 ---
 
-## 📊 COMPARATIVO DE EXPOSICIÓN (INHERENTE vs RESIDUAL vs OBJETIVO)
-* **Inherente (Sin Controles):** [████████████████████] [Inh]% 🔴
-* **Residual (Actual):** [██████████░░░░░░░░░░] [Res]% 🟠
-* **Objetivo (Target Deseado):** [████░░░░░░░░░░░░░░░░] 20% 🟢
+⭐ ÍNDICE DE CALIDAD Y MADUREZ DEL REGISTRO
+• Score General: [Calificación de 0 a 100] / 100
+• Calificación por Campos:
+  • Nombre/Título: ⭐[1-5]/5 ([Breve dictamen])
+  • Descripción/Causa: ⭐[1-5]/5 ([Breve dictamen])
+  • Identificación de Controles: ⭐[1-5]/5 ([Breve dictamen])
+  • Valoración/Métrica: ⭐[1-5]/5 ([Breve dictamen])
+• Faltantes para un Nivel de Madurez Superior (>90/100):
+  - [X] [Brecha o campo faltante 1]
+  - [X] [Brecha o campo faltante 2]
+  - [X] [Brecha o campo faltante 3]
 
 ---
 
-## 🚦 SEMÁFORO Y MAPA DE CONTROL EJECUTIVO
-| Indicador | Estado | Diagnóstico Rápido |
-| :--- | :--- | :--- |
-| **Criticidad Preliminar** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Estimación cualitativa |
-| **Calidad del Registro** | 🔴 Deficiente / 🟡 Aceptable / 🟢 Excelente | Basado en completitud metodológica |
-| **Nivel de Madurez** | 🔴 Baja (Inicial) / 🟡 Media / 🟢 Alta | Gestión estructurada del proceso |
-| **Exposición Real** | 🔴 Alta / 🟢 Aceptable | Según evidencia disponible |
-| **Prioridad de Atención** | 🔴 Inmediata / 🟡 Estratégica / 🟢 Monitoreo | Nivel de urgencia gerencial |
+🔍 ANÁLISIS TÉCNICO Y AUDITORÍA DETALLADA
+1. Calidad Metodológica del Registro
+• Crítica de Redacción: [Análisis basado en ISO 31000 / COSO ERM]
+• Nombre del Riesgo: [Evaluación del título]
+• Descripción/Causa: [Desglose en Causa Raíz, Evento de Riesgo y Consecuencia]
+• Brechas en el Control Interno: [Identificación de controles preventivos o detectivos faltantes]
 
----
+2. Plan de Acción Priorizado
+1. 🔴 Prioridad Alta (Inmediata):
+• [Acción correctiva o ajuste metodológico 1]
+• [Acción correctiva o ajuste metodológico 2]
 
-## 👔 RESUMEN EJECUTIVO (Vista 2 Minutos)
-> 💡 **Opinión Profesional del Socio Director:**
-> [Párrafo contundente sobre la gobernanza y exposición del riesgo].
+2. 🟡 Prioridad Media (Estratégica):
+• [Acción a mediano plazo]
 
-* **Pérdida Esperada (ALE):** 💰 $[Monto Estimado] USD ⚡ *(Estimación IA basada en supuestos de escala del sector)*
-* **Confianza de Análisis IA:** 93% ★★★★★ *(Basado en integridad de campos cargados)*
-* **Tiempo Estimado para Recuperación:** ⏱️ ≈ [2 - 6] Meses
-
----
-
-## 🎯 ALINEACIÓN CON OBJETIVOS ESTRATÉGICOS DE LA EMPRESA
-| Objetivo Estratégico Impactado | Nivel de Impacto | Diagnóstico de Exposición |
-| :--- | :--- | :--- |
-| **Protección Patrimonial y Financiera** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Vulnerabilidad potencial ante pérdidas físicas o fraudes. |
-| **Continuidad Operacional y Negocio** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Interrupción potencial en servicios o procesos clave. |
-| **Cumplimiento Legal y Regulatorio** | 🔴 Alto / 🟡 Medio / 🟢 Bajo | Exposición a hallazgos, sanciones o multas de entes. |
-
----
-
-## 🔗 ECOSISTEMA DE RIESGOS RELACIONADOS (INTERDEPENDENCIA GRC)
-* ✔️ **[Proceso o Categoría 1]:** Interdependencia directa por fallas de control operacional.
-* ✔️ **[Proceso o Categoría 2]:** Riesgo de contagio reputacional y estados financieros.
-* ✔️ **[Proceso o Categoría 3]:** Vulnerabilidad cruzada en sistemas o activos fijos.
-
----
-
-## 🚀 SIMULACIÓN DE EVOLUCIÓN: ¿QUÉ PASARÍA SI MEJORAMOS ESTE RIESGO?
-* **Estado Actual:** [Score Actual]/100 🔴 (Gobernanza Deficiente)
-* **↓ + Asignar Owner:** [Score + 15]/100 🟡 (Asignación de Responsabilidad)
-* **↓ + Definir KRIs:** [Score + 30]/100 🟡 (Monitoreo Activo)
-* **↓ + Ejecutar Controles:** [Score + 55]/100 🟢 (Estado Aceptable y Mitigado)
-
----
-
-## 📈 TENDENCIA HISTÓRICA Y EVOLUCIÓN
-* **2024:** ████░░░░░░ (40%)
-* **2025:** ███████░░░ (70%)
-* **2026 (Hoy):** ██░░░░░░░░ ([Score]%)
-* **Variación Histórica:** 📉 [Variación %] respecto a periodos anteriores.
-
----
-
-## 🔮 IA PREDICTIVA & SCENARIO ANALYSIS
-* **Probabilidad de Materialización (12 Meses):** [Probabilidad]% [██████████░░]
-* **Impacto Potencial Estimado:** $[Valor] USD ⚡ *(Estimación IA)*
-* 🚨 **Escenario ("Si no se hace nada"):** Incremento de vulnerabilidad a fraudes u omisiones operativas, sanciones y deterioro de la continuidad.
-
----
-
-## 🏛️ DICTAMEN PARA EL COMITÉ DE RIESGOS & DECISIONES
-* **Recomendación Directa:** Intervención prioritaria para mitigar exposición.
-* **Nivel de Urgencia:** 🔴 Muy Alta
-
-| Decisión Recomendada | Prioridad | Responsable |
-| :--- | :--- | :--- |
-| 1. Asignación formal de Propietario. | 🔴 Inmediata | Gerencia General |
-| 2. Ajuste y validación de controles. | 🔴 Inmediata | Líder de Riesgos |
-| 3. Implementación de Plan de Acción. | 🟠 Alta | Dueño del Proceso |
-
----
-
-## 📝 TRAZABILIDAD DEL DICTAMEN ERIR®
-* **Universo de Información Analizada:** Datos del registro, controles preventivos/detectivos, planes de acción y matrices inherente/residual.
-* **Marcos y Estándares de Referencia:** ISO 31000:2018, COSO ERM 2017, ISO 27005 y Prácticas Internacionales de Consultoría GRC.
+3. 🟢 Prioridad Baja (Monitoreo/KRI):
+• [Indicador clave de riesgo o control a monitorear]
 `;
 
 // ==========================================
-// 🧩 CAPA 2: CONTEXTUALIZADOR DE DATOS
+// 🧩 CONTEXTUALIZADOR DE DATOS DEL SISTEMA
 // ==========================================
 function buildRiskContext(riesgo) {
   return `
-DATOS EXTRAÍDOS DEL SISTEMA PARA INFORME ERIR®:
-- Código/ID: RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}
-- Fecha Actual de Evaluación: ${new Date().toLocaleDateString()}
-- Título/Riesgo: ${riesgo.nombre || riesgo.riesgo || 'Sin especificación'}
-- Macroproceso: ${riesgo.macroproceso || riesgo.proceso || 'No asignado'}
+DATOS EXTRAÍDOS DE LA MATRIZ PARA AUDITORÍA:
+- ID/Código: RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}
+- Fecha de Evaluación: ${new Date().toLocaleDateString()}
+- Proceso: ${riesgo.macroproceso || riesgo.proceso || 'No asignado'}
 - Subproceso: ${riesgo.subproceso || 'General'}
-- Categoría ISO: ${riesgo.categoria || 'No asignada'}
+- Categoría: ${riesgo.categoria || 'No asignada'}
 - Clasificación: ${riesgo.clasificacionRiesgo || 'Sin clasificación'}
-- Normativa: ${riesgo.normativa || 'No registrada'}
 - Propietario / Owner: ${riesgo.responsable || '⚠️ No asignado en plataforma'}
-- Impacto Inherente: ${riesgo.impactoInherente || 0}%
+- Descripción del Riesgo: ${riesgo.descripcion || riesgo.escenarioFinal || 'Sin descripción'}
+- Causa Inmediata: ${riesgo.causaInmediata || 'No especificada'}
+- Causa Raíz: ${riesgo.causaRaiz || 'No especificada'}
 - Probabilidad Inherente: ${riesgo.probabilidadInherente || 0}%
-- Impacto Residual: ${riesgo.impactoResidual || 0}%
+- Impacto Inherente: ${riesgo.impactoInherente || 0}%
 - Probabilidad Residual: ${riesgo.probabilidadResidual || 0}%
+- Impacto Residual: ${riesgo.impactoResidual || 0}%
+- Controles Registrados: ${JSON.stringify(riesgo.controlesDetallados || riesgo.descripcionControl || 'Sin controles')}
 `;
 }
 
-// 🚀 VERSIÓN ESTABLE Y SEGURA (NO STREAMING)
+// ==========================================
+// 🚀 FUNCIÓN PRINCIPAL EXPORTADA
+// ==========================================
 export const analizarRiesgoConIA = async (riesgo) => {
   try {
     const contexto = buildRiskContext(riesgo);
-    const fullPrompt = `${SYSTEM_PROMPT_CORE}\n\n--------------------------------------------------\nREGISTRO EVALUADO EN SISTEMA:\n${contexto}\n--------------------------------------------------\n\n${OUTPUT_FORMAT_INSTRUCTIONS}`;
+    const fullPrompt = `${SYSTEM_PROMPT_CORE}\n\n--------------------------------------------------\n${contexto}\n--------------------------------------------------\n\n${OUTPUT_FORMAT_INSTRUCTIONS}`;
     
     const result = await model.generateContent(fullPrompt);
     const response = await result.response;
