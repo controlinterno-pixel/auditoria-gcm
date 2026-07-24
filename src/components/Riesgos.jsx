@@ -121,7 +121,41 @@ const EficaciaGauge = ({ porcentaje = 75 }) => {
     </div>
   );
 };
+// 🧮 CALCULADORA METODOLÓGICA DE EFICACIA INDIVIDUAL DE UN CONTROL (0% - 100%)
+const calcularEficaciaControl = (c) => {
+  if (!c) return 75;
+  let score = 0;
+  
+  // 1. Tipo
+  if (c.tipo === 'Preventivo') score += 30;
+  else if (c.tipo === 'Detectivo') score += 20;
+  else if (c.tipo === 'Correctivo') score += 10;
 
+  // 2. Ejecución
+  if (c.implementacion === 'Automático') score += 25;
+  else score += 15;
+
+  // 3. Documentación
+  if (c.documentacion === 'Documentado') score += 15;
+
+  // 4. Frecuencia
+  if (c.frecuencia === 'Continua') score += 15;
+  else score += 10;
+
+  // 5. Evidencia
+  if (c.evidencia === 'Con registro') score += 15;
+
+  return Math.min(score, 100);
+};
+
+// 🧮 CALCULADORA DE PORCENTAJE GLOBAL DE MITIGACIÓN DEL RIESGO (DONUT GAUGE)
+const calcularMitigacionRiesgo = (r) => {
+  const expInh = (r.probabilidadInherente || 60) * (r.impactoInherente || 60);
+  const expRes = (r.probabilidadResidual || 15) * (r.impactoResidual || 30);
+  if (expInh === 0) return 0;
+  const mitigacion = Math.round(((expInh - expRes) / expInh) * 100);
+  return Math.max(0, Math.min(100, mitigacion));
+};
 // 🏛️ COMPONENTE PRINCIPAL
 export default function Riesgos({ 
   isAdmin = false, 
@@ -736,7 +770,7 @@ const renderMatriz = () => {
                           <span className="text-xs font-black text-slate-900 block">{totalControles}</span>
                           <span className="text-[8px] text-slate-400 font-bold uppercase">Controles</span>
                         </div>
-                        <EficaciaGauge porcentaje={78} />
+<EficaciaGauge porcentaje={calcularMitigacionRiesgo(r)} />
                       </div>
 
                       {/* ANÁLISIS IA */}
@@ -747,7 +781,7 @@ const renderMatriz = () => {
                         >
                           ✨ Dictamen IA
                         </button>
-                        <span className="text-[8px] text-slate-400 font-bold mt-1 block">Score: <strong className="text-purple-700">78/100</strong></span>
+<span className="text-[8px] text-slate-400 font-bold mt-1 block">Mitigación: <strong className="text-purple-700">{calcularMitigacionRiesgo(r)}%</strong></span>
                       </div>
 
                       {/* GESTIÓN */}
@@ -815,7 +849,11 @@ const renderMatriz = () => {
         </div>
         <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-100">
           <p className="text-[8px] font-black text-indigo-600 uppercase">Eficacia Prom.</p>
-          <p className="text-base font-black text-indigo-800">82%</p>
+<p className="text-base font-black text-indigo-800">
+  {listaControles.length > 0 
+    ? `${Math.round(listaControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / listaControles.length)}%` 
+    : '80%'}
+</p>
         </div>
       </div>
     </div>
@@ -864,7 +902,9 @@ const renderMatriz = () => {
                   </span>
                 </td>
                 <td className="p-3 text-center">
-                  <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">82%</span>
+<span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+  {calcularEficaciaControl(c)}%
+</span>
                 </td>
                 <td className="p-3 text-center">
                   <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
