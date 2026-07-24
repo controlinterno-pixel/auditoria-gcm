@@ -93,6 +93,7 @@ clasificacion: {
 
 export default function Riesgos({ 
   isAdmin = false, 
+
 // 🚀 COMPONENTE DONUT GAUGE PARA EFICACIA DE CONTROLES (ESTILO ENTERPRISE)
 const EficaciaGauge = ({ porcentaje = 75 }) => {
   const radius = 14;
@@ -123,6 +124,7 @@ const EficaciaGauge = ({ porcentaje = 75 }) => {
     </div>
   );
 };
+
 // 🏛️ COMPONENTE PRINCIPAL
 export default function Riesgos({ 
   isAdmin = false, 
