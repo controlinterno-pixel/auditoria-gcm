@@ -19,23 +19,26 @@ const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash", 
   safetySettings,
   generationConfig: { 
-    temperature: 0.1, 
+    temperature: 0.3, // Un toque más alto para mejor redacción narrativa
     topP: 0.8, 
-    maxOutputTokens: 2500,
-    responseMimeType: "application/json"
+    maxOutputTokens: 8192, // 🚀 AUMENTADO: Para que el informe extenso no se ampute a la mitad
+    responseMimeType: "application/json" // Esto obliga a Gemini a NO usar Markdown externo
   }
 });
 
 export const analizarRiesgoConIA = async (riesgo) => {
   try {
     const prompt = `
-Eres el Motor de Inteligencia de un Software GRC Enterprise.
-Analiza el siguiente riesgo y devuelve UNICAMENTE un objeto JSON estructurado. No incluyas texto adicional ni markdown.
+Eres el Socio Director de Auditoría (Big Four) de un Software GRC Enterprise.
+Tu objetivo es generar un informe narrativo premium, estratégico y extremadamente extenso dirigido a la Junta Directiva y C-Suite.
+Utiliza lenguaje ejecutivo, diagnóstico metodológico, simulación de evolución y benchmarking.
+
+REGLA ESTRICTA: Devuelve ÚNICAMENTE un objeto JSON. Todo tu informe narrativo debe ir DENTRO de los valores de este JSON. No uses formato Markdown externo.
 
 DATOS DEL RIESGO EN EVALUACIÓN:
 ${JSON.stringify(riesgo, null, 2)}
 
-ESTRUCTURA JSON REQUERIDA:
+ESTRUCTURA JSON REQUERIDA (Llena cada campo de texto con párrafos extensos y profundos):
 {
   "encabezado": {
     "codigo": "RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}",
@@ -43,44 +46,40 @@ ESTRUCTURA JSON REQUERIDA:
     "subproceso": "${riesgo.subproceso || 'General'}",
     "riesgoInherenteLabel": "Alto",
     "riesgoResidualLabel": "Bajo",
-    "calidadRegistroScore": 65,
+    "calidadRegistroScore": 95,
     "confianzaIA": "Alta"
   },
   "kpis": {
-    "scoreRiesgo": 75,
-    "scoreMadurez": 65,
+    "scoreRiesgo": 85,
+    "scoreMadurez": 70,
     "totalControles": ${Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : 1},
-    "coberturaControles": 82
+    "coberturaControles": 75
   },
-  "hallazgos": ["Descripción sintética de vulnerabilidad en el registro."],
-  "recomendaciones": ["Recomendación estratégica a implementar."],
-  "planAccion": [{ "prioridad": "Alta", "accion": "Actualizar matriz", "responsable": "Líder" }],
-  "dictamenDirector": "Dictamen profesional del riesgo.",
+  "hallazgos": [
+    "Redacta aquí un hallazgo estratégico extenso y profundo (mínimo 3 líneas).",
+    "Redacta un segundo hallazgo sobre el impacto en el negocio."
+  ],
+  "recomendaciones": [
+    "Recomendación nivel Junta Directiva (mínimo 3 líneas).",
+    "Segunda recomendación táctica y predictiva."
+  ],
+  "planAccion": [{ "prioridad": "Alta", "accion": "Acción detallada y ejecutiva", "responsable": "Comité de Riesgos" }],
+  "dictamenDirector": "Aquí va tu Veredicto Ejecutivo principal. Escribe un párrafo extenso, contundente y analítico como Socio Director evaluando si el riesgo es aceptable o requiere intervención inmediata.",
   "acordeonesTecnicos": {
-    "analisisMetodologico": "Análisis exhaustivo ISO 31000",
-    "evaluacionControles": "Evaluación COSO ERM",
-    "isoCosoAlignment": "Alineación de taxonomía",
-    "krisEvidencias": "KRI Sugerido"
+    "analisisMetodologico": "Escribe un análisis metodológico ISO 31000 muy extenso. Detalla causas, probabilidades, vulnerabilidades estructurales y escenarios de estrés.",
+    "evaluacionControles": "Evalúa los controles existentes usando taxonomía COSO ERM. Detalla por qué son fuertes o débiles y simula la evolución del riesgo.",
+    "isoCosoAlignment": "Alineación estratégica y semáforo ejecutivo.",
+    "krisEvidencias": "Define 3 KRIs (Key Risk Indicators) predictivos con sus umbrales de tolerancia para monitoreo continuo."
   }
 }
 `;
 
     const result = await model.generateContent(prompt);
-    let jsonText = await result.response.text();
+    const jsonText = await result.response.text();
     
-    // Limpieza de bloque Markdown residual
-    jsonText = jsonText.replace(/^```(json)?/im, '').replace(/```$/im, '').trim();
-    const startIndex = jsonText.indexOf('{');
-    const endIndex = jsonText.lastIndexOf('}');
-    
-    if (startIndex !== -1 && endIndex !== -1) {
-      jsonText = jsonText.substring(startIndex, endIndex + 1);
-    }
-
-    // Comprobamos que el JSON sea válido
+    // Al usar responseMimeType: "application/json", Gemini garantiza que jsonText sea parseable
     const parsedObject = JSON.parse(jsonText);
 
-    // 🛡️ EL TRUCO: Devolvemos un STRING (evita el Error #31 en el componente padre)
     return JSON.stringify(parsedObject);
 
   } catch (error) {
