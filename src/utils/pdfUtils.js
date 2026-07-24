@@ -18,24 +18,37 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
   }
 
   try {
-    // 🔥 EL SECRETO PARA CONTENEDORES LARGOS:
-    // Obligamos al canvas a tomar las dimensiones totales (incluyendo lo que hay que scrollear)
+    // 1. Guardar los estilos originales para no romper la UI del usuario
+    const originalHeight = element.style.height;
+    const originalMaxHeight = element.style.maxHeight;
+    const originalOverflow = element.style.overflow;
+
+    // 2. Forzar la expansión real del contenedor en el DOM
+    // Obligamos al elemento a medir exactamente lo que mide todo su contenido interno
+    element.style.height = `${element.scrollHeight}px`;
+    element.style.maxHeight = 'none';
+    element.style.overflow = 'visible';
+
+    // 3. Pausa estratégica de 100ms. 
+    // Esto asegura que el navegador tenga tiempo de renderizar el componente estirado antes de la foto.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // 4. Capturar la imagen ahora que el elemento está 100% expandido
     const dataUrl = await toPng(element, {
       quality: 1.0,
-      pixelRatio: 2, 
-      backgroundColor: '#0f172a',
-      width: element.scrollWidth,  // Captura el ancho total real
-      height: element.scrollHeight, // Captura el alto total real (lo que está oculto abajo)
-      style: {
-        overflow: 'visible', // Desactiva la barra de scroll temporalmente
-        maxHeight: 'none',   // Rompe cualquier límite de altura
-        height: 'auto'       // Deja que el contenedor fluya libremente
-      }
+      pixelRatio: 2,
+      backgroundColor: '#0f172a', // Mantener tu fondo oscuro
     });
 
+    // 5. Restaurar el contenedor a la normalidad inmediatamente
+    element.style.height = originalHeight;
+    element.style.maxHeight = originalMaxHeight;
+    element.style.overflow = originalOverflow;
+
+    // 6. Configuración del PDF y Paginación
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgWidth = 210; 
-    const pageHeight = 297; 
+    const imgWidth = 210;
+    const pageHeight = 297;
     
     const imgProps = pdf.getImageProperties(dataUrl);
     const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
@@ -43,21 +56,20 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
     let heightLeft = imgHeight;
     let position = 0;
 
-    // Agregar la primera página
+    // Primera página
     pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
 
-    // 🔥 Paginación automática: 
-    // Si la imagen es más alta que una hoja A4, creará nuevas hojas automáticamente
+    // Páginas adicionales
     while (heightLeft > 0) {
-      position = heightLeft - imgHeight; 
+      position = heightLeft - imgHeight;
       pdf.addPage();
       pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
     }
 
     pdf.save(fileName);
-    console.log('✅ ¡PDF generado con el 100% de la información!');
+    console.log('✅ ¡PDF generado con la altura dinámica calculada correctamente!');
     
   } catch (error) {
     console.error('❌ Error crítico al generar el PDF:', error);
