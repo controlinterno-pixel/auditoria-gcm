@@ -232,6 +232,16 @@ export default function Riesgos({
   const [afectacion, setAfectacion] = useState('Económico');
   const [causaInmediata, setCausaInmediata] = useState('');
   const [causaRaiz, setCausaRaiz] = useState('');
+  const [escenarioFinal, setEscenarioFinal] = useState('');
+
+  // 📝 Generador de plantilla automática para el escenario
+  const generarTextoAutomatico = () => {
+    let texto = `Posibilidad de afectación ${afectacion.toLowerCase()}`;
+    if (causaInmediata) texto += ` debido a ${causaInmediata}`;
+    if (causaRaiz) texto += ` originado por ${causaRaiz}`;
+    setEscenarioFinal(texto);
+  };
+
   const [probInherente, setProbInherente] = useState(60);
   const [impInherente, setImpInherente] = useState(60);
   
@@ -352,9 +362,10 @@ export default function Riesgos({
       setResponsablesMultiples([]);
     }
     
-    setAfectacion('Económico'); 
-    setCausaInmediata(riesgo.descripcion || '');
-    setCausaRaiz('');
+    setAfectacion(riesgo.afectacion || 'Económico'); 
+    setCausaInmediata(riesgo.causaInmediata || '');
+    setCausaRaiz(riesgo.causaRaiz || '');
+    setEscenarioFinal(riesgo.escenarioFinal || riesgo.descripcion || '');
     setProbInherente(riesgo.probabilidadInherente || 60);
     setImpInherente(riesgo.impactoInherente || 60);
     setControles(riesgo.controlesDetallados || []);
@@ -390,7 +401,11 @@ const nuevoRiesgo = {
         clasificacionRiesgo,
         normativa,
         responsable: responsablesMultiples.length > 0 ? responsablesMultiples.join(', ') : 'Sin Asignar',
-        descripcion: causaInmediata && causaRaiz ? descripcionAutomatica : causaInmediata,
+afectacion,
+        causaInmediata,
+        causaRaiz,
+        escenarioFinal: escenarioFinal || causaInmediata,
+        descripcion: escenarioFinal || causaInmediata,
         probabilidadInherente: probInherente,
         impactoInherente: impInherente,
         probabilidadResidual: residuales.probabilidad,
@@ -422,7 +437,7 @@ mes: new Date().toLocaleString('es-ES', { month: 'long' }),
       setVistaActiva('dashboard');
       setEditRiesgo(null);
       
-      setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setControles([]);
+setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setEscenarioFinal(''); setControles([]);
       setPlanAccionRiesgo(''); setFechaSeguimiento(''); setSeguimientoBitacora('');
     } catch (error) {
       console.error(error);
@@ -1326,45 +1341,66 @@ const renderMatriz = () => {
             </div>
           </div>
 
-          {/* SINTAXIS OBLIGATORIA */}
+          {/* 2. ESTRUCTURA Y REDACCIÓN (MANDATO DEL MANUAL) */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">2. Estructura y Redacción (Mandato del Manual)</h3>
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <LabelConPalomita idCampo="afectacion" />
                 <select value={afectacion} onChange={e => setAfectacion(e.target.value)} className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32]">
                   <option value="Económico">Económico</option>
+                  <option value="Operacional">Operacional</option>
                   <option value="Reputacional">Reputacional</option>
+                  <option value="Legal / Cumplimiento">Legal / Cumplimiento</option>
+                  <option value="Humano / Salud">Humano / Salud</option>
                   <option value="Económico-Reputacional">Económico-Reputacional</option>
                 </select>
               </div>
               <div>
                 <LabelConPalomita idCampo="causaInmediata" />           
                 <textarea
-                  rows="2"
+                  rows="3"
                   value={causaInmediata}
                   onChange={e => setCausaInmediata(e.target.value)}
-                  placeholder="¿Qué pasa en la operación?"
+                  placeholder="Ej: Inconsistencia en la información de activos fijos..."
                   className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
                 />
               </div>
               <div>
                 <LabelConPalomita idCampo="causaRaiz" />
                 <textarea
-                  rows="2"
+                  rows="3"
                   value={causaRaiz}
                   onChange={e => setCausaRaiz(e.target.value)}
-                  placeholder="¿Por qué se origina el fallo?"
+                  placeholder="Ej: Bases de datos desactualizadas de los inventarios..."
                   className="w-full text-xs p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] resize-y"
                 />
               </div>
             </div>
-            <div className="bg-[#f0fdf4] border border-emerald-200 p-3 rounded-lg">
-              <label className="text-[9px] font-black text-emerald-800 uppercase block mb-1">Texto Final para el Escenario (Bloqueado)</label>
-              <p className="text-xs font-medium text-emerald-900">{descripcionAutomatica}</p>
+
+            {/* Texto Final para el Escenario (100% EDITABLE) */}
+            <div className="bg-emerald-50/70 border border-emerald-300 p-4 rounded-xl space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-[10px] font-black text-emerald-900 uppercase tracking-wider block">
+                  Texto Final para el Escenario (Editable)
+                </label>
+                <button
+                  type="button"
+                  onClick={generarTextoAutomatico}
+                  className="text-[10px] font-extrabold text-emerald-700 hover:text-emerald-900 underline flex items-center gap-1 cursor-pointer"
+                >
+                  🔄 Generar borrador sugerido
+                </button>
+              </div>
+              <textarea
+                rows="3"
+                value={escenarioFinal}
+                onChange={e => setEscenarioFinal(e.target.value)}
+                placeholder="Escriba o ajuste la redacción final del riesgo aquí..."
+                className="w-full text-xs p-2.5 bg-white border border-emerald-300 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
             </div>
           </div>
-
           {/* MATRIZ DE CALOR INHERENTE */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">3. Nivel de Riesgo Inherente</h3>
