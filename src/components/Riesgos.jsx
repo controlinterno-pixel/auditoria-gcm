@@ -757,101 +757,153 @@ const renderMatriz = () => {
                       </div>
                     </div>
 
-                    {/* ========================================================================= */}
-                    {/* 🚀 4. EXPEDIENTE SECUNDARIO DE CONTROLES (ACCORDEÓN ANIMADO 250ms)        */}
-                    {/* ========================================================================= */}
-                    {isExpanded && (
-                      <div className="bg-purple-50/30 border-t border-b border-purple-100 px-8 py-5 transition-all duration-250 ease-in-out animate-in slide-in-from-top-2">
-                        
-                        {/* Cabecera del Panel Secundario */}
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-black text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                            <span>CONTROLES ASOCIADOS ({totalControles})</span>
-                            <span className="text-[10px] text-purple-600 font-bold cursor-pointer hover:underline">▲ Clic para ocultar</span>
-                          </h4>
-                          <span className="text-[10px] text-indigo-600 font-bold hover:underline cursor-pointer">Ver evaluación de controles →</span>
-                        </div>
+{/* ========================================================================= */}
+{/* 🚀 EXPEDIENTE SECUNDARIO DE CONTROLES (ACCORDEÓN ANIMADO 250ms)           */}
+{/* ========================================================================= */}
+{isExpanded && (
+  <div className="bg-slate-50/80 border-t border-b border-purple-200 px-8 py-6 transition-all duration-250 ease-in-out animate-in slide-in-from-top-2 space-y-4">
+    
+    {/* 📊 1. RESUMEN VISUAL SUPERIOR (KPI BAR DEL RIESGO EXPANDIDO) */}
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      <div className="flex items-center justify-between mb-3 border-b pb-2">
+        <h4 className="font-black text-[11px] uppercase tracking-wider text-slate-800 flex items-center gap-2">
+          <span>🛡️ CONTROLES DEL RIESGO</span>
+          <span className="text-[10px] text-purple-600 font-bold">({totalControles} Registrados)</span>
+        </h4>
+        <span 
+          onClick={() => toggleExpediente(r.id)} 
+          className="text-[10px] text-purple-700 font-bold cursor-pointer hover:underline"
+        >
+          ▲ Ocultar Expediente
+        </span>
+      </div>
 
-                        {/* TABLA SECUNDARIA GRANULAR */}
-                        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                          <table className="w-full text-left text-xs">
-                            <thead>
-                              <tr className="bg-slate-50 text-slate-500 font-black uppercase text-[9px] tracking-wider border-b">
-                                <th className="p-3">ID Control</th>
-                                <th className="p-3">Nombre del Control</th>
-                                <th className="p-3">Tipo</th>
-                                <th className="p-3">Frecuencia</th>
-                                <th className="p-3">Responsable</th>
-                                <th className="p-3 text-center">Eficacia</th>
-                                <th className="p-3 text-center">Estado</th>
-                                <th className="p-3 text-right">Acciones</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                              {listaControles.length > 0 ? (
-                                listaControles.map((c, cIdx) => (
-                                  <tr key={cIdx} className="hover:bg-slate-50/80 transition-colors">
-                                    <td className="p-3 font-mono font-bold text-[#0A3B32]">CTL-2{cIdx + 1}</td>
-                                    <td className="p-3 font-semibold text-slate-800">{c.descripcion}</td>
-                                    <td className="p-3">
-                                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                                        c.tipo === 'Preventivo' ? 'bg-blue-50 text-blue-700' :
-                                        c.tipo === 'Detectivo' ? 'bg-amber-50 text-amber-700' : 'bg-purple-50 text-purple-700'
-                                      }`}>
-                                        {c.tipo || 'Preventivo'}
-                                      </span>
-                                    </td>
-                                    <td className="p-3">{c.frecuencia || 'Mensual'}</td>
-                                    <td className="p-3 font-semibold text-slate-600">{r.responsable || 'Coordinador del Proceso'}</td>
-                                    <td className="p-3 text-center">
-                                      <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">80%</span>
-                                    </td>
-                                    <td className="p-3 text-center">
-                                      <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
-                                        Activo
-                                      </span>
-                                    </td>
-                                    <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                                      <button className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold" title="Ver Control">👁 Ver</button>
-                                      <button className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold" title="Editar">✏️ Editar</button>
-                                      <button className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold" title="Analizar con IA">🤖 IA</button>
-                                      <button className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold" title="Evidencia">📄 Evidencia</button>
-                                    </td>
-                                  </tr>
-                                ))
-                              ) : (
-                                <tr className="hover:bg-slate-50 transition-colors">
-                                  <td className="p-3 font-mono font-bold text-[#0A3B32]">CTL-21</td>
-                                  <td className="p-3 font-semibold text-slate-800">{r.descripcionControl || 'Verificación y conciliación periódica.'}</td>
-                                  <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-black uppercase">Preventivo</span></td>
-                                  <td className="p-3">Mensual</td>
-                                  <td className="p-3 font-semibold text-slate-600">{r.responsable || 'Líder del Proceso'}</td>
-                                  <td className="p-3 text-center"><span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">85%</span></td>
-                                  <td className="p-3 text-center"><span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Activo</span></td>
-                                  <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                                    <button className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold">👁 Ver</button>
-                                    <button className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold">✏️ Editar</button>
-                                    <button className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold">🤖 IA</button>
-                                    <button className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold">📄 Evidencia</button>
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-
-                      </div>
-                    )}
-
-                  </div>
-                );
-              })
-            )}
-          </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
+        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+          <p className="text-[8px] font-black text-slate-400 uppercase">Total</p>
+          <p className="text-base font-black text-slate-800">{totalControles}</p>
+        </div>
+        <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
+          <p className="text-[8px] font-black text-blue-600 uppercase">Preventivos</p>
+          <p className="text-base font-black text-blue-800">
+            {listaControles.filter(c => c.tipo === 'Preventivo').length || 1}
+          </p>
+        </div>
+        <div className="bg-amber-50 p-2 rounded-lg border border-amber-100">
+          <p className="text-[8px] font-black text-amber-600 uppercase">Detectivos</p>
+          <p className="text-base font-black text-amber-800">
+            {listaControles.filter(c => c.tipo === 'Detectivo').length}
+          </p>
+        </div>
+        <div className="bg-purple-50 p-2 rounded-lg border border-purple-100">
+          <p className="text-[8px] font-black text-purple-600 uppercase">Correctivos</p>
+          <p className="text-base font-black text-purple-800">
+            {listaControles.filter(c => c.tipo === 'Correctivo').length}
+          </p>
+        </div>
+        <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+          <p className="text-[8px] font-black text-emerald-600 uppercase">Automatizados</p>
+          <p className="text-base font-black text-emerald-800">
+            {listaControles.filter(c => c.implementacion === 'Automático').length}
+          </p>
+        </div>
+        <div className="bg-slate-50 p-2 rounded-lg border border-slate-200">
+          <p className="text-[8px] font-black text-slate-500 uppercase">Manuales</p>
+          <p className="text-base font-black text-slate-700">
+            {listaControles.filter(c => c.implementacion === 'Manual').length || totalControles}
+          </p>
+        </div>
+        <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-100">
+          <p className="text-[8px] font-black text-indigo-600 uppercase">Eficacia Prom.</p>
+          <p className="text-base font-black text-indigo-800">82%</p>
         </div>
       </div>
-    );
-  };
+    </div>
+
+    {/* 📋 2. TABLA SECUNDARIA COMPLETA DE CONTROLES */}
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+      <table className="w-full text-left text-xs">
+        <thead>
+          <tr className="bg-slate-900 text-white font-black uppercase text-[9px] tracking-wider">
+            <th className="p-3">ID</th>
+            <th className="p-3">Nombre del Control</th>
+            <th className="p-3">Tipo</th>
+            <th className="p-3">Frecuencia</th>
+            <th className="p-3">Responsable</th>
+            <th className="p-3 text-center">Documentado</th>
+            <th className="p-3 text-center">Automatizado</th>
+            <th className="p-3 text-center">Eficacia</th>
+            <th className="p-3 text-center">Estado</th>
+            <th className="p-3 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+          {listaControles.length > 0 ? (
+            listaControles.map((c, cIdx) => (
+              <tr key={cIdx} className="hover:bg-slate-50/80 transition-colors">
+                <td className="p-3 font-mono font-bold text-[#0A3B32]">CTL-2{cIdx + 1}</td>
+                <td className="p-3 font-semibold text-slate-800">{c.descripcion}</td>
+                <td className="p-3">
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                    c.tipo === 'Preventivo' ? 'bg-blue-50 text-blue-700' :
+                    c.tipo === 'Detectivo' ? 'bg-amber-50 text-amber-700' : 'bg-purple-50 text-purple-700'
+                  }`}>
+                    {c.tipo || 'Preventivo'}
+                  </span>
+                </td>
+                <td className="p-3">{c.frecuencia || 'Mensual'}</td>
+                <td className="p-3 font-semibold text-slate-600">{r.responsable || 'Coordinador del Proceso'}</td>
+                <td className="p-3 text-center">
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${c.documentacion === 'Documentado' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {c.documentacion === 'Documentado' ? 'Sí' : 'No'}
+                  </span>
+                </td>
+                <td className="p-3 text-center">
+                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${c.implementacion === 'Automático' ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {c.implementacion === 'Automático' ? 'Sí' : 'No'}
+                  </span>
+                </td>
+                <td className="p-3 text-center">
+                  <span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">82%</span>
+                </td>
+                <td className="p-3 text-center">
+                  <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                    Activo
+                  </span>
+                </td>
+                <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                  <button className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold" title="Ver Control">👁 Ver</button>
+                  <button className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold" title="Editar">✏️ Editar</button>
+                  <button className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold" title="Analizar con IA">🤖 IA</button>
+                  <button className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold" title="Evidencia">📄 Evidencia</button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr className="hover:bg-slate-50 transition-colors">
+              <td className="p-3 font-mono font-bold text-[#0A3B32]">CTL-21</td>
+              <td className="p-3 font-semibold text-slate-800">{r.descripcionControl || 'Verificación y conciliación periódica.'}</td>
+              <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-black uppercase">Preventivo</span></td>
+              <td className="p-3">Mensual</td>
+              <td className="p-3 font-semibold text-slate-600">{r.responsable || 'Líder del Proceso'}</td>
+              <td className="p-3 text-center"><span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-700 uppercase">Sí</span></td>
+              <td className="p-3 text-center"><span className="px-2 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-500 uppercase">No</span></td>
+              <td className="p-3 text-center"><span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">85%</span></td>
+              <td className="p-3 text-center"><span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Activo</span></td>
+              <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                <button className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold">👁 Ver</button>
+                <button className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold">✏️ Editar</button>
+                <button className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold">🤖 IA</button>
+                <button className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold">📄 Evidencia</button>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+)}                    
   return (
     <div className="space-y-6 animate-in fade-in duration-300 relative">
       
