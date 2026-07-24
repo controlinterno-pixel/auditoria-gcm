@@ -248,22 +248,12 @@ export default function Riesgos({
     let curr_i = impInherente / 100;
 
     controles.forEach(c => {
-      let weight = 0;
-      
-      // 1. Tipo de Control según Manual (Tabla 6)
-      if (c.tipo === 'Preventivo') weight += 0.25;
-      else if (c.tipo === 'Detectivo') weight += 0.15;
-      else if (c.tipo === 'Correctivo') weight += 0.10;
+      // Usamos exactamente el % de eficacia oficial de Tabla 6 (convertido a decimal)
+      const weight = calcularEficaciaControl(c) / 100;
+      const tipo = c.tipo || '';
 
-      // 2. Implementación según Manual (Tabla 6)
-      if (c.implementacion === 'Automático') weight += 0.25;
-      else if (c.implementacion === 'Manual') weight += 0.15;
-
-      // 3. Documentación según Manual (Tabla 6)
-      if (c.documentacion === 'Documentado') weight += 0.15;
-
-      // 4. Aplicación a Probabilidad o Impacto (Gráfica 9)
-      if (c.tipo === 'Correctivo') {
+      // Controles Correctivos reducen Impacto; Preventivos/Detectivos reducen Probabilidad
+      if (tipo.includes('Correctivo')) {
         curr_i = curr_i - (curr_i * weight);
       } else {
         curr_p = curr_p - (curr_p * weight);
@@ -275,7 +265,6 @@ export default function Riesgos({
       impacto: Math.max(Math.round(curr_i * 100), 0)
     };
   };
-
   const residuales = calcularRiesgoResidual();
   const descripcionAutomatica = `Posibilidad de afectación ${afectacion.toLowerCase()} por ${causaInmediata.toLowerCase()} debido a ${causaRaiz.toLowerCase()}`;
 
@@ -1038,43 +1027,43 @@ const renderMatriz = () => {
                         <th className="p-2.5 text-right">Aporte</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 font-medium">
+<tbody className="divide-y divide-slate-100 font-medium">
                       <tr>
                         <td className="p-2.5 font-bold text-slate-800">1. Tipo</td>
                         <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.tipo || 'Preventivo'}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{controlSeleccionadoIA.tipo === 'Preventivo' ? '30%' : controlSeleccionadoIA.tipo === 'Detectivo' ? '20%' : '10%'}
+                          +{(controlSeleccionadoIA.tipo || '').includes('Detectivo') ? '15%' : (controlSeleccionadoIA.tipo || '').includes('Correctivo') ? '10%' : '25%'}
                         </td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-bold text-slate-800">2. Ejecución</td>
                         <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.implementacion || 'Manual'}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{controlSeleccionadoIA.implementacion === 'Automático' ? '25%' : '15%'}
+                          +{(controlSeleccionadoIA.implementacion || '').includes('Automático') ? '25%' : '15%'}
                         </td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-bold text-slate-800">3. Documentación</td>
                         <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.documentacion || 'Documentado'}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{controlSeleccionadoIA.documentacion === 'Documentado' ? '15%' : '0%'}
+                          +{(controlSeleccionadoIA.documentacion || '').includes('Documentado') && !(controlSeleccionadoIA.documentacion || '').includes('No documentado') ? '15%' : '0%'}
                         </td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-bold text-slate-800">4. Frecuencia</td>
                         <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.frecuencia || 'Continua'}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{controlSeleccionadoIA.frecuencia === 'Continua' ? '15%' : '10%'}
+                          +{(controlSeleccionadoIA.frecuencia || '').includes('Aleatoria') || (controlSeleccionadoIA.frecuencia || '').includes('Periódica') ? '5%' : '10%'}
                         </td>
                       </tr>
                       <tr>
                         <td className="p-2.5 font-bold text-slate-800">5. Evidencia</td>
                         <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.evidencia || 'Con registro'}</td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{controlSeleccionadoIA.evidencia === 'Con registro' ? '15%' : '0%'}
+                          +{(controlSeleccionadoIA.evidencia || '').includes('Con registro') || (controlSeleccionadoIA.evidencia || '').includes('Trazable') ? '10%' : '0%'}
                         </td>
                       </tr>
-                    </tbody>
+                    </tbody>                    
                   </table>
                 </div>
               </div>
