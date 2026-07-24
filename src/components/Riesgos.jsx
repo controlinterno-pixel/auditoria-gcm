@@ -594,7 +594,49 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           </div>
         </div>
       )}
+{/* 🔮 EL POPUP MODAL SUTIL Y ELEGANTE CON BASE EN LA MAQUETA DE FORMATO */}
+      {ayudaModal && (
+         /* ... aquí está todo tu código actual del modal de ayuda que termina en </div> ... */
+      )}
 
+      {/* 👇 Pega desde aquí: 🤖 MODAL PARA MOSTRAR LA INTELIGENCIA ARTIFICIAL 👇 */}
+      {(procesandoIA || dictamenIA) && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-4xl p-6 overflow-hidden relative max-h-[90vh] flex flex-col">
+            
+            {/* Encabezado del Modal */}
+            <div className="flex justify-between items-center border-b border-slate-100 pb-4 mb-4 relative z-10">
+              <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
+                <span className="text-2xl">✨</span> {dictamenIA ? dictamenIA.titulo : 'Generando Dictamen Técnico...'}
+              </h3>
+              <button 
+                onClick={() => { setDictamenIA(null); setProcesandoIA(false); }} 
+                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 font-black transition-colors"
+                title="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Cuerpo del Modal (Scrollable) */}
+            <div className="overflow-y-auto flex-1 pr-2 relative z-10">
+              {procesandoIA ? (
+                <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                  <div className="animate-spin text-5xl">⚙️</div>
+                  <p className="font-black animate-pulse text-sm text-emerald-700 uppercase tracking-widest">
+                    El Motor IA está analizando los datos...
+                  </p>
+                </div>
+              ) : (
+                <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed pb-4">
+                  {dictamenIA.dictamen}
+                </div>
+              )}
+            </div>
+            
+          </div>
+        </div>
+      )}
 
       {/* CABECERA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
