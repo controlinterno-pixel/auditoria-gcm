@@ -28,37 +28,37 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
       width: element.style.width,
     };
 
-    // 2. 🔥 EL TRUCO DEL BREAKOUT: Romper las reglas del contenedor padre
-    // 'absolute' lo saca del flujo normal, evitando que el alto de la pantalla (vh) lo limite.
+    // 2. 🔥 EL TRUCO DEL BREAKOUT MEJORADO
     element.style.position = 'absolute';
     element.style.top = '0';
     element.style.left = '0';
-    element.style.width = `${element.scrollWidth}px`; // Congelamos su ancho actual
-    element.style.height = 'max-content';             // Forzamos a que mida todo su contenido interno
+    // Forzamos un ancho fijo ideal (1200px) para que las columnas no se aplasten
+    element.style.width = '1200px'; 
+    element.style.height = 'max-content';             
     element.style.maxHeight = 'none';
     element.style.overflow = 'visible';
 
-    // 3. Pausa estratégica de 200ms para asegurar que el motor de renderizado asimile el nuevo tamaño enorme
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    // 3. Pausa estratégica de 300ms para asegurar renderizado completo (incluyendo acordeones)
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // 4. Tomar la fotografía con el elemento totalmente desplegado
+    // 4. Tomar la fotografía
     const dataUrl = await toPng(element, {
       quality: 1.0,
       pixelRatio: 2,
       backgroundColor: '#0f172a',
     });
 
-    // 5. Restaurar el componente a la normalidad al instante (el usuario no notará nada)
+    // 5. Restaurar el componente a la normalidad al instante
     element.style.position = originalStyles.position;
     element.style.height = originalStyles.height;
     element.style.maxHeight = originalStyles.maxHeight;
     element.style.overflow = originalStyles.overflow;
     element.style.width = originalStyles.width;
 
-    // 6. Configuración y Paginación (Corrección matemática incluida)
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const imgWidth = 210;
-    const pageHeight = 297;
+    // 6. 🎨 CONFIGURACIÓN JSPDF: MODO HORIZONTAL (LANDSCAPE)
+    const pdf = new jsPDF('l', 'mm', 'a4'); // 'l' significa Landscape (Horizontal)
+    const imgWidth = 297; // Ancho máximo de la hoja A4 horizontal en mm
+    const pageHeight = 210; // Alto de la hoja A4 horizontal en mm
     
     const imgProps = pdf.getImageProperties(dataUrl);
     const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
@@ -66,20 +66,28 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
     let heightLeft = imgHeight;
     let position = 0;
 
+    // Utilidad para pintar el fondo de la página de color oscuro en lugar del blanco por defecto
+    const pintarFondoPdf = () => {
+      pdf.setFillColor('#0f172a'); // Color slate-900 (Fondo de tu UI)
+      pdf.rect(0, 0, imgWidth, pageHeight, 'F');
+    };
+
     // Plasmamos la primera página
+    pintarFondoPdf();
     pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
 
     // Generamos nuevas páginas si todavía queda imagen por imprimir
     while (heightLeft > 0) {
-      position -= pageHeight; // Subimos la imagen exactamente el alto de una página para que el corte sea preciso
+      position -= pageHeight; 
       pdf.addPage();
+      pintarFondoPdf(); // Pintamos el fondo oscuro también en las hojas extra
       pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
     }
 
     pdf.save(fileName);
-    console.log('✅ ¡PDF generado con éxito y sin recortes de pantalla!');
+    console.log('✅ ¡PDF horizontal generado con éxito!');
     
   } catch (error) {
     console.error('❌ Error crítico al generar el PDF:', error);
