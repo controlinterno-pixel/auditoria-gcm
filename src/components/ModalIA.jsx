@@ -24,18 +24,30 @@ export default function ModalIA({ aiModal, setAiModal }) {
 
   const pdfRef = useRef();
 
-  const descargarPDF = () => {
+  // 🔥 1. FUNCIÓN DE EXPORTACIÓN ACTUALIZADA CON EL "TRUCO DE APERTURA"
+  const descargarPDF = async () => {
+    // A. Guardamos qué acordeón estaba abierto originalmente
+    const estadoAnterior = openAccordion;
+
+    // B. Forzamos a que TODOS los acordeones se abran cambiando el estado a 'all'
+    setOpenAccordion('all');
+
+    // C. Pausa de 300ms para permitir que React dibuje el texto en el DOM
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // D. Tomamos la foto con el documento totalmente expandido
     const fileName = `Dictamen_Riesgo_${data?.encabezado?.codigo || 'ERIR'}.pdf`;
-    // Pasamos la ref del área de contenido ejecutable
-    exportarA_PDF(pdfRef, fileName);
+    await exportarA_PDF(pdfRef, fileName);
+
+    // E. Volvemos a dejar la interfaz tal como estaba (el usuario solo verá un parpadeo)
+    setOpenAccordion(estadoAnterior);
   };
 
   return (
     <div className="fixed inset-0 z-[250] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      {/* Contenedor Modal del navegador */}
       <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">        
         
-        {/* CABECERA (Fuera del PDF) */}
+        {/* CABECERA */}
         <div className="bg-slate-900/90 border-b border-slate-800 p-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">🛡️</div>
@@ -50,9 +62,8 @@ export default function ModalIA({ aiModal, setAiModal }) {
           <button onClick={() => setAiModal(null)} className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm">✕</button>
         </div>
 
-        {/* CUERPO DEL WORKSPACE - CONTENEDOR CON SCROLL */}
+        {/* CUERPO DEL WORKSPACE */}
         <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-          {/* 🎯 ÁREA A EXPORTAR A PDF (ref integrada aquí) */}
           <div ref={pdfRef} className="space-y-6 bg-slate-900 p-2 text-slate-100 rounded-2xl">
             {isDashboardData && data ? (
               <>
@@ -132,9 +143,18 @@ export default function ModalIA({ aiModal, setAiModal }) {
                   ].map((acc) => (
                     <div key={acc.id} className="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden">
                       <button onClick={() => toggleAccordion(acc.id)} className="w-full p-3.5 text-left text-xs font-bold text-slate-200 flex justify-between items-center hover:bg-slate-800/60 transition-colors">
-                        <span className="flex items-center gap-2"><span>▼</span> {acc.title}</span>
+                        <span className="flex items-center gap-2">
+                          {/* Pequeño detalle visual: la flecha cambia si está abierto o si estamos exportando */}
+                          <span>{(openAccordion === acc.id || openAccordion === 'all') ? '▼' : '▶'}</span> {acc.title}
+                        </span>
                       </button>
-                      {openAccordion === acc.id && <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">{acc.text || 'Sin información técnica detallada.'}</div>}
+                      
+                      {/* 🔥 2. CONDICIÓN ACTUALIZADA PARA PERMITIR EL ESTADO 'all' */}
+                      {(openAccordion === acc.id || openAccordion === 'all') && (
+                        <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">
+                          {acc.text || 'Sin información técnica detallada.'}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -147,7 +167,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
           </div>
         </div>
 
-        {/* FOOTER (Excluido con data-html2canvas-ignore="true") */}
+        {/* FOOTER */}
         <div data-html2canvas-ignore="true" className="bg-slate-900/90 border-t border-slate-800 p-4 flex justify-between items-center sticky bottom-0 backdrop-blur-md z-50">
           <span className="text-[10px] text-slate-500 font-semibold">Enterprise GRC Suite</span>
           <div className="flex gap-3">
