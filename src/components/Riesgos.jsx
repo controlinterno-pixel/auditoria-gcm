@@ -127,34 +127,31 @@ const calcularEficaciaControl = (c) => {
   let score = 0;
 
   // 1. Tipo (Preventivo: 25%, Detectivo: 15%, Correctivo: 10%)
-  const tipo = c.tipo || '';
-  if (tipo.includes('Preventivo')) score += 25;
-  else if (tipo.includes('Detectivo')) score += 15;
+  const tipo = c.tipo || 'Preventivo';
+  if (tipo.includes('Detectivo')) score += 15;
   else if (tipo.includes('Correctivo')) score += 10;
-  else score += 25;
+  else score += 25; // Preventivo por defecto
 
   // 2. Ejecución (Automático: 25%, Manual: 15%)
-  const ejecucion = c.implementacion || c.ejecucion || '';
+  const ejecucion = c.implementacion || c.ejecucion || 'Manual';
   if (ejecucion.includes('Automático')) score += 25;
-  else score += 15;
+  else score += 15; // Manual por defecto
 
   // 3. Documentación (Documentado: 15%, No documentado: 0%)
-  const doc = c.documentacion || '';
+  const doc = c.documentacion || 'Documentado';
   if (doc.includes('Documentado') && !doc.includes('No documentado')) score += 15;
 
   // 4. Frecuencia (Continua: 10%, Aleatoria: 5%)
-  const freq = c.frecuencia || '';
-  if (freq.includes('Continua') || freq.includes('Permanente')) score += 10;
-  else if (freq.includes('Aleatoria') || freq.includes('Periódica')) score += 5;
-  else score += 10;
+  const freq = c.frecuencia || 'Continua';
+  if (freq.includes('Aleatoria') || freq.includes('Periódica')) score += 5;
+  else score += 10; // Continua / Permanente por defecto
 
   // 5. Evidencia (Con registro: 10%, Sin registro: 0%)
-  const evi = c.evidencia || '';
+  const evi = c.evidencia || 'Con registro';
   if (evi.includes('Con registro') || evi.includes('Trazable')) score += 10;
 
   return Math.min(score, 100);
 };
-
 // 🧮 CALCULADORA DE PORCENTAJE GLOBAL DE MITIGACIÓN DEL RIESGO (DONUT GAUGE)
 const calcularMitigacionRiesgo = (r) => {
   const expInh = (r.probabilidadInherente || 60) * (r.impactoInherente || 60);
