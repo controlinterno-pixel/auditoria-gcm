@@ -127,28 +127,29 @@ const calcularEficaciaControl = (c) => {
   let score = 0;
 
   // 1. Tipo (Preventivo: 25%, Detectivo: 15%, Correctivo: 10%)
-  const tipo = c.tipo || 'Preventivo';
+  const tipo = c.tipo || '';
   if (tipo.includes('Detectivo')) score += 15;
   else if (tipo.includes('Correctivo')) score += 10;
   else score += 25; // Preventivo por defecto
 
   // 2. Ejecución (Automático: 25%, Manual: 15%)
-  const ejecucion = c.implementacion || c.ejecucion || 'Manual';
+  const ejecucion = c.implementacion || c.ejecucion || '';
   if (ejecucion.includes('Automático')) score += 25;
   else score += 15; // Manual por defecto
 
   // 3. Documentación (Documentado: 15%, No documentado: 0%)
-  const doc = c.documentacion || 'Documentado';
+  const doc = c.documentacion || '';
   if (doc.includes('Documentado') && !doc.includes('No documentado')) score += 15;
 
   // 4. Frecuencia (Continua: 10%, Aleatoria: 5%)
-  const freq = c.frecuencia || 'Continua';
+  const freq = c.frecuencia || '';
   if (freq.includes('Aleatoria') || freq.includes('Periódica')) score += 5;
   else score += 10; // Continua / Permanente por defecto
 
   // 5. Evidencia (Con registro: 10%, Sin registro: 0%)
-  const evi = c.evidencia || 'Con registro';
-  if (evi.includes('Con registro') || evi.includes('Trazable')) score += 10;
+  const evi = c.evidencia || '';
+  if (evi.includes('Con') && !evi.includes('Sin')) score += 10;
+  else if (evi.includes('registro') || evi.includes('Trazable')) score += 10;
 
   return Math.min(score, 100);
 };
@@ -1053,11 +1054,15 @@ const renderMatriz = () => {
                           +{(controlSeleccionadoIA.frecuencia || '').includes('Aleatoria') || (controlSeleccionadoIA.frecuencia || '').includes('Periódica') ? '5%' : '10%'}
                         </td>
                       </tr>
-                      <tr>
+                   <tr>
                         <td className="p-2.5 font-bold text-slate-800">5. Evidencia</td>
-                        <td className="p-2.5 text-slate-600">{controlSeleccionadoIA.evidencia || 'Con registro'}</td>
+                        <td className="p-2.5 text-slate-600">
+                          {(controlSeleccionadoIA.evidencia || '').includes('Con') && !(controlSeleccionadoIA.evidencia || '').includes('Sin') 
+                            ? 'Con registro' 
+                            : (controlSeleccionadoIA.evidencia || 'Con registro')}
+                        </td>
                         <td className="p-2.5 text-right font-mono font-bold text-emerald-700">
-                          +{(controlSeleccionadoIA.evidencia || '').includes('Con registro') || (controlSeleccionadoIA.evidencia || '').includes('Trazable') ? '10%' : '0%'}
+                          +{((controlSeleccionadoIA.evidencia || '').includes('Con') && !(controlSeleccionadoIA.evidencia || '').includes('Sin')) || (controlSeleccionadoIA.evidencia || '').includes('Trazable') ? '10%' : '0%'}
                         </td>
                       </tr>
                     </tbody>                    
