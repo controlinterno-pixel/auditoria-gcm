@@ -8,7 +8,6 @@ import {
 import { analizarRiesgoConIA } from '../services/aiEngine';
 import ModalIA from '../components/ModalIA';
 
-import ModalIA from '../components/ModalIA';
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
 const EXPLICACIONES_CAMPOS = {
   proceso: {
