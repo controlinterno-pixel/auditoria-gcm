@@ -156,8 +156,10 @@ const calcularEficaciaControl = (c) => {
 };
 // 🧮 CALCULADORA DE PORCENTAJE GLOBAL DE MITIGACIÓN DEL RIESGO (DONUT GAUGE)
 const calcularMitigacionRiesgo = (r) => {
-  const expInh = (r.probabilidadInherente || 60) * (r.impactoInherente || 60);
-  const expRes = (r.probabilidadResidual || 15) * (r.impactoResidual || 30);
+  // Reemplazamos || por ?? para que el 0 se respete matemáticamente
+  const expInh = (r.probabilidadInherente ?? 60) * (r.impactoInherente ?? 60);
+  const expRes = (r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30);
+  
   if (expInh === 0) return 0;
   const mitigacion = Math.round(((expInh - expRes) / expInh) * 100);
   return Math.max(0, Math.min(100, mitigacion));
@@ -841,19 +843,19 @@ const renderMatriz = () => {
                       </div>
 
                       {/* INHERENTE VS RESIDUAL (TARJETAS LADO A LADO) */}
-                      <div className="col-span-2 flex items-center justify-center space-x-2 text-center">
-                        <div className="bg-red-50 border border-red-200 rounded-lg px-2 py-1 min-w-[65px]">
-                          <span className="text-[8px] font-black text-red-600 block uppercase">{zoneInh.label}</span>
-                          <span className="text-[8px] font-mono text-slate-600 font-bold">P: {r.probabilidadInherente || 60}%</span>
-                          <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {r.impactoInherente || 80}%</span>
-                        </div>
-                        <span className="text-slate-300 font-bold text-xs">→</span>
-                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 min-w-[65px]">
-                          <span className="text-[8px] font-black text-emerald-700 block uppercase">{zoneRes.label}</span>
-                          <span className="text-[8px] font-mono text-slate-600 font-bold">P: {r.probabilidadResidual || 15}%</span>
-                          <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {r.impactoResidual || 30}%</span>
-                        </div>
-                      </div>
+<div className="col-span-2 flex items-center justify-center space-x-2 text-center">
+  <div className="bg-red-50 border border-red-200 rounded-lg px-2 py-1 min-w-[65px]">
+    <span className="text-[8px] font-black text-red-600 block uppercase">{zoneInh.label}</span>
+    <span className="text-[8px] font-mono text-slate-600 font-bold">P: {r.probabilidadInherente ?? 60}%</span>
+    <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {r.impactoInherente ?? 80}%</span>
+  </div>
+  <span className="text-slate-300 font-bold text-xs">→</span>
+  <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1 min-w-[65px]">
+    <span className="text-[8px] font-black text-emerald-700 block uppercase">{zoneRes.label}</span>
+    <span className="text-[8px] font-mono text-slate-600 font-bold">P: {r.probabilidadResidual ?? 15}%</span>
+    <span className="text-[8px] font-mono text-slate-600 font-bold block">I: {r.impactoResidual ?? 30}%</span>
+  </div>
+</div>
 
                       {/* CONTROLES (DONUT CHART INTEGRADO) */}
                       <div className="col-span-1 flex items-center justify-center space-x-2">
