@@ -79,14 +79,20 @@ ESTRUCTURA JSON REQUERIDA (Calcula los valores según la gravedad del riesgo pro
     const result = await model.generateContent(prompt);
     let jsonText = await result.response.text();
     
-    // Limpieza de seguridad extrema
-    jsonText = jsonText.replace(/^```(json)?/im, '').replace(/```$/im, '').trim();
+   // 🛡️ Limpieza de seguridad extrema (A prueba de balas)
+    // 1. Borramos cualquier rastro de etiquetas markdown sin importar dónde estén
+    jsonText = jsonText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+    
+    // 2. Extraemos estrictamente desde la primera llave hasta la última
     const startIndex = jsonText.indexOf('{');
     const endIndex = jsonText.lastIndexOf('}');
     
     if (startIndex !== -1 && endIndex !== -1) {
       jsonText = jsonText.substring(startIndex, endIndex + 1);
     }
+
+    // 3. Eliminamos saltos de línea o tabulaciones traicioneras que rompen el JSON.parse
+    jsonText = jsonText.replace(/[\n\r\t]/g, " ");
 
     try {
         const parsedObject = JSON.parse(jsonText);
