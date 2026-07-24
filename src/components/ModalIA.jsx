@@ -3,23 +3,22 @@ import React, { useState } from 'react';
 export default function ModalIA({ aiModal, setAiModal }) {
   if (!aiModal) return null;
 
-  // Si los datos vienen en el nuevo objeto estructurado o si vienen como string de fallback
-  const data = typeof aiModal.contenido === 'object' ? aiModal.contenido : null;
+  // 🛡️ ESCUDO: Detectar si la data viene en .contenido o si se pasó el objeto directo
+  const rawData = aiModal?.contenido !== undefined ? aiModal.contenido : aiModal;
 
-  // Estado para acordeones interactivos
+  // Verificar si es nuestro objeto JSON estructurado para el Dashboard
+  const isDashboardData = rawData && typeof rawData === 'object' && rawData.encabezado;
+  const data = isDashboardData ? rawData : null;
+
+  // Estado para acordeones
   const [openAccordion, setOpenAccordion] = useState('metodologia');
-
-  const toggleAccordion = (key) => {
-    setOpenAccordion(openAccordion === key ? null : key);
-  };
+  const toggleAccordion = (key) => setOpenAccordion(openAccordion === key ? null : key);
 
   return (
     <div className="fixed inset-0 z-[250] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
       <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         
-        {/* ========================================================================= */}
-        {/* 🛡️ CABECERA INSTITUCIONAL ENTERPRISE                                     */}
-        {/* ========================================================================= */}
+        {/* CABECERA */}
         <div className="bg-slate-900/90 border-b border-slate-800 p-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">
@@ -39,23 +38,16 @@ export default function ModalIA({ aiModal, setAiModal }) {
               </h3>
             </div>
           </div>
-
-          <button 
-            onClick={() => setAiModal(null)} 
-            className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors font-bold text-sm"
-          >
+          <button onClick={() => setAiModal(null)} className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm">
             ✕
           </button>
         </div>
 
-        {/* ========================================================================= */}
-        {/* 📊 CUERPO DEL WORKSPACE (SCROLLABLE)                                      */}
-        {/* ========================================================================= */}
+        {/* CUERPO DEL WORKSPACE */}
         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
-          
           {data ? (
             <>
-              {/* 🏷️ CINTA DE BADGES DE ESTADO (VISTA RÁPIDA DE 3 SECONDS) */}
+              {/* BADGES */}
               <div className="flex flex-wrap items-center gap-2 pb-1">
                 <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-orange-400"></span>
@@ -66,109 +58,68 @@ export default function ModalIA({ aiModal, setAiModal }) {
                   Residual: {data.encabezado.riesgoResidualLabel || 'Bajo'}
                 </span>
                 <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">
-                  ⭐ Calidad Registro: {data.encabezado.calidadRegistroScore}/100
-                </span>
-                <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">
-                  🤖 Confianza IA: {data.encabezado.confianzaIA}
+                  ⭐ Calidad: {data.encabezado.calidadRegistroScore}/100
                 </span>
               </div>
 
-              {/* 1. TARJETAS DE MÉTRICAS / KPIS PRINCIPALES (GRID 4 COLUMNAS) */}
+              {/* KPIS */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <div className="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Score Riesgo</span>
-                  <div className="flex items-baseline space-x-1 mt-2">
-                    <span className="text-3xl font-black text-orange-400">{data.kpis.scoreRiesgo}%</span>
+                {[
+                  { label: "Score Riesgo", val: `${data.kpis.scoreRiesgo}%`, color: "text-orange-400" },
+                  { label: "Madurez", val: `${data.kpis.scoreMadurez}%`, color: "text-blue-400" },
+                  { label: "Controles", val: data.kpis.totalControles, color: "text-slate-100" },
+                  { label: "Cobertura", val: `${data.kpis.coberturaControles}%`, color: "text-emerald-400" }
+                ].map((kpi, i) => (
+                  <div key={i} className="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{kpi.label}</span>
+                    <span className={`text-3xl font-black mt-2 ${kpi.color}`}>{kpi.val}</span>
                   </div>
-                  <span className="text-[9px] text-slate-500 mt-1 font-semibold">Exposición pura</span>
-                </div>
-
-                <div className="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Madurez</span>
-                  <div className="flex items-baseline space-x-1 mt-2">
-                    <span className="text-3xl font-black text-blue-400">{data.kpis.scoreMadurez}%</span>
-                  </div>
-                  <span className="text-[9px] text-slate-500 mt-1 font-semibold">Cumplimiento ISO 31000</span>
-                </div>
-
-                <div className="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Controles</span>
-                  <div className="flex items-baseline space-x-1 mt-2">
-                    <span className="text-3xl font-black text-slate-100">{data.kpis.totalControles}</span>
-                    <span className="text-xs text-slate-400 font-bold">activos</span>
-                  </div>
-                  <span className="text-[9px] text-slate-500 mt-1 font-semibold">Preventivos y correctivos</span>
-                </div>
-
-                <div className="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cobertura</span>
-                  <div className="flex items-baseline space-x-1 mt-2">
-                    <span className="text-3xl font-black text-emerald-400">{data.kpis.coberturaControles}%</span>
-                  </div>
-                  <span className="text-[9px] text-slate-500 mt-1 font-semibold">Efectividad mitigante</span>
-                </div>
+                ))}
               </div>
 
-              {/* 2. HALLAZGOS PRINCIPALES Y OPORTUNIDADES (BLOQUES PARALELOS) */}
+              {/* HALLAZGOS Y RECOMENDACIONES */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                
-                {/* ⚠️ Hallazgos */}
                 <div className="bg-slate-800/30 border border-slate-800/80 rounded-2xl p-4 space-y-3">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">
-                    <span>⚠️</span> Hallazgos Principales (Máx. 5)
-                  </h4>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">⚠️ Hallazgos</h4>
                   <ul className="space-y-2 text-xs text-slate-300 font-medium">
-                    {data.hallazgos.map((item, idx) => (
+                    {data.hallazgos?.map((item, idx) => (
                       <li key={idx} className="flex items-start space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-amber-400 font-bold shrink-0">•</span>
-                        <span>{item}</span>
+                        <span className="text-amber-400 font-bold shrink-0">•</span><span>{item}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-
-                {/* 💡 Recomendaciones / Oportunidades */}
                 <div className="bg-slate-800/30 border border-slate-800/80 rounded-2xl p-4 space-y-3">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-cyan-400 flex items-center gap-2">
-                    <span>💡</span> Oportunidades de Mejora
-                  </h4>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-cyan-400 flex items-center gap-2">💡 Recomendaciones</h4>
                   <ul className="space-y-2 text-xs text-slate-300 font-medium">
-                    {data.recomendaciones.map((item, idx) => (
+                    {data.recomendaciones?.map((item, idx) => (
                       <li key={idx} className="flex items-start space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                        <span className="text-cyan-400 font-bold shrink-0">✔</span>
-                        <span>{item}</span>
+                        <span className="text-cyan-400 font-bold shrink-0">✔</span><span>{item}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
-
               </div>
 
-              {/* 3. PLAN DE ACCIÓN (TABLA COMPACTA EXECUTIVE) */}
+              {/* PLAN DE ACCION */}
               <div className="bg-slate-800/30 border border-slate-800/80 rounded-2xl p-4 space-y-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">
-                  <span>📈</span> Plan de Acción Inmediato
-                </h4>
+                <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">📈 Plan de Acción Inmediato</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-800 text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                        <th className="pb-2">Prioridad</th>
-                        <th className="pb-2">Acción Correctiva</th>
-                        <th className="pb-2 text-right">Responsable</th>
+                        <th className="pb-2">Prioridad</th><th className="pb-2">Acción</th><th className="pb-2 text-right">Responsable</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/50">
-                      {data.planAccion.map((act, idx) => (
+                      {data.planAccion?.map((act, idx) => (
                         <tr key={idx} className="hover:bg-slate-800/20">
                           <td className="py-2.5">
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                              act.prioridad === 'Alta' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${act.prioridad === 'Alta' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
                               {act.prioridad}
                             </span>
                           </td>
-                          <td className="py-2.5 font-medium text-slate-200 pr-2">{act.accion}</td>
+                          <td className="py-2.5 font-medium text-slate-200">{act.accion}</td>
                           <td className="py-2.5 text-right font-bold text-slate-400 whitespace-nowrap">{act.responsable}</td>
                         </tr>
                       ))}
@@ -177,111 +128,47 @@ export default function ModalIA({ aiModal, setAiModal }) {
                 </div>
               </div>
 
-              {/* 4. DICTAMEN PROFESIONAL DEL DIRECTOR */}
-              <div className="bg-gradient-to-r from-blue-950/40 via-slate-900 to-purple-950/40 border border-blue-500/30 p-4 rounded-2xl space-y-2 shadow-inner">
-                <h4 className="text-xs font-black uppercase tracking-wider text-blue-400 flex items-center gap-2">
-                  <span>🧠</span> Dictamen Profesional del Director Copilot
-                </h4>
-                <p className="text-xs text-slate-200 font-medium leading-relaxed italic">
-                  "{data.dictamenDirector}"
-                </p>
+              {/* DICTAMEN */}
+              <div className="bg-gradient-to-r from-blue-950/40 via-slate-900 to-purple-950/40 border border-blue-500/30 p-4 rounded-2xl space-y-2">
+                <h4 className="text-xs font-black uppercase tracking-wider text-blue-400 flex items-center gap-2">🧠 Dictamen del Director</h4>
+                <p className="text-xs text-slate-200 font-medium leading-relaxed italic">"{data.dictamenDirector}"</p>
               </div>
 
-              {/* 5. SECCIONES TÉCNICAS EN ACORDEONES EXPANDIBLES */}
+              {/* ACORDEONES */}
               <div className="space-y-2 pt-2 border-t border-slate-800">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
-                  Desglose Técnico y Evidencias
-                </p>
-
-                {/* Acordeón 1: Análisis Metodológico */}
-                <div className="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden">
-                  <button 
-                    onClick={() => toggleAccordion('metodologia')}
-                    className="w-full p-3.5 text-left text-xs font-bold text-slate-200 flex justify-between items-center hover:bg-slate-800/60 transition-colors"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>▼</span> Análisis Metodológico ISO 31000
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {openAccordion === 'metodologia' ? 'Ocultar' : 'Expandir'}
-                    </span>
-                  </button>
-                  {openAccordion === 'metodologia' && (
-                    <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">
-                      {data.acordeonesTecnicos.analisisMetodologico}
-                    </div>
-                  )}
-                </div>
-
-                {/* Acordeón 2: Evaluación de Controles COSO */}
-                <div className="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden">
-                  <button 
-                    onClick={() => toggleAccordion('controles')}
-                    className="w-full p-3.5 text-left text-xs font-bold text-slate-200 flex justify-between items-center hover:bg-slate-800/60 transition-colors"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>▼</span> Evaluación de Controles & COSO ERM
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {openAccordion === 'controles' ? 'Ocultar' : 'Expandir'}
-                    </span>
-                  </button>
-                  {openAccordion === 'controles' && (
-                    <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">
-                      {data.acordeonesTecnicos.evaluacionControles}
-                    </div>
-                  )}
-                </div>
-
-                {/* Acordeón 3: KRIs e Indicadores */}
-                <div className="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden">
-                  <button 
-                    onClick={() => toggleAccordion('kris')}
-                    className="w-full p-3.5 text-left text-xs font-bold text-slate-200 flex justify-between items-center hover:bg-slate-800/60 transition-colors"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>▼</span> KRIs, Monitoreo y Evidencias
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {openAccordion === 'kris' ? 'Ocultar' : 'Expandir'}
-                    </span>
-                  </button>
-                  {openAccordion === 'kris' && (
-                    <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">
-                      {data.acordeonesTecnicos.krisEvidencias}
-                    </div>
-                  )}
-                </div>
-
+                {[
+                  { id: 'metodologia', title: 'Análisis Metodológico ISO 31000', text: data.acordeonesTecnicos?.analisisMetodologico },
+                  { id: 'controles', title: 'Evaluación de Controles & COSO ERM', text: data.acordeonesTecnicos?.evaluacionControles },
+                  { id: 'kris', title: 'KRIs, Monitoreo y Evidencias', text: data.acordeonesTecnicos?.krisEvidencias }
+                ].map((acc) => (
+                  <div key={acc.id} className="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden">
+                    <button onClick={() => toggleAccordion(acc.id)} className="w-full p-3.5 text-left text-xs font-bold text-slate-200 flex justify-between items-center hover:bg-slate-800/60 transition-colors">
+                      <span className="flex items-center gap-2"><span>▼</span> {acc.title}</span>
+                    </button>
+                    {openAccordion === acc.id && (
+                      <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">
+                        {acc.text || 'Sin información técnica detallada.'}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-
             </>
           ) : (
-            // Fallback por si aiModal.contenido viene como texto simple plano
-            <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap font-medium p-4 bg-slate-800/50 rounded-2xl border border-slate-800">
-              {aiModal.contenido}
+            // 🛡️ PREVENCIÓN DEL ERROR #31: Si llega un objeto crudo no estructurado, lo formatea como string seguro
+            <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap font-medium p-4 bg-slate-800/50 rounded-2xl border border-slate-800 overflow-auto">
+              {typeof rawData === 'object' ? JSON.stringify(rawData, null, 2) : String(rawData)}
             </div>
           )}
-
         </div>
 
-        {/* ========================================================================= */}
-        {/* 🏛️ PIE DEL MODAL / ACCIONES NATIVAS                                      */}
-        {/* ========================================================================= */}
+        {/* FOOTER */}
         <div className="bg-slate-900/90 border-t border-slate-800 p-4 flex justify-between items-center sticky bottom-0 backdrop-blur-md">
-          <span className="text-[10px] text-slate-500 font-semibold">
-            Enterprise GRC Suite — Termales de Santa Rosa
-          </span>
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => setAiModal(null)} 
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs font-bold transition-colors"
-            >
-              Cerrar Panel
-            </button>
-          </div>
+          <span className="text-[10px] text-slate-500 font-semibold">Enterprise GRC Suite</span>
+          <button onClick={() => setAiModal(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs font-bold transition-colors">
+            Cerrar Panel
+          </button>
         </div>
-
       </div>
     </div>
   );

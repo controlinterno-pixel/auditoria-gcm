@@ -15,7 +15,6 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-// Configuración con respuesta JSON forzada (Native JSON Mode)
 const model = genAI.getGenerativeModel({ 
   model: "gemini-2.5-flash", 
   safetySettings,
@@ -27,17 +26,16 @@ const model = genAI.getGenerativeModel({
   }
 });
 
-// Prompt que solicita datos analíticos en estructura JSON exacta
 export const analizarRiesgoConIA = async (riesgo) => {
   try {
     const prompt = `
 Eres el Motor de Inteligencia de un Software GRC Enterprise (estilo ServiceNow / AuditBoard) para Termales de Santa Rosa de Cabal.
-Analiza el siguiente riesgo y devuelve UNICAMENTE un objeto JSON estructurado con el análisis ejecutivo.
+Analiza el siguiente riesgo y devuelve UNICAMENTE un objeto JSON estructurado con el análisis ejecutivo. No incluyas texto adicional ni formato markdown.
 
 DATOS DEL RIESGO EN EVALUACIÓN:
 ${JSON.stringify(riesgo, null, 2)}
 
-ESTRUCTURA JSON REQUERIDA (Responde EXACTAMENTE con esta estructura):
+ESTRUCTURA JSON REQUERIDA:
 {
   "encabezado": {
     "codigo": "RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}",
@@ -55,53 +53,61 @@ ESTRUCTURA JSON REQUERIDA (Responde EXACTAMENTE con esta estructura):
     "coberturaControles": 82
   },
   "hallazgos": [
-    "Descripción sintética del primer hallazgo o vulnerabilidad crítica en el registro.",
-    "Falta de alineación clara con la causa raíz identificada.",
-    "Baja trazabilidad en la periodicidad de revisión del control."
+    "Descripción sintética de vulnerabilidad en el registro."
   ],
   "recomendaciones": [
-    "Formalizar la asignación del propietario del proceso en la plataforma.",
-    "Documentar la evidencia de ejecución mensual del control preventivo."
+    "Recomendación estratégica a implementar."
   ],
   "planAccion": [
-    { "prioridad": "Alta", "accion": "Actualizar el manual de funciones y controles del proceso.", "responsable": "Líder del Proceso" },
-    { "prioridad": "Media", "accion": "Configurar alertas automáticas de vencimiento para el seguimiento.", "responsable": "Auditoría / Control Interno" }
+    { "prioridad": "Alta", "accion": "Actualizar matriz", "responsable": "Líder" }
   ],
-  "dictamenDirector": "El riesgo presenta una cobertura adecuada mediante controles preventivos, pero requiere formalización documental inmediata para alcanzar un nivel de madurez óptimo ( >85%).",
+  "dictamenDirector": "Dictamen profesional del riesgo.",
   "acordeonesTecnicos": {
-    "analisisMetodologico": "Análisis exhaustivo ISO 31000: La redacción cumple con la segregación entre causa inmediata y causa raíz, permitiendo una clara identificación del evento generador.",
-    "evaluacionControles": "Evaluación COSO ERM: Los controles registrados actúan principalmente sobre la probabilidad. Se sugiere incluir un control correctivo enfocado en amortiguar el impacto financiero.",
-    "isoCosoAlignment": "El riesgo se alinea con la categoría de Cumplimiento / Operativo según la taxonomía corporativa internacional.",
-    "krisEvidencias": "KRI Sugerido: Porcentaje de desviaciones detectadas en revisiones mensuales (Umbral de tolerancia: < 5%)."
+    "analisisMetodologico": "Análisis exhaustivo ISO 31000",
+    "evaluacionControles": "Evaluación COSO ERM",
+    "isoCosoAlignment": "Alineación de taxonomía",
+    "krisEvidencias": "KRI Sugerido"
   }
 }
 `;
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const jsonText = response.text();
+    let jsonText = await result.response.text();
     
-    // Parseo seguro del JSON
+    // 🧹 LIMPIEZA ROBUSTA: Eliminar bloques markdown (```json) y extraer solo el objeto
+    jsonText = jsonText.replace(/^```(json)?/im, '').replace(/```$/im, '').trim();
+    const startIndex = jsonText.indexOf('{');
+    const endIndex = jsonText.lastIndexOf('}');
+    if (startIndex !== -1 && endIndex !== -1) {
+      jsonText = jsonText.substring(startIndex, endIndex + 1);
+    }
+
     return JSON.parse(jsonText);
+
   } catch (error) {
     console.error("Error procesando JSON en aiEngine:", error);
-    // Fallback de emergencia por si la API falla
+    // Objeto de contingencia estricto
     return {
       encabezado: {
         codigo: `RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}`,
-        proceso: riesgo.proceso || 'Proceso Corporativo',
-        subproceso: riesgo.subproceso || 'General',
-        riesgoInherenteLabel: "Alto",
-        riesgoResidualLabel: "Moderado",
-        calidadRegistroScore: 60,
-        confianzaIA: "Media"
+        proceso: "Error de Inferencia",
+        subproceso: "N/A",
+        riesgoInherenteLabel: "N/A",
+        riesgoResidualLabel: "N/A",
+        calidadRegistroScore: 0,
+        confianzaIA: "Nula"
       },
-      kpis: { scoreRiesgo: 70, scoreMadurez: 60, totalControles: 1, coberturaControles: 70 },
-      hallazgos: ["No fue posible procesar la respuesta estructurada de la IA."],
-      recomendaciones: ["Revisar la conexión con el servidor de inteligencia artificial."],
-      planAccion: [{ prioridad: "Alta", accion: "Reintentar análisis", responsable: "Administrador" }],
-      dictamenDirector: "Análisis preliminar generado en modo de contingencia.",
-      acordeonesTecnicos: { analisisMetodologico: "Datos en revisión." }
+      kpis: { scoreRiesgo: 0, scoreMadurez: 0, totalControles: 0, coberturaControles: 0 },
+      hallazgos: ["La IA interrumpió la respuesta o el modelo devolvió un formato inválido."],
+      recomendaciones: ["Intenta hacer clic en 'Dictamen IA' nuevamente."],
+      planAccion: [{ prioridad: "Alta", accion: "Reintentar análisis", responsable: "Usuario" }],
+      dictamenDirector: "Se produjo un fallo de parseo (JSON). Por favor reintenta.",
+      acordeonesTecnicos: { 
+        analisisMetodologico: "Datos no disponibles.",
+        evaluacionControles: "Datos no disponibles.",
+        isoCosoAlignment: "Datos no disponibles.",
+        krisEvidencias: "Datos no disponibles."
+      }
     };
   }
 };
