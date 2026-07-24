@@ -8,9 +8,6 @@ if (!GEMINI_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY || "");
 
-// ==========================================
-// 🛡️ CONFIGURACIÓN DE SEGURIDAD
-// ==========================================
 const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -18,116 +15,93 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
+// Configuración con respuesta JSON forzada (Native JSON Mode)
 const model = genAI.getGenerativeModel({ 
   model: "gemini-2.5-flash", 
   safetySettings,
-  generationConfig: { temperature: 0.15, topP: 0.8, maxOutputTokens: 2500 }
+  generationConfig: { 
+    temperature: 0.1, 
+    topP: 0.8, 
+    maxOutputTokens: 2500,
+    responseMimeType: "application/json"
+  }
 });
 
-// ==========================================
-// 🏛️ PROMPT DEL SISTEMA - AUDITORÍA C-SUITE (SIN MARKDOWN)
-// ==========================================
-const SYSTEM_PROMPT_CORE = `
-Eres el Director Copilot de GRC y Consultor Senior de nivel Big Four para Termales de Santa Rosa de Cabal.
-Tu rol es auditar la calidad, rigor y madurez metodológica de la información de riesgos y control interno.
-
-DIRECTRICES OBLIGATORIAS DE FORMATO:
-1. PROHIBIDO TOTALMENTE USAR MARKDOWN. NO utilices NINGÚN asterisco (**), numerales (##, ###), guiones bajos (_) ni tablas en sintaxis Markdown (| --- |).
-2. Si incluyes caracteres de Markdown, romperás la interfaz gráfica de la aplicación.
-3. Utiliza MAYÚSCULAS SOSTENIDAS para títulos de sección y separadores simples "---".
-4. Para listas o viñetas, utiliza EXCLUSIVAMENTE el símbolo "•" o guiones simples "-".
-5. NO inicies con saludos ni frases genéricas ("A continuación...", "Se presenta el siguiente informe...").
-6. Comienza directamente con la introducción oficial del Director Copilot.
-`;
-
-// ==========================================
-// 📐 FORMATO DE SALIDA EJECUTIVO ERIR®
-// ==========================================
-const OUTPUT_FORMAT_INSTRUCTIONS = `
-ESTRUCTURA OBLIGATORIA DE LA RESPUESTA:
-
-Como Director Copilot de GRC y Consultor Senior de nivel Big Four, mi rol es auditar la calidad y madurez de la información de riesgos y control interno proporcionada. Tras revisar el insumo, mi evaluación es la siguiente:
-
----
-
-👔 RESUMEN EJECUTIVO (C-Level)
-• Criticidad Estimada: [Estimación cualitativa/cuantitativa]
-• Nivel de Confianza de la Evaluación: [Alto / Medio / Bajo] — Fundamento: [Explicación técnica]
-• Impacto Directo en el Negocio: [Análisis detallado de pérdidas potenciales operativas, financieras, reputacionales o legales]
-• Apetito de Riesgo: [Alineación con políticas corporativas]
-
----
-
-⭐ ÍNDICE DE CALIDAD Y MADUREZ DEL REGISTRO
-• Score General: [Calificación de 0 a 100] / 100
-• Calificación por Campos:
-  • Nombre/Título: ⭐[1-5]/5 ([Breve dictamen])
-  • Descripción/Causa: ⭐[1-5]/5 ([Breve dictamen])
-  • Identificación de Controles: ⭐[1-5]/5 ([Breve dictamen])
-  • Valoración/Métrica: ⭐[1-5]/5 ([Breve dictamen])
-• Faltantes para un Nivel de Madurez Superior (>90/100):
-  - [X] [Brecha o campo faltante 1]
-  - [X] [Brecha o campo faltante 2]
-  - [X] [Brecha o campo faltante 3]
-
----
-
-🔍 ANÁLISIS TÉCNICO Y AUDITORÍA DETALLADA
-1. Calidad Metodológica del Registro
-• Crítica de Redacción: [Análisis basado en ISO 31000 / COSO ERM]
-• Nombre del Riesgo: [Evaluación del título]
-• Descripción/Causa: [Desglose en Causa Raíz, Evento de Riesgo y Consecuencia]
-• Brechas en el Control Interno: [Identificación de controles preventivos o detectivos faltantes]
-
-2. Plan de Acción Priorizado
-1. 🔴 Prioridad Alta (Inmediata):
-• [Acción correctiva o ajuste metodológico 1]
-• [Acción correctiva o ajuste metodológico 2]
-
-2. 🟡 Prioridad Media (Estratégica):
-• [Acción a mediano plazo]
-
-3. 🟢 Prioridad Baja (Monitoreo/KRI):
-• [Indicador clave de riesgo o control a monitorear]
-`;
-
-// ==========================================
-// 🧩 CONTEXTUALIZADOR DE DATOS DEL SISTEMA
-// ==========================================
-function buildRiskContext(riesgo) {
-  return `
-DATOS EXTRAÍDOS DE LA MATRIZ PARA AUDITORÍA:
-- ID/Código: RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}
-- Fecha de Evaluación: ${new Date().toLocaleDateString()}
-- Proceso: ${riesgo.macroproceso || riesgo.proceso || 'No asignado'}
-- Subproceso: ${riesgo.subproceso || 'General'}
-- Categoría: ${riesgo.categoria || 'No asignada'}
-- Clasificación: ${riesgo.clasificacionRiesgo || 'Sin clasificación'}
-- Propietario / Owner: ${riesgo.responsable || '⚠️ No asignado en plataforma'}
-- Descripción del Riesgo: ${riesgo.descripcion || riesgo.escenarioFinal || 'Sin descripción'}
-- Causa Inmediata: ${riesgo.causaInmediata || 'No especificada'}
-- Causa Raíz: ${riesgo.causaRaiz || 'No especificada'}
-- Probabilidad Inherente: ${riesgo.probabilidadInherente || 0}%
-- Impacto Inherente: ${riesgo.impactoInherente || 0}%
-- Probabilidad Residual: ${riesgo.probabilidadResidual || 0}%
-- Impacto Residual: ${riesgo.impactoResidual || 0}%
-- Controles Registrados: ${JSON.stringify(riesgo.controlesDetallados || riesgo.descripcionControl || 'Sin controles')}
-`;
-}
-
-// ==========================================
-// 🚀 FUNCIÓN PRINCIPAL EXPORTADA
-// ==========================================
+// Prompt que solicita datos analíticos en estructura JSON exacta
 export const analizarRiesgoConIA = async (riesgo) => {
   try {
-    const contexto = buildRiskContext(riesgo);
-    const fullPrompt = `${SYSTEM_PROMPT_CORE}\n\n--------------------------------------------------\n${contexto}\n--------------------------------------------------\n\n${OUTPUT_FORMAT_INSTRUCTIONS}`;
-    
-    const result = await model.generateContent(fullPrompt);
+    const prompt = `
+Eres el Motor de Inteligencia de un Software GRC Enterprise (estilo ServiceNow / AuditBoard) para Termales de Santa Rosa de Cabal.
+Analiza el siguiente riesgo y devuelve UNICAMENTE un objeto JSON estructurado con el análisis ejecutivo.
+
+DATOS DEL RIESGO EN EVALUACIÓN:
+${JSON.stringify(riesgo, null, 2)}
+
+ESTRUCTURA JSON REQUERIDA (Responde EXACTAMENTE con esta estructura):
+{
+  "encabezado": {
+    "codigo": "RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}",
+    "proceso": "${riesgo.macroproceso || riesgo.proceso || 'Gestión Operativa'}",
+    "subproceso": "${riesgo.subproceso || 'General'}",
+    "riesgoInherenteLabel": "Alto",
+    "riesgoResidualLabel": "Bajo",
+    "calidadRegistroScore": 65,
+    "confianzaIA": "Alta"
+  },
+  "kpis": {
+    "scoreRiesgo": 75,
+    "scoreMadurez": 65,
+    "totalControles": ${Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : 1},
+    "coberturaControles": 82
+  },
+  "hallazgos": [
+    "Descripción sintética del primer hallazgo o vulnerabilidad crítica en el registro.",
+    "Falta de alineación clara con la causa raíz identificada.",
+    "Baja trazabilidad en la periodicidad de revisión del control."
+  ],
+  "recomendaciones": [
+    "Formalizar la asignación del propietario del proceso en la plataforma.",
+    "Documentar la evidencia de ejecución mensual del control preventivo."
+  ],
+  "planAccion": [
+    { "prioridad": "Alta", "accion": "Actualizar el manual de funciones y controles del proceso.", "responsable": "Líder del Proceso" },
+    { "prioridad": "Media", "accion": "Configurar alertas automáticas de vencimiento para el seguimiento.", "responsable": "Auditoría / Control Interno" }
+  ],
+  "dictamenDirector": "El riesgo presenta una cobertura adecuada mediante controles preventivos, pero requiere formalización documental inmediata para alcanzar un nivel de madurez óptimo ( >85%).",
+  "acordeonesTecnicos": {
+    "analisisMetodologico": "Análisis exhaustivo ISO 31000: La redacción cumple con la segregación entre causa inmediata y causa raíz, permitiendo una clara identificación del evento generador.",
+    "evaluacionControles": "Evaluación COSO ERM: Los controles registrados actúan principalmente sobre la probabilidad. Se sugiere incluir un control correctivo enfocado en amortiguar el impacto financiero.",
+    "isoCosoAlignment": "El riesgo se alinea con la categoría de Cumplimiento / Operativo según la taxonomía corporativa internacional.",
+    "krisEvidencias": "KRI Sugerido: Porcentaje de desviaciones detectadas en revisiones mensuales (Umbral de tolerancia: < 5%)."
+  }
+}
+`;
+
+    const result = await model.generateContent(prompt);
     const response = await result.response;
-    return response.text();
+    const jsonText = response.text();
+    
+    // Parseo seguro del JSON
+    return JSON.parse(jsonText);
   } catch (error) {
-    console.error("Error en analizarRiesgoConIA:", error);
-    throw new Error("No se pudo conectar con el motor de IA.");
+    console.error("Error procesando JSON en aiEngine:", error);
+    // Fallback de emergencia por si la API falla
+    return {
+      encabezado: {
+        codigo: `RSK-${riesgo.id ? String(riesgo.id).substring(0, 5) : '001'}`,
+        proceso: riesgo.proceso || 'Proceso Corporativo',
+        subproceso: riesgo.subproceso || 'General',
+        riesgoInherenteLabel: "Alto",
+        riesgoResidualLabel: "Moderado",
+        calidadRegistroScore: 60,
+        confianzaIA: "Media"
+      },
+      kpis: { scoreRiesgo: 70, scoreMadurez: 60, totalControles: 1, coberturaControles: 70 },
+      hallazgos: ["No fue posible procesar la respuesta estructurada de la IA."],
+      recomendaciones: ["Revisar la conexión con el servidor de inteligencia artificial."],
+      planAccion: [{ prioridad: "Alta", accion: "Reintentar análisis", responsable: "Administrador" }],
+      dictamenDirector: "Análisis preliminar generado en modo de contingencia.",
+      acordeonesTecnicos: { analisisMetodologico: "Datos en revisión." }
+    };
   }
 };
