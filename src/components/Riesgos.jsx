@@ -406,7 +406,7 @@ const nuevoRiesgo = {
         fechaSeguimiento,
         seguimientoBitacora,
         anio: new Date().getFullYear(),
-        mes: "Junio",
+mes: new Date().toLocaleString('es-ES', { month: 'long' }),
         historialCambios: editRiesgo 
           ? [...(editRiesgo.historialCambios || []), { fecha: ts, accion: 'Modificación con variables completas del manual' }]
           : [{ fecha: ts, accion: 'Creación manual con matriz completa' }]
@@ -468,34 +468,38 @@ const nuevoRiesgo = {
 
     const topProcesos = Object.entries(conteoProcesos).sort((a,b) => b[1] - a[1]).slice(0, 5);
 
-    const solicitarDictamenIA = () => {
+    const solicitarDictamenIA = async () => {
       setProcesandoIA(true);
       setDictamenIA(null);
 
-      setTimeout(() => {
-        let textoDictamen = "";
-        
-        if (topProcesos.length === 0) {
-          textoDictamen = "Aún no hay riesgos registrados en el sistema para realizar un análisis de exposición cruzada.";
-        } else if (topProcesos.length === 1) {
-          textoDictamen = `El 100% de la carga de exposición recae sobre el proceso de **${topProcesos[0][0]}** con ${topProcesos[0][1]} riesgos mapeados. Se sugiere urgente diversificar la identificación de riesgos en el resto de los departamentos de Termales S.A.`;
-        } else {
-          const procesoCritico1 = topProcesos[0];
-          const procesoCritico2 = topProcesos[1];
-          const sumaCritica = procesoCritico1[1] + procesoCritico2[1];
-          const porcentaje = Math.round((sumaCritica / totalRiesgos) * 100);
-
-          textoDictamen = `Actualmente, **${procesoCritico1[0]}** (${procesoCritico1[1]} riesgos) y **${procesoCritico2[0]}** (${procesoCritico2[1]} riesgos) concentran el **${porcentaje}%** de toda la exposición operativa del hotel. Se sugiere a la Gerencia priorizar el presupuesto de auditoría y los planes de mitigación (capacitaciones, mantenimiento) sobre estos dos frentes antes de la temporada alta, ya que representan el mayor cuello de botella estructural.`;
+      try {
+        if (totalRiesgos === 0) {
+          setDictamenIA({
+            titulo: "Diagnóstico General de Riesgos",
+            dictamen: "No hay datos de riesgos registrados en la matriz para procesar el análisis de Inteligencia Artificial."
+          });
+          return;
         }
 
-        setDictamenIA({
-          titulo: "Análisis de Focos de Exposición",
-          dictamen: textoDictamen,
-        });
-        setProcesandoIA(false);
-      }, 800);
-    };
+        const datosResumen = {
+          proceso: "Diagnóstico Corporativo Global",
+          descripcion: `Evaluación de la matriz corporativa con un total de ${totalRiesgos} riesgos registrados. Principales procesos expuestos: ${topProcesos.map(([p, c]) => `${p} (${c} riesgos)`).join(', ')}. Distribución actual de severidad residual: Extremos (${extremos}), Altos (${altos}), Moderados (${moderados}), Bajos (${bajos}).`,
+          probabilidadInherente: 80,
+          impactoInherente: 80
+        };
 
+        const dictamenRespuesta = await analizarRiesgoConIA(datosResumen);
+        setDictamenIA({
+          titulo: "Diagnóstico Corporativo Global — Inteligencia Artificial",
+          dictamen: dictamenRespuesta
+        });
+      } catch (error) {
+        console.error("Error al procesar dictamen corporativo con IA:", error);
+        if (showNotification) showNotification("Error al comunicarse con el motor de IA.", "error");
+      } finally {
+        setProcesandoIA(false);
+      }
+    };
    return (
       <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 relative">
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -558,6 +562,29 @@ const renderMatriz = () => {
       return acc + (lista.length || (r.descripcionControl ? 1 : 0));
     }, 0);
 
+    // 🧮 CALCULADORAS DINÁMICAS PARA LA BARRA DE KPIs
+    const todosLosControles = safeRiesgos.flatMap(r => Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []);
+    const eficaciaPromedioGlobal = todosLosControles.length > 0
+      ? Math.round(todosLosControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / todosLosControles.length)
+      : 80;
+
+    const avgResidualScore = totalRiesgosCount > 0
+      ? safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual || 15) * (r.impactoResidual || 30) / 100), 0) / totalRiesgosCount
+      : 0;
+
+    let nivelPromedioText = 'BAJO';
+    let nivelPromedioColor = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (avgResidualScore > 40) {
+      nivelPromedioText = 'EXTREMO';
+      nivelPromedioColor = 'bg-red-100 text-red-800 border-red-200';
+    } else if (avgResidualScore > 25) {
+      nivelPromedioText = 'ALTO';
+      nivelPromedioColor = 'bg-orange-100 text-orange-800 border-orange-200';
+    } else if (avgResidualScore > 12) {
+      nivelPromedioText = 'MODERADO';
+      nivelPromedioColor = 'bg-amber-100 text-amber-800 border-amber-200';
+    }
+
     // 🔍 Filtrado dinámico en tiempo real
     const riesgosFiltrados = safeRiesgos.filter(r => {
       const matchSearch = (r.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -607,8 +634,8 @@ const renderMatriz = () => {
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Riesgo Residual Promedio</p>
               <div className="mt-2">
-                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border border-emerald-200 shadow-sm">
-                  BAJO
+                <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest border shadow-sm ${nivelPromedioColor}`}>
+                  {nivelPromedioText}
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 font-bold mt-3">Nivel general de exposición</p>
@@ -620,7 +647,7 @@ const renderMatriz = () => {
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Controles Implementados</p>
               <h3 className="text-3xl font-black text-slate-900 mt-1">{totalControlesCount}</h3>
-              <p className="text-[10px] text-emerald-700 font-extrabold mt-1">Eficacia promedio: 78%</p>
+              <p className="text-[10px] text-emerald-700 font-extrabold mt-1">Eficacia promedio: {eficaciaPromedioGlobal}%</p>
             </div>
             <span className="p-3 bg-blue-50 text-blue-600 rounded-2xl text-lg shadow-inner">🛡️</span>
           </div>
@@ -920,21 +947,12 @@ const renderMatriz = () => {
               </tr>
             ))
           ) : (
-            <tr className="hover:bg-slate-50 transition-colors">
-              <td className="p-3 font-mono font-bold text-[#0A3B32]">CTL-21</td>
-              <td className="p-3 font-semibold text-slate-800">{r.descripcionControl || 'Verificación y conciliación periódica.'}</td>
-              <td className="p-3"><span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-black uppercase">Preventivo</span></td>
-              <td className="p-3">Mensual</td>
-              <td className="p-3 font-semibold text-slate-600">{r.responsable || 'Líder del Proceso'}</td>
-              <td className="p-3 text-center"><span className="px-2 py-0.5 rounded text-[9px] font-black bg-emerald-50 text-emerald-700 uppercase">Sí</span></td>
-              <td className="p-3 text-center"><span className="px-2 py-0.5 rounded text-[9px] font-black bg-slate-100 text-slate-500 uppercase">No</span></td>
-              <td className="p-3 text-center"><span className="font-mono font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">85%</span></td>
-              <td className="p-3 text-center"><span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">Activo</span></td>
-              <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                <button className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold">👁 Ver</button>
-                <button className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold">✏️ Editar</button>
-                <button className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold">🤖 IA</button>
-                <button className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold">📄 Evidencia</button>
+            <tr>
+              <td colSpan="10" className="p-6 text-center text-slate-400 font-medium italic bg-slate-50/50">
+                ⚠️ Este riesgo no cuenta con controles estructurados individualmente. 
+                <span className="block text-[10px] text-slate-500 mt-1 font-normal">
+                  Control registrado en texto: "{r.descripcionControl || 'Sin descripción de control'}"
+                </span>
               </td>
             </tr>
           )}
