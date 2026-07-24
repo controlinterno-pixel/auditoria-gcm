@@ -19,46 +19,26 @@ const EXPLICACIONES_CAMPOS = {
     porQue: "Agrupa los riesgos bajo la taxonomía de la norma internacional ISO 31000. Ayuda a la Junta Directiva a entender si la mayor exposición de Termales es operacional, de estrategia o legal.",
     ejemplo: "Un ataque informático al sistema de reservas Zeus corresponde a la categoría 'Tecnológico'. Una demanda laboral corresponde a 'Cumplimiento'."
   },
+
 clasificacion: {
     titulo: "Clasificación de riesgo (Tabla 5)",
     porQue: "Permite agrupar los riesgos identificados en las categorías estandarizadas por la Guía de administración del riesgo V5.",
-    ejemplo: (
+    ejemplo: () => (
       <div className="overflow-x-auto mt-2">
         <table className="w-full text-left border-collapse bg-white rounded-lg overflow-hidden shadow-sm text-[10px]">
           <tbody className="divide-y divide-emerald-200/50">
-            <tr className="hover:bg-emerald-50">
-              <td className="p-2 font-bold text-emerald-900 w-1/3">Ejecución y adm. de procesos</td>
-              <td className="p-2 text-slate-700">Pérdidas derivadas de errores en la ejecución y la administración de procesos.</td>
-            </tr>
-            <tr className="hover:bg-emerald-50">
-              <td className="p-2 font-bold text-emerald-900">Fraude Externo</td>
-              <td className="p-2 text-slate-700">Pérdida derivada de actos de fraude por personas ajenas a la organización (No participa personal de empresa).</td>
-            </tr>
-            <tr className="hover:bg-emerald-50">
-              <td className="p-2 font-bold text-emerald-900">Fraude Interno</td>
-              <td className="p-2 text-slate-700">Pérdida debido a actos de fraude, actuaciones irregulares, hechos delictivos, abuso de confianza... por personal interno.</td>
-            </tr>
-            <tr className="hover:bg-emerald-50">
-              <td className="p-2 font-bold text-emerald-900">Fallas Tecnológicas</td>
-              <td className="p-2 text-slate-700">Errores en Hardware, Software, telecomunicaciones, interrupción de servicios básicos.</td>
-            </tr>
-            <tr className="hover:bg-emerald-50">
-              <td className="p-2 font-bold text-emerald-900">Relaciones Laborales</td>
-              <td className="p-2 text-slate-700">Pérdidas por acciones contrarias a las leyes, demandas por daños personales o discriminación.</td>
-            </tr>
-            <tr className="hover:bg-emerald-50">
-              <td className="p-2 font-bold text-emerald-900">Usuarios, productos y practicas</td>
-              <td className="p-2 text-slate-700">Fallas negligentes o involuntarias que impidan satisfacer una obligación frente a usuarios.</td>
-            </tr>
-            <tr className="hover:bg-emerald-50">
-              <td className="p-2 font-bold text-emerald-900">Daños a activos fijos/ eventos externos</td>
-              <td className="p-2 text-slate-700">Pérdidas por desastres naturales, atentados, vandalismo u orden público.</td>
-            </tr>
+            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900 w-1/3">Ejecución y adm. de procesos</td><td className="p-2 text-slate-700">Pérdidas derivadas de errores.</td></tr>
+            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Fraude Externo</td><td className="p-2 text-slate-700">Actos de fraude por personas ajenas.</td></tr>
+            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Fraude Interno</td><td className="p-2 text-slate-700">Fraude por personal interno.</td></tr>
+            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Fallas Tecnológicas</td><td className="p-2 text-slate-700">Errores en hardware o software.</td></tr>
+            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Relaciones Laborales</td><td className="p-2 text-slate-700">Demandas por daños o discriminación.</td></tr>
+            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Usuarios y productos</td><td className="p-2 text-slate-700">Fallas frente a usuarios o prácticas.</td></tr>
+            <tr className="hover:bg-emerald-50"><td className="p-2 font-bold text-emerald-900">Daños externos</td><td className="p-2 text-slate-700">Pérdidas por desastres o vandalismo.</td></tr>
           </tbody>
         </table>
       </div>
     )
-  },  
+  }, 
   normativa: {
     titulo: "Normativa Asociada",
     porQue: "Conecta el riesgo con el marco legal, leyes o lineamientos de entes de control externos que rigen la operación de Termales. Ayuda a evitar sanciones o cierres.",
@@ -111,7 +91,10 @@ clasificacion: {
   }
 };
 
-export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud, showNotification }) {
+export default function Riesgos({ isAdmin, safeRiesgos: rawRiesgos, setRiesgos, saveToCloud, showNotification }) {
+  // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen
+  const safeRiesgos = Array.isArray(rawRiesgos) ? rawRiesgos : [];
+
   // 🤖 ESTADOS PARA EL DICTAMEN DE INTELIGENCIA ARTIFICIAL EN EL DASHBOARD
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
@@ -574,12 +557,12 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
                 <h5 className="font-black text-[10px] text-slate-400 uppercase tracking-widest mb-1">💡 ¿Por qué diligenciarlo?</h5>
                 <p className="text-slate-600 font-medium leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-200/60">{ayudaModal.porQue}</p>
               </div>
-              <div>
+<div>
                 <h5 className="font-black text-[10px] text-emerald-600 uppercase tracking-widest mb-1">📝 Guía Metodológica</h5>
                 <div className="text-emerald-950 font-semibold leading-relaxed bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
-                  {typeof ayudaModal.ejemplo === 'string' ? `"${ayudaModal.ejemplo}"` : ayudaModal.ejemplo}
+                  {typeof ayudaModal.ejemplo === 'function' ? ayudaModal.ejemplo() : `"${ayudaModal.ejemplo}"`}
                 </div>
-              </div>
+              </div>             
             </div>
 
 <div className="mt-6 flex justify-end relative z-10">
