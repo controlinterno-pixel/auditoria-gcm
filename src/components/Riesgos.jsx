@@ -594,11 +594,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           </div>
         </div>
       )}
-{/* 🔮 EL POPUP MODAL SUTIL Y ELEGANTE CON BASE EN LA MAQUETA DE FORMATO */}
-      {ayudaModal && (
-         /* ... aquí está todo tu código actual del modal de ayuda que termina en </div> ... */
-      )}
-
       {/* 👇 Pega desde aquí: 🤖 MODAL PARA MOSTRAR LA INTELIGENCIA ARTIFICIAL 👇 */}
       {(procesandoIA || dictamenIA) && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -637,7 +632,6 @@ export default function Riesgos({ isAdmin, safeRiesgos, setRiesgos, saveToCloud,
           </div>
         </div>
       )}
-
       {/* CABECERA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>
