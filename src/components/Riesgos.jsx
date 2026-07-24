@@ -121,29 +121,36 @@ const EficaciaGauge = ({ porcentaje = 75 }) => {
     </div>
   );
 };
-// 🧮 CALCULADORA METODOLÓGICA DE EFICACIA INDIVIDUAL DE UN CONTROL (0% - 100%)
+// 🧮 CALCULADORA METODOLÓGICA DE EFICACIA SEGÚN TABLA 6 DEL MANUAL DE RIESGOS (TERMALES S.A.)
 const calcularEficaciaControl = (c) => {
   if (!c) return 75;
   let score = 0;
-  
-  // 1. Tipo
-  if (c.tipo === 'Preventivo') score += 30;
-  else if (c.tipo === 'Detectivo') score += 20;
-  else if (c.tipo === 'Correctivo') score += 10;
 
-  // 2. Ejecución
-  if (c.implementacion === 'Automático') score += 25;
+  // 1. Tipo (Preventivo: 25%, Detectivo: 15%, Correctivo: 10%)
+  const tipo = c.tipo || '';
+  if (tipo.includes('Preventivo')) score += 25;
+  else if (tipo.includes('Detectivo')) score += 15;
+  else if (tipo.includes('Correctivo')) score += 10;
+  else score += 25;
+
+  // 2. Ejecución (Automático: 25%, Manual: 15%)
+  const ejecucion = c.implementacion || c.ejecucion || '';
+  if (ejecucion.includes('Automático')) score += 25;
   else score += 15;
 
-  // 3. Documentación
-  if (c.documentacion === 'Documentado') score += 15;
+  // 3. Documentación (Documentado: 15%, No documentado: 0%)
+  const doc = c.documentacion || '';
+  if (doc.includes('Documentado') && !doc.includes('No documentado')) score += 15;
 
-  // 4. Frecuencia
-  if (c.frecuencia === 'Continua') score += 15;
+  // 4. Frecuencia (Continua: 10%, Aleatoria: 5%)
+  const freq = c.frecuencia || '';
+  if (freq.includes('Continua') || freq.includes('Permanente')) score += 10;
+  else if (freq.includes('Aleatoria') || freq.includes('Periódica')) score += 5;
   else score += 10;
 
-  // 5. Evidencia
-  if (c.evidencia === 'Con registro') score += 15;
+  // 5. Evidencia (Con registro: 10%, Sin registro: 0%)
+  const evi = c.evidencia || '';
+  if (evi.includes('Con registro') || evi.includes('Trazable')) score += 10;
 
   return Math.min(score, 100);
 };
