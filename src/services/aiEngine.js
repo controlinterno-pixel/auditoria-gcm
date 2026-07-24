@@ -1,9 +1,6 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
-// 1. Obtenemos el texto de la variable de entorno (puede ser VITE_GEMINI_API_KEYS o la antigua VITE_GEMINI_API_KEY)
 const rawKeys = import.meta.env.VITE_GEMINI_API_KEYS || import.meta.env.VITE_GEMINI_API_KEY || "";
-
-// 2. Convertimos el string separado por comas en un Array de claves (limpiando espacios)
 const API_KEYS = rawKeys.split(",").map(k => k.trim()).filter(Boolean);
 
 if (API_KEYS.length === 0) {
@@ -17,8 +14,8 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
-// Lista de modelos a probar en orden de preferencia
-const MODEL_NAMES = ["gemini-2.5-flash", "gemini-3.1-flash-lite"];
+// Modelos ordenados por prioridad y estabilidad
+const MODEL_NAMES = ["gemini-2.5-flash", "gemini-3.1-flash-lite", "gemini-1.5-flash"];
 
 const calcularMetricasMatematicas = (riesgo) => {
   const totalControles = Array.isArray(riesgo.controlesDetallados) 
@@ -42,6 +39,7 @@ const calcularMetricasMatematicas = (riesgo) => {
 
   return { scoreRiesgo, scoreMadurez, totalControles, coberturaControles, riesgoInherenteLabel, riesgoResidualLabel };
 };
+
 export const analizarRiesgoConIA = async (riesgo) => {
   const metricasFijas = calcularMetricasMatematicas(riesgo);
 
@@ -100,6 +98,7 @@ ESTRUCTURA JSON REQUERIDA:
   }
 }
 `;
+
   // 🔄 ROTACIÓN DE CLAVES Y MODELOS
   for (let i = 0; i < API_KEYS.length; i++) {
     const currentKey = API_KEYS[i];
@@ -113,7 +112,7 @@ ESTRUCTURA JSON REQUERIDA:
           model: modelName, 
           safetySettings,
           generationConfig: { 
-            temperature: 0.2, 
+            temperature: 0.0, // 🎯 Fijado en 0.0 para cero variabilidad y máxima precisión
             topP: 0.8, 
             maxOutputTokens: 8192,
             responseMimeType: "application/json"
@@ -123,7 +122,7 @@ ESTRUCTURA JSON REQUERIDA:
         const result = await model.generateContent(prompt);
         let jsonText = await result.response.text();
         
-        // 🛡️ Limpieza de seguridad extrema
+        // 🛡️ Limpieza estricta del JSON
         jsonText = jsonText.replace(/```json/gi, '').replace(/```/gi, '').trim();
         
         const startIndex = jsonText.indexOf('{');
@@ -133,11 +132,11 @@ ESTRUCTURA JSON REQUERIDA:
           jsonText = jsonText.substring(startIndex, endIndex + 1);
         }
 
-        jsonText = jsonText.replace(/[\n\r\t]/g, " ");
+        jsonText = jsonText.replace(/[\r\n\t]/g, " ");
 
         const parsedObject = JSON.parse(jsonText);
 
-        // 🛡️ Aseguramos que los KPIs devueltos sean exactamente los matemáticos
+        // 🛡️ Garantizamos la inmutabilidad de las métricas
         parsedObject.kpis = {
           scoreRiesgo: metricasFijas.scoreRiesgo,
           scoreMadurez: metricasFijas.scoreMadurez,
@@ -149,12 +148,11 @@ ESTRUCTURA JSON REQUERIDA:
         return JSON.stringify(parsedObject);
       } catch (err) {
         console.warn(`⚠️ Falló Key #${i + 1} con modelo ${modelName}. Motivo: ${err.message || err}`);
-        // Si falla, el bucle for continúa probando con la siguiente combinación
       }
     }
   }
 
-  // Si pasa por TODAS las claves y TODOS los modelos y todo falla, cae al fallback manual
+  // Fallback si se agotan cuotas o fallan todas las claves
   console.error("❌ Fallaron todas las claves y modelos disponibles.");
   return JSON.stringify({
     encabezado: {
@@ -166,14 +164,21 @@ ESTRUCTURA JSON REQUERIDA:
       calidadRegistroScore: 0,
       confianzaIA: "Baja"
     },
-    kpis: { scoreRiesgo: 0, scoreMadurez: 0, totalControles: 0, coberturaControles: 0 },
-    hallazgos: ["Todas las llaves de acceso a la IA sobrepasaron su límite de peticiones diarias o por minuto."],
+    kpis: { 
+      scoreRiesgo: metricasFijas.scoreRiesgo, 
+      scoreMadurez: metricasFijas.scoreMadurez, 
+      totalControles: metricasFijas.totalControles, 
+      coberturaControles: metricasFijas.coberturaControles 
+    },
+    hallazgos: ["Todas las llaves de acceso a la IA sobrepasaron su límite de peticiones."],
     recomendaciones: ["Espera unos minutos o ingresa una nueva API Key en el entorno."],
     planAccion: [{ prioridad: "Alta", accion: "Revisar cuotas en Google AI Studio", responsable: "Administrador" }],
-    dictamenDirector: "Se agotaron los intentos con las API Keys disponibles. Intenta nuevamente en breve.",
+    dictamenDirector: "Se agotaron los intentos con las API Keys disponibles.",
     acordeonesTecnicos: { 
-      analisisMetodologico: "Datos no disponibles.", evaluacionControles: "Datos no disponibles.",
-      isoCosoAlignment: "Datos no disponibles.", krisEvidencias: "Datos no disponibles."
+      analisisMetodologico: "Datos no disponibles.", 
+      evaluacionControles: "Datos no disponibles.",
+      isoCosoAlignment: "Datos no disponibles.", 
+      krisEvidencias: "Datos no disponibles."
     }
   });
 };

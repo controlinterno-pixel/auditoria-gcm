@@ -1,11 +1,26 @@
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
-// ⚠️ Asegúrate de que el nombre sea exactamente 'exportarA_PDF' con 'export const'
-export const exportarA_PDF = async (elementId, fileName = 'informe.pdf') => {
-  const element = document.getElementById(elementId);
+/**
+ * Exporta un elemento a PDF aceptando:
+ * 1. Un ID de string (ej: "seccion-pdf")
+ * 2. Un HTML Element directo (ej: e.target o ref.current)
+ * 3. Una React Ref
+ */
+export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf') => {
+  let element = null;
+
+  // 1. Resolver qué nos pasaron como parámetro
+  if (typeof target === 'string') {
+    element = document.getElementById(target);
+  } else if (target && target.current) { // Si es un React useRef
+    element = target.current;
+  } else if (target instanceof HTMLElement) { // Si es un elemento HTML directo
+    element = target;
+  }
+
   if (!element) {
-    console.error(`No se encontró el elemento con ID: ${elementId}`);
+    console.error('❌ Error en PDF: No se pudo identificar el elemento HTML a exportar.', target);
     return;
   }
 
@@ -14,10 +29,8 @@ export const exportarA_PDF = async (elementId, fileName = 'informe.pdf') => {
       scale: 2,
       useCORS: true,
       logging: false,
-      onclone: (clonedDoc) => {
-        const clonedElement = clonedDoc.getElementById(elementId);
-        if (!clonedElement) return;
-
+      onclone: (clonedDoc, clonedElement) => {
+        // Limpiar animaciones y arreglar estilos de color oklch/oklab
         const allElements = clonedElement.querySelectorAll('*');
         allElements.forEach((el) => {
           const style = window.getComputedStyle(el);
@@ -54,6 +67,6 @@ export const exportarA_PDF = async (elementId, fileName = 'informe.pdf') => {
 
     pdf.save(fileName);
   } catch (error) {
-    console.error('Error al generar el PDF:', error);
+    console.error('❌ Error al generar el PDF:', error);
   }
 };
