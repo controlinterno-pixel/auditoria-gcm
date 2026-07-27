@@ -31,15 +31,18 @@ const currentYear = new Date().getFullYear();
   const ganttRef = useRef();
   const [isExporting, setIsExporting] = useState(false);
 
-  const descargarCronogramaPDF = async () => {
+  const descargarCronogramaPDF = () => {
     setIsExporting(true);
-    try {
-      await exportarA_PDF(ganttRef, 'Cronograma_Gantt.pdf', '#ffffff');
-    } catch (error) {
-      console.error("Error al exportar a PDF:", error);
-    } finally {
-      setIsExporting(false);
-    }
+    // Le damos 300ms a React para que oculte los botones y barras antes de tomar la foto
+    setTimeout(async () => {
+      try {
+        await exportarA_PDF(ganttRef, 'Cronograma_Gantt.pdf', '#ffffff');
+      } catch (error) {
+        console.error("Error al exportar a PDF:", error);
+      } finally {
+        setIsExporting(false);
+      }
+    }, 300);
   };
 
   // 🧠 1. MIGRACIÓN DIRECTA AL 2026 (Toda la data actual se centraliza en 2026)
@@ -321,27 +324,27 @@ const currentYear = new Date().getFullYear();
         </div>
       )}
 
-      <div ref={ganttRef} className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mt-8">
+      <div ref={ganttRef} className={`bg-white rounded-3xl shadow-sm border border-slate-200 mt-8 ${isExporting ? 'overflow-visible' : 'overflow-hidden'}`}>
          <div className="bg-slate-100 border-b border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
            <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center md:text-left flex-1">GANTT CONTROL INTERNO (ORDEN CRONOLÓGICO)</h3>
            
-           <div className="flex items-center gap-3">
-             <button
-               data-html2canvas-ignore="true"
-               onClick={descargarCronogramaPDF}
-               disabled={isExporting}
-               className="bg-[#004d40] hover:bg-[#00695c] disabled:opacity-50 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap"
-             >
-               {isExporting ? '⏳ Generando...' : '📄 Descargar PDF'}
-             </button>
+           {!isExporting && (
+             <div className="flex items-center gap-3">
+               <button
+                 onClick={descargarCronogramaPDF}
+                 className="bg-[#004d40] hover:bg-[#00695c] text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap"
+               >
+                 📄 Descargar PDF
+               </button>
 
-             <div data-html2canvas-ignore="true" className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-                <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-48 md:w-64 shadow-sm" />
+               <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
+                  <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-[#004d40] w-48 md:w-64 shadow-sm" />
+               </div>
              </div>
-           </div>
+           )}
          </div>
-         <div className="overflow-x-auto p-4">
+         <div className={`p-4 ${isExporting ? 'overflow-visible' : 'overflow-x-auto'}`}>
            <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
              <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
                <tr>
@@ -349,16 +352,16 @@ const currentYear = new Date().getFullYear();
                  <th className="border border-slate-300 p-2 w-48">Proceso Auditable</th>
                  <th className="border border-slate-300 p-2 w-32">Responsable</th>
                  {allMonths.map(m => <th key={`gantt-col-${m}`} className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">{m.substring(0,3)}</th>)}
-{isAdmin && <th data-html2canvas-ignore="true" className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">ACCIÓN</th>}
+{(isAdmin && !isExporting) && <th className="border border-slate-300 p-2 text-center w-16 notranslate" translate="no">ACCIÓN</th>}
                </tr>
              </thead>
              <tbody>
                {listaAniosOrdenados.length === 0 ? (
-                 <tr><td colSpan={isAdmin ? 16 : 15} className="p-4 text-center text-slate-400 italic font-bold">No hay registros planificados para este periodo.</td></tr>
+<tr><td colSpan={(isAdmin && !isExporting) ? 16 : 15} className="p-4 text-center text-slate-400 italic font-bold">No hay registros planificados para este periodo.</td></tr>
                ) : (
                  listaAniosOrdenados.flatMap(anio => [
                    <tr key={`header-gantt-group-${anio}`} className="bg-slate-100 font-black text-[#004d40]">
-                     <td colSpan={isAdmin ? 16 : 15} className="border border-slate-300 p-2 font-black uppercase tracking-widest text-[8px] bg-slate-200/60 shadow-sm">
+<td colSpan={(isAdmin && !isExporting) ? 16 : 15} className="border border-slate-300 p-2 font-black uppercase tracking-widest text-[8px] bg-slate-200/60 shadow-sm">
                        🗓️ Cronograma Mensualizado — Periodo {anio}
                      </td>
                    </tr>,
@@ -391,11 +394,11 @@ const currentYear = new Date().getFullYear();
                            </td>
                          );
                        })}
-                       {isAdmin && (
-                         <td data-html2canvas-ignore="true" className="border border-slate-300 p-2 text-center bg-slate-50">
+                      {(isAdmin && !isExporting) && (
+                         <td className="border border-slate-300 p-2 text-center bg-slate-50">
                            <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 bg-white border border-orange-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-colors">✏️ Modificar</button>
                          </td>
-                       )}
+                       )} 
                      </tr>
                    ))
                  ])
