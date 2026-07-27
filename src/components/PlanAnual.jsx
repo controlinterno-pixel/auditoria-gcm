@@ -31,9 +31,9 @@ const currentYear = new Date().getFullYear();
   const ganttRef = useRef();
   const [isExporting, setIsExporting] = useState(false);
 
-  const descargarCronogramaPDF = () => {
+const descargarCronogramaPDF = () => {
     setIsExporting(true);
-    // Le damos 300ms a React para que oculte los botones y barras antes de tomar la foto
+    // 🕒 Aumentamos a 800ms para asegurar que el navegador redibuje completamente la tabla sin la columna
     setTimeout(async () => {
       try {
         await exportarA_PDF(ganttRef, 'Cronograma_Gantt.pdf', '#ffffff');
@@ -42,9 +42,8 @@ const currentYear = new Date().getFullYear();
       } finally {
         setIsExporting(false);
       }
-    }, 300);
-  };
-
+    }, 800);
+  };  
   // 🧠 1. MIGRACIÓN DIRECTA AL 2026 (Toda la data actual se centraliza en 2026)
   const getAnio = (c) => {
     if (c.anio) return String(c.anio);
@@ -324,7 +323,8 @@ const currentYear = new Date().getFullYear();
         </div>
       )}
 
-      <div ref={ganttRef} className={`bg-white rounded-3xl shadow-sm border border-slate-200 mt-8 ${isExporting ? 'overflow-visible' : 'overflow-hidden'}`}>
+{/* 🚀 Añadimos h-auto, max-h-none y pb-12 para forzar la altura y evitar que corte el borde inferior */}
+      <div ref={ganttRef} className={`bg-white rounded-3xl shadow-sm border border-slate-200 mt-8 ${isExporting ? 'overflow-visible h-auto max-h-none pb-12' : 'overflow-hidden'}`}>
          <div className="bg-slate-100 border-b border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
            <h3 className="text-[#004d40] font-black text-xl uppercase tracking-wider text-center md:text-left flex-1">GANTT CONTROL INTERNO (ORDEN CRONOLÓGICO)</h3>
            
@@ -344,7 +344,7 @@ const currentYear = new Date().getFullYear();
              </div>
            )}
          </div>
-         <div className={`p-4 ${isExporting ? 'overflow-visible' : 'overflow-x-auto'}`}>
+<div className={`p-4 ${isExporting ? 'overflow-visible h-auto min-h-max' : 'overflow-x-auto'}`}>
            <table className="w-full text-[10px] text-left border-collapse border border-slate-300">
              <thead className="bg-slate-200 text-slate-700 font-bold uppercase">
                <tr>
