@@ -87,13 +87,13 @@ export default function ModalIA({ aiModal, setAiModal }) {
             <div ref={pdfRef} className="space-y-6 bg-slate-900 p-2 text-slate-100 rounded-2xl">
               {isDashboardData && data ? (
                 <>
-                  {/* 👇 NUEVO: TÍTULO Y CÓDIGO DEL RIESGO (Visible en el PDF) 👇 */}
+                 {/* 👇 NUEVO: TÍTULO Y CÓDIGO DEL RIESGO (Visible en el PDF) 👇 */}
                   <div className="mb-1 border-b border-slate-800/60 pb-4">
                     <h2 className="text-lg font-black text-slate-100 flex items-center gap-3">
-                      <span className="text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
+                      <span className="whitespace-nowrap shrink-0 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
                         {data.encabezado.codigo || 'RSK-ANALYSIS'}
                       </span>
-                      {aiModal.titulo || data.encabezado.proceso || 'Dictamen de Riesgo Corporativo'}
+                      <span>{aiModal.titulo || data.encabezado.proceso || 'Dictamen de Riesgo Corporativo'}</span>
                     </h2>
                   </div>
                   
