@@ -101,10 +101,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
                       {aiModal.titulo || data.encabezado.proceso || 'Dictamen de Riesgo Corporativo'}
                     </h2>
                   </div>
-                  {/* 👆 FIN NUEVO 👆 */}
-
-                  {/* BADGES */}
-                  <div className="flex flex-wrap items-center gap-2 pb-1">
+                  
                   {/* BADGES */}
                   <div className="flex flex-wrap items-center gap-2 pb-1">
                     <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>Inh: {data.encabezado.riesgoInherenteLabel || 'Alto'}</span>
