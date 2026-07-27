@@ -5,6 +5,7 @@ import {
   signInWithEmailAndPassword, 
   sendEmailVerification,
   sendPasswordResetEmail
+  signOut
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 
@@ -107,6 +108,7 @@ export default function AuthScreen() {
       });
 
       await sendEmailVerification(user);
+      await signOut(auth);
       setPendingVerification(true);
     } catch (error) {
       console.error("Error en registro:", error);
@@ -130,6 +132,7 @@ export default function AuthScreen() {
       setFailedAttempts(0);
 
       if (!user.emailVerified && user.email !== 'controlinterno@termales.com.co') {
+        await signOut(auth);
         alert("⚠️ Tu correo aún no ha sido verificado. Revisa tu bandeja de entrada o spam.");
         setPendingVerification(true);
         setLoading(false);
