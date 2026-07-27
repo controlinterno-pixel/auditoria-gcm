@@ -82,11 +82,6 @@ export default function ModalIA({ aiModal, setAiModal }) {
             <button onClick={() => setAiModal(null)} className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm">✕</button>
           </div>
 
-          {/* CUERPO DEL WORKSPACE */}
-          <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-            <div ref={pdfRef} className="space-y-6 bg-slate-900 p-2 text-slate-100 rounded-2xl">
-              {isDashboardData && data ? (
-                <>
 {/* CUERPO DEL WORKSPACE */}
           <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
             <div ref={pdfRef} className="space-y-6 bg-slate-900 p-2 text-slate-100 rounded-2xl">
