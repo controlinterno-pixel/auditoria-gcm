@@ -1447,6 +1447,7 @@ const renderMatriz = () => {
                   <option value="Cumplimiento">Cumplimiento</option>
                   <option value="Financiero">Financiero</option>
                   <option value="Tecnológico">Tecnológico</option>
+                  <option value="Ambiental">Ambiental</option>
                 </select>
               </div>
               
