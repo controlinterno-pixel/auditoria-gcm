@@ -888,7 +888,8 @@ const renderMatriz = () => {
                         <span className="inline-block text-[8px] font-black uppercase px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded mb-1">
                           {r.subproceso && r.subproceso !== 'General' ? r.subproceso : (r.categoria || 'Operativo')}
                         </span>
-                        <p className="text-xs font-medium text-slate-800 line-clamp-2 leading-snug">
+                        {/* 👇 Se eliminó line-clamp-2 de la línea de abajo 👇 */}
+                        <p className="text-xs font-medium text-slate-800 leading-snug">
                           {r.descripcion}
                         </p>
                         <span className="text-[9px] font-bold text-indigo-600 hover:underline mt-0.5 block">Ver más →</span>
