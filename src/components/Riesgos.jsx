@@ -7,6 +7,7 @@ import {
 } from '../constants/diccionariosGRC';
 import { analizarRiesgoConIA } from '../services/aiEngine';
 import ModalIA from '../components/ModalIA';
+import * as XLSX from 'xlsx';
 
 // 📚 DICCIONARIO METODOLÓGICO DE AYUDA (EDICIÓN TERMALES SANTA ROSA)
 const EXPLICACIONES_CAMPOS = {
@@ -386,6 +387,66 @@ export default function Riesgos({
     } finally {
       setProcesandoIA(false);
     }
+  };
+// =========================================================================
+  // 📥 FUNCIÓN PARA EXPORTAR LA MATRIZ COMPLETA A EXCEL
+  // =========================================================================
+  const exportarAExcel = () => {
+    if (safeRiesgos.length === 0) {
+      showNotification("No hay riesgos en la matriz para exportar.", "error");
+      return;
+    }
+
+    const datosFormateados = safeRiesgos.map((r) => {
+      const zonaInh = getSeverityZone(r.probabilidadInherente, r.impactoInherente);
+      const zonaRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
+      const mitigacion = calcularMitigacionRiesgo(r);
+      const totalControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados.length : 0;
+
+      return {
+        "ID Riesgo": `RSK-${String(r.id).substring(0,4)}`,
+        "Estado": "Activo",
+        "Proceso": r.proceso || r.macroproceso || "No definido",
+        "Subproceso": r.subproceso || "General",
+        "Categoría ISO 31000": r.categoria || "N/A",
+        "Clasificación": r.clasificacionRiesgo || "N/A",
+        "Sedes Afectadas": Array.isArray(r.sede) ? r.sede.join(', ') : (r.sede || "Administrativos"),
+        "Responsable(s)": Array.isArray(r.responsable) ? r.responsable.join(', ') : (r.responsable || "Sin Asignar"),
+        "Tipo de Afectación": r.afectacion || "N/A",
+        "Causa Inmediata": r.causaInmediata || "N/A",
+        "Causa Raíz": r.causaRaiz || "N/A",
+        "Escenario del Riesgo": r.descripcion || r.escenarioFinal || "N/A",
+        "Prob. Inherente (%)": r.probabilidadInherente ?? 60,
+        "Impacto Inherente (%)": r.impactoInherente ?? 80,
+        "Nivel Inherente": zonaInh.label.toUpperCase(),
+        "Total Controles": totalControles,
+        "Mitigación Lograda (%)": mitigacion,
+        "Prob. Residual (%)": r.probabilidadResidual ?? 15,
+        "Impacto Residual (%)": r.impactoResidual ?? 30,
+        "Nivel Residual Final": zonaRes.label.toUpperCase(),
+        "Estrategia de Tratamiento": r.tratamiento || "Reducir el riesgo",
+        "Plan de Acción Inmediato": r.planAccionRiesgo || "N/A",
+        "Fecha de Seguimiento": r.fechaSeguimiento || "No programada"
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(datosFormateados);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Matriz Corporativa");
+
+    const wscols = [
+      { wch: 12 }, { wch: 10 }, { wch: 25 }, { wch: 20 }, { wch: 20 },
+      { wch: 25 }, { wch: 30 }, { wch: 25 }, { wch: 20 }, { wch: 40 },
+      { wch: 40 }, { wch: 50 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+      { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 20 },
+      { wch: 25 }, { wch: 40 }, { wch: 20 }
+    ];
+    worksheet['!cols'] = wscols;
+
+    const fecha = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `Matriz_Riesgos_Termales_${fecha}.xlsx`);
+    
+    showNotification("Matriz descargada en Excel exitosamente", "success");
   };
   const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
@@ -1312,6 +1373,12 @@ const renderMatriz = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Dashboard</button>
           <button onClick={() => setVistaActiva('matriz')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'matriz' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📋 Ver Matriz</button>
+          
+          {/* 👇 NUEVO BOTÓN DE EXCEL 👇 */}
+          <button onClick={exportarAExcel} className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 shadow-sm flex items-center">
+            <span className="mr-2">📥</span> Descargar Excel
+          </button>
+
           {isAdmin && (
             <button onClick={() => { setEditRiesgo(null); setVistaActiva('nuevo'); }} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md bg-[#0A3B32] text-white hover:bg-[#062620]">
               <span className="mr-2">➕</span> Nuevo Riesgo
