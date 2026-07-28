@@ -504,8 +504,7 @@ export default function DashboardEjecutivo({
                       if (score >= 5 && score <= 9) colorCelda = "bg-amber-500/20 text-amber-400 border-amber-500/30";
                       else if (score >= 10 && score <= 15) colorCelda = "bg-orange-500/30 text-orange-400 border-orange-500/40";
                       else if (score >= 16) colorCelda = "bg-red-500/30 text-red-400 border-red-500/50";
-                      return (
-                        <div 
+return (
 <button 
     type="button"
     key={`cell-${probLvl}-${impactoLvl}`} 
@@ -514,7 +513,7 @@ export default function DashboardEjecutivo({
   >
     <span>{cant}</span>
   </button>                          
-                      );
+                      );                      
                     })}                    
                   </div>
                 );
