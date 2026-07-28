@@ -409,11 +409,11 @@ const [ayudaModal, setAyudaModal] = useState(null);
         
       const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
 
-      // 2. SÚPER PROMPT CON CANDADO DE DATOS (Evita alucinaciones de la IA)
+// 2. SÚPER PROMPT CON CANDADO DE DATOS (Evita alucinaciones de la IA)
       const promptFilaReal = `Actúa como Motor Analítico GRC. Evalúa el siguiente riesgo corporativo.
       
-REGLA ESTRICTA DE DATOS: 
-Debes utilizar EXACTAMENTE estos valores matemáticos para tu dictamen, NO los calcules ni los estimes por tu cuenta:
+🚨 REGLA DE INTEGRIDAD DE DATOS (MANDATO CRÍTICO):
+Debes utilizar EXACTAMENTE estos valores matemáticos TANTO en las métricas JSON COMO EN LA REDACCIÓN DE TUS PÁRRAFOS (Hallazgos, Recomendaciones, Dictamen y COSO ERM). ESTÁ PROHIBIDO citar un 20% de madurez o un 23% de cobertura si las variables oficiales son distintas:
 - Score Riesgo: ${scoreRiesgoReal}%
 - Madurez del Control: ${madurezReal}%
 - Controles Implementados: ${totalControlesReal}
@@ -426,8 +426,8 @@ DATOS DEL RIESGO:
 - Proceso: ${riesgo.proceso}
 - Riesgo: ${riesgo.descripcion}
 
-Tu tarea es generar el JSON o la estructura visual exacta que requiere la interfaz, pero inyectando los números reales que te acabo de dar. Completa el resto del análisis (Hallazgos y Recomendaciones) basándote en la calidad de la descripción del riesgo y si los controles (si los hay) son suficientes para justificar esa cobertura del ${coberturaReal}%.`;
-
+Tu tarea es generar el JSON o la estructura visual exacta que requiere la interfaz. En la narrativa redacta analizando el porqué de esa Madurez del ${madurezReal}% y esa Cobertura del ${coberturaReal}%, basándote en los ${totalControlesReal} controles registrados.`;
+      
 // 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
       
