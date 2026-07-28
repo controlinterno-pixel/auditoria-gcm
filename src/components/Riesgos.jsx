@@ -391,7 +391,7 @@ const [ayudaModal, setAyudaModal] = useState(null);
     }
   };
 // =========================================================================
-  // 🤖 FUNCIÓN DE ANALISIS CON IA EN TIEMPO REAL (DATOS 100% REALES)
+  // 🤖 FUNCIÓN DE ANALISIS CON IA EN TIEMPO REAL (DATOS 100% REALES + HALLAZGOS)
   // =========================================================================
   const solicitarAnalisisFilaIA = async (riesgo) => {
     setProcesandoIA(true);
@@ -405,11 +405,11 @@ const [ayudaModal, setAyudaModal] = useState(null);
       const listaControles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
       const madurezReal = listaControles.length > 0
         ? Math.round(listaControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / listaControles.length)
-        : (totalControlesReal > 0 ? 50 : 0); // Si hay texto pero no controles detallados, asume 50%
+        : (totalControlesReal > 0 ? 50 : 0);
         
       const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
 
-// 2. PROMPT DE AUDITORÍA AVANZADA: EVALUACIÓN DE HALLAZGOS Y EFECTIVIDAD OPERATIVA
+      // 2. PROMPT DE AUDITORÍA AVANZADA: EVALUACIÓN DE HALLAZGOS Y EFECTIVIDAD OPERATIVA
       const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna. Evalúa el riesgo RSK-${riesgo.id}.
 
 📊 DATOS TEÓRICOS DEL SISTEMA (DISEÑO DEL CONTROL EN PAPEL):
@@ -440,12 +440,13 @@ INSTRUCCIONES CRÍTICAS PARA GENERAR VALOR ESTRATÉGICO:
 4. RESTRICCIÓN DE INTEGRIDAD:
    - Utiliza exactamente las métricas proporcionadas (${scoreRiesgoReal}%, ${madurezReal}%, ${totalControlesReal} controles) para explicar la brecha. NUNCA inventes porcentajes externos que no existan.
 
-`5. REGLA RIGUROSA DE PORCENTAJES:
+5. REGLA RIGUROSA DE PORCENTAJES:
    - Para la Madurez, utiliza SIEMPRE el valor real: ${madurezReal}%. 
-   - NUNCA inventes o menciones números como '20%'. Si vas a señalar la falla operativa, redacta: 'A pesar de contar con una madurez teórica del ${madurezReal}%, la falta de evidencia en bitácora demuestra que en la práctica los controles no se ejecutan.'`
+   - NUNCA inventes o menciones números como '20%'. Si vas a señalar la falla operativa, redacta: 'A pesar de contar con una madurez teórica del ${madurezReal}%, la falta de evidencia en bitácora demuestra que en la práctica los controles no se ejecutan.'
 
-Genera la respuesta estructurada en el JSON requerido para la interfaz.`;    
-// 3. Enviamos el prompt blindado
+Genera la respuesta estructurada en el JSON requerido para la interfaz.`;   
+
+      // 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
       
       // 🔥 INTERCEPTAMOS EL JSON INDIVIDUAL PARA FORZAR LOS KPIS REALES EN LA CABECERA
@@ -475,7 +476,8 @@ Genera la respuesta estructurada en el JSON requerido para la interfaz.`;
     } finally {
       setProcesandoIA(false);
     }
-  };
+  };  
+
 // 🤖 FUNCIÓN DE AUDITORÍA DE CONTROLES INDIVIDUALES (ENTERPRISE PROMPT)
   const solicitarAnalisisControlIA = async (c, r) => {
     setProcesandoIA(true);
