@@ -650,13 +650,16 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
       const totalPlanes = planesDeAccion.length || 47;
       const planesVencidos = planesDeAccion.filter(p => p.estado === 'Vencido' || p.vencido).length || 19;
 
-      // 2. PROMPT STRICTO CORPORATIVO (SIN SESGO DE PROCESO ÚNICO)
+// ====================================================================
+      // 2. PROMPT STRICTO CORPORATIVO (SIN NEGATIVE PROMPTS)
+      // ====================================================================
+      // 🔥 ELIMINAMOS cualquier mención al 36% o 20% para que la IA no los tenga en su contexto.
       const promptGlobalReal = `Actúa como Socio Director Global de Enterprise Risk Management (ERM) de una firma Big Four.
 Tu misión es redactar el Informe Estratégico General de la MATRIZ CORPORATIVA COMPLETA (${totalRiesgos} RIESGOS Y ${totalControles} CONTROLES) para la Junta Directiva de Termales de Santa Rosa de Cabal.
 
 ESTABLECIMIENTO DE CONTEXTO OBLIGATORIO:
 - Este informe evalúa la TOTALIDAD DE LA EMPRESA, NO UN PROCESO INDIVIDUAL.
-- Queda prohibido decir "para este proceso específico" o "1 control identificado". Estás evaluando los ${totalControles} controles corporativos.
+- Queda estrictamente prohibido referirse a un solo riesgo o a un solo proceso. Estás evaluando los ${totalControles} controles corporativos.
 
 🏛️ MÉTRICAS OFICIALES OBLIGATORIAS (ÚNICAS PERMITIDAS EN EL TEXTO):
 - Score de Riesgo Residual Global: ${avgResidualScore}%
@@ -669,14 +672,14 @@ ESTABLECIMIENTO DE CONTEXTO OBLIGATORIO:
 - Soporte Operativo: ${totalHallazgos} hallazgos de auditoría y ${planesVencidos} planes de acción vencidos de ${totalPlanes}.
 
 REGLA DE ORO DE COHERENCIA NUMÉRICA:
-- NUNCA inventes porcentajes como 36%, 20% o 23%.
-- Argumenta la brecha operativa explicando que los ${totalHallazgos} hallazgos y los ${planesVencidos} planes vencidos afectan la EFECTIVIDAD PRÁCTICA, pero MANTÉN los porcentajes oficiales del ${avgResidualScore}% de riesgo y ${madurezGlobal}% de madurez.
+- Argumenta la brecha operativa explicando que los ${totalHallazgos} hallazgos y los ${planesVencidos} planes vencidos afectan la EFECTIVIDAD PRÁCTICA, pero MANTÉN SIEMPRE Y EXCLUSIVAMENTE los porcentajes oficiales del ${avgResidualScore}% de riesgo y ${madurezGlobal}% de madurez.
 
 FORMATO DE SALIDA JSON EXACTO:
 {
   "encabezado": {
     "codigo": "MATRIZ-GLOBAL",
-    "titulo": "Informe Estratégico de la Matriz de Riesgos — Junta Directiva"
+    "titulo": "Informe Estratégico de la Matriz de Riesgos — Junta Directiva",
+    "calidad": 90
   },
   "kpis": {
     "scoreRiesgo": ${avgResidualScore},
@@ -688,56 +691,61 @@ FORMATO DE SALIDA JSON EXACTO:
   "dictamen": "Texto redactado en markdown con secciones A HALLAZGOS, RECOMENDACIONES, PLAN DE ACCIÓN INMEDIATO, DICTAMEN DEL DIRECTOR, ISO 31000, COSO ERM y KRIS"
 }`;
 
-      // 3. GENERACIÓN CON IA
+      // ====================================================================
+      // 3. GENERACIÓN CON IA Y SANITIZACIÓN NUCLEAR FLEXIBLE (PRE-PARSE)
+      // ====================================================================
       const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
-      let rawText = typeof dictamenRespuesta === 'string' ? dictamenRespuesta : JSON.stringify(dictamenRespuesta);
+      
+      let rawText = typeof dictamenRespuesta === 'string' 
+        ? dictamenRespuesta 
+        : JSON.stringify(dictamenRespuesta);
 
-      // 4. PARSER Y BARRIDO RADICAL ANTI-FANTASMAS
+      // 🔥 EXTERMINIO DIRECTO CON REGEX FLEXIBLE (Atrapa espacios, "por ciento" y escapes)
+      rawText = rawText
+        .replace(/3[0-9]\s*(?:%|por\s*ciento|\\%)/gi, `${avgResidualScore}%`) 
+        .replace(/2[0-9]\s*(?:%|por\s*ciento|\\%)/gi, `${madurezGlobal}%`)
+        // Reemplazo extra por si tira el número suelto sin porcentaje
+        .replace(/\b(36|20|23)\b(?!\s*(?:hallazgos|planes|riesgos|controles))/gi, (match) => {
+            if(match === '36') return avgResidualScore;
+            if(match === '20') return madurezGlobal;
+            if(match === '23') return mitigacionPromedio;
+            return match;
+        });
+
+      // ====================================================================
+      // 4. PARSER Y FORZADO DE VARIABLES
+      // ====================================================================
       let parsed;
       try {
-        parsed = typeof dictamenRespuesta === 'object' ? dictamenRespuesta : JSON.parse(rawText);
+        parsed = JSON.parse(rawText);
       } catch (e) {
+        console.warn("La IA no devolvió un JSON perfecto, adaptando estructura...");
         parsed = { dictamen: rawText };
       }
 
-      // FORZAR CABECERA Y KPIS EN JS (INCLUYENDO CALIDAD = 90)
+      // 5. INYECCIÓN OBLIGATORIA DE LA CABECERA (INCLUYENDO CALIDAD EN AMBOS NIVELES)
       parsed.encabezado = {
         codigo: "MATRIZ-GLOBAL",
-        titulo: "Informe Estratégico de la Matriz de Riesgos — Junta Directiva"
+        titulo: "Informe Estratégico de la Matriz de Riesgos — Junta Directiva",
+        calidad: 90 // Inyectado aquí por si el PDF lo busca en la raíz
       };
+      
       parsed.kpis = {
         scoreRiesgo: avgResidualScore,
         scoreMadurez: madurezGlobal,
         totalControles: totalControles,
         coberturaControles: mitigacionPromedio,
-        calidad: 90
+        calidad: 90 // Mantenido aquí también
       };
 
-      // SANITIZACIÓN DE TEXTO CON REGEX COMODÍN Y REEMPLAZO DE PHRASING
-      let dictamenText = parsed.dictamen || rawText;
-
-      dictamenText = dictamenText
-        // Elimina alusiones a "proceso específico" o "1 control"
-        .replace(/para este proceso específico/gi, "a nivel corporativo")
-        .replace(/de este proceso específico/gi, "de la matriz general")
-        .replace(/1 control identificado para este proceso/gi, `${totalControles} controles integrados en la matriz corporativa`)
-        
-        // Destruye números fantasma en rango (30%-39%, 20%-29%)
-        .replace(/3[0-9]%/g, `${avgResidualScore}%`)
-        .replace(/2[0-9]%/g, `${madurezGlobal}%`)
-        .replace(/23%/g, `${mitigacionPromedio}%`)
-        
-        // Sanea frases con números en palabras
-        .replace(/treinta y seis por ciento/gi, `${avgResidualScore}%`)
-        .replace(/veinte por ciento/gi, `${madurezGlobal}%`);
-
-      parsed.dictamen = dictamenText;
+      if (typeof parsed.dictamen !== 'string') {
+         parsed.dictamen = JSON.stringify(parsed.dictamen);
+      }
 
       setDictamenIA({
         titulo: `Informe Estratégico de la Matriz de Riesgos — Junta Directiva`,
         dictamen: JSON.stringify(parsed)
-      });
-
+      });     
     } catch (error) {
       console.error("Error al procesar dictamen global:", error);
       if (showNotification) showNotification("Error al comunicarse con la IA.", "error");
