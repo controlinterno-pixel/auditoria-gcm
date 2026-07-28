@@ -440,6 +440,10 @@ INSTRUCCIONES CRÍTICAS PARA GENERAR VALOR ESTRATÉGICO:
 4. RESTRICCIÓN DE INTEGRIDAD:
    - Utiliza exactamente las métricas proporcionadas (${scoreRiesgoReal}%, ${madurezReal}%, ${totalControlesReal} controles) para explicar la brecha. NUNCA inventes porcentajes externos que no existan.
 
+`5. REGLA RIGUROSA DE PORCENTAJES:
+   - Para la Madurez, utiliza SIEMPRE el valor real: ${madurezReal}%. 
+   - NUNCA inventes o menciones números como '20%'. Si vas a señalar la falla operativa, redacta: 'A pesar de contar con una madurez teórica del ${madurezReal}%, la falta de evidencia en bitácora demuestra que en la práctica los controles no se ejecutan.'`
+
 Genera la respuesta estructurada en el JSON requerido para la interfaz.`;    
 // 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
