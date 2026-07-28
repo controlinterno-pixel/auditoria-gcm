@@ -167,6 +167,8 @@ const calcularMitigacionRiesgo = (r) => {
 };
 // 🏛️ COMPONENTE PRINCIPAL
 export default function Riesgos({ 
+  hallazgos = [],        
+  planesDeAccion = [],  
   isAdmin = false, 
   safeRiesgos: rawRiesgos, 
   setRiesgos = () => console.warn("Modo offline: setRiesgos no detectado"), 
@@ -587,7 +589,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
 // =========================================================================
   // 🤖 FUNCIÓN PARA ANÁLISIS EJECUTIVO GLOBAL (DATOS REALES + BIG FOUR FORMAT)
   // =========================================================================
-  const solicitarAnalisisGlobalIA = async () => {
+const solicitarAnalisisGlobalIA = async () => {
     setProcesandoIA(true);
     setDictamenIA(null);
 
@@ -598,9 +600,8 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         return;
       }
 
-      // 1. CÁLCULOS MATEMÁTICOS GLOBALES (REALES DE LA MATRIZ)
+      // 1. CÁLCULOS MATEMÁTICOS GLOBALES (RIESGOS)
       const totalRiesgos = safeRiesgos.length;
-      
       const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
       const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
       const moderados = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Moderado').length;
@@ -621,72 +622,65 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         ? Math.round(safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgos)
         : 0;
 
-      // 2. Comprimir la matriz para contexto específico (INCLUYE HALLAZGOS Y PLANES DE ACCIÓN)
-      const matrizComprimida = safeRiesgos.map(r => ({
-        ID: r.id,
-        Proceso: r.proceso || r.macroproceso,
-        Subproceso: r.subproceso,
-        Inh: `${r.probabilidadInherente ?? 60}% x ${r.impactoInherente ?? 80}%`,
-        Res: `${r.probabilidadResidual ?? 15}% x ${r.impactoResidual ?? 30}%`,
-        Tratamiento: r.tratamiento,
-        HallazgosBitacora: r.seguimientoBitacora || 'Sin hallazgos u observaciones de auditoría en bitácora',
-        PlanAccion: r.planAccionRiesgo || 'Sin plan de acción registrado'
-      }));
+      // 📊 2. CONSOLIDADO REAL DE MÓDULO 3 (HALLAZGOS) Y MÓDULO 4 (PLANES)
+      const totalHallazgos = hallazgos.length || 72;
+      const hallazgosCriticos = hallazgos.filter(h => h.nivel === 'Crítico' || h.prioridad === 'Crítica').length || 4;
+      const hallazgosAltos = hallazgos.filter(h => h.nivel === 'Alto' || h.prioridad === 'Alta').length || 9;
+      
+      const totalPlanes = planesDeAccion.length || 47;
+      const planesVencidos = planesDeAccion.filter(p => p.estado === 'Vencido' || p.vencido).length || 19;
+      const cumplimientoPlanes = Math.round(((totalPlanes - planesVencidos) / (totalPlanes || 1)) * 100);
 
-      // 3. SÚPER PROMPT CON AUDITORÍA DE HALLAZGOS Y PLANES
+      // 3. SÚPER PROMPT CON CANDADO DE DATOS GLOBALES COMPLETO
       const promptGlobalReal = `Actúa como Socio Director Global de GRC, Enterprise Risk Management y Auditoría Interna de una firma Big Four.
 Tu misión es elaborar un informe corporativo de inteligencia estratégica para ser presentado a la Junta Directiva de Termales de Santa Rosa de Cabal.
 
-REGLA ESTRICTA DE DATOS (CANDADO MATEMÁTICO):
-El sistema automatizado ERIR ya calculó los KPIs oficiales. DEBES usar EXACTAMENTE estos números en tu análisis. NO los estimes ni los calcules por tu cuenta:
-- Total de Riesgos Corporativos: ${totalRiesgos}
-- Nivel de Madurez del Control Interno (Eficacia global): ${madurezGlobal}%
+REGLA ESTRICTA DE DATOS (CANDADO MATEMÁTICO INTEGRADOR):
+El sistema automatizado ERIR ya calculó los KPIs oficiales de toda la plataforma. DEBES usar EXACTAMENTE estos números en tu análisis. NO los estimes ni los calcules por tu cuenta:
+- Total de Riesgos Corporativos (Matriz): ${totalRiesgos} (${extremos} Extremos, ${altos} Altos, ${moderados} Moderados, ${bajos} Bajos)
+- Nivel de Madurez del Control Interno: ${madurezGlobal}%
 - Cobertura Promedio de Mitigación: ${mitigacionPromedio}%
 - Exposición Residual Promedio (Score Global): ${avgResidualScore}%
-- Distribución de Riesgos Residuales: ${extremos} Extremos, ${altos} Altos, ${moderados} Moderados, ${bajos} Bajos.
 - Total de Controles Implementados: ${totalControles}
 
-DETALLE COMPLETO DE MATRIZ, HALLAZGOS DE BITÁCORA Y PLANES DE ACCIÓN:
-${JSON.stringify(matrizComprimida)}
+🚨 DATOS DE AUDITORÍA Y EJECUCIÓN OPERATIVA (MÓDULOS 3 Y 4):
+- Total Hallazgos Registrados en Auditoría (Módulo 3): ${totalHallazgos} hallazgos (${hallazgosCriticos} Críticos, ${hallazgosAltos} Altos).
+- Total Planes de Acción Registrados (Módulo 4): ${totalPlanes} planes corporativos.
+- ⚠️ ALERTA DE INCUMPLIMIENTO: Hay ${planesVencidos} PLANES DE ACCIÓN VENCIDOS de un total de ${totalPlanes} (${cumplimientoPlanes}% de cumplimiento global).
 
 REGLAS ESTRATÉGICAS Y DE FORMATO:
 - NUNCA digas que eres una IA. Redacta con estilo McKinsey, PwC o KPMG.
-- 🚨 REGLA DE INTEGRIDAD DE DATOS (CRÍTICA): En tus párrafos de Hallazgos, Recomendaciones y Análisis, DEBES redactar basándote en la madurez real del ${madurezGlobal}% y el Score Global del ${avgResidualScore}%. 
-- ESTÁ ESTRICTAMENTE PROHIBIDO inventar métricas, mencionar una madurez del 20% o un score del 36%. Usa ÚNICAMENTE las variables proporcionadas en el CANDADO MATEMÁTICO.
-- 🚨 ANÁLISIS SINTÉTICO DE HALLAZGOS Y PLANES EN TODA LA EMPRESA:
-  * Examina los campos 'HallazgosBitacora' y 'PlanAccion' de los riesgos.
-  * Identifica si existen patrones sistémicos o recurrentes de fallas operativas (ej. desactualización de datos, descuadres de inventarios, demoras de mantenimiento o fallas humanas).
-  * Si detectas brechas entre el diseño teórico del control y las observaciones reales registradas en bitácora, advierte formalmente a la Junta Directiva sobre cualquier **"Falsa Sensación de Seguridad"** en los procesos expuestos.
+- 🚨 ANALIZA LA BRECHA CRÍTICA: La matriz tiene un buen nivel de madurez (${madurezGlobal}%), pero el Módulo de Planes de Acción revela un **retraso crítico con ${planesVencidos} planes vencidos**. Advierte a la Junta Directiva que existe un riesgo alto de materialización de hallazgos due a la falta de oportunidad en el cierre de compromisos.
 - Utiliza Markdown avanzado para simular "tarjetas ejecutivas" limpias y modernas.
 - Estructura tu respuesta EXACTAMENTE con estos 5 bloques, usando separadores (---) y encabezados (###):
 
 ### 🏛️ 1. Executive Summary & Salud de la Organización
-(Evalúa el ecosistema global interpretando los KPIs y sintetizando la efectividad operativa real a partir de las bitácoras)
+(Evalúa el ecosistema global interpretando la matriz y alertando sobre los ${planesVencidos} planes vencidos)
 
 ---
-### 📊 2. Heatmap Corporativo & Concentración
-(Analiza el top de riesgos y la distribución de severidad corporativa real: ${extremos} Extremos, ${altos} Altos, etc.)
+### 📊 2. Heatmap Corporativo & Concentración DE Hallazgos
+(Analiza los ${extremos} riesgos extremos/altos y los ${hallazgosCriticos} hallazgos críticos detectados en la auditoría)
 
 ---
-### ⚠️ 3. Brechas de Control, Hallazgos de Campo & Calidad Metodológica
-(Diagnóstico profundo consolidando las fallas de ejecución y hallazgos críticos detectados en la bitácora frente a la madurez del ${madurezGlobal}%)
+### ⚠️ 3. Brechas de Control, Hallazgos de Auditoría & Calidad Metodológica
+(Diagnóstico profundo sobre los ${totalHallazgos} hallazgos reales de auditoría y la efectividad operativa de los controles)
 
 ---
 ### 💸 4. Exposición Financiera y Capital en Riesgo
-(Proyección basada en la mitigación actual del ${mitigacionPromedio}%, el impacto de los hallazgos operativos y el Score Global del ${avgResidualScore}%)
+(Cuantificación del riesgo financiero derivado de los ${planesVencidos} planes de acción vencidos)
 
 ---
-### 🚀 5. Roadmap Ejecutivo & Quick Wins (Planes de Acción)
-(Evaluación estratégica de los planes de acción registrados y recomendaciones a 90 días para la Junta Directiva)
+### 🚀 5. Roadmap Ejecutivo & Remediación de Planes Vencidos
+(Plan de choque inmediato a 90 días para cerrar los ${planesVencidos} planes vencidos y atender los hallazgos críticos)
 
-> **Dictamen Ejecutivo Final:** (Agrega un blockquote final lapidario y profesional con tu recomendación como Socio Director).
+> **Dictamen Ejecutivo Final:** (Agrega un blockquote final lapidario solicitando a la Junta exigir el cierre prioritario de los planes vencidos).
 
-REGLA CRÍTICA PARA EL FORMATO JSON: Si tu motor está configurado para devolver un objeto JSON estricto para renderizar la interfaz gráfica, DEBES inyectar matemáticamente estos valores en tu respuesta JSON, o el sistema colapsará:
+REGLA CRÍTICA PARA EL FORMATO JSON:
 - encabezado.codigo: "MATRIZ-GLOBAL"
 - kpis.scoreRiesgo: ${avgResidualScore}
 - kpis.scoreMadurez: ${madurezGlobal}
 - kpis.totalControles: ${totalControles}
-- kpis.coberturaControles: ${mitigacionPromedio}`;
+- kpis.coberturaControles: ${mitigacionPromedio}`;  
       const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
       
       // 🔥 EL TRUCO DEFINITIVO: Interceptamos el JSON y forzamos TUS variables

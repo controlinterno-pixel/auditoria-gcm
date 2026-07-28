@@ -1506,16 +1506,17 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                   />
                 )}
                {subTabPlanificar === 'riesgos' && (
-                  <Riesgos 
-                    isAdmin={isAdmin} editRiesgo={editRiesgo} setEditRiesgo={setEditRiesgo} handleRiesgoSubmit={handleRiesgoSubmit}
-                    setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
-                    applyFilters={applyFilters} FilterInput={FilterInput} rFiltrados={rFiltrados} calcularMatriz5x5={calcularMatriz5x5}
-                    searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
-                    exportToExcel={exportToExcel} safeRiesgos={safeRiesgos}
-                    // 🚀 AQUÍ ESTÁN LAS TRES LLAVES QUE FALTABAN PARA GUARDAR:
-                    setRiesgos={setRiesgos} saveToCloud={saveToCloud} showNotification={showNotification}
-                  />
-                )}
+   <Riesgos 
+     isAdmin={isAdmin} editRiesgo={editRiesgo} setEditRiesgo={setEditRiesgo} handleRiesgoSubmit={handleRiesgoSubmit}
+     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
+     applyFilters={applyFilters} FilterInput={FilterInput} rFiltrados={rFiltrados} calcularMatriz5x5={calcularMatriz5x5}
+     searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
+     exportToExcel={exportToExcel} safeRiesgos={safeRiesgos}
+     hallazgos={safeHallazgos}           {/* 👈 CONEXIÓN A MÓDULO 3 (72 Hallazgos) */}
+     planesDeAccion={safePlanes}        {/* 👈 CONEXIÓN A MÓDULO 4 (47 Planes + 19 Vencidos) */}
+     setRiesgos={setRiesgos} saveToCloud={saveToCloud} showNotification={showNotification}
+   />
+)}
                 {subTabPlanificar === 'apetito' && (
                   <Apetito 
                     isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
