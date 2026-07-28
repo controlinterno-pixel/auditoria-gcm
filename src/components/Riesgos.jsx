@@ -495,21 +495,27 @@ export default function Riesgos({
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
   };
   
-  const handleRiesgoSubmit = async (e) => {
+const handleRiesgoSubmit = async (e) => {
     e.preventDefault();
+
+    // 🛑 1. NUEVO BLINDAJE: Verificación estricta de internet antes de empezar
+    if (!navigator.onLine) {
+      alert("❌ ERROR DE RED: No tienes conexión a Internet. El riesgo no se puede guardar en la nube. Revisa tu WiFi o cable de red e intenta de nuevo.");
+      showNotification("Sin conexión a internet", "error");
+      return; // Detiene la ejecución aquí mismo
+    }
+
     setIsSubmitting(true);
     const ts = new Date().toLocaleString();
 
     try {
       let updatedList = [...safeRiesgos];
-const textoControlesConsolidados = controles.map((c, index) => `C${index + 1}. [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n\n');
+      const textoControlesConsolidados = controles.map((c, index) => `C${index + 1}. [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n\n');
 
-const nuevoRiesgo = {
+      const nuevoRiesgo = {
         ...(editRiesgo || {}),
-        // 🛡️ BLINDAJE: Generador de ID seguro con respaldo si crypto falla
         id: editRiesgo ? editRiesgo.id : (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `RSK-${Date.now()}`),
         sede: sedeForm,      
-        // ✅ CORREGIDO: Se usa macroproceso para no romper el guardado
         proceso: macroproceso,
         macroproceso: macroproceso,
         subproceso: subproceso,
@@ -517,7 +523,7 @@ const nuevoRiesgo = {
         clasificacionRiesgo,
         normativa,
         responsable: responsablesMultiples.length > 0 ? responsablesMultiples.join(', ') : 'Sin Asignar',
-afectacion,
+        afectacion,
         causaInmediata,
         causaRaiz,
         escenarioFinal: escenarioFinal || causaInmediata,
@@ -533,7 +539,7 @@ afectacion,
         fechaSeguimiento,
         seguimientoBitacora,
         anio: new Date().getFullYear(),
-mes: new Date().toLocaleString('es-ES', { month: 'long' }),
+        mes: new Date().toLocaleString('es-ES', { month: 'long' }),
         historialCambios: editRiesgo 
           ? [...(editRiesgo.historialCambios || []), { fecha: ts, accion: 'Modificación con variables completas del manual' }]
           : [{ fecha: ts, accion: 'Creación manual con matriz completa' }]
@@ -546,22 +552,40 @@ mes: new Date().toLocaleString('es-ES', { month: 'long' }),
         updatedList.push(nuevoRiesgo);
       }
 
-      setRiesgos(updatedList);
-      await saveToCloud({ riesgos: updatedList });
+      // ⏱️ 2. NUEVO BLINDAJE: Temporizador límite para Firebase (Timeout)
+      // Si Firebase tarda más de 8 segundos en responder por red inestable, forzamos un error.
+      const guardarPromesa = saveToCloud({ riesgos: updatedList });
+      const timeoutPromesa = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("TIMEOUT_ERROR")), 8000)
+      );
 
+      // Compite la carga en la nube vs el temporizador
+      await Promise.race([guardarPromesa, timeoutPromesa]);
+
+      // Si pasa de esta línea, se guardó correctamente
+      setRiesgos(updatedList);
       showNotification(`Riesgo corporativo ${editRiesgo ? 'actualizado' : 'creado'} con éxito.`, "success");
       setVistaActiva('dashboard');
       setEditRiesgo(null);
       
-setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setEscenarioFinal(''); setControles([]);
+      setAfectacion('Económico'); setCausaInmediata(''); setCausaRaiz(''); setEscenarioFinal(''); setControles([]);
       setPlanAccionRiesgo(''); setFechaSeguimiento(''); setSeguimientoBitacora('');
+
     } catch (error) {
-      console.error(error);
-      showNotification("Error al procesar el riesgo corporativo.", "error");
+      console.error("Error crítico al guardar:", error);
+      
+      // 🚨 3. NUEVO BLINDAJE: Alerta visual infalible en caso de fallo
+      if (error.message === "TIMEOUT_ERROR") {
+        alert("⚠️ ERROR DE TIEMPO AGOTADO: La conexión con la base de datos es muy lenta o se cortó a la mitad. Refresca la página y vuelve a intentarlo.");
+      } else {
+        alert("❌ ERROR FATAL: Hubo un problema al procesar y subir el riesgo a la base de datos.");
+      }
+      
+      showNotification("Error de conexión al guardar el riesgo.", "error");
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }; 
   const LabelConPalomita = ({ idCampo, dark }) => {
     const dataAyuda = EXPLICACIONES_CAMPOS[idCampo];
     if (!dataAyuda) return null;
