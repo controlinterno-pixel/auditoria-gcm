@@ -409,24 +409,29 @@ const [ayudaModal, setAyudaModal] = useState(null);
         
       const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
 
-// 2. SÚPER PROMPT CON CANDADO DE DATOS (Evita alucinaciones de la IA)
-      const promptFilaReal = `Actúa como Motor Analítico GRC. Evalúa el siguiente riesgo corporativo.
-      
-🚨 REGLA DE INTEGRIDAD DE DATOS (MANDATO CRÍTICO):
-Debes utilizar EXACTAMENTE estos valores matemáticos TANTO en las métricas JSON COMO EN LA REDACCIÓN DE TUS PÁRRAFOS (Hallazgos, Recomendaciones, Dictamen y COSO ERM). ESTÁ PROHIBIDO citar un 20% de madurez o un 23% de cobertura si las variables oficiales son distintas:
-- Score Riesgo: ${scoreRiesgoReal}%
-- Madurez del Control: ${madurezReal}%
-- Controles Implementados: ${totalControlesReal}
+// ✅ PEGA ESTE FRAGMENTO BLINDADO EN SU LUGAR:
+      const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna. Evalúa el riesgo RSK-${riesgo.id}.
+
+🚨 MANDATO CRÍTICO E INVIOLABLE DE DATOS:
+Queda ESTRICTAMENTE PROHIBIDO inventar números o citar "1 control", "20% de madurez", "23% de cobertura" o "36% de score". 
+EN TODOS TUS PÁRRAFOS (Hallazgos, Recomendaciones, Dictamen y COSO ERM) DEBES CITAR Y NARRAR BASÁNDOTE EXCLUSIVAMENTE EN ESTAS MÉTRICAS REALES:
+- Score de Riesgo Residual: ${scoreRiesgoReal}%
+- Madurez de los Controles: ${madurezReal}%
+- Total de Controles Implementados: ${totalControlesReal}
 - Cobertura de Mitigación: ${coberturaReal}%
 - Nivel Inherente: ${getSeverityZone(riesgo.probabilidadInherente, riesgo.impactoInherente).label}
 - Nivel Residual: ${getSeverityZone(riesgo.probabilidadResidual, riesgo.impactoResidual).label}
 
-DATOS DEL RIESGO:
+INFORMACIÓN DEL RIESGO EVALUADO:
 - ID: RSK-${riesgo.id}
 - Proceso: ${riesgo.proceso}
-- Riesgo: ${riesgo.descripcion}
+- Descripción del Riesgo: ${riesgo.descripcion}
 
-Tu tarea es generar el JSON o la estructura visual exacta que requiere la interfaz. En la narrativa redacta analizando el porqué de esa Madurez del ${madurezReal}% y esa Cobertura del ${coberturaReal}%, basándote en los ${totalControlesReal} controles registrados.`;
+INSTRUCCIONES DE NARRATIVA:
+- Explica en los Hallazgos y Dictamen cómo los ${totalControlesReal} controles registrados logran una madurez del ${madurezReal}% y una mitigación del ${coberturaReal}%.
+- Si la Cobertura es del ${coberturaReal}% y el Score es ${scoreRiesgoReal}%, tu dictamen debe evaluar este nivel impecable de blindaje, felicitando la gestión y recomendando monitoreo continuo para mantener la disciplina operativa de los ${totalControlesReal} controles.
+
+Genera la respuesta estructurada en el JSON requerido para la interfaz.`;
       
 // 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
