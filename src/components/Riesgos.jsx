@@ -519,7 +519,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
     showNotification("Matriz descargada en Excel exitosamente", "success");
   };
 // =========================================================================
-  // 🤖 FUNCIÓN PARA ANÁLISIS EJECUTIVO GLOBAL (JUNTA DIRECTIVA)
+  // 🤖 FUNCIÓN PARA ANÁLISIS EJECUTIVO GLOBAL (BIG FOUR + FORMATO VISUAL)
   // =========================================================================
   const solicitarAnalisisGlobalIA = async () => {
     setProcesandoIA(true);
@@ -532,44 +532,60 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         return;
       }
 
-      // 1. Recopilar métricas
-      const totalRiesgos = safeRiesgos.length;
-      const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
-      const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
-      const moderados = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Moderado').length;
-      const bajos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Bajo').length;
+      // 1. Comprimir la matriz para que la IA la pueda leer sin colapsar por exceso de texto
+      const matrizComprimida = safeRiesgos.map(r => ({
+        ID: r.id,
+        Proceso: r.proceso,
+        Inh: `${r.probabilidadInherente}% x ${r.impactoInherente}%`,
+        Res: `${r.probabilidadResidual}% x ${r.impactoResidual}%`,
+        Tratamiento: r.tratamiento,
+        Controles: Array.isArray(r.controlesDetallados) ? r.controlesDetallados.length : 0
+      }));
 
-      const conteoProcesos = safeRiesgos.reduce((acc, r) => {
-        acc[r.proceso] = (acc[r.proceso] || 0) + 1;
-        return acc;
-      }, {});
-      const topProcesos = Object.entries(conteoProcesos)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([p, c]) => `${p} (${c} riesgos)`)
-        .join(', ');
+      // 2. Súper Prompt Estratégico + Inyección de Estilos UI (Markdown)
+      const promptGlobal = `Actúa como Socio Director Global de GRC, Enterprise Risk Management, Auditoría Interna y Gobierno Corporativo de una firma Big Four.
+Tu misión es elaborar un informe corporativo de inteligencia estratégica para ser presentado al Presidente, CEO, Comité de Riesgos y Junta Directiva de Termales de Santa Rosa de Cabal.
 
-      // 2. Prompt CAE (Chief Audit Executive) con KPIs
-      const promptGlobal = `Actúa como un Director de Auditoría Interna presentando un informe ejecutivo a la Junta Directiva de Termales S.A.
-      
-Métricas actuales de la Matriz Corporativa:
-- Total de riesgos: ${totalRiesgos}
-- Zona Extrema: ${extremos}
-- Zona Alta: ${altos}
-- Zona Moderada: ${moderados}
-- Zona Baja: ${bajos}
-- Top 5 procesos más expuestos: ${topProcesos}
+Aquí tienes la matriz corporativa en formato JSON comprimido:
+${JSON.stringify(matrizComprimida)}
 
-Redacta un dictamen conciso, sin saludos, usando viñetas y negritas. Estructura estrictamente así:
-**1. Diagnóstico del Perfil de Riesgo:** (Analiza la proporción de riesgos críticos).
-**2. Análisis de Concentración:** (Evalúa las áreas más expuestas).
-**3. Recomendación Estratégica:** (Plan de acción inmediato).
-**4. Indicadores Clave (KPIs) Sugeridos:** (Sugiere 3 KPIs estratégicos para que la gerencia mida las áreas más afectadas).`;
+REGLAS ESTRATÉGICAS:
+- No analices cada riesgo por separado. Analiza la organización como un ecosistema completo.
+- Evalúa tendencias, patrones, concentraciones, dependencias y madurez.
+- Utiliza como referencia: ISO 31000, COSO ERM y Three Lines Model.
+- No inventes datos. Si debes estimar, indícalo.
+
+REGLAS ESTRICTAS DE FORMATO (CRÍTICO PARA LA INTERFAZ VISUAL):
+- NUNCA digas que eres una IA. Redacta con estilo McKinsey, PwC o KPMG.
+- NO uses saludos ni introducciones genéricas.
+- Utiliza Markdown avanzado para simular "tarjetas ejecutivas" limpias y modernas.
+- Condensa los 35 puntos de tu auditoría estructurando tu respuesta EXACTAMENTE con estos 5 bloques, usando separadores (---) y encabezados (###):
+
+### 🏛️ 1. Executive Summary & Salud de la Organización
+(Redacta aquí tu evaluación global del ecosistema, madurez y apetito de riesgo)
+
+---
+### 📊 2. Heatmap Corporativo & Concentración
+(Analiza el top de riesgos, tendencias, riesgos emergentes y sistémicos)
+
+---
+### ⚠️ 3. Brechas de Control y Calidad Metodológica
+(Evalúa riesgos huérfanos, sin controles, falta de KRIs y alineación a ISO 31000 / COSO)
+
+---
+### 💸 4. Exposición Financiera y Capital en Riesgo
+(Proyección del riesgo inherente total vs riesgo residual total de la matriz)
+
+---
+### 🚀 5. Roadmap Ejecutivo & Quick Wins
+(Plan estratégico de remediación y decisiones clave para la Junta Directiva)
+
+> **Dictamen Ejecutivo Final:** (Agrega un blockquote final lapidario y profesional con tu recomendación como Socio Director Big Four).`;
 
       const dictamenRespuesta = await analizarRiesgoConIA(promptGlobal);
       
       setDictamenIA({
-        titulo: `Dictamen Ejecutivo Global — Junta Directiva`,
+        titulo: `Informe de Inteligencia Estratégica GRC — Junta Directiva`,
         dictamen: dictamenRespuesta
       });
     } catch (error) {
