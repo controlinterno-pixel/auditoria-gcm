@@ -614,7 +614,9 @@ ${JSON.stringify(matrizComprimida)}
 
 REGLAS ESTRATÉGICAS Y DE FORMATO:
 - NUNCA digas que eres una IA. Redacta con estilo McKinsey, PwC o KPMG.
-- Interpreta qué significan estos números para el negocio (ej. Si la madurez global es ${madurezGlobal}%, explica a la Junta si es un nivel peligroso o aceptable frente a ISO 31000).
+- 🚨 REGLA DE INTEGRIDAD DE DATOS (CRÍTICA): En tus párrafos de Hallazgos, Recomendaciones y Análisis, DEBES redactar basándote en la madurez real del ${madurezGlobal}% y el Score Global del ${avgResidualScore}%. 
+- ESTÁ ESTRICTAMENTE PROHIBIDO inventar métricas, mencionar una madurez del 20% o un score del 36%. Usa ÚNICAMENTE las variables proporcionadas en el CANDADO MATEMÁTICO.
+- Interpreta qué significan estos números reales para el negocio (ej. Si la madurez global es ${madurezGlobal}%, explica a la Junta si es un nivel peligroso o aceptable frente a ISO 31000).
 - Utiliza Markdown avanzado para simular "tarjetas ejecutivas" limpias y modernas.
 - Estructura tu respuesta EXACTAMENTE con estos 5 bloques, usando separadores (---) y encabezados (###):
 
