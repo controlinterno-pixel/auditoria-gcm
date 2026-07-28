@@ -428,13 +428,28 @@ DATOS DEL RIESGO:
 
 Tu tarea es generar el JSON o la estructura visual exacta que requiere la interfaz, pero inyectando los números reales que te acabo de dar. Completa el resto del análisis (Hallazgos y Recomendaciones) basándote en la calidad de la descripción del riesgo y si los controles (si los hay) son suficientes para justificar esa cobertura del ${coberturaReal}%.`;
 
-      // 3. Enviamos el prompt blindado
+// 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
       
+      // 🔥 INTERCEPTAMOS EL JSON INDIVIDUAL PARA FORZAR LOS KPIS REALES EN LA CABECERA
+      let dictamenFinal = textoCompleto;
+      try {
+        let parsed = typeof textoCompleto === 'string' ? JSON.parse(textoCompleto) : textoCompleto;
+        if (parsed && parsed.kpis) {
+          parsed.kpis.scoreRiesgo = scoreRiesgoReal;
+          parsed.kpis.scoreMadurez = madurezReal;
+          parsed.kpis.totalControles = totalControlesReal;
+          parsed.kpis.coberturaControles = coberturaReal;
+        }
+        dictamenFinal = JSON.stringify(parsed);
+      } catch (e) {
+        console.warn("Aviso: La respuesta de la IA no era JSON estricto.");
+      }
+
       setDictamenIA({
         titulo: `Panel Ejecutivo Inteligente — RSK-${riesgo.id}`,
-        dictamen: textoCompleto
-      });
+        dictamen: dictamenFinal
+      });      
     } catch (error) {
       console.error("Error transmitiendo análisis de IA:", error);
       if (showNotification) {
