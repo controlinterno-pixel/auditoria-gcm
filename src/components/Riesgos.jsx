@@ -200,11 +200,28 @@ export default function Riesgos({
     }
   };
   // 🍿 ESTADO PARA EL POPUP INTERACTIVO ELEGANTE
-  const [ayudaModal, setAyudaModal] = useState(null);
+const [ayudaModal, setAyudaModal] = useState(null);
   
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [riesgoId, setRiesgoId] = useState('');
+  const [customId, setCustomId] = useState('');
   
+  // 🔢 FUNCIÓN PARA CALCULAR EL CONSECUTIVO (Ignora los viejos que eran muy largos)
+  const handleNuevoRiesgo = () => {
+    setEditRiesgo(null);
+    setRiesgoId('');
+    
+    const maxId = safeRiesgos.reduce((max, r) => {
+      const idStr = String(r.id);
+      if (idStr.length > 10) return max; // Ignorar IDs viejos generados por fecha o UUID
+      const num = parseInt(idStr.replace(/\D/g, '')) || 0;
+      return num > max ? num : max;
+    }, 0);
+    
+    setCustomId(maxId + 1);
+    setVistaActiva('nuevo');
+  };
+
   // 🌟 NUEVOS ESTADOS EN CASCADA PARA PROCESOS
   const listadoMacros = Object.keys(MAPA_PROCESOS);
   const [macroproceso, setMacroproceso] = useState(listadoMacros[0]);
@@ -404,7 +421,7 @@ export default function Riesgos({
       const totalControles = Array.isArray(r.controlesDetallados) ? r.controlesDetallados.length : 0;
 
       return {
-        "ID Riesgo": `RSK-${String(r.id).substring(0,4)}`,
+        "ID Riesgo": `RSK-${r.id}`, // 🔥 QUITAMOS EL RECORTE
         "Estado": "Activo",
         "Proceso": r.proceso || r.macroproceso || "No definido",
         "Subproceso": r.subproceso || "General",
@@ -448,10 +465,11 @@ export default function Riesgos({
     
     showNotification("Matriz descargada en Excel exitosamente", "success");
   };
-  const handleEditRiesgo = (riesgo) => {
+ const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
-    
+    setCustomId(riesgo.id); // 🔥 RECUPERAMOS EL ID PARA EL FORMULARIO
+      
 // 🏢 Recuperar Sede (Soporta versiones viejas de texto único y versiones nuevas de selección múltiple)
     setSedeForm(Array.isArray(riesgo.sede) ? riesgo.sede : (riesgo.sede ? [riesgo.sede] : ['Administrativos']));
     
@@ -512,9 +530,9 @@ const handleRiesgoSubmit = async (e) => {
       let updatedList = [...safeRiesgos];
       const textoControlesConsolidados = controles.map((c, index) => `C${index + 1}. [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n\n');
 
-      const nuevoRiesgo = {
+const nuevoRiesgo = {
         ...(editRiesgo || {}),
-        id: editRiesgo ? editRiesgo.id : (window.crypto && crypto.randomUUID ? crypto.randomUUID() : `RSK-${Date.now()}`),
+        id: editRiesgo ? editRiesgo.id : (customId || Date.now()), // 🔥 USA EL CONSECUTIVO DEL ADMIN
         sede: sedeForm,      
         proceso: macroproceso,
         macroproceso: macroproceso,
@@ -896,7 +914,7 @@ const renderMatriz = () => {
                       {/* ID / PROCESO */}
                       <div className="col-span-2 pr-2">
                         <div className="flex items-center space-x-1.5">
-                          <span className="font-mono font-black text-xs text-slate-900">RSK-{String(r.id).substring(0,4)}</span>
+                          <span className="font-mono font-black text-xs text-slate-900">RSK-{r.id}</span> {/* 🔥 QUITAMOS EL RECORTE */}
                           <span className="text-slate-400 text-xs">🏢</span>
                         </div>
                         <p className="text-[10px] font-bold text-slate-500 mt-0.5 line-clamp-1">
@@ -1404,8 +1422,8 @@ const renderMatriz = () => {
             <span className="mr-2">📥</span> Descargar Excel
           </button>
 
-          {isAdmin && (
-            <button onClick={() => { setEditRiesgo(null); setVistaActiva('nuevo'); }} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md bg-[#0A3B32] text-white hover:bg-[#062620]">
+        {isAdmin && (
+            <button onClick={handleNuevoRiesgo} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md bg-[#0A3B32] text-white hover:bg-[#062620]">
               <span className="mr-2">➕</span> Nuevo Riesgo
             </button>
           )}
@@ -1418,9 +1436,32 @@ const renderMatriz = () => {
       {vistaActiva === 'nuevo' && (
         <form onSubmit={handleRiesgoSubmit} className="space-y-6">
           
-          {/* DATOS GENERALES EXTENDIDOS */}
+         {/* DATOS GENERALES EXTENDIDOS */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest border-b pb-2">1. Datos Generales de la Fila</h3>
+            
+            {/* 🔢 CAMPO VISUAL PARA EL ID DEL RIESGO */}
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 mb-4 flex flex-wrap items-center gap-3">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                ID del Riesgo:
+              </label>
+              <div className="flex items-center space-x-1">
+                <span className="text-xs font-black text-slate-400 bg-white border border-slate-300 px-3 py-1.5 rounded-lg shadow-sm">RSK -</span>
+                <input 
+                  type="number" 
+                  value={customId} 
+                  onChange={(e) => setCustomId(e.target.value)} 
+                  disabled={!isAdmin}
+                  className={`w-28 text-xs p-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] font-black text-center shadow-sm ${!isAdmin ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white text-slate-900'}`}
+                />
+              </div>
+              {isAdmin ? (
+                <span className="text-[9px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md font-bold">✏️ Modificable por Admin</span>
+              ) : (
+                <span className="text-[9px] text-slate-400 italic">Generado Automáticamente</span>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
               {/* 🌟 AQUÍ ESTÁ EL NUEVO CONTENEDOR LADO A LADO PARA MACRO Y SUBPROCESO */}
