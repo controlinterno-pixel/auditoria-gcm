@@ -656,32 +656,32 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
       const totalPlanes = planesDeAccion.length || 47;
       const planesVencidos = planesDeAccion.filter(p => p.estado === 'Vencido' || p.vencido).length || 19;
 
-      // 3. PROMPT CON PROTAGONISMO DE LA MATRIZ DE RIESGOS
+// 3. PROMPT CON PROTAGONISMO DE LA MATRIZ DE RIESGOS (SIN ALUCINAR MADUREZ REAL)
       const promptGlobalReal = `Actúa como Socio Director Global de Enterprise Risk Management (ERM) y GRC de una firma Big Four.
 Tu misión es redactar el Informe Ejecutivo de la Matriz de Riesgos Corporativa para la Junta Directiva de Termales de Santa Rosa de Cabal.
 
 ESTRUCTURA DE PESO NARRATIVO:
-- 70% del informe debe enfocarse en la perfilación, arquitectura y mapa de la MATRIZ DE RIESGOS (Módulo 2).
-- 30% del informe debe usar la evidencia de Auditoría (Hallazgos - Módulo 3 y Planes Vencidos - Módulo 4) como prueba de efectividad operativa.
+- 70% del informe enfocado en la MATRIZ DE RIESGOS (Módulo 2).
+- 30% enfocado en la prueba de estrés con Auditoría (Hallazgos - Módulo 3 y Planes Vencidos - Módulo 4).
 
 📊 DATOS OFICIALES DE LA MATRIZ DE RIESGOS (MÓDULO 2 - HERO):
 - Total Riesgos Identificados en Matriz: ${totalRiesgos} riesgos corporativos.
-- Riesgos Prioritarios: ${altosYCriticos} riesgos en nivel Alto/Crítico (${Math.round((altosYCriticos / totalRiesgos) * 100)}% del mapa general).
+- Riesgos Prioritarios: ${altosYCriticos} riesgos en nivel Alto/Crítico.
 - Distribución de Severidad Residual: Extremos (${extremos}), Altos (${altos}), Moderados (${moderados}), Bajos (${bajos}).
 - Mapeo por Procesos Expuestos: ${topProcesosStr}.
 - Taxonomía ISO 31000 Predominante: ${topCategoriasStr}.
 - Arquitectura de Defensas: ${totalControles} controles implementados.
-- Nivel de Madurez Teórica del Diseño: ${madurezGlobal}%.
+- Nivel de Madurez del Diseño: ${madurezGlobal}%.
 - Cobertura de Mitigación Promedio: ${mitigacionPromedio}%.
 - Score de Exposición Residual Global: ${avgResidualScore}%.
 
 🚨 EVIDENCIA DE CAMPO Y EVALUACIÓN OPERATIVA (MÓDULOS 3 Y 4 - SUPPORT):
-- Hallazgos de Auditoría que afectan los controles de la matriz: ${totalHallazgos} hallazgos (${hallazgosCriticos} Críticos, ${hallazgosAltos} Altos).
-- Estado de Remediación de Controles: ${planesVencidos} planes de acción vencidos de ${totalPlanes} compromisos.
+- Hallazgos de Auditoría que afectan la efectividad: ${totalHallazgos} hallazgos (${hallazgosCriticos} Críticos, ${hallazgosAltos} Altos).
+- Estado de Remediación: ${planesVencidos} planes de acción vencidos de ${totalPlanes} compromisos.
 
-REGLAS STRICTAS DE REDACCIÓN:
-- Tono C-Level: McKinsey, PwC o KPMG. Estilo ejecutivo, directo y fundamentado.
-- RIGOR NUMÉRICO: Usa SIEMPRE los valores exactos: ${totalRiesgos} riesgos, ${altosYCriticos} altos/críticos, ${totalControles} controles, madurez del ${madurezGlobal}% y score del ${avgResidualScore}%. NUNCA inventes otros porcentajes.
+REGLAS CRÍTICAS DE REDACCIÓN:
+- Tono C-Level: McKinsey, PwC o KPMG. Estilo ejecutivo y riguroso.
+- RIGOR NUMÉRICO STRICTO: La Madurez ES DEL ${madurezGlobal}% y la Cobertura ES DEL ${mitigacionPromedio}%. NO inventes otros porcentajes como "madurez real del 20%" o "cobertura del 23%". Evalúa la brecha enfocándote en que los hallazgos y planes vencidos devalúan la efectividad operativa del diseño del ${madurezGlobal}%.
 
 ESTRUCTURA OBLIGATORIA DE 5 SECCIONES:
 
@@ -690,15 +690,15 @@ ESTRUCTURA OBLIGATORIA DE 5 SECCIONES:
 
 ---
 ### 📊 2. Profiling Corporativo & Concentración por Procesos (ISO 31000)
-(Análisis detallado de los procesos más expuestos [${topProcesosStr}] y las categorías ISO [${topCategoriasStr}], evaluando la efectividad de la transición de riesgo inherente a residual)
+(Análisis detallado de los procesos más expuestos y las categorías ISO [${topCategoriasStr}], evaluando la efectividad de la transición de riesgo inherente a residual)
 
 ---
-### 🛡️ 3. Evaluacion de la Arquitectura de Controles (${totalControles} Controles / ${madurezGlobal}% Madurez)
+### 🛡️ 3. Evaluación de la Arquitectura de Controles (${totalControles} Controles / ${madurezGlobal}% Madurez)
 (Diagnóstico sobre la solidez del diseño de las defensas y la cobertura teórica del ${mitigacionPromedio}%)
 
 ---
 ### ⚠️ 4. Prueba de Estrés Operativo: Hallazgos & Brechas en la Ejecución
-(Conecta la matriz con la realidad operativa: explica cómo los ${totalHallazgos} hallazgos y los ${planesVencidos} planes vencidos ponen a prueba o degradan la efectividad de los controles diseñados)
+(Conecta la matriz con la realidad operativa: explica cómo los ${totalHallazgos} hallazgos y los ${planesVencidos} planes vencidos ponen a prueba la efectividad real de los controles)
 
 ---
 ### 🚀 5. Dictamen Estratégico y Plan de Acción Gubernamental
@@ -713,17 +713,20 @@ REGLA CRÍTICA FORMATO JSON:
 - kpis.totalControles: ${totalControles}
 - kpis.coberturaControles: ${mitigacionPromedio}`;
 
-      // 4. GENERACIÓN Y INTERCEPTOR ANTI-ALUCINACIONES
+      // 4. GENERACIÓN E INTERCEPTOR ANTI-ALUCINACIONES MEJORADO
       const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
       
       let textoSaneado = typeof dictamenRespuesta === 'string' ? dictamenRespuesta : JSON.stringify(dictamenRespuesta);
 
+      // Saneamiento de alucinaciones
       textoSaneado = textoSaneado
         .replace(/score de riesgo del \d+%/gi, `score de riesgo del ${avgResidualScore}%`)
         .replace(/score del \d+%/gi, `score del ${avgResidualScore}%`)
-        .replace(/36%/g, `${avgResidualScore}%`)
-        .replace(/madurez actual del \d+%/gi, `madurez actual del ${madurezGlobal}%`)
-        .replace(/madurez del 20%/gi, `madurez del ${madurezGlobal}%`);
+        .replace(/madurez real es del \d+%/gi, `madurez operativa presenta brechas frente al ${madurezGlobal}%`)
+        .replace(/madurez real del \d+%/gi, `madurez operativa del ${madurezGlobal}%`)
+        .replace(/cobertura efectiva es del \d+%/gi, `cobertura efectiva se ve comprometida frente al ${mitigacionPromedio}%`)
+        .replace(/cobertura efectiva del \d+%/gi, `cobertura efectiva frente al ${mitigacionPromedio}%`)
+        .replace(/cerrar la brecha con la madurez teórica del \d+%/gi, `consolidar la madurez del ${madurezGlobal}%`);
 
       let dictamenFinal = textoSaneado;
       try {
@@ -749,7 +752,7 @@ REGLA CRÍTICA FORMATO JSON:
     } finally {
       setProcesandoIA(false);
     }
-  };
+  };     
  const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
