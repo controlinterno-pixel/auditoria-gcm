@@ -391,7 +391,6 @@ const [ayudaModal, setAyudaModal] = useState(null);
     }
   };
 // 🤖 FUNCIÓN DE ANALISIS CON IA EN TIEMPO REAL (STREAMING)
-  // 🤖 FUNCIÓN DE ANALISIS ESTABLE CON CARGA ELEGANTE
   const solicitarAnalisisFilaIA = async (riesgo) => {
     setProcesandoIA(true);
     setDictamenIA(null); // Limpiamos para mostrar la animación de carga
@@ -406,6 +405,52 @@ const [ayudaModal, setAyudaModal] = useState(null);
       });
     } catch (error) {
       console.error("Error transmitiendo análisis de IA:", error);
+      if (showNotification) {
+        showNotification("Error al conectar con la Inteligencia Artificial.", "error");
+      }
+    } finally {
+      setProcesandoIA(false);
+    }
+  };
+// 🤖 FUNCIÓN DE AUDITORÍA DE CONTROLES INDIVIDUALES (ENTERPRISE PROMPT)
+  const solicitarAnalisisControlIA = async (c, r) => {
+    setProcesandoIA(true);
+    setDictamenIA(null); // Activa el modal de carga "Motor GRC Enterprise..."
+
+    try {
+      const promptAuditor = `Actúa como un Auditor Senior de Control Interno y Consultor Big Four especializado en marcos COSO, ISO 31000 y auditoría basada en riesgos.
+
+A continuación, te presento los datos de un control específico. Tu directriz estricta es NO describir el control, sino AUDITARLO profesionalmente evaluando su calidad de diseño, dependencia manual, riesgo de falla, trazabilidad y cobertura frente al riesgo asociado.
+
+Datos del Control a Auditar:
+- Descripción del Control: ${c.descripcion || 'No especificada'}
+- Riesgo que mitiga: ${r.descripcion || 'No especificado'}
+- Tipo: ${c.tipo || 'Preventivo'}
+- Ejecución: ${c.implementacion || 'Manual'}
+- Frecuencia: ${c.frecuencia || 'Continua'}
+- Evidencia: ${c.evidencia || 'Con registro'}
+- Score de Eficacia Actual: ${calcularEficaciaControl(c)}%
+
+Genera tu respuesta simulando ser el motor analítico de una plataforma Enterprise GRC (como AuditBoard o ServiceNow). No uses lenguaje de chatbot, saludos ni introducciones. Redacta de forma concisa, utilizando viñetas y negritas para simular tarjetas ejecutivas, estructurando tu respuesta estrictamente con estos apartados:
+
+**Estado del Control:**
+**Score de Eficacia:** (Analiza el ${calcularEficaciaControl(c)}% proporcionado)
+**Cobertura del Riesgo:**
+**Riesgo de Falla:**
+**Hallazgos Detectados:**
+**¿Qué pasaría si este control falla? (Impacto residual):**
+**Recomendación Prioritaria:**
+**Concepto del Auditor IA:**`;
+
+      // Enviamos el prompt estructurado al motor de IA
+      const dictamenRespuesta = await analizarRiesgoConIA(promptAuditor);
+      
+      setDictamenIA({
+        titulo: `Auditoría de Control — Motor GRC IA`,
+        dictamen: dictamenRespuesta
+      });
+    } catch (error) {
+      console.error("Error transmitiendo análisis de control IA:", error);
       if (showNotification) {
         showNotification("Error al conectar con la Inteligencia Artificial.", "error");
       }
@@ -1136,20 +1181,16 @@ const renderMatriz = () => {
     ✏️ Editar
   </button>
   
-  {/* 3. BOTÓN IA: Muestra un pre-diagnóstico rápido del control usando los datos actuales */}
+  {/* 3. BOTÓN IA: Conectado al prompt Enterprise GRC */}
   <button 
     onClick={(e) => { 
       e.stopPropagation(); 
-      setDictamenIA({ 
-        titulo: `Diagnóstico Rápido de Control`, 
-        dictamen: `🤖 **Análisis Preliminar:**\n\nEste es un control de tipo **${c.tipo || 'Preventivo'}**, con ejecución **${c.implementacion || 'Manual'}** y frecuencia **${c.frecuencia || 'Continua'}**. Su eficacia actual evaluada es del **${calcularEficaciaControl(c)}%**.\n\n💡 *Sugerencia:* Para acercar este control al 100% de eficacia, considera pasarlo a un estado "Automático" (sistemas que bloqueen el error) y asegurar que siempre genere evidencia trazable.` 
-      }); 
+      solicitarAnalisisControlIA(c, r); 
     }}
     className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold shadow-sm" 
-    title="Analizar redacción con IA">
+    title="Auditar diseño del control con IA">
     🤖 IA
-  </button>
-  
+  </button>  
   {/* 4. BOTÓN EVIDENCIA: Aviso técnico sobre el almacenamiento */}
   <button 
     onClick={(e) => { 
