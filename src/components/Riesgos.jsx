@@ -409,32 +409,38 @@ const [ayudaModal, setAyudaModal] = useState(null);
         
       const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
 
-// 2. SÚPER PROMPT INDIVIDUAL CON DATOS REALES + HALLAZGOS + PLAN DE ACCIÓN
+// 2. PROMPT DE AUDITORÍA AVANZADA: EVALUACIÓN DE HALLAZGOS Y EFECTIVIDAD OPERATIVA
       const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna. Evalúa el riesgo RSK-${riesgo.id}.
 
-🚨 MANDATO CRÍTICO E INVIOLABLE DE DATOS:
-Queda ESTRICTAMENTE PROHIBIDO inventar números o citar "1 control", "20% de madurez", "23% de cobertura" o "36% de score". 
-EN TODOS TUS PÁRRAFOS DEBES CITAR Y NARRAR BASÁNDOTE EXCLUSIVAMENTE EN ESTAS MÉTRICAS REALES:
-- Score de Riesgo Residual: ${scoreRiesgoReal}%
-- Madurez de los Controles: ${madurezReal}%
-- Total de Controles Implementados: ${totalControlesReal}
-- Cobertura de Mitigación: ${coberturaReal}%
-- Nivel Inherente: ${getSeverityZone(riesgo.probabilidadInherente, riesgo.impactoInherente).label}
-- Nivel Residual: ${getSeverityZone(riesgo.probabilidadResidual, riesgo.impactoResidual).label}
+📊 DATOS TEÓRICOS DEL SISTEMA (DISEÑO DEL CONTROL EN PAPEL):
+- Score Residual Teórico Calculado: ${scoreRiesgoReal}%
+- Madurez Teórica del Diseño: ${madurezReal}%
+- Total de Controles Registrados: ${totalControlesReal}
+- Cobertura Teórica: ${coberturaReal}%
 
-DATOS ESTRATÉGICOS REGISTRADOS EN LA MATRIZ:
-- ID: RSK-${riesgo.id}
-- Proceso: ${riesgo.proceso}
-- Descripción del Riesgo: ${riesgo.descripcion}
-- Hallazgos / Bitácora de Auditoría: ${riesgo.seguimientoBitacora || 'Sin observaciones o hallazgos críticos registrados en bitácora.'}
-- Plan de Acción Oficial de la Empresa: ${riesgo.planAccionRiesgo || 'No se registró un plan explícito; propone uno acorde a la mitigación.'}
+🚨 EVIDENCIA OPERATIVA Y HALLAZGOS REALES (BITÁCORA Y CAMPO):
+- Observaciones / Hallazgos de Bitácora: "${riesgo.seguimientoBitacora || 'Sin observaciones o hallazgos registrados en la bitácora.'}"
+- Plan de Acción Registrado: "${riesgo.planAccionRiesgo || 'Sin plan registrado.'}"
+- Descripción del Riesgo: "${riesgo.descripcion}"
 
-INSTRUCCIONES DE NARRATIVA Y COHERENCIA INTEGRAL:
-1. HALLAZGOS: Analiza la descripción del riesgo e integra explícitamente las observaciones/hallazgos registrados (${riesgo.seguimientoBitacora || 'si no hay hallazgos, destaca la ausencia de desviaciones'}).
-2. PLAN DE ACCIÓN Y RECOMENDACIONES: Toma como BASE OBLIGATORIA el "Plan de Acción Oficial" (${riesgo.planAccionRiesgo || 'sugerido'}), complementándolo con tu criterio profesional sin contradecir la decisión de la empresa.
-3. COHERENCIA: Explica cómo los ${totalControlesReal} controles soportan una madurez del ${madurezReal}% y aseguran la mitigación del ${coberturaReal}%.
+INSTRUCCIONES CRÍTICAS PARA GENERAR VALOR ESTRATÉGICO:
 
-Genera la respuesta estructurada en el JSON requerido para la interfaz.`;      
+1. ANÁLISIS CRÍTICO DE HALLAZGOS (Efectividad Operativa vs. Diseño):
+   - Revisa minuciosamente el campo 'Observaciones / Hallazgos de Bitácora'.
+   - SI DETECTAS UN HALLAZGO (ej. desactualización de datos, descuadres, fallas en inventario), DEBES ADVERTIR EXPLÍCITAMENTE en la sección de Hallazgos y en el Dictamen que existe una **"FALSA SENSACIÓN DE SEGURIDAD"**. Explica a la Junta que, aunque matemáticamente el diseño de los ${totalControlesReal} controles da una cobertura del ${coberturaReal}%, en la práctica el hallazgo demuestra que los controles NO están siendo ejecutados con efectividad.
+   - Analiza el IMPACTO REAL de ese hallazgo sobre el negocio (pérdidas financieras, distorsión en estados financieros, compras innecesarias de activos, etc.).
+
+2. DICTAMEN DEL DIRECTOR CON VALOR AÑADIDO:
+   - Si hay un hallazgo crítico, el dictamen NO debe ser "ejemplar" ni de felicitación. Debe ser un dictamen de **"ALERTA OPERATIVA / ATENCIÓN REQUERIDA"**, instando a la Gerencia a corregir la falla humana/sistémica de inmediato.
+   - Si NO hay hallazgos en la bitácora, valida que la operación se mantiene alineada con el diseño teórico.
+
+3. PLAN DE ACCIÓN Y RECOMENDACIONES:
+   - El Plan de Acción debe atacar directamente la Causa Raíz identificada en el hallazgo de la bitácora (ej. auditoría física de choque, automatización de conciliaciones en Zeus/ERP).
+
+4. RESTRICCIÓN DE INTEGRIDAD:
+   - Utiliza exactamente las métricas proporcionadas (${scoreRiesgoReal}%, ${madurezReal}%, ${totalControlesReal} controles) para explicar la brecha. NUNCA inventes porcentajes externos que no existan.
+
+Genera la respuesta estructurada en el JSON requerido para la interfaz.`;    
 // 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
       
