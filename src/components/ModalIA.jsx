@@ -38,7 +38,8 @@ export default function ModalIA({ aiModal, setAiModal }) {
     await new Promise(resolve => setTimeout(resolve, 400));
 
     // C. Tomamos la fotografía
-    const fileName = `Dictamen_Riesgo_${data?.encabezado?.codigo || 'ERIR'}.pdf`;
+const safeTitle = (aiModal?.titulo || 'Informe').replace(/[^a-zA-Z0-9]/g, '_');
+const fileName = `${safeTitle}.pdf`;
     await exportarA_PDF(pdfRef, fileName);
 
     // D. Dejamos el acordeón como estaba y quitamos la pantalla de carga
@@ -74,7 +75,9 @@ export default function ModalIA({ aiModal, setAiModal }) {
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-950/80 border border-cyan-800/50 px-2 py-0.5 rounded-md">Panel Ejecutivo Inteligente</span>
-                  <span className="text-[10px] font-mono font-bold text-slate-400">{data?.encabezado?.codigo || 'RSK-ANALYSIS'}</span>
+<span className="text-[10px] font-mono font-bold text-slate-400">
+  {aiModal?.titulo?.includes('Global') ? 'MATRIZ GLOBAL' : (data?.encabezado?.codigo || 'RSK-ANALYSIS')}
+</span>
                 </div>
                 <h3 className="font-extrabold text-base text-slate-100 mt-0.5">{aiModal.titulo || data?.encabezado?.proceso || 'Análisis del Riesgo Corporativo'}</h3>
               </div>
@@ -90,7 +93,9 @@ export default function ModalIA({ aiModal, setAiModal }) {
                  {/* 👇 NUEVO: TÍTULO Y CÓDIGO DEL RIESGO (Visible en el PDF) 👇 */}
                   <div className="mb-1 border-b border-slate-800/60 pb-4">
                     <h2 className="text-lg font-black text-slate-100 flex items-center gap-3">
-                      <span className="whitespace-nowrap shrink-0 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
+<span className="whitespace-nowrap shrink-0 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
+  {aiModal?.titulo?.includes('Global') ? '🌍 REPORTE CORPORATIVO' : (data.encabezado.codigo || 'RSK-ANALYSIS')}
+</span>
                         {data.encabezado.codigo || 'RSK-ANALYSIS'}
                       </span>
                       <span>{aiModal.titulo || data.encabezado.proceso || 'Dictamen de Riesgo Corporativo'}</span>
@@ -101,7 +106,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
                   <div className="flex flex-wrap items-center gap-2 pb-1">
                     <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>Inh: {data.encabezado.riesgoInherenteLabel || 'Alto'}</span>
                     <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400"></span>Residual: {data.encabezado.riesgoResidualLabel || 'Bajo'}</span>
-                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data.encabezado.calidadRegistroScore}/100</span>
+                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data?.encabezado?.calidadRegistroScore || data?.encabezado?.calidad || data?.kpis?.calidad || 90}/100</span>
                   </div>
 
                   {/* KPIS */}
