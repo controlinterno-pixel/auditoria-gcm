@@ -123,7 +123,7 @@ const EficaciaGauge = ({ porcentaje = 75 }) => {
     </div>
   );
 };
-// 🧮 CALCULADORA METODOLÓGICA DE EFICACIA SEGÚN TABLA 6 DEL MANUAL DE RIESGOS (TERMALES S.A.)
+// 🧮 CALCULADORA METODOLÓGICA DE EFICACIA SEGÚN TABLA 6 DEL MANUAL DE RIESGOS (Termales de Santa Rosa de Cabal.)
 const calcularEficaciaControl = (c) => {
   if (!c) return 75;
   let score = 0;
@@ -1216,7 +1216,7 @@ const renderMatriz = () => {
               <span>🧮 AUDITORÍA METODOLÓGICA Y DESGLOSE DEL CÁLCULO RESIDUAL</span>
             </h5>
             <span className="text-[10px] bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-mono font-bold px-2.5 py-1 rounded-full">
-              ISO 31000 — Termales S.A.
+              ISO 31000 — Termales de Santa Rosa de Cabal.
             </span>
           </div>
 
@@ -1412,7 +1412,7 @@ const renderMatriz = () => {
 
               {/* Nota metodológica */}
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[10px] text-slate-600 leading-relaxed">
-                <p className="font-bold text-slate-800 mb-1">📖 Regla del Manual de Riesgos (Termales S.A.):</p>
+                <p className="font-bold text-slate-800 mb-1">📖 Regla del Manual de Riesgos (Termales de Santa Rosa de Cabal.):</p>
                 "Los controles Preventivos y Automáticos otorgan la ponderación más alta (+30% y +25%) debido a que atacan directamente la causa raíz del riesgo antes de que ocurra el evento."
               </div>
 
@@ -1490,7 +1490,7 @@ const renderMatriz = () => {
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>
           <h2 className="text-2xl font-black text-slate-800">Matriz de Riesgos</h2>
-          <p className="text-xs text-slate-500 font-bold mt-1">Gestión corporativa integral de riesgos y controles (ISO 31000 - Termales S.A)</p>
+          <p className="text-xs text-slate-500 font-bold mt-1">Gestión corporativa integral de riesgos y controles (ISO 31000 - Termales de Santa Rosa de Cabal.)</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Dashboard</button>
