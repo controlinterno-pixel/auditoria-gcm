@@ -651,17 +651,15 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
       const planesVencidos = planesDeAccion.filter(p => p.estado === 'Vencido' || p.vencido).length || 19;
 
 // ====================================================================
-      // 2. PROMPT STRICTO CORPORATIVO (SIN NEGATIVE PROMPTS)
+      // 2. PROMPT STRICTO CORPORATIVO (ENFOQUE 70/30 INTEGRAL)
       // ====================================================================
-      // 🔥 ELIMINAMOS cualquier mención al 36% o 20% para que la IA no los tenga en su contexto.
       const promptGlobalReal = `Actúa como Socio Director Global de Enterprise Risk Management (ERM) de una firma Big Four.
 Tu misión es redactar el Informe Estratégico General de la MATRIZ CORPORATIVA COMPLETA (${totalRiesgos} RIESGOS Y ${totalControles} CONTROLES) para la Junta Directiva de Termales de Santa Rosa de Cabal.
 
-ESTABLECIMIENTO DE CONTEXTO OBLIGATORIO:
-- Este informe evalúa la TOTALIDAD DE LA EMPRESA, NO UN PROCESO INDIVIDUAL.
-- Queda estrictamente prohibido referirse a un solo riesgo o a un solo proceso. Estás evaluando los ${totalControles} controles corporativos.
+REGLA DE ORO DE PROPORCIÓN: Tu análisis debe enfocarse un 70% en el diseño de la Matriz de Riesgos y un 30% en los resultados de auditoría como prueba de estrés operativo.
 
-🏛️ MÉTRICAS OFICIALES OBLIGATORIAS (ÚNICAS PERMITIDAS EN EL TEXTO):
+ESTABLECIMIENTO DE CONTEXTO OBLIGATORIO:
+- Este informe evalúa la TOTALIDAD DE LA EMPRESA. Queda estrictamente prohibido referirse a un solo riesgo o a un solo proceso. Estás evaluando los ${totalControles} controles corporativos.
 - Score de Riesgo Residual Global: ${avgResidualScore}%
 - Madurez de Controles Global: ${madurezGlobal}%
 - Cobertura de Mitigación Global: ${mitigacionPromedio}%
@@ -671,8 +669,10 @@ ESTABLECIMIENTO DE CONTEXTO OBLIGATORIO:
 - Taxonomía ISO: ${topCategoriasStr}
 - Soporte Operativo: ${totalHallazgos} hallazgos de auditoría y ${planesVencidos} planes de acción vencidos de ${totalPlanes}.
 
-REGLA DE ORO DE COHERENCIA NUMÉRICA:
-- Argumenta la brecha operativa explicando que los ${totalHallazgos} hallazgos y los ${planesVencidos} planes vencidos afectan la EFECTIVIDAD PRÁCTICA, pero MANTÉN SIEMPRE Y EXCLUSIVAMENTE los porcentajes oficiales del ${avgResidualScore}% de riesgo y ${madurezGlobal}% de madurez.
+REGLAS DE REDACCIÓN LÓGICA (ESTRICTO):
+1. Elogia el Diseño (La Matriz): Tienes una matriz madura con ${totalRiesgos} riesgos identificados y ${totalControles} controles, logrando una altísima cobertura teórica del ${mitigacionPromedio}% y llevando el riesgo residual a un excelente ${avgResidualScore}%. Redacta esto como un logro estratégico y robusto de la gerencia. NUNCA hables de "baja cobertura" ni de un "riesgo crítico". 
+2. Cuestiona la Ejecución (Auditoría): Usa los ${totalHallazgos} hallazgos y los ${planesVencidos} planes de acción vencidos como un contraste. Explica que, aunque el diseño de la matriz es de clase mundial, la madurez real es del ${madurezGlobal}% debido a la falta de disciplina operativa reflejada en los planes vencidos.
+3. El Riesgo Real: Advierte a la Junta Directiva que los controles existen en el papel, pero si no se ejecutan los planes de acción, esa alta cobertura del ${mitigacionPromedio}% creará una "falsa sensación de seguridad".
 
 FORMATO DE SALIDA JSON EXACTO:
 {
