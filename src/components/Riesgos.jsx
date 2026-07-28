@@ -637,8 +637,14 @@ REGLAS ESTRATÉGICAS Y DE FORMATO:
 ### 🚀 5. Roadmap Ejecutivo & Quick Wins
 (Plan estratégico de remediación y decisiones clave para la Junta Directiva)
 
-> **Dictamen Ejecutivo Final:** (Agrega un blockquote final lapidario y profesional con tu recomendación como Socio Director).`;
+> **Dictamen Ejecutivo Final:** (Agrega un blockquote final lapidario y profesional con tu recomendación como Socio Director).
 
+REGLA CRÍTICA PARA EL FORMATO JSON: Si tu motor está configurado para devolver un objeto JSON estricto para renderizar la interfaz gráfica, DEBES inyectar matemáticamente estos valores en tu respuesta JSON, o el sistema colapsará:
+- encabezado.codigo: "MATRIZ-GLOBAL"
+- kpis.scoreRiesgo: ${avgResidualScore}
+- kpis.scoreMadurez: ${madurezGlobal}
+- kpis.totalControles: ${totalControles}
+- kpis.coberturaControles: ${mitigacionPromedio}`;
       const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
       
       setDictamenIA({
