@@ -207,12 +207,13 @@ export default function DashboardEjecutivo({
   const cronogramaBase = typeof cFiltrados !== 'undefined' ? cFiltrados : (typeof cronograma !== 'undefined' ? cronograma : []);
   const proximasAuditorias = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) < 100).slice(0, 4);
 
-  const solicitarDictamenIA = async (tipoCard) => {
+const solicitarDictamenIA = async (tipoCard) => {
     setProcesandoIA(true); 
     setDictamenIA(null);
 
     try {
-      let promptIA = `Actúa como Director de GRC y genera un análisis ejecutivo de máximo 3 líneas sobre el siguiente indicador: `;
+      // 1. Modificamos el prompt para EXIGIR una recomendación
+      let promptIA = `Actúa como Director de GRC. Analiza este indicador y genera un breve diagnóstico ejecutivo de 2 líneas, seguido de una recomendación puntual de acción: `;
       let tituloModal = "";
       
       if (tipoCard === 'cumplimiento') {
@@ -234,21 +235,27 @@ export default function DashboardEjecutivo({
 
       const respuestaIA = await analizarRiesgoConIA(promptIA);
       
-      // 🧹 NUEVA LÓGICA: Limpiador de formato JSON
       let textoLimpio = respuestaIA;
       try {
-        // Intentamos parsear la respuesta por si viene en formato JSON
         const objetoIA = typeof respuestaIA === 'string' ? JSON.parse(respuestaIA) : respuestaIA;
         
-        // Extraemos el texto del campo 'dictamenDirector' o el primer 'hallazgo'
         if (objetoIA && typeof objetoIA === 'object') {
-            textoLimpio = objetoIA.dictamenDirector || 
-                          (objetoIA.hallazgos && objetoIA.hallazgos[0]) || 
-                          (objetoIA.recomendaciones && objetoIA.recomendaciones[0]) || 
-                          "Análisis completado (Formato de IA no estándar).";
+            // 2. Extraemos el dictamen principal
+            const diagnostico = objetoIA.dictamenDirector || 
+                                (objetoIA.hallazgos && objetoIA.hallazgos[0]) || 
+                                "Análisis completado.";
+            
+            // 3. Extraemos la recomendación (si el motor la envía en un array o texto)
+            const recomendacion = (objetoIA.recomendaciones && objetoIA.recomendaciones[0]) || "";
+
+            // 4. Armamos el texto final uniendo ambos con un salto de línea
+            if (recomendacion) {
+                textoLimpio = `${diagnostico}\n\n💡 Recomendación: ${recomendacion}`;
+            } else {
+                textoLimpio = diagnostico;
+            }
         }
       } catch (e) {
-        // Si da error el JSON.parse, significa que ya era texto plano, no hacemos nada
         console.log("Respuesta IA recibida en texto plano.");
       }
 
@@ -259,7 +266,7 @@ export default function DashboardEjecutivo({
     } finally {
       setProcesandoIA(false);
     }
-  };
+  };  
   let allActivity = [];
   const parseDateStr = (dateStr) => {
     try {
@@ -329,19 +336,31 @@ export default function DashboardEjecutivo({
   return (
     <div className="flex-1 bg-[#060b16] text-slate-100 overflow-y-auto p-6 font-sans space-y-6 scrollbar-thin select-none relative">
       
-      {/* ─── 🤖 CAPA DE ENFOQUE INTELIGENTE ─── */}
-      {(procesandoIA || dictamenIA) && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in">
-          {dictamenIA && (
-            <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-2xl relative border-l-4 border-l-emerald-500 w-full">
-              <button onClick={() => setDictamenIA(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs font-bold uppercase bg-[#1e293b] px-2.5 py-1 rounded-xl">✕ Cerrar</button>
-              <h3 className="text-sm font-black text-white uppercase mb-4">{dictamenIA.titulo}</h3>
-              <div className="text-emerald-300 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20">{dictamenIA.dictamen}</div>
+      {/* ─── 🤖 PANTALLA DE CARGA (LOADER) Y MODAL DE IA ─── */}
+      {procesandoIA && (
+        <div className="fixed inset-0 bg-[#0B1120]/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-[#1A2235] p-8 rounded-2xl shadow-2xl border border-slate-700 flex flex-col items-center max-w-sm w-full">
+            <div className="text-6xl animate-spin mb-6 drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+              ⚙️
             </div>
-          )}
+            <h3 className="text-emerald-400 font-bold text-sm tracking-widest uppercase text-center mt-2">
+              MOTOR GRC ENTERPRISE ANALIZANDO DATOS...
+            </h3>
+          </div>
         </div>
       )}
 
+      {dictamenIA && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in">
+          <div className="bg-[#0f172a] border border-slate-800 p-6 rounded-3xl shadow-2xl max-w-2xl relative border-l-4 border-l-emerald-500 w-full">
+            <button onClick={() => setDictamenIA(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white text-xs font-bold uppercase bg-[#1e293b] px-2.5 py-1 rounded-xl">✕ Cerrar</button>
+            <h3 className="text-sm font-black text-white uppercase mb-4">{dictamenIA.titulo}</h3>
+            <div className="text-emerald-300 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20 whitespace-pre-wrap text-sm leading-relaxed">
+              {dictamenIA.dictamen}
+            </div>
+          </div>
+        </div>
+      )}
       {/* ─── ENCABEZADO PREMIUM Y FILTROS ─── */}
       <div className="bg-[#0a1122] border border-blue-500/10 p-5 rounded-2xl shadow-md space-y-4 mb-4 relative z-50">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800/80 pb-4 gap-4">
