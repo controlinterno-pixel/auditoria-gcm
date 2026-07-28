@@ -206,19 +206,27 @@ const [ayudaModal, setAyudaModal] = useState(null);
   const [riesgoId, setRiesgoId] = useState('');
   const [customId, setCustomId] = useState('');
   
-  // 🔢 FUNCIÓN PARA CALCULAR EL CONSECUTIVO (Ignora los viejos que eran muy largos)
+  // 🔢 FUNCIÓN BLINDADA PARA CALCULAR EL CONSECUTIVO EXACTO
   const handleNuevoRiesgo = () => {
     setEditRiesgo(null);
     setRiesgoId('');
     
     const maxId = safeRiesgos.reduce((max, r) => {
-      const idStr = String(r.id);
-      if (idStr.length > 10) return max; // Ignorar IDs viejos generados por fecha o UUID
-      const num = parseInt(idStr.replace(/\D/g, '')) || 0;
-      return num > max ? num : max;
+      const idStr = String(r.id).trim();
+      
+      // 🔥 REGLA ESTRICTA: 
+      // 1. /^\d+$/ verifica que el ID contenga ÚNICAMENTE números (nada de letras ni guiones).
+      // 2. length < 8 asegura que ignoremos los números gigantes (como los timestamps de 13 dígitos).
+      if (/^\d+$/.test(idStr) && idStr.length < 8) {
+        const num = parseInt(idStr, 10);
+        return num > max ? num : max;
+      }
+      
+      return max;
     }, 0);
     
-    setCustomId(maxId + 1);
+    // Si encuentra el 662, aquí le sumará 1 y te pondrá el 663 automáticamente.
+    setCustomId(maxId + 1); 
     setVistaActiva('nuevo');
   };
 
