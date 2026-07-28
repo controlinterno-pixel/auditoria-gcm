@@ -90,12 +90,10 @@ const fileName = `${safeTitle}.pdf`;
             <div ref={pdfRef} className="space-y-6 bg-slate-900 p-2 text-slate-100 rounded-2xl">
               {isDashboardData && data ? (
                 <>
-                 {/* 👇 NUEVO: TÍTULO Y CÓDIGO DEL RIESGO (Visible en el PDF) 👇 */}
+                {/* 👇 NUEVO: TÍTULO Y CÓDIGO DEL RIESGO (Visible en el PDF) 👇 */}
                   <div className="mb-1 border-b border-slate-800/60 pb-4">
                     <h2 className="text-lg font-black text-slate-100 flex items-center gap-3">
-<span className="whitespace-nowrap shrink-0 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
-  {aiModal?.titulo?.includes('Global') ? '🌍 REPORTE CORPORATIVO' : (data.encabezado.codigo || 'RSK-ANALYSIS')}
-</span>
+                      <span className="whitespace-nowrap shrink-0 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
                         {data.encabezado.codigo || 'RSK-ANALYSIS'}
                       </span>
                       <span>{aiModal.titulo || data.encabezado.proceso || 'Dictamen de Riesgo Corporativo'}</span>
@@ -106,9 +104,8 @@ const fileName = `${safeTitle}.pdf`;
                   <div className="flex flex-wrap items-center gap-2 pb-1">
                     <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>Inh: {data.encabezado.riesgoInherenteLabel || 'Alto'}</span>
                     <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400"></span>Residual: {data.encabezado.riesgoResidualLabel || 'Bajo'}</span>
-<span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data?.encabezado?.calidadRegistroScore || data?.encabezado?.calidad || data?.kpis?.calidad || 90}/100</span>
+                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data?.encabezado?.calidadRegistroScore || data?.encabezado?.calidad || data?.kpis?.calidad || 90}/100</span>
                   </div>
-
                   {/* KPIS */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
