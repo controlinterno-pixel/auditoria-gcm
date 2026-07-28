@@ -182,3 +182,83 @@ ESTRUCTURA JSON REQUERIDA:
     }
   });
 };
+
+// ==========================================
+// FUNCIÓN EXCLUSIVA PARA EL DASHBOARD EJECUTIVO
+// ==========================================
+export const generarDictamenEjecutivo = async (datosContexto) => {
+  const prompt = `
+Actúa como un Socio Director Global de Consultoría GRC, Enterprise Risk Management (ERM), Auditoría Interna y Gobierno Corporativo con más de 25 años de experiencia asesorando Juntas Directivas, Comités de Auditoría y CEOs de compañías Fortune 500.
+
+Tu función NO es describir indicadores. Tu función es interpretar lo que significan para el negocio.
+
+Analiza los datos utilizando pensamiento ejecutivo, juicio profesional y estándares internacionales (ISO 31000, COSO ERM, IIA, COBIT, ISO 37301).
+- No inventes información.
+- Nunca afirmes algo que los datos no soporten.
+- Si existen supuestos debes indicarlo claramente.
+- Tu respuesta debe parecer escrita por un consultor senior de una Big Four.
+- No escribas listas ni definiciones; escribe un análisis ejecutivo continuo.
+
+Evalúa: nivel de exposición real, tendencia, madurez, eficacia del control interno, impacto operativo, financiero, regulatorio y reputacional, capacidad de respuesta y nivel de gobernanza.
+
+DATOS A EVALUAR:
+${typeof datosContexto === 'object' ? JSON.stringify(datosContexto, null, 2) : datosContexto}
+
+Redacta un único dictamen ejecutivo de aproximadamente 180 a 250 palabras.
+El texto debe: sonar profesional, estratégico, objetivo y técnico. No exagerar, no utilizar lenguaje comercial, ni frases vacías, ni repetir números innecesariamente. Si el indicador es bueno explica por qué. Si es malo explica sus consecuencias.
+
+Finaliza el texto con un nuevo párrafo que comience con el icono 💡 incluyendo la recomendación ejecutiva orientada a la Alta Dirección.
+
+FORMATO DE SALIDA (OBLIGATORIO JSON STRICTO):
+Responde ÚNICAMENTE en formato JSON con la siguiente estructura exacta:
+{
+  "titulo": "TÍTULO CORTO Y EJECUTIVO (Máx 5 palabras)",
+  "dictamen": "Aquí va el análisis ejecutivo continuo de 180-250 palabras...\n\n💡 Recomendación: [Acción prioritaria orientada a la Alta Dirección con metas concretas]."
+}
+`;
+
+  for (let i = 0; i < API_KEYS.length; i++) {
+    const currentKey = API_KEYS[i];
+    const genAI = new GoogleGenerativeAI(currentKey);
+
+    for (const modelName of MODEL_NAMES) {
+      try {
+        console.log(`🤖 [Dashboard] Intentando con Key #${i + 1} y Modelo: ${modelName}...`);
+
+        const model = genAI.getGenerativeModel({ 
+          model: modelName, 
+          safetySettings,
+          generationConfig: { 
+            temperature: 0.2, 
+            topP: 0.8, 
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json"
+          }
+        });
+
+        const result = await model.generateContent(prompt);
+        let jsonText = await result.response.text();
+        
+        jsonText = jsonText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+        
+        const startIndex = jsonText.indexOf('{');
+        const endIndex = jsonText.lastIndexOf('}');
+        
+        if (startIndex !== -1 && endIndex !== -1) {
+          jsonText = jsonText.substring(startIndex, endIndex + 1);
+        }
+
+        console.log(`✅ [Dashboard] ¡Éxito en respuesta generada!`);
+        return jsonText;
+      } catch (err) {
+        console.warn(`⚠️ [Dashboard] Falló Key #${i + 1} con modelo ${modelName}. Motivo: ${err.message || err}`);
+      }
+    }
+  }
+
+  console.error("❌ Fallaron todas las claves para el Dashboard.");
+  return JSON.stringify({
+    titulo: "Límite Alcanzado",
+    dictamen: "Todas las llaves de acceso a la IA sobrepasaron su límite de peticiones. Por favor, intenta de nuevo más tarde.\n\n💡 Recomendación: Revisar cuotas en Google AI Studio o cambiar la API Key."
+  });
+};

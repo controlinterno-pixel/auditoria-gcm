@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { formatSafeDate } from '../utils/helpers';
-import { analizarRiesgoConIA } from '../services/aiEngine';
-
+import { generarDictamenEjecutivo } from '../services/aiEngine';
 // 🧹 Normalizador estricto para emparejar cadenas
 const normalizeStr = (str) => {
   if (!str) return "";
@@ -212,61 +211,45 @@ const solicitarDictamenIA = async (tipoCard) => {
     setDictamenIA(null);
 
     try {
-      // 1. Modificamos el prompt para EXIGIR una recomendación
-      let promptIA = `Actúa como Director de GRC. Analiza este indicador y genera un breve diagnóstico ejecutivo de 2 líneas, seguido de una recomendación puntual de acción: `;
+      let datosParaIA = "";
       let tituloModal = "";
       
       if (tipoCard === 'cumplimiento') {
         tituloModal = "Cumplimiento Global";
-        promptIA += `Cumplimiento de planes al ${avancePlanesGlobal}%.`;
+        datosParaIA = `Cumplimiento Global de Planes de Acción en ${avancePlanesGlobal}%. Total Planes: ${totalPlanes}, Activos: ${planesActivos}, Vencidos: ${planesVencidos}.`;
       } else if (tipoCard === 'riesgos') {
         tituloModal = "Inventario de Riesgos";
-        promptIA += `Tenemos ${totalRiesgos} riesgos activos (${riesgosExtremos} Extremos y ${riesgosAltos} Altos).`;
+        datosParaIA = `Inventario de Riesgos Residuales. Total: ${totalRiesgos} (${riesgosExtremos} Extremos, ${riesgosAltos} Altos, ${riesgosModerados} Moderados, ${riesgosBajos} Bajos).`;
       } else if (tipoCard === 'controles') {
         tituloModal = "Efectividad de Controles";
-        promptIA += `La efectividad evaluada es del ${efectividadControlesGlobal}%.`;
+        datosParaIA = `Efectividad de Controles Auditados en ${efectividadControlesGlobal}%. Total Evaluaciones Eficaces vs Total Evaluadas.`;
       } else if (tipoCard === 'hallazgos') {
         tituloModal = "Desviaciones Abiertas";
-        promptIA += `Tenemos ${hallazgosAbiertos} hallazgos abiertos (${hallazgosCriticosCount} críticos).`;
+        datosParaIA = `Hallazgos/Desviaciones Abiertas: ${hallazgosAbiertos} total, con ${hallazgosCriticosCount} en nivel Crítico/Alto.`;
       } else if (tipoCard === 'planes') {
         tituloModal = "Planes en Ejecución";
-        promptIA += `Tenemos ${planesActivos} planes en ejecución y ${planesVencidos} vencidos.`;
+        datosParaIA = `Planes de Acción en Ejecución: Activos: ${planesActivos}, Vencidos/Retrasados: ${planesVencidos}. Avance Global: ${avancePlanesGlobal}%.`;
       }
 
-      const respuestaIA = await analizarRiesgoConIA(promptIA);
+const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
       
-      let textoLimpio = respuestaIA;
+      let objetoRespuesta = { titulo: tituloModal, dictamen: "" };
       try {
-        const objetoIA = typeof respuestaIA === 'string' ? JSON.parse(respuestaIA) : respuestaIA;
-        
-        if (objetoIA && typeof objetoIA === 'object') {
-            // 2. Extraemos el dictamen principal
-            const diagnostico = objetoIA.dictamenDirector || 
-                                (objetoIA.hallazgos && objetoIA.hallazgos[0]) || 
-                                "Análisis completado.";
-            
-            // 3. Extraemos la recomendación (si el motor la envía en un array o texto)
-            const recomendacion = (objetoIA.recomendaciones && objetoIA.recomendaciones[0]) || "";
-
-            // 4. Armamos el texto final uniendo ambos con un salto de línea
-            if (recomendacion) {
-                textoLimpio = `${diagnostico}\n\n💡 Recomendación: ${recomendacion}`;
-            } else {
-                textoLimpio = diagnostico;
-            }
-        }
+        const parsed = typeof respuestaIA === 'string' ? JSON.parse(respuestaIA) : respuestaIA;
+        objetoRespuesta.titulo = parsed.titulo || tituloModal;
+        objetoRespuesta.dictamen = parsed.dictamen || respuestaIA;
       } catch (e) {
-        console.log("Respuesta IA recibida en texto plano.");
+        objetoRespuesta.dictamen = typeof respuestaIA === 'string' ? respuestaIA : JSON.stringify(respuestaIA);
       }
 
-      setDictamenIA({ titulo: tituloModal, dictamen: textoLimpio });
+      setDictamenIA(objetoRespuesta);
     } catch (error) {
       console.error("Error al obtener IA:", error);
       setDictamenIA({ titulo: "Error", dictamen: "Falló la conexión con el motor GRC." });
     } finally {
       setProcesandoIA(false);
     }
-  };  
+  };
   let allActivity = [];
   const parseDateStr = (dateStr) => {
     try {
