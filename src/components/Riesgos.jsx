@@ -621,16 +621,19 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         ? Math.round(safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgos)
         : 0;
 
-      // 2. Comprimir la matriz para contexto específico
+      // 2. Comprimir la matriz para contexto específico (INCLUYE HALLAZGOS Y PLANES DE ACCIÓN)
       const matrizComprimida = safeRiesgos.map(r => ({
         ID: r.id,
-        Proceso: r.proceso,
-        Inh: `${r.probabilidadInherente}% x ${r.impactoInherente}%`,
-        Res: `${r.probabilidadResidual}% x ${r.impactoResidual}%`,
-        Tratamiento: r.tratamiento
+        Proceso: r.proceso || r.macroproceso,
+        Subproceso: r.subproceso,
+        Inh: `${r.probabilidadInherente ?? 60}% x ${r.impactoInherente ?? 80}%`,
+        Res: `${r.probabilidadResidual ?? 15}% x ${r.impactoResidual ?? 30}%`,
+        Tratamiento: r.tratamiento,
+        HallazgosBitacora: r.seguimientoBitacora || 'Sin hallazgos u observaciones de auditoría en bitácora',
+        PlanAccion: r.planAccionRiesgo || 'Sin plan de acción registrado'
       }));
 
-      // 3. SÚPER PROMPT CON CANDADO DE DATOS GLOBALES
+      // 3. SÚPER PROMPT CON AUDITORÍA DE HALLAZGOS Y PLANES
       const promptGlobalReal = `Actúa como Socio Director Global de GRC, Enterprise Risk Management y Auditoría Interna de una firma Big Four.
 Tu misión es elaborar un informe corporativo de inteligencia estratégica para ser presentado a la Junta Directiva de Termales de Santa Rosa de Cabal.
 
@@ -643,35 +646,38 @@ El sistema automatizado ERIR ya calculó los KPIs oficiales. DEBES usar EXACTAME
 - Distribución de Riesgos Residuales: ${extremos} Extremos, ${altos} Altos, ${moderados} Moderados, ${bajos} Bajos.
 - Total de Controles Implementados: ${totalControles}
 
-Aquí tienes el detalle de los riesgos (formato comprimido) para que evalúes concentraciones y procesos críticos:
+DETALLE COMPLETO DE MATRIZ, HALLAZGOS DE BITÁCORA Y PLANES DE ACCIÓN:
 ${JSON.stringify(matrizComprimida)}
 
 REGLAS ESTRATÉGICAS Y DE FORMATO:
 - NUNCA digas que eres una IA. Redacta con estilo McKinsey, PwC o KPMG.
 - 🚨 REGLA DE INTEGRIDAD DE DATOS (CRÍTICA): En tus párrafos de Hallazgos, Recomendaciones y Análisis, DEBES redactar basándote en la madurez real del ${madurezGlobal}% y el Score Global del ${avgResidualScore}%. 
 - ESTÁ ESTRICTAMENTE PROHIBIDO inventar métricas, mencionar una madurez del 20% o un score del 36%. Usa ÚNICAMENTE las variables proporcionadas en el CANDADO MATEMÁTICO.
-- Interpreta qué significan estos números reales para el negocio (ej. Si la madurez global es ${madurezGlobal}%, explica a la Junta si es un nivel peligroso o aceptable frente a ISO 31000).
+- 🚨 ANÁLISIS SINTÉTICO DE HALLAZGOS Y PLANES EN TODA LA EMPRESA:
+  * Examina los campos 'HallazgosBitacora' y 'PlanAccion' de los riesgos.
+  * Identifica si existen patrones sistémicos o recurrentes de fallas operativas (ej. desactualización de datos, descuadres de inventarios, demoras de mantenimiento o fallas humanas).
+  * Si detectas brechas entre el diseño teórico del control y las observaciones reales registradas en bitácora, advierte formalmente a la Junta Directiva sobre cualquier **"Falsa Sensación de Seguridad"** en los procesos expuestos.
 - Utiliza Markdown avanzado para simular "tarjetas ejecutivas" limpias y modernas.
 - Estructura tu respuesta EXACTAMENTE con estos 5 bloques, usando separadores (---) y encabezados (###):
 
 ### 🏛️ 1. Executive Summary & Salud de la Organización
-(Evalúa el ecosistema global interpretando los KPIs proporcionados)
+(Evalúa el ecosistema global interpretando los KPIs y sintetizando la efectividad operativa real a partir de las bitácoras)
 
 ---
 ### 📊 2. Heatmap Corporativo & Concentración
 (Analiza el top de riesgos y la distribución de severidad corporativa real: ${extremos} Extremos, ${altos} Altos, etc.)
 
 ---
-### ⚠️ 3. Brechas de Control y Calidad Metodológica
-(Diagnóstico basado en la madurez del ${madurezGlobal}% y el volumen de controles actual de la compañía)
+### ⚠️ 3. Brechas de Control, Hallazgos de Campo & Calidad Metodológica
+(Diagnóstico profundo consolidando las fallas de ejecución y hallazgos críticos detectados en la bitácora frente a la madurez del ${madurezGlobal}%)
 
 ---
 ### 💸 4. Exposición Financiera y Capital en Riesgo
-(Proyección basada en la mitigación actual del ${mitigacionPromedio}% y el Score Global del ${avgResidualScore}%)
+(Proyección basada en la mitigación actual del ${mitigacionPromedio}%, el impacto de los hallazgos operativos y el Score Global del ${avgResidualScore}%)
 
 ---
-### 🚀 5. Roadmap Ejecutivo & Quick Wins
-(Plan estratégico de remediación y decisiones clave para la Junta Directiva)
+### 🚀 5. Roadmap Ejecutivo & Quick Wins (Planes de Acción)
+(Evaluación estratégica de los planes de acción registrados y recomendaciones a 90 días para la Junta Directiva)
 
 > **Dictamen Ejecutivo Final:** (Agrega un blockquote final lapidario y profesional con tu recomendación como Socio Director).
 
