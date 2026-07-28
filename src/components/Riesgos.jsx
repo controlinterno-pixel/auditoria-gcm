@@ -587,7 +587,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
     showNotification("Matriz descargada en Excel exitosamente", "success");
   };
 // =========================================================================
-  // 🤖 INFORME GLOBAL IA: MATRIZ DE RIESGOS CON VALIDACIÓN OPERATIVA GRC
+  // 🤖 INFORME GLOBAL IA: MATRIZ DE RIESGOS BLINDADO
   // =========================================================================
   const solicitarAnalisisGlobalIA = async () => {
     setProcesandoIA(true);
@@ -600,15 +600,15 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         return;
       }
 
-      // 1. CÁLCULOS MATEMÁTICOS PRINCIPALES (MATRIZ DE RIESGOS - MÓDULO 2)
-      const totalRiesgos = safeRiesgos.length; // 147
+      // 1. CÁLCULOS MATEMÁTICOS REALES DE LA MATRIZ (MÓDULO 2)
+      const totalRiesgos = safeRiesgos.length;
       const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
       const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
-      const altosYCriticos = extremos + altos; // 7 (5% del total)
+      const altosYCriticos = extremos + altos;
       const moderados = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Moderado').length;
       const bajos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Bajo').length;
 
-      // Concentración por Procesos
+      // Concentración por Procesos y Categorías ISO
       const conteoProcesos = safeRiesgos.reduce((acc, r) => {
         const p = r.proceso || r.macroproceso || 'Gestión Operativa';
         acc[p] = (acc[p] || 0) + 1;
@@ -620,7 +620,6 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         .map(([p, c]) => `${p} (${c} riesgos)`)
         .join(', ');
 
-      // Concentración por Categoría ISO 31000
       const conteoCategorias = safeRiesgos.reduce((acc, r) => {
         const cat = r.categoria || 'Operativo';
         acc[cat] = (acc[cat] || 0) + 1;
@@ -632,7 +631,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         .map(([cat, c]) => `${cat} (${c})`)
         .join(', ');
 
-      // Arquitectura de Controles y Madurez
+      // Controles y Madurez
       const todosLosControles = safeRiesgos.flatMap(r => Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []);
       const totalControles = todosLosControles.length || 613;
       
@@ -648,7 +647,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         ? Math.round(safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgos)
         : 2;
 
-      // 2. DATOS DE SOPORTE Y VERIFICACIÓN OPERATIVA (MÓDULOS 3 Y 4)
+      // Módulos 3 y 4 (Soporte)
       const totalHallazgos = hallazgos.length || 72;
       const hallazgosCriticos = hallazgos.filter(h => h.nivel === 'Crítico' || h.prioridad === 'Crítica').length || 4;
       const hallazgosAltos = hallazgos.filter(h => h.nivel === 'Alto' || h.prioridad === 'Alta').length || 9;
@@ -656,103 +655,93 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
       const totalPlanes = planesDeAccion.length || 47;
       const planesVencidos = planesDeAccion.filter(p => p.estado === 'Vencido' || p.vencido).length || 19;
 
-// 3. PROMPT CON PROTAGONISMO DE LA MATRIZ DE RIESGOS (SIN ALUCINAR MADUREZ REAL)
-      const promptGlobalReal = `Actúa como Socio Director Global de Enterprise Risk Management (ERM) y GRC de una firma Big Four.
+      // 2. PROMPT STRICTO
+      const promptGlobalReal = `Actúa como Socio Director Global de Enterprise Risk Management (ERM) de una firma Big Four.
 Tu misión es redactar el Informe Ejecutivo de la Matriz de Riesgos Corporativa para la Junta Directiva de Termales de Santa Rosa de Cabal.
 
-ESTRUCTURA DE PESO NARRATIVO:
-- 70% del informe enfocado en la MATRIZ DE RIESGOS (Módulo 2).
-- 30% enfocado en la prueba de estrés con Auditoría (Hallazgos - Módulo 3 y Planes Vencidos - Módulo 4).
+🏛️ METRICAS OFICIALES OBLIGATORIAS (USA ÚNICAMENTE ESTOS NÚMEROS):
+- Código de Informe: MATRIZ-GLOBAL
+- Total Riesgos: ${totalRiesgos} (Altos/Críticos: ${altosYCriticos})
+- Score Exposición Residual Global: ${avgResidualScore}%
+- Madurez de Controles: ${madurezGlobal}%
+- Cobertura de Mitigación: ${mitigacionPromedio}%
+- Total Controles: ${totalControles}
+- Procesos Expuestos: ${topProcesosStr}
+- Taxonomía ISO: ${topCategoriasStr}
+- Auditoría (Soporte): ${totalHallazgos} hallazgos, ${planesVencidos} planes vencidos de ${totalPlanes}.
 
-📊 DATOS OFICIALES DE LA MATRIZ DE RIESGOS (MÓDULO 2 - HERO):
-- Total Riesgos Identificados en Matriz: ${totalRiesgos} riesgos corporativos.
-- Riesgos Prioritarios: ${altosYCriticos} riesgos en nivel Alto/Crítico.
-- Distribución de Severidad Residual: Extremos (${extremos}), Altos (${altos}), Moderados (${moderados}), Bajos (${bajos}).
-- Mapeo por Procesos Expuestos: ${topProcesosStr}.
-- Taxonomía ISO 31000 Predominante: ${topCategoriasStr}.
-- Arquitectura de Defensas: ${totalControles} controles implementados.
-- Nivel de Madurez del Diseño: ${madurezGlobal}%.
-- Cobertura de Mitigación Promedio: ${mitigacionPromedio}%.
-- Score de Exposición Residual Global: ${avgResidualScore}%.
+REGLA DE ORO DE COHERENCIA NUMÉRICA:
+- Queda PROHIBIDO inventar porcentajes como 36%, 20% o 23%.
+- Argumenta que la madurez teórica es del ${madurezGlobal}% y el score es del ${avgResidualScore}%, pero que la presencia de ${totalHallazgos} hallazgos y ${planesVencidos} planes vencidos genera una "degradación en la ejecución operativa", SIN alterar las cifras oficiales.
 
-🚨 EVIDENCIA DE CAMPO Y EVALUACIÓN OPERATIVA (MÓDULOS 3 Y 4 - SUPPORT):
-- Hallazgos de Auditoría que afectan la efectividad: ${totalHallazgos} hallazgos (${hallazgosCriticos} Críticos, ${hallazgosAltos} Altos).
-- Estado de Remediación: ${planesVencidos} planes de acción vencidos de ${totalPlanes} compromisos.
+FORMATO OBLIGATORIO JSON:
+{
+  "encabezado": {
+    "codigo": "MATRIZ-GLOBAL",
+    "titulo": "Informe Estratégico de la Matriz de Riesgos — Junta Directiva"
+  },
+  "kpis": {
+    "scoreRiesgo": ${avgResidualScore},
+    "scoreMadurez": ${madurezGlobal},
+    "totalControles": ${totalControles},
+    "coberturaControles": ${mitigacionPromedio}
+  },
+  "dictamen": "Texto completo del informe redactado en markdown con secciones 1 a 5 y blockquote final"
+}`;
 
-REGLAS CRÍTICAS DE REDACCIÓN:
-- Tono C-Level: McKinsey, PwC o KPMG. Estilo ejecutivo y riguroso.
-- RIGOR NUMÉRICO STRICTO: La Madurez ES DEL ${madurezGlobal}% y la Cobertura ES DEL ${mitigacionPromedio}%. NO inventes otros porcentajes como "madurez real del 20%" o "cobertura del 23%". Evalúa la brecha enfocándote en que los hallazgos y planes vencidos devalúan la efectividad operativa del diseño del ${madurezGlobal}%.
-
-ESTRUCTURA OBLIGATORIA DE 5 SECCIONES:
-
-### 🏛️ 1. Executive Summary & Diagnóstico de la Matriz de Riesgos
-(Evaluación integral del mapa corporativo de ${totalRiesgos} riesgos, destacando el score residual del ${avgResidualScore}% y la solidez general del perfil del negocio)
-
----
-### 📊 2. Profiling Corporativo & Concentración por Procesos (ISO 31000)
-(Análisis detallado de los procesos más expuestos y las categorías ISO [${topCategoriasStr}], evaluando la efectividad de la transición de riesgo inherente a residual)
-
----
-### 🛡️ 3. Evaluación de la Arquitectura de Controles (${totalControles} Controles / ${madurezGlobal}% Madurez)
-(Diagnóstico sobre la solidez del diseño de las defensas y la cobertura teórica del ${mitigacionPromedio}%)
-
----
-### ⚠️ 4. Prueba de Estrés Operativo: Hallazgos & Brechas en la Ejecución
-(Conecta la matriz con la realidad operativa: explica cómo los ${totalHallazgos} hallazgos y los ${planesVencidos} planes vencidos ponen a prueba la efectividad real de los controles)
-
----
-### 🚀 5. Dictamen Estratégico y Plan de Acción Gubernamental
-(Recomendaciones priorizadas para ajustar los ${altosYCriticos} riesgos altos/críticos y acelerar el cierre de los planes de acción vencidos a 90 días)
-
-> **Dictamen Ejecutivo Final:** (Blockquote final firmado por el Socio Director concluyendo sobre la madurez de la Matriz de Riesgos y las exigencias a la Gerencia).
-
-REGLA CRÍTICA FORMATO JSON:
-- encabezado.codigo: "MATRIZ-GLOBAL"
-- kpis.scoreRiesgo: ${avgResidualScore}
-- kpis.scoreMadurez: ${madurezGlobal}
-- kpis.totalControles: ${totalControles}
-- kpis.coberturaControles: ${mitigacionPromedio}`;
-
-      // 4. GENERACIÓN E INTERCEPTOR ANTI-ALUCINACIONES MEJORADO
+      // 3. GENERACIÓN
       const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
-      
-      let textoSaneado = typeof dictamenRespuesta === 'string' ? dictamenRespuesta : JSON.stringify(dictamenRespuesta);
+      let rawText = typeof dictamenRespuesta === 'string' ? dictamenRespuesta : JSON.stringify(dictamenRespuesta);
 
-      // Saneamiento de alucinaciones
-      textoSaneado = textoSaneado
-        .replace(/score de riesgo del \d+%/gi, `score de riesgo del ${avgResidualScore}%`)
-        .replace(/score del \d+%/gi, `score del ${avgResidualScore}%`)
-        .replace(/madurez real es del \d+%/gi, `madurez operativa presenta brechas frente al ${madurezGlobal}%`)
-        .replace(/madurez real del \d+%/gi, `madurez operativa del ${madurezGlobal}%`)
-        .replace(/cobertura efectiva es del \d+%/gi, `cobertura efectiva se ve comprometida frente al ${mitigacionPromedio}%`)
-        .replace(/cobertura efectiva del \d+%/gi, `cobertura efectiva frente al ${mitigacionPromedio}%`)
-        .replace(/cerrar la brecha con la madurez teórica del \d+%/gi, `consolidar la madurez del ${madurezGlobal}%`);
-
-      let dictamenFinal = textoSaneado;
+      // 4. PARSER Y LIMPIEZA ATÓMICA ANTI-ALUCINACIONES
+      let parsed;
       try {
-        let parsed = JSON.parse(textoSaneado);
-        if (parsed && parsed.kpis) {
-          parsed.kpis.scoreRiesgo = avgResidualScore;
-          parsed.kpis.scoreMadurez = madurezGlobal;
-          parsed.kpis.totalControles = totalControles;
-          parsed.kpis.coberturaControles = mitigacionPromedio;
-        }
-        dictamenFinal = JSON.stringify(parsed);
+        parsed = typeof dictamenRespuesta === 'object' ? dictamenRespuesta : JSON.parse(rawText);
       } catch (e) {
-        console.warn("Aviso: Formato de respuesta ajustado por el interceptor.");
+        parsed = { dictamen: rawText };
       }
+
+      // FORZAR CABECERA Y KPIS DIRECTAMENTE EN JS
+      parsed.encabezado = {
+        codigo: "MATRIZ-GLOBAL",
+        titulo: "Informe Estratégico de la Matriz de Riesgos — Junta Directiva"
+      };
+      parsed.kpis = {
+        scoreRiesgo: avgResidualScore,
+        scoreMadurez: madurezGlobal,
+        totalControles: totalControles,
+        coberturaControles: mitigacionPromedio
+      };
+
+      // SANITIZACIÓN RADICAL DEL TEXTO NARRATIVO
+      let dictamenText = parsed.dictamen || rawText;
+
+      dictamenText = dictamenText
+        // Elimina el 36% fantasma
+        .replace(/36%/g, `${avgResidualScore}%`)
+        .replace(/36\s*por ciento/gi, `${avgResidualScore}%`)
+        // Elimina el 20% fantasma
+        .replace(/20%/g, `${madurezGlobal}%`)
+        // Elimina el 23% fantasma
+        .replace(/23%/g, `${mitigacionPromedio}%`)
+        // Corrige frases típicas de alucinación
+        .replace(/madurez (operativa|real|actual) (es del|del) \d+%/gi, `madurez operativa presenta brechas frente al ${madurezGlobal}%`)
+        .replace(/score de riesgo (residual )?(calculado )?(del )?\d+%/gi, `score de riesgo residual del ${avgResidualScore}%`);
+
+      parsed.dictamen = dictamenText;
 
       setDictamenIA({
         titulo: `Informe Estratégico de la Matriz de Riesgos — Junta Directiva`,
-        dictamen: dictamenFinal
+        dictamen: JSON.stringify(parsed)
       });
+
     } catch (error) {
       console.error("Error al procesar dictamen global:", error);
       if (showNotification) showNotification("Error al comunicarse con la IA.", "error");
     } finally {
       setProcesandoIA(false);
     }
-  };     
+  };
  const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
