@@ -647,9 +647,29 @@ REGLA CRÍTICA PARA EL FORMATO JSON: Si tu motor está configurado para devolver
 - kpis.coberturaControles: ${mitigacionPromedio}`;
       const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
       
+      // 🔥 EL TRUCO DEFINITIVO: Interceptamos el JSON y forzamos TUS variables
+      let dictamenFinal = dictamenRespuesta;
+      try {
+        // 1. Convertimos el texto de la IA a un objeto manipulable
+        let parsed = typeof dictamenRespuesta === 'string' ? JSON.parse(dictamenRespuesta) : dictamenRespuesta;
+        
+        // 2. Inyectamos a la fuerza los KPIs globales de React
+        if (parsed && parsed.kpis) {
+          parsed.kpis.scoreRiesgo = avgResidualScore;
+          parsed.kpis.scoreMadurez = madurezGlobal;
+          parsed.kpis.totalControles = totalControles;
+          parsed.kpis.coberturaControles = mitigacionPromedio;
+        }
+        
+        // 3. Volvemos a convertir a texto para que el Modal lo lea
+        dictamenFinal = JSON.stringify(parsed);
+      } catch (e) {
+        console.warn("Aviso: La respuesta de la IA no era JSON estricto.");
+      }
+
       setDictamenIA({
         titulo: `Informe de Inteligencia Estratégica GRC — Junta Directiva`,
-        dictamen: dictamenRespuesta
+        dictamen: dictamenFinal
       });
     } catch (error) {
       console.error("Error al procesar dictamen global:", error);
