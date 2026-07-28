@@ -518,6 +518,67 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
     
     showNotification("Matriz descargada en Excel exitosamente", "success");
   };
+// =========================================================================
+  // 🤖 FUNCIÓN PARA ANÁLISIS EJECUTIVO GLOBAL (JUNTA DIRECTIVA)
+  // =========================================================================
+  const solicitarAnalisisGlobalIA = async () => {
+    setProcesandoIA(true);
+    setDictamenIA(null);
+
+    try {
+      if (safeRiesgos.length === 0) {
+        if (showNotification) showNotification("No hay riesgos para analizar.", "error");
+        setProcesandoIA(false);
+        return;
+      }
+
+      // 1. Recopilar métricas
+      const totalRiesgos = safeRiesgos.length;
+      const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
+      const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
+      const moderados = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Moderado').length;
+      const bajos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Bajo').length;
+
+      const conteoProcesos = safeRiesgos.reduce((acc, r) => {
+        acc[r.proceso] = (acc[r.proceso] || 0) + 1;
+        return acc;
+      }, {});
+      const topProcesos = Object.entries(conteoProcesos)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([p, c]) => `${p} (${c} riesgos)`)
+        .join(', ');
+
+      // 2. Prompt CAE (Chief Audit Executive) con KPIs
+      const promptGlobal = `Actúa como un Director de Auditoría Interna presentando un informe ejecutivo a la Junta Directiva de Termales S.A.
+      
+Métricas actuales de la Matriz Corporativa:
+- Total de riesgos: ${totalRiesgos}
+- Zona Extrema: ${extremos}
+- Zona Alta: ${altos}
+- Zona Moderada: ${moderados}
+- Zona Baja: ${bajos}
+- Top 5 procesos más expuestos: ${topProcesos}
+
+Redacta un dictamen conciso, sin saludos, usando viñetas y negritas. Estructura estrictamente así:
+**1. Diagnóstico del Perfil de Riesgo:** (Analiza la proporción de riesgos críticos).
+**2. Análisis de Concentración:** (Evalúa las áreas más expuestas).
+**3. Recomendación Estratégica:** (Plan de acción inmediato).
+**4. Indicadores Clave (KPIs) Sugeridos:** (Sugiere 3 KPIs estratégicos para que la gerencia mida las áreas más afectadas).`;
+
+      const dictamenRespuesta = await analizarRiesgoConIA(promptGlobal);
+      
+      setDictamenIA({
+        titulo: `Dictamen Ejecutivo Global — Junta Directiva`,
+        dictamen: dictamenRespuesta
+      });
+    } catch (error) {
+      console.error("Error al procesar dictamen global:", error);
+      if (showNotification) showNotification("Error al comunicarse con la Inteligencia Artificial.", "error");
+    } finally {
+      setProcesandoIA(false);
+    }
+  };
  const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
     setRiesgoId(riesgo.id);
@@ -1496,9 +1557,14 @@ const renderMatriz = () => {
           <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Dashboard</button>
           <button onClick={() => setVistaActiva('matriz')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'matriz' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📋 Ver Matriz</button>
           
-          {/* 👇 NUEVO BOTÓN DE EXCEL 👇 */}
+          {/* 👇 BOTÓN DE EXCEL 👇 */}
           <button onClick={exportarAExcel} className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 shadow-sm flex items-center">
             <span className="mr-2">📥</span> Descargar Excel
+          </button>
+
+          {/* 👇 NUEVO BOTÓN: ANÁLISIS GLOBAL IA 👇 */}
+          <button onClick={solicitarAnalisisGlobalIA} className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 shadow-sm flex items-center">
+            <span className="mr-2">✨</span> Informe Global IA
           </button>
 
         {isAdmin && (
