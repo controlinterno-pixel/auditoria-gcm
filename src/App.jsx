@@ -1506,18 +1506,32 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                     selectedAnios={selectedAnios} renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
                   />
                 )}
-               {subTabPlanificar === 'riesgos' && (
-   <Riesgos 
-     isAdmin={isAdmin} editRiesgo={editRiesgo} setEditRiesgo={setEditRiesgo} handleRiesgoSubmit={handleRiesgoSubmit}
-     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
-     applyFilters={applyFilters} FilterInput={FilterInput} rFiltrados={rFiltrados} calcularMatriz5x5={calcularMatriz5x5}
-     searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
-     exportToExcel={exportToExcel} safeRiesgos={safeRiesgos}
-     hallazgos={safeHallazgos}           {/* 👈 CONEXIÓN A MÓDULO 3 (72 Hallazgos) */}
-     planesDeAccion={safePlanes}        {/* 👈 CONEXIÓN A MÓDULO 4 (47 Planes + 19 Vencidos) */}
-     setRiesgos={setRiesgos} saveToCloud={saveToCloud} showNotification={showNotification}
-   />
-)}
+{subTabPlanificar === 'riesgos' && (
+  <Riesgos 
+    isAdmin={isAdmin} 
+    editRiesgo={editRiesgo} 
+    setEditRiesgo={setEditRiesgo} 
+    handleRiesgoSubmit={handleRiesgoSubmit}
+    setFormResetKey={setFormResetKey} 
+    scrollToForm={scrollToForm} 
+    handleDeleteItem={handleDeleteItem}
+    applyFilters={applyFilters} 
+    FilterInput={FilterInput} 
+    rFiltrados={rFiltrados} 
+    calcularMatriz5x5={calcularMatriz5x5}
+    searchTerm={searchTerm} 
+    setSearchTerm={setSearchTerm} 
+    columnFilters={columnFilters} 
+    handleColFilterChange={handleColFilterChange}
+    exportToExcel={exportToExcel} 
+    safeRiesgos={safeRiesgos}
+    hallazgos={safeHallazgos}
+    planesDeAccion={safePlanes}
+    setRiesgos={setRiesgos} 
+    saveToCloud={saveToCloud} 
+    showNotification={showNotification}
+  />
+)}               
                 {subTabPlanificar === 'apetito' && (
                   <Apetito 
                     isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
