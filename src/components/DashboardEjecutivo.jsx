@@ -234,7 +234,25 @@ export default function DashboardEjecutivo({
 
       const respuestaIA = await analizarRiesgoConIA(promptIA);
       
-      setDictamenIA({ titulo: tituloModal, dictamen: respuestaIA });
+      // 🧹 NUEVA LÓGICA: Limpiador de formato JSON
+      let textoLimpio = respuestaIA;
+      try {
+        // Intentamos parsear la respuesta por si viene en formato JSON
+        const objetoIA = typeof respuestaIA === 'string' ? JSON.parse(respuestaIA) : respuestaIA;
+        
+        // Extraemos el texto del campo 'dictamenDirector' o el primer 'hallazgo'
+        if (objetoIA && typeof objetoIA === 'object') {
+            textoLimpio = objetoIA.dictamenDirector || 
+                          (objetoIA.hallazgos && objetoIA.hallazgos[0]) || 
+                          (objetoIA.recomendaciones && objetoIA.recomendaciones[0]) || 
+                          "Análisis completado (Formato de IA no estándar).";
+        }
+      } catch (e) {
+        // Si da error el JSON.parse, significa que ya era texto plano, no hacemos nada
+        console.log("Respuesta IA recibida en texto plano.");
+      }
+
+      setDictamenIA({ titulo: tituloModal, dictamen: textoLimpio });
     } catch (error) {
       console.error("Error al obtener IA:", error);
       setDictamenIA({ titulo: "Error", dictamen: "Falló la conexión con el motor GRC." });
@@ -242,7 +260,6 @@ export default function DashboardEjecutivo({
       setProcesandoIA(false);
     }
   };
-
   let allActivity = [];
   const parseDateStr = (dateStr) => {
     try {
