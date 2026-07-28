@@ -106,7 +106,7 @@ const fileName = `${safeTitle}.pdf`;
                   <div className="flex flex-wrap items-center gap-2 pb-1">
                     <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>Inh: {data.encabezado.riesgoInherenteLabel || 'Alto'}</span>
                     <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400"></span>Residual: {data.encabezado.riesgoResidualLabel || 'Bajo'}</span>
-                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data?.encabezado?.calidadRegistroScore || data?.encabezado?.calidad || data?.kpis?.calidad || 90}/100</span>
+<span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data?.encabezado?.calidadRegistroScore || data?.encabezado?.calidad || data?.kpis?.calidad || 90}/100</span>
                   </div>
 
                   {/* KPIS */}

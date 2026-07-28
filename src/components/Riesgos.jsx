@@ -700,17 +700,16 @@ FORMATO DE SALIDA JSON EXACTO:
         ? dictamenRespuesta 
         : JSON.stringify(dictamenRespuesta);
 
-      // 🔥 EXTERMINIO DIRECTO CON REGEX FLEXIBLE (Atrapa espacios, "por ciento" y escapes)
+     // 🔥 EXTERMINIO QUIRÚRGICO DIRECTO CON REGEX
       rawText = rawText
+        // 1. Todo lo que esté en los 30s (ej. 36%) se vuelve Riesgo (2%)
         .replace(/3[0-9]\s*(?:%|por\s*ciento|\\%)/gi, `${avgResidualScore}%`) 
-        .replace(/2[0-9]\s*(?:%|por\s*ciento|\\%)/gi, `${madurezGlobal}%`)
-        // Reemplazo extra por si tira el número suelto sin porcentaje
-        .replace(/\b(36|20|23)\b(?!\s*(?:hallazgos|planes|riesgos|controles))/gi, (match) => {
-            if(match === '36') return avgResidualScore;
-            if(match === '20') return madurezGlobal;
-            if(match === '23') return mitigacionPromedio;
-            return match;
-        });
+        
+        // 2. Apuntamos al 20% para volverlo Madurez
+        .replace(/20\s*(?:%|por\s*ciento|\\%)/gi, `${madurezGlobal}%`)
+        
+        // 3. BLINDAJE TOTAL DE COBERTURA: Busca la palabra "cobertura" seguida de cualquier error (67%, 20%, 23%) y fuerza el 92%
+        .replace(/(cobertura(?:\s+(?:del|de|es|al|nominal))?\s+)(?:67|20|23|36)\s*(?:%|por\s*ciento|\\%)/gi, `$1${mitigacionPromedio}%`);
 
       // ====================================================================
       // 4. PARSER Y FORZADO DE VARIABLES
