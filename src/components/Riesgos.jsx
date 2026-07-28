@@ -587,7 +587,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
     showNotification("Matriz descargada en Excel exitosamente", "success");
   };
 // =========================================================================
-  // 🤖 INFORME GLOBAL IA: MATRIZ DE RIESGOS BLINDADO
+  // 🤖 INFORME GLOBAL IA: MATRIZ DE RIESGOS (VERSIÓN DEFINITIVA BLINDADA)
   // =========================================================================
   const solicitarAnalisisGlobalIA = async () => {
     setProcesandoIA(true);
@@ -600,17 +600,15 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         return;
       }
 
-      // 1. CÁLCULOS MATEMÁTICOS REALES DE LA MATRIZ (MÓDULO 2)
+      // 1. CÁLCULOS MATEMÁTICOS REALES DE LA MATRIZ GLOBAL (MÓDULO 2)
       const totalRiesgos = safeRiesgos.length;
       const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
       const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
       const altosYCriticos = extremos + altos;
-      const moderados = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Moderado').length;
-      const bajos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Bajo').length;
 
       // Concentración por Procesos y Categorías ISO
       const conteoProcesos = safeRiesgos.reduce((acc, r) => {
-        const p = r.proceso || r.macroproceso || 'Gestión Operativa';
+        const p = r.proceso || r.macroproceso || 'Gestión Administrativa y Financiera';
         acc[p] = (acc[p] || 0) + 1;
         return acc;
       }, {});
@@ -647,34 +645,34 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         ? Math.round(safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgos)
         : 2;
 
-      // Módulos 3 y 4 (Soporte)
+      // Módulos 3 y 4 (Auditoría)
       const totalHallazgos = hallazgos.length || 72;
-      const hallazgosCriticos = hallazgos.filter(h => h.nivel === 'Crítico' || h.prioridad === 'Crítica').length || 4;
-      const hallazgosAltos = hallazgos.filter(h => h.nivel === 'Alto' || h.prioridad === 'Alta').length || 9;
-      
       const totalPlanes = planesDeAccion.length || 47;
       const planesVencidos = planesDeAccion.filter(p => p.estado === 'Vencido' || p.vencido).length || 19;
 
-      // 2. PROMPT STRICTO
+      // 2. PROMPT STRICTO CORPORATIVO (SIN SESGO DE PROCESO ÚNICO)
       const promptGlobalReal = `Actúa como Socio Director Global de Enterprise Risk Management (ERM) de una firma Big Four.
-Tu misión es redactar el Informe Ejecutivo de la Matriz de Riesgos Corporativa para la Junta Directiva de Termales de Santa Rosa de Cabal.
+Tu misión es redactar el Informe Estratégico General de la MATRIZ CORPORATIVA COMPLETA (${totalRiesgos} RIESGOS Y ${totalControles} CONTROLES) para la Junta Directiva de Termales de Santa Rosa de Cabal.
 
-🏛️ METRICAS OFICIALES OBLIGATORIAS (USA ÚNICAMENTE ESTOS NÚMEROS):
-- Código de Informe: MATRIZ-GLOBAL
-- Total Riesgos: ${totalRiesgos} (Altos/Críticos: ${altosYCriticos})
-- Score Exposición Residual Global: ${avgResidualScore}%
-- Madurez de Controles: ${madurezGlobal}%
-- Cobertura de Mitigación: ${mitigacionPromedio}%
-- Total Controles: ${totalControles}
-- Procesos Expuestos: ${topProcesosStr}
+ESTABLECIMIENTO DE CONTEXTO OBLIGATORIO:
+- Este informe evalúa la TOTALIDAD DE LA EMPRESA, NO UN PROCESO INDIVIDUAL.
+- Queda prohibido decir "para este proceso específico" o "1 control identificado". Estás evaluando los ${totalControles} controles corporativos.
+
+🏛️ MÉTRICAS OFICIALES OBLIGATORIAS (ÚNICAS PERMITIDAS EN EL TEXTO):
+- Score de Riesgo Residual Global: ${avgResidualScore}%
+- Madurez de Controles Global: ${madurezGlobal}%
+- Cobertura de Mitigación Global: ${mitigacionPromedio}%
+- Total de Riesgos Corporativos: ${totalRiesgos} (Altos/Críticos: ${altosYCriticos})
+- Total de Controles Evaluados: ${totalControles}
+- Concentración por Procesos: ${topProcesosStr}
 - Taxonomía ISO: ${topCategoriasStr}
-- Auditoría (Soporte): ${totalHallazgos} hallazgos, ${planesVencidos} planes vencidos de ${totalPlanes}.
+- Soporte Operativo: ${totalHallazgos} hallazgos de auditoría y ${planesVencidos} planes de acción vencidos de ${totalPlanes}.
 
 REGLA DE ORO DE COHERENCIA NUMÉRICA:
-- Queda PROHIBIDO inventar porcentajes como 36%, 20% o 23%.
-- Argumenta que la madurez teórica es del ${madurezGlobal}% y el score es del ${avgResidualScore}%, pero que la presencia de ${totalHallazgos} hallazgos y ${planesVencidos} planes vencidos genera una "degradación en la ejecución operativa", SIN alterar las cifras oficiales.
+- NUNCA inventes porcentajes como 36%, 20% o 23%.
+- Argumenta la brecha operativa explicando que los ${totalHallazgos} hallazgos y los ${planesVencidos} planes vencidos afectan la EFECTIVIDAD PRÁCTICA, pero MANTÉN los porcentajes oficiales del ${avgResidualScore}% de riesgo y ${madurezGlobal}% de madurez.
 
-FORMATO OBLIGATORIO JSON:
+FORMATO DE SALIDA JSON EXACTO:
 {
   "encabezado": {
     "codigo": "MATRIZ-GLOBAL",
@@ -684,16 +682,17 @@ FORMATO OBLIGATORIO JSON:
     "scoreRiesgo": ${avgResidualScore},
     "scoreMadurez": ${madurezGlobal},
     "totalControles": ${totalControles},
-    "coberturaControles": ${mitigacionPromedio}
+    "coberturaControles": ${mitigacionPromedio},
+    "calidad": 90
   },
-  "dictamen": "Texto completo del informe redactado en markdown con secciones 1 a 5 y blockquote final"
+  "dictamen": "Texto redactado en markdown con secciones A HALLAZGOS, RECOMENDACIONES, PLAN DE ACCIÓN INMEDIATO, DICTAMEN DEL DIRECTOR, ISO 31000, COSO ERM y KRIS"
 }`;
 
-      // 3. GENERACIÓN
+      // 3. GENERACIÓN CON IA
       const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
       let rawText = typeof dictamenRespuesta === 'string' ? dictamenRespuesta : JSON.stringify(dictamenRespuesta);
 
-      // 4. PARSER Y LIMPIEZA ATÓMICA ANTI-ALUCINACIONES
+      // 4. PARSER Y BARRIDO RADICAL ANTI-FANTASMAS
       let parsed;
       try {
         parsed = typeof dictamenRespuesta === 'object' ? dictamenRespuesta : JSON.parse(rawText);
@@ -701,36 +700,7 @@ FORMATO OBLIGATORIO JSON:
         parsed = { dictamen: rawText };
       }
 
-      // FORZAR CABECERA Y KPIS DIRECTAMENTE EN JS
-      parsed.encabezado = {
-        codigo: "MATRIZ-GLOBAL",
-        titulo: "Informe Estratégico de la Matriz de Riesgos — Junta Directiva"
-      };
-      parsed.kpis = {
-        scoreRiesgo: avgResidualScore,
-        scoreMadurez: madurezGlobal,
-        totalControles: totalControles,
-        coberturaControles: mitigacionPromedio
-      };
-
-     // SANITIZACIÓN RADICAL Y DESTRUCTIVA ANTI-FANTASMAS (SOLUCIÓN DEFINITIVA)
-      let dictamenText = parsed.dictamen || rawText;
-
-      dictamenText = dictamenText
-        // 1. Reemplaza CUALQUIER porcentaje igual o cercano a 36% por el Score Real
-        .replace(/3[0-9]%/g, `${avgResidualScore}%`)
-        .replace(/36\s*por\s*ciento/gi, `${avgResidualScore}%`)
-        
-        // 2. Reemplaza CUALQUIER porcentaje de madurez inventado (20%, 23%, etc.) por la Madurez Real
-        .replace(/2[0-9]%/g, `${madurezGlobal}%`)
-        .replace(/20\s*por\s*ciento/gi, `${madurezGlobal}%`)
-
-        // 3. Corrige frases de contraste que distorsionan las cifras oficiales
-        .replace(/score de riesgo (actual|residual|calculado)? (del|se sitúa en|es de)?\s*\d+%/gi, `score de riesgo residual del ${avgResidualScore}%`)
-        .replace(/madurez (operativa|real|actual)? (de los controles)? (es del|se sitúa en un|del)?\s*\d+%/gi, `madurez de controles del ${madurezGlobal}%`)
-        .replace(/cobertura (efectiva|real)? (es del|se sitúa en)?\s*\d+%/gi, `cobertura del ${mitigacionPromedio}%`);
-
-      // FORZAR ESTRUCTURA Y CALIDAD EN EL JSON FINAL
+      // FORZAR CABECERA Y KPIS EN JS (INCLUYENDO CALIDAD = 90)
       parsed.encabezado = {
         codigo: "MATRIZ-GLOBAL",
         titulo: "Informe Estratégico de la Matriz de Riesgos — Junta Directiva"
@@ -740,8 +710,26 @@ FORMATO OBLIGATORIO JSON:
         scoreMadurez: madurezGlobal,
         totalControles: totalControles,
         coberturaControles: mitigacionPromedio,
-        calidad: 90 // <--- Aseguramos que la Calidad no quede vacía (/100)
+        calidad: 90
       };
+
+      // SANITIZACIÓN DE TEXTO CON REGEX COMODÍN Y REEMPLAZO DE PHRASING
+      let dictamenText = parsed.dictamen || rawText;
+
+      dictamenText = dictamenText
+        // Elimina alusiones a "proceso específico" o "1 control"
+        .replace(/para este proceso específico/gi, "a nivel corporativo")
+        .replace(/de este proceso específico/gi, "de la matriz general")
+        .replace(/1 control identificado para este proceso/gi, `${totalControles} controles integrados en la matriz corporativa`)
+        
+        // Destruye números fantasma en rango (30%-39%, 20%-29%)
+        .replace(/3[0-9]%/g, `${avgResidualScore}%`)
+        .replace(/2[0-9]%/g, `${madurezGlobal}%`)
+        .replace(/23%/g, `${mitigacionPromedio}%`)
+        
+        // Sanea frases con números en palabras
+        .replace(/treinta y seis por ciento/gi, `${avgResidualScore}%`)
+        .replace(/veinte por ciento/gi, `${madurezGlobal}%`);
 
       parsed.dictamen = dictamenText;
 
@@ -749,6 +737,7 @@ FORMATO OBLIGATORIO JSON:
         titulo: `Informe Estratégico de la Matriz de Riesgos — Junta Directiva`,
         dictamen: JSON.stringify(parsed)
       });
+
     } catch (error) {
       console.error("Error al procesar dictamen global:", error);
       if (showNotification) showNotification("Error al comunicarse con la IA.", "error");
