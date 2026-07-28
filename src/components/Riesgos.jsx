@@ -1191,17 +1191,7 @@ const renderMatriz = () => {
     title="Auditar diseño del control con IA">
     🤖 IA
   </button>  
-  {/* 4. BOTÓN EVIDENCIA: Aviso técnico sobre el almacenamiento */}
-  <button 
-    onClick={(e) => { 
-      e.stopPropagation(); 
-      alert("📎 AVISO: Para adjuntar archivos (PDFs, Excel, Fotos) directamente aquí, se requiere habilitar el módulo 'Firebase Storage' en la nube. Por ahora, anexa las URL de las evidencias en el campo 'Bitácora de Observaciones' al editar el riesgo."); 
-    }}
-    className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold shadow-sm" 
-    title="Adjuntar Soportes">
-    📄 Evidencia
-  </button>
-</td>
+ </td>
               </tr>
             ))
           ) : (
