@@ -390,17 +390,49 @@ const [ayudaModal, setAyudaModal] = useState(null);
       }
     }
   };
-// 🤖 FUNCIÓN DE ANALISIS CON IA EN TIEMPO REAL (STREAMING)
+// =========================================================================
+  // 🤖 FUNCIÓN DE ANALISIS CON IA EN TIEMPO REAL (DATOS 100% REALES)
+  // =========================================================================
   const solicitarAnalisisFilaIA = async (riesgo) => {
     setProcesandoIA(true);
-    setDictamenIA(null); // Limpiamos para mostrar la animación de carga
+    setDictamenIA(null); 
 
     try {
-      // 🚀 Usamos la versión estable que descarga el 100% del texto (Evita errores de renderizado)
-      const textoCompleto = await analizarRiesgoConIA(riesgo);
+      // 1. CÁLCULOS 100% REALES HECHOS POR EL SISTEMA (MATEMÁTICA EXACTA)
+      const totalControlesReal = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados.length : (riesgo.descripcionControl ? 1 : 0);
+      const coberturaReal = calcularMitigacionRiesgo(riesgo);
+      
+      const listaControles = Array.isArray(riesgo.controlesDetallados) ? riesgo.controlesDetallados : [];
+      const madurezReal = listaControles.length > 0
+        ? Math.round(listaControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / listaControles.length)
+        : (totalControlesReal > 0 ? 50 : 0); // Si hay texto pero no controles detallados, asume 50%
+        
+      const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
+
+      // 2. SÚPER PROMPT CON CANDADO DE DATOS (Evita alucinaciones de la IA)
+      const promptFilaReal = `Actúa como Motor Analítico GRC. Evalúa el siguiente riesgo corporativo.
+      
+REGLA ESTRICTA DE DATOS: 
+Debes utilizar EXACTAMENTE estos valores matemáticos para tu dictamen, NO los calcules ni los estimes por tu cuenta:
+- Score Riesgo: ${scoreRiesgoReal}%
+- Madurez del Control: ${madurezReal}%
+- Controles Implementados: ${totalControlesReal}
+- Cobertura de Mitigación: ${coberturaReal}%
+- Nivel Inherente: ${getSeverityZone(riesgo.probabilidadInherente, riesgo.impactoInherente).label}
+- Nivel Residual: ${getSeverityZone(riesgo.probabilidadResidual, riesgo.impactoResidual).label}
+
+DATOS DEL RIESGO:
+- ID: RSK-${riesgo.id}
+- Proceso: ${riesgo.proceso}
+- Riesgo: ${riesgo.descripcion}
+
+Tu tarea es generar el JSON o la estructura visual exacta que requiere la interfaz, pero inyectando los números reales que te acabo de dar. Completa el resto del análisis (Hallazgos y Recomendaciones) basándote en la calidad de la descripción del riesgo y si los controles (si los hay) son suficientes para justificar esa cobertura del ${coberturaReal}%.`;
+
+      // 3. Enviamos el prompt blindado
+      const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
       
       setDictamenIA({
-        titulo: `Dictamen Técnico ERIR® — ${riesgo.proceso || 'Riesgo Corporativo'}`,
+        titulo: `Panel Ejecutivo Inteligente — RSK-${riesgo.id}`,
         dictamen: textoCompleto
       });
     } catch (error) {
@@ -519,7 +551,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
     showNotification("Matriz descargada en Excel exitosamente", "success");
   };
 // =========================================================================
-  // 🤖 FUNCIÓN PARA ANÁLISIS EJECUTIVO GLOBAL (BIG FOUR + FORMATO VISUAL)
+  // 🤖 FUNCIÓN PARA ANÁLISIS EJECUTIVO GLOBAL (DATOS REALES + BIG FOUR FORMAT)
   // =========================================================================
   const solicitarAnalisisGlobalIA = async () => {
     setProcesandoIA(true);
@@ -532,57 +564,82 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
         return;
       }
 
-      // 1. Comprimir la matriz para que la IA la pueda leer sin colapsar por exceso de texto
+      // 1. CÁLCULOS MATEMÁTICOS GLOBALES (REALES DE LA MATRIZ)
+      const totalRiesgos = safeRiesgos.length;
+      
+      const extremos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Extremo').length;
+      const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
+      const moderados = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Moderado').length;
+      const bajos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Bajo').length;
+
+      const todosLosControles = safeRiesgos.flatMap(r => Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []);
+      const totalControles = todosLosControles.length;
+      
+      const madurezGlobal = totalControles > 0 
+        ? Math.round(todosLosControles.reduce((acc, c) => acc + calcularEficaciaControl(c), 0) / totalControles) 
+        : 0;
+
+      const mitigacionPromedio = totalRiesgos > 0
+        ? Math.round(safeRiesgos.reduce((acc, r) => acc + calcularMitigacionRiesgo(r), 0) / totalRiesgos)
+        : 0;
+
+      const avgResidualScore = totalRiesgos > 0
+        ? Math.round(safeRiesgos.reduce((acc, r) => acc + ((r.probabilidadResidual ?? 15) * (r.impactoResidual ?? 30) / 100), 0) / totalRiesgos)
+        : 0;
+
+      // 2. Comprimir la matriz para contexto específico
       const matrizComprimida = safeRiesgos.map(r => ({
         ID: r.id,
         Proceso: r.proceso,
         Inh: `${r.probabilidadInherente}% x ${r.impactoInherente}%`,
         Res: `${r.probabilidadResidual}% x ${r.impactoResidual}%`,
-        Tratamiento: r.tratamiento,
-        Controles: Array.isArray(r.controlesDetallados) ? r.controlesDetallados.length : 0
+        Tratamiento: r.tratamiento
       }));
 
-      // 2. Súper Prompt Estratégico + Inyección de Estilos UI (Markdown)
-      const promptGlobal = `Actúa como Socio Director Global de GRC, Enterprise Risk Management, Auditoría Interna y Gobierno Corporativo de una firma Big Four.
-Tu misión es elaborar un informe corporativo de inteligencia estratégica para ser presentado al Presidente, CEO, Comité de Riesgos y Junta Directiva de Termales de Santa Rosa de Cabal.
+      // 3. SÚPER PROMPT CON CANDADO DE DATOS GLOBALES
+      const promptGlobalReal = `Actúa como Socio Director Global de GRC, Enterprise Risk Management y Auditoría Interna de una firma Big Four.
+Tu misión es elaborar un informe corporativo de inteligencia estratégica para ser presentado a la Junta Directiva de Termales de Santa Rosa de Cabal.
 
-Aquí tienes la matriz corporativa en formato JSON comprimido:
+REGLA ESTRICTA DE DATOS (CANDADO MATEMÁTICO):
+El sistema automatizado ERIR ya calculó los KPIs oficiales. DEBES usar EXACTAMENTE estos números en tu análisis. NO los estimes ni los calcules por tu cuenta:
+- Total de Riesgos Corporativos: ${totalRiesgos}
+- Nivel de Madurez del Control Interno (Eficacia global): ${madurezGlobal}%
+- Cobertura Promedio de Mitigación: ${mitigacionPromedio}%
+- Exposición Residual Promedio (Score Global): ${avgResidualScore}%
+- Distribución de Riesgos Residuales: ${extremos} Extremos, ${altos} Altos, ${moderados} Moderados, ${bajos} Bajos.
+- Total de Controles Implementados: ${totalControles}
+
+Aquí tienes el detalle de los riesgos (formato comprimido) para que evalúes concentraciones y procesos críticos:
 ${JSON.stringify(matrizComprimida)}
 
-REGLAS ESTRATÉGICAS:
-- No analices cada riesgo por separado. Analiza la organización como un ecosistema completo.
-- Evalúa tendencias, patrones, concentraciones, dependencias y madurez.
-- Utiliza como referencia: ISO 31000, COSO ERM y Three Lines Model.
-- No inventes datos. Si debes estimar, indícalo.
-
-REGLAS ESTRICTAS DE FORMATO (CRÍTICO PARA LA INTERFAZ VISUAL):
+REGLAS ESTRATÉGICAS Y DE FORMATO:
 - NUNCA digas que eres una IA. Redacta con estilo McKinsey, PwC o KPMG.
-- NO uses saludos ni introducciones genéricas.
+- Interpreta qué significan estos números para el negocio (ej. Si la madurez global es ${madurezGlobal}%, explica a la Junta si es un nivel peligroso o aceptable frente a ISO 31000).
 - Utiliza Markdown avanzado para simular "tarjetas ejecutivas" limpias y modernas.
-- Condensa los 35 puntos de tu auditoría estructurando tu respuesta EXACTAMENTE con estos 5 bloques, usando separadores (---) y encabezados (###):
+- Estructura tu respuesta EXACTAMENTE con estos 5 bloques, usando separadores (---) y encabezados (###):
 
 ### 🏛️ 1. Executive Summary & Salud de la Organización
-(Redacta aquí tu evaluación global del ecosistema, madurez y apetito de riesgo)
+(Evalúa el ecosistema global interpretando los KPIs proporcionados)
 
 ---
 ### 📊 2. Heatmap Corporativo & Concentración
-(Analiza el top de riesgos, tendencias, riesgos emergentes y sistémicos)
+(Analiza el top de riesgos y la distribución de severidad corporativa real: ${extremos} Extremos, ${altos} Altos, etc.)
 
 ---
 ### ⚠️ 3. Brechas de Control y Calidad Metodológica
-(Evalúa riesgos huérfanos, sin controles, falta de KRIs y alineación a ISO 31000 / COSO)
+(Diagnóstico basado en la madurez del ${madurezGlobal}% y el volumen de controles actual de la compañía)
 
 ---
 ### 💸 4. Exposición Financiera y Capital en Riesgo
-(Proyección del riesgo inherente total vs riesgo residual total de la matriz)
+(Proyección basada en la mitigación actual del ${mitigacionPromedio}% y el Score Global del ${avgResidualScore}%)
 
 ---
 ### 🚀 5. Roadmap Ejecutivo & Quick Wins
 (Plan estratégico de remediación y decisiones clave para la Junta Directiva)
 
-> **Dictamen Ejecutivo Final:** (Agrega un blockquote final lapidario y profesional con tu recomendación como Socio Director Big Four).`;
+> **Dictamen Ejecutivo Final:** (Agrega un blockquote final lapidario y profesional con tu recomendación como Socio Director).`;
 
-      const dictamenRespuesta = await analizarRiesgoConIA(promptGlobal);
+      const dictamenRespuesta = await analizarRiesgoConIA(promptGlobalReal);
       
       setDictamenIA({
         titulo: `Informe de Inteligencia Estratégica GRC — Junta Directiva`,
