@@ -651,6 +651,7 @@ El sistema automatizado ERIR ya calculó los KPIs oficiales de toda la plataform
 REGLAS ESTRATÉGICAS Y DE FORMATO:
 - NUNCA digas que eres una IA. Redacta con estilo McKinsey, PwC o KPMG.
 - 🚨 ANALIZA LA BRECHA CRÍTICA: La matriz tiene un buen nivel de madurez (${madurezGlobal}%), pero el Módulo de Planes de Acción revela un **retraso crítico con ${planesVencidos} planes vencidos**. Advierte a la Junta Directiva que existe un riesgo alto de materialización de hallazgos due a la falta de oportunidad en el cierre de compromisos.
+- 🚨 RIGOR NUMÉRICO OBLIGATORIO: Cuando menciones la Madurez en el texto, SIEMPRE usa la cifra oficial (${madurezGlobal}%). Cuando menciones el Score de Riesgo, usa la cifra oficial (${avgResidualScore}%). NUNCA inventes porcentajes de madurez o score distintos a los proporcionados en las variables oficiales.
 - Utiliza Markdown avanzado para simular "tarjetas ejecutivas" limpias y modernas.
 - Estructura tu respuesta EXACTAMENTE con estos 5 bloques, usando separadores (---) y encabezados (###):
 
