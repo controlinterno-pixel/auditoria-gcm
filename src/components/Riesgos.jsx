@@ -1116,7 +1116,7 @@ const renderMatriz = () => {
                   </span>
                 </td>
                 <td className="p-3 text-right space-x-1 whitespace-nowrap">
-  {/* 1. Conectado al modal de desglose que ya tienes creado */}
+  {/* 1. BOTÓN VER: Abre el modal de desglose de eficacia (Ya funciona perfecto) */}
   <button 
     onClick={(e) => { e.stopPropagation(); setControlSeleccionadoIA(c); }} 
     className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold shadow-sm" 
@@ -1124,21 +1124,25 @@ const renderMatriz = () => {
     👁 Ver
   </button>
   
-  {/* 2. Marcador para futuro desarrollo del formulario de edición */}
+  {/* 2. BOTÓN EDITAR: Abre el formulario principal del Riesgo para recalcular todo */}
   <button 
-    onClick={(e) => { e.stopPropagation(); alert("⏳ Módulo en construcción: Aquí se abrirá un formulario para cambiar la frecuencia o el responsable de este control individual."); }}
+    onClick={(e) => { 
+      e.stopPropagation(); 
+      if(showNotification) showNotification("Abriendo el formulario del riesgo para editar sus controles.", "success");
+      handleEditRiesgo(r); 
+    }}
     className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold shadow-sm" 
     title="Editar Control">
     ✏️ Editar
   </button>
   
-  {/* 3. Conectado al modal de IA usando el estado que ya tienes */}
+  {/* 3. BOTÓN IA: Muestra un pre-diagnóstico rápido del control usando los datos actuales */}
   <button 
     onClick={(e) => { 
       e.stopPropagation(); 
       setDictamenIA({ 
-        titulo: `Análisis de Control: ${c.descripcion.substring(0, 30)}...`, 
-        dictamen: "🤖 Función en fase beta: Próximamente la IA evaluará si la redacción de este control es lo suficientemente robusta para mitigar el riesgo." 
+        titulo: `Diagnóstico Rápido de Control`, 
+        dictamen: `🤖 **Análisis Preliminar:**\n\nEste es un control de tipo **${c.tipo || 'Preventivo'}**, con ejecución **${c.implementacion || 'Manual'}** y frecuencia **${c.frecuencia || 'Continua'}**. Su eficacia actual evaluada es del **${calcularEficaciaControl(c)}%**.\n\n💡 *Sugerencia:* Para acercar este control al 100% de eficacia, considera pasarlo a un estado "Automático" (sistemas que bloqueen el error) y asegurar que siempre genere evidencia trazable.` 
       }); 
     }}
     className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold shadow-sm" 
@@ -1146,9 +1150,12 @@ const renderMatriz = () => {
     🤖 IA
   </button>
   
-  {/* 4. Marcador para futuro gestor documental */}
+  {/* 4. BOTÓN EVIDENCIA: Aviso técnico sobre el almacenamiento */}
   <button 
-    onClick={(e) => { e.stopPropagation(); alert("⏳ Módulo en construcción: Aquí se abrirá un gestor documental para adjuntar PDFs o Pantallazos que sirvan como evidencia de este control."); }}
+    onClick={(e) => { 
+      e.stopPropagation(); 
+      alert("📎 AVISO: Para adjuntar archivos (PDFs, Excel, Fotos) directamente aquí, se requiere habilitar el módulo 'Firebase Storage' en la nube. Por ahora, anexa las URL de las evidencias en el campo 'Bitácora de Observaciones' al editar el riesgo."); 
+    }}
     className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold shadow-sm" 
     title="Adjuntar Soportes">
     📄 Evidencia
