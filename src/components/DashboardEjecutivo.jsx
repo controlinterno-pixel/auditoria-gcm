@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { formatSafeDate } from '../utils/helpers';
+import { analizarRiesgoConIA } from '../services/aiEngine';
 
 // 🧹 Normalizador estricto para emparejar cadenas
 const normalizeStr = (str) => {
@@ -84,7 +85,35 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
     </div>
   );
 };
-
+const extraerNumeroPuro = (valor) => {
+    if (valor === undefined || valor === null || valor === '') return 0;
+    if (typeof valor === 'number') {
+      if (valor >= 1 && valor <= 5) return valor;
+      if (valor === 20) return 1; if (valor === 40) return 2;
+      if (valor === 60) return 3; if (valor === 80) return 4;
+      if (valor === 100) return 5;
+    }
+    const str = String(valor).toLowerCase().trim();
+    if (str === '20' || str === '20%') return 1;
+    if (str === '40' || str === '40%') return 2;
+    if (str === '60' || str === '60%') return 3;
+    if (str === '80' || str === '80%') return 4;
+    if (str === '100' || str === '100%') return 5;
+    if (str === '0' || str === '0%') return 1;
+    const num = parseInt(str.charAt(0), 10);
+    if (!isNaN(num) && num >= 1 && num <= 5) return num;
+    if (str.includes('rara') || str.includes('baja')) return 1;
+    if (str.includes('improbable')) return 2;
+    if (str.includes('posible') || str.includes('media')) return 3;
+    if (str.includes('probable') || str.includes('alta')) return 4;
+    if (str.includes('casi seguro')) return 5;
+    if (str.includes('insignificante') || str.includes('leve')) return 1;
+    if (str.includes('menor')) return 2;
+    if (str.includes('moderado') || str.includes('medio')) return 3;
+    if (str.includes('mayor') || str.includes('alto')) return 4;
+    if (str.includes('catastrófico') || str.includes('crítico')) return 5;
+    return 1; 
+  };
 export default function DashboardEjecutivo({
   rFiltrados, riesgos, hFiltrados, hallazgos, pFiltrados, planes,
   cFiltrados, cronograma, informesAuditoria, safeIncidentes,
@@ -99,94 +128,70 @@ export default function DashboardEjecutivo({
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
 
-  // 📊 CÁLCULO SEGURO Y AISLADO DE LA EVOLUCIÓN FINANCIERA MULTI-CAMPOS
-  const infoFinancieraLimpia = (defaultMeses || []).map((mText) => {
-    if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
-    const totalCostoMes = safeIncidentes.filter(inc => {
-      const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
-      const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
-      const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
-      return passAnio && mesIncText === mText;
-    }).reduce((acc, current) => {
-      const perdida = (Number(current.costo) || 0) + (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
-      return acc + perdida;
-    }, 0);
-    return { mes: mText, valor: totalCostoMes };
-  });
+// 🧠 CÁLCULOS PESADOS BLINDADOS CON USEMEMO
+  const metricas = useMemo(() => {
+    const infoFinanciera = (defaultMeses || []).map((mText) => {
+      if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
+      const totalCostoMes = safeIncidentes.filter(inc => {
+        const anioInc = inc.fecha ? Number(inc.fecha.split('-')[0]) : Number(inc.anio);
+        const mesIncText = inc.fecha ? defaultMeses[parseInt(inc.fecha.split('-')[1], 10) - 1] : (inc.mes || "Junio");
+        const passAnio = selectedAnios.length === 0 || selectedAnios.includes(anioInc) || selectedAnios.includes(String(anioInc));
+        return passAnio && mesIncText === mText;
+      }).reduce((acc, current) => {
+        return acc + (Number(current.costo) || 0) + (Number(current.montoFaltante) || 0) + (Number(current.montoSobrante) || 0);
+      }, 0);
+      return { mes: mText, valor: totalCostoMes };
+    });
 
-  // 🧠 FILTRADOS EXACTOS
-  const riesgosBase = (riesgos || []).filter(r => {
-    const anioR = Number(r.anio) || 2026;
-    return selectedAnios.length === 0 || selectedAnios.includes(anioR) || selectedAnios.includes(String(anioR));
-  });
+    const rBase = (riesgos || []).filter(r => {
+      const anioR = Number(r.anio) || 2026;
+      return selectedAnios.length === 0 || selectedAnios.includes(anioR) || selectedAnios.includes(String(anioR));
+    });
+    const hBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
+    const pBase = (planes || []).filter(p => {
+      const anioPlan = p.fecha ? Number(p.fecha.split('-')[0]) : (Number(p.anio) || 2026);
+      return selectedAnios.length === 0 || selectedAnios.includes(anioPlan) || selectedAnios.includes(String(anioPlan));
+    });
+    const eBase = (evalFiltrados || []).filter(e => {
+      const anioE = Number(e.anio) || 2026;
+      return selectedAnios.length === 0 || selectedAnios.includes(anioE) || selectedAnios.includes(String(anioE));
+    });
 
-  const hallazgosBase = typeof hFiltrados !== 'undefined' ? hFiltrados : (typeof hallazgos !== 'undefined' ? hallazgos : []);
-  
-  const planesBase = (planes || []).filter(p => {
-    const anioPlan = p.fecha ? Number(p.fecha.split('-')[0]) : (Number(p.anio) || 2026);
-    return selectedAnios.length === 0 || selectedAnios.includes(anioPlan) || selectedAnios.includes(String(anioPlan));
-  });
+    const totPlanes = pBase.length;
+    const planActivos = pBase.filter(p => (Number(p.progreso) || 0) < 100).length;
+    const planVencidos = pBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy).length;
+    const planCerrados = pBase.filter(p => (Number(p.progreso) || 0) === 100).length;
+    const avanceGlobal = totPlanes > 0 ? Math.round((planCerrados / totPlanes) * 100) : 0;
+    
+    const hAbiertos = hBase.filter(h => h.estado !== 'Cerrado').length; 
+    const hCriticosCount = hBase.filter(h => h.estado !== 'Cerrado' && (h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico')).length;
 
-  const extraerNumeroPuro = (valor) => {
-    if (valor === undefined || valor === null || valor === '') return 0;
-    if (typeof valor === 'number') {
-      if (valor >= 1 && valor <= 5) return valor;
-      if (valor === 20) return 1; if (valor === 40) return 2;
-      if (valor === 60) return 3; if (valor === 80) return 4;
-      if (valor === 100) return 5;
-    }
-    const str = String(valor).toLowerCase().trim();
-    if (str === '20' || str === '20%') return 1;
-    if (str === '40' || str === '40%') return 2;
-    if (str === '60' || str === '60%') return 3;
-    if (str === '80' || str === '80%') return 4;
-    if (str === '100' || str === '100%') return 5;
-    if (str === '0' || str === '0%') return 1;
-    const num = parseInt(str.charAt(0), 10);
-    if (!isNaN(num) && num >= 1 && num <= 5) return num;
-    if (str.includes('rara') || str.includes('baja')) return 1;
-    if (str.includes('improbable')) return 2;
-    if (str.includes('posible') || str.includes('media')) return 3;
-    if (str.includes('probable') || str.includes('alta')) return 4;
-    if (str.includes('casi seguro')) return 5;
-    if (str.includes('insignificante') || str.includes('leve')) return 1;
-    if (str.includes('menor')) return 2;
-    if (str.includes('moderado') || str.includes('medio')) return 3;
-    if (str.includes('mayor') || str.includes('alto')) return 4;
-    if (str.includes('catastrófico') || str.includes('crítico')) return 5;
-    return 1; 
-  };
+    let rExtremos = 0, rAltos = 0, rModerados = 0, rBajos = 0;
+    rBase.forEach(r => {
+      const p = extraerNumeroPuro(r.probabilidadResidual);
+      const i = extraerNumeroPuro(r.impactoResidual);
+      if (p >= 4 && i >= 4) { rExtremos++; } 
+      else if ((p >= 3 && i >= 4) || (p >= 4 && i >= 3)) { rAltos++; } 
+      else if ((p >= 2 && i >= 3) || (p >= 3 && i >= 2) || (p >= 2 && i >= 2)) { rModerados++; } 
+      else { rBajos++; }
+    });
 
-  const totalPlanes = planesBase.length;
-  const planesActivos = planesBase.filter(p => (Number(p.progreso) || 0) < 100).length;
-  const planesVencidos = planesBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy).length;
-  const planesCerrados = planesBase.filter(p => (Number(p.progreso) || 0) === 100).length;
-  const avancePlanesGlobal = totalPlanes > 0 ? Math.round((planesCerrados / totalPlanes) * 100) : 0;
+    const totEval = eBase.length;
+    const evalEficaces = eBase.filter(e => Number(e.calificacion) === 100).length;
+    const efectGlobal = totEval > 0 ? Math.round((evalEficaces / totEval) * 100) : 0;
 
-  const totalRiesgos = riesgosBase.length;
-  let riesgosExtremos = 0; let riesgosAltos = 0; let riesgosModerados = 0; let riesgosBajos = 0;
+    return { 
+      infoFinanciera, rBase, hBase, pBase, eBase, 
+      totPlanes, planActivos, planVencidos, avanceGlobal, 
+      hAbiertos, hCriticosCount, 
+      totRiesgos: rBase.length, rExtremos, rAltos, rModerados, rBajos, 
+      efectGlobal 
+    };
+  }, [riesgos, hallazgos, hFiltrados, planes, evalFiltrados, safeIncidentes, selectedAnios, defaultMeses]); 
 
-  riesgosBase.forEach(r => {
-    const p = extraerNumeroPuro(r.probabilidadResidual);
-    const i = extraerNumeroPuro(r.impactoResidual);
-    if (p >= 4 && i >= 4) { riesgosExtremos++; } 
-    else if ((p >= 3 && i >= 4) || (p >= 4 && i >= 3)) { riesgosAltos++; } 
-    else if ((p >= 2 && i >= 3) || (p >= 3 && i >= 2) || (p >= 2 && i >= 2)) { riesgosModerados++; } 
-    else { riesgosBajos++; }
-  });
-
-  const evaluacionesBase = (evalFiltrados || []).filter(e => {
-    const anioE = Number(e.anio) || 2026;
-    return selectedAnios.length === 0 || selectedAnios.includes(anioE) || selectedAnios.includes(String(anioE));
-  });
-  const totalEvaluaciones = evaluacionesBase.length;
-  const evaluacionesEficaces = evaluacionesBase.filter(e => Number(e.calificacion) === 100).length;
-  const efectividadControlesGlobal = totalEvaluaciones > 0 ? Math.round((evaluacionesEficaces / totalEvaluaciones) * 100) : 0;
-
-  const hallazgosAbiertos = hallazgosBase.filter(h => h.estado !== 'Cerrado').length; 
-  const hallazgosCriticosCount = hallazgosBase.filter(h => h.estado !== 'Cerrado' && (h.severidad === 'Crítica' || h.severidad === 'Alta' || h.severidad === 'Crítico')).length;
-
-  const contarRiesgosEnCelda = (p, i) => {
+  // Extraemos las variables para no romper tu diseño visual
+  const { infoFinancieraLimpia, rBase: riesgosBase, hBase: hallazgosBase, pBase: planesBase, totPlanes: totalPlanes, planActivos: planesActivos, planVencidos: planesVencidos, avanceGlobal: avancePlanesGlobal, hAbiertos: hallazgosAbiertos, hCriticosCount: hallazgosCriticosCount, totRiesgos: totalRiesgos, rExtremos: riesgosExtremos, rAltos: riesgosAltos, rModerados: riesgosModerados, rBajos: riesgosBajos, efectGlobal: efectividadControlesGlobal } = metricas;
+    const contarRiesgosEnCelda = (p, i) => {
     return riesgosBase.filter(r => extraerNumeroPuro(r.probabilidadResidual) === p && extraerNumeroPuro(r.impactoResidual) === i).length;
   };
 
@@ -202,23 +207,40 @@ export default function DashboardEjecutivo({
   const cronogramaBase = typeof cFiltrados !== 'undefined' ? cFiltrados : (typeof cronograma !== 'undefined' ? cronograma : []);
   const proximasAuditorias = cronogramaBase.filter(c => (Number(c.cumplimiento) || 0) < 100).slice(0, 4);
 
-  const solicitarDictamenIA = (tipoCard) => {
-    setProcesandoIA(true); setDictamenIA(null);
-    setTimeout(() => {
-      let analitica = {};
+  const solicitarDictamenIA = async (tipoCard) => {
+    setProcesandoIA(true); 
+    setDictamenIA(null);
+
+    try {
+      let promptIA = `Actúa como Director de GRC y genera un análisis ejecutivo de máximo 3 líneas sobre el siguiente indicador: `;
+      let tituloModal = "";
+      
       if (tipoCard === 'cumplimiento') {
-        analitica = { titulo: "Cumplimiento Global de Compromisos", valor: `${avancePlanesGlobal}%`, significado: "Mide el avance y cierre formal de los planes.", dictamen: `Efectividad física de planes al ${avancePlanesGlobal}%. El nivel de mitigación indica la agilidad del hotel para subsanar debilidades.`, color: "border-emerald-500/30 text-emerald-400" };
+        tituloModal = "Cumplimiento Global";
+        promptIA += `Cumplimiento de planes al ${avancePlanesGlobal}%.`;
       } else if (tipoCard === 'riesgos') {
-        analitica = { titulo: "Inventario de Riesgos", valor: `${totalRiesgos} Activos`, significado: "Total de amenazas.", dictamen: `Mapeo maduro con ${totalRiesgos} riesgos activos. La concentración de exposición requiere monitoreo periódico.`, color: "border-red-500/30 text-red-400" };
+        tituloModal = "Inventario de Riesgos";
+        promptIA += `Tenemos ${totalRiesgos} riesgos activos (${riesgosExtremos} Extremos y ${riesgosAltos} Altos).`;
       } else if (tipoCard === 'controles') {
-        analitica = { titulo: "Efectividad Operacional de Controles", valor: `${efectividadControlesGlobal}%`, significado: "Salvaguardas eficaces.", dictamen: `Efectividad registrada al ${efectividadControlesGlobal}%. Es fundamental fortalecer las hojas de prueba en sitio.`, color: "border-cyan-500/30 text-cyan-400" };
+        tituloModal = "Efectividad de Controles";
+        promptIA += `La efectividad evaluada es del ${efectividadControlesGlobal}%.`;
       } else if (tipoCard === 'hallazgos') {
-        analitica = { titulo: "Desviaciones Abiertas", valor: `${hallazgosAbiertos} Abiertos`, significado: "Brechas normativas.", dictamen: `Controlado con ${hallazgosAbiertos} hallazgos abiertos. Los hallazgos críticos deben generar planes inmediatos.`, color: "border-amber-500/30 text-amber-400" };
+        tituloModal = "Desviaciones Abiertas";
+        promptIA += `Tenemos ${hallazgosAbiertos} hallazgos abiertos (${hallazgosCriticosCount} críticos).`;
       } else if (tipoCard === 'planes') {
-        analitica = { titulo: "Planes en Ejecución", valor: `${planesActivos} Activos`, significado: "Saturación operativa.", dictamen: `Sostenible con ${planesActivos} planes activos. Exigir cierres formales en los plazos acordados.`, color: "border-purple-500/30 text-purple-400" };
+        tituloModal = "Planes en Ejecución";
+        promptIA += `Tenemos ${planesActivos} planes en ejecución y ${planesVencidos} vencidos.`;
       }
-      setDictamenIA(analitica); setProcesandoIA(false);
-    }, 400);
+
+      const respuestaIA = await analizarRiesgoConIA(promptIA);
+      
+      setDictamenIA({ titulo: tituloModal, dictamen: respuestaIA });
+    } catch (error) {
+      console.error("Error al obtener IA:", error);
+      setDictamenIA({ titulo: "Error", dictamen: "Falló la conexión con el motor GRC." });
+    } finally {
+      setProcesandoIA(false);
+    }
   };
 
   let allActivity = [];
@@ -484,12 +506,14 @@ export default function DashboardEjecutivo({
                       else if (score >= 16) colorCelda = "bg-red-500/30 text-red-400 border-red-500/50";
                       return (
                         <div 
-                          key={`cell-${probLvl}-${impactoLvl}`} 
-                          onClick={() => setMatrizFiltro && setMatrizFiltro({ p: probLvl, i: impactoLvl })}
-                          className={`flex-1 h-full rounded-lg border flex flex-col items-center justify-center font-black text-sm ${colorCelda} cursor-pointer hover:scale-105 transition-transform`}
-                        >
-                          <span>{cant}</span>
-                        </div>
+<button 
+    type="button"
+    key={`cell-${probLvl}-${impactoLvl}`} 
+    onClick={() => setMatrizFiltro && setMatrizFiltro({ p: probLvl, i: impactoLvl })}
+    className={`w-full h-full rounded-lg border flex flex-col items-center justify-center font-black text-sm ${colorCelda} cursor-pointer hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-500`}
+  >
+    <span>{cant}</span>
+  </button>                          
                       );
                     })}                    
                   </div>
@@ -983,14 +1007,15 @@ export default function DashboardEjecutivo({
             }
 
             return (
-              <div
-                key={idx}
-                onClick={() => {
-                  if (setSelectedProcesoExpediente) setSelectedProcesoExpediente(proc.nombreOficial);
-                  if (setActiveTab) setActiveTab('tablero'); // Pestaña 'Mi Espacio GRC'
-                }}
-                className={`bg-[#0a1122] border ${semaforo} p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between group shadow-lg`}
-              >
+<button
+  type="button"
+  key={idx}
+  onClick={() => {
+    if (setSelectedProcesoExpediente) setSelectedProcesoExpediente(proc.nombreOficial);
+    if (setActiveTab) setActiveTab('tablero'); // Pestaña 'Mi Espacio GRC'
+  }}
+  className={`text-left w-full block bg-[#0a1122] border ${semaforo} p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between group shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+>              
                 <div className="space-y-3">
                   <div className="flex justify-between items-center gap-2">
                     <h4 className="text-xs font-black text-white uppercase tracking-wider group-hover:text-blue-400 transition-colors flex items-center gap-1.5 truncate">
@@ -1013,13 +1038,13 @@ export default function DashboardEjecutivo({
                   </div>
                 </div>
 
-                <div className="mt-4 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-blue-400 font-bold group-hover:translate-x-1 transition-transform">
+<div className="mt-4 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-blue-400 font-bold group-hover:translate-x-1 transition-transform">
                   <span>Abrir Expediente 360°</span>
                   <span>➔</span>
                 </div>
-              </div>
+              </button>
             );
-          })}
+          })}                
         </div>
       </div>
 
