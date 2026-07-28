@@ -1486,6 +1486,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                 />
               );
             })()}
+
 {/* 1️⃣ FASE DE PLANIFICACIÓN */}
             {activeTab === 'plan_anual_tab' && (
               <div className="space-y-6">
