@@ -1116,11 +1116,44 @@ const renderMatriz = () => {
                   </span>
                 </td>
                 <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                  <button className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold" title="Ver Control">👁 Ver</button>
-                  <button className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold" title="Editar">✏️ Editar</button>
-                  <button className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold" title="Analizar con IA">🤖 IA</button>
-                  <button className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold" title="Evidencia">📄 Evidencia</button>
-                </td>
+  {/* 1. Conectado al modal de desglose que ya tienes creado */}
+  <button 
+    onClick={(e) => { e.stopPropagation(); setControlSeleccionadoIA(c); }} 
+    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[9px] font-bold shadow-sm" 
+    title="Ver Detalles del Control">
+    👁 Ver
+  </button>
+  
+  {/* 2. Marcador para futuro desarrollo del formulario de edición */}
+  <button 
+    onClick={(e) => { e.stopPropagation(); alert("⏳ Módulo en construcción: Aquí se abrirá un formulario para cambiar la frecuencia o el responsable de este control individual."); }}
+    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded text-[9px] font-bold shadow-sm" 
+    title="Editar Control">
+    ✏️ Editar
+  </button>
+  
+  {/* 3. Conectado al modal de IA usando el estado que ya tienes */}
+  <button 
+    onClick={(e) => { 
+      e.stopPropagation(); 
+      setDictamenIA({ 
+        titulo: `Análisis de Control: ${c.descripcion.substring(0, 30)}...`, 
+        dictamen: "🤖 Función en fase beta: Próximamente la IA evaluará si la redacción de este control es lo suficientemente robusta para mitigar el riesgo." 
+      }); 
+    }}
+    className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded text-[9px] font-bold shadow-sm" 
+    title="Analizar redacción con IA">
+    🤖 IA
+  </button>
+  
+  {/* 4. Marcador para futuro gestor documental */}
+  <button 
+    onClick={(e) => { e.stopPropagation(); alert("⏳ Módulo en construcción: Aquí se abrirá un gestor documental para adjuntar PDFs o Pantallazos que sirvan como evidencia de este control."); }}
+    className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[9px] font-bold shadow-sm" 
+    title="Adjuntar Soportes">
+    📄 Evidencia
+  </button>
+</td>
               </tr>
             ))
           ) : (
