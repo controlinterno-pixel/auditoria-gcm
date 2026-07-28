@@ -409,12 +409,12 @@ const [ayudaModal, setAyudaModal] = useState(null);
         
       const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
 
-// ✅ PEGA ESTE FRAGMENTO BLINDADO EN SU LUGAR:
+// 2. SÚPER PROMPT INDIVIDUAL CON DATOS REALES + HALLAZGOS + PLAN DE ACCIÓN
       const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna. Evalúa el riesgo RSK-${riesgo.id}.
 
 🚨 MANDATO CRÍTICO E INVIOLABLE DE DATOS:
 Queda ESTRICTAMENTE PROHIBIDO inventar números o citar "1 control", "20% de madurez", "23% de cobertura" o "36% de score". 
-EN TODOS TUS PÁRRAFOS (Hallazgos, Recomendaciones, Dictamen y COSO ERM) DEBES CITAR Y NARRAR BASÁNDOTE EXCLUSIVAMENTE EN ESTAS MÉTRICAS REALES:
+EN TODOS TUS PÁRRAFOS DEBES CITAR Y NARRAR BASÁNDOTE EXCLUSIVAMENTE EN ESTAS MÉTRICAS REALES:
 - Score de Riesgo Residual: ${scoreRiesgoReal}%
 - Madurez de los Controles: ${madurezReal}%
 - Total de Controles Implementados: ${totalControlesReal}
@@ -422,17 +422,19 @@ EN TODOS TUS PÁRRAFOS (Hallazgos, Recomendaciones, Dictamen y COSO ERM) DEBES C
 - Nivel Inherente: ${getSeverityZone(riesgo.probabilidadInherente, riesgo.impactoInherente).label}
 - Nivel Residual: ${getSeverityZone(riesgo.probabilidadResidual, riesgo.impactoResidual).label}
 
-INFORMACIÓN DEL RIESGO EVALUADO:
+DATOS ESTRATÉGICOS REGISTRADOS EN LA MATRIZ:
 - ID: RSK-${riesgo.id}
 - Proceso: ${riesgo.proceso}
 - Descripción del Riesgo: ${riesgo.descripcion}
+- Hallazgos / Bitácora de Auditoría: ${riesgo.seguimientoBitacora || 'Sin observaciones o hallazgos críticos registrados en bitácora.'}
+- Plan de Acción Oficial de la Empresa: ${riesgo.planAccionRiesgo || 'No se registró un plan explícito; propone uno acorde a la mitigación.'}
 
-INSTRUCCIONES DE NARRATIVA:
-- Explica en los Hallazgos y Dictamen cómo los ${totalControlesReal} controles registrados logran una madurez del ${madurezReal}% y una mitigación del ${coberturaReal}%.
-- Si la Cobertura es del ${coberturaReal}% y el Score es ${scoreRiesgoReal}%, tu dictamen debe evaluar este nivel impecable de blindaje, felicitando la gestión y recomendando monitoreo continuo para mantener la disciplina operativa de los ${totalControlesReal} controles.
+INSTRUCCIONES DE NARRATIVA Y COHERENCIA INTEGRAL:
+1. HALLAZGOS: Analiza la descripción del riesgo e integra explícitamente las observaciones/hallazgos registrados (${riesgo.seguimientoBitacora || 'si no hay hallazgos, destaca la ausencia de desviaciones'}).
+2. PLAN DE ACCIÓN Y RECOMENDACIONES: Toma como BASE OBLIGATORIA el "Plan de Acción Oficial" (${riesgo.planAccionRiesgo || 'sugerido'}), complementándolo con tu criterio profesional sin contradecir la decisión de la empresa.
+3. COHERENCIA: Explica cómo los ${totalControlesReal} controles soportan una madurez del ${madurezReal}% y aseguran la mitigación del ${coberturaReal}%.
 
-Genera la respuesta estructurada en el JSON requerido para la interfaz.`;
-      
+Genera la respuesta estructurada en el JSON requerido para la interfaz.`;      
 // 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
       
