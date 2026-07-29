@@ -7,7 +7,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   const limiteSalarialQuincenal = smlmv; // 2 SMLMV quincenales = 1 SMLMV mensual ($1.300.000)
   const valorDiarioAuxilio = auxTransporte / 30; // $5.400 / día
 
-  // 1. CONCEPTOS POR DEFECTO (FALLBACK ROBUSTO)
+  // 1. CONCEPTOS POR DEFECTO (FALLBACK ROBUSTO SI EL MAPEO LLEGA VACÍO)
   const conceptosSalarioDefault = [
     'SUELDO BASICO',
     'SUELDO RETROACTIVO',
