@@ -3,22 +3,13 @@
 export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}, constantesAnuales = {}) {
   const { smlmv = 1300000, auxTransporte = 162000 } = constantesAnuales;
   
-  // Parámetros Quincenales
-  const limiteSalarialQuincenal = smlmv; // 2 SMLMV quincenales = 1 SMLMV mensual ($1.300.000)
+  const limiteSalarialQuincenal = smlmv; // 1 SMLMV quincenal ($1.300.000)
   const valorDiarioAuxilio = auxTransporte / 30; // $5.400 / día
 
-  // 1. CONCEPTOS POR DEFECTO (FALLBACK ROBUSTO SI EL MAPEO LLEGA VACÍO)
-  const conceptosSalarioDefault = [
-    'SUELDO BASICO',
-    'SUELDO RETROACTIVO',
-    'SUELDO POR LICENCIA REMUNERADA'
-  ];
-  
-  const conceptosAuxilioDefault = [
-    'SUBSIDIO DE TRANSPORTE'
-  ];
+  // Conceptos por defecto de autodefensa si el mapeo llega vacío
+  const conceptosSalarioDefault = ['SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA'];
+  const conceptosAuxilioDefault = ['SUBSIDIO DE TRANSPORTE'];
 
-  // Garantizar comparación insensible a mayúsculas/minúsculas y sin espacios adicionales
   const conceptosSalario = (mapeoConceptos?.salario_base && mapeoConceptos.salario_base.length > 0)
     ? mapeoConceptos.salario_base.map(c => c.toString().toUpperCase().trim())
     : conceptosSalarioDefault;
@@ -27,7 +18,6 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     ? mapeoConceptos.aux_transporte.map(c => c.toString().toUpperCase().trim())
     : conceptosAuxilioDefault;
 
-  // 🛡️ Sanitizador Universal de Números y Moneda
   const parsearMonto = (val) => {
     if (val === null || val === undefined) return 0;
     if (typeof val === 'number') return isNaN(val) ? 0 : val;
@@ -58,7 +48,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
   const registrosQuincenales = {};
 
-  // 2. ETL: PIVOTEO Y CONSOLIDACIÓN POR CÉDULA + PERÍODO
+  // ETL: Agrupación por Cédula + Período
   transaccionesExcel.forEach(fila => {
     const cedula = fila.Identificacion || fila.IDENTIFICACION || fila.Cedula || fila.CEDULA || fila.NIT;
     const periodo = fila.IDEN_Periodo || fila.Periodo || fila.IDEN_PERIODO || '228';
@@ -70,7 +60,6 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
     if (!cedula) return;
 
-    // Clave Compuesta: Cédula + Período (Ej. "1093231068_228")
     const llaveUnica = `${cedula.toString().trim()}_${periodo.toString().trim()}`;
 
     if (!registrosQuincenales[llaveUnica]) {
@@ -85,7 +74,6 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       };
     }
 
-    // Evaluación insensible a mayúsculas
     if (conceptosSalario.includes(conceptoRaw)) {
       registrosQuincenales[llaveUnica].salarioBaseAcumulado += valorTotal;
       registrosQuincenales[llaveUnica].diasTrabajados += cantidadDias;
@@ -96,26 +84,22 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     }
   });
 
-  // 3. AUDITORÍA QUINCENAL (REGLAS LEGALES COLOMBIANAS)
   const hallazgos = [];
   let riesgoFinancieroTotal = 0;
 
   for (const llave in registrosQuincenales) {
     const reg = registrosQuincenales[llave];
-    
-    // Normalización de días trabajados por quincena (Máximo 15 días)
     const diasEfectivos = Math.min(reg.diasTrabajados, 15);
     let auxilioDeberSer = 0;
 
-    // Regla Quincenal: Salario Base <= $1.300.000 COP
-    if (reg.salarioBaseAcumulado <= limiteSalarialQuincenal) {
+    // Solo evaluar deber ser si el salario base acumulado es mayor a 0 y <= 1 SMLMV quincenal
+    if (reg.salarioBaseAcumulado > 0 && reg.salarioBaseAcumulado <= limiteSalarialQuincenal) {
       auxilioDeberSer = Math.round(valorDiarioAuxilio * diasEfectivos);
     }
 
     const diferenciaExacta = auxilioDeberSer - reg.auxilioPagado;
     const diferenciaAbsoluta = Math.abs(diferenciaExacta);
 
-    // Margen de tolerancia de $100 COP por redondeos ERP
     if (diferenciaAbsoluta > 100) {
       riesgoFinancieroTotal += diferenciaAbsoluta;
 

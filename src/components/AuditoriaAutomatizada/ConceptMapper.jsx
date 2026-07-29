@@ -44,7 +44,6 @@ const ConceptMapper = () => {
 
         setDatosExcel(jsonData);
 
-        // Auto-mapeo quincenal automático de conceptos
         const conceptosExtraidos = [...new Set(jsonData.map(f => (f.NombreConcepto || f['Nombre Concepto'] || f.Concepto || '').toString().trim()))].filter(Boolean);
         
         const autoSalario = conceptosExtraidos.filter(c => {
@@ -86,7 +85,6 @@ const ConceptMapper = () => {
   const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
 
-    // Garantiza que si el mapeo viene vacío se apliquen los conceptos por defecto
     const mappingAjustado = {
       salario_base: (mapping.salario_base && mapping.salario_base.length > 0) 
         ? mapping.salario_base 
@@ -118,7 +116,6 @@ const ConceptMapper = () => {
         <p className="text-slate-500 mt-2">Termales Santa Rosa de Cabal — Sistema de Control Interno</p>
       </div>
 
-      {/* STEP 1: CARGA */}
       <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
         <h3 className="text-lg font-medium text-slate-700 mb-4">📥 1. Cargar Nómina Quincenal</h3>
         <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
@@ -133,7 +130,6 @@ const ConceptMapper = () => {
         )}
       </div>
 
-      {/* STEP 2: MAPEO */}
       <div className={`bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>
         <h3 className="text-lg font-medium text-slate-700 mb-4">🔗 2. Mapeo de Conceptos</h3>
         {systemCategories.map((category) => (
@@ -165,7 +161,6 @@ const ConceptMapper = () => {
         </button>
       </div>
 
-      {/* KPIS */}
       {resumenKpi && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-xl border border-red-200 shadow-sm">
@@ -185,7 +180,6 @@ const ConceptMapper = () => {
         </div>
       )}
 
-      {/* TABLA CON COLUMNA DE PERÍODO */}
       {hallazgos && (
         <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
           <div className="bg-slate-800 px-6 py-3 flex justify-between items-center text-white">
