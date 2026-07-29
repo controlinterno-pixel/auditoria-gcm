@@ -18,6 +18,7 @@ import Apetito from './components/Apetito';
 import PlanAnual from './components/PlanAnual';
 import AuditorIA from './components/AuditorIA';
 import Comites from './components/Comites';
+import ConceptMapper from './components/AuditoriaAutomatizada/ConceptMapper';
 import DashboardEjecutivo from './components/DashboardEjecutivo';
 import MiEspacio from './components/MiEspacio';
 import ModalIA from './components/ModalIA';
@@ -1650,6 +1651,9 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                   {isAdmin && (
                     <button onClick={() => setSubTabGobernanza('trazabilidad')} className={`px-4 py-2 rounded-xl transition-all ${subTabGobernanza === 'trazabilidad' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📜 Bitácora de Trazabilidad</button>
                   )}
+<button onClick={() => setSubTabGobernanza('auditoria_auto')} className={`px-4 py-2 rounded-xl transition-all ${subTabGobernanza === 'auditoria_auto' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>
+                    ⚡ Auditoría Automatizada
+                  </button>
                 </div>
                 {subTabGobernanza === 'comites' && (
                   <Comites 
@@ -1664,6 +1668,9 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                     safeRiesgos={safeRiesgos} safeEvaluaciones={safeEvaluaciones} safeHallazgos={safeHallazgos}
                     safePlanes={safePlanes} safeIncidentes={safeIncidentes}
                   />
+                )}
+{subTabGobernanza === 'auditoria_auto' && (
+                  <ConceptMapper />
                 )}
               </div>
             )}
