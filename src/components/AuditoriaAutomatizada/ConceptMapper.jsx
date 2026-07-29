@@ -45,17 +45,17 @@ const handleFileUpload = (e) => {
       console.log("📊 Datos extraídos del Excel:", jsonData.slice(0, 5));
       setDatosExcel(jsonData);
 
-      // 🤖 AUTO-MAPEO INTELIGENTE DE CONCEPTOS
-      const conceptosExtraidos = [...new Set(jsonData.map(f => f.NombreConcepto))].filter(Boolean);
+     // 🤖 AUTO-MAPEO DE CONCEPTOS
+      const conceptosExtraidos = [...new Set(jsonData.map(f => (f.NombreConcepto || '').toString().trim()))].filter(Boolean);
       
       const autoSalario = conceptosExtraidos.filter(c => 
-        c.toUpperCase().includes('SUELDO BASICO') || 
-        c.toUpperCase().includes('SUELDO RETROACTIVO')
+        c.toUpperCase() === 'SUELDO BASICO' || 
+        c.toUpperCase() === 'SUELDO RETROACTIVO' ||
+        c.toUpperCase() === 'SUELDO POR LICENCIA REMUNERADA'
       );
       
       const autoAuxilio = conceptosExtraidos.filter(c => 
-        c.toUpperCase().includes('SUBSIDIO DE TRANSPORTE') || 
-        c.toUpperCase().includes('AUXILIO DE TRANSPORTE')
+        c.toUpperCase() === 'SUBSIDIO DE TRANSPORTE'
       );
 
       setMapping({
