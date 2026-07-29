@@ -7,7 +7,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   const limiteSalarialQuincenal = smlmv; // 2 SMLMV quincenales = 1 SMLMV mensual ($1.300.000)
   const valorDiarioAuxilio = auxTransporte / 30; // $5.400 / día
 
-  // 1. CONCEPTOS POR DEFECTO (FALLBACK SI EL MAPEO VIENE VACÍO O SE UNSELECT)
+  // 1. CONCEPTOS POR DEFECTO (FALLBACK ROBUSTO)
   const conceptosSalarioDefault = [
     'SUELDO BASICO',
     'SUELDO RETROACTIVO',
@@ -18,7 +18,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     'SUBSIDIO DE TRANSPORTE'
   ];
 
-  // Garantizar comparación insensible a mayúsculas/minúsculas y espacios
+  // Garantizar comparación insensible a mayúsculas/minúsculas y sin espacios adicionales
   const conceptosSalario = (mapeoConceptos?.salario_base && mapeoConceptos.salario_base.length > 0)
     ? mapeoConceptos.salario_base.map(c => c.toString().toUpperCase().trim())
     : conceptosSalarioDefault;
@@ -85,7 +85,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       };
     }
 
-    // Evaluación normalizada
+    // Evaluación insensible a mayúsculas
     if (conceptosSalario.includes(conceptoRaw)) {
       registrosQuincenales[llaveUnica].salarioBaseAcumulado += valorTotal;
       registrosQuincenales[llaveUnica].diasTrabajados += cantidadDias;

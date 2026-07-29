@@ -4,7 +4,10 @@ import { auditarAuxilioTransporte } from '../../utils/motorAuditoria';
 
 const ConceptMapper = () => {
   const [datosExcel, setDatosExcel] = useState(null);
-  const [mapping, setMapping] = useState({});
+  const [mapping, setMapping] = useState({
+    salario_base: ['SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA'],
+    aux_transporte: ['SUBSIDIO DE TRANSPORTE']
+  });
   const [fileName, setFileName] = useState("");
   const [hallazgos, setHallazgos] = useState(null);
   const [resumenKpi, setResumenKpi] = useState(null);
@@ -16,7 +19,7 @@ const ConceptMapper = () => {
   ];
 
   const excelConcepts = datosExcel 
-    ? [...new Set(datosExcel.map(fila => (fila.NombreConcepto || '').toString().trim()))].filter(Boolean)
+    ? [...new Set(datosExcel.map(fila => (fila.NombreConcepto || fila['Nombre Concepto'] || fila.Concepto || '').toString().trim()))].filter(Boolean)
     : [];
 
   const handleFileUpload = (e) => {
@@ -41,22 +44,21 @@ const ConceptMapper = () => {
 
         setDatosExcel(jsonData);
 
-        // Auto-mapeo quincenal de conceptos
-        const conceptosExtraidos = [...new Set(jsonData.map(f => (f.NombreConcepto || '').toString().trim()))].filter(Boolean);
+        // Auto-mapeo quincenal automático de conceptos
+        const conceptosExtraidos = [...new Set(jsonData.map(f => (f.NombreConcepto || f['Nombre Concepto'] || f.Concepto || '').toString().trim()))].filter(Boolean);
         
-        const autoSalario = conceptosExtraidos.filter(c => 
-          c.toUpperCase() === 'SUELDO BASICO' || 
-          c.toUpperCase() === 'SUELDO RETROACTIVO' ||
-          c.toUpperCase() === 'SUELDO POR LICENCIA REMUNERADA'
-        );
+        const autoSalario = conceptosExtraidos.filter(c => {
+          const upper = c.toUpperCase();
+          return upper === 'SUELDO BASICO' || upper === 'SUELDO RETROACTIVO' || upper === 'SUELDO POR LICENCIA REMUNERADA';
+        });
         
-        const autoAuxilio = conceptosExtraidos.filter(c => 
-          c.toUpperCase() === 'SUBSIDIO DE TRANSPORTE'
-        );
+        const autoAuxilio = conceptosExtraidos.filter(c => {
+          return c.toUpperCase() === 'SUBSIDIO DE TRANSPORTE';
+        });
 
         setMapping({
-          salario_base: autoSalario,
-          aux_transporte: autoAuxilio
+          salario_base: autoSalario.length > 0 ? autoSalario : ['SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA'],
+          aux_transporte: autoAuxilio.length > 0 ? autoAuxilio : ['SUBSIDIO DE TRANSPORTE']
         });
 
         setHallazgos(null);
@@ -83,8 +85,18 @@ const ConceptMapper = () => {
 
   const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
+
+    // Garantiza que si el mapeo viene vacío se apliquen los conceptos por defecto
+    const mappingAjustado = {
+      salario_base: (mapping.salario_base && mapping.salario_base.length > 0) 
+        ? mapping.salario_base 
+        : ['SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA'],
+      aux_transporte: (mapping.aux_transporte && mapping.aux_transporte.length > 0) 
+        ? mapping.aux_transporte 
+        : ['SUBSIDIO DE TRANSPORTE']
+    };
     
-    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, { 
+    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mappingAjustado, { 
       smlmv: 1300000, 
       auxTransporte: 162000 
     });
@@ -134,8 +146,8 @@ const ConceptMapper = () => {
                   <button
                     key={concept}
                     onClick={() => toggleConcept(category.id, concept)}
-                    className={`px-3 py-1 text-xs rounded border ${
-                      isSelected ? 'bg-blue-900 text-white border-blue-900 font-bold' : 'bg-white text-slate-700 border-slate-300'
+                    className={`px-3 py-1 text-xs rounded border transition-colors ${
+                      isSelected ? 'bg-blue-900 text-white border-blue-900 font-bold' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
                     }`}
                   >
                     {isSelected && '✓ '} {concept}
@@ -147,7 +159,7 @@ const ConceptMapper = () => {
         ))}
         <button 
           onClick={handleStartAudit}
-          className="mt-4 px-6 py-2.5 bg-blue-900 text-white font-bold rounded-lg shadow hover:bg-blue-800"
+          className="mt-4 px-6 py-2.5 bg-blue-900 text-white font-bold rounded-lg shadow hover:bg-blue-800 transition-colors"
         >
           ⚡ Ejecutar Auditoría Quincenal
         </button>
@@ -179,9 +191,9 @@ const ConceptMapper = () => {
           <div className="bg-slate-800 px-6 py-3 flex justify-between items-center text-white">
             <h3 className="font-bold text-sm">🚨 Resultados Quincenales ({hallazgosFiltrados.length})</h3>
             <div className="flex gap-2">
-              <button onClick={() => setFiltroTipo('TODOS')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'TODOS' ? 'bg-blue-600' : 'bg-slate-700'}`}>Todos</button>
-              <button onClick={() => setFiltroTipo('PAGO_EXCESO')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600' : 'bg-slate-700'}`}>Excesos</button>
-              <button onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600' : 'bg-slate-700'}`}>Bajo Pago (UGPP)</button>
+              <button onClick={() => setFiltroTipo('TODOS')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'TODOS' ? 'bg-blue-600 font-bold' : 'bg-slate-700'}`}>Todos</button>
+              <button onClick={() => setFiltroTipo('PAGO_EXCESO')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600 font-bold' : 'bg-slate-700'}`}>Excesos</button>
+              <button onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600 font-bold' : 'bg-slate-700'}`}>Bajo Pago (UGPP)</button>
             </div>
           </div>
           <div className="overflow-x-auto max-h-[500px]">
@@ -206,9 +218,9 @@ const ConceptMapper = () => {
                     <td className="px-4 py-3 text-center font-bold text-blue-800 bg-blue-50/50">{h.periodo}</td>
                     <td className="px-4 py-3 font-medium whitespace-nowrap">{h.nombre}</td>
                     <td className="px-4 py-3 text-center">{h.diasTrabajados}</td>
-                    <td className="px-4 py-3 text-right">${h.salarioBase.toLocaleString('es-CO')}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-800">${h.salarioBase.toLocaleString('es-CO')}</td>
                     <td className="px-4 py-3 text-right text-blue-600 font-medium">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
-                    <td className="px-4 py-3 text-right">${h.auxilioPagado.toLocaleString('es-CO')}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-slate-800">${h.auxilioPagado.toLocaleString('es-CO')}</td>
                     <td className="px-4 py-3 text-right font-bold text-red-600">${h.diferenciaAbsoluta.toLocaleString('es-CO')}</td>
                     <td className="px-4 py-3 text-center">
                       {h.tipoHallazgo === 'PAGO_INSUFICIENTE' ? (
