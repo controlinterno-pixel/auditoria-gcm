@@ -36,7 +36,7 @@ const ConceptMapper = () => {
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-        const jsonData = window.XLSX.utils.sheet_to_json(worksheet);
+const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
         
         console.log("📊 Datos extraídos del Excel:", jsonData.slice(0, 5), "... (mostrando 5 filas)");
         setDatosExcel(jsonData);
