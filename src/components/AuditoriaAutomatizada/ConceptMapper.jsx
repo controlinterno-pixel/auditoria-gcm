@@ -63,11 +63,17 @@ const ConceptMapper = () => {
 
         setDatosExcel(jsonData);
 
-        // Extraer y normalizar conceptos únicos para mostrar en pantalla
-        const conceptosLimpios = [...new Set(jsonData.map(f => {
-          const raw = f.NombreConcepto ?? f['Nombre Concepto'] ?? f.Concepto ?? f.CONCEPTO;
-          return normalizarTexto(raw);
-        }))].filter(Boolean);
+        // 🌟 Buscador dinámico de la columna de Conceptos para la UI
+        let colConcepto = null;
+        if (jsonData.length > 0) {
+          const llavesExcel = Object.keys(jsonData[0]);
+          colConcepto = llavesExcel.find(k => {
+            const kNorm = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
+            return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(kNorm);
+          });
+        }
+
+        const conceptosLimpios = [...new Set(jsonData.map(f => normalizarTexto(f[colConcepto])))].filter(Boolean);
         
         setConceptosExtraidosUI(conceptosLimpios);
         ejecutarAutoMapeoInteligente(conceptosLimpios);

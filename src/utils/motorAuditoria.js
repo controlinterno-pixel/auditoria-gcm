@@ -8,15 +8,9 @@
 // Helper para normalizar textos (quita tildes, ñ, espacios extra y pasa a mayúsculas)
 const normalizarTexto = (str) => {
   if (!str) return "";
-  return str
-    .toString()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Quita tildes
-    .toUpperCase()
-    .trim();
+  return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 };
 
-// Helper de parseo numérico robusto
 const parsearMonto = (val) => {
   if (val === null || val === undefined) return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
@@ -43,38 +37,49 @@ const parsearMonto = (val) => {
   return isNaN(num) ? 0 : num;
 };
 
+// 🌟 EL ANTÍDOTO: Buscador Dinámico de Columnas usando Object.keys()
+const buscarColumna = (fila, aliasPosibles) => {
+  const llavesExcel = Object.keys(fila);
+  for (const alias of aliasPosibles) {
+    // Quitamos tildes, espacios y guiones bajos para comparar manzanas con manzanas
+    const aliasNorm = normalizarTexto(alias).replace(/[\s_]/g, '');
+    const llaveReal = llavesExcel.find(k => normalizarTexto(k).replace(/[\s_]/g, '') === aliasNorm);
+    if (llaveReal) return fila[llaveReal];
+  }
+  return undefined;
+};
+
 export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}, constantesAnuales = {}) {
   const { smlmv = 1300000, auxTransporte = 162000 } = constantesAnuales;
   
   const limiteSalarialQuincenal = smlmv; // 1 SMLMV quincenal ($1.300.000)
   const valorDiarioAuxilio = auxTransporte / 30; // $5.400 / día
 
-  // Normalizamos las selecciones que vienen de la UI
   const conceptosSalario = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
   const conceptosAuxilio = (mapeoConceptos?.aux_transporte || []).map(normalizarTexto);
 
   // ==========================================
-  // FASE 1: ETL & PIVOTE DE EMPLEADOS (Objeto 360°)
+  // FASE 1: ETL & PIVOTE DE EMPLEADOS 
   // ==========================================
   const empleadosPivoteados = {};
 
   transaccionesExcel.forEach(fila => {
-    // Búsqueda defensiva de columnas (Soporte Multi-Software)
-    const cedulaRaw = fila.Identificacion ?? fila.IDENTIFICACION ?? fila.Cedula ?? fila.CEDULA ?? fila.NIT;
-    const periodoRaw = fila.IDEN_Periodo ?? fila.Periodo ?? fila.IDEN_PERIODO ?? '228';
-    const nombreRaw = fila.Nombres ?? fila.NOMBRES ?? fila.Empleado ?? fila.EMPLEADO;
-    const conceptoRaw = fila.NombreConcepto ?? fila['Nombre Concepto'] ?? fila.Concepto ?? fila.CONCEPTO;
+    // Búsqueda defensiva absoluta (Soporte Helisa, Novasoft, SAP, etc.)
+    const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+    const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
+    const nombreRaw = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']);
+    const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
     
-    const valorRaw = fila.Total ?? fila.TOTAL ?? fila.Valor ?? fila.VALOR ?? fila.ValorTotal ?? fila.VR_TOTAL ?? fila.Devengado ?? fila.Monto;
-    const cantidadRaw = fila.Cantidad ?? fila.CANTIDAD ?? fila.Dias ?? fila.DIAS ?? fila.CANT;
+    // Aquí resolvemos el problema de los ceros
+    const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago']);
+    const cantidadRaw = buscarColumna(fila, ['Cantidad', 'Dias', 'Cant', 'Horas', 'Tiempo']);
 
-    if (!cedulaRaw) return; // Si no hay cédula, saltamos la fila
+    if (!cedulaRaw) return; 
 
     const cedula = cedulaRaw.toString().trim();
-    const periodo = periodoRaw.toString().trim();
+    const periodo = periodoRaw ? periodoRaw.toString().trim() : '228';
     const llaveUnica = `${cedula}_${periodo}`;
     
-    // Normalizamos el concepto aplicando la regla anti-tildes
     const conceptoLimpio = normalizarTexto(conceptoRaw);
     const valorTotal = parsearMonto(valorRaw);
     const cantidadDias = parsearMonto(cantidadRaw);
@@ -84,7 +89,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
         llaveUnica,
         cedula,
         periodo,
-        nombre: nombreRaw ? nombreRaw.toString().trim() : 'Empleado Sin Nombre',
+        nombre: nombreRaw ? nombreRaw.toString().trim() : 'Sin Nombre',
         sueldoBasico: 0,
         otrosDevengadosSalariales: 0,
         totalDevengadoSalarial: 0,
@@ -97,13 +102,14 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
     // Acumular conceptos salariales
     if (conceptosSalario.includes(conceptoLimpio)) {
-      if (conceptoLimpio.includes('SUELDO BASICO') || conceptoLimpio === 'BASICO') {
+      if (conceptoLimpio.includes('SUELDO BASICO') || conceptoLimpio === 'BASICO' || conceptoLimpio === 'SUELDO') {
         emp.sueldoBasico += valorTotal;
       } else {
         emp.otrosDevengadosSalariales += valorTotal;
       }
       emp.totalDevengadoSalarial += valorTotal;
-      // Solo sumamos días en el sueldo básico para no duplicar días por horas extras
+      
+      // Control de días para evitar duplicar por horas extras
       if (conceptoLimpio.includes('SUELDO') || conceptoLimpio.includes('BASICO')) {
         emp.diasTrabajados += cantidadDias;
       }
@@ -128,9 +134,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
-    // Si por algún motivo los días vienen en 0 pero hay devengo, forzamos a 15 (quincena)
     let diasEfectivos = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
-    diasEfectivos = Math.min(diasEfectivos, 15); // Tope quincenal
+    diasEfectivos = Math.min(diasEfectivos, 15); 
     
     const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && emp.totalDevengadoSalarial <= limiteSalarialQuincenal;
 
@@ -149,7 +154,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       tipoHallazgo = 'NO_APLICA';
       severidad = 'EXCLUIDO_POR_TOPE';
       conteoNoAplica++;
-    } else if (diferenciaAbsoluta > 100) { // Tolerancia de 100 pesos por redondeo
+    } else if (diferenciaAbsoluta > 100) {
       riesgoFinancieroTotal += diferenciaAbsoluta;
       if (diferenciaExacta > 0) {
         tipoHallazgo = 'PAGO_INSUFICIENTE';
