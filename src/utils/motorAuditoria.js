@@ -95,23 +95,25 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
   const empleadosPivoteados = {};
 
-  transaccionesLimpias.forEach(fila => {
+  transaccionesExcel.forEach(fila => {
     // Búsqueda defensiva absoluta (Soporte Helisa, Novasoft, SAP, etc.)
+    const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
     const nombreRaw = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']);
     const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
     
-    // Aquí resolvemos el problema de los ceros
     const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago']);
     const cantidadRaw = buscarColumna(fila, ['Cantidad', 'Dias', 'Cant', 'Horas', 'Tiempo']);
 
     if (!cedulaRaw) return; 
 
+    const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
     const cedula = cedulaRaw.toString().trim();
     const periodo = periodoRaw ? periodoRaw.toString().trim() : '228';
-    const llaveUnica = `${cedula}_${periodo}`;
     
+    // 🔑 LLAVE ÚNICA MULTI-EMPRESA: Evalúa cada razón social independientemente
+    const llaveUnica = `${empresa}_${cedula}_${periodo}`;    
     const conceptoLimpio = normalizarTexto(conceptoRaw);
     const valorTotal = parsearMonto(valorRaw);
     const cantidadDias = parsearMonto(cantidadRaw);
