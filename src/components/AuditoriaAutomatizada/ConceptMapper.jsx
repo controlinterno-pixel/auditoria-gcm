@@ -11,7 +11,7 @@ const normalizarTexto = (str) => {
 const ConceptMapper = () => {
   const [datosExcel, setDatosExcel] = useState(null);
   const [conceptosExtraidosUI, setConceptosExtraidosUI] = useState([]);
-  const [mapping, setMapping] = useState({ salario_base: [], aux_transporte: [] });
+  const [mapping, setMapping] = useState({ salario_base: [], aux_transporte: [], ausentismos: [] });
   const [fileName, setFileName] = useState("");
   const [hallazgos, setHallazgos] = useState(null);
   const [resumenKpi, setResumenKpi] = useState(null);
@@ -20,7 +20,8 @@ const ConceptMapper = () => {
 
   const systemCategories = [
     { id: 'salario_base', label: 'Salario Básico y Devengados Salariales (Art. 127 CST)', required: true },
-    { id: 'aux_transporte', label: 'Auxilio / Subsidio de Transporte', required: true }
+    { id: 'aux_transporte', label: 'Auxilio / Subsidio de Transporte', required: true },
+    { id: 'ausentismos', label: 'Ausentismos (Vacaciones, Incapacidad, Licencias)', required: false }
   ];
 
   const ejecutarAutoMapeoInteligente = (conceptos) => {
@@ -34,12 +35,20 @@ const ConceptMapper = () => {
     });
 
     const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
+    
+    const autoAusentismos = conceptos.filter(c => 
+      c.includes('VACACIONES') || 
+      c.includes('INCAPACIDAD') || 
+      c.includes('LICENCIA') || 
+      c.includes('SUSPENSION') ||
+      c.includes('FALTA')
+    );
 
     setMapping({
       salario_base: autoSalario,
-      aux_transporte: autoAuxilio
+      aux_transporte: autoAuxilio,
+      ausentismos: autoAusentismos
     });
-  };
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {

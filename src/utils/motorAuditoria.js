@@ -69,6 +69,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
   const conceptosSalario = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
   const conceptosAuxilio = (mapeoConceptos?.aux_transporte || []).map(normalizarTexto);
+  const conceptosAusentismos = (mapeoConceptos?.ausentismos || []).map(normalizarTexto);
 
   // ==========================================
   // FASE 1: ETL & PIVOTE DE EMPLEADOS 
@@ -106,9 +107,11 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
         otrosDevengadosSalariales: 0,
         totalDevengadoSalarial: 0,
         auxilioPagado: 0,
-        diasTrabajados: 0
+        diasTrabajados: 0,
+        diasAusentismos: 0
       };
     }
+       
 
     const emp = empleadosPivoteados[llaveUnica];
 
@@ -131,8 +134,12 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     if (conceptosAuxilio.includes(conceptoLimpio)) {
       emp.auxilioPagado += valorTotal;
     }
-  });
 
+    // Acumular días de ausentismo
+    if (conceptosAusentismos.includes(conceptoLimpio)) {
+      emp.diasAusentismos += cantidadDias;
+    }
+  });
   // ==========================================
   // FASE 2: MOTOR REGLAS DE NEGOCIO Y UGPP
   // ==========================================
@@ -143,14 +150,20 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   let conteoExcesos = 0;
   let conteoNoAplica = 0;
 
+  // +++ PEGAR  +++
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
-    let diasEfectivos = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
-    diasEfectivos = Math.min(diasEfectivos, 15); 
+    // Si el software liquidó 0 días trabajados (por vacaciones completas), asumimos la base de la quincena (15)
+    let diasBase = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
+    
+    // Restamos los días que el empleado no se desplazó al trabajo
+    let diasEfectivos = diasBase - emp.diasAusentismos;
+    
+    // Aseguramos que los días no sean negativos ni superen los 15 días quincenales
+    diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15)); 
     
     const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && emp.totalDevengadoSalarial <= limiteSalarialQuincenal;
-
     let auxilioDeberSer = 0;
     if (tieneDerechoLegal) {
       auxilioDeberSer = Math.round(valorDiarioAuxilio * diasEfectivos);
