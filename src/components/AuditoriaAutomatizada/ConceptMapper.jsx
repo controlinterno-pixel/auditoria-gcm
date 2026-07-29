@@ -1,3 +1,4 @@
+// Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import React, { useState } from 'react';
 import { auditarAuxilioTransporte } from '../../utils/motorAuditoria';
 
@@ -6,6 +7,8 @@ const ConceptMapper = () => {
   const [mapping, setMapping] = useState({});
   const [fileName, setFileName] = useState("");
   const [hallazgos, setHallazgos] = useState(null);
+  const [resumenKpi, setResumenKpi] = useState(null);
+  const [filtroTipo, setFiltroTipo] = useState('TODOS');
 
   const systemCategories = [
     { id: 'salario_base', label: 'Salario Básico / Sueldo', required: true },
@@ -32,17 +35,19 @@ const ConceptMapper = () => {
       try {
         const data = new Uint8Array(evt.target.result);
         const workbook = window.XLSX.read(data, { type: 'array' });
-        
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
+        // Carga cruda sin formatear cadenas de texto
+        const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
         
-        console.log("📊 Datos extraídos del Excel:", jsonData.slice(0, 5), "... (mostrando 5 filas)");
+        console.log("📊 Datos extraídos del Excel:", jsonData.slice(0, 5));
         setDatosExcel(jsonData);
+        setHallazgos(null);
+        setResumenKpi(null);
       } catch (error) {
         console.error("Error leyendo el Excel:", error);
-        alert("Hubo un error al leer el archivo. Asegúrate de que sea un formato válido de Excel (.xlsx).");
+        alert("Hubo un error al leer el archivo Excel (.xlsx).");
       }
     };
     reader.readAsArrayBuffer(file);
@@ -67,30 +72,37 @@ const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
       return;
     }
     
-    if (!mapping.salario_base || !mapping.aux_transporte) {
-      alert("⚠️ Debes mapear al menos un concepto para el Salario Base y otro para el Auxilio de Transporte.");
+    if (!mapping.salario_base?.length || !mapping.aux_transporte?.length) {
+      alert("⚠️ Debes seleccionar al menos un concepto para Salario Base y otro para Auxilio de Transporte.");
       return;
     }
     
-    console.log("🚀 Iniciando auditoría automatizada...");
+    console.log("🚀 Ejecutando Motor de Auditoría GCM...");
     
-    const resultados = auditarAuxilioTransporte(datosExcel, mapping, { 
+    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, { 
       smlmv: 1300000, 
       auxTransporte: 162000 
     });
     
-    // Guardas los hallazgos y los KPIs en el estado
     setHallazgos(resultadoEngine.hallazgos);
     setResumenKpi(resultadoEngine.kpis);
   };
+
+  // Filtrado de hallazgos en UI
+  const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
+    if (filtroTipo === 'PAGO_EXCESO') return h.tipoHallazgo === 'PAGO_EXCESO';
+    if (filtroTipo === 'PAGO_INSUFICIENTE') return h.tipoHallazgo === 'PAGO_INSUFICIENTE';
+    return true;
+  }) : [];
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-800">🤖 Motor de Auditoría Automatizada</h1>
-        <p className="text-slate-500 mt-2">Carga tu sábana de nómina y mapea los conceptos para que el robot aplique las reglas de negocio.</p>
+        <p className="text-slate-500 mt-2">Plataforma de Control Interno y Gobernanza - Termales Santa Rosa de Cabal</p>
       </div>
 
+      {/* STEP 1: CARGA DE ARCHIVO */}
       <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
         <h3 className="text-lg font-medium text-slate-700 mb-4">📥 1. Cargar Archivo de Nómina</h3>
         <div className="flex items-center space-x-4">
@@ -110,15 +122,10 @@ const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
         )}
       </div>
 
+      {/* STEP 2: MAPEO DE CONCEPTOS */}
       <div className={`bg-white rounded-xl shadow-md p-6 border border-slate-200 transition-opacity ${!datosExcel ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
         <h3 className="text-lg font-medium text-slate-700 mb-6">🔗 2. Mapeo de Conceptos</h3>
         
-        {!datosExcel && (
-          <div className="mb-4 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
-            Carga un archivo arriba para ver los conceptos extraídos.
-          </div>
-        )}
-
         <div className="space-y-6">
           {systemCategories.map((category) => {
             const selectedConcepts = mapping[category.id] || [];
@@ -164,52 +171,121 @@ const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
         </div>
       </div>
 
-      {/* 📊 SECCIÓN DE RESULTADOS */}
+      {/* 📊 CARDS DE KPI EJECUTIVO */}
+      {resumenKpi && (
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-xl border border-red-200 shadow-sm bg-gradient-to-br from-red-50/50 to-white">
+            <p className="text-xs font-bold uppercase tracking-wider text-red-600 mb-1">Riesgo Financiero Expuesto</p>
+            <h3 className="text-3xl font-extrabold text-red-700">
+              ${resumenKpi.riesgoFinancieroTotal.toLocaleString('es-CO')} <span className="text-xs text-red-500 font-normal">COP</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-2">Suma absoluta de desviaciones en nómina</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Población Auditada</p>
+            <h3 className="text-3xl font-extrabold text-slate-800">
+              {resumenKpi.totalEmpleados} <span className="text-sm font-normal text-slate-500">empleados</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-2">Consolidados a partir del Excel</p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-amber-200 shadow-sm bg-gradient-to-br from-amber-50/50 to-white">
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-600 mb-1">Anomalías Detectadas</p>
+            <h3 className="text-3xl font-extrabold text-amber-700">
+              {resumenKpi.totalHallazgos} <span className="text-sm font-normal text-amber-600">hallazgos</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-2">
+              Salud de nómina: <strong className="text-slate-700">{Math.round(((resumenKpi.totalEmpleados - resumenKpi.totalHallazgos) / resumenKpi.totalEmpleados) * 100)}% limpia</strong>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 📊 TABLA DE RESULTADOS */}
       {hallazgos && (
         <div className="mt-8 bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-          <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
-            <h3 className="text-lg font-bold text-white">
-              🚨 Resultados del Motor ({hallazgos.length} anomalías detectadas)
+          <div className="bg-slate-800 px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              🚨 Resultados de Auditoría 
+              <span className="text-xs font-normal bg-slate-700 text-slate-200 px-2.5 py-1 rounded-full">
+                {hallazgosFiltrados.length} visibles
+              </span>
             </h3>
+
+            {/* FILTROS RÁPIDOS */}
+            <div className="flex items-center space-x-2 bg-slate-900/60 p-1 rounded-lg border border-slate-700">
+              <button 
+                onClick={() => setFiltroTipo('TODOS')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filtroTipo === 'TODOS' ? 'bg-blue-600 text-white' : 'text-slate-300 hover:text-white'}`}
+              >
+                Todos ({hallazgos.length})
+              </button>
+              <button 
+                onClick={() => setFiltroTipo('PAGO_EXCESO')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600 text-white' : 'text-slate-300 hover:text-white'}`}
+              >
+                Pagos Exceso
+              </button>
+              <button 
+                onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600 text-white' : 'text-slate-300 hover:text-white'}`}
+              >
+                Pagos Insuficientes (UGPP)
+              </button>
+            </div>
+
             <button 
-              onClick={() => setHallazgos(null)}
-              className="text-slate-300 hover:text-white text-sm"
+              onClick={() => { setHallazgos(null); setResumenKpi(null); }}
+              className="text-slate-400 hover:text-white text-xs font-medium"
             >
               Limpiar Resultados
             </button>
           </div>
           
-          <div className="p-0 overflow-x-auto max-h-[500px]">
+          <div className="p-0 overflow-x-auto max-h-[550px]">
             <table className="w-full text-sm text-left text-slate-600">
               <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 shadow-sm">
                 <tr>
                   <th className="px-6 py-3">Cédula</th>
                   <th className="px-6 py-3">Empleado</th>
-                  <th className="px-6 py-3 text-right">Días Lab.</th>
-                  <th className="px-6 py-3 text-right">Salario Base Calc.</th>
-                  <th className="px-6 py-3 text-right">Aux. Deber Ser</th>
+                  <th className="px-6 py-3 text-center">Días</th>
+                  <th className="px-6 py-3 text-right">Salario Base</th>
+                  <th className="px-6 py-3 text-right">Aux. Legal</th>
                   <th className="px-6 py-3 text-right">Aux. Pagado</th>
                   <th className="px-6 py-3 text-right">Diferencia</th>
+                  <th className="px-6 py-3 text-center">Clasificación / Riesgo</th>
                 </tr>
               </thead>
               <tbody>
-                {hallazgos.length === 0 ? (
+                {hallazgosFiltrados.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center text-emerald-600 font-medium">
-                      ✅ ¡No se detectaron diferencias matemáticas en la nómina analizada!
+                    <td colSpan="8" className="px-6 py-8 text-center text-slate-500 font-medium">
+                      Sin anomalías registradas para el filtro seleccionado.
                     </td>
                   </tr>
                 ) : (
-                  hallazgos.map((h, index) => (
-                    <tr key={index} className="bg-white border-b hover:bg-slate-50">
-                      <td className="px-6 py-4 font-medium text-slate-900">{h.cedula}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{h.nombre}</td>
-                      <td className="px-6 py-4 text-right">{h.diasTrabajados}</td>
+                  hallazgosFiltrados.map((h) => (
+                    <tr key={h.id} className="bg-white border-b hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 font-semibold text-slate-900">{h.cedula}</td>
+                      <td className="px-6 py-4 font-medium whitespace-nowrap">{h.nombre}</td>
+                      <td className="px-6 py-4 text-center">{h.diasTrabajados}</td>
                       <td className="px-6 py-4 text-right">${h.salarioBase.toLocaleString('es-CO')}</td>
                       <td className="px-6 py-4 text-right font-medium text-blue-600">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
                       <td className="px-6 py-4 text-right font-medium text-slate-600">${h.auxilioPagado.toLocaleString('es-CO')}</td>
-                      <td className="px-6 py-4 text-right font-bold text-red-500">
-                        ${h.diferenciaExacta.toLocaleString('es-CO')}
+                      <td className="px-6 py-4 text-right font-bold text-red-600">
+                        ${h.diferenciaAbsoluta.toLocaleString('es-CO')}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {h.tipoHallazgo === 'PAGO_INSUFICIENTE' ? (
+                          <span className="px-2.5 py-1 text-xs font-extrabold bg-red-100 text-red-800 rounded-full border border-red-200">
+                            🚨 BAJO PAGO (Riesgo UGPP)
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full border border-amber-200">
+                            ⚠️ PAGO EN EXCESO
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))
