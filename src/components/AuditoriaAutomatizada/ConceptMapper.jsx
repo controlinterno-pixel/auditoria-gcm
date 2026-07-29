@@ -79,7 +79,9 @@ const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
       auxTransporte: 162000 
     });
     
-    setHallazgos(resultados);
+    // Guardas los hallazgos y los KPIs en el estado
+    setHallazgos(resultadoEngine.hallazgos);
+    setResumenKpi(resultadoEngine.kpis);
   };
 
   return (
