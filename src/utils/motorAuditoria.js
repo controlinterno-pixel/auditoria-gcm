@@ -71,12 +71,31 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   const conceptosAuxilio = (mapeoConceptos?.aux_transporte || []).map(normalizarTexto);
   const conceptosAusentismos = (mapeoConceptos?.ausentismos || []).map(normalizarTexto);
 
-  // ==========================================
+// ==========================================
   // FASE 1: ETL & PIVOTE DE EMPLEADOS 
   // ==========================================
+  
+  // 🧹 DESDUPLICACIÓN INTELIGENTE (Elimina duplicados de archivos consolidados)
+  const registrosVistos = new Set();
+  const transaccionesLimpias = transaccionesExcel.filter(fila => {
+    const cedula = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+    const periodo = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
+    const concepto = buscarColumna(fila, ['Codconcepto', 'NombreConcepto', 'Concepto']);
+    const cantidad = buscarColumna(fila, ['Cantidad', 'Dias', 'Cant']);
+    const total = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor']);
+    
+    if (!cedula) return false;
+
+    const huella = `${cedula.toString().trim()}_${periodo ? periodo.toString().trim() : ''}_${normalizarTexto(concepto)}_${cantidad}_${total}`;
+
+    if (registrosVistos.has(huella)) return false;
+    registrosVistos.add(huella);
+    return true;
+  });
+
   const empleadosPivoteados = {};
 
-  transaccionesExcel.forEach(fila => {
+  transaccionesLimpias.forEach(fila => {
     // Búsqueda defensiva absoluta (Soporte Helisa, Novasoft, SAP, etc.)
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
