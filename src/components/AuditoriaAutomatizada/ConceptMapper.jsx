@@ -5,8 +5,8 @@ import { auditarAuxilioTransporte } from '../../utils/motorAuditoria';
 const ConceptMapper = () => {
   const [datosExcel, setDatosExcel] = useState(null);
   const [mapping, setMapping] = useState({
-    salario_base: ['SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA'],
-    aux_transporte: ['SUBSIDIO DE TRANSPORTE']
+    salario_base: [],
+    aux_transporte: []
   });
   const [fileName, setFileName] = useState("");
   const [hallazgos, setHallazgos] = useState(null);
@@ -15,13 +15,45 @@ const ConceptMapper = () => {
   const [busqueda, setBusqueda] = useState('');
 
   const systemCategories = [
-    { id: 'salario_base', label: 'Salario Básico / Sueldo', required: true },
-    { id: 'aux_transporte', label: 'Auxilio de Transporte', required: true }
+    { id: 'salario_base', label: 'Salario Básico y Devengados Salariales (Art. 127 CST)', required: true },
+    { id: 'aux_transporte', label: 'Auxilio / Subsidio de Transporte', required: true }
   ];
 
   const excelConcepts = datosExcel 
     ? [...new Set(datosExcel.map(fila => (fila.NombreConcepto || fila['Nombre Concepto'] || fila.Concepto || '').toString().trim()))].filter(Boolean)
     : [];
+
+  // Función de Detección Automática basada en Normativa Colombiana
+  const ejecutarAutoMapeoInteligente = (conceptos) => {
+    const autoSalario = conceptos.filter(c => {
+      const u = c.toUpperCase().trim();
+      // Exclusiones explícitas (Prestaciones sociales / No remunerados)
+      if (
+        u.includes('NO REMUNERAD') || 
+        u.includes('SUSPENSION') || 
+        u.includes('VACACIONES') || 
+        u.includes('CESANTIA') || 
+        u.includes('PRIMA DE SERVICIO')
+      ) {
+        return false;
+      }
+      // Conceptos que constituyen salario según el CST
+      const palabrasClaveSalariales = [
+        'SUELDO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL'
+      ];
+      return palabrasClaveSalariales.some(kw => u.includes(kw));
+    });
+
+    const autoAuxilio = conceptos.filter(c => {
+      const u = c.toUpperCase().trim();
+      return u.includes('TRANSPORTE') || u.includes('SUBSIDIO DE TRANSPORTE');
+    });
+
+    setMapping({
+      salario_base: autoSalario.length > 0 ? autoSalario : ['SUELDO BASICO'],
+      aux_transporte: autoAuxilio.length > 0 ? autoAuxilio : ['SUBSIDIO DE TRANSPORTE']
+    });
+  };
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
@@ -47,19 +79,8 @@ const ConceptMapper = () => {
 
         const conceptosExtraidos = [...new Set(jsonData.map(f => (f.NombreConcepto || f['Nombre Concepto'] || f.Concepto || '').toString().trim()))].filter(Boolean);
         
-        const autoSalario = conceptosExtraidos.filter(c => {
-          const upper = c.toUpperCase();
-          return upper === 'SUELDO BASICO' || upper === 'SUELDO RETROACTIVO' || upper === 'SUELDO POR LICENCIA REMUNERADA';
-        });
-        
-        const autoAuxilio = conceptosExtraidos.filter(c => {
-          return c.toUpperCase() === 'SUBSIDIO DE TRANSPORTE';
-        });
-
-        setMapping({
-          salario_base: autoSalario.length > 0 ? autoSalario : ['SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA'],
-          aux_transporte: autoAuxilio.length > 0 ? autoAuxilio : ['SUBSIDIO DE TRANSPORTE']
-        });
+        // Ejecutar Auto-Mapeo Inmediato
+        ejecutarAutoMapeoInteligente(conceptosExtraidos);
 
         setHallazgos(null);
         setResumenKpi(null);
@@ -86,16 +107,7 @@ const ConceptMapper = () => {
   const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
 
-    const mappingAjustado = {
-      salario_base: (mapping.salario_base && mapping.salario_base.length > 0) 
-        ? mapping.salario_base 
-        : ['SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA'],
-      aux_transporte: (mapping.aux_transporte && mapping.aux_transporte.length > 0) 
-        ? mapping.aux_transporte 
-        : ['SUBSIDIO DE TRANSPORTE']
-    };
-    
-    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mappingAjustado, { 
+    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, { 
       smlmv: 1300000, 
       auxTransporte: 162000 
     });
@@ -125,6 +137,7 @@ const ConceptMapper = () => {
         <p className="text-slate-500 mt-2">Termales Santa Rosa de Cabal — Sistema de Control Interno</p>
       </div>
 
+      {/* 1. Cargar Archivo */}
       <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
         <h3 className="text-lg font-medium text-slate-700 mb-4">📥 1. Cargar Nómina Quincenal</h3>
         <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
@@ -134,42 +147,61 @@ const ConceptMapper = () => {
         </label>
         {fileName && (
           <p className="mt-3 text-xs font-semibold text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-200">
-            ✅ Archivo: {fileName} ({datosExcel?.length} transacciones)
+            ✅ Archivo cargado: {fileName} ({datosExcel?.length} transacciones)
           </p>
         )}
       </div>
 
+      {/* 2. Mapeo con Auto-Selección */}
       <div className={`bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>
-        <h3 className="text-lg font-medium text-slate-700 mb-4">🔗 2. Mapeo de Conceptos</h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-slate-700">🔗 2. Mapeo Automático de Conceptos</h3>
+          {datosExcel && (
+            <button 
+              onClick={() => ejecutarAutoMapeoInteligente(excelConcepts)}
+              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded border border-slate-300 transition"
+            >
+              🔄 Re-aplicar Auto-Mapeo (Art. 127 CST)
+            </button>
+          )}
+        </div>
+
         {systemCategories.map((category) => (
-          <div key={category.id} className="mb-4">
-            <h4 className="text-sm font-bold text-slate-700 mb-2">{category.label}</h4>
-            <div className="flex flex-wrap gap-2">
+          <div key={category.id} className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div className="flex justify-between items-center mb-3">
+              <h4 className="text-sm font-bold text-slate-800">{category.label}</h4>
+              <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                {(mapping[category.id] || []).length} seleccionados
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
               {excelConcepts.map((concept) => {
                 const isSelected = (mapping[category.id] || []).includes(concept);
                 return (
                   <button
                     key={concept}
                     onClick={() => toggleConcept(category.id, concept)}
-                    className={`px-3 py-1 text-xs rounded border transition-colors ${
-                      isSelected ? 'bg-blue-900 text-white border-blue-900 font-bold' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    className={`px-3 py-1 text-xs rounded border transition-all ${
+                      isSelected ? 'bg-blue-900 text-white border-blue-900 font-bold shadow-sm' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
                     }`}
                   >
-                    {isSelected && '✓ '} {concept}
+                    {isSelected ? '✓ ' : '+ '} {concept}
                   </button>
                 );
               })}
             </div>
           </div>
         ))}
+
         <button 
           onClick={handleStartAudit}
-          className="mt-4 px-6 py-2.5 bg-blue-900 text-white font-bold rounded-lg shadow hover:bg-blue-800 transition-colors cursor-pointer"
+          className="mt-2 px-6 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors cursor-pointer w-full md:w-auto"
         >
           ⚡ Ejecutar Auditoría Quincenal
         </button>
       </div>
 
+      {/* KPI Cards */}
       {resumenKpi && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -191,6 +223,7 @@ const ConceptMapper = () => {
         </div>
       )}
 
+      {/* Tabla de Resultados */}
       {hallazgos && (
         <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
           <div className="bg-slate-900 px-6 py-4 flex flex-wrap justify-between items-center text-white gap-4">
@@ -228,11 +261,12 @@ const ConceptMapper = () => {
                   <th className="px-4 py-3 text-center">Período</th>
                   <th className="px-4 py-3">Empleado</th>
                   <th className="px-4 py-3 text-center">Días</th>
-                  <th className="px-4 py-3 text-right">Sueldo Quincenal</th>
-                  <th className="px-4 py-3 text-right">Aux. Legal (Deber Ser)</th>
+                  <th className="px-4 py-3 text-right">Sueldo Básico</th>
+                  <th className="px-4 py-3 text-right">Devengado Salarial</th>
+                  <th className="px-4 py-3 text-right">Aux. Deber Ser</th>
                   <th className="px-4 py-3 text-right">Aux. Pagado</th>
                   <th className="px-4 py-3 text-right">Diferencia</th>
-                  <th className="px-4 py-3 text-center">Estado / Clasificación</th>
+                  <th className="px-4 py-3 text-center">Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
@@ -247,6 +281,7 @@ const ConceptMapper = () => {
                       <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{h.nombre}</td>
                       <td className="px-4 py-3 text-center font-semibold">{h.diasTrabajados}</td>
                       <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
+                      <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono text-slate-800">${h.auxilioPagado.toLocaleString('es-CO')}</td>
                       <td className={`px-4 py-3 text-right font-mono font-bold ${
@@ -268,6 +303,11 @@ const ConceptMapper = () => {
                         {h.tipoHallazgo === 'PAGO_EXCESO' && (
                           <span className="px-2.5 py-1 text-[10px] font-semibold bg-amber-100 text-amber-800 rounded-full border border-amber-300">
                             🟠 PAGO EN EXCESO
+                          </span>
+                        )}
+                        {h.tipoHallazgo === 'NO_APLICA' && (
+                          <span className="px-2.5 py-1 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-300">
+                            ⚪ NO APLICA (&gt;2 SMLMV)
                           </span>
                         )}
                       </td>
