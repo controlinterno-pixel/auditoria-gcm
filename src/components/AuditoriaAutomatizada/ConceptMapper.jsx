@@ -36,7 +36,6 @@ const ConceptMapper = () => {
 
     const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
     
-    // +++ CÓDIGO CORREGIDO +++
     const autoAusentismos = conceptos.filter(c => {
       // 1. Excluir explícitamente conceptos contables o de liquidación que NO son ausentismos
       if (
@@ -51,7 +50,7 @@ const ConceptMapper = () => {
       
       // 2. Incluir los verdaderos ausentismos
       return (
-        c === 'VACACIONES' || // Usamos igualdad estricta o condiciones muy específicas
+        c === 'VACACIONES' || 
         c.includes('INCAPACIDAD') || 
         c.includes('LICENCIA') || 
         c.includes('SUSPENSION') ||
@@ -60,7 +59,6 @@ const ConceptMapper = () => {
       );
     });
 
-// +++ CÓDIGO CORREGIDO +++
     setMapping({
       salario_base: autoSalario,
       aux_transporte: autoAuxilio,
@@ -86,17 +84,16 @@ const ConceptMapper = () => {
         const workbook = window.XLSX.read(data, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
+        const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
         
         // 🧹 Limpieza de origen: Filtrar provisiones contables y parafiscales
         const jsonData = jsonDataRaw.filter(row => {
           const tipo = row['Tipo'] || row['tipo'] || row['TIPO'];
           if (tipo) {
             const tipoStr = tipo.toString().toUpperCase();
-            // Ignoramos las filas que sean provisiones o parafiscales
             return !tipoStr.includes('PROVISION') && !tipoStr.includes('PARAFISCAL');
           }
-          return true; // Si no existe la columna Tipo, dejamos pasar la fila
+          return true;
         });
         setDatosExcel(jsonData);
 
@@ -137,15 +134,13 @@ const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
     });
   };
 
- const handleStartAudit = () => {
+  const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
     
-    // Detecta automáticamente el año desde la columna 'Ano' del Excel, o usa el año actual
     const anoDetectado = datosExcel.length > 0 && datosExcel[0]['Ano'] 
       ? parseInt(datosExcel[0]['Ano']) 
       : new Date().getFullYear();
 
-    // Ejecuta el motor pasándole el año detectado (ej. 2026)
     const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, anoDetectado);
     
     setHallazgos(resultadoEngine.hallazgos);
@@ -159,7 +154,12 @@ const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
       filtroTipo === 'PAGO_EXCESO' ? h.tipoHallazgo === 'PAGO_EXCESO' :
       filtroTipo === 'PAGO_INSUFICIENTE' ? h.tipoHallazgo === 'PAGO_INSUFICIENTE' : true;
 
-    const coincideBusqueda = h.nombre.toLowerCase().includes(busqueda.toLowerCase()) || h.cedula.includes(busqueda);
+    const term = busqueda.toLowerCase();
+    const coincideBusqueda = 
+      h.nombre.toLowerCase().includes(term) || 
+      h.cedula.includes(term) ||
+      (h.empresa && h.empresa.toLowerCase().includes(term));
+
     return coincideFiltro && coincideBusqueda;
   }) : [];
 
@@ -264,7 +264,7 @@ const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
             
             <input 
               type="text" 
-              placeholder="🔍 Buscar por nombre o cédula..." 
+              placeholder="🔍 Buscar por nombre, empresa o cédula..." 
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               className="px-3 py-1.5 text-xs rounded bg-slate-800 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
@@ -290,6 +290,7 @@ const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
             <table className="w-full text-xs text-left text-slate-600">
               <thead className="bg-slate-100 text-slate-700 uppercase sticky top-0 shadow-sm border-b border-slate-200">
                 <tr>
+                  <th className="px-4 py-3">Empresa</th>
                   <th className="px-4 py-3">Cédula</th>
                   <th className="px-4 py-3 text-center">Período</th>
                   <th className="px-4 py-3">Empleado</th>
@@ -309,12 +310,21 @@ const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
 
                   return (
                     <tr key={h.id} className="hover:bg-slate-50 transition">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                          h.empresa === 'Fam' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                          h.empresa === 'RecreFam' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                          'bg-slate-100 text-slate-700 border border-slate-300'
+                        }`}>
+                          {h.empresa || 'GENERAL'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{h.cedula}</td>
                       <td className="px-4 py-3 text-center font-bold text-slate-600 bg-slate-50">{h.periodo}</td>
                       <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{h.nombre}</td>
-<td className="px-4 py-3 text-center font-semibold">
-  {Number(h.diasTrabajados).toFixed(2).replace(/\.00$/, '')}
-</td>
+                      <td className="px-4 py-3 text-center font-semibold">
+                        {Number(h.diasTrabajados).toFixed(2).replace(/\.00$/, '')}
+                      </td>
                       <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
@@ -357,4 +367,5 @@ const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
     </div>
   );
 };
+
 export default ConceptMapper;

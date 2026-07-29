@@ -121,6 +121,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     if (!empleadosPivoteados[llaveUnica]) {
       empleadosPivoteados[llaveUnica] = {
         llaveUnica,
+        empresa,
         cedula,
         periodo,
         nombre: nombreRaw ? nombreRaw.toString().trim() : 'Sin Nombre',
@@ -208,7 +209,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
     hallazgos.push({
       id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
-      cedula: emp.cedula,
+     empresa: emp.empresa,
+     cedula: emp.cedula,
       periodo: emp.periodo,
       nombre: emp.nombre,
       diasTrabajados: diasEfectivos,
