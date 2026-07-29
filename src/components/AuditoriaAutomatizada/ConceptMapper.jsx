@@ -36,13 +36,29 @@ const ConceptMapper = () => {
 
     const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
     
-    const autoAusentismos = conceptos.filter(c => 
-      c.includes('VACACIONES') || 
-      c.includes('INCAPACIDAD') || 
-      c.includes('LICENCIA') || 
-      c.includes('SUSPENSION') ||
-      c.includes('FALTA')
-    );
+    // +++ CÓDIGO CORREGIDO +++
+    const autoAusentismos = conceptos.filter(c => {
+      // 1. Excluir explícitamente conceptos contables o de liquidación que NO son ausentismos
+      if (
+        c.includes('PRIMA') || 
+        c.includes('CESANTIA') || 
+        c.includes('INTERES') ||
+        c.includes('DIAS NO HABILES') ||
+        c.includes('PROVISION')
+      ) {
+        return false;
+      }
+      
+      // 2. Incluir los verdaderos ausentismos
+      return (
+        c === 'VACACIONES' || // Usamos igualdad estricta o condiciones muy específicas
+        c.includes('INCAPACIDAD') || 
+        c.includes('LICENCIA') || 
+        c.includes('SUSPENSION') ||
+        c.includes('FALTA') ||
+        c.includes('PERMISO NO REMUNERADO')
+      );
+    });
 
 // +++ CÓDIGO CORREGIDO +++
     setMapping({
@@ -286,7 +302,9 @@ const ConceptMapper = () => {
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{h.cedula}</td>
                       <td className="px-4 py-3 text-center font-bold text-slate-600 bg-slate-50">{h.periodo}</td>
                       <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{h.nombre}</td>
-                      <td className="px-4 py-3 text-center font-semibold">{h.diasTrabajados}</td>
+<td className="px-4 py-3 text-center font-semibold">
+  {Number(h.diasTrabajados).toFixed(2).replace(/\.00$/, '')}
+</td>
                       <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
