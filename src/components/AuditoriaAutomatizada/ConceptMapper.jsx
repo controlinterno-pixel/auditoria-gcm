@@ -2,12 +2,16 @@
 import React, { useState } from 'react';
 import { auditarAuxilioTransporte } from '../../utils/motorAuditoria';
 
+// Helper para normalizar textos en la UI
+const normalizarTexto = (str) => {
+  if (!str) return "";
+  return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
+};
+
 const ConceptMapper = () => {
   const [datosExcel, setDatosExcel] = useState(null);
-  const [mapping, setMapping] = useState({
-    salario_base: [],
-    aux_transporte: []
-  });
+  const [conceptosExtraidosUI, setConceptosExtraidosUI] = useState([]);
+  const [mapping, setMapping] = useState({ salario_base: [], aux_transporte: [] });
   const [fileName, setFileName] = useState("");
   const [hallazgos, setHallazgos] = useState(null);
   const [resumenKpi, setResumenKpi] = useState(null);
@@ -19,39 +23,21 @@ const ConceptMapper = () => {
     { id: 'aux_transporte', label: 'Auxilio / Subsidio de Transporte', required: true }
   ];
 
-  const excelConcepts = datosExcel 
-    ? [...new Set(datosExcel.map(fila => (fila.NombreConcepto || fila['Nombre Concepto'] || fila.Concepto || '').toString().trim()))].filter(Boolean)
-    : [];
-
-  // Función de Detección Automática basada en Normativa Colombiana
   const ejecutarAutoMapeoInteligente = (conceptos) => {
     const autoSalario = conceptos.filter(c => {
-      const u = c.toUpperCase().trim();
-      // Exclusiones explícitas (Prestaciones sociales / No remunerados)
-      if (
-        u.includes('NO REMUNERAD') || 
-        u.includes('SUSPENSION') || 
-        u.includes('VACACIONES') || 
-        u.includes('CESANTIA') || 
-        u.includes('PRIMA DE SERVICIO')
-      ) {
+      // Exclusiones explícitas
+      if (c.includes('NO REMUNERAD') || c.includes('SUSPENSION') || c.includes('VACACIONES') || c.includes('CESANTIA') || c.includes('PRIMA')) {
         return false;
       }
-      // Conceptos que constituyen salario según el CST
-      const palabrasClaveSalariales = [
-        'SUELDO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL'
-      ];
-      return palabrasClaveSalariales.some(kw => u.includes(kw));
+      const palabrasClave = ['SUELDO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL'];
+      return palabrasClave.some(kw => c.includes(kw));
     });
 
-    const autoAuxilio = conceptos.filter(c => {
-      const u = c.toUpperCase().trim();
-      return u.includes('TRANSPORTE') || u.includes('SUBSIDIO DE TRANSPORTE');
-    });
+    const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
 
     setMapping({
-      salario_base: autoSalario.length > 0 ? autoSalario : ['SUELDO BASICO'],
-      aux_transporte: autoAuxilio.length > 0 ? autoAuxilio : ['SUBSIDIO DE TRANSPORTE']
+      salario_base: autoSalario,
+      aux_transporte: autoAuxilio
     });
   };
 
@@ -77,10 +63,14 @@ const ConceptMapper = () => {
 
         setDatosExcel(jsonData);
 
-        const conceptosExtraidos = [...new Set(jsonData.map(f => (f.NombreConcepto || f['Nombre Concepto'] || f.Concepto || '').toString().trim()))].filter(Boolean);
+        // Extraer y normalizar conceptos únicos para mostrar en pantalla
+        const conceptosLimpios = [...new Set(jsonData.map(f => {
+          const raw = f.NombreConcepto ?? f['Nombre Concepto'] ?? f.Concepto ?? f.CONCEPTO;
+          return normalizarTexto(raw);
+        }))].filter(Boolean);
         
-        // Ejecutar Auto-Mapeo Inmediato
-        ejecutarAutoMapeoInteligente(conceptosExtraidos);
+        setConceptosExtraidosUI(conceptosLimpios);
+        ejecutarAutoMapeoInteligente(conceptosLimpios);
 
         setHallazgos(null);
         setResumenKpi(null);
@@ -106,12 +96,7 @@ const ConceptMapper = () => {
 
   const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
-
-    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, { 
-      smlmv: 1300000, 
-      auxTransporte: 162000 
-    });
-    
+    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, { smlmv: 1300000, auxTransporte: 162000 });
     setHallazgos(resultadoEngine.hallazgos);
     setResumenKpi(resultadoEngine.kpis);
   };
@@ -123,10 +108,7 @@ const ConceptMapper = () => {
       filtroTipo === 'PAGO_EXCESO' ? h.tipoHallazgo === 'PAGO_EXCESO' :
       filtroTipo === 'PAGO_INSUFICIENTE' ? h.tipoHallazgo === 'PAGO_INSUFICIENTE' : true;
 
-    const coincideBusqueda = 
-      h.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      h.cedula.includes(busqueda);
-
+    const coincideBusqueda = h.nombre.toLowerCase().includes(busqueda.toLowerCase()) || h.cedula.includes(busqueda);
     return coincideFiltro && coincideBusqueda;
   }) : [];
 
@@ -158,7 +140,7 @@ const ConceptMapper = () => {
           <h3 className="text-lg font-medium text-slate-700">🔗 2. Mapeo Automático de Conceptos</h3>
           {datosExcel && (
             <button 
-              onClick={() => ejecutarAutoMapeoInteligente(excelConcepts)}
+              onClick={() => ejecutarAutoMapeoInteligente(conceptosExtraidosUI)}
               className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded border border-slate-300 transition"
             >
               🔄 Re-aplicar Auto-Mapeo (Art. 127 CST)
@@ -175,7 +157,7 @@ const ConceptMapper = () => {
               </span>
             </div>
             <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
-              {excelConcepts.map((concept) => {
+              {conceptosExtraidosUI.map((concept) => {
                 const isSelected = (mapping[category.id] || []).includes(concept);
                 return (
                   <button

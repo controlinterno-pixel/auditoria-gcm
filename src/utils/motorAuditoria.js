@@ -4,52 +4,54 @@
  * MOTOR DE AUDITORÍA ENTERPRISE - GCM AUDITOR
  * Cumplimiento Normativo UGPP / Art. 127 CST (Auxilio de Transporte)
  */
+
+// Helper para normalizar textos (quita tildes, ñ, espacios extra y pasa a mayúsculas)
+const normalizarTexto = (str) => {
+  if (!str) return "";
+  return str
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Quita tildes
+    .toUpperCase()
+    .trim();
+};
+
+// Helper de parseo numérico robusto
+const parsearMonto = (val) => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  let str = val.toString().trim().replace(/[^0-9.,-]/g, '');
+  if (!str) return 0;
+
+  if (str.includes('.') && str.includes(',')) {
+    str = str.lastIndexOf('.') < str.lastIndexOf(',') 
+      ? str.replace(/\./g, '').replace(',', '.') 
+      : str.replace(/,/g, '');
+  } else if (str.includes('.')) {
+    const parts = str.split('.');
+    if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+      str = parts.join('');
+    }
+  } else if (str.includes(',')) {
+    const parts = str.split(',');
+    str = parts.length === 2 && parts[1].length <= 2 
+      ? `${parts[0]}.${parts[1]}` 
+      : parts.join('');
+  }
+
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+};
+
 export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}, constantesAnuales = {}) {
   const { smlmv = 1300000, auxTransporte = 162000 } = constantesAnuales;
   
   const limiteSalarialQuincenal = smlmv; // 1 SMLMV quincenal ($1.300.000)
   const valorDiarioAuxilio = auxTransporte / 30; // $5.400 / día
 
-  // Mapeo flexible: Conceptos que constituyen salario según Art. 127 CST
-  const conceptosSalario = (mapeoConceptos?.salario_base && mapeoConceptos.salario_base.length > 0)
-    ? mapeoConceptos.salario_base.map(c => c.toString().toUpperCase().trim())
-    : [
-        'SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA',
-        'HORAS EXTRAS DIURNAS', 'HORAS EXTRAS NOCTURNAS', 'HORAS EXTRAS FESTIVAS O DOMINICALES',
-        'HORAS EXTRAS FESTIVAS NOCTURNAS', 'HORA RECARGO DOMINICAL', 'HORAS RECARGO NOCTURNO',
-        'COMISIONES VENTAS', 'BONIFICACION PRESTACIONAL'
-      ];
-
-  const conceptosAuxilio = (mapeoConceptos?.aux_transporte && mapeoConceptos.aux_transporte.length > 0)
-    ? mapeoConceptos.aux_transporte.map(c => c.toString().toUpperCase().trim())
-    : ['SUBSIDIO DE TRANSPORTE'];
-
-  // Helper de parseo numérico robusto
-  const parsearMonto = (val) => {
-    if (val === null || val === undefined) return 0;
-    if (typeof val === 'number') return isNaN(val) ? 0 : val;
-    let str = val.toString().trim().replace(/[^0-9.,-]/g, '');
-    if (!str) return 0;
-
-    if (str.includes('.') && str.includes(',')) {
-      str = str.lastIndexOf('.') < str.lastIndexOf(',') 
-        ? str.replace(/\./g, '').replace(',', '.') 
-        : str.replace(/,/g, '');
-    } else if (str.includes('.')) {
-      const parts = str.split('.');
-      if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
-        str = parts.join('');
-      }
-    } else if (str.includes(',')) {
-      const parts = str.split(',');
-      str = parts.length === 2 && parts[1].length <= 2 
-        ? `${parts[0]}.${parts[1]}` 
-        : parts.join('');
-    }
-
-    const num = parseFloat(str);
-    return isNaN(num) ? 0 : num;
-  };
+  // Normalizamos las selecciones que vienen de la UI
+  const conceptosSalario = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
+  const conceptosAuxilio = (mapeoConceptos?.aux_transporte || []).map(normalizarTexto);
 
   // ==========================================
   // FASE 1: ETL & PIVOTE DE EMPLEADOS (Objeto 360°)
@@ -57,25 +59,32 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   const empleadosPivoteados = {};
 
   transaccionesExcel.forEach(fila => {
-    const cedula = fila.Identificacion || fila.IDENTIFICACION || fila.Cedula || fila.CEDULA || fila.NIT;
-    const periodo = fila.IDEN_Periodo || fila.Periodo || fila.IDEN_PERIODO || '228';
-    const nombre = fila.Nombres || fila.NOMBRES || fila.Empleado || fila.EMPLEADO;
-    const conceptoRaw = (fila.NombreConcepto || fila['Nombre Concepto'] || fila.Concepto || fila.CONCEPTO || '').toString().toUpperCase().trim();
+    // Búsqueda defensiva de columnas (Soporte Multi-Software)
+    const cedulaRaw = fila.Identificacion ?? fila.IDENTIFICACION ?? fila.Cedula ?? fila.CEDULA ?? fila.NIT;
+    const periodoRaw = fila.IDEN_Periodo ?? fila.Periodo ?? fila.IDEN_PERIODO ?? '228';
+    const nombreRaw = fila.Nombres ?? fila.NOMBRES ?? fila.Empleado ?? fila.EMPLEADO;
+    const conceptoRaw = fila.NombreConcepto ?? fila['Nombre Concepto'] ?? fila.Concepto ?? fila.CONCEPTO;
+    
+    const valorRaw = fila.Total ?? fila.TOTAL ?? fila.Valor ?? fila.VALOR ?? fila.ValorTotal ?? fila.VR_TOTAL ?? fila.Devengado ?? fila.Monto;
+    const cantidadRaw = fila.Cantidad ?? fila.CANTIDAD ?? fila.Dias ?? fila.DIAS ?? fila.CANT;
 
-    const valorTotal = parsearMonto(fila.Total ?? fila.TOTAL ?? fila.Valor ?? fila.VALOR ?? 0);
-    const cantidadDias = parsearMonto(fila.Cantidad ?? fila.CANTIDAD ?? fila.Dias ?? fila.DIAS ?? 0);
+    if (!cedulaRaw) return; // Si no hay cédula, saltamos la fila
 
-    if (!cedula) return;
-
-    const llaveUnica = `${cedula.toString().trim()}_${periodo.toString().trim()}`;
+    const cedula = cedulaRaw.toString().trim();
+    const periodo = periodoRaw.toString().trim();
+    const llaveUnica = `${cedula}_${periodo}`;
+    
+    // Normalizamos el concepto aplicando la regla anti-tildes
+    const conceptoLimpio = normalizarTexto(conceptoRaw);
+    const valorTotal = parsearMonto(valorRaw);
+    const cantidadDias = parsearMonto(cantidadRaw);
 
     if (!empleadosPivoteados[llaveUnica]) {
       empleadosPivoteados[llaveUnica] = {
         llaveUnica,
-        cedula: cedula.toString().trim(),
-        periodo: periodo.toString().trim(),
-        nombre: nombre ? nombre.toString().trim() : 'Empleado Sin Nombre',
-        // Estructura Enterprise
+        cedula,
+        periodo,
+        nombre: nombreRaw ? nombreRaw.toString().trim() : 'Empleado Sin Nombre',
         sueldoBasico: 0,
         otrosDevengadosSalariales: 0,
         totalDevengadoSalarial: 0,
@@ -86,19 +95,22 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Acumular conceptos salariales (Básico + Recargos + Extras + Comisiones)
-    if (conceptosSalario.includes(conceptoRaw)) {
-      if (conceptoRaw === 'SUELDO BASICO') {
+    // Acumular conceptos salariales
+    if (conceptosSalario.includes(conceptoLimpio)) {
+      if (conceptoLimpio.includes('SUELDO BASICO') || conceptoLimpio === 'BASICO') {
         emp.sueldoBasico += valorTotal;
       } else {
         emp.otrosDevengadosSalariales += valorTotal;
       }
       emp.totalDevengadoSalarial += valorTotal;
-      emp.diasTrabajados += cantidadDias;
+      // Solo sumamos días en el sueldo básico para no duplicar días por horas extras
+      if (conceptoLimpio.includes('SUELDO') || conceptoLimpio.includes('BASICO')) {
+        emp.diasTrabajados += cantidadDias;
+      }
     }
 
     // Acumular auxilio pagado
-    if (conceptosAuxilio.includes(conceptoRaw)) {
+    if (conceptosAuxilio.includes(conceptoLimpio)) {
       emp.auxilioPagado += valorTotal;
     }
   });
@@ -115,18 +127,18 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
-    const diasEfectivos = Math.min(emp.diasTrabajados, 15);
     
-    // Regla Legal 1: ¿El Total Devengado Salarial está dentro del tope legal (<= 1 SMLMV quincenal)?
+    // Si por algún motivo los días vienen en 0 pero hay devengo, forzamos a 15 (quincena)
+    let diasEfectivos = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
+    diasEfectivos = Math.min(diasEfectivos, 15); // Tope quincenal
+    
     const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && emp.totalDevengadoSalarial <= limiteSalarialQuincenal;
 
-    // Regla Legal 2: Cálculo del Deber Ser
     let auxilioDeberSer = 0;
     if (tieneDerechoLegal) {
       auxilioDeberSer = Math.round(valorDiarioAuxilio * diasEfectivos);
     }
 
-    // Regla Legal 3: Comparación y Clasificación
     const diferenciaExacta = auxilioDeberSer - emp.auxilioPagado;
     const diferenciaAbsoluta = Math.abs(diferenciaExacta);
 
@@ -137,7 +149,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       tipoHallazgo = 'NO_APLICA';
       severidad = 'EXCLUIDO_POR_TOPE';
       conteoNoAplica++;
-    } else if (diferenciaAbsoluta > 100) {
+    } else if (diferenciaAbsoluta > 100) { // Tolerancia de 100 pesos por redondeo
       riesgoFinancieroTotal += diferenciaAbsoluta;
       if (diferenciaExacta > 0) {
         tipoHallazgo = 'PAGO_INSUFICIENTE';
@@ -153,9 +165,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     }
 
     hallazgos.push({
-      id: (typeof crypto !== 'undefined' && crypto.randomUUID) 
-        ? crypto.randomUUID() 
-        : `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
       cedula: emp.cedula,
       periodo: emp.periodo,
       nombre: emp.nombre,
@@ -171,9 +181,6 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     });
   }
 
-  // ==========================================
-  // FASE 3: METRICAS Y SALIDA ENTERPRISE
-  // ==========================================
   return {
     hallazgos,
     kpis: {
