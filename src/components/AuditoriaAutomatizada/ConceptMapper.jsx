@@ -1,25 +1,21 @@
-// Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import React, { useState } from 'react';
 import { auditarAuxilioTransporte } from '../../utils/motorAuditoria';
 
 const ConceptMapper = () => {
-  // 1. Estados locales para manejar el archivo y el mapeo
   const [datosExcel, setDatosExcel] = useState(null);
   const [mapping, setMapping] = useState({});
   const [fileName, setFileName] = useState("");
-const [hallazgos, setHallazgos] = useState(null);
+  const [hallazgos, setHallazgos] = useState(null);
 
   const systemCategories = [
     { id: 'salario_base', label: 'Salario Básico / Sueldo', required: true },
     { id: 'aux_transporte', label: 'Auxilio de Transporte', required: true }
   ];
 
-  // 2. Extraer conceptos únicos dinámicamente de la columna "NombreConcepto"
   const excelConcepts = datosExcel 
     ? [...new Set(datosExcel.map(fila => fila.NombreConcepto))].filter(Boolean)
     : [];
 
-  // 3. Función para procesar el Excel cuando el usuario lo sube
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
       alert("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.");
@@ -37,11 +33,9 @@ const [hallazgos, setHallazgos] = useState(null);
         const data = new Uint8Array(evt.target.result);
         const workbook = window.XLSX.read(data, { type: 'array' });
         
-        // Leemos la primera hoja del Excel
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
         
-        // Convertimos la tabla a un arreglo de objetos JSON
         const jsonData = window.XLSX.utils.sheet_to_json(worksheet);
         
         console.log("📊 Datos extraídos del Excel:", jsonData.slice(0, 5), "... (mostrando 5 filas)");
@@ -54,7 +48,6 @@ const [hallazgos, setHallazgos] = useState(null);
     reader.readAsArrayBuffer(file);
   };
 
-  // 4. Lógica para seleccionar/deseleccionar conceptos
   const toggleConcept = (categoryId, conceptName) => {
     setMapping((prev) => {
       const currentConcepts = prev[categoryId] || [];
@@ -68,7 +61,6 @@ const [hallazgos, setHallazgos] = useState(null);
     });
   };
 
-  // 5. Función para detonar la auditoría
   const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) {
       alert("⚠️ Falta cargar los datos del Excel.");
@@ -87,7 +79,6 @@ const [hallazgos, setHallazgos] = useState(null);
       auxTransporte: 162000 
     });
     
-    // GUARDAMOS LOS RESULTADOS EN EL ESTADO
     setHallazgos(resultados);
   };
 
@@ -157,7 +148,7 @@ const [hallazgos, setHallazgos] = useState(null);
             );
           })}
         </div>
-{/* === REEMPLAZA DESDE AQUÍ HACIA ABAJO === */}
+
         <div className="mt-8 flex justify-end pt-6 border-t border-slate-100">
           <button 
             onClick={handleStartAudit}
@@ -168,66 +159,65 @@ const [hallazgos, setHallazgos] = useState(null);
           >
             <span>⚡ Ejecutar Auditoría (Motor GCM)</span>
           </button>
-        </div> 
+        </div>
+      </div>
 
-        {/* 📊 SECCIÓN DE RESULTADOS */}
-        {hallazgos && (
-          <div className="mt-8 bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-            <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">
-                🚨 Resultados del Motor ({hallazgos.length} anomalías detectadas)
-              </h3>
-              <button 
-                onClick={() => setHallazgos(null)}
-                className="text-slate-300 hover:text-white text-sm"
-              >
-                Limpiar Resultados
-              </button>
-            </div>
-            
-            <div className="p-0 overflow-x-auto max-h-[500px]">
-              <table className="w-full text-sm text-left text-slate-600">
-                <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 shadow-sm">
+      {/* 📊 SECCIÓN DE RESULTADOS */}
+      {hallazgos && (
+        <div className="mt-8 bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+          <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
+            <h3 className="text-lg font-bold text-white">
+              🚨 Resultados del Motor ({hallazgos.length} anomalías detectadas)
+            </h3>
+            <button 
+              onClick={() => setHallazgos(null)}
+              className="text-slate-300 hover:text-white text-sm"
+            >
+              Limpiar Resultados
+            </button>
+          </div>
+          
+          <div className="p-0 overflow-x-auto max-h-[500px]">
+            <table className="w-full text-sm text-left text-slate-600">
+              <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 shadow-sm">
+                <tr>
+                  <th className="px-6 py-3">Cédula</th>
+                  <th className="px-6 py-3">Empleado</th>
+                  <th className="px-6 py-3 text-right">Días Lab.</th>
+                  <th className="px-6 py-3 text-right">Salario Base Calc.</th>
+                  <th className="px-6 py-3 text-right">Aux. Deber Ser</th>
+                  <th className="px-6 py-3 text-right">Aux. Pagado</th>
+                  <th className="px-6 py-3 text-right">Diferencia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hallazgos.length === 0 ? (
                   <tr>
-                    <th className="px-6 py-3">Cédula</th>
-                    <th className="px-6 py-3">Empleado</th>
-                    <th className="px-6 py-3 text-right">Días Lab.</th>
-                    <th className="px-6 py-3 text-right">Salario Base Calc.</th>
-                    <th className="px-6 py-3 text-right">Aux. Deber Ser</th>
-                    <th className="px-6 py-3 text-right">Aux. Pagado</th>
-                    <th className="px-6 py-3 text-right">Diferencia</th>
+                    <td colSpan="7" className="px-6 py-8 text-center text-emerald-600 font-medium">
+                      ✅ ¡No se detectaron diferencias matemáticas en la nómina analizada!
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {hallazgos.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" className="px-6 py-8 text-center text-emerald-600 font-medium">
-                        ✅ ¡No se detectaron diferencias matemáticas en la nómina analizada!
+                ) : (
+                  hallazgos.map((h, index) => (
+                    <tr key={index} className="bg-white border-b hover:bg-slate-50">
+                      <td className="px-6 py-4 font-medium text-slate-900">{h.cedula}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{h.nombre}</td>
+                      <td className="px-6 py-4 text-right">{h.diasTrabajados}</td>
+                      <td className="px-6 py-4 text-right">${h.salarioBase.toLocaleString('es-CO')}</td>
+                      <td className="px-6 py-4 text-right font-medium text-blue-600">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
+                      <td className="px-6 py-4 text-right font-medium text-slate-600">${h.auxilioPagado.toLocaleString('es-CO')}</td>
+                      <td className="px-6 py-4 text-right font-bold text-red-500">
+                        ${h.diferenciaExacta.toLocaleString('es-CO')}
                       </td>
                     </tr>
-                  ) : (
-                    hallazgos.map((h, index) => (
-                      <tr key={index} className="bg-white border-b hover:bg-slate-50">
-                        <td className="px-6 py-4 font-medium text-slate-900">{h.cedula}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">{h.nombre}</td>
-                        <td className="px-6 py-4 text-right">{h.diasTrabajados}</td>
-                        <td className="px-6 py-4 text-right">${h.salarioBase.toLocaleString('es-CO')}</td>
-                        <td className="px-6 py-4 text-right font-medium text-blue-600">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
-                        <td className="px-6 py-4 text-right font-medium text-slate-600">${h.auxilioPagado.toLocaleString('es-CO')}</td>
-                        <td className="px-6 py-4 text-right font-bold text-red-500">
-                          ${h.diferenciaExacta.toLocaleString('es-CO')}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-        
-      </div> {/* Cierra el recuadro blanco del Paso 2 */}
-    </div> {/* Cierra el contenedor gris principal de la pantalla */}
+        </div>
+      )}
+    </div>
   );
 };
 
