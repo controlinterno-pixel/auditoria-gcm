@@ -100,9 +100,17 @@ const ConceptMapper = () => {
     });
   };
 
-  const handleStartAudit = () => {
+ const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
-    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, { smlmv: 1300000, auxTransporte: 162000 });
+    
+    // Detecta automáticamente el año desde la columna 'Ano' del Excel, o usa el año actual
+    const anoDetectado = datosExcel.length > 0 && datosExcel[0]['Ano'] 
+      ? parseInt(datosExcel[0]['Ano']) 
+      : new Date().getFullYear();
+
+    // Ejecuta el motor pasándole el año detectado (ej. 2026)
+    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, anoDetectado);
+    
     setHallazgos(resultadoEngine.hallazgos);
     setResumenKpi(resultadoEngine.kpis);
   };

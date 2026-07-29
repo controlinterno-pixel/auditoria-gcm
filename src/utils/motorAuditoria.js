@@ -5,13 +5,22 @@
  * Cumplimiento Normativo UGPP / Art. 127 CST (Auxilio de Transporte)
  */
 
-// Helper para normalizar textos (quita tildes, ñ, espacios extra y pasa a mayúsculas)
+// 🌟 BASE DE DATOS LOCAL DE CONSTANTES LEGALES (Fácil de actualizar)
+const HISTORICO_LEGAL = {
+  2024: { smlmv: 1300000, auxTransporte: 162000 },
+  2025: { smlmv: 1469000, auxTransporte: 181440 }, // Valores hipotéticos 2025
+  2026: { smlmv: 1880000, auxTransporte: 249096 }, // Valores actuales deducidos
+  // 2027: { smlmv: XXXXXX, auxTransporte: XXXXXX } -> Se agrega aquí en el futuro
+};
+
+// Helper para normalizar textos
 const normalizarTexto = (str) => {
   if (!str) return "";
   return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 };
 
 const parsearMonto = (val) => {
+  // ... (Mismo código de parsearMonto que ya tienes) ...
   if (val === null || val === undefined) return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
   let str = val.toString().trim().replace(/[^0-9.,-]/g, '');
@@ -37,11 +46,10 @@ const parsearMonto = (val) => {
   return isNaN(num) ? 0 : num;
 };
 
-// 🌟 EL ANTÍDOTO: Buscador Dinámico de Columnas usando Object.keys()
 const buscarColumna = (fila, aliasPosibles) => {
+  // ... (Mismo código de buscarColumna que ya tienes) ...
   const llavesExcel = Object.keys(fila);
   for (const alias of aliasPosibles) {
-    // Quitamos tildes, espacios y guiones bajos para comparar manzanas con manzanas
     const aliasNorm = normalizarTexto(alias).replace(/[\s_]/g, '');
     const llaveReal = llavesExcel.find(k => normalizarTexto(k).replace(/[\s_]/g, '') === aliasNorm);
     if (llaveReal) return fila[llaveReal];
@@ -49,11 +57,15 @@ const buscarColumna = (fila, aliasPosibles) => {
   return undefined;
 };
 
-export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}, constantesAnuales = {}) {
-  const { smlmv = 1300000, auxTransporte = 162000 } = constantesAnuales;
+// Agregamos 'anoAuditoria' como parámetro (por defecto 2026)
+export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}, anoAuditoria = 2026) {
   
-  const limiteSalarialQuincenal = smlmv; // 1 SMLMV quincenal ($1.300.000)
-  const valorDiarioAuxilio = auxTransporte / 30; // $5.400 / día
+  // Extraemos las constantes basándonos en el año, si no existe, usamos 2026 por seguridad
+  const constantes = HISTORICO_LEGAL[anoAuditoria] || HISTORICO_LEGAL[2026];
+  const { smlmv, auxTransporte } = constantes;
+  
+  const limiteSalarialQuincenal = smlmv; // 2 SMLMV mensual = 1 SMLMV quincenal
+  const valorDiarioAuxilio = auxTransporte / 30; 
 
   const conceptosSalario = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
   const conceptosAuxilio = (mapeoConceptos?.aux_transporte || []).map(normalizarTexto);
