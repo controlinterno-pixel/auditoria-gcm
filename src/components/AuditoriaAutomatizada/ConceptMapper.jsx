@@ -7,6 +7,7 @@ const ConceptMapper = () => {
   const [datosExcel, setDatosExcel] = useState(null);
   const [mapping, setMapping] = useState({});
   const [fileName, setFileName] = useState("");
+const [hallazgos, setHallazgos] = useState(null);
 
   const systemCategories = [
     { id: 'salario_base', label: 'Salario Básico / Sueldo', required: true },
@@ -81,14 +82,13 @@ const ConceptMapper = () => {
     
     console.log("🚀 Iniciando auditoría automatizada...");
     
-    // Ejecutamos el motor de auditoría
     const resultados = auditarAuxilioTransporte(datosExcel, mapping, { 
       smlmv: 1300000, 
       auxTransporte: 162000 
     });
     
-    console.log("🚨 Hallazgos detectados:", resultados);
-    alert(`Auditoría finalizada. Se evaluaron ${datosExcel.length} transacciones y se encontraron ${resultados.length} hallazgos.\n\nRevisa la consola del navegador (F12) para ver la tabla de diferencias.`);
+    // GUARDAMOS LOS RESULTADOS EN EL ESTADO
+    setHallazgos(resultados);
   };
 
   return (
@@ -168,6 +168,62 @@ const ConceptMapper = () => {
           >
             <span>⚡ Ejecutar Auditoría (Motor GCM)</span>
           </button>
+</div>
+{/* 📊 SECCIÓN DE RESULTADOS */}
+      {hallazgos && (
+        <div className="mt-8 bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+          <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
+            <h3 className="text-lg font-bold text-white">
+              🚨 Resultados del Motor ({hallazgos.length} anomalías detectadas)
+            </h3>
+            <button 
+              onClick={() => setHallazgos(null)}
+              className="text-slate-300 hover:text-white text-sm"
+            >
+              Limpiar Resultados
+            </button>
+          </div>
+          
+          <div className="p-0 overflow-x-auto max-h-[500px]">
+            <table className="w-full text-sm text-left text-slate-600">
+              <thead className="text-xs text-slate-700 uppercase bg-slate-100 sticky top-0 shadow-sm">
+                <tr>
+                  <th className="px-6 py-3">Cédula</th>
+                  <th className="px-6 py-3">Empleado</th>
+                  <th className="px-6 py-3 text-right">Días Lab.</th>
+                  <th className="px-6 py-3 text-right">Salario Base Calc.</th>
+                  <th className="px-6 py-3 text-right">Aux. Deber Ser</th>
+                  <th className="px-6 py-3 text-right">Aux. Pagado</th>
+                  <th className="px-6 py-3 text-right">Diferencia</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hallazgos.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-8 text-center text-emerald-600 font-medium">
+                      ✅ ¡No se detectaron diferencias matemáticas en la nómina analizada!
+                    </td>
+                  </tr>
+                ) : (
+                  hallazgos.map((h, index) => (
+                    <tr key={index} className="bg-white border-b hover:bg-slate-50">
+                      <td className="px-6 py-4 font-medium text-slate-900">{h.cedula}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{h.nombre}</td>
+                      <td className="px-6 py-4 text-right">{h.diasTrabajados}</td>
+                      <td className="px-6 py-4 text-right">${h.salarioBase.toLocaleString('es-CO')}</td>
+                      <td className="px-6 py-4 text-right font-medium text-blue-600">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
+                      <td className="px-6 py-4 text-right font-medium text-slate-600">${h.auxilioPagado.toLocaleString('es-CO')}</td>
+                      <td className="px-6 py-4 text-right font-bold text-red-500">
+                        ${h.diferenciaExacta.toLocaleString('es-CO')}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
         </div>
       </div>
     </div>
