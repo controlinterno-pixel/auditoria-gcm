@@ -19,40 +19,60 @@ const ConceptMapper = () => {
     ? [...new Set(datosExcel.map(fila => fila.NombreConcepto))].filter(Boolean)
     : [];
 
-  const handleFileUpload = (e) => {
-    if (!window.XLSX) {
-      alert("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.");
-      return;
+  // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
+
+const handleFileUpload = (e) => {
+  if (!window.XLSX) {
+    alert("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.");
+    return;
+  }
+
+  const file = e.target.files[0];
+  if (!file) return;
+
+  setFileName(file.name);
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = window.XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
+      
+      console.log("📊 Datos extraídos del Excel:", jsonData.slice(0, 5));
+      setDatosExcel(jsonData);
+
+      // 🤖 AUTO-MAPEO INTELIGENTE DE CONCEPTOS
+      const conceptosExtraidos = [...new Set(jsonData.map(f => f.NombreConcepto))].filter(Boolean);
+      
+      const autoSalario = conceptosExtraidos.filter(c => 
+        c.toUpperCase().includes('SUELDO BASICO') || 
+        c.toUpperCase().includes('SUELDO RETROACTIVO')
+      );
+      
+      const autoAuxilio = conceptosExtraidos.filter(c => 
+        c.toUpperCase().includes('SUBSIDIO DE TRANSPORTE') || 
+        c.toUpperCase().includes('AUXILIO DE TRANSPORTE')
+      );
+
+      setMapping({
+        salario_base: autoSalario,
+        aux_transporte: autoAuxilio
+      });
+
+      setHallazgos(null);
+      setResumenKpi(null);
+
+    } catch (error) {
+      console.error("Error leyendo el Excel:", error);
+      alert("Hubo un error al leer el archivo Excel (.xlsx).");
     }
-
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setFileName(file.name);
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const data = new Uint8Array(evt.target.result);
-        const workbook = window.XLSX.read(data, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        
-        // Carga cruda sin formatear cadenas de texto
-        const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
-        
-        console.log("📊 Datos extraídos del Excel:", jsonData.slice(0, 5));
-        setDatosExcel(jsonData);
-        setHallazgos(null);
-        setResumenKpi(null);
-      } catch (error) {
-        console.error("Error leyendo el Excel:", error);
-        alert("Hubo un error al leer el archivo Excel (.xlsx).");
-      }
-    };
-    reader.readAsArrayBuffer(file);
   };
-
+  reader.readAsArrayBuffer(file);
+};
   const toggleConcept = (categoryId, conceptName) => {
     setMapping((prev) => {
       const currentConcepts = prev[categoryId] || [];
