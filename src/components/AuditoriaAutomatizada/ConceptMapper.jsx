@@ -12,6 +12,7 @@ const ConceptMapper = () => {
   const [hallazgos, setHallazgos] = useState(null);
   const [resumenKpi, setResumenKpi] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
+  const [busqueda, setBusqueda] = useState('');
 
   const systemCategories = [
     { id: 'salario_base', label: 'Salario Básico / Sueldo', required: true },
@@ -104,9 +105,17 @@ const ConceptMapper = () => {
   };
 
   const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
-    if (filtroTipo === 'PAGO_EXCESO') return h.tipoHallazgo === 'PAGO_EXCESO';
-    if (filtroTipo === 'PAGO_INSUFICIENTE') return h.tipoHallazgo === 'PAGO_INSUFICIENTE';
-    return true;
+    const coincideFiltro = 
+      filtroTipo === 'TODOS' ? true :
+      filtroTipo === 'CONFORME' ? h.tipoHallazgo === 'CONFORME' :
+      filtroTipo === 'PAGO_EXCESO' ? h.tipoHallazgo === 'PAGO_EXCESO' :
+      filtroTipo === 'PAGO_INSUFICIENTE' ? h.tipoHallazgo === 'PAGO_INSUFICIENTE' : true;
+
+    const coincideBusqueda = 
+      h.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      h.cedula.includes(busqueda);
+
+    return coincideFiltro && coincideBusqueda;
   }) : [];
 
   return (
@@ -155,80 +164,116 @@ const ConceptMapper = () => {
         ))}
         <button 
           onClick={handleStartAudit}
-          className="mt-4 px-6 py-2.5 bg-blue-900 text-white font-bold rounded-lg shadow hover:bg-blue-800 transition-colors"
+          className="mt-4 px-6 py-2.5 bg-blue-900 text-white font-bold rounded-lg shadow hover:bg-blue-800 transition-colors cursor-pointer"
         >
           ⚡ Ejecutar Auditoría Quincenal
         </button>
       </div>
 
       {resumenKpi && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-xl border border-red-200 shadow-sm">
-            <p className="text-xs font-bold text-red-600 uppercase">Riesgo Financiero Expuesto</p>
-            <h3 className="text-3xl font-extrabold text-red-700">
-              ${resumenKpi.riesgoFinancieroTotal.toLocaleString('es-CO')} <span className="text-xs text-red-500 font-normal">COP</span>
-            </h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <p className="text-xs font-bold text-slate-500 uppercase">Total Auditados</p>
+            <h3 className="text-2xl font-extrabold text-slate-800">{resumenKpi.totalEmpleados}</h3>
           </div>
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <p className="text-xs font-bold text-slate-500 uppercase">Registros Quincenales Auditados</p>
-            <h3 className="text-3xl font-extrabold text-slate-800">{resumenKpi.totalEmpleados}</h3>
+          <div className="bg-white p-5 rounded-xl border border-emerald-200 shadow-sm">
+            <p className="text-xs font-bold text-emerald-600 uppercase">Conformes (Correctos)</p>
+            <h3 className="text-2xl font-extrabold text-emerald-700">{resumenKpi.conteoConformes}</h3>
           </div>
-          <div className="bg-white p-6 rounded-xl border border-amber-200 shadow-sm">
-            <p className="text-xs font-bold text-amber-600 uppercase">Anomalías Detectadas</p>
-            <h3 className="text-3xl font-extrabold text-amber-700">{resumenKpi.totalHallazgos}</h3>
+          <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm">
+            <p className="text-xs font-bold text-amber-600 uppercase">Pagos en Exceso</p>
+            <h3 className="text-2xl font-extrabold text-amber-700">{resumenKpi.conteoExcesos}</h3>
+          </div>
+          <div className="bg-white p-5 rounded-xl border border-red-200 shadow-sm">
+            <p className="text-xs font-bold text-red-600 uppercase">Bajo Pago (Riesgo UGPP)</p>
+            <h3 className="text-2xl font-extrabold text-red-700">{resumenKpi.conteoBajoPago}</h3>
           </div>
         </div>
       )}
 
       {hallazgos && (
         <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
-          <div className="bg-slate-800 px-6 py-3 flex justify-between items-center text-white">
-            <h3 className="font-bold text-sm">🚨 Resultados Quincenales ({hallazgosFiltrados.length})</h3>
+          <div className="bg-slate-900 px-6 py-4 flex flex-wrap justify-between items-center text-white gap-4">
+            <h3 className="font-bold text-sm">📊 Auditoría Detallada ({hallazgosFiltrados.length})</h3>
+            
+            <input 
+              type="text" 
+              placeholder="🔍 Buscar por nombre o cédula..." 
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="px-3 py-1.5 text-xs rounded bg-slate-800 border border-slate-700 text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+            />
+
             <div className="flex gap-2">
-              <button onClick={() => setFiltroTipo('TODOS')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'TODOS' ? 'bg-blue-600 font-bold' : 'bg-slate-700'}`}>Todos</button>
-              <button onClick={() => setFiltroTipo('PAGO_EXCESO')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600 font-bold' : 'bg-slate-700'}`}>Excesos</button>
-              <button onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')} className={`px-2.5 py-1 text-xs rounded ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600 font-bold' : 'bg-slate-700'}`}>Bajo Pago (UGPP)</button>
+              <button onClick={() => setFiltroTipo('TODOS')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'TODOS' ? 'bg-blue-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                Todos ({hallazgos.length})
+              </button>
+              <button onClick={() => setFiltroTipo('CONFORME')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'CONFORME' ? 'bg-emerald-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                🟢 Conformes ({resumenKpi?.conteoConformes})
+              </button>
+              <button onClick={() => setFiltroTipo('PAGO_EXCESO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                🟠 Excesos ({resumenKpi?.conteoExcesos})
+              </button>
+              <button onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                🔴 Bajo Pago UGPP ({resumenKpi?.conteoBajoPago})
+              </button>
             </div>
           </div>
-          <div className="overflow-x-auto max-h-[500px]">
+
+          <div className="overflow-x-auto max-h-[550px]">
             <table className="w-full text-xs text-left text-slate-600">
-              <thead className="bg-slate-100 text-slate-700 uppercase sticky top-0 shadow-sm">
+              <thead className="bg-slate-100 text-slate-700 uppercase sticky top-0 shadow-sm border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-3">Cédula</th>
                   <th className="px-4 py-3 text-center">Período</th>
                   <th className="px-4 py-3">Empleado</th>
                   <th className="px-4 py-3 text-center">Días</th>
                   <th className="px-4 py-3 text-right">Sueldo Quincenal</th>
-                  <th className="px-4 py-3 text-right">Aux. Legal</th>
+                  <th className="px-4 py-3 text-right">Aux. Legal (Deber Ser)</th>
                   <th className="px-4 py-3 text-right">Aux. Pagado</th>
                   <th className="px-4 py-3 text-right">Diferencia</th>
-                  <th className="px-4 py-3 text-center">Clasificación</th>
+                  <th className="px-4 py-3 text-center">Estado / Clasificación</th>
                 </tr>
               </thead>
-              <tbody>
-                {hallazgosFiltrados.map((h) => (
-                  <tr key={h.id} className="border-b hover:bg-slate-50">
-                    <td className="px-4 py-3 font-bold text-slate-900">{h.cedula}</td>
-                    <td className="px-4 py-3 text-center font-bold text-blue-800 bg-blue-50/50">{h.periodo}</td>
-                    <td className="px-4 py-3 font-medium whitespace-nowrap">{h.nombre}</td>
-                    <td className="px-4 py-3 text-center">{h.diasTrabajados}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">${h.salarioBase.toLocaleString('es-CO')}</td>
-                    <td className="px-4 py-3 text-right text-blue-600 font-medium">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">${h.auxilioPagado.toLocaleString('es-CO')}</td>
-                    <td className="px-4 py-3 text-right font-bold text-red-600">${h.diferenciaAbsoluta.toLocaleString('es-CO')}</td>
-                    <td className="px-4 py-3 text-center">
-                      {h.tipoHallazgo === 'PAGO_INSUFICIENTE' ? (
-                        <span className="px-2 py-0.5 text-[10px] font-extrabold bg-red-100 text-red-800 rounded-full border border-red-200">
-                          🚨 BAJO PAGO (UGPP)
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 rounded-full border border-amber-200">
-                          ⚠️ PAGO EN EXCESO
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-slate-200">
+                {hallazgosFiltrados.map((h) => {
+                  const esConforme = h.tipoHallazgo === 'CONFORME';
+                  const esBajoPago = h.tipoHallazgo === 'PAGO_INSUFICIENTE';
+
+                  return (
+                    <tr key={h.id} className="hover:bg-slate-50 transition">
+                      <td className="px-4 py-3 font-mono font-bold text-slate-800">{h.cedula}</td>
+                      <td className="px-4 py-3 text-center font-bold text-slate-600 bg-slate-50">{h.periodo}</td>
+                      <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{h.nombre}</td>
+                      <td className="px-4 py-3 text-center font-semibold">{h.diasTrabajados}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
+                      <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
+                      <td className="px-4 py-3 text-right font-mono text-slate-800">${h.auxilioPagado.toLocaleString('es-CO')}</td>
+                      <td className={`px-4 py-3 text-right font-mono font-bold ${
+                        esConforme ? 'text-emerald-600' : esBajoPago ? 'text-red-600' : 'text-amber-600'
+                      }`}>
+                        ${h.diferenciaExacta.toLocaleString('es-CO')}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {esConforme && (
+                          <span className="px-2.5 py-1 text-[10px] font-extrabold bg-emerald-100 text-emerald-800 rounded-full border border-emerald-300">
+                            🟢 CONFORME
+                          </span>
+                        )}
+                        {esBajoPago && (
+                          <span className="px-2.5 py-1 text-[10px] font-extrabold bg-red-100 text-red-800 rounded-full border border-red-300">
+                            🔴 BAJO PAGO (UGPP)
+                          </span>
+                        )}
+                        {h.tipoHallazgo === 'PAGO_EXCESO' && (
+                          <span className="px-2.5 py-1 text-[10px] font-semibold bg-amber-100 text-amber-800 rounded-full border border-amber-300">
+                            🟠 PAGO EN EXCESO
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -3,10 +3,9 @@
 export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}, constantesAnuales = {}) {
   const { smlmv = 1300000, auxTransporte = 162000 } = constantesAnuales;
   
-  const limiteSalarialQuincenal = smlmv; // 1 SMLMV quincenal ($1.300.000)
+  const limiteSalarialQuincenal = smlmv; // $1.300.000
   const valorDiarioAuxilio = auxTransporte / 30; // $5.400 / día
 
-  // Conceptos por defecto de autodefensa si el mapeo llega vacío
   const conceptosSalarioDefault = ['SUELDO BASICO', 'SUELDO RETROACTIVO', 'SUELDO POR LICENCIA REMUNERADA'];
   const conceptosAuxilioDefault = ['SUBSIDIO DE TRANSPORTE'];
 
@@ -84,15 +83,17 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     }
   });
 
-  const hallazgos = [];
+  const todosLosRegistros = [];
   let riesgoFinancieroTotal = 0;
+  let conteoConformes = 0;
+  let conteoBajoPago = 0;
+  let conteoExcesos = 0;
 
   for (const llave in registrosQuincenales) {
     const reg = registrosQuincenales[llave];
     const diasEfectivos = Math.min(reg.diasTrabajados, 15);
     let auxilioDeberSer = 0;
 
-    // Solo evaluar deber ser si el salario base acumulado es mayor a 0 y <= 1 SMLMV quincenal
     if (reg.salarioBaseAcumulado > 0 && reg.salarioBaseAcumulado <= limiteSalarialQuincenal) {
       auxilioDeberSer = Math.round(valorDiarioAuxilio * diasEfectivos);
     }
@@ -100,35 +101,50 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const diferenciaExacta = auxilioDeberSer - reg.auxilioPagado;
     const diferenciaAbsoluta = Math.abs(diferenciaExacta);
 
+    let tipoHallazgo = 'CONFORME';
+    let severidad = 'CORRECTO';
+
     if (diferenciaAbsoluta > 100) {
       riesgoFinancieroTotal += diferenciaAbsoluta;
-
-      const esPagoInsuficiente = diferenciaExacta > 0;
-      
-      hallazgos.push({
-        id: (typeof crypto !== 'undefined' && crypto.randomUUID) 
-          ? crypto.randomUUID() 
-          : `${reg.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
-        cedula: reg.cedula,
-        periodo: reg.periodo,
-        nombre: reg.nombre,
-        diasTrabajados: diasEfectivos,
-        salarioBase: reg.salarioBaseAcumulado,
-        auxilioDeberSer,
-        auxilioPagado: reg.auxilioPagado,
-        diferenciaExacta,
-        diferenciaAbsoluta,
-        tipoHallazgo: esPagoInsuficiente ? 'PAGO_INSUFICIENTE' : 'PAGO_EXCESO',
-        severidad: esPagoInsuficiente ? 'CRÍTICA' : 'MODERADA'
-      });
+      if (diferenciaExacta > 0) {
+        tipoHallazgo = 'PAGO_INSUFICIENTE';
+        severidad = 'CRÍTICA (UGPP)';
+        conteoBajoPago++;
+      } else {
+        tipoHallazgo = 'PAGO_EXCESO';
+        severidad = 'MODERADA (Exceso)';
+        conteoExcesos++;
+      }
+    } else {
+      conteoConformes++;
     }
+
+    todosLosRegistros.push({
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) 
+        ? crypto.randomUUID() 
+        : `${reg.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
+      cedula: reg.cedula,
+      periodo: reg.periodo,
+      nombre: reg.nombre,
+      diasTrabajados: diasEfectivos,
+      salarioBase: reg.salarioBaseAcumulado,
+      auxilioDeberSer,
+      auxilioPagado: reg.auxilioPagado,
+      diferenciaExacta,
+      diferenciaAbsoluta,
+      tipoHallazgo,
+      severidad
+    });
   }
 
   return {
-    hallazgos,
+    hallazgos: todosLosRegistros,
     kpis: {
       totalEmpleados: Object.keys(registrosQuincenales).length,
-      totalHallazgos: hallazgos.length,
+      totalHallazgos: conteoBajoPago + conteoExcesos,
+      conteoConformes,
+      conteoBajoPago,
+      conteoExcesos,
       riesgoFinancieroTotal
     }
   };
