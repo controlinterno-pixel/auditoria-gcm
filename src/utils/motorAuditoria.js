@@ -134,11 +134,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     if (conceptosAuxilio.includes(conceptoLimpio)) {
       emp.auxilioPagado += valorTotal;
     }
-
-    // Acumular días de ausentismo
-    if (conceptosAusentismos.includes(conceptoLimpio)) {
-      emp.diasAusentismos += cantidadDias;
-    }
+  
   });
   // ==========================================
   // FASE 2: MOTOR REGLAS DE NEGOCIO Y UGPP
@@ -154,14 +150,9 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
-    // Si el software liquidó 0 días trabajados (por vacaciones completas), asumimos la base de la quincena (15)
-    let diasBase = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
-    
-    // Restamos los días que el empleado no se desplazó al trabajo
-    let diasEfectivos = diasBase - emp.diasAusentismos;
-    
-    // Aseguramos que los días no sean negativos ni superen los 15 días quincenales
-    diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15)); 
+   // Toma directamente los días laborados del Sueldo Básico
+    let diasEfectivos = emp.diasTrabajados;
+    diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
     
     const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && emp.totalDevengadoSalarial <= limiteSalarialQuincenal;
     let auxilioDeberSer = 0;
