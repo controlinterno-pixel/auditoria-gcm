@@ -44,11 +44,13 @@ const ConceptMapper = () => {
       c.includes('FALTA')
     );
 
+// +++ CÓDIGO CORREGIDO +++
     setMapping({
       salario_base: autoSalario,
       aux_transporte: autoAuxilio,
       ausentismos: autoAusentismos
     });
+  }; 
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
@@ -327,5 +329,4 @@ const ConceptMapper = () => {
     </div>
   );
 };
-
 export default ConceptMapper;
