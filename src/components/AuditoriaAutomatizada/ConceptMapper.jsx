@@ -1,20 +1,59 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import React, { useState } from 'react';
-import { auditarAuxilioTransporte } from '../../utils/motorAuditoria'; // Conexión al motor
+import { auditarAuxilioTransporte } from '../../utils/motorAuditoria';
 
-const ConceptMapper = ({ datosExcel }) => {
+const ConceptMapper = () => {
+  // 1. Estados locales para manejar el archivo y el mapeo
+  const [datosExcel, setDatosExcel] = useState(null);
+  const [mapping, setMapping] = useState({});
+  const [fileName, setFileName] = useState("");
+
   const systemCategories = [
     { id: 'salario_base', label: 'Salario Básico / Sueldo', required: true },
     { id: 'aux_transporte', label: 'Auxilio de Transporte', required: true }
   ];
 
-  // Extraemos conceptos únicos del Excel (si datosExcel existe)
+  // 2. Extraer conceptos únicos dinámicamente de la columna "NombreConcepto"
   const excelConcepts = datosExcel 
     ? [...new Set(datosExcel.map(fila => fila.NombreConcepto))].filter(Boolean)
-    : ['SUELDO', 'AUXILIO DE TRANSPORTE', 'COMISIONES'];
+    : [];
 
-  const [mapping, setMapping] = useState({});
+  // 3. Función para procesar el Excel cuando el usuario lo sube
+  const handleFileUpload = (e) => {
+    if (!window.XLSX) {
+      alert("La librería de Excel aún no ha cargado. Intenta de nuevo en unos segundos.");
+      return;
+    }
 
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setFileName(file.name);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = window.XLSX.read(data, { type: 'array' });
+        
+        // Leemos la primera hoja del Excel
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convertimos la tabla a un arreglo de objetos JSON
+        const jsonData = window.XLSX.utils.sheet_to_json(worksheet);
+        
+        console.log("📊 Datos extraídos del Excel:", jsonData.slice(0, 5), "... (mostrando 5 filas)");
+        setDatosExcel(jsonData);
+      } catch (error) {
+        console.error("Error leyendo el Excel:", error);
+        alert("Hubo un error al leer el archivo. Asegúrate de que sea un formato válido de Excel (.xlsx).");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // 4. Lógica para seleccionar/deseleccionar conceptos
   const toggleConcept = (categoryId, conceptName) => {
     setMapping((prev) => {
       const currentConcepts = prev[categoryId] || [];
@@ -28,68 +67,106 @@ const ConceptMapper = ({ datosExcel }) => {
     });
   };
 
+  // 5. Función para detonar la auditoría
   const handleStartAudit = () => {
-    if (!datosExcel) {
-      alert("Falta cargar los datos del Excel.");
+    if (!datosExcel || datosExcel.length === 0) {
+      alert("⚠️ Falta cargar los datos del Excel.");
       return;
     }
     
-    console.log("Iniciando auditoría...");
+    if (!mapping.salario_base || !mapping.aux_transporte) {
+      alert("⚠️ Debes mapear al menos un concepto para el Salario Base y otro para el Auxilio de Transporte.");
+      return;
+    }
     
-    // Ejecutamos el motor pasando los datos, el mapeo y los valores de ley de 2026
+    console.log("🚀 Iniciando auditoría automatizada...");
+    
+    // Ejecutamos el motor de auditoría
     const resultados = auditarAuxilioTransporte(datosExcel, mapping, { 
-      smlmv: 1300000, // Ajusta este valor al SMLMV real de tu auditoría
+      smlmv: 1300000, 
       auxTransporte: 162000 
     });
     
-    console.log("⚠️ Hallazgos detectados:", resultados);
-    alert(`Auditoría finalizada. Se encontraron ${resultados.length} hallazgos. Revisa la consola.`);
+    console.log("🚨 Hallazgos detectados:", resultados);
+    alert(`Auditoría finalizada. Se evaluaron ${datosExcel.length} transacciones y se encontraron ${resultados.length} hallazgos.\n\nRevisa la consola del navegador (F12) para ver la tabla de diferencias.`);
   };
 
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">🤖 Mapeador de Conceptos</h1>
-        <p className="text-slate-500 mt-2">Asigna los conceptos de la sábana de nómina al Motor GCM.</p>
+        <h1 className="text-3xl font-bold text-slate-800">🤖 Motor de Auditoría Automatizada</h1>
+        <p className="text-slate-500 mt-2">Carga tu sábana de nómina y mapea los conceptos para que el robot aplique las reglas de negocio.</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200">
+      <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
+        <h3 className="text-lg font-medium text-slate-700 mb-4">📥 1. Cargar Archivo de Nómina</h3>
+        <div className="flex items-center space-x-4">
+          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-300 border-dashed rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
+            <div className="flex flex-col items-center justify-center pt-5 pb-6 text-slate-500">
+              <span className="text-3xl mb-2">📁</span>
+              <p className="mb-2 text-sm font-semibold">Haz clic para subir tu archivo Excel</p>
+              <p className="text-xs">Soporta .xlsx o .xls</p>
+            </div>
+            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
+          </label>
+        </div>
+        {fileName && (
+          <div className="mt-4 p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-sm font-medium flex items-center">
+            <span>✅ Archivo cargado: <strong>{fileName}</strong> ({datosExcel?.length} transacciones detectadas)</span>
+          </div>
+        )}
+      </div>
+
+      <div className={`bg-white rounded-xl shadow-md p-6 border border-slate-200 transition-opacity ${!datosExcel ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+        <h3 className="text-lg font-medium text-slate-700 mb-6">🔗 2. Mapeo de Conceptos</h3>
+        
+        {!datosExcel && (
+          <div className="mb-4 text-sm text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+            Carga un archivo arriba para ver los conceptos extraídos.
+          </div>
+        )}
+
         <div className="space-y-6">
           {systemCategories.map((category) => {
             const selectedConcepts = mapping[category.id] || [];
             
             return (
               <div key={category.id} className="border-b border-slate-100 pb-6 last:border-0">
-                <h3 className="text-lg font-medium text-slate-700 mb-3">
-                  {category.label}
-                </h3>
+                <h4 className="text-md font-bold text-slate-800 mb-3">
+                  {category.label} {category.required && <span className="text-red-500">*</span>}
+                </h4>
                 <div className="flex flex-wrap gap-2">
-                  {excelConcepts.map((concept) => {
+                  {excelConcepts.length > 0 ? excelConcepts.map((concept) => {
                     const isSelected = selectedConcepts.includes(concept);
                     return (
                       <button
                         key={concept}
                         onClick={() => toggleConcept(category.id, concept)}
-                        className={`px-3 py-1.5 text-sm rounded-md transition-colors border ${
-                          isSelected ? 'bg-blue-100 border-blue-300 text-blue-800 font-medium' : 'bg-white border-slate-200 text-slate-600'
+                        className={`px-3 py-1.5 text-sm rounded-md transition-colors border shadow-sm ${
+                          isSelected ? 'bg-blue-900 border-blue-900 text-white font-bold' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
                         }`}
                       >
                         {isSelected && '✓ '} {concept}
                       </button>
                     );
-                  })}
+                  }) : (
+                    <span className="text-sm text-slate-400 italic">Sin datos...</span>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
 
-        <div className="mt-8 flex justify-end pt-6">
+        <div className="mt-8 flex justify-end pt-6 border-t border-slate-100">
           <button 
             onClick={handleStartAudit}
-            className="px-6 py-2 bg-blue-900 text-white font-semibold rounded-lg shadow hover:bg-blue-800"
+            disabled={!datosExcel}
+            className={`px-6 py-3 font-bold rounded-lg shadow-md transition-colors flex items-center space-x-2 ${
+              !datosExcel ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-blue-900 text-white hover:bg-blue-800'
+            }`}
           >
-            ⚡ Confirmar Mapeo e Iniciar Auditoría
+            <span>⚡ Ejecutar Auditoría (Motor GCM)</span>
           </button>
         </div>
       </div>
