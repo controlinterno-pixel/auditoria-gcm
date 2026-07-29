@@ -17,17 +17,26 @@ const ConceptMapper = () => {
   const [resumenKpi, setResumenKpi] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
   const [busqueda, setBusqueda] = useState('');
-
-  const systemCategories = [
+const systemCategories = [
     { id: 'salario_base', label: 'Salario Básico y Devengados Salariales (Art. 127 CST)', required: true },
     { id: 'aux_transporte', label: 'Auxilio / Subsidio de Transporte', required: true },
     { id: 'ausentismos', label: 'Ausentismos (Vacaciones, Incapacidad, Licencias)', required: false }
   ];
 
+  
   const ejecutarAutoMapeoInteligente = (conceptos) => {
+    
     const autoSalario = conceptos.filter(c => {
-      // Exclusiones explícitas
-      if (c.includes('NO REMUNERAD') || c.includes('SUSPENSION') || c.includes('VACACIONES') || c.includes('CESANTIA') || c.includes('PRIMA')) {
+      // 🛑 NUEVAS EXCLUSIONES: Licencias y Día de la familia
+      if (
+        c.includes('NO REMUNERAD') || 
+        c.includes('SUSPENSION') || 
+        c.includes('VACACIONES') || 
+        c.includes('CESANTIA') || 
+        c.includes('PRIMA') ||
+        c.includes('LICENCIA') || // <-- Exclusión añadida correctamente
+        c.includes('FAMILIA')     // <-- Exclusión añadida correctamente
+      ) {
         return false;
       }
       const palabrasClave = ['SUELDO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL'];
