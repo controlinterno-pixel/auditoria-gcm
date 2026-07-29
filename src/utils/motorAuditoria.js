@@ -101,7 +101,10 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos, con
       const esPagoInsuficiente = diferenciaExacta > 0;
       
       hallazgos.push({
-        id: crypto.randomUUID(),
+        // Compatible con entornos HTTP locales o sin Web Crypto API
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) 
+          ? crypto.randomUUID() 
+          : `${reg.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
         cedula: reg.cedula,
         periodo: reg.periodo,
         nombre: reg.nombre,
