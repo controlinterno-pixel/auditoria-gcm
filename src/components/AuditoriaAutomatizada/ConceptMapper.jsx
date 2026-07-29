@@ -86,8 +86,18 @@ const ConceptMapper = () => {
         const workbook = window.XLSX.read(data, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
-
+const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
+        
+        // 🧹 Limpieza de origen: Filtrar provisiones contables y parafiscales
+        const jsonData = jsonDataRaw.filter(row => {
+          const tipo = row['Tipo'] || row['tipo'] || row['TIPO'];
+          if (tipo) {
+            const tipoStr = tipo.toString().toUpperCase();
+            // Ignoramos las filas que sean provisiones o parafiscales
+            return !tipoStr.includes('PROVISION') && !tipoStr.includes('PARAFISCAL');
+          }
+          return true; // Si no existe la columna Tipo, dejamos pasar la fila
+        });
         setDatosExcel(jsonData);
 
         // 🌟 Buscador dinámico de la columna de Conceptos para la UI
