@@ -1,11 +1,31 @@
 // Ruta: src/utils/motorAuditoria.js
 
-export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos, constantesAnuales) {
+export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}, constantesAnuales = {}) {
   const { smlmv = 1300000, auxTransporte = 162000 } = constantesAnuales;
   
   // Parámetros Quincenales
   const limiteSalarialQuincenal = smlmv; // 2 SMLMV quincenales = 1 SMLMV mensual ($1.300.000)
   const valorDiarioAuxilio = auxTransporte / 30; // $5.400 / día
+
+  // 1. CONCEPTOS POR DEFECTO (FALLBACK SI EL MAPEO VIENE VACÍO O SE UNSELECT)
+  const conceptosSalarioDefault = [
+    'SUELDO BASICO',
+    'SUELDO RETROACTIVO',
+    'SUELDO POR LICENCIA REMUNERADA'
+  ];
+  
+  const conceptosAuxilioDefault = [
+    'SUBSIDIO DE TRANSPORTE'
+  ];
+
+  // Garantizar comparación insensible a mayúsculas/minúsculas y espacios
+  const conceptosSalario = (mapeoConceptos?.salario_base && mapeoConceptos.salario_base.length > 0)
+    ? mapeoConceptos.salario_base.map(c => c.toString().toUpperCase().trim())
+    : conceptosSalarioDefault;
+
+  const conceptosAuxilio = (mapeoConceptos?.aux_transporte && mapeoConceptos.aux_transporte.length > 0)
+    ? mapeoConceptos.aux_transporte.map(c => c.toString().toUpperCase().trim())
+    : conceptosAuxilioDefault;
 
   // 🛡️ Sanitizador Universal de Números y Moneda
   const parsearMonto = (val) => {
@@ -38,19 +58,19 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos, con
 
   const registrosQuincenales = {};
 
-  // 1. ETL: PIVOTEO Y CONSOLIDACIÓN POR CÉDULA + PERÍODO
+  // 2. ETL: PIVOTEO Y CONSOLIDACIÓN POR CÉDULA + PERÍODO
   transaccionesExcel.forEach(fila => {
     const cedula = fila.Identificacion || fila.IDENTIFICACION || fila.Cedula || fila.CEDULA || fila.NIT;
     const periodo = fila.IDEN_Periodo || fila.Periodo || fila.IDEN_PERIODO || '228';
     const nombre = fila.Nombres || fila.NOMBRES || fila.Empleado || fila.EMPLEADO;
-    const concepto = (fila.NombreConcepto || fila['Nombre Concepto'] || fila.Concepto || fila.CONCEPTO || '').toString().trim();
+    const conceptoRaw = (fila.NombreConcepto || fila['Nombre Concepto'] || fila.Concepto || fila.CONCEPTO || '').toString().toUpperCase().trim();
 
     const valorTotal = parsearMonto(fila.Total ?? fila.TOTAL ?? fila.Valor ?? fila.VALOR ?? 0);
     const cantidadDias = parsearMonto(fila.Cantidad ?? fila.CANTIDAD ?? fila.Dias ?? fila.DIAS ?? 0);
 
     if (!cedula) return;
 
-    // Clave Compuesta: Cédula + Período (Ej. "4583653_228")
+    // Clave Compuesta: Cédula + Período (Ej. "1093231068_228")
     const llaveUnica = `${cedula.toString().trim()}_${periodo.toString().trim()}`;
 
     if (!registrosQuincenales[llaveUnica]) {
@@ -65,17 +85,18 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos, con
       };
     }
 
-    if (mapeoConceptos.salario_base?.includes(concepto)) {
+    // Evaluación normalizada
+    if (conceptosSalario.includes(conceptoRaw)) {
       registrosQuincenales[llaveUnica].salarioBaseAcumulado += valorTotal;
       registrosQuincenales[llaveUnica].diasTrabajados += cantidadDias;
     }
 
-    if (mapeoConceptos.aux_transporte?.includes(concepto)) {
+    if (conceptosAuxilio.includes(conceptoRaw)) {
       registrosQuincenales[llaveUnica].auxilioPagado += valorTotal;
     }
   });
 
-  // 2. AUDITORÍA QUINCENAL (REGLAS LEGALES COLOMBIANAS)
+  // 3. AUDITORÍA QUINCENAL (REGLAS LEGALES COLOMBIANAS)
   const hallazgos = [];
   let riesgoFinancieroTotal = 0;
 
@@ -101,7 +122,6 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos, con
       const esPagoInsuficiente = diferenciaExacta > 0;
       
       hallazgos.push({
-        // Compatible con entornos HTTP locales o sin Web Crypto API
         id: (typeof crypto !== 'undefined' && crypto.randomUUID) 
           ? crypto.randomUUID() 
           : `${reg.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
