@@ -245,26 +245,33 @@ const systemCategories = [
 
       {/* KPI Cards */}
       {resumenKpi && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        {/* Cambiamos a grid-cols-5 para que quepan las 5 tarjetas */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase">Total Auditados</p>
             <h3 className="text-2xl font-extrabold text-slate-800">{resumenKpi.totalEmpleados}</h3>
           </div>
           <div className="bg-white p-5 rounded-xl border border-emerald-200 shadow-sm">
-            <p className="text-xs font-bold text-emerald-600 uppercase">Conformes (Correctos)</p>
+            <p className="text-xs font-bold text-emerald-600 uppercase">Conformes</p>
             <h3 className="text-2xl font-extrabold text-emerald-700">{resumenKpi.conteoConformes}</h3>
           </div>
+          
+          {/* +++ NUEVA TARJETA: NO APLICA +++ */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <p className="text-xs font-bold text-slate-500 uppercase">No Aplica (&gt;2 SMLMV)</p>
+            <h3 className="text-2xl font-extrabold text-slate-600">{resumenKpi.conteoNoAplica}</h3>
+          </div>
+
           <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm">
             <p className="text-xs font-bold text-amber-600 uppercase">Pagos en Exceso</p>
             <h3 className="text-2xl font-extrabold text-amber-700">{resumenKpi.conteoExcesos}</h3>
           </div>
           <div className="bg-white p-5 rounded-xl border border-red-200 shadow-sm">
-            <p className="text-xs font-bold text-red-600 uppercase">Bajo Pago (Riesgo UGPP)</p>
+            <p className="text-xs font-bold text-red-600 uppercase">Bajo Pago (UGPP)</p>
             <h3 className="text-2xl font-extrabold text-red-700">{resumenKpi.conteoBajoPago}</h3>
           </div>
         </div>
       )}
-
       {/* Tabla de Resultados */}
       {hallazgos && (
         <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
