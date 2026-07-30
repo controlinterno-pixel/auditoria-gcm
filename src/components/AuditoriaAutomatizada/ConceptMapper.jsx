@@ -245,8 +245,8 @@ const systemCategories = [
 
       {/* KPI Cards */}
       {resumenKpi && (
-        {/* Cambiamos a grid-cols-5 para que quepan las 5 tarjetas */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+          {/* Cambiamos a grid-cols-5 para que quepan las 5 tarjetas */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase">Total Auditados</p>
             <h3 className="text-2xl font-extrabold text-slate-800">{resumenKpi.totalEmpleados}</h3>
