@@ -112,8 +112,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const cedula = cedulaRaw.toString().trim();
     const periodo = periodoRaw ? periodoRaw.toString().trim() : '228';
     
-    // 🔑 LLAVE ÚNICA MULTI-EMPRESA: Evalúa cada razón social independientemente
-    const llaveUnica = `${empresa}_${cedula}_${periodo}`;    
+   // 🔑 LLAVE ÚNICA CONSOLIDADA (GRUPO EMPRESARIAL): Evalúa al empleado por cédula, sumando todas las empresas
+    const llaveUnica = `${cedula}_${periodo}`;    
     const conceptoLimpio = normalizarTexto(conceptoRaw);
     const valorTotal = parsearMonto(valorRaw);
     const cantidadDias = parsearMonto(cantidadRaw);
@@ -121,7 +121,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     if (!empleadosPivoteados[llaveUnica]) {
       empleadosPivoteados[llaveUnica] = {
         llaveUnica,
-        empresa,
+        empresa: empresa, 
         cedula,
         periodo,
         nombre: nombreRaw ? nombreRaw.toString().trim() : 'Sin Nombre',
@@ -130,8 +130,14 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
         totalDevengadoSalarial: 0,
         auxilioPagado: 0,
         diasTrabajados: 0,
-        diasAusentismos: 0
+        diasAusentismos: 0,
+        empresasGrupo: new Set([empresa]) // Rastrear en cuántas empresas está
       };
+    } else {
+      // Si el empleado ya existe en el periodo, agregamos la nueva empresa al Set
+      empleadosPivoteados[llaveUnica].empresasGrupo.add(empresa);
+      // Actualizamos la etiqueta de la empresa para que el UI muestre "Fam + RecreFam"
+      empleadosPivoteados[llaveUnica].empresa = Array.from(empleadosPivoteados[llaveUnica].empresasGrupo).join(' + ');
     }
        
 
