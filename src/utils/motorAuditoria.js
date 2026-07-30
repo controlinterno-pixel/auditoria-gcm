@@ -101,6 +101,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
     const nombreRaw = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']);
+    const cargoRaw = buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion', 'Puesto']);
     const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
     
     const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago']);
@@ -125,6 +126,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
         cedula,
         periodo,
         nombre: nombreRaw ? nombreRaw.toString().trim() : 'Sin Nombre',
+        cargo: cargoRaw ? cargoRaw.toString().trim() : 'Sin Cargo',
         sueldoBasico: 0,
         otrosDevengadosSalariales: 0,
         totalDevengadoSalarial: 0,
@@ -228,6 +230,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
      cedula: emp.cedula,
       periodo: emp.periodo,
       nombre: emp.nombre,
+      cargo: emp.cargo,
       diasTrabajados: diasEfectivos,
       salarioBase: emp.sueldoBasico,
       totalDevengadoSalarial: emp.totalDevengadoSalarial,
