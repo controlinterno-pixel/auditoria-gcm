@@ -1,5 +1,5 @@
+// Ruta: src/components/Evaluaciones.jsx
 import React, { useState, useEffect } from 'react';
-// 1. Importamos nuestras nuevas herramientas centralizadas
 import { useDataFetching } from '../hooks/useDataFetching';
 import { apiService } from '../services/apiService';
 
@@ -25,32 +25,46 @@ export default function Evaluaciones({
 }) {
   const evaluacionesData = safeEvaluaciones.map(e => ({ ...e, fechaVal: formatSafeDate(e.fecha) }));
 
-  // Estado local para manejar el Riesgo seleccionado y filtrar los controles
+  // 1. Estados locales para Riesgo, Diseño, Ejecución y Calificación (NUEVO)
   const [riesgoSeleccionadoId, setRiesgoSeleccionadoId] = useState('');
+  const [disenoVal, setDisenoVal] = useState('Eficaz');
+  const [ejecucionVal, setEjecucionVal] = useState('Eficaz');
+  const [calificacionAutomatica, setCalificacionAutomatica] = useState(100);
 
-  // Efecto para cargar el riesgo automáticamente cuando le damos a "Editar"
+  // 2. Sincronizar estados cuando editamos una evaluación existente (NUEVO)
   useEffect(() => {
     setRiesgoSeleccionadoId(editEvaluacion?.idRiesgo || '');
+    setDisenoVal(editEvaluacion?.diseño || editEvaluacion?.diseno || 'Eficaz');
+    setEjecucionVal(editEvaluacion?.ejecucion || 'Eficaz');
   }, [editEvaluacion]);
 
-  // 2. ☁️ NUEVO MOTOR LIMPIO CON CUSTOM HOOKS
+  // 3. 🧠 MOTOR LÓGICO COSO / ISO (NUEVO)
+  useEffect(() => {
+    if (disenoVal === 'Inadecuado') {
+      // Regla de oro: Si el diseño está mal, la ejecución no importa. El control no sirve.
+      setCalificacionAutomatica(0);
+    } else if (disenoVal === 'Eficaz' && ejecucionVal === 'Inadecuado') {
+      // Buen diseño, pero el personal no lo aplica bien. Deficiencia operativa.
+      setCalificacionAutomatica(50);
+    } else {
+      // Todo en orden.
+      setCalificacionAutomatica(100);
+    }
+  }, [disenoVal, ejecucionVal]);
+
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
-  // Extraemos isLoading (lo renombramos a isUploading para no romper tu diseño) y ejecutarPeticion
   const { isLoading: isUploading, error: uploadError, ejecutarPeticion } = useDataFetching();
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     try {
-      // 3. Llamamos al servicio central, pasándole el archivo y la metadata
       const data = await ejecutarPeticion(
         apiService.subirEvidencia(file, {
           appName: 'controlInterno',
           description: 'Evidencia de Test de Control'
         })
       );
-
       const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
       setArchivoSubidoUrl(urlFinal);
       alert("🎉 ¡Soporte de evaluación guardado con éxito en el servidor de Termales!");
@@ -110,19 +124,49 @@ export default function Evaluaciones({
               </select>
             </div>
 
+            {/* 4. Selectores controlados para recalcular puntaje (NUEVO) */}
             <div className="md:col-span-2">
-              <label className="font-bold text-gray-600">Diseño</label>
-              <select name="diseno" defaultValue={editEvaluacion?.diseño||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white">
-                <option>Eficaz</option>
-                <option>Inadecuado</option>
+              <label className="font-bold text-gray-600">Diseño (Adecuación)</label>
+              <select 
+                name="diseno" 
+                value={disenoVal} 
+                onChange={(e) => setDisenoVal(e.target.value)}
+                className="w-full border rounded-lg p-2 mt-1 bg-white focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="Eficaz">Eficaz</option>
+                <option value="Inadecuado">Inadecuado</option>
               </select>
             </div>
+            
             <div className="md:col-span-2">
-              <label className="font-bold text-gray-600">Ejecución</label>
-              <select name="ejecucion" defaultValue={editEvaluacion?.ejecucion||'Eficaz'} className="w-full border rounded-lg p-2 mt-1 bg-white">
-                <option>Eficaz</option>
-                <option>Inadecuado</option>
+              <label className="font-bold text-gray-600">Ejecución (Eficacia Operativa)</label>
+              <select 
+                name="ejecucion" 
+                value={ejecucionVal} 
+                onChange={(e) => setEjecucionVal(e.target.value)}
+                disabled={disenoVal === 'Inadecuado'} // Si el diseño está mal, la ejecución se bloquea
+                className={`w-full border rounded-lg p-2 mt-1 bg-white focus:ring-2 focus:ring-indigo-500 ${disenoVal === 'Inadecuado' ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''}`}
+              >
+                <option value="Eficaz">Eficaz</option>
+                <option value="Inadecuado">Inadecuado</option>
               </select>
+            </div>
+
+            {/* 5. Tarjeta de Calificación Dinámica (NUEVO) */}
+            <div className="md:col-span-4 bg-slate-50 border border-slate-200 rounded-lg p-4 flex items-center justify-between">
+              <div>
+                <span className="font-bold text-slate-700 block text-[11px] uppercase tracking-wider">Calificación del Control (ISO/COSO)</span>
+                <span className="text-slate-500 text-[10px]">Calculada automáticamente según el diseño y ejecución.</span>
+              </div>
+              <div className={`px-4 py-1.5 rounded-full font-black text-sm border shadow-sm ${
+                  calificacionAutomatica === 100 ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                  calificacionAutomatica === 50 ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                  'bg-red-100 text-red-800 border-red-300'
+                }`}>
+                {calificacionAutomatica}%
+              </div>
+              {/* Este input oculto asegura que el % se envíe en el FormData */}
+              <input type="hidden" name="calificacion" value={calificacionAutomatica} />
             </div>
             
             {/* ☁️ BÓVEDA SERVIDOR TERMALES: EVIDENCIA DEL TEST DE CONTROL */}
@@ -142,7 +186,6 @@ export default function Evaluaciones({
                   <div className="space-y-3 w-full">
                     <div className="text-3xl animate-bounce">🚀</div>
                     <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden relative">
-                       {/* Barra de carga indeterminada animada */}
                       <div className="bg-indigo-500 h-2.5 rounded-full w-full animate-pulse"></div>
                     </div>
                     <p className="text-[9px] font-bold text-indigo-600 animate-pulse">Procesando y subiendo al servidor, por favor espera...</p>
@@ -163,7 +206,6 @@ export default function Evaluaciones({
                     <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
                   </label>
                 )}
-                {/* Mostramos el error si el hook falla */}
                 {uploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{uploadError}</p>}
               </div>
             </div>            
@@ -180,7 +222,9 @@ export default function Evaluaciones({
         </div>
       )}
 
+      {/* Aquí continúa intacta tu tabla inferior... */}
       <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        {/* ... (Tabla de visualización) */}
         <div className="p-4 border-b flex justify-between items-center bg-slate-50">
            <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest">Registros de Auditoría</h3>
            <div className="relative">
@@ -229,9 +273,13 @@ export default function Evaluaciones({
                   <div className="font-bold">{ev.fechaVal}</div>
                   <div className="text-[9px] text-slate-500 mt-1 uppercase truncate w-32" title={ev.auditor}>{ev.auditor}</div>
                 </td>
-                <td>D: {ev.diseño} / E: {ev.ejecucion}</td>
+                <td>D: {ev.diseno || ev.diseño} / E: {ev.ejecucion}</td>
                 <td className="p-3">
-                  <span className={`px-2 py-0.5 rounded font-black notranslate ${ev.calificacion === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`} translate="no">
+                  <span className={`px-2 py-0.5 rounded font-black notranslate ${
+                    ev.calificacion === 100 ? 'bg-emerald-100 text-emerald-800' : 
+                    ev.calificacion === 50 ? 'bg-amber-100 text-amber-800' : 
+                    'bg-red-100 text-red-800'
+                  }`} translate="no">
                     {ev.calificacion}%
                   </span>
                 </td>

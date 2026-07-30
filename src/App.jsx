@@ -1057,13 +1057,23 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     const mesActual = defaultMeses[hoy.getMonth()];
     const anioActual = hoy.getFullYear();
 
+    // 🧠 1. Capturamos la lógica COSO que inyectamos en Evaluaciones.jsx
+    const idRiesgo = formData.get('idRiesgo');
+    const noControl = formData.get('noControl');
+    const calificacion = parseInt(formData.get('calificacion') || 0);
+
+    // 🔍 2. Buscamos el riesgo original para heredar su ADN (Proceso, Sede, Responsable)
+    const riesgoAsociado = safeRiesgos.find(r => String(r.id) === String(idRiesgo)) || {};
+    const procesoRiesgo = riesgoAsociado.proceso || formData.get('proceso') || 'Auditoría';
+
     let updated;
     if (editEvaluacion) {
       const mod = { 
         ...editEvaluacion, 
-        proceso: formData.get('proceso'), 
-        control: formData.get('control'), 
-        calificacion: parseInt(formData.get('calificacion') || 0), 
+        idRiesgo: idRiesgo,
+        proceso: procesoRiesgo, 
+        control: noControl, 
+        calificacion: calificacion, 
         diseno: formData.get('diseno') || 'No evaluado', 
         ejecucion: formData.get('ejecucion') || 'No evaluado', 
         evidenciaUrl: formData.get('evidenciaUrlInput') || editEvaluacion.evidenciaUrl || '', 
@@ -1075,9 +1085,10 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     } else {
       const nuevo = { 
         id: Date.now(), 
-        proceso: formData.get('proceso'), 
-        control: formData.get('control'), 
-        calificacion: parseInt(formData.get('calificacion') || 0), 
+        idRiesgo: idRiesgo,
+        proceso: procesoRiesgo, 
+        control: noControl, 
+        calificacion: calificacion, 
         diseno: formData.get('diseno') || 'No evaluado', 
         ejecucion: formData.get('ejecucion') || 'No evaluado', 
         evidenciaUrl: formData.get('evidenciaUrlInput') || '', 
@@ -1090,12 +1101,52 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
       updated = [nuevo, ...safeEvaluaciones];
     }
     setEvaluaciones(updated); 
-    await saveToCloud({ evaluaciones: updated }); 
+
+    // 🔥 3. INTERCEPTOR GRC: GATILLO DE HALLAZGOS AUTOMÁTICOS
+    let updatedHallazgos = safeHallazgos;
+    
+    // Si la calificación es 50% o 0%...
+    if (calificacion < 100) {
+      // Preguntamos al auditor si desea activar el protocolo de corrección
+      const generarHallazgo = window.confirm(`⚠️ Alerta de Auditoría: El control evaluado reprobó con una eficacia del ${calificacion}%.\n\n¿Deseas generar automáticamente un HALLAZGO DE AUDITORÍA para este proceso?`);
+
+      if (generarHallazgo) {
+        // Clonamos la información del riesgo y creamos el hallazgo
+        const nuevoHallazgo = { 
+          id: Date.now() + 1, // Le sumamos 1 para que no colisione con el ID de la evaluación
+          idInforme: '', 
+          sede: riesgoAsociado.sede || (Array.isArray(riesgoAsociado.sede) ? riesgoAsociado.sede[0] : 'Administrativos'), 
+          ref: 'AUD-' + Math.floor(Math.random() * 10000 + 1000), 
+          proceso: procesoRiesgo,
+          subproceso: riesgoAsociado.subproceso || 'General',
+          responsable: Array.isArray(riesgoAsociado.responsable) ? riesgoAsociado.responsable[0] : (riesgoAsociado.responsable || 'Por Asignar'), 
+          auditor: user?.email || 'Sistema', 
+          titulo: `Deficiencia operativa en Control ${noControl}`, 
+          severidad: calificacion === 0 ? 'Alta' : 'Media', 
+          estado: 'Abierto', 
+          fecha: hoy.toISOString().split('T')[0], 
+          anio: anioActual, 
+          mes: mesActual, 
+          evidenciaUrl: formData.get('evidenciaUrlInput') || '', 
+          causa: `El control diseñado para mitigar el riesgo RSK-${riesgoAsociado.id} presenta fallas. \nDiseño: ${formData.get('diseno')} | Ejecución: ${formData.get('ejecucion')}. \nComentarios del auditor: ${formData.get('comentarios')}`, 
+          claseObservacion: 'Hallazgo', 
+          historialCambios: [{ fecha: ts, usuario: user?.email || 'Sistema', accion: 'Autogenerado por defecto en Test de Control' }] 
+        };
+        updatedHallazgos = [...safeHallazgos, nuevoHallazgo];
+        setHallazgos(updatedHallazgos);
+        showNotification("Test guardado y Hallazgo derivado con éxito a la matriz.", "success");
+      } else {
+        showNotification("Test guardado (Sin generación de hallazgo).");
+      }
+    } else {
+      showNotification("Evaluación guardada exitosamente. Control fuerte y eficaz.");
+    }
+
+    // ☁️ 4. Guardamos todo en Firebase de una sola vez
+    await saveToCloud({ evaluaciones: updated, hallazgos: updatedHallazgos }); 
     e.target.reset(); 
     setFormResetKey(Date.now()); 
-    showNotification("Evaluación guardada.");
   };
-
   const handleComiteSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
