@@ -65,6 +65,9 @@ export default function Evaluaciones({
   const procesosDisponibles = [...new Set((safeRiesgos || []).map(r => r.proceso).filter(Boolean))];
   const riesgosDelProceso = (safeRiesgos || []).filter(r => r.proceso === procesoSeleccionado);
   const riesgoActivo = (safeRiesgos || []).find(r => String(r.id) === String(riesgoSeleccionadoId));
+  
+  // 🌟 Extraemos la lista exacta de controles según la Matriz de Riesgos
+  const controlesDelRiesgo = riesgoActivo?.controlesDetallados || [];
 
   // 5. ☁️ SUBIDA DE ARCHIVOS
   const { isLoading: isUploading, error: uploadError, ejecutarPeticion } = useDataFetching();
@@ -140,20 +143,37 @@ export default function Evaluaciones({
               </select>
             </div>
 
+            {/* --- SELECCIÓN DINÁMICA DE CONTROLES --- */}
             <div>
               <label className="font-bold text-gray-600 block mb-1">🛡️ Control Vinculado</label>
-              <input 
-                type="text" 
+              <select 
                 name="noControl" 
-                readOnly
                 required
-                value={riesgoActivo ? riesgoActivo.noControl : ''}
-                placeholder="Se autocompleta..."
-                className="w-full border border-slate-200 rounded-lg p-2.5 bg-slate-100 text-slate-500 font-mono font-bold cursor-not-allowed outline-none"
-              />
-              <p className="text-[10px] text-slate-500 mt-1 truncate" title={riesgoActivo?.descripcionControl}>
-                {riesgoActivo ? riesgoActivo.descripcionControl : 'Seleccione un riesgo primero'}
-              </p>
+                disabled={!riesgoSeleccionadoId}
+                defaultValue={editEvaluacion?.noControl || ''}
+                className="w-full border border-slate-300 rounded-lg p-2.5 bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <option value="">-- Seleccione un Control --</option>
+                
+                {controlesDelRiesgo.length > 0 ? (
+                  // ✅ Si el riesgo tiene controles detallados, iteramos y creamos el código CTL
+                  controlesDelRiesgo.map((ctrl, idx) => {
+                    const codigoControl = `CTL-2${idx + 1}`; // Genera CTL-21, CTL-22, etc.
+                    return (
+                      <option key={codigoControl} value={codigoControl}>
+                        {codigoControl} | {(ctrl.descripcion || 'Sin descripción').substring(0, 70)}...
+                      </option>
+                    );
+                  })
+                ) : (
+                  // 🔄 Fallback (Plan B): Riesgos muy antiguos que no tengan el array detallado
+                  riesgoActivo && riesgoActivo.descripcionControl ? (
+                    <option value="Control General">
+                      Control General | {(riesgoActivo.descripcionControl || '').substring(0, 70)}...
+                    </option>
+                  ) : null
+                )}
+              </select>
             </div>
 
             {/* --- BLOQUE 2: MOTOR COSO --- */}
