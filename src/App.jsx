@@ -1049,7 +1049,7 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     showNotification("¡Ciclo cerrado exitosamente!", "success");
   };
 
-  const handleEvaluacionSubmit = async (e) => {
+const handleEvaluacionSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -1057,12 +1057,12 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     const mesActual = defaultMeses[hoy.getMonth()];
     const anioActual = hoy.getFullYear();
 
-    // 🧠 1. Capturamos la lógica COSO que inyectamos en Evaluaciones.jsx
+    // 🧠 1. Capturamos la lógica COSO
     const idRiesgo = formData.get('idRiesgo');
     const noControl = formData.get('noControl');
     const calificacion = parseInt(formData.get('calificacion') || 0);
 
-    // 🔍 2. Buscamos el riesgo original para heredar su ADN (Proceso, Sede, Responsable)
+    // 🔍 2. Buscamos el riesgo original
     const riesgoAsociado = safeRiesgos.find(r => String(r.id) === String(idRiesgo)) || {};
     const procesoRiesgo = riesgoAsociado.proceso || formData.get('proceso') || 'Auditoría';
 
@@ -1102,18 +1102,29 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     }
     setEvaluaciones(updated); 
 
-    // 🔥 3. INTERCEPTOR GRC: GATILLO DE HALLAZGOS AUTOMÁTICOS
+    // 🔥 3. INTERCEPTOR GRC Y SINCRONIZACIÓN INVERSA
     let updatedHallazgos = safeHallazgos;
+    let updatedRiesgos = safeRiesgos; // <-- NUEVO: Para actualizar la matriz
     
-    // Si la calificación es 50% o 0%...
     if (calificacion < 100) {
-      // Preguntamos al auditor si desea activar el protocolo de corrección
       const generarHallazgo = window.confirm(`⚠️ Alerta de Auditoría: El control evaluado reprobó con una eficacia del ${calificacion}%.\n\n¿Deseas generar automáticamente un HALLAZGO DE AUDITORÍA para este proceso?`);
 
+      // 🔄 SINCRONIZACIÓN INVERSA: Escribimos en la bitácora del riesgo original
+      if (riesgoAsociado.id) {
+        const bitacoraPrevia = riesgoAsociado.seguimientoBitacora ? `\n---\n${riesgoAsociado.seguimientoBitacora}` : '';
+        const notaBitacora = `⚠️ [${hoy.toISOString().split('T')[0]}] Auditoría en campo reprobó el control ${noControl} (${calificacion}%). ${generarHallazgo ? 'Se generó hallazgo automático.' : 'No se generó hallazgo.'}`;
+        
+        const riesgoActualizado = {
+          ...riesgoAsociado,
+          seguimientoBitacora: notaBitacora + bitacoraPrevia
+        };
+        updatedRiesgos = safeRiesgos.map(r => String(r.id) === String(riesgoAsociado.id) ? riesgoActualizado : r);
+        setRiesgos(updatedRiesgos);
+      }
+
       if (generarHallazgo) {
-        // Clonamos la información del riesgo y creamos el hallazgo
         const nuevoHallazgo = { 
-          id: Date.now() + 1, // Le sumamos 1 para que no colisione con el ID de la evaluación
+          id: Date.now() + 1, 
           idInforme: '', 
           sede: riesgoAsociado.sede || (Array.isArray(riesgoAsociado.sede) ? riesgoAsociado.sede[0] : 'Administrativos'), 
           ref: 'AUD-' + Math.floor(Math.random() * 10000 + 1000), 
@@ -1134,19 +1145,19 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
         };
         updatedHallazgos = [...safeHallazgos, nuevoHallazgo];
         setHallazgos(updatedHallazgos);
-        showNotification("Test guardado y Hallazgo derivado con éxito a la matriz.", "success");
+        showNotification("Test guardado, Bitácora de riesgo actualizada y Hallazgo derivado con éxito.", "success");
       } else {
-        showNotification("Test guardado (Sin generación de hallazgo).");
+        showNotification("Test guardado y Bitácora de riesgo actualizada (Sin hallazgo).");
       }
     } else {
       showNotification("Evaluación guardada exitosamente. Control fuerte y eficaz.");
     }
 
     // ☁️ 4. Guardamos todo en Firebase de una sola vez
-    await saveToCloud({ evaluaciones: updated, hallazgos: updatedHallazgos }); 
+    await saveToCloud({ evaluaciones: updated, hallazgos: updatedHallazgos, riesgos: updatedRiesgos }); 
     e.target.reset(); 
     setFormResetKey(Date.now()); 
-  };
+  };  
   const handleComiteSubmit = async (e) => {
     e.preventDefault(); const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
