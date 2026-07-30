@@ -176,7 +176,16 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     let diasEfectivos = emp.diasTrabajados;
     diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
     
-    const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && emp.totalDevengadoSalarial <= limiteSalarialQuincenal;
+   // Proyección de Salario Básico (Blindaje Legal Art 127 CST)
+    let salarioBaseProyectado = 0;
+    if (diasEfectivos > 0) {
+      salarioBaseProyectado = (emp.sueldoBasico / diasEfectivos) * 15;
+    }
+
+    // Evaluación Integral: Básico Proyectado + Variables Reales (Extras/Comisiones)
+    const ingresoTotalEvaluado = salarioBaseProyectado + emp.otrosDevengadosSalariales;
+    const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && ingresoTotalEvaluado <= limiteSalarialQuincenal;
+
     let auxilioDeberSer = 0;
     if (tieneDerechoLegal) {
       auxilioDeberSer = Math.round(valorDiarioAuxilio * diasEfectivos);
