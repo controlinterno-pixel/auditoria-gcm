@@ -303,6 +303,7 @@ const systemCategories = [
                   <th className="px-4 py-3">Cédula</th>
                   <th className="px-4 py-3 text-center">Período</th>
                   <th className="px-4 py-3">Empleado</th>
+                  <th className="px-4 py-3">Cargo</th>
                   <th className="px-4 py-3 text-center">Días</th>
                   <th className="px-4 py-3 text-right">Sueldo Básico</th>
                   <th className="px-4 py-3 text-right">Devengado Salarial</th>
@@ -331,6 +332,7 @@ const systemCategories = [
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{h.cedula}</td>
                       <td className="px-4 py-3 text-center font-bold text-slate-600 bg-slate-50">{h.periodo}</td>
                       <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{h.nombre}</td>
+                      <td className="px-4 py-3 text-[10px] text-slate-500 uppercase">{h.cargo || 'Sin Cargo'}</td>
                       <td className="px-4 py-3 text-center font-semibold">
                         {Number(h.diasTrabajados).toFixed(2).replace(/\.00$/, '')}
                       </td>
