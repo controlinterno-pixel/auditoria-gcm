@@ -8,6 +8,7 @@ import {
 
 export default function Hallazgos({
   isAdmin,
+  safeRiesgos = [],
   informesAuditoria = [], 
   editHallazgo,
   setEditHallazgo,
@@ -897,25 +898,39 @@ export default function Hallazgos({
                                     <div className="flex justify-center items-center space-x-2 text-[10px] border-t border-slate-100 pt-1.5 mt-1">
                                       <button onClick={() => {setEditHallazgo(h); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-600 hover:underline font-bold">✏️ Editar</button>
                                       <span className="text-slate-300">|</span>
-                                      <button 
-                                        type="button" 
-                                        onClick={() => {
-                                          if (typeof window !== 'undefined') {
-                                            sessionStorage.setItem('promover_riesgo_temp', JSON.stringify({
-                                              proceso: h.proceso,
-                                              subproceso: h.subproceso,
-                                              causaInmediata: h.titulo,
-                                              sede: h.sede,
-                                              responsable: h.responsable
-                                            }));
-                                            alert(`🚀 Hallazgo [${h.ref}] preparado.\n\nDirígete al módulo "Matriz de Riesgos" y presiona "➕ Nuevo Riesgo" para cargar automáticamente sus datos.`);
-                                          }
-                                        }} 
-                                        className="text-purple-600 hover:underline font-bold"
-                                        title="Copiar datos a la Matriz de Riesgos Corporativa"
-                                      >
-                                        🚀 Promover
-                                      </button>
+{(() => {
+                                        const riesgoExistente = safeRiesgos?.find(r => String(r.idHallazgoOrigen) === String(h.id));
+                                        if (riesgoExistente) {
+                                          return (
+                                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider inline-flex items-center gap-1 shadow-sm" title={`Riesgo promovido: RSK-${riesgoExistente.id}`}>
+                                              ✅ Vinculado a {riesgoExistente.ref || `RSK-${riesgoExistente.id}`}
+                                            </span>
+                                          );
+                                        }
+                                        return (
+                                          <button 
+                                            type="button" 
+                                            onClick={() => {
+                                              if (typeof window !== 'undefined') {
+                                                sessionStorage.setItem('promover_riesgo_temp', JSON.stringify({
+                                                  idHallazgo: h.id,
+                                                  refHallazgo: h.ref,
+                                                  proceso: h.proceso,
+                                                  subproceso: h.subproceso,
+                                                  causaInmediata: h.titulo,
+                                                  sede: h.sede,
+                                                  responsable: h.responsable
+                                                }));
+                                                alert(`🚀 Hallazgo [${h.ref}] preparado.\n\nDirígete al módulo "Matriz de Riesgos" y presiona "➕ Nuevo Riesgo" para cargar automáticamente sus datos.`);
+                                              }
+                                            }} 
+                                            className="text-purple-600 hover:underline font-bold"
+                                            title="Copiar datos a la Matriz de Riesgos Corporativa"
+                                          >
+                                            🚀 Promover
+                                          </button>
+                                        );
+                                      })()}                                     
                                       {isAdmin && (
                                         <>
                                           <span className="text-slate-300">|</span>

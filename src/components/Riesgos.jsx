@@ -204,11 +204,12 @@ export default function Riesgos({
   // 🍿 ESTADO PARA EL POPUP INTERACTIVO ELEGANTE
 const [ayudaModal, setAyudaModal] = useState(null);
   
-  const [editRiesgo, setEditRiesgo] = useState(null);
+const [editRiesgo, setEditRiesgo] = useState(null);
   const [riesgoId, setRiesgoId] = useState('');
   const [customId, setCustomId] = useState('');
+  const [idHallazgoOrigen, setIdHallazgoOrigen] = useState(null);
   
-  // 🔢 FUNCIÓN BLINDADA PARA CALCULAR EL CONSECUTIVO EXACTO
+  // 🔢 FUNCIÓN BLINDADA PARA CALCULAR EL CONSECUTIVO EXACTO Y CAPTURAR RIESGO EMERGENTE
   const handleNuevoRiesgo = () => {
     setEditRiesgo(null);
     setRiesgoId('');
@@ -216,9 +217,6 @@ const [ayudaModal, setAyudaModal] = useState(null);
     const maxId = safeRiesgos.reduce((max, r) => {
       const idStr = String(r.id).trim();
       
-      // 🔥 REGLA ESTRICTA: 
-      // 1. /^\d+$/ verifica que el ID contenga ÚNICAMENTE números (nada de letras ni guiones).
-      // 2. length < 8 asegura que ignoremos los números gigantes (como los timestamps de 13 dígitos).
       if (/^\d+$/.test(idStr) && idStr.length < 8) {
         const num = parseInt(idStr, 10);
         return num > max ? num : max;
@@ -227,11 +225,30 @@ const [ayudaModal, setAyudaModal] = useState(null);
       return max;
     }, 0);
     
-    // Si encuentra el 662, aquí le sumará 1 y te pondrá el 663 automáticamente.
     setCustomId(maxId + 1); 
+
+    // 🚀 REVISAR SI VIENE UN HALLAZGO PROMOVIDO DESDE SESSIONSTORAGE
+    const tempPromoted = sessionStorage.getItem('promover_riesgo_temp');
+    if (tempPromoted) {
+      try {
+        const data = JSON.parse(tempPromoted);
+        if (data.proceso) setMacroproceso(data.proceso);
+        if (data.subproceso) setSubproceso(data.subproceso);
+        if (data.causaInmediata) setCausaInmediata(data.causaInmediata);
+        if (data.sede) setSedeForm(Array.isArray(data.sede) ? data.sede : [data.sede]);
+        if (data.responsable) setResponsablesMultiples(Array.isArray(data.responsable) ? data.responsable : [data.responsable]);
+        if (data.idHallazgo) setIdHallazgoOrigen(data.idHallazgo);
+        setClasificacionRiesgo('Riesgo Emergente');
+        showNotification(`📥 Datos del Hallazgo ${data.refHallazgo || ''} cargados automáticamente como Riesgo Emergente.`, "info");
+      } catch (err) {
+        console.error("Error leyendo datos del bridge de sessionStorage", err);
+      }
+    } else {
+      setIdHallazgoOrigen(null);
+    }
+
     setVistaActiva('nuevo');
   };
-
   // 🌟 NUEVOS ESTADOS EN CASCADA PARA PROCESOS
   const listadoMacros = Object.keys(MAPA_PROCESOS);
   const [macroproceso, setMacroproceso] = useState(listadoMacros[0]);
@@ -820,6 +837,8 @@ const handleRiesgoSubmit = async (e) => {
 const nuevoRiesgo = {
         ...(editRiesgo || {}),
         id: editRiesgo ? editRiesgo.id : (customId || Date.now()), // 🔥 USA EL CONSECUTIVO DEL ADMIN
+        idHallazgoOrigen: editRiesgo ? (editRiesgo.idHallazgoOrigen || null) : idHallazgoOrigen, // 👈 Trazabilidad de origen
+        origen: idHallazgoOrigen ? `Hallazgo Emergente (HAL-${idHallazgoOrigen})` : (editRiesgo?.origen || 'Identificación Interna'),
         sede: sedeForm,      
         proceso: macroproceso,
         macroproceso: macroproceso,
@@ -849,6 +868,9 @@ const nuevoRiesgo = {
           ? [...(editRiesgo.historialCambios || []), { fecha: ts, accion: 'Modificación con variables completas del manual' }]
           : [{ fecha: ts, accion: 'Creación manual con matriz completa' }]
       };
+
+      // Limpiar memoria temporal tras guardar con éxito
+      sessionStorage.removeItem('promover_riesgo_temp');
 
       if (editRiesgo) {
         const idx = updatedList.findIndex(r => r.id === editRiesgo.id);
