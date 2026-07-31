@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
+// ☁️ IMPORTAR HOOK Y SERVICIO DE API
+import { useDataFetching } from '../hooks/useDataFetching';
+import { apiService } from '../services/apiService';
+
 // 🧮 CALCULADORA METODOLÓGICA DE EFICACIA DEL CONTROL (TABLA 6 MANUAL GRC)
 const calcularEficaciaControl = (c) => {
   if (!c) return 75;
@@ -59,6 +63,42 @@ export default function Evaluaciones({
   const [ejecucion, setEjecucion] = useState('Eficaz');
   const [evidenciaUrl, setEvidenciaUrl] = useState('');
   const [comentarios, setComentarios] = useState('');
+// ☁️ ESTADOS Y HOOK PARA LA BÓVEDA DE TERMALES
+  const [evidenciaUrlForm, setEvidenciaUrlForm] = useState('');
+  const { isLoading: isUploading, error: uploadError, ejecutarPeticion: ejecutarSubidaEvidencia } = useDataFetching();
+
+  // Sincronizar URL si se entra en modo edición
+  useEffect(() => {
+    if (editEvaluacion) {
+      setEvidenciaUrlForm(editEvaluacion.evidenciaUrl || '');
+    } else {
+      setEvidenciaUrlForm('');
+    }
+  }, [editEvaluacion]);
+
+  // Manejador de subida directa a repos.termalessantarosa.com.co
+  const handleFileUploadEvaluacion = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const payloadMeta = {
+        appName: 'controlInterno',
+        description: 'Soporte de auditoría en campo - Evaluación COSO',
+        fieldName: 'file'
+      };
+
+      const data = await ejecutarSubidaEvidencia(
+        apiService.subirEvidencia(file, payloadMeta)
+      );
+      
+      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+      setEvidenciaUrlForm(urlFinal);
+      setEvidenciaUrl(urlFinal);
+    } catch (err) {
+      alert(`⚠️ No se pudo subir el soporte:\n${err.message}`);
+    }
+  };
 
   // 🔄 Cargar datos si se entra en modo Edición
   useEffect(() => {
@@ -336,49 +376,88 @@ export default function Evaluaciones({
 
           </div>
 
-          {/* 📂 BÓVEDA DE EVIDENCIA DE AUDITORÍA (PDF / FOTOS) */}
-          <div className="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div className="flex justify-between items-center">
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
-                📎 Evidencia Soporte de Auditoría (PDF, JPG, PNG)
-              </label>
-              {evidenciaUrl && (
-                <button
-                  type="button"
-                  onClick={() => analizarEvidenciaIA(evidenciaUrl, `Control ${controlSel}`, 'Test de Control')}
-                  className="text-[10px] bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-2 py-1 rounded-lg font-extrabold flex items-center gap-1 transition-all"
-                >
-                  ✨ Validar Evidencia con IA
-                </button>
-              )}
+        {/* ☁️ BÓVEDA REPOSITORIO OFICIAL TERMALES (CON BORDES PUNTEADOS Y ANIMACIÓN) */}
+          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 shadow-inner space-y-4">
+            <div className="border-b pb-3 border-slate-200 flex justify-between items-center">
+              <div>
+                <label className="font-black text-slate-800 uppercase tracking-widest text-xs">
+                  REPOSITORIO OFICIAL TERMALES SANTA ROSA
+                </label>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                  Sube tus PDFs o imágenes. Se enviarán directamente a repos.termalessantarosa.com.co.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {(evidenciaUrlForm || evidenciaUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => analizarEvidenciaIA(evidenciaUrlForm || evidenciaUrl, `Control ${controlSel}`, 'Test de Control')}
+                    className="text-[10px] bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-3 py-1.5 rounded-xl font-extrabold flex items-center gap-1 transition-all shadow-sm"
+                  >
+                    ✨ Validar Evidencia con IA
+                  </button>
+                )}
+                <div className="text-slate-300 text-3xl">☁️</div>
+              </div>
             </div>
 
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={evidenciaUrl}
-                onChange={(e) => setEvidenciaUrl(e.target.value)}
-                placeholder="Pegue la URL del soporte guardado en la nube o seleccione archivo..."
-                className="flex-1 text-xs p-2.5 border border-slate-300 rounded-xl bg-white font-medium"
-              />
-              <input
-                type="file"
-                id="fileEvidenciaTest"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) setEvidenciaUrl(`https://storage.termales.com/evidencias/${file.name}`);
-                }}
-              />
-              <label
-                htmlFor="fileEvidenciaTest"
-                className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition-colors flex items-center shadow-sm"
-              >
-                📁 Adjuntar
-              </label>
+            {/* Campo oculto que enviará la URL al backend */}
+            <input 
+              type="hidden" 
+              name="evidenciaUrlInput" 
+              value={evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl || ''} 
+            />
+
+            {/* CAJA DE DROPZONE INTERACTIVA */}
+            <div className="bg-white border-2 border-dashed border-emerald-300 p-6 rounded-2xl text-center relative hover:border-emerald-500 hover:bg-emerald-50/50 transition-all flex flex-col items-center justify-center min-h-[150px] shadow-sm">
+              <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-emerald-600 tracking-widest bg-emerald-50 px-2 py-0.5 rounded">
+                📎 Muestra / Soporte de Trabajo de Campo
+              </span>
+
+              {isUploading ? (
+                <div className="space-y-3 w-full mt-4">
+                  <div className="text-3xl animate-bounce">🚀</div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden relative">
+                    <div className="bg-emerald-500 h-2.5 rounded-full w-full animate-pulse"></div>
+                  </div>
+                  <p className="text-[9px] font-bold text-emerald-600 animate-pulse">
+                    Subiendo soporte al servidor de Termales...
+                  </p>
+                </div>
+              ) : (evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl) ? (
+                <div className="space-y-2 mt-4">
+                  <div className="text-4xl text-emerald-500">✅</div>
+                  <p className="text-[10px] font-bold text-emerald-700 break-all max-w-md mx-auto">
+                    {evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl}
+                  </p>
+                  <label className="block mt-2 cursor-pointer text-slate-400 hover:text-emerald-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
+                    Reemplazar Soporte
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept=".pdf, .jpg, .png, .docx" 
+                      onChange={handleFileUploadEvaluacion} 
+                    />
+                  </label>
+                </div>
+              ) : (
+                <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-4">
+                  <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
+                  <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">
+                    SELECCIONAR IMAGEN O PDF
+                  </p>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    accept=".pdf, .jpg, .png, .docx" 
+                    onChange={handleFileUploadEvaluacion} 
+                  />
+                </label>
+              )}
+
+              {uploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{uploadError}</p>}
             </div>
           </div>
-
           {/* 💬 COMENTARIOS Y NOTAS DEL AUDITOR */}
           <div>
             <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider block mb-1">
