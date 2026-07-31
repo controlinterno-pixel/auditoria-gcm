@@ -251,22 +251,22 @@ const handleNotificarPlan = (planId) => {
         }
 
         const planData = {
-          id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
-          idHallazgo: parseInt(hallazgoId),
-          accion: act.accion,
-          responsable: act.responsable,
-          correoResponsable: act.correoResponsable.trim(),
-          auditorAsignado: act.auditorAsignado,
-          progreso: progresoEntero,
-          fechaInicio: act.fechaInicio || '',
-          fecha: act.fecha || '',
-          evidenciaUrl: act.evidenciaUrl || '',
-          estadoWorkflow: workflowCalculado,
-          estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
-          anio: act.fecha ? Number(act.fecha.split('-')[0]) : 2026,
-          mes: act.fecha ? act.fecha.split('-')[1] : "Junio"
-        };
-
+  id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
+  idHallazgo: parseInt(hallazgoId),
+  accion: act.accion,
+  sede: act.sede || '', 
+  responsable: act.responsable,
+  correoResponsable: act.correoResponsable.trim(),
+  auditorAsignado: act.auditorAsignado,
+  progreso: progresoEntero,
+  fechaInicio: act.fechaInicio || '',
+  fecha: act.fecha || '',
+  evidenciaUrl: act.evidenciaUrl || '',
+  estadoWorkflow: workflowCalculado,
+  estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
+  anio: act.fecha ? Number(act.fecha.split('-')[0]) : 2026,
+  mes: act.fecha ? act.fecha.split('-')[1] : "Junio"
+};
         if (isNew) {
           planData.historialCambios = [{ fecha: ts, usuario: 'Auditor', accion: 'Actividad registrada en matriz masiva' }];
           updatedPlanesList.push(planData);
@@ -480,6 +480,7 @@ const handleNotificarPlan = (planId) => {
           actividades: [{ 
             id: 'new-' + Math.random(), 
             accion: '', 
+            sede: h.sede || '', 
             responsable: h.responsable || '',
             auditorAsignado: h.auditor || '', // 👈 HERENCIA AUTOMÁTICA DEL AUDITOR RESPONSABLE
             fechaInicio: '', 
@@ -508,6 +509,7 @@ const handleNotificarPlan = (planId) => {
         actividades: [...prev[hallazgoId].actividades, { 
           id: 'new-' + Math.random(), 
           accion: '', 
+          sede: hallazgoBase?.sede || '', 
           responsable: hallazgoBase?.responsable || '', // 👈 HERENCIA AUTOMÁTICA
           auditorAsignado: hallazgoBase?.auditor || '', // 👈 HERENCIA AUTOMÁTICA
           fechaInicio: '', 
