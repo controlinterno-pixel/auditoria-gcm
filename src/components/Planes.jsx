@@ -583,18 +583,26 @@ const handleNotificarPlan = (planId) => {
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           
-          {/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA */}
-          <form onSubmit={buscarPlanPorId} className="relative flex items-center mr-2">
-            <span className="absolute left-3 text-[10px]">🔍</span>
-            <input
-              type="text"
-              placeholder="Ej: 4493 o PLA-4493"
-              value={busquedaRapida}
-              onChange={(e) => setBusquedaRapida(e.target.value)}
-              className="pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-black text-slate-700 w-36 focus:w-48 transition-all outline-none focus:border-[#0A3B32] focus:bg-white shadow-sm"
-            />
-          </form>
-          {/* 👉 AQUÍ TERMINA LA BARRA DE BÚSQUEDA RÁPIDA */}
+         {/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA */}
+<form onSubmit={buscarPlanPorId} className="relative flex items-center mr-2 group">
+  <span className="absolute left-3 text-[10px] text-slate-400">🔍</span>
+  <input
+    type="text"
+    placeholder="Ej: 4493 + Enter ↵"
+    value={busquedaRapida}
+    onChange={(e) => setBusquedaRapida(e.target.value)}
+    className="pl-8 pr-12 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-black text-slate-700 w-40 focus:w-52 transition-all outline-none focus:border-[#0A3B32] focus:bg-white shadow-sm"
+  />
+  {/* El botón aparece cuando hay texto o al hacer hover */}
+  <button 
+    type="submit" 
+    className={`absolute right-1.5 p-1.5 bg-[#0A3B32] text-white rounded-lg text-[9px] font-black tracking-wider transition-opacity ${busquedaRapida.length > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+    title="Buscar y saltar al plan"
+  >
+    IR ➔
+  </button>
+</form>
+{/* 👉 AQUÍ TERMINA LA BARRA DE BÚSQUEDA RÁPIDA */}
 
           <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Resumen Visual</button>
           <button onClick={() => setVistaActiva('historial')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📜 Historial Matriz</button>
