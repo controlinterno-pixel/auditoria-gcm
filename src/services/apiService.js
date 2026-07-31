@@ -8,24 +8,30 @@ export const apiService = {
   subirEvidencia: async (archivo, metadata = {}) => {
     const formData = new FormData();
     
-    // 💡 Permite definir el nombre del campo o usa 'file' / 'archivo' por defecto
-    const fileFieldName = metadata.fieldName || 'file'; 
-    formData.append(fileFieldName, archivo);
-    
-    // Adjuntamos la metadata restante (appName, description, etc.)
+    const appName = metadata.appName || 'controlInterno';
+    const fileFieldName = metadata.fieldName || 'file';
+
+    // 1. ⚠️ CRÍTICO: Agregar los campos de texto PRIMERO en el FormData
+    formData.append('appName', appName);
+
     Object.keys(metadata).forEach(key => {
-      if (key !== 'fieldName') {
+      if (key !== 'fieldName' && key !== 'appName') {
         formData.append(key, metadata[key]);
       }
     });
 
-    const response = await fetch(`${API_BASE_URL}/archivos/upload`, {
+    // 2. Agregar el archivo AL FINAL del FormData
+    formData.append(fileFieldName, archivo);
+
+    // 3. Incluir appName en la URL por compatibilidad con NestJS/Query validation
+    const urlConQuery = `${API_BASE_URL}/archivos/upload?appName=${encodeURIComponent(appName)}`;
+
+    const response = await fetch(urlConQuery, {
       method: 'POST',
-      body: formData, // El navegador asigna el boundary automáticamente
+      body: formData, // El navegador establece los headers y boundaries automáticamente
     });
 
     if (!response.ok) {
-      // 🎯 Capturamos la razón exacta entregada por el servidor
       let detalleError = 'Falló la carga del archivo';
       try {
         const errorJson = await response.json();
