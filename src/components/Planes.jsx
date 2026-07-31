@@ -367,7 +367,8 @@ const handleNotificarPlan = (planId) => {
     }
 
     alert("🎉 ¡Matriz guardada con éxito! Se despacharon las notificaciones de radicación y las alertas correspondientes.");
-    handleInformeChange(formInformeId);
+    // 👉 AQUÍ: Le inyectamos directamente los arreglos con la data recién calculada
+    handleInformeChange(formInformeId, updatedPlanesList, updatedHallazgos);
   };
 
   // 🛡️ NUEVA FUNCIÓN: GOBERNANZA DE EVALUACIÓN DIRECTA PARA EL AUDITOR (APROBAR / RECHAZAR)
@@ -463,14 +464,19 @@ const handleNotificarPlan = (planId) => {
     }
   };
 
-  // 🧠 MODIFICADO: JALA AUTOMÁTICAMENTE CARGO Y AUDITOR DESDE EL HALLAZGO
-  const handleInformeChange = (informeId) => {
+// 🧠 MODIFICADO: JALA AUTOMÁTICAMENTE CARGO Y AUDITOR DESDE EL HALLAZGO (Y ACEPTA DATOS FRESCOS)
+  const handleInformeChange = (informeId, customPlanes = null, customHallazgos = null) => {
     setFormInformeId(informeId);
     if (!informeId) { setMatrixState({}); return; }
-    const reportFindings = safeHallazgos.filter(h => String(h.idInforme) === String(informeId));
+
+    // 👉 Novedad: Usamos los datos recién guardados si se los pasamos, si no, usamos el estado normal
+    const currentPlanes = customPlanes || safePlanes;
+    const currentHallazgos = customHallazgos || safeHallazgos;
+
+    const reportFindings = currentHallazgos.filter(h => String(h.idInforme) === String(informeId));
     const newState = {};
     reportFindings.forEach(h => {
-      const existingActivities = safePlanes.filter(p => p.idHallazgo === h.id);
+      const existingActivities = currentPlanes.filter(p => p.idHallazgo === h.id);
       if (existingActivities.length > 0) {
         newState[h.id] = { 
           aplica: true, 
@@ -489,7 +495,7 @@ const handleNotificarPlan = (planId) => {
             accion: '', 
             sede: h.sede || '', 
             responsable: h.responsable || '',
-            auditorAsignado: h.auditor || '', // 👈 HERENCIA AUTOMÁTICA DEL AUDITOR RESPONSABLE
+            auditorAsignado: h.auditor || '', 
             fechaInicio: '', 
             fecha: '', 
             progreso: 0, 
