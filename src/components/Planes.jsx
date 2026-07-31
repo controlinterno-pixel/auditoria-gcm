@@ -51,7 +51,25 @@ export default function Planes({
 
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
 const [busquedaRapida, setBusquedaRapida] = useState('');
+  const buscarPlanPorId = (e) => {
+    e.preventDefault();
+    if (!busquedaRapida.trim()) return;
 
+    // Extraemos solo los números por si el usuario escribe "PLA-1234" o solo "1234"
+    const idBuscado = busquedaRapida.replace(/\D/g, '');
+    
+    // Buscamos el plan que termine en esos números
+    const planEncontrado = safePlanes.find(p => p.id.toString().endsWith(idBuscado));
+
+    if (planEncontrado) {
+      setEditPlan(planEncontrado);
+      setVistaActiva('nuevo');
+      scrollToForm();
+      setBusquedaRapida(''); // Limpiamos la barra tras encontrarlo
+    } else {
+      alert(`❌ No se encontró ningún plan de acción con el ID: ${busquedaRapida}`);
+    }
+  };
   // 🧭 PESTAÑAS DE CONTROL SUPERIOR
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
