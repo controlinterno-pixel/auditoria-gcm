@@ -50,6 +50,7 @@ export default function Planes({
 }) {
 
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
+const [busquedaRapida, setBusquedaRapida] = useState('');
 
   // 🧭 PESTAÑAS DE CONTROL SUPERIOR
   const [vistaActiva, setVistaActiva] = useState('dashboard');
@@ -556,13 +557,27 @@ const handleNotificarPlan = (planId) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
-      {/* 📋 CABECERA PRINCIPAL ESTILO ERP */}
+     {/* 📋 CABECERA PRINCIPAL ESTILO ERP */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
         <div>
           <h2 className="text-2xl font-black text-slate-800">Planes de Acción</h2>
           <p className="text-xs text-slate-500 font-bold mt-1">Gestión, seguimiento y cierre de planes derivados de hallazgos</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          
+          {/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA */}
+          <form onSubmit={buscarPlanPorId} className="relative flex items-center mr-2">
+            <span className="absolute left-3 text-[10px]">🔍</span>
+            <input
+              type="text"
+              placeholder="Ej: 4493 o PLA-4493"
+              value={busquedaRapida}
+              onChange={(e) => setBusquedaRapida(e.target.value)}
+              className="pl-8 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-black text-slate-700 w-36 focus:w-48 transition-all outline-none focus:border-[#0A3B32] focus:bg-white shadow-sm"
+            />
+          </form>
+          {/* 👉 AQUÍ TERMINA LA BARRA DE BÚSQUEDA RÁPIDA */}
+
           <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Resumen Visual</button>
           <button onClick={() => setVistaActiva('historial')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📜 Historial Matriz</button>
           {isAdmin && (
