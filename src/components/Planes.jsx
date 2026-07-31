@@ -862,109 +862,81 @@ const handleNotificarPlan = (planId) => {
                              <div className="border-l"><p>Vencidos</p><p className="text-base text-red-500 font-black mt-0.5">{gVencidos}</p></div>
                              <div className="border-l col-span-2 bg-slate-50 rounded-xl p-1"><p>Cumplimiento</p><p className="text-base text-emerald-700 font-black mt-0.5">{gCumplimiento}%</p></div>
                            </div>
-
-                           <div className="overflow-x-auto">
-                             <table className="w-full text-[10px] text-left">
-<thead className="text-slate-400 uppercase tracking-widest border-b border-slate-100">
-  <tr>
-    <th className="pb-2 font-bold">Plan</th>
-    <th className="pb-2 font-bold">Actividad Remedial</th>
-    <th className="pb-2 font-bold">Proceso</th>
-    <th className="pb-2 font-bold text-center">Prioridad</th>
-    <th className="pb-2 font-bold text-center">Vencimiento</th>
-    <th className="pb-2 font-bold text-center">Último Envío</th>
-    <th className="pb-2 font-bold text-right">Avance / Reclamo</th>
-  </tr>
-</thead>
-<tbody className="divide-y divide-slate-50">
-  {items.map(p => {
-    const asuntoReclamo = encodeURIComponent(`❌ URGENTE: Plan VENCIDO (PLA-${p.id.toString().slice(-4)})`);
-    const cuerpoReclamo = encodeURIComponent(`Estimado/a ${p.responsable || 'Líder'},\n\nLe recordamos que el plan de acción: "${p.accion}" venció el ${p.fecha}.\n\nPor favor ingrese a la plataforma para actualizar el estado.\n\nAtentamente,\nAuditoría GCM`);
-
-    return (
-      <tr 
-        key={p.id} 
-        className="hover:bg-blue-50 transition-colors group/row"
-      >
-        <td 
-          onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }}
-          className="py-2.5 font-mono font-black text-slate-700 group-hover/row:text-blue-700 cursor-pointer"
-        >
-          PLA-{p.id.toString().slice(-4)}
-        </td>
-        <td 
-          onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }}
-          className="py-2.5 font-bold text-slate-600 max-w-[140px] truncate group-hover/row:text-blue-900 cursor-pointer" 
-          title={p.accion}
-        >
-          {p.accion}
-        </td>
-        <td className="py-2.5 font-medium text-slate-500 truncate max-w-[80px]">{p.proceso}</td>
-        <td className="py-2.5 text-center">
-          <span className={`px-1.5 py-0.5 rounded-md font-black text-[8px] border ${p.severidad === 'Crítico' ? 'bg-red-50 text-red-600 border-red-200' : p.severidad === 'Alto' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>{p.severidad}</span>
-        </td>
-        <td className={`py-2.5 text-center font-bold ${p.esVencido ? 'text-red-500' : 'text-slate-400'}`}>{p.fecha || 'N/A'}</td>
-
-        {/* 🕒 TRAZABILIDAD: FECHA DEL ÚLTIMO CORREO */}
-        <td className="py-2.5 text-center">
-          {p.ultimoRecordatorio ? (
-            <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-bold" title="Último correo enviado">
-              ✉️ {p.ultimoRecordatorio}
-            </span>
-          ) : (
-            <span className="text-[9px] text-slate-300 italic">Sin notificar</span>
-          )}
-        </td>
-
-        {/* 📧 ACCIÓN: BOTÓN DE RECLAMO Y AVANCE */}
-        <td className="py-2.5 text-right font-black flex items-center justify-end space-x-2">
-          <span>{p.progreso}%</span>
-          {p.esVencido && (
-            <a 
-              href={`https://mail.google.com/mail/?view=cm&fs=1&to=${p.correoResponsable || ''}&su=${asuntoReclamo}&body=${cuerpoReclamo}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => handleNotificarPlan(p.id)}
-              className="bg-red-600 hover:bg-red-700 text-white text-[8px] font-black px-2 py-1 rounded-md uppercase tracking-wider shadow-sm transition-all hover:scale-105 inline-flex items-center gap-1 ml-1"
-              title={`Enviar correo de reclamo a ${p.responsable}`}
-            >
-              ✉️ Reclamar
-            </a>
-          )}
-        </td>
+<div className="overflow-x-auto">
+  <table className="w-full text-[10px] text-left">
+    <thead className="text-slate-400 uppercase tracking-widest border-b border-slate-100">
+      <tr>
+        <th className="pb-2 font-bold">Plan</th>
+        <th className="pb-2 font-bold">Actividad Remedial</th>
+        <th className="pb-2 font-bold">Proceso</th>
+        <th className="pb-2 font-bold text-center">Prioridad</th>
+        <th className="pb-2 font-bold text-center">Vencimiento</th>
+        <th className="pb-2 font-bold text-center">Último Envío</th>
+        <th className="pb-2 font-bold text-right">Avance / Reclamo</th>
       </tr>
-    );
-  })}
-</tbody>                               
-                               <tbody className="divide-y divide-slate-50">
-                                 {items.map(p => (
-                                   <tr 
-                                     key={p.id} 
-                                     onClick={() => {
-                                        // 🚀 NAVEGACIÓN INTELIGENTE: Viaja a historial, abre acordeón y carga datos.
-                                        setEditPlan(p);
-                                        setVistaActiva('nuevo');
-                                        scrollToForm();
-                                     }}
-                                     className="hover:bg-blue-50 transition-colors cursor-pointer group/row"
-                                     title="Clic para gestionar este plan de acción"
-                                   >
-                                     <td className="py-2.5 font-mono font-black text-slate-700 group-hover/row:text-blue-700">PLA-{p.id.toString().slice(-4)}</td>
-                                     <td className="py-2.5 font-bold text-slate-600 max-w-[140px] truncate group-hover/row:text-blue-900" title={p.accion}>{p.accion}</td>
-                                     <td className="py-2.5 font-medium text-slate-500 truncate max-w-[80px]">{p.proceso}</td>
-                                     <td className="py-2.5 text-center">
-                                       <span className={`px-1.5 py-0.5 rounded-md font-black text-[8px] border ${p.severidad === 'Crítico' ? 'bg-red-50 text-red-600 border-red-200' : p.severidad === 'Alto' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>{p.severidad}</span>
-                                     </td>
-                                     <td className={`py-2.5 text-center font-bold ${p.esVencido ? 'text-red-500' : 'text-slate-400'}`}>{p.fecha || 'N/A'}</td>
-                                     <td className="py-2.5 text-right font-black text-emerald-600 flex items-center justify-end space-x-2">
-                                       <span>{p.progreso}%</span>
-                                       <span className="text-[10px] opacity-0 group-hover/row:opacity-100 text-blue-600 transition-all font-bold">⚙️</span>
-                                     </td>
-                                   </tr>
-                                 ))}
-                               </tbody>
-                             </table>
-                           </div>
+    </thead>
+    <tbody className="divide-y divide-slate-50">
+      {items.map(p => {
+        const asuntoReclamo = encodeURIComponent(`❌ URGENTE: Plan VENCIDO (PLA-${p.id.toString().slice(-4)})`);
+        const cuerpoReclamo = encodeURIComponent(`Estimado/a ${p.responsable || 'Líder'},\n\nLe recordamos que el plan de acción: "${p.accion}" venció el ${p.fecha}.\n\nPor favor ingrese a la plataforma para actualizar el estado.\n\nAtentamente,\nAuditoría GCM`);
+
+        return (
+          <tr 
+            key={p.id} 
+            className="hover:bg-blue-50 transition-colors group/row"
+          >
+            <td 
+              onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }}
+              className="py-2.5 font-mono font-black text-slate-700 group-hover/row:text-blue-700 cursor-pointer"
+            >
+              PLA-{p.id.toString().slice(-4)}
+            </td>
+            <td 
+              onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }}
+              className="py-2.5 font-bold text-slate-600 max-w-[140px] truncate group-hover/row:text-blue-900 cursor-pointer" 
+              title={p.accion}
+            >
+              {p.accion}
+            </td>
+            <td className="py-2.5 font-medium text-slate-500 truncate max-w-[80px]">{p.proceso}</td>
+            <td className="py-2.5 text-center">
+              <span className={`px-1.5 py-0.5 rounded-md font-black text-[8px] border ${p.severidad === 'Crítico' ? 'bg-red-50 text-red-600 border-red-200' : p.severidad === 'Alto' ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-amber-50 text-amber-600 border-amber-200'}`}>{p.severidad}</span>
+            </td>
+            <td className={`py-2.5 text-center font-bold ${p.esVencido ? 'text-red-500' : 'text-slate-400'}`}>{p.fecha || 'N/A'}</td>
+
+            {/* 🕒 TRAZABILIDAD: FECHA DEL ÚLTIMO CORREO */}
+            <td className="py-2.5 text-center">
+              {p.ultimoRecordatorio ? (
+                <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-bold" title="Último correo enviado">
+                  ✉️ {p.ultimoRecordatorio}
+                </span>
+              ) : (
+                <span className="text-[9px] text-slate-300 italic">Sin notificar</span>
+              )}
+            </td>
+
+            {/* 📧 ACCIÓN: BOTÓN DE RECLAMO Y AVANCE */}
+            <td className="py-2.5 text-right font-black flex items-center justify-end space-x-2">
+              <span>{p.progreso}%</span>
+              {p.esVencido && (
+                <a 
+                  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${p.correoResponsable || ''}&su=${asuntoReclamo}&body=${cuerpoReclamo}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => handleNotificarPlan(p.id)}
+                  className="bg-red-600 hover:bg-red-700 text-white text-[8px] font-black px-2 py-1 rounded-md uppercase tracking-wider shadow-sm transition-all hover:scale-105 inline-flex items-center gap-1 ml-1"
+                  title={`Enviar correo de reclamo a ${p.responsable}`}
+                >
+                  ✉️ Reclamar
+                </a>
+              )}
+            </td>
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
                          </div>
                        )}
                      </div>
@@ -1036,15 +1008,25 @@ const handleNotificarPlan = (planId) => {
                   <div key={`matrix-card-${h.id}`} className={`border rounded-2xl p-5 shadow-sm space-y-4 transition-all ${node.aplica ? 'border-blue-200 bg-slate-50/50' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
                     
                     {/* ENCABEZADO DE CADA CARD ENRIQUECIDO CON DATOS MAESTROS DEL HALLAZGO */}
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-3 gap-2">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-0.5 bg-red-100 text-red-800 font-black rounded text-[9px] uppercase tracking-wider">{h.ref}</span>
-                          <span className="px-2 py-0.5 bg-[#f0fdf4] text-[#0A3B32] font-black rounded text-[9px] uppercase tracking-wider">📋 Proceso: {h.proceso || 'No asignado'}</span>
-                          <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 font-black rounded text-[9px] uppercase tracking-wider">⚖️ Clase: {h.claseObservacion || 'Hallazgo'}</span>
-                        </div>
-                        <h4 className="text-xs font-black text-slate-900 mt-2">{h.titulo}</h4>
-                      </div>
+<div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-3 gap-2">
+  <div>
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="px-2 py-0.5 bg-red-100 text-red-800 font-black rounded text-[9px] uppercase tracking-wider">{h.ref}</span>
+      <span className="px-2 py-0.5 bg-[#f0fdf4] text-[#0A3B32] font-black rounded text-[9px] uppercase tracking-wider">📋 Proceso: {h.proceso || 'No asignado'}</span>
+      
+      {/* ⚖️ ETIQUETA INTELIGENTE DE RIESGO EMERGENTE */}
+      <span className={`px-2 py-0.5 font-black rounded text-[9px] uppercase tracking-wider border ${
+        h.claseObservacion === 'Riesgo Emergente' || h.isEmergente || h.claseObservacion?.toLowerCase().includes('emergente')
+          ? 'bg-amber-100 text-amber-900 border-amber-400 animate-pulse'
+          : 'bg-amber-50 text-amber-800 border-amber-200'
+      }`}>
+        {h.claseObservacion === 'Riesgo Emergente' || h.isEmergente || h.claseObservacion?.toLowerCase().includes('emergente')
+          ? '⚠️ Riesgo Emergente (Incluir en Matriz)' 
+          : `⚖️ Clase: ${h.claseObservacion || 'Hallazgo'}`}
+      </span>
+    </div>
+    <h4 className="text-xs font-black text-slate-900 mt-2">{h.titulo}</h4>
+  </div>
                       <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
                         <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
                         <button type="button" onClick={() => handleToggleAplica(h.id, false)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>No Aplica</button>

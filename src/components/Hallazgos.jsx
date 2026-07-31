@@ -37,8 +37,8 @@ export default function Hallazgos({
   const [responsablesMultiples, setResponsablesMultiples] = React.useState([]);
   const [responsableTemp, setResponsableTemp] = React.useState('');
 
-// 🌟 NUEVOS ESTADOS PARA MACRO Y SUBPROCESO
-  const [procesoForm, setprocesoForm] = useState('');
+// 🌟 ESTADOS REFACTORIZADOS PARA MACRO Y SUBPROCESO
+  const [procesoForm, setProcesoForm] = useState('');
   const [subprocesoForm, setSubprocesoForm] = useState('');
 
   // 🧠 TRADUCTOR AUTOMÁTICO PARA EL BOTÓN "EDITAR"
@@ -50,17 +50,16 @@ export default function Hallazgos({
       if (editHallazgo.responsable) {
         setResponsablesMultiples(editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable]);
       }
-      // Restaurar valores jerárquicos
-      setprocesoForm(editHallazgo.proceso || editHallazgo.proceso || '');
+      // Restaurar valores jerárquicos de manera limpia
+      setProcesoForm(editHallazgo.proceso || '');
       setSubprocesoForm(editHallazgo.subproceso || 'General');
     } else {
       setSedesMultiples(['Administrativos']);
       setResponsablesMultiples([]);
-      setprocesoForm('');
+      setProcesoForm('');
       setSubprocesoForm('');
     }
   }, [editHallazgo]);
-
   // Consolidar todos los cargos de las sedes elegidas
   const cargosDisponibles = sedesMultiples.flatMap(s => CARGOS_POR_SEDE[s] || []);
 
@@ -600,13 +599,13 @@ export default function Hallazgos({
               </select>
             </div>
             
-            {/* 🔍 ROPROCESO */}
+           {/* 🔍 MACROPROCESO / PROCESO */}
             <div className="md:col-span-1">
-               <label className="font-bold text-gray-600 block mb-1">proceso</label>
+               <label className="font-bold text-gray-600 block mb-1">Proceso / Macroproceso</label>
                <select 
                  name="proceso" 
                  value={procesoForm} 
-                 onChange={(e) => { setprocesoForm(e.target.value); setSubprocesoForm('General'); }} 
+                 onChange={(e) => { setProcesoForm(e.target.value); setSubprocesoForm('General'); }} 
                  required 
                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700"
                >
@@ -897,6 +896,26 @@ export default function Hallazgos({
                                     </span>
                                     <div className="flex justify-center items-center space-x-2 text-[10px] border-t border-slate-100 pt-1.5 mt-1">
                                       <button onClick={() => {setEditHallazgo(h); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-600 hover:underline font-bold">✏️ Editar</button>
+                                      <span className="text-slate-300">|</span>
+                                      <button 
+                                        type="button" 
+                                        onClick={() => {
+                                          if (typeof window !== 'undefined') {
+                                            sessionStorage.setItem('promover_riesgo_temp', JSON.stringify({
+                                              proceso: h.proceso,
+                                              subproceso: h.subproceso,
+                                              causaInmediata: h.titulo,
+                                              sede: h.sede,
+                                              responsable: h.responsable
+                                            }));
+                                            alert(`🚀 Hallazgo [${h.ref}] preparado.\n\nDirígete al módulo "Matriz de Riesgos" y presiona "➕ Nuevo Riesgo" para cargar automáticamente sus datos.`);
+                                          }
+                                        }} 
+                                        className="text-purple-600 hover:underline font-bold"
+                                        title="Copiar datos a la Matriz de Riesgos Corporativa"
+                                      >
+                                        🚀 Promover
+                                      </button>
                                       {isAdmin && (
                                         <>
                                           <span className="text-slate-300">|</span>
