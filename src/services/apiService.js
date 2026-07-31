@@ -1,39 +1,42 @@
 // src/services/apiService.js
 
-const API_BASE_URL = 'https://repos.termalessantarosa.com.co/api'; // Ajusta según tu backend
+const API_BASE_URL = 'https://repos.termalessantarosa.com.co/api';
 
 export const apiService = {
-  // 1. CRUD General (Ejemplo genérico, se adapta si usas Firebase u otro backend)
-  obtenerColeccion: async (coleccion) => {
-    const response = await fetch(`${API_BASE_URL}/${coleccion}`);
-    if (!response.ok) throw new Error(`Error obteniendo ${coleccion}`);
-    return await response.json();
-  },
+  // ... tus otras funciones (obtenerColeccion, guardarDocumento) ...
 
-  guardarDocumento: async (coleccion, datos) => {
-    const response = await fetch(`${API_BASE_URL}/${coleccion}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(datos)
-    });
-    if (!response.ok) throw new Error('Error al guardar los datos');
-    return await response.json();
-  },
-
-  // 2. Motor Complejo: Subida de Evidencias (Archivos)
   subirEvidencia: async (archivo, metadata = {}) => {
     const formData = new FormData();
-    formData.append('file', archivo);
     
-    // Si necesitas enviar datos extra con el archivo (ej. id del hallazgo)
-    Object.keys(metadata).forEach(key => formData.append(key, metadata[key]));
+    // 💡 Permite definir el nombre del campo o usa 'file' / 'archivo' por defecto
+    const fileFieldName = metadata.fieldName || 'file'; 
+    formData.append(fileFieldName, archivo);
+    
+    // Adjuntamos la metadata restante (appName, description, etc.)
+    Object.keys(metadata).forEach(key => {
+      if (key !== 'fieldName') {
+        formData.append(key, metadata[key]);
+      }
+    });
 
     const response = await fetch(`${API_BASE_URL}/archivos/upload`, {
       method: 'POST',
-      body: formData, // No seteamos Content-Type, el navegador lo hace por nosotros con el Boundary
+      body: formData, // El navegador asigna el boundary automáticamente
     });
 
-    if (!response.ok) throw new Error('Falló la carga del archivo en el servidor de Termales');
+    if (!response.ok) {
+      // 🎯 Capturamos la razón exacta entregada por el servidor
+      let detalleError = 'Falló la carga del archivo';
+      try {
+        const errorJson = await response.json();
+        detalleError = errorJson.message || errorJson.error || JSON.stringify(errorJson);
+        if (Array.isArray(detalleError)) detalleError = detalleError.join(', ');
+      } catch (e) {
+        detalleError = `Error HTTP ${response.status}`;
+      }
+      throw new Error(`Servidor (${response.status}): ${detalleError}`);
+    }
+
     return await response.json();
   }
 };

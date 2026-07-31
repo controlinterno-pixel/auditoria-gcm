@@ -146,31 +146,32 @@ export default function InformesAuditoria({
     if (!file) return;
 
     try {
+      const payloadMeta = {
+        appName: 'controlInterno',
+        description: `Documento adjunto desde GCM Auditor - ${type}`,
+        // 💡 Si tu backend usa 'archivo' en lugar de 'file', puedes cambiarlo aquí:
+        fieldName: 'file' 
+      };
+
       if (type === 'informe') {
         const data = await ejecutarSubidaInforme(
-          apiService.subirEvidencia(file, {
-            appName: 'controlInterno',
-            description: `Documento adjunto desde GCM Auditor - ${type}`
-          })
+          apiService.subirEvidencia(file, payloadMeta)
         );
         const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
         setArchivoSubidoUrl(urlFinal);
       } else {
         const data = await ejecutarSubidaActa(
-          apiService.subirEvidencia(file, {
-            appName: 'controlInterno',
-            description: `Documento adjunto desde GCM Auditor - ${type}`
-          })
+          apiService.subirEvidencia(file, payloadMeta)
         );
         const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
         setActaSubidaUrl(urlFinal);
       }
       alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
-      alert("Error en la conexión con el servidor.");
+      // 🎯 Ahora te dirá exactamente por qué rebotó el archivo
+      alert(`⚠️ No se pudo subir el archivo:\n${err.message}`);
     }
   };
-
   const handleResetForm = () => {
     setEditInformeAuditoria(null); 
     setArchivoSubidoUrl(''); 
