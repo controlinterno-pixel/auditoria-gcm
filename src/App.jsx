@@ -1629,10 +1629,22 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                 </div>
                 {subTabResultados === 'hallazgos' && (
                   <Hallazgos 
-                    isAdmin={isAdmin} informesAuditoria={informesAuditoria} editHallazgo={editHallazgo} setEditHallazgo={setEditHallazgo}
-                    handleHallazgoSubmit={handleHallazgoSubmit} setFormResetKey={setFormResetKey} scrollToForm={scrollToForm}
-                    handleDeleteItem={handleDeleteItem} applyFilters={applyFilters} hFiltrados={hFiltrados} searchTerm={searchTerm}
-                    setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}
+                    isAdmin={isAdmin} 
+                    safeRiesgos={safeRiesgos} 
+                    informesAuditoria={informesAuditoria} 
+                    editHallazgo={editHallazgo} 
+                    setEditHallazgo={setEditHallazgo}
+                    handleHallazgoSubmit={handleHallazgoSubmit} 
+                    setFormResetKey={setFormResetKey} 
+                    scrollToForm={scrollToForm}
+                    handleDeleteItem={handleDeleteItem} 
+                    applyFilters={applyFilters} 
+                    hFiltrados={hFiltrados} 
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm} 
+                    columnFilters={columnFilters} 
+                    handleColFilterChange={handleColFilterChange} 
+                    FilterInput={FilterInput}
                   />
                 )}
                 {subTabResultados === 'informes' && isAdmin && (
