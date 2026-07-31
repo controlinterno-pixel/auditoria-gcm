@@ -424,23 +424,45 @@ export default function Evaluaciones({
                     Subiendo soporte al servidor de Termales...
                   </p>
                 </div>
-              ) : (evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl) ? (
-                <div className="space-y-2 mt-4">
-                  <div className="text-4xl text-emerald-500">✅</div>
-                  <p className="text-[10px] font-bold text-emerald-700 break-all max-w-md mx-auto">
-                    {evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl}
-                  </p>
-                  <label className="block mt-2 cursor-pointer text-slate-400 hover:text-emerald-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
-                    Reemplazar Soporte
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept=".pdf, .jpg, .png, .docx" 
-                      onChange={handleFileUploadEvaluacion} 
-                    />
-                  </label>
-                </div>
-              ) : (
+) : (evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl) ? (
+  <div className="space-y-3 mt-3 w-full max-w-md mx-auto">
+    {/* TARJETA DE DOCUMENTO ADJUNTADO */}
+    <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center justify-between shadow-sm">
+      <div className="flex items-center space-x-3 overflow-hidden">
+        <span className="text-2xl">📄</span>
+        <div className="text-left overflow-hidden">
+          <p className="text-[10px] font-black text-emerald-950 uppercase tracking-wider">
+            Soporte Adjuntado
+          </p>
+          <p className="text-[9px] text-emerald-700 font-mono truncate max-w-[200px]">
+            {(evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl).split('/').pop()}
+          </p>
+        </div>
+      </div>
+
+      {/* BOTÓN LIMPIO PARA ABRIR / DESCARGAR PDF */}
+      <a
+        href={evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] rounded-lg transition-colors whitespace-nowrap shadow-sm flex items-center gap-1"
+      >
+        <span>👁️</span> Ver PDF
+      </a>
+    </div>
+
+    {/* OPCIÓN PARA REEMPLAZAR */}
+    <label className="inline-block cursor-pointer text-slate-400 hover:text-emerald-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
+      🔄 Reemplazar Soporte
+      <input 
+        type="file" 
+        className="hidden" 
+        accept=".pdf, .jpg, .png, .docx" 
+        onChange={handleFileUploadEvaluacion} 
+      />
+    </label>
+  </div>
+) : (            
                 <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-4">
                   <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
                   <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">
