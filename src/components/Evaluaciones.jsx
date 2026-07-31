@@ -150,12 +150,14 @@ export default function Evaluaciones({
   // Objeto de riesgo actualmente seleccionado
   const riesgoObjetoSel = safeRiesgos.find(r => String(r.id) === String(riesgoIdSel));
 
-  // Lista de controles desglosados del riesgo seleccionado
-  const controlesDisponibles = riesgoObjetoSel
-    ? (Array.isArray(riesgoObjetoSel.controlesDetallados) && riesgoObjetoSel.controlesDetallados.length > 0
-        ? riesgoObjetoSel.controlesDetallados
-        : [{ id: 'C1', descripcion: riesgoObjetoSel.descripcionControl || 'Control Principal', tipo: 'Preventivo' }])
-    : [];
+ // Lista de controles desglosados del riesgo seleccionado (incluye soporte para emergentes)
+const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
+  ? [{ id: 'C-EMERG', descripcion: 'Prueba sobre Riesgo / Control Emergente en Sitio', tipo: 'Detectivo' }]
+  : riesgoObjetoSel
+  ? (Array.isArray(riesgoObjetoSel.controlesDetallados) && riesgoObjetoSel.controlesDetallados.length > 0
+      ? riesgoObjetoSel.controlesDetallados
+      : [{ id: 'C1', descripcion: riesgoObjetoSel.descripcionControl || 'Control Principal', tipo: 'Preventivo' }])
+  : [];
 
   // 🧮 CÁLCULO COSO AUTOMÁTICO DE EFICACIA (0%, 50%, 100%)
   const calcularScoreCOSO = () => {
@@ -287,6 +289,12 @@ export default function Evaluaciones({
                 }`}
               >
                 <option value="">-- Seleccione un Riesgo --</option>
+
+                {/* ⚠️ OPCIÓN COMODÍN PARA RIESGOS EMERGENTES */}
+                <option value="EMERGENTE" className="font-bold text-amber-800 bg-amber-50">
+                  ⚠️ RSK-EMERG: + RIESGO EMERGENTE (No registrado en Matriz)
+                </option>
+
                 {riesgosFiltradosEnCascada.map(r => (
                   <option key={r.id} value={r.id}>
                     RSK-{r.id}: {r.descripcion ? r.descripcion.substring(0, 50) + '...' : 'Sin descripción'}
@@ -294,7 +302,6 @@ export default function Evaluaciones({
                 ))}
               </select>
             </div>
-
             {/* 4. CONTROL VINCULADO (SELECCIÓN INDIVIDUAL ITERATIVA) */}
             <div>
               <label className="block text-[10px] font-black uppercase text-slate-500 tracking-wider mb-1">
@@ -325,6 +332,15 @@ export default function Evaluaciones({
             </div>
 
           </div>
+{/* 💡 AVISO VISUAL CUANDO SE SELECCIONA RIESGO EMERGENTE */}
+            {riesgoIdSel === 'EMERGENTE' && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-2xl text-xs font-medium flex items-center gap-3 shadow-sm animate-in fade-in duration-200">
+                <span className="text-xl">💡</span>
+                <p>
+                  Estás registrando un <strong>Riesgo Emergente</strong>. Asegúrate de detallar la causa y el impacto detectado en el campo de <em>Observaciones Tácticas</em> para que el dueño del proceso y el área de Riesgos puedan formalizarlo posteriormente.
+                </p>
+              </div>
+            )}
 
           {/* 🧮 CÁLCULO COSO Y EVALUACIÓN DE EFICACIA */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center bg-white p-4 rounded-2xl border border-slate-200">
