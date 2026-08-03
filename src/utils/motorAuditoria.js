@@ -57,10 +57,11 @@ const buscarColumna = (fila, aliasPosibles) => {
   return undefined;
 };
 
-// Helper para redondear IBC a miles (Estándar PILA/Nómina)
-const redondearIBC = (valor) => {
+// Helper para redondear IBC (Configurable: 500, 1000, 2500, o 1 para exacto)
+const redondearBase = (valor, paso = 500) => {
   if (!valor || valor <= 0) return 0;
-  return Math.round(valor / 1000) * 1000;
+  if (paso <= 1) return Math.round(valor);
+  return Math.round(valor / paso) * paso;
 };
 
 // Agregamos 'anoAuditoria' como parámetro (por defecto 2026)
@@ -263,14 +264,22 @@ const empleadosPivoteados = {};
   };
 }
 // ==========================================
-// NUEVO MÓDULO: AUDITORÍA SEGURIDAD SOCIAL (UGPP) - BIG FOUR STANDARD
+// NUEVO MÓDULO: AUDITORÍA SEGURIDAD SOCIAL (UGPP) - BIG FOUR STANDARD v2.0
 // ==========================================
-export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) {
-  const conceptosSalario = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
+export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, config = {}) {
+  // Configuración de precisión dinámicos
+  const pasoRedondeo = config.pasoRedondeo || 500; // Ej: 500, 1000, 2500 o 1
+  const margenTolerancia = config.margenTolerancia || 500; // Tolerancia en $ COP
+
+  // Categorías de conceptos
+  const conceptosConstitutivos = (mapeoConceptos?.constitutivo_ibc || mapeoConceptos?.salario_base || []).map(normalizarTexto);
   const conceptosNoSalariales = (mapeoConceptos?.devengados_no_salariales || []).map(normalizarTexto);
   const conceptosSalud = (mapeoConceptos?.salud || []).map(normalizarTexto);
   const conceptosPension = (mapeoConceptos?.pension || []).map(normalizarTexto);
-  const conceptosAusentismos = (mapeoConceptos?.ausentismos || []).map(normalizarTexto);
+  
+  // Categorización de ausentismos
+  const ausentismosIBC = (mapeoConceptos?.vacaciones_incapacidades || mapeoConceptos?.ausentismos || []).map(normalizarTexto);
+  const licenciasNoRemuneradas = (mapeoConceptos?.licencias_no_remuneradas || []).map(normalizarTexto);
 
   // 1. DESDUPLICACIÓN ESTRICTA DE TRANSACCIONES
   const registrosVistos = new Set();
@@ -319,7 +328,8 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
         empresasGrupo: new Set([empresa]),
         totalConstitutivoIBC: 0,
         totalNoConstitutivo: 0,
-        valorAusentismos: 0,
+        valorAusentismosIBC: 0,
+        tieneLicenciaNoRemunerada: false,
         descuentoSaludReal: 0,
         descuentoPensionReal: 0,
       };
@@ -330,12 +340,14 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    if (conceptosSalario.includes(conceptoLimpio)) {
+    if (conceptosConstitutivos.includes(conceptoLimpio)) {
       emp.totalConstitutivoIBC += valorTotal;
     } else if (conceptosNoSalariales.includes(conceptoLimpio)) {
       emp.totalNoConstitutivo += valorTotal;
-    } else if (conceptosAusentismos.includes(conceptoLimpio)) {
-      emp.valorAusentismos += valorTotal;
+    } else if (ausentismosIBC.includes(conceptoLimpio)) {
+      emp.valorAusentismosIBC += valorTotal;
+    } else if (licenciasNoRemuneradas.includes(conceptoLimpio)) {
+      emp.tieneLicenciaNoRemunerada = true;
     } else if (conceptosSalud.includes(conceptoLimpio)) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
     } else if (conceptosPension.includes(conceptoLimpio)) {
@@ -343,28 +355,26 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
     }
   });
 
-  // 3. CÁLCULO UGPP CON REDONDEO DE NÓMINA Y TOLERANCIA DE $500 COP
+  // 3. CÁLCULO MATEMÁTICO UGPP AVANZADO
   const hallazgos = [];
   let conteoConformes = 0;
   let conteoRiesgo = 0; 
   let conteoExcesos = 0; 
-  const margenTolerancia = 500; // Absorbe diferencias pequeñas por redondeos de nómina
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
-    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismos;
+    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
+    let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
     
-    let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismos;
-    
-    // Ley 1393 (Tope 40%)
+    // Ley 1393 (Tope 40% sobre el devengado)
     const limite40 = totalDevengado * 0.40;
     if (emp.totalNoConstitutivo > limite40) {
       ibcBruto += (emp.totalNoConstitutivo - limite40);
     }
 
-    // 🌟 Redondeo estándar a miles de la base IBC
-    const ibcLiquidacion = redondearIBC(ibcBruto);
+    // Redondeo paramétrico según el paso configurado ($500 por defecto)
+    const ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
 
     const deberSerSalud = Math.round(ibcLiquidacion * 0.04);
     const deberSerPension = Math.round(ibcLiquidacion * 0.04);
@@ -372,12 +382,22 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
     const difPension = deberSerPension - emp.descuentoPensionReal;
 
-    const ibcImplicito = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
+    // Doble IBC Implícito por subsistema
+    const ibcImplicitoSalud = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
+    const ibcImplicitoPension = emp.descuentoPensionReal > 0 ? Math.round(emp.descuentoPensionReal / 0.04) : 0;
+    
+    // Alerta de desalineación entre bases de Salud y Pensión
+    const desalineacionBases = (emp.descuentoSaludReal > 0 && emp.descuentoPensionReal > 0) &&
+                                Math.abs(ibcImplicitoSalud - ibcImplicitoPension) > pasoRedondeo;
 
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
-    if (Math.abs(difSalud) > margenTolerancia || Math.abs(difPension) > margenTolerancia) {
+    if (desalineacionBases) {
+      tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
+      severidad = 'ADVERTENCIA (Bases Salud/Pensión Difieren)';
+      conteoRiesgo++;
+    } else if (Math.abs(difSalud) > margenTolerancia || Math.abs(difPension) > margenTolerancia) {
       if (difSalud > margenTolerancia || difPension > margenTolerancia) {
         tipoHallazgo = 'PAGO_INSUFICIENTE'; 
         severidad = 'CRÍTICA (UGPP)';
@@ -400,7 +420,8 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
       cargo: 'N/A', 
       diasTrabajados: 15,
       salarioBase: ibcLiquidacion,
-      ibcImplicito,
+      ibcImplicito: ibcImplicitoSalud || ibcImplicitoPension,
+      ibcImplicitoPension,
       totalDevengadoSalarial: totalDevengado,
       auxilioDeberSer: deberSerSalud, 
       auxilioPagado: emp.descuentoSaludReal, 

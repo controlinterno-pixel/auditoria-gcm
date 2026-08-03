@@ -11,7 +11,7 @@ const normalizarTexto = (str) => {
 const ConceptMapper = () => {
   const [datosExcel, setDatosExcel] = useState(null);
   const [conceptosExtraidosUI, setConceptosExtraidosUI] = useState([]);
-  const [mapping, setMapping] = useState({ salario_base: [], aux_transporte: [], ausentismos: [], salud: [], pension: [], devengados_no_salariales: [] });
+
   const [fileName, setFileName] = useState("");
   const [hallazgos, setHallazgos] = useState(null);
   const [resumenKpi, setResumenKpi] = useState(null);
@@ -19,20 +19,28 @@ const ConceptMapper = () => {
   const [busqueda, setBusqueda] = useState('');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState(null);
   const [pestanaActiva, setPestanaActiva] = useState('TRANSPORTE'); 
-
+  const [pasoRedondeo, setPasoRedondeo] = useState(500); // 500 por defecto para el ERP
+const [mapping, setMapping] = useState({ 
+  salario_base: [], 
+  aux_transporte: [], 
+  vacaciones_incapacidades: [], 
+  licencias_no_remuneradas: [], 
+  salud: [], 
+  pension: [], 
+  devengados_no_salariales: [] 
+});
   const systemCategories = [
     { id: 'salario_base', label: 'Salariales y Constitutivos IBC', required: true },
     { id: 'aux_transporte', label: 'Auxilio de Transporte', required: true },
     { id: 'devengados_no_salariales', label: 'Devengados NO Salariales (Ley 1393)', required: false },
     { id: 'salud', label: 'Deducciones de Salud (4%)', required: true },
     { id: 'pension', label: 'Deducciones de Pensión (4%)', required: true },
-    { id: 'ausentismos', label: 'Ausentismos (Vacaciones, Incapacidad)', required: false }
+    { id: 'vacaciones_incapacidades', label: 'Ausentismos que Cotizan (Vacaciones/Incapacidad)', required: false },
+    { id: 'licencias_no_remuneradas', label: 'Licencias No Remuneradas / Suspensiones', required: false }
   ];
   
   const ejecutarAutoMapeoInteligente = (conceptos) => {
-    
     const autoSalario = conceptos.filter(c => {
-      // 🛑 NUEVAS EXCLUSIONES: Licencias y Día de la familia
       if (
         c.includes('NO REMUNERAD') || 
         c.includes('SUSPENSION') || 
@@ -44,35 +52,26 @@ const ConceptMapper = () => {
       ) {
         return false;
       }
-      const palabrasClave = ['SUELDO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL'];
+const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL'];
       return palabrasClave.some(kw => c.includes(kw));
     });
 
     const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
 
-    const autoAusentismos = conceptos.filter(c => {
-      // 1. Excluir explícitamente conceptos contables o de liquidación que NO son ausentismos
-      if (
-        c.includes('PRIMA') || 
-        c.includes('CESANTIA') || 
-        c.includes('INTERES') ||
-        c.includes('DIAS NO HABILES') ||
-        c.includes('PROVISION')
-      ) {
-        return false;
-      }
-      
-      // 2. Incluir los verdaderos ausentismos
-      return (
-        c === 'VACACIONES' || 
-        c.includes('INCAPACIDAD') || 
-        c.includes('INC.') || 
-        c.includes('LICENCIA') || 
-        c.includes('SUSPENSION') ||
-        c.includes('FALTA') ||
-        c.includes('PERMISO NO REMUNERADO')
-      );
-    });
+    const autoVacacionesIncap = conceptos.filter(c => 
+      c === 'VACACIONES' || 
+      c.includes('INCAPACIDAD') || 
+      c.includes('INC.') || 
+      c.includes('VACAC')
+    );
+
+    const autoLicenciasNoRem = conceptos.filter(c => 
+      c.includes('NO REMUNERAD') || 
+      c.includes('SUSPENSION') || 
+      c.includes('PERMISO NO REMUNERADO') ||
+      c.includes('LICENCIA NO REMUNERADA') ||
+      c.includes('FALTA')
+    );
 
     const autoSalud = conceptos.filter(c => 
       c.includes('SALUD') && 
@@ -101,13 +100,13 @@ const ConceptMapper = () => {
     setMapping({
       salario_base: autoSalario,
       aux_transporte: autoAuxilio,
-      ausentismos: autoAusentismos,
+      vacaciones_incapacidades: autoVacacionesIncap,
+      licencias_no_remuneradas: autoLicenciasNoRem,
       salud: autoSalud,
       pension: autoPension,
       devengados_no_salariales: autoNoSalarial
     });
   };
-
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
       alert("La librería de Excel aún no ha cargado. Intenta de nuevo.");
@@ -188,9 +187,9 @@ const ConceptMapper = () => {
     setResumenKpi(resultadoEngine.kpis);
   };
 
-  const handleStartAuditUGPP = () => {
+ const handleStartAuditUGPP = () => {
     if (!datosExcel || datosExcel.length === 0) return;
-    const resultadoEngine = auditarSeguridadSocial(datosExcel, mapping);
+    const resultadoEngine = auditarSeguridadSocial(datosExcel, mapping, { pasoRedondeo });
     setTipoAuditoriaActiva('UGPP');
     setHallazgos(resultadoEngine.hallazgos);
     setResumenKpi(resultadoEngine.kpis);
@@ -201,7 +200,7 @@ const ConceptMapper = () => {
       filtroTipo === 'TODOS' ? true :
       filtroTipo === 'CONFORME' ? h.tipoHallazgo === 'CONFORME' :
       filtroTipo === 'PAGO_EXCESO' ? h.tipoHallazgo === 'PAGO_EXCESO' :
-      filtroTipo === 'PAGO_INSUFICIENTE' ? h.tipoHallazgo === 'PAGO_INSUFICIENTE' : true;
+      filtroTipo === 'PAGO_INSUFICIENTE' ? (h.tipoHallazgo === 'PAGO_INSUFICIENTE' || h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS') : true;
 
     const term = busqueda.toLowerCase();
     const coincideBusqueda = 
@@ -248,20 +247,38 @@ const ConceptMapper = () => {
           )}
         </div>
 
-        {/* 🗂️ CONTROLES DE PESTAÑAS */}
-        <div className="flex gap-2 mb-6 border-b border-slate-200 pb-2">
-          <button 
-            onClick={() => setPestanaActiva('TRANSPORTE')}
-            className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'TRANSPORTE' ? 'bg-blue-900 text-white border-b-4 border-blue-500' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-          >
-            ⚡ Motor Auxilio Transporte
-          </button>
-          <button 
-            onClick={() => setPestanaActiva('UGPP')}
-            className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'UGPP' ? 'bg-indigo-700 text-white border-b-4 border-indigo-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-          >
-            🛡️ Motor Riesgo UGPP (4%)
-          </button>
+        {/* 🗂️ CONTROLES DE PESTAÑAS Y PARÁMETROS ERP */}
+        <div className="flex flex-wrap justify-between items-center mb-6 border-b border-slate-200 pb-2 gap-4">
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setPestanaActiva('TRANSPORTE')}
+              className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'TRANSPORTE' ? 'bg-blue-900 text-white border-b-4 border-blue-500' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              ⚡ Motor Auxilio Transporte
+            </button>
+            <button 
+              onClick={() => setPestanaActiva('UGPP')}
+              className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'UGPP' ? 'bg-indigo-700 text-white border-b-4 border-indigo-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              🛡️ Motor Riesgo UGPP (4%)
+            </button>
+          </div>
+
+          {pestanaActiva === 'UGPP' && (
+            <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 text-xs font-semibold text-indigo-900">
+              <span>⚙️ Regla Redondeo IBC ERP:</span>
+              <select 
+                value={pasoRedondeo} 
+                onChange={(e) => setPasoRedondeo(Number(e.target.value))}
+                className="bg-white border border-indigo-300 font-bold rounded px-2 py-1 text-slate-800 focus:outline-none"
+              >
+                <option value={500}>Redondeo $500 (Ej: 1.177.500)</option>
+                <option value={1000}>Redondeo $1.000 (PILA Estándar)</option>
+                <option value={2500}>Redondeo $2.500</option>
+                <option value={1}>Valor Exacto (Sin redondeo)</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {/* 🗃️ MAPEO DINÁMICO SEGÚN PESTAÑA */}
@@ -269,8 +286,8 @@ const ConceptMapper = () => {
           {systemCategories
             .filter(cat => 
               pestanaActiva === 'TRANSPORTE' 
-                ? ['salario_base', 'aux_transporte', 'ausentismos'].includes(cat.id)
-                : ['salario_base', 'devengados_no_salariales', 'salud', 'pension', 'ausentismos'].includes(cat.id)
+                ? ['salario_base', 'aux_transporte', 'vacaciones_incapacidades', 'licencias_no_remuneradas'].includes(cat.id)
+                : ['salario_base', 'devengados_no_salariales', 'salud', 'pension', 'vacaciones_incapacidades', 'licencias_no_remuneradas'].includes(cat.id)
             )
             .map((category) => (
             <div key={category.id} className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
@@ -470,6 +487,11 @@ const ConceptMapper = () => {
                         {h.tipoHallazgo === 'NO_APLICA' && (
                           <span className="px-2.5 py-1 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-300">
                             ⚪ NO APLICA (&gt;2 SMLMV)
+                          </span>
+                        )}
+{h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' && (
+                          <span className="px-2.5 py-1 text-[10px] font-extrabold bg-purple-100 text-purple-800 rounded-full border border-purple-300">
+                            ⚠️ DESALINEACIÓN SALUD/PENSIÓN
                           </span>
                         )}
                       </td>
