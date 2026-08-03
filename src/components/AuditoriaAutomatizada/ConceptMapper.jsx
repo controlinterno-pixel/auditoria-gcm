@@ -1,6 +1,7 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import React, { useState } from 'react';
 import { auditarAuxilioTransporte, auditarSeguridadSocial } from '../../utils/motorAuditoria';
+import { guardarNominaHistorica } from '../../services/historicoService';
 
 const normalizarTexto = (str) => {
   if (!str) return "";
@@ -20,8 +21,13 @@ const ConceptMapper = () => {
   const [pestanaActiva, setPestanaActiva] = useState('TRANSPORTE'); 
   const [pasoRedondeo, setPasoRedondeo] = useState(500); 
   const [empleadoDiagonal, setEmpleadoDiagonal] = useState(null);
+  
+  // -- NUEVOS ESTADOS PARA HISTÓRICO --
+  const [modoCarga, setModoCarga] = useState('auditar');
+  const [periodoHistorico, setPeriodoHistorico] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
-  const [mapping, setMapping] = useState({ 
+  const [mapping, setMapping] = useState({
     salario_base: [], 
     aux_transporte: [], 
     vacaciones_incapacidades: [], 
@@ -312,11 +318,36 @@ const ConceptMapper = () => {
     if (tieneLicenciaRem) causales.push({ titulo: "📜 Licencia Remunerada", desc: "Liquidación legal con auxilio completo conforme a Art. 127 CST." });
     if (brecha <= pasoRedondeo && brecha > 0) causales.push({ titulo: "📐 Redondeo del ERP", desc: `Aproximación por regla paramétrica ($${pasoRedondeo.toLocaleString('es-CO')}).` });
 
-    if (causales.length === 0) {
+  if (causales.length === 0) {
       causales.push({ titulo: "⚙️ Regla Interna del ERP", desc: "Diferencia causada por promedio de IBC de períodos anteriores o redondeos de módulo." });
     }
 
     return causales;
+  };
+
+  const handleGuardarHistorico = async () => {
+    if (!periodoHistorico) {
+      alert("⚠️ Por favor selecciona el mes (Ej: Marzo 2026) antes de guardar el histórico.");
+      return;
+    }
+    if (!datosExcel || datosExcel.length === 0) {
+      alert("⚠️ Primero debes cargar un archivo Excel.");
+      return;
+    }
+    
+    setIsUploading(true);
+    try {
+      const res = await guardarNominaHistorica(datosExcel, periodoHistorico, 'Termales');
+      alert("✅ " + res.message);
+      setDatosExcel(null);
+      setFileName("");
+      setPeriodoHistorico("");
+      setModoCarga('auditar');
+    } catch (err) {
+      alert("❌ Error guardando el histórico: " + err.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -325,6 +356,30 @@ const ConceptMapper = () => {
         <h1 className="text-3xl font-bold text-slate-800">🤖 Motor de Auditoría Quincenal GCM v5.0</h1>
         <p className="text-slate-500 mt-2">Termales Santa Rosa de Cabal — Sistema de Control Interno</p>
       </div>
+
+      {/* --- INICIO NUEVO SELECTOR DE MODO --- */}
+      <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-4 flex flex-col md:flex-row gap-6 items-center">
+        <div className="flex-1">
+          <h3 className="text-sm font-bold text-slate-700 mb-3">¿Qué deseas hacer con el archivo Excel?</h3>
+          <div className="flex space-x-6">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input type="radio" name="modoCarga" value="auditar" checked={modoCarga === 'auditar'} onChange={() => setModoCarga('auditar')} className="form-radio text-blue-600 w-5 h-5" />
+              <span className="text-sm font-semibold text-slate-800">Auditar mes actual (Motor v5.0)</span>
+            </label>
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input type="radio" name="modoCarga" value="historico" checked={modoCarga === 'historico'} onChange={() => setModoCarga('historico')} className="form-radio text-emerald-600 w-5 h-5" />
+              <span className="text-sm font-semibold text-slate-800">Guardar como Histórico</span>
+            </label>
+          </div>
+        </div>
+        {modoCarga === 'historico' && (
+          <div className="flex-1 animate-in fade-in slide-in-from-top-2 bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+            <label className="text-xs font-bold text-emerald-800 block mb-1">Período de la Nómina a guardar</label>
+            <input type="month" value={periodoHistorico} onChange={(e) => setPeriodoHistorico(e.target.value)} className="border border-emerald-300 rounded px-3 py-1.5 text-sm w-full focus:outline-none focus:border-emerald-500" />
+          </div>
+        )}
+      </div>
+    
 
       {/* 1. Cargar Archivo */}
       <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
@@ -341,7 +396,20 @@ const ConceptMapper = () => {
         )}
       </div>
 
-      {/* 2. Configuración */}
+     {/* 2. Configuración o Guardado Histórico */}
+      {modoCarga === 'historico' ? (
+        <div className={`bg-white rounded-xl shadow-md p-6 border border-emerald-200 bg-emerald-50 mb-8 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>
+          <h3 className="text-lg font-medium text-emerald-800 mb-4">💾 2. Guardar en Base de Datos</h3>
+          <p className="text-sm text-emerald-700 mb-4">Haz clic en el botón de abajo para enviar la nómina cargada a Firebase y usarla en promedios futuros.</p>
+          <button 
+            onClick={handleGuardarHistorico}
+            disabled={isUploading || !datosExcel}
+            className="px-8 py-3 bg-emerald-600 text-white font-bold rounded-lg shadow-md hover:bg-emerald-700 transition-colors disabled:opacity-50"
+          >
+            {isUploading ? '⏳ Guardando...' : '💾 Confirmar y Guardar Histórico'}
+          </button>
+        </div>
+      ) : (
       <div className={`bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium text-slate-700">🔗 2. Configuración de Auditoría</h3>
@@ -438,9 +506,10 @@ const ConceptMapper = () => {
             >
               🛡️ Ejecutar Auditoría UGPP
             </button>
-          )}
+        )}
         </div>
       </div>
+      )}
 
       {/* KPI Cards Reestructuradas */}
       {resumenKpi && (
