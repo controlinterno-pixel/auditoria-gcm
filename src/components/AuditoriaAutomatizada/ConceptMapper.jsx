@@ -88,7 +88,15 @@ const ConceptMapper = () => {
       !c.includes('PATRONAL') &&
       !c.includes('EMPRESA')
     );
-
+setMapping({
+      salario_base: autoSalario,
+      aux_transporte: autoAuxilio,
+      ausentismos: autoAusentismos,
+      salud: autoSalud,
+      pension: autoPension,
+      devengados_no_salariales: autoNoSalarial
+    });
+  };
     const autoNoSalarial = conceptos.filter(c => 
       c.includes('BONIFICACION NO PRESTACIONAL') || 
       c.includes('VIATICO') ||
