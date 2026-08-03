@@ -308,17 +308,29 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
       emp.descuentoPensionReal += Math.abs(valorTotal);
     }
   });
-
-  const hallazgos = [];
+const hallazgos = [];
   let conteoConformes = 0;
-  let conteoRiesgo = 0;
+  let conteoRiesgo = 0; 
+  let conteoExcesos = 0; 
   const margenTolerancia = 100; 
+  
+  const conceptosAusentismos = (mapeoConceptos?.ausentismos || []).map(normalizarTexto);
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
-    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo;
-    let ibcFinal = emp.totalConstitutivoIBC;
+    let valorAusentismosUGPP = 0;
+    transaccionesExcel.forEach(f => {
+      const ced = buscarColumna(f, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+      const per = buscarColumna(f, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']) || 'GENERAL';
+      const con = normalizarTexto(buscarColumna(f, ['NombreConcepto', 'Concepto']));
+      if (`${ced}_${per}` === emp.llaveUnica && conceptosAusentismos.includes(con)) {
+        valorAusentismosUGPP += parsearMonto(buscarColumna(f, ['TotalDevengado', 'ValorTotal', 'Total']));
+      }
+    });
+
+    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + valorAusentismosUGPP;
+    let ibcFinal = emp.totalConstitutivoIBC + valorAusentismosUGPP;
     
     const limite40 = totalDevengado * 0.40;
     if (emp.totalNoConstitutivo > limite40) {
@@ -332,10 +344,18 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
     const difPension = deberSerPension - emp.descuentoPensionReal;
 
     let tipoHallazgo = 'CONFORME';
+    let severidad = 'CORRECTO';
     
     if (Math.abs(difSalud) > margenTolerancia || Math.abs(difPension) > margenTolerancia) {
-      tipoHallazgo = 'PAGO_INSUFICIENTE'; 
-      conteoRiesgo++;
+      if (difSalud > margenTolerancia || difPension > margenTolerancia) {
+        tipoHallazgo = 'PAGO_INSUFICIENTE'; 
+        severidad = 'CRÍTICA (UGPP)';
+        conteoRiesgo++;
+      } else {
+        tipoHallazgo = 'PAGO_EXCESO'; 
+        severidad = 'MODERADA (Exceso al empleado)';
+        conteoExcesos++;
+      }
     } else {
       conteoConformes++;
     }
@@ -354,7 +374,7 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
       auxilioPagado: emp.descuentoSaludReal, 
       diferenciaExacta: difSalud,
       tipoHallazgo,
-      severidad: tipoHallazgo === 'PAGO_INSUFICIENTE' ? 'CRÍTICA (UGPP)' : 'CORRECTO'
+      severidad
     });
   }
 
@@ -364,8 +384,9 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
       totalEmpleados: Object.keys(empleadosPivoteados).length,
       conteoConformes,
       conteoBajoPago: conteoRiesgo,
-      conteoExcesos: 0,
+      conteoExcesos, 
       conteoNoAplica: 0 
     }
   };
 }
+  
