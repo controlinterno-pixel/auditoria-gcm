@@ -256,3 +256,116 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     }
   };
 }
+// ==========================================
+// NUEVO MÓDULO: AUDITORÍA SEGURIDAD SOCIAL (UGPP)
+// ==========================================
+export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) {
+  const conceptosSalario = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
+  const conceptosNoSalariales = (mapeoConceptos?.devengados_no_salariales || []).map(normalizarTexto);
+  const conceptosSalud = (mapeoConceptos?.salud || []).map(normalizarTexto);
+  const conceptosPension = (mapeoConceptos?.pension || []).map(normalizarTexto);
+
+  const empleadosPivoteados = {};
+
+  transaccionesExcel.forEach(fila => {
+    const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+    const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
+    const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
+    const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago']);
+
+    if (!cedulaRaw) return;
+
+    const cedula = cedulaRaw.toString().trim();
+    const periodo = periodoRaw ? periodoRaw.toString().trim() : 'GENERAL';
+    const llaveUnica = `${cedula}_${periodo}`;
+    
+    const conceptoLimpio = normalizarTexto(conceptoRaw);
+    const valorTotal = parsearMonto(valorRaw);
+
+    if (!empleadosPivoteados[llaveUnica]) {
+      empleadosPivoteados[llaveUnica] = {
+        llaveUnica,
+        cedula,
+        periodo,
+        nombre: buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']) || 'Sin Nombre',
+        empresa: buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']) || 'GENERAL',
+        totalConstitutivoIBC: 0,
+        totalNoConstitutivo: 0,
+        descuentoSaludReal: 0,
+        descuentoPensionReal: 0,
+      };
+    }
+
+    const emp = empleadosPivoteados[llaveUnica];
+
+    if (conceptosSalario.includes(conceptoLimpio)) {
+      emp.totalConstitutivoIBC += valorTotal;
+    } else if (conceptosNoSalariales.includes(conceptoLimpio)) {
+      emp.totalNoConstitutivo += valorTotal;
+    } else if (conceptosSalud.includes(conceptoLimpio)) {
+      emp.descuentoSaludReal += Math.abs(valorTotal);
+    } else if (conceptosPension.includes(conceptoLimpio)) {
+      emp.descuentoPensionReal += Math.abs(valorTotal);
+    }
+  });
+
+  const hallazgos = [];
+  let conteoConformes = 0;
+  let conteoRiesgo = 0;
+  const margenTolerancia = 100; 
+
+  for (const llave in empleadosPivoteados) {
+    const emp = empleadosPivoteados[llave];
+    
+    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo;
+    let ibcFinal = emp.totalConstitutivoIBC;
+    
+    const limite40 = totalDevengado * 0.40;
+    if (emp.totalNoConstitutivo > limite40) {
+      ibcFinal += (emp.totalNoConstitutivo - limite40);
+    }
+
+    const deberSerSalud = Math.round(ibcFinal * 0.04);
+    const deberSerPension = Math.round(ibcFinal * 0.04);
+
+    const difSalud = deberSerSalud - emp.descuentoSaludReal;
+    const difPension = deberSerPension - emp.descuentoPensionReal;
+
+    let tipoHallazgo = 'CONFORME';
+    
+    if (Math.abs(difSalud) > margenTolerancia || Math.abs(difPension) > margenTolerancia) {
+      tipoHallazgo = 'PAGO_INSUFICIENTE'; 
+      conteoRiesgo++;
+    } else {
+      conteoConformes++;
+    }
+
+    hallazgos.push({
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
+      empresa: emp.empresa,
+      cedula: emp.cedula,
+      periodo: emp.periodo,
+      nombre: emp.nombre,
+      cargo: 'N/A', 
+      diasTrabajados: 15,
+      salarioBase: ibcFinal, 
+      totalDevengadoSalarial: totalDevengado,
+      auxilioDeberSer: deberSerSalud, 
+      auxilioPagado: emp.descuentoSaludReal, 
+      diferenciaExacta: difSalud,
+      tipoHallazgo,
+      severidad: tipoHallazgo === 'PAGO_INSUFICIENTE' ? 'CRÍTICA (UGPP)' : 'CORRECTO'
+    });
+  }
+
+  return {
+    hallazgos,
+    kpis: {
+      totalEmpleados: Object.keys(empleadosPivoteados).length,
+      conteoConformes,
+      conteoBajoPago: conteoRiesgo,
+      conteoExcesos: 0,
+      conteoNoAplica: 0 
+    }
+  };
+}

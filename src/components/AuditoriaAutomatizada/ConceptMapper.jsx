@@ -1,6 +1,6 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import React, { useState } from 'react';
-import { auditarAuxilioTransporte } from '../../utils/motorAuditoria';
+import { auditarAuxilioTransporte, auditarSeguridadSocial } from '../../utils/motorAuditoria';
 
 // Helper para normalizar textos en la UI
 const normalizarTexto = (str) => {
@@ -11,18 +11,22 @@ const normalizarTexto = (str) => {
 const ConceptMapper = () => {
   const [datosExcel, setDatosExcel] = useState(null);
   const [conceptosExtraidosUI, setConceptosExtraidosUI] = useState([]);
-  const [mapping, setMapping] = useState({ salario_base: [], aux_transporte: [], ausentismos: [] });
+  const [mapping, setMapping] = useState({ salario_base: [], aux_transporte: [], ausentismos: [], salud: [], pension: [], devengados_no_salariales: [] });
   const [fileName, setFileName] = useState("");
   const [hallazgos, setHallazgos] = useState(null);
   const [resumenKpi, setResumenKpi] = useState(null);
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
   const [busqueda, setBusqueda] = useState('');
-const systemCategories = [
-    { id: 'salario_base', label: 'Salario Básico y Devengados Salariales (Art. 127 CST)', required: true },
-    { id: 'aux_transporte', label: 'Auxilio / Subsidio de Transporte', required: true },
-    { id: 'ausentismos', label: 'Ausentismos (Vacaciones, Incapacidad, Licencias)', required: false }
-  ];
+  const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState(null);
 
+  const systemCategories = [
+    { id: 'salario_base', label: 'Salariales y Constitutivos IBC', required: true },
+    { id: 'aux_transporte', label: 'Auxilio de Transporte', required: true },
+    { id: 'devengados_no_salariales', label: 'Devengados NO Salariales (Ley 1393)', required: false },
+    { id: 'salud', label: 'Deducciones de Salud (4%)', required: true },
+    { id: 'pension', label: 'Deducciones de Pensión (4%)', required: true },
+    { id: 'ausentismos', label: 'Ausentismos (Vacaciones, Incapacidad)', required: false }
+  ];
   
   const ejecutarAutoMapeoInteligente = (conceptos) => {
     
@@ -68,13 +72,20 @@ const systemCategories = [
       );
     });
 
+  const autoSalud = conceptos.filter(c => c.includes('SALUD') && !c.includes('FONDO'));
+    const autoPension = conceptos.filter(c => c.includes('PENSION') || c.includes('PENSIONES'));
+    const autoNoSalarial = conceptos.filter(c => c.includes('BONIFICACION NO PRESTACIONAL') || c.includes('VIATICOS'));
+
     setMapping({
       salario_base: autoSalario,
       aux_transporte: autoAuxilio,
-      ausentismos: autoAusentismos
+      ausentismos: autoAusentismos,
+      salud: autoSalud,
+      pension: autoPension,
+      devengados_no_salariales: autoNoSalarial
     });
-  }; 
-
+  };
+ 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
       alert("La librería de Excel aún no ha cargado. Intenta de nuevo.");
@@ -143,15 +154,22 @@ const systemCategories = [
     });
   };
 
-  const handleStartAudit = () => {
+ const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
-    
     const anoDetectado = datosExcel.length > 0 && datosExcel[0]['Ano'] 
       ? parseInt(datosExcel[0]['Ano']) 
       : new Date().getFullYear();
 
     const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, anoDetectado);
-    
+    setTipoAuditoriaActiva('TRANSPORTE');
+    setHallazgos(resultadoEngine.hallazgos);
+    setResumenKpi(resultadoEngine.kpis);
+  };
+
+  const handleStartAuditUGPP = () => {
+    if (!datosExcel || datosExcel.length === 0) return;
+    const resultadoEngine = auditarSeguridadSocial(datosExcel, mapping);
+    setTipoAuditoriaActiva('UGPP');
     setHallazgos(resultadoEngine.hallazgos);
     setResumenKpi(resultadoEngine.kpis);
   };
@@ -235,13 +253,22 @@ const systemCategories = [
           </div>
         ))}
 
-        <button 
-          onClick={handleStartAudit}
-          className="mt-2 px-6 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors cursor-pointer w-full md:w-auto"
-        >
-          ⚡ Ejecutar Auditoría Quincenal
-        </button>
-      </div>
+        <div className="flex flex-col md:flex-row gap-4 mt-2">
+          <button 
+            onClick={handleStartAudit}
+            className="px-6 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors cursor-pointer w-full md:w-auto flex-1"
+          >
+            ⚡ Auditar Auxilio Transporte
+          </button>
+          
+          <button 
+            onClick={handleStartAuditUGPP}
+            className="px-6 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors cursor-pointer w-full md:w-auto flex-1"
+          >
+            🛡️ Auditar Riesgo UGPP (4%)
+          </button>
+        </div>
+        </div>
 
       {/* KPI Cards */}
       {resumenKpi && (
