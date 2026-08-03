@@ -48,7 +48,6 @@ const ConceptMapper = () => {
       return palabrasClave.some(kw => c.includes(kw));
     });
 
-    // ¡Se nos había perdido esta línea! Es crucial para el auxilio de transporte
     const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
 
     const autoAusentismos = conceptos.filter(c => {
@@ -98,8 +97,7 @@ const ConceptMapper = () => {
       c.includes('RODAMIENTO') || 
       c.includes('SOSTENIMIENTO') 
     );
-
-    // Mapeo final y cierre correcto de la función
+ 
     setMapping({
       salario_base: autoSalario,
       aux_transporte: autoAuxilio,
@@ -108,14 +106,8 @@ const ConceptMapper = () => {
       pension: autoPension,
       devengados_no_salariales: autoNoSalarial
     });
-  }; // <-- Ahora sí, todo quedó empaquetado correctamente
-    const autoNoSalarial = conceptos.filter(c => 
-      c.includes('BONIFICACION NO PRESTACIONAL') || 
-      c.includes('VIATICO') ||
-      c.includes('RODAMIENTO') || // <-- PARCHE: Atrapa "AUXILIO DE RODAMIENTO" para el tope de Ley 1393
-      c.includes('SOSTENIMIENTO') // <-- PARCHE: Atrapa "SOSTENIMIENTO ECONOMICO ETAPA LECTIVA" (Aprendices)
-    );
- 
+  };
+
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
       alert("La librería de Excel aún no ha cargado. Intenta de nuevo.");
@@ -184,7 +176,7 @@ const ConceptMapper = () => {
     });
   };
 
- const handleStartAudit = () => {
+  const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
     const anoDetectado = datosExcel.length > 0 && datosExcel[0]['Ano'] 
       ? parseInt(datosExcel[0]['Ano']) 
