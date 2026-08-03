@@ -48,8 +48,6 @@ const ConceptMapper = () => {
       return palabrasClave.some(kw => c.includes(kw));
     });
 
-    const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
-    
     const autoAusentismos = conceptos.filter(c => {
       // 1. Excluir explícitamente conceptos contables o de liquidación que NO son ausentismos
       if (
@@ -66,6 +64,7 @@ const ConceptMapper = () => {
       return (
         c === 'VACACIONES' || 
         c.includes('INCAPACIDAD') || 
+        c.includes('INC.') || // <-- PARCHE: Atrapa "INC. ENFERMEDAD GENERAL", "INC. MATERNIDAD", etc.
         c.includes('LICENCIA') || 
         c.includes('SUSPENSION') ||
         c.includes('FALTA') ||
@@ -83,23 +82,19 @@ const ConceptMapper = () => {
     );
 
     const autoPension = conceptos.filter(c => 
-      (c.includes('PENSION') || c.includes('PENSIONES')) && 
-      !c.includes('FONDO') &&
+      (c.includes('PENSION') || c.includes('PENSIONES') || c.includes('SOLIDARIDAD')) && // <-- PARCHE: Atrapa el Fondo de Solidaridad Pensional
+      !c.includes('FONDO') && // Excluye "Fondo de Empleados"
       !c.includes('VOLUNTARIA') &&
       !c.includes('PATRONAL') &&
       !c.includes('EMPRESA')
     );
-    const autoNoSalarial = conceptos.filter(c => c.includes('BONIFICACION NO PRESTACIONAL') || c.includes('VIATICOS'));
 
-    setMapping({
-      salario_base: autoSalario,
-      aux_transporte: autoAuxilio,
-      ausentismos: autoAusentismos,
-      salud: autoSalud,
-      pension: autoPension,
-      devengados_no_salariales: autoNoSalarial
-    });
-  };
+    const autoNoSalarial = conceptos.filter(c => 
+      c.includes('BONIFICACION NO PRESTACIONAL') || 
+      c.includes('VIATICO') ||
+      c.includes('RODAMIENTO') || // <-- PARCHE: Atrapa "AUXILIO DE RODAMIENTO" para el tope de Ley 1393
+      c.includes('SOSTENIMIENTO') // <-- PARCHE: Atrapa "SOSTENIMIENTO ECONOMICO ETAPA LECTIVA" (Aprendices)
+    );
  
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
