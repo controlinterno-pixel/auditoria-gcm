@@ -131,16 +131,16 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const emp = empleadosPivoteados[llaveUnica];
 
     if (conceptosSalario.includes(conceptoLimpio)) {
-      if (conceptoLimpio.includes('SUELDO BASICO') || conceptoLimpio === 'BASICO' || conceptoLimpio === 'SUELDO') {
+      // FIX: Validación estricta para evitar que sume días de ausentismos o comisiones
+      const esSueldoEstricto = conceptoLimpio === 'SUELDO BASICO' || conceptoLimpio === 'BASICO' || conceptoLimpio === 'SUELDO' || conceptoLimpio === 'SALARIO';
+
+      if (esSueldoEstricto) {
         emp.sueldoBasico += valorTotal;
+        emp.diasTrabajados += cantidadDias; 
       } else {
         emp.otrosDevengadosSalariales += valorTotal;
       }
       emp.totalDevengadoSalarial += valorTotal;
-      
-      if (conceptoLimpio.includes('SUELDO') || conceptoLimpio.includes('BASICO')) {
-        emp.diasTrabajados += cantidadDias;
-      }
     }
 
     if (conceptosAuxilio.includes(conceptoLimpio)) {
@@ -157,7 +157,16 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
-    let diasEfectivos = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
+    
+    // FIX: Lógica blindada de asignación de días
+    let diasEfectivos = emp.diasTrabajados;
+    if (diasEfectivos === 0) {
+      if (emp.sueldoBasico > 0) {
+        diasEfectivos = 15; // Asumir 15 si hay pago básico pero la columna días de Excel estaba vacía
+      } else {
+        diasEfectivos = 0;  // 0 días trabajados si no hay salario básico (Ej: Vacaciones todo el mes)
+      }
+    }
     diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
     
     let salarioBaseProyectado = 0;
@@ -230,7 +239,6 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     }
   };
 }
-
 // ==========================================
 // MÓDULO 2: AUDITORÍA SEGURIDAD SOCIAL (UGPP) v5.0 (NIVEL 1 NORMATIVO)
 // ==========================================
