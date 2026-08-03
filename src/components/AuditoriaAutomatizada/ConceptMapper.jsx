@@ -20,6 +20,7 @@ const ConceptMapper = () => {
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState(null);
   const [pestanaActiva, setPestanaActiva] = useState('TRANSPORTE'); 
   const [pasoRedondeo, setPasoRedondeo] = useState(500); // 500 por defecto para el ERP
+  const [empleadoDiagonal, setEmpleadoDiagonal] = useState(null);
 const [mapping, setMapping] = useState({ 
   salario_base: [], 
   aux_transporte: [], 
@@ -211,6 +212,36 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
     return coincideFiltro && coincideBusqueda;
   }) : [];
 
+const esConceptoConstitutivoAuto = (nombreConcepto) => {
+    if (!nombreConcepto) return false;
+    const norm = normalizarTexto(nombreConcepto);
+    if (
+      norm.includes('NO REMUNERAD') || 
+      norm.includes('VACACIONES') || 
+      norm.includes('INCAPACIDAD') || 
+      norm.includes('CESANTIA') || 
+      norm.includes('PRIMA DE SERVICIOS')
+    ) {
+      return false;
+    }
+    const palabras = ['SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 'DESTAJO'];
+    return palabras.some(kw => norm.includes(kw));
+  };
+
+  const obtenerDesgloseEmpleado = (empleado) => {
+    if (!datosExcel || !empleado) return [];
+    const transaccionesEmp = datosExcel.filter(row => {
+      const cedulaRow = (row['Cedula'] || row['CEDULA'] || row['Documento'] || row['cédula'] || '').toString().trim();
+      return cedulaRow === empleado.cedula;
+    });
+
+    return transaccionesEmp.map(t => {
+      const concepto = normalizarTexto(t['NombreConcepto'] || t['CONCEPTO'] || t['DESCRIPCION'] || t['Nombre concepto']);
+      const valor = Number(t['Valor'] || t['VALOR'] || t['Valor concepto'] || 0);
+      const esConstitutivo = (mapping.salario_base || []).includes(concepto) || esConceptoConstitutivoAuto(concepto);
+      return { concepto, valor, incluidoEnIBC: esConstitutivo };
+    });
+  };
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
       <div className="mb-8">
@@ -455,9 +486,13 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
                       <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
                       
                       {tipoAuditoriaActiva !== 'TRANSPORTE' && (
-                        <td className={`px-4 py-3 text-right font-mono font-bold ${brechaIBC ? 'text-indigo-700 bg-indigo-50 border-x border-indigo-100' : 'text-slate-600'}`}>
-                          ${(h.ibcImplicito || 0).toLocaleString('es-CO')}
-                        </td>
+                      <td 
+  onClick={() => setEmpleadoDiagonal(h)}
+  className={`px-4 py-3 text-right font-mono font-bold cursor-pointer hover:bg-indigo-100 transition-colors ${brechaIBC ? 'text-indigo-700 bg-indigo-50 border-x border-indigo-100' : 'text-slate-600'}`}
+  title="Hacer clic para abrir Diagnóstico Forense de IBC"
+>
+  ${(h.ibcImplicito || 0).toLocaleString('es-CO')} 🔍
+</td> 
                       )}
                       
                       <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')}</td>
@@ -504,7 +539,82 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
         </div>
       )}
     </div>
+{/* 🔍 MODAL MODO DIAGNÓSTICO FORENSE */}
+      {empleadoDiagonal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden">
+            <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold">🔍 Diagnóstico Forense de IBC</h3>
+                <p className="text-xs text-slate-400">{empleadoDiagonal.nombre} — Cédula: {empleadoDiagonal.cedula}</p>
+              </div>
+              <button 
+                onClick={() => setEmpleadoDiagonal(null)}
+                className="text-slate-400 hover:text-white font-bold text-xl px-2"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">IBC Motor (Calculado)</span>
+                  <p className="text-xl font-extrabold text-blue-900">${empleadoDiagonal.salarioBase.toLocaleString('es-CO')}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-indigo-600 uppercase">IBC Implícito (Nómina ERP)</span>
+                  <p className="text-xl font-extrabold text-indigo-900">${(empleadoDiagonal.ibcImplicito || 0).toLocaleString('es-CO')}</p>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900 text-xs font-semibold flex justify-between items-center">
+                <span>⚠️ Brecha sin reconciliar:</span>
+                <span className="font-mono text-sm font-bold">${Math.abs(empleadoDiagonal.salarioBase - (empleadoDiagonal.ibcImplicito || 0)).toLocaleString('es-CO')}</span>
+              </div>
+
+              <h4 className="text-xs font-bold text-slate-700 uppercase mt-4">Desglose de Conceptos del Empleado:</h4>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-100 text-slate-700 uppercase font-bold">
+                    <tr>
+                      <th className="p-2.5">Estado IBC</th>
+                      <th className="p-2.5">Concepto Nómina</th>
+                      <th className="p-2.5 text-right">Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {obtenerDesgloseEmpleado(empleadoDiagonal).map((item, idx) => (
+                      <tr key={idx} className={item.incluidoEnIBC ? 'bg-emerald-50/40' : 'bg-red-50/40'}>
+                        <td className="p-2.5 font-sans font-bold">
+                          {item.incluidoEnIBC ? (
+                            <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]">✔ INCLUIDO</span>
+                          ) : (
+                            <span className="text-red-700 bg-red-100 px-2 py-0.5 rounded text-[10px]">✘ OMITIDO</span>
+                          )}
+                        </td>
+                        <td className="p-2.5 font-sans font-medium text-slate-800">{item.concepto}</td>
+                        <td className="p-2.5 text-right font-bold">${item.valor.toLocaleString('es-CO')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
+              <button 
+                onClick={() => setEmpleadoDiagonal(null)}
+                className="px-5 py-2 bg-slate-800 text-white font-bold text-xs rounded-lg hover:bg-slate-700 transition"
+              >
+                Cerrar Diagnóstico
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+</div>
   );
 };
-
 export default ConceptMapper;
