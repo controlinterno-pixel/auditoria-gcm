@@ -39,14 +39,17 @@ const ConceptMapper = () => {
         c.includes('VACACIONES') || 
         c.includes('CESANTIA') || 
         c.includes('PRIMA') ||
-        c.includes('LICENCIA') || // <-- Exclusión añadida correctamente
-        c.includes('FAMILIA')     // <-- Exclusión añadida correctamente
+        c.includes('LICENCIA') || 
+        c.includes('FAMILIA')     
       ) {
         return false;
       }
       const palabrasClave = ['SUELDO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL'];
       return palabrasClave.some(kw => c.includes(kw));
     });
+
+    // ¡Se nos había perdido esta línea! Es crucial para el auxilio de transporte
+    const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
 
     const autoAusentismos = conceptos.filter(c => {
       // 1. Excluir explícitamente conceptos contables o de liquidación que NO son ausentismos
@@ -64,7 +67,7 @@ const ConceptMapper = () => {
       return (
         c === 'VACACIONES' || 
         c.includes('INCAPACIDAD') || 
-        c.includes('INC.') || // <-- PARCHE: Atrapa "INC. ENFERMEDAD GENERAL", "INC. MATERNIDAD", etc.
+        c.includes('INC.') || 
         c.includes('LICENCIA') || 
         c.includes('SUSPENSION') ||
         c.includes('FALTA') ||
@@ -82,13 +85,22 @@ const ConceptMapper = () => {
     );
 
     const autoPension = conceptos.filter(c => 
-      (c.includes('PENSION') || c.includes('PENSIONES') || c.includes('SOLIDARIDAD')) && // <-- PARCHE: Atrapa el Fondo de Solidaridad Pensional
-      !c.includes('FONDO') && // Excluye "Fondo de Empleados"
+      (c.includes('PENSION') || c.includes('PENSIONES') || c.includes('SOLIDARIDAD')) && 
+      !c.includes('FONDO') && 
       !c.includes('VOLUNTARIA') &&
       !c.includes('PATRONAL') &&
       !c.includes('EMPRESA')
     );
-setMapping({
+
+    const autoNoSalarial = conceptos.filter(c => 
+      c.includes('BONIFICACION NO PRESTACIONAL') || 
+      c.includes('VIATICO') ||
+      c.includes('RODAMIENTO') || 
+      c.includes('SOSTENIMIENTO') 
+    );
+
+    // Mapeo final y cierre correcto de la función
+    setMapping({
       salario_base: autoSalario,
       aux_transporte: autoAuxilio,
       ausentismos: autoAusentismos,
@@ -96,7 +108,7 @@ setMapping({
       pension: autoPension,
       devengados_no_salariales: autoNoSalarial
     });
-  };
+  }; // <-- Ahora sí, todo quedó empaquetado correctamente
     const autoNoSalarial = conceptos.filter(c => 
       c.includes('BONIFICACION NO PRESTACIONAL') || 
       c.includes('VIATICO') ||
