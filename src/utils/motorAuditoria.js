@@ -352,6 +352,10 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
     const difPension = deberSerPension - emp.descuentoPensionReal;
 
+    // 🌟 INGENIERÍA INVERSA: CÁLCULO DEL IBC IMPLÍCITO (Descuento Real / 4%)
+    // Si hubo descuento, reconstruimos la base. Si no, es 0.
+    const ibcImplicito = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
+
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
@@ -378,6 +382,7 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
       cargo: 'N/A', 
       diasTrabajados: 15,
       salarioBase: ibcFinal, 
+      ibcImplicito, // 👈 ¡Inyectamos nuestra nueva variable aquí!
       totalDevengadoSalarial: totalDevengado,
       auxilioDeberSer: deberSerSalud, 
       auxilioPagado: emp.descuentoSaludReal, 

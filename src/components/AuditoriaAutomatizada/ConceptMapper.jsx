@@ -397,7 +397,8 @@ const ConceptMapper = () => {
                     </>
                   ) : (
                     <>
-                      <th className="px-4 py-3 text-right">IBC Total Calculado</th>
+                      <th className="px-4 py-3 text-right">IBC Motor (Calculado)</th>
+                      <th className="px-4 py-3 text-right bg-indigo-50 text-indigo-900 border-b-2 border-indigo-200 font-extrabold">IBC Implícito (Nómina) 🔍</th>
                       <th className="px-4 py-3 text-right">Total Devengado</th>
                       <th className="px-4 py-3 text-right">Salud Deber Ser (4%)</th>
                       <th className="px-4 py-3 text-right">Salud Descontada</th>
@@ -411,6 +412,8 @@ const ConceptMapper = () => {
                 {hallazgosFiltrados.map((h) => {
                   const esConforme = h.tipoHallazgo === 'CONFORME';
                   const esBajoPago = h.tipoHallazgo === 'PAGO_INSUFICIENTE';
+                  // Identificar si hay brecha evidente entre lo que dice el motor y lo que hizo la nómina
+                  const brechaIBC = tipoAuditoriaActiva === 'UGPP' && Math.abs(h.salarioBase - (h.ibcImplicito || 0)) > 1000;
 
                   return (
                     <tr key={h.id} className="hover:bg-slate-50 transition">
@@ -430,7 +433,16 @@ const ConceptMapper = () => {
                       <td className="px-4 py-3 text-center font-semibold">
                         {Number(h.diasTrabajados).toFixed(2).replace(/\.00$/, '')}
                       </td>
+                      
+                      {/* Celdas dinámicas según el tipo de auditoría */}
                       <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
+                      
+                      {tipoAuditoriaActiva !== 'TRANSPORTE' && (
+                        <td className={`px-4 py-3 text-right font-mono font-bold ${brechaIBC ? 'text-indigo-700 bg-indigo-50 border-x border-indigo-100' : 'text-slate-600'}`}>
+                          ${(h.ibcImplicito || 0).toLocaleString('es-CO')}
+                        </td>
+                      )}
+                      
                       <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono text-slate-800">${h.auxilioPagado.toLocaleString('es-CO')}</td>
