@@ -239,12 +239,12 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     }
   };
 }
+
 // ==========================================
 // MÓDULO 2: AUDITORÍA SEGURIDAD SOCIAL (UGPP) v5.0 (NIVEL 1 NORMATIVO)
 // ==========================================
 export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, config = {}) {
   const pasoRedondeo = config.pasoRedondeo || 500;
-  // Tolerancia dinámica alineada exactamente al paso de redondeo del ERP
   const margenTolerancia = pasoRedondeo; 
 
   const conceptosConstitutivos = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
@@ -314,21 +314,39 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Mapeo defensivo de devengados y ausentismos
-    if (conceptosConstitutivos.includes(conceptoLimpio) || 
-        ['SUELDO BASICO', 'SUELDO', 'BASICO', 'COMISIONES VENTAS', 'DIA DE LA FAMILIA', 'SUELDO POR LICENCIA REMUNERADA'].includes(conceptoLimpio)) {
+    // ⚡ LEXICÓN DEFENSIVO DE BACKEND (Espejo del Frontend)
+    const esConstitutivoLexicon = [
+      'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
+      'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
+      'DESTAJO', 'AUXILIO SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 
+      'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA'
+    ].some(kw => conceptoLimpio.includes(kw));
+
+    const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIOS', 'SUSPENSION', 'VACACIONES', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
+
+    const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
+
+    // LÓGICA DE ASIGNACIÓN ESTRICTA
+    if ((conceptosConstitutivos.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoIBC) {
       emp.totalConstitutivoIBC += valorTotal;
-      if (conceptoLimpio.includes('SUELDO') || conceptoLimpio.includes('BASICO')) {
+      
+      // SOLO suma días si es estrictamente el Sueldo Básico, para no sumar horas de los recargos
+      if (['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].includes(conceptoLimpio)) {
         emp.diasTrabajados += cantidad;
       }
-    } else if (ausentismosIBC.includes(conceptoLimpio) || conceptoLimpio === 'VACACIONES' || conceptoLimpio.includes('INCAPACIDAD')) {
+
+    } else if (ausentismosIBC.includes(conceptoLimpio) || conceptoLimpio === 'VACACIONES' || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
       emp.valorAusentismosIBC += valorTotal;
-    } else if (conceptosNoSalariales.includes(conceptoLimpio)) {
+
+    } else if (conceptosNoSalariales.includes(conceptoLimpio) || esNoSalarialLexicon) {
       emp.totalNoConstitutivo += valorTotal;
-    } else if (licenciasNoRemuneradas.includes(conceptoLimpio)) {
+
+    } else if (licenciasNoRemuneradas.includes(conceptoLimpio) || conceptoLimpio.includes('NO REMUNERAD') || conceptoLimpio.includes('SUSPENSION')) {
       emp.tieneLicenciaNoRemunerada = true;
+
     } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio.includes('SALUD') && !conceptoLimpio.includes('FONDO') && !conceptoLimpio.includes('EMPRESA'))) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
+
     } else if (conceptosPension.includes(conceptoLimpio) || ((conceptoLimpio.includes('PENSION') || conceptoLimpio.includes('SOLIDARIDAD')) && !conceptoLimpio.includes('FONDO') && !conceptoLimpio.includes('EMPRESA'))) {
       emp.descuentoPensionReal += Math.abs(valorTotal);
     }
