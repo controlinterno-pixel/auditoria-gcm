@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { auditarAuxilioTransporte, auditarSeguridadSocial } from '../../utils/motorAuditoria';
 
-// Helper para normalizar textos en la UI
 const normalizarTexto = (str) => {
   if (!str) return "";
   return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
@@ -19,17 +18,19 @@ const ConceptMapper = () => {
   const [busqueda, setBusqueda] = useState('');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState(null);
   const [pestanaActiva, setPestanaActiva] = useState('TRANSPORTE'); 
-  const [pasoRedondeo, setPasoRedondeo] = useState(500); // 500 por defecto para el ERP
+  const [pasoRedondeo, setPasoRedondeo] = useState(500); 
   const [empleadoDiagonal, setEmpleadoDiagonal] = useState(null);
-const [mapping, setMapping] = useState({ 
-  salario_base: [], 
-  aux_transporte: [], 
-  vacaciones_incapacidades: [], 
-  licencias_no_remuneradas: [], 
-  salud: [], 
-  pension: [], 
-  devengados_no_salariales: [] 
-});
+
+  const [mapping, setMapping] = useState({ 
+    salario_base: [], 
+    aux_transporte: [], 
+    vacaciones_incapacidades: [], 
+    licencias_no_remuneradas: [], 
+    salud: [], 
+    pension: [], 
+    devengados_no_salariales: [] 
+  });
+
   const systemCategories = [
     { id: 'salario_base', label: 'Salariales y Constitutivos IBC', required: true },
     { id: 'aux_transporte', label: 'Auxilio de Transporte', required: true },
@@ -40,6 +41,7 @@ const [mapping, setMapping] = useState({
     { id: 'licencias_no_remuneradas', label: 'Licencias No Remuneradas / Suspensiones', required: false }
   ];
   
+  // ⚡ AUTO-MAPEO AMPLIADO CON LEXICÓN DE NÓMINA COLOMBIANA
   const ejecutarAutoMapeoInteligente = (conceptos) => {
     const autoSalario = conceptos.filter(c => {
       if (
@@ -47,13 +49,16 @@ const [mapping, setMapping] = useState({
         c.includes('SUSPENSION') || 
         c.includes('VACACIONES') || 
         c.includes('CESANTIA') || 
-        c.includes('PRIMA') ||
-        c.includes('LICENCIA') || 
-        c.includes('FAMILIA')     
+        c.includes('PRIMA DE SERVICIO')
       ) {
         return false;
       }
-const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL'];
+      const palabrasClave = [
+        'SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 
+        'BONIFICACION PRESTACIONAL', 'BONIFICACION SALARIAL', 'AUXILIO SALARIAL', 
+        'PRIMA SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 'COMPENSACION SALARIAL',
+        'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA', 'INCENTIVO', 'DESTAJO'
+      ];
       return palabrasClave.some(kw => c.includes(kw));
     });
 
@@ -108,6 +113,7 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
       devengados_no_salariales: autoNoSalarial
     });
   };
+
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
       alert("La librería de Excel aún no ha cargado. Intenta de nuevo.");
@@ -128,7 +134,6 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
         const worksheet = workbook.Sheets[firstSheetName];
         const jsonDataRaw = window.XLSX.utils.sheet_to_json(worksheet, { raw: true });
         
-        // 🧹 Limpieza de origen: Filtrar provisiones contables y parafiscales
         const jsonData = jsonDataRaw.filter(row => {
           const tipo = row['Tipo'] || row['tipo'] || row['TIPO'];
           if (tipo) {
@@ -139,7 +144,6 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
         });
         setDatosExcel(jsonData);
 
-        // 🌟 Buscador dinámico de la columna de Conceptos para la UI
         let colConcepto = null;
         if (jsonData.length > 0) {
           const llavesExcel = Object.keys(jsonData[0]);
@@ -188,7 +192,7 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
     setResumenKpi(resultadoEngine.kpis);
   };
 
- const handleStartAuditUGPP = () => {
+  const handleStartAuditUGPP = () => {
     if (!datosExcel || datosExcel.length === 0) return;
     const resultadoEngine = auditarSeguridadSocial(datosExcel, mapping, { pasoRedondeo });
     setTipoAuditoriaActiva('UGPP');
@@ -201,7 +205,8 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
       filtroTipo === 'TODOS' ? true :
       filtroTipo === 'CONFORME' ? h.tipoHallazgo === 'CONFORME' :
       filtroTipo === 'PAGO_EXCESO' ? h.tipoHallazgo === 'PAGO_EXCESO' :
-      filtroTipo === 'PAGO_INSUFICIENTE' ? (h.tipoHallazgo === 'PAGO_INSUFICIENTE' || h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS') : true;
+      filtroTipo === 'PAGO_INSUFICIENTE' ? h.tipoHallazgo === 'PAGO_INSUFICIENTE' :
+      filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' : true;
 
     const term = busqueda.toLowerCase();
     const coincideBusqueda = 
@@ -212,40 +217,84 @@ const palabrasClave = ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO'
     return coincideFiltro && coincideBusqueda;
   }) : [];
 
-const esConceptoConstitutivoAuto = (nombreConcepto) => {
+  const esConceptoConstitutivoAuto = (nombreConcepto) => {
     if (!nombreConcepto) return false;
     const norm = normalizarTexto(nombreConcepto);
+    // Exclusiones estrictas
     if (
       norm.includes('NO REMUNERAD') || 
-      norm.includes('VACACIONES') || 
-      norm.includes('INCAPACIDAD') || 
       norm.includes('CESANTIA') || 
-      norm.includes('PRIMA DE SERVICIOS')
+      norm.includes('PRIMA DE SERVICIOS') ||
+      norm.includes('SUSPENSION')
     ) {
       return false;
     }
-    const palabras = ['SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 'DESTAJO'];
+    // Lexicón extendido completo (Coincide con el mapeo inteligente)
+    const palabras = [
+      'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
+      'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
+      'DESTAJO', 'AUXILIO SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 
+      'COMPENSACION SALARIAL', 'BONIFICACION PRESTACIONAL', 'VACACIONES', 'INCAPACIDAD', 
+      'INC.', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA'
+    ];
     return palabras.some(kw => norm.includes(kw));
   };
 
+  // 🔍 MODAL DE DESGLOSE PIVOTEADO POR CÉDULA + PERÍODO
   const obtenerDesgloseEmpleado = (empleado) => {
     if (!datosExcel || !empleado) return [];
     const transaccionesEmp = datosExcel.filter(row => {
-      const cedulaRow = (row['Cedula'] || row['CEDULA'] || row['Documento'] || row['cédula'] || '').toString().trim();
-      return cedulaRow === empleado.cedula;
+      const cedulaRow = (row['Cedula'] || row['CEDULA'] || row['Documento'] || row['Identificacion'] || '').toString().trim();
+      const periodoRow = (row['IDEN_Periodo'] || row['Periodo'] || row['Mes'] || row['Quincena'] || '').toString().trim();
+      return cedulaRow === empleado.cedula && (periodoRow === empleado.periodo || !empleado.periodo);
     });
 
     return transaccionesEmp.map(t => {
       const concepto = normalizarTexto(t['NombreConcepto'] || t['CONCEPTO'] || t['DESCRIPCION'] || t['Nombre concepto']);
-      const valor = Number(t['Valor'] || t['VALOR'] || t['Valor concepto'] || 0);
-      const esConstitutivo = (mapping.salario_base || []).includes(concepto) || esConceptoConstitutivoAuto(concepto);
+      const valor = Number(t['Valor'] || t['VALOR'] || t['Valor concepto'] || t['Total'] || t['TotalDevengado'] || 0);
+      
+      // Verificación robusta: Mira en salario base, en ausentismos, o usa el auto-analizador
+      const esConstitutivo = 
+        (mapping.salario_base || []).includes(concepto) || 
+        (mapping.vacaciones_incapacidades || []).includes(concepto) || 
+        esConceptoConstitutivoAuto(concepto);
+        
       return { concepto, valor, incluidoEnIBC: esConstitutivo };
     });
   };
+
+  // 🤖 ANALIZADOR INFORMATIVO DE CAUSALES DE LA BRECHA IMPLÍCITA (NIVEL 2)
+  const obtenerAnalisisCausalesModal = (empleado) => {
+    if (!empleado) return [];
+    const desgloses = obtenerDesgloseEmpleado(empleado);
+    const causales = [];
+
+    const tieneVacaciones = desgloses.some(d => d.concepto.includes('VACACIONES'));
+    const tieneIncapacidad = desgloses.some(d => d.concepto.includes('INCAPACIDAD') || d.concepto.includes('INC.'));
+    const tieneExtras = desgloses.some(d => d.concepto.includes('HORA') || d.concepto.includes('EXTRA') || d.concepto.includes('RECARGO'));
+    const tieneDiaFamilia = desgloses.some(d => d.concepto.includes('FAMILIA'));
+    const tieneLicenciaRem = desgloses.some(d => d.concepto.includes('LICENCIA REMUNERADA'));
+    
+    const brecha = Math.abs(empleado.salarioBase - (empleado.ibcImplicito || 0));
+
+    if (tieneVacaciones) causales.push({ titulo: "🏖️ Vacaciones Novedad/Ajuste", desc: "El ERP liquidó ausentismo pagado con fórmula desacumulada/promedio de días no hábiles." });
+    if (tieneIncapacidad) causales.push({ titulo: "🏥 Incapacidad de Nómina", desc: "Base de cotización ajustada por la entidad según días de ausentismo médico." });
+    if (tieneExtras) causales.push({ titulo: "⏰ Recargos / Horas Extras", desc: "Inclusión de variables operativas en el mes vencido por el ERP." });
+    if (tieneDiaFamilia) causales.push({ titulo: "👨‍👩‍👧 Día de la Familia", desc: "El ERP incluyó el devengado salarial remunerado en la base de liquidación." });
+    if (tieneLicenciaRem) causales.push({ titulo: "📜 Licencia Remunerada", desc: "Liquidación legal con auxilio completo conforme a Art. 127 CST." });
+    if (brecha <= pasoRedondeo && brecha > 0) causales.push({ titulo: "📐 Redondeo del ERP", desc: `Aproximación por regla paramétrica ($${pasoRedondeo.toLocaleString('es-CO')}).` });
+
+    if (causales.length === 0) {
+      causales.push({ titulo: "⚙️ Regla Interna del ERP", desc: "Diferencia causada por promedio de IBC de períodos anteriores o redondeos de módulo." });
+    }
+
+    return causales;
+  };
+
   return (
     <div className="p-8 bg-slate-50 min-h-screen">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">🤖 Motor de Auditoría Quincenal GCM</h1>
+        <h1 className="text-3xl font-bold text-slate-800">🤖 Motor de Auditoría Quincenal GCM v5.0</h1>
         <p className="text-slate-500 mt-2">Termales Santa Rosa de Cabal — Sistema de Control Interno</p>
       </div>
 
@@ -264,7 +313,7 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
         )}
       </div>
 
-     {/* 2. Mapeo con Auto-Selección y Pestañas */}
+      {/* 2. Configuración */}
       <div className={`bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium text-slate-700">🔗 2. Configuración de Auditoría</h3>
@@ -278,7 +327,6 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
           )}
         </div>
 
-        {/* 🗂️ CONTROLES DE PESTAÑAS Y PARÁMETROS ERP */}
         <div className="flex flex-wrap justify-between items-center mb-6 border-b border-slate-200 pb-2 gap-4">
           <div className="flex gap-2">
             <button 
@@ -312,7 +360,6 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
           )}
         </div>
 
-        {/* 🗃️ MAPEO DINÁMICO SEGÚN PESTAÑA */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {systemCategories
             .filter(cat => 
@@ -348,7 +395,6 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
           ))}
         </div>
 
-        {/* 🚀 BOTÓN DE AUDITORÍA DINÁMICO */}
         <div className="mt-4 flex justify-end">
           {pestanaActiva === 'TRANSPORTE' ? (
             <button 
@@ -367,35 +413,33 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
           )}
         </div>
       </div>
-      {/* KPI Cards */}
+
+      {/* KPI Cards Reestructuradas */}
       {resumenKpi && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-          {/* Cambiamos a grid-cols-5 para que quepan las 5 tarjetas */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase">Total Auditados</p>
             <h3 className="text-2xl font-extrabold text-slate-800">{resumenKpi.totalEmpleados}</h3>
           </div>
           <div className="bg-white p-5 rounded-xl border border-emerald-200 shadow-sm">
-            <p className="text-xs font-bold text-emerald-600 uppercase">Conformes</p>
+            <p className="text-xs font-bold text-emerald-600 uppercase">🟢 Conformes (4%)</p>
             <h3 className="text-2xl font-extrabold text-emerald-700">{resumenKpi.conteoConformes}</h3>
           </div>
-          
-          {/* +++ NUEVA TARJETA: NO APLICA +++ */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <p className="text-xs font-bold text-slate-500 uppercase">No Aplica (&gt;2 SMLMV)</p>
-            <h3 className="text-2xl font-extrabold text-slate-600">{resumenKpi.conteoNoAplica}</h3>
+          <div className="bg-white p-5 rounded-xl border border-red-200 shadow-sm">
+            <p className="text-xs font-bold text-red-600 uppercase">🔴 Pago Insuficiente (UGPP)</p>
+            <h3 className="text-2xl font-extrabold text-red-700">{resumenKpi.conteoBajoPago}</h3>
           </div>
-
           <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm">
-            <p className="text-xs font-bold text-amber-600 uppercase">Pagos en Exceso</p>
+            <p className="text-xs font-bold text-amber-600 uppercase">🟠 Pagos en Exceso</p>
             <h3 className="text-2xl font-extrabold text-amber-700">{resumenKpi.conteoExcesos}</h3>
           </div>
-          <div className="bg-white p-5 rounded-xl border border-red-200 shadow-sm">
-            <p className="text-xs font-bold text-red-600 uppercase">Bajo Pago (UGPP)</p>
-            <h3 className="text-2xl font-extrabold text-red-700">{resumenKpi.conteoBajoPago}</h3>
+          <div className="bg-white p-5 rounded-xl border border-purple-200 shadow-sm">
+            <p className="text-xs font-bold text-purple-600 uppercase">⚠️ Desalineación Subsistemas</p>
+            <h3 className="text-2xl font-extrabold text-purple-700">{resumenKpi.conteoDesalineados || 0}</h3>
           </div>
         </div>
       )}
+
       {/* Tabla de Resultados */}
       {hallazgos && (
         <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
@@ -417,11 +461,14 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
               <button onClick={() => setFiltroTipo('CONFORME')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'CONFORME' ? 'bg-emerald-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
                 🟢 Conformes ({resumenKpi?.conteoConformes})
               </button>
+              <button onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                🔴 Bajo Pago UGPP ({resumenKpi?.conteoBajoPago})
+              </button>
               <button onClick={() => setFiltroTipo('PAGO_EXCESO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
                 🟠 Excesos ({resumenKpi?.conteoExcesos})
               </button>
-              <button onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
-                🔴 Bajo Pago UGPP ({resumenKpi?.conteoBajoPago})
+              <button onClick={() => setFiltroTipo('DESALINEACION_SUBSISTEMAS')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? 'bg-purple-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                ⚠️ Desalineados ({resumenKpi?.conteoDesalineados || 0})
               </button>
             </div>
           </div>
@@ -460,8 +507,7 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
                 {hallazgosFiltrados.map((h) => {
                   const esConforme = h.tipoHallazgo === 'CONFORME';
                   const esBajoPago = h.tipoHallazgo === 'PAGO_INSUFICIENTE';
-                  // Identificar si hay brecha evidente entre lo que dice el motor y lo que hizo la nómina
-                  const brechaIBC = tipoAuditoriaActiva === 'UGPP' && Math.abs(h.salarioBase - (h.ibcImplicito || 0)) > 1000;
+                  const brechaIBC = tipoAuditoriaActiva === 'UGPP' && Math.abs(h.salarioBase - (h.ibcImplicito || 0)) > pasoRedondeo;
 
                   return (
                     <tr key={h.id} className="hover:bg-slate-50 transition">
@@ -482,17 +528,16 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
                         {Number(h.diasTrabajados).toFixed(2).replace(/\.00$/, '')}
                       </td>
                       
-                      {/* Celdas dinámicas según el tipo de auditoría */}
                       <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
                       
                       {tipoAuditoriaActiva !== 'TRANSPORTE' && (
-                      <td 
-  onClick={() => setEmpleadoDiagonal(h)}
-  className={`px-4 py-3 text-right font-mono font-bold cursor-pointer hover:bg-indigo-100 transition-colors ${brechaIBC ? 'text-indigo-700 bg-indigo-50 border-x border-indigo-100' : 'text-slate-600'}`}
-  title="Hacer clic para abrir Diagnóstico Forense de IBC"
->
-  ${(h.ibcImplicito || 0).toLocaleString('es-CO')} 🔍
-</td> 
+                        <td 
+                          onClick={() => setEmpleadoDiagonal(h)}
+                          className={`px-4 py-3 text-right font-mono font-bold cursor-pointer hover:bg-indigo-100 transition-colors ${brechaIBC ? 'text-indigo-700 bg-indigo-50 border-x border-indigo-100' : 'text-slate-600'}`}
+                          title="Hacer clic para abrir Diagnóstico Forense Informativo"
+                        >
+                          ${(h.ibcImplicito || 0).toLocaleString('es-CO')} 🔍
+                        </td> 
                       )}
                       
                       <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')}</td>
@@ -519,12 +564,7 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
                             🟠 PAGO EN EXCESO
                           </span>
                         )}
-                        {h.tipoHallazgo === 'NO_APLICA' && (
-                          <span className="px-2.5 py-1 text-[10px] font-semibold bg-slate-100 text-slate-600 rounded-full border border-slate-300">
-                            ⚪ NO APLICA (&gt;2 SMLMV)
-                          </span>
-                        )}
-{h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' && (
+                        {h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' && (
                           <span className="px-2.5 py-1 text-[10px] font-extrabold bg-purple-100 text-purple-800 rounded-full border border-purple-300">
                             ⚠️ DESALINEACIÓN SALUD/PENSIÓN
                           </span>
@@ -539,14 +579,14 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
         </div>
       )}
 
-{/* 🔍 MODAL MODO DIAGNÓSTICO FORENSE */}
+      {/* 🔍 MODAL MODO DIAGNÓSTICO FORENSE (INFORMACIÓN NIVEL 2 ENRIQUECIDO CON CAUSALES) */}
       {empleadoDiagonal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden">
             <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
               <div>
-                <h3 className="text-lg font-bold">🔍 Diagnóstico Forense de IBC</h3>
-                <p className="text-xs text-slate-400">{empleadoDiagonal.nombre} — Cédula: {empleadoDiagonal.cedula}</p>
+                <h3 className="text-lg font-bold">🔍 Diagnóstico Forense de IBC (Informativo)</h3>
+                <p className="text-xs text-slate-400">{empleadoDiagonal.nombre} — Cédula: {empleadoDiagonal.cedula} | Período: {empleadoDiagonal.periodo}</p>
               </div>
               <button 
                 onClick={() => setEmpleadoDiagonal(null)}
@@ -556,24 +596,37 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
               </button>
             </div>
 
-            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
+            <div className="p-6 max-h-[75vh] overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">IBC Motor (Calculado)</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">IBC Motor (Base Real Quincenal)</span>
                   <p className="text-xl font-extrabold text-blue-900">${empleadoDiagonal.salarioBase.toLocaleString('es-CO')}</p>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-indigo-600 uppercase">IBC Implícito (Nómina ERP)</span>
+                  <span className="text-[10px] font-bold text-indigo-600 uppercase">IBC Implícito (Registrado ERP)</span>
                   <p className="text-xl font-extrabold text-indigo-900">${(empleadoDiagonal.ibcImplicito || 0).toLocaleString('es-CO')}</p>
                 </div>
               </div>
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900 text-xs font-semibold flex justify-between items-center">
-                <span>⚠️ Brecha sin reconciliar:</span>
+                <span>⚠️ Brecha de bases sin afectar estado normativo:</span>
                 <span className="font-mono text-sm font-bold">${Math.abs(empleadoDiagonal.salarioBase - (empleadoDiagonal.ibcImplicito || 0)).toLocaleString('es-CO')}</span>
               </div>
 
-              <h4 className="text-xs font-bold text-slate-700 uppercase mt-4">Desglose de Conceptos del Empleado:</h4>
+              {/* 🤖 SECCIÓN DE RECONCILIACIÓN INFORMATIVA DE CAUSALES */}
+              <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4">
+                <h4 className="text-xs font-bold text-indigo-900 uppercase mb-2">📌 Posibles Causales de la Brecha ERP vs. Motor:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {obtenerAnalisisCausalesModal(empleadoDiagonal).map((c, i) => (
+                    <div key={i} className="bg-white p-2.5 rounded border border-indigo-100 text-xs shadow-sm">
+                      <p className="font-bold text-slate-800">{c.titulo}</p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{c.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <h4 className="text-xs font-bold text-slate-700 uppercase mt-4">Desglose de Transacciones (Período {empleadoDiagonal.periodo}):</h4>
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-100 text-slate-700 uppercase font-bold">
@@ -613,8 +666,8 @@ const esConceptoConstitutivoAuto = (nombreConcepto) => {
           </div>
         </div>
       )}
-
-</div>
+    </div>
   );
 };
+
 export default ConceptMapper;
