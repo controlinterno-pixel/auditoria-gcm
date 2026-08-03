@@ -57,6 +57,12 @@ const buscarColumna = (fila, aliasPosibles) => {
   return undefined;
 };
 
+// Helper para redondear IBC a miles (Estándar PILA/Nómina)
+const redondearIBC = (valor) => {
+  if (!valor || valor <= 0) return 0;
+  return Math.round(valor / 1000) * 1000;
+};
+
 // Agregamos 'anoAuditoria' como parámetro (por defecto 2026)
 export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}, anoAuditoria = 2026) {
   
@@ -93,9 +99,9 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     return true;
   });
 
-  const empleadosPivoteados = {};
+const empleadosPivoteados = {};
 
-  transaccionesExcel.forEach(fila => {
+  transaccionesLimpias.forEach(fila => {
     // Búsqueda defensiva absoluta (Soporte Helisa, Novasoft, SAP, etc.)
     const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
@@ -266,10 +272,27 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
   const conceptosPension = (mapeoConceptos?.pension || []).map(normalizarTexto);
   const conceptosAusentismos = (mapeoConceptos?.ausentismos || []).map(normalizarTexto);
 
+  // 1. DESDUPLICACIÓN ESTRICTA DE TRANSACCIONES
+  const registrosVistos = new Set();
+  const transaccionesLimpias = transaccionesExcel.filter(fila => {
+    const cedula = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+    const periodo = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
+    const concepto = buscarColumna(fila, ['Codconcepto', 'NombreConcepto', 'Concepto']);
+    const cantidad = buscarColumna(fila, ['Cantidad', 'Dias', 'Cant']);
+    const total = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Deduccion']);
+    
+    if (!cedula) return false;
+    const huella = `${cedula.toString().trim()}_${periodo ? periodo.toString().trim() : ''}_${normalizarTexto(concepto)}_${cantidad}_${total}`;
+
+    if (registrosVistos.has(huella)) return false;
+    registrosVistos.add(huella);
+    return true;
+  });
+
   const empleadosPivoteados = {};
 
-  // FASE 1: LECTURA Y CONSOLIDACIÓN MULTI-EMPRESA
-  transaccionesExcel.forEach(fila => {
+  // 2. FASE ETL Y PIVOT
+  transaccionesLimpias.forEach(fila => {
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
     const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
@@ -282,7 +305,6 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
     const periodo = periodoRaw ? periodoRaw.toString().trim() : 'GENERAL';
     const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
     
-    // Llave agrupada por Cédula + Periodo (No por empresa, para consolidar Fam+RecreFam)
     const llaveUnica = `${cedula}_${periodo}`;
     const conceptoLimpio = normalizarTexto(conceptoRaw);
     const valorTotal = parsearMonto(valorRaw);
@@ -302,14 +324,12 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
         descuentoPensionReal: 0,
       };
     } else {
-      // Consolidación de grupo: Añadir empresa al Set y actualizar nombre visual
       empleadosPivoteados[llaveUnica].empresasGrupo.add(empresa);
       empleadosPivoteados[llaveUnica].empresa = Array.from(empleadosPivoteados[llaveUnica].empresasGrupo).join(' + ');
     }
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Distribución a las bolsas exactas
     if (conceptosSalario.includes(conceptoLimpio)) {
       emp.totalConstitutivoIBC += valorTotal;
     } else if (conceptosNoSalariales.includes(conceptoLimpio)) {
@@ -323,37 +343,35 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
     }
   });
 
-  // FASE 2: CÁLCULO MATEMÁTICO UGPP Y LEY 1393
+  // 3. CÁLCULO UGPP CON REDONDEO DE NÓMINA Y TOLERANCIA DE $500 COP
   const hallazgos = [];
   let conteoConformes = 0;
   let conteoRiesgo = 0; 
   let conteoExcesos = 0; 
-  const margenTolerancia = 100; // Tolerancia por redondeos
+  const margenTolerancia = 500; // Absorbe diferencias pequeñas por redondeos de nómina
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
-    // El Total Devengado incluye TODO (Salarial + No Salarial + Ausentismos pagados)
     const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismos;
     
-    // El IBC Base arranca con lo salarial y los ausentismos
-    let ibcFinal = emp.totalConstitutivoIBC + emp.valorAusentismos;
+    let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismos;
     
-    // Aplicación estricta del Art 30 Ley 1393 de 2010 (Tope del 40%)
+    // Ley 1393 (Tope 40%)
     const limite40 = totalDevengado * 0.40;
     if (emp.totalNoConstitutivo > limite40) {
-      const excesoLey1393 = emp.totalNoConstitutivo - limite40;
-      ibcFinal += excesoLey1393;
+      ibcBruto += (emp.totalNoConstitutivo - limite40);
     }
 
-    const deberSerSalud = Math.round(ibcFinal * 0.04);
-    const deberSerPension = Math.round(ibcFinal * 0.04);
+    // 🌟 Redondeo estándar a miles de la base IBC
+    const ibcLiquidacion = redondearIBC(ibcBruto);
+
+    const deberSerSalud = Math.round(ibcLiquidacion * 0.04);
+    const deberSerPension = Math.round(ibcLiquidacion * 0.04);
 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
     const difPension = deberSerPension - emp.descuentoPensionReal;
 
-    // 🌟 INGENIERÍA INVERSA: CÁLCULO DEL IBC IMPLÍCITO (Descuento Real / 4%)
-    // Si hubo descuento, reconstruimos la base. Si no, es 0.
     const ibcImplicito = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
 
     let tipoHallazgo = 'CONFORME';
@@ -381,8 +399,8 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
       nombre: emp.nombre,
       cargo: 'N/A', 
       diasTrabajados: 15,
-      salarioBase: ibcFinal, 
-      ibcImplicito, // 👈 ¡Inyectamos nuestra nueva variable aquí!
+      salarioBase: ibcLiquidacion,
+      ibcImplicito,
       totalDevengadoSalarial: totalDevengado,
       auxilioDeberSer: deberSerSalud, 
       auxilioPagado: emp.descuentoSaludReal, 
