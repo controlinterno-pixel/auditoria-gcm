@@ -339,10 +339,21 @@ const ConceptMapper = () => {
                   <th className="px-4 py-3">Empleado</th>
                   <th className="px-4 py-3">Cargo</th>
                   <th className="px-4 py-3 text-center">Días</th>
-                  <th className="px-4 py-3 text-right">Sueldo Básico</th>
-                  <th className="px-4 py-3 text-right">Devengado Salarial</th>
-                  <th className="px-4 py-3 text-right">Aux. Deber Ser</th>
-                  <th className="px-4 py-3 text-right">Aux. Pagado</th>
+                  {tipoAuditoriaActiva === 'TRANSPORTE' ? (
+                    <>
+                      <th className="px-4 py-3 text-right">Sueldo Básico</th>
+                      <th className="px-4 py-3 text-right">Devengado Salarial</th>
+                      <th className="px-4 py-3 text-right">Aux. Deber Ser</th>
+                      <th className="px-4 py-3 text-right">Aux. Pagado</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-4 py-3 text-right">IBC Total Calculado</th>
+                      <th className="px-4 py-3 text-right">Total Devengado</th>
+                      <th className="px-4 py-3 text-right">Salud Deber Ser (4%)</th>
+                      <th className="px-4 py-3 text-right">Salud Descontada</th>
+                    </>
+                  )}
                   <th className="px-4 py-3 text-right">Diferencia</th>
                   <th className="px-4 py-3 text-center">Estado</th>
                 </tr>
