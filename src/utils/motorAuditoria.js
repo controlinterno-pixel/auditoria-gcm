@@ -237,7 +237,6 @@ const empleadosPivoteados = {};
     }
   };
 }
-
 // ==========================================
 // MÓDULO 2: AUDITORÍA SEGURIDAD SOCIAL (UGPP) v5.0 (NIVEL 1 NORMATIVO)
 // ==========================================
@@ -272,6 +271,9 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
   transaccionesLimpias.forEach(fila => {
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
+    const anoMesRaw = buscarColumna(fila, ['AñoMes', 'AnoMes', 'PERIODO_MES', 'FECHA']);
+    const anoRaw = buscarColumna(fila, ['Ano', 'AÑO', 'YEAR']);
+    
     const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
     const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago', 'Deduccion']);
     const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
@@ -280,10 +282,28 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     if (!cedulaRaw) return;
 
     const cedula = cedulaRaw.toString().trim();
-    const periodo = periodoRaw ? periodoRaw.toString().trim() : '228';
-    const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
+    const periodoCons = periodoRaw ? periodoRaw.toString().trim() : '228';
     
-    const llaveUnica = `${cedula}_${periodo}`;
+    // 🗓️ NORMALIZADOR INTELIGENTE DE PERÍODO ISO (YYYY-MM)
+    let periodoNormalizadoISO = "";
+    if (anoMesRaw) {
+      // Maneja "2026/05", "2026-05", "202605"
+      const str = anoMesRaw.toString().replace('/', '-').trim();
+      if (str.includes('-')) {
+        const [a, m] = str.split('-');
+        periodoNormalizadoISO = `${a}-${m.padStart(2, '0')}`;
+      } else if (str.length === 6) {
+        periodoNormalizadoISO = `${str.substring(0, 4)}-${str.substring(4, 6)}`;
+      }
+    } 
+    
+    if (!periodoNormalizadoISO && anoRaw && periodoCons) {
+      // Fallback si solo hay Año e IDEN_Periodo
+      periodoNormalizadoISO = `${anoRaw}-05`; 
+    }
+
+    const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
+    const llaveUnica = `${cedula}_${periodoCons}`;
     const conceptoLimpio = normalizarTexto(conceptoRaw);
     const valorTotal = parsearMonto(valorRaw);
     const cantidad = parsearMonto(cantidadRaw);
@@ -292,7 +312,8 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       empleadosPivoteados[llaveUnica] = {
         llaveUnica,
         cedula,
-        periodo,
+        periodo: periodoCons,
+        periodoISO: periodoNormalizadoISO, // Guarda p. ej. "2026-05"
         nombre: buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']) || 'Sin Nombre',
         cargo: buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo',
         empresa,
@@ -313,7 +334,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Detectar si el periodo incluye liquidación de prestaciones
+    // Detectar si el período incluye liquidación de prestaciones
     if (conceptoLimpio.includes('CESANTIA') || conceptoLimpio.includes('PRIMA DE SERVICIO')) {
       emp.esLiquidacion = true;
     }
@@ -327,10 +348,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     ].some(kw => conceptoLimpio.includes(kw));
 
     const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIOS', 'SUSPENSION', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
-    
-    // Las vacaciones son excluidas del IBC SI es liquidación (Compensadas)
     const esVacacion = conceptoLimpio.includes('VACACION');
-
     const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
 
     // LÓGICA DE ASIGNACIÓN ESTRICTA
@@ -340,7 +358,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         emp.diasTrabajados += cantidad;
       }
     } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
-      // 🚩 SOLO sumamos las vacaciones al IBC si NO es una liquidación de contrato
       if (esVacacion && emp.esLiquidacion) {
         emp.totalNoConstitutivo += valorTotal; 
       } else {
@@ -366,7 +383,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
-    // Extracción dinámica de días laborados
     let diasEfectivos = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
     diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
 
@@ -374,34 +390,31 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
     // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
-    if (emp.valorAusentismosIBC > 0 && emp.periodo) {
-      const periodoStr = emp.periodo.toString();
-      if (periodoStr.includes('-')) {
-        const [anoStr, mesStr] = periodoStr.split('-');
-        let ano = parseInt(anoStr);
-        let mes = parseInt(mesStr) - 1;
-        if (mes === 0) {
-          mes = 12;
-          ano -= 1;
-        }
-        const periodoAnterior = `${ano}-${mes.toString().padStart(2, '0')}`;
-        
-        try {
-          const historicoMesAnterior = await cargarNominaHistorica(periodoAnterior, emp.empresa || 'Termales');
-          if (historicoMesAnterior && historicoMesAnterior.length > 0) {
-            const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
-            if (empHist && empHist.ibcImplicito > 0) {
-              const ibcDiarioAnterior = empHist.ibcImplicito / 30;
-              const diasAusentismo = 15 - emp.diasTrabajados; // Estimado quincenal
-              const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
-              
-              // Sustituimos el valor reportado por la base legal histórica
-              ibcBruto = (emp.totalConstitutivoIBC) + ajusteIBCVacaciones;
-            }
+    if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
+      const [anoStr, mesStr] = emp.periodoISO.split('-');
+      let ano = parseInt(anoStr);
+      let mes = parseInt(mesStr) - 1;
+      if (mes === 0) {
+        mes = 12;
+        ano -= 1;
+      }
+      const periodoAnterior = `${ano}-${mes.toString().padStart(2, '0')}`;
+      
+      try {
+        const historicoMesAnterior = await cargarNominaHistorica(periodoAnterior, emp.empresa || 'Termales');
+        if (historicoMesAnterior && historicoMesAnterior.length > 0) {
+          const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
+          if (empHist && empHist.ibcImplicito > 0) {
+            const ibcDiarioAnterior = empHist.ibcImplicito / 30;
+            const diasAusentismo = 15 - emp.diasTrabajados;
+            const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
+            
+            // Sustituimos el valor reportado por la base legal histórica
+            ibcBruto = (emp.totalConstitutivoIBC) + ajusteIBCVacaciones;
           }
-        } catch (err) {
-          console.warn("No se pudo cargar el histórico para " + emp.cedula, err);
         }
+      } catch (err) {
+        console.warn("No se pudo cargar el histórico para " + emp.cedula, err);
       }
     }
     
@@ -413,21 +426,18 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     // Redondeo al paso configurado
     const ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
-    // Deber ser normativo del 4%
     const deberSerSalud = Math.round(ibcLiquidacion * 0.04);
     const deberSerPension = Math.round(ibcLiquidacion * 0.04);
 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
     const difPension = deberSerPension - emp.descuentoPensionReal;
 
-    // IBC Implícito (Nivel 2: Solamente para diagnóstico informativo en Modal)
     const ibcImplicitoSalud = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
     const ibcImplicitoPension = emp.descuentoPensionReal > 0 ? Math.round(emp.descuentoPensionReal / 0.04) : 0;
     
     const desalineacionBases = (emp.descuentoSaludReal > 0 && emp.descuentoPensionReal > 0) &&
                                 Math.abs(ibcImplicitoSalud - ibcImplicitoPension) > pasoRedondeo;
 
-    // NIVEL 1: AUDITORÍA NORMATIVA DE AUDIT 
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
@@ -457,12 +467,12 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       nombre: emp.nombre,
       cargo: emp.cargo, 
       diasTrabajados: diasEfectivos,
-      salarioBase: ibcLiquidacion, // IBC Motor
+      salarioBase: ibcLiquidacion,
       ibcImplicito: ibcImplicitoSalud || ibcImplicitoPension,
       ibcImplicitoPension,
       totalDevengadoSalarial: totalDevengado,
-      auxilioDeberSer: deberSerSalud, // Deber Ser Salud 4%
-      auxilioPagado: emp.descuentoSaludReal, // Descuento Real Salud
+      auxilioDeberSer: deberSerSalud,
+      auxilioPagado: emp.descuentoSaludReal,
       diferenciaExacta: difSalud,
       tipoHallazgo,
       severidad
@@ -481,4 +491,4 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     }
   };
 }
- 
+
