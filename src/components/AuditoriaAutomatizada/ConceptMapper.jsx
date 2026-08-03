@@ -198,12 +198,20 @@ const ConceptMapper = () => {
     setResumenKpi(resultadoEngine.kpis);
   };
 
-  const handleStartAuditUGPP = () => {
+const handleStartAuditUGPP = async () => {
     if (!datosExcel || datosExcel.length === 0) return;
-    const resultadoEngine = auditarSeguridadSocial(datosExcel, mapping, { pasoRedondeo });
-    setTipoAuditoriaActiva('UGPP');
-    setHallazgos(resultadoEngine.hallazgos);
-    setResumenKpi(resultadoEngine.kpis);
+    setIsUploading(true);
+    try {
+      const resultadoEngine = await auditarSeguridadSocial(datosExcel, mapping, { pasoRedondeo });
+      setTipoAuditoriaActiva('UGPP');
+      setHallazgos(resultadoEngine.hallazgos);
+      setResumenKpi(resultadoEngine.kpis);
+    } catch (error) {
+      console.error("Error al ejecutar auditoría UGPP:", error);
+      alert("❌ Ocurrió un error consultando el histórico de seguridad social.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
@@ -502,11 +510,12 @@ const ConceptMapper = () => {
           ) : (
             <button 
               onClick={handleStartAuditUGPP}
-              className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto"
+              disabled={isUploading}
+              className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
-              🛡️ Ejecutar Auditoría UGPP
+              {isUploading ? '⏳ Consultando Histórico y Auditando...' : '🛡️ Ejecutar Auditoría UGPP'}
             </button>
-        )}
+          )}
         </div>
       </div>
       )}

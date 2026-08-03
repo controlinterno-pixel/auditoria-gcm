@@ -2,6 +2,7 @@
  * MOTOR DE AUDITORÍA ENTERPRISE - GCM AUDITOR v5.0
  * Cumplimiento Normativo UGPP / Art. 127 CST (Auxilio de Transporte & Seguridad Social)
  */
+import { cargarNominaHistorica } from '../services/historicoService';
 
 const HISTORICO_LEGAL = {
   2024: { smlmv: 1300000, auxTransporte: 162000 },
@@ -240,7 +241,7 @@ const empleadosPivoteados = {};
 // ==========================================
 // MÓDULO 2: AUDITORÍA SEGURIDAD SOCIAL (UGPP) v5.0 (NIVEL 1 NORMATIVO)
 // ==========================================
-export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, config = {}) {
+export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, config = {}) {
   const pasoRedondeo = config.pasoRedondeo || 500;
   const margenTolerancia = pasoRedondeo; 
 
@@ -371,6 +372,38 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, 
 
     const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
     let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
+
+    // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
+    if (emp.valorAusentismosIBC > 0 && emp.periodo) {
+      const periodoStr = emp.periodo.toString();
+      if (periodoStr.includes('-')) {
+        const [anoStr, mesStr] = periodoStr.split('-');
+        let ano = parseInt(anoStr);
+        let mes = parseInt(mesStr) - 1;
+        if (mes === 0) {
+          mes = 12;
+          ano -= 1;
+        }
+        const periodoAnterior = `${ano}-${mes.toString().padStart(2, '0')}`;
+        
+        try {
+          const historicoMesAnterior = await cargarNominaHistorica(periodoAnterior, emp.empresa || 'Termales');
+          if (historicoMesAnterior && historicoMesAnterior.length > 0) {
+            const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
+            if (empHist && empHist.ibcImplicito > 0) {
+              const ibcDiarioAnterior = empHist.ibcImplicito / 30;
+              const diasAusentismo = 15 - emp.diasTrabajados; // Estimado quincenal
+              const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
+              
+              // Sustituimos el valor reportado por la base legal histórica
+              ibcBruto = (emp.totalConstitutivoIBC) + ajusteIBCVacaciones;
+            }
+          }
+        } catch (err) {
+          console.warn("No se pudo cargar el histórico para " + emp.cedula, err);
+        }
+      }
+    }
     
     // Ley 1393 (Tope 40%)
     const limite40 = totalDevengado * 0.40;
@@ -380,7 +413,6 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, 
 
     // Redondeo al paso configurado
     const ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
-
     // Deber ser normativo del 4%
     const deberSerSalud = Math.round(ibcLiquidacion * 0.04);
     const deberSerPension = Math.round(ibcLiquidacion * 0.04);
