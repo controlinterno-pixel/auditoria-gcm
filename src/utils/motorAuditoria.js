@@ -257,28 +257,33 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   };
 }
 // ==========================================
-// NUEVO MÓDULO: AUDITORÍA SEGURIDAD SOCIAL (UGPP)
+// NUEVO MÓDULO: AUDITORÍA SEGURIDAD SOCIAL (UGPP) - BIG FOUR STANDARD
 // ==========================================
 export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) {
   const conceptosSalario = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
   const conceptosNoSalariales = (mapeoConceptos?.devengados_no_salariales || []).map(normalizarTexto);
   const conceptosSalud = (mapeoConceptos?.salud || []).map(normalizarTexto);
   const conceptosPension = (mapeoConceptos?.pension || []).map(normalizarTexto);
+  const conceptosAusentismos = (mapeoConceptos?.ausentismos || []).map(normalizarTexto);
 
   const empleadosPivoteados = {};
 
+  // FASE 1: LECTURA Y CONSOLIDACIÓN MULTI-EMPRESA
   transaccionesExcel.forEach(fila => {
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
     const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
-    const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago']);
+    const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago', 'Deduccion']);
+    const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
 
     if (!cedulaRaw) return;
 
     const cedula = cedulaRaw.toString().trim();
     const periodo = periodoRaw ? periodoRaw.toString().trim() : 'GENERAL';
-    const llaveUnica = `${cedula}_${periodo}`;
+    const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
     
+    // Llave agrupada por Cédula + Periodo (No por empresa, para consolidar Fam+RecreFam)
+    const llaveUnica = `${cedula}_${periodo}`;
     const conceptoLimpio = normalizarTexto(conceptoRaw);
     const valorTotal = parsearMonto(valorRaw);
 
@@ -288,53 +293,57 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}) 
         cedula,
         periodo,
         nombre: buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']) || 'Sin Nombre',
-        empresa: buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']) || 'GENERAL',
+        empresa: empresa,
+        empresasGrupo: new Set([empresa]),
         totalConstitutivoIBC: 0,
         totalNoConstitutivo: 0,
+        valorAusentismos: 0,
         descuentoSaludReal: 0,
         descuentoPensionReal: 0,
       };
+    } else {
+      // Consolidación de grupo: Añadir empresa al Set y actualizar nombre visual
+      empleadosPivoteados[llaveUnica].empresasGrupo.add(empresa);
+      empleadosPivoteados[llaveUnica].empresa = Array.from(empleadosPivoteados[llaveUnica].empresasGrupo).join(' + ');
     }
 
     const emp = empleadosPivoteados[llaveUnica];
 
+    // Distribución a las bolsas exactas
     if (conceptosSalario.includes(conceptoLimpio)) {
       emp.totalConstitutivoIBC += valorTotal;
     } else if (conceptosNoSalariales.includes(conceptoLimpio)) {
       emp.totalNoConstitutivo += valorTotal;
+    } else if (conceptosAusentismos.includes(conceptoLimpio)) {
+      emp.valorAusentismos += valorTotal;
     } else if (conceptosSalud.includes(conceptoLimpio)) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
     } else if (conceptosPension.includes(conceptoLimpio)) {
       emp.descuentoPensionReal += Math.abs(valorTotal);
     }
   });
-const hallazgos = [];
+
+  // FASE 2: CÁLCULO MATEMÁTICO UGPP Y LEY 1393
+  const hallazgos = [];
   let conteoConformes = 0;
   let conteoRiesgo = 0; 
   let conteoExcesos = 0; 
-  const margenTolerancia = 100; 
-  
-  const conceptosAusentismos = (mapeoConceptos?.ausentismos || []).map(normalizarTexto);
+  const margenTolerancia = 100; // Tolerancia por redondeos
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
-    let valorAusentismosUGPP = 0;
-    transaccionesExcel.forEach(f => {
-      const ced = buscarColumna(f, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
-      const per = buscarColumna(f, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']) || 'GENERAL';
-      const con = normalizarTexto(buscarColumna(f, ['NombreConcepto', 'Concepto']));
-      if (`${ced}_${per}` === emp.llaveUnica && conceptosAusentismos.includes(con)) {
-        valorAusentismosUGPP += parsearMonto(buscarColumna(f, ['TotalDevengado', 'ValorTotal', 'Total']));
-      }
-    });
-
-    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + valorAusentismosUGPP;
-    let ibcFinal = emp.totalConstitutivoIBC + valorAusentismosUGPP;
+    // El Total Devengado incluye TODO (Salarial + No Salarial + Ausentismos pagados)
+    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismos;
     
+    // El IBC Base arranca con lo salarial y los ausentismos
+    let ibcFinal = emp.totalConstitutivoIBC + emp.valorAusentismos;
+    
+    // Aplicación estricta del Art 30 Ley 1393 de 2010 (Tope del 40%)
     const limite40 = totalDevengado * 0.40;
     if (emp.totalNoConstitutivo > limite40) {
-      ibcFinal += (emp.totalNoConstitutivo - limite40);
+      const excesoLey1393 = emp.totalNoConstitutivo - limite40;
+      ibcFinal += excesoLey1393;
     }
 
     const deberSerSalud = Math.round(ibcFinal * 0.04);
@@ -389,4 +398,3 @@ const hallazgos = [];
     }
   };
 }
-  

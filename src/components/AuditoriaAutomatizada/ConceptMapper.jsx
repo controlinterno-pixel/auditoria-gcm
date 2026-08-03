@@ -18,6 +18,7 @@ const ConceptMapper = () => {
   const [filtroTipo, setFiltroTipo] = useState('TODOS');
   const [busqueda, setBusqueda] = useState('');
   const [tipoAuditoriaActiva, setTipoAuditoriaActiva] = useState(null);
+  const [pestanaActiva, setPestanaActiva] = useState('TRANSPORTE'); 
 
   const systemCategories = [
     { id: 'salario_base', label: 'Salariales y Constitutivos IBC', required: true },
@@ -72,8 +73,22 @@ const ConceptMapper = () => {
       );
     });
 
-  const autoSalud = conceptos.filter(c => c.includes('SALUD') && !c.includes('FONDO'));
-    const autoPension = conceptos.filter(c => c.includes('PENSION') || c.includes('PENSIONES'));
+    const autoSalud = conceptos.filter(c => 
+      c.includes('SALUD') && 
+      !c.includes('FONDO') &&
+      !c.includes('PATRONAL') &&
+      !c.includes('AJUSTE') &&
+      !c.includes('PROVISION') &&
+      !c.includes('EMPRESA')
+    );
+
+    const autoPension = conceptos.filter(c => 
+      (c.includes('PENSION') || c.includes('PENSIONES')) && 
+      !c.includes('FONDO') &&
+      !c.includes('VOLUNTARIA') &&
+      !c.includes('PATRONAL') &&
+      !c.includes('EMPRESA')
+    );
     const autoNoSalarial = conceptos.filter(c => c.includes('BONIFICACION NO PRESTACIONAL') || c.includes('VIATICOS'));
 
     setMapping({
@@ -212,64 +227,91 @@ const ConceptMapper = () => {
         )}
       </div>
 
-      {/* 2. Mapeo con Auto-Selección */}
+     {/* 2. Mapeo con Auto-Selección y Pestañas */}
       <div className={`bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-slate-700">🔗 2. Mapeo Automático de Conceptos</h3>
+          <h3 className="text-lg font-medium text-slate-700">🔗 2. Configuración de Auditoría</h3>
           {datosExcel && (
             <button 
               onClick={() => ejecutarAutoMapeoInteligente(conceptosExtraidosUI)}
               className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded border border-slate-300 transition"
             >
-              🔄 Re-aplicar Auto-Mapeo (Art. 127 CST)
+              🔄 Re-aplicar Auto-Mapeo Inteligente
             </button>
           )}
         </div>
 
-        {systemCategories.map((category) => (
-          <div key={category.id} className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-            <div className="flex justify-between items-center mb-3">
-              <h4 className="text-sm font-bold text-slate-800">{category.label}</h4>
-              <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                {(mapping[category.id] || []).length} seleccionados
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
-              {conceptosExtraidosUI.map((concept) => {
-                const isSelected = (mapping[category.id] || []).includes(concept);
-                return (
-                  <button
-                    key={concept}
-                    onClick={() => toggleConcept(category.id, concept)}
-                    className={`px-3 py-1 text-xs rounded border transition-all ${
-                      isSelected ? 'bg-blue-900 text-white border-blue-900 font-bold shadow-sm' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
-                    }`}
-                  >
-                    {isSelected ? '✓ ' : '+ '} {concept}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-
-        <div className="flex flex-col md:flex-row gap-4 mt-2">
+        {/* 🗂️ CONTROLES DE PESTAÑAS */}
+        <div className="flex gap-2 mb-6 border-b border-slate-200 pb-2">
           <button 
-            onClick={handleStartAudit}
-            className="px-6 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors cursor-pointer w-full md:w-auto flex-1"
+            onClick={() => setPestanaActiva('TRANSPORTE')}
+            className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'TRANSPORTE' ? 'bg-blue-900 text-white border-b-4 border-blue-500' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
           >
-            ⚡ Auditar Auxilio Transporte
+            ⚡ Motor Auxilio Transporte
           </button>
-          
           <button 
-            onClick={handleStartAuditUGPP}
-            className="px-6 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors cursor-pointer w-full md:w-auto flex-1"
+            onClick={() => setPestanaActiva('UGPP')}
+            className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'UGPP' ? 'bg-indigo-700 text-white border-b-4 border-indigo-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
           >
-            🛡️ Auditar Riesgo UGPP (4%)
+            🛡️ Motor Riesgo UGPP (4%)
           </button>
         </div>
+
+        {/* 🗃️ MAPEO DINÁMICO SEGÚN PESTAÑA */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {systemCategories
+            .filter(cat => 
+              pestanaActiva === 'TRANSPORTE' 
+                ? ['salario_base', 'aux_transporte', 'ausentismos'].includes(cat.id)
+                : ['salario_base', 'devengados_no_salariales', 'salud', 'pension', 'ausentismos'].includes(cat.id)
+            )
+            .map((category) => (
+            <div key={category.id} className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="text-sm font-bold text-slate-800">{category.label}</h4>
+                <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  {(mapping[category.id] || []).length} seleccionados
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
+                {conceptosExtraidosUI.map((concept) => {
+                  const isSelected = (mapping[category.id] || []).includes(concept);
+                  return (
+                    <button
+                      key={concept}
+                      onClick={() => toggleConcept(category.id, concept)}
+                      className={`px-3 py-1 text-xs rounded border transition-all ${
+                        isSelected ? 'bg-blue-900 text-white border-blue-900 font-bold shadow-sm' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      {isSelected ? '✓ ' : '+ '} {concept}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
 
+        {/* 🚀 BOTÓN DE AUDITORÍA DINÁMICO */}
+        <div className="mt-4 flex justify-end">
+          {pestanaActiva === 'TRANSPORTE' ? (
+            <button 
+              onClick={handleStartAudit}
+              className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors w-full md:w-auto"
+            >
+              ⚡ Ejecutar Auditoría de Transporte
+            </button>
+          ) : (
+            <button 
+              onClick={handleStartAuditUGPP}
+              className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto"
+            >
+              🛡️ Ejecutar Auditoría UGPP
+            </button>
+          )}
+        </div>
+      </div>
       {/* KPI Cards */}
       {resumenKpi && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
