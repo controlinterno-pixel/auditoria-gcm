@@ -243,15 +243,44 @@ const ConceptMapper = () => {
   // 🔍 MODAL DE DESGLOSE PIVOTEADO POR CÉDULA + PERÍODO
   const obtenerDesgloseEmpleado = (empleado) => {
     if (!datosExcel || !empleado) return [];
+    
+    // Función auxiliar idéntica a la del backend para extraer montos reales
+    const parsearMontoModal = (val) => {
+      if (!val) return 0;
+      if (typeof val === 'number') return isNaN(val) ? 0 : val;
+      let str = val.toString().trim().replace(/[^0-9.,-]/g, '');
+      if (!str) return 0;
+      if (str.includes('.') && str.includes(',')) {
+        str = str.lastIndexOf('.') < str.lastIndexOf(',') ? str.replace(/\./g, '').replace(',', '.') : str.replace(/,/g, '');
+      } else if (str.includes(',')) {
+        const parts = str.split(',');
+        str = parts.length === 2 && parts[1].length <= 2 ? `${parts[0]}.${parts[1]}` : parts.join('');
+      }
+      return parseFloat(str) || 0;
+    };
+
+    const buscarColumnaModal = (fila, aliasPosibles) => {
+      const llaves = Object.keys(fila);
+      for (const alias of aliasPosibles) {
+        const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
+        const llaveReal = llaves.find(k => k.toUpperCase().replace(/[\s_]/g, '') === aliasNorm);
+        if (llaveReal) return fila[llaveReal];
+      }
+      return undefined;
+    };
+
     const transaccionesEmp = datosExcel.filter(row => {
-      const cedulaRow = (row['Cedula'] || row['CEDULA'] || row['Documento'] || row['Identificacion'] || '').toString().trim();
-      const periodoRow = (row['IDEN_Periodo'] || row['Periodo'] || row['Mes'] || row['Quincena'] || '').toString().trim();
+      const cedulaRow = (buscarColumnaModal(row, ['Cedula', 'CEDULA', 'Documento', 'Identificacion']) || '').toString().trim();
+      const periodoRow = (buscarColumnaModal(row, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']) || '').toString().trim();
       return cedulaRow === empleado.cedula && (periodoRow === empleado.periodo || !empleado.periodo);
     });
 
     return transaccionesEmp.map(t => {
-      const concepto = normalizarTexto(t['NombreConcepto'] || t['CONCEPTO'] || t['DESCRIPCION'] || t['Nombre concepto']);
-      const valor = Number(t['Valor'] || t['VALOR'] || t['Valor concepto'] || t['Total'] || t['TotalDevengado'] || 0);
+      const conceptoRaw = buscarColumnaModal(t, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle', 'Nombre concepto']);
+      const concepto = normalizarTexto(conceptoRaw);
+      
+      const valorRaw = buscarColumnaModal(t, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago', 'Deduccion']);
+      const valor = parsearMontoModal(valorRaw);
       
       // Verificación robusta: Mira en salario base, en ausentismos, o usa el auto-analizador
       const esConstitutivo = 
@@ -262,7 +291,6 @@ const ConceptMapper = () => {
       return { concepto, valor, incluidoEnIBC: esConstitutivo };
     });
   };
-
   // 🤖 ANALIZADOR INFORMATIVO DE CAUSALES DE LA BRECHA IMPLÍCITA (NIVEL 2)
   const obtenerAnalisisCausalesModal = (empleado) => {
     if (!empleado) return [];

@@ -86,192 +86,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
   const empleadosPivoteados = {};
 
-  transaccionesLimpias.forEach(fila => {
-    const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
-    const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
-    const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
-    const nombreRaw = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']);
-    const cargoRaw = buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion', 'Puesto']);
-    const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
-    
-    const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago']);
-    const cantidadRaw = buscarColumna(fila, ['Cantidad', 'Dias', 'Cant', 'Horas', 'Tiempo']);
-
-    if (!cedulaRaw) return; 
-
-    const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
-    const cedula = cedulaRaw.toString().trim();
-    const periodo = periodoRaw ? periodoRaw.toString().trim() : '228';
-    
-    const llaveUnica = `${cedula}_${periodo}`;    
-    const conceptoLimpio = normalizarTexto(conceptoRaw);
-    const valorTotal = parsearMonto(valorRaw);
-    const cantidadDias = parsearMonto(cantidadRaw);
-
-    if (!empleadosPivoteados[llaveUnica]) {
-      empleadosPivoteados[llaveUnica] = {
-        llaveUnica,
-        empresa, 
-        cedula,
-        periodo,
-        nombre: nombreRaw ? nombreRaw.toString().trim() : 'Sin Nombre',
-        cargo: cargoRaw ? cargoRaw.toString().trim() : 'Sin Cargo',
-        sueldoBasico: 0,
-        otrosDevengadosSalariales: 0,
-        totalDevengadoSalarial: 0,
-        auxilioPagado: 0,
-        diasTrabajados: 0,
-        empresasGrupo: new Set([empresa])
-      };
-    } else {
-      empleadosPivoteados[llaveUnica].empresasGrupo.add(empresa);
-      empleadosPivoteados[llaveUnica].empresa = Array.from(empleadosPivoteados[llaveUnica].empresasGrupo).join(' + ');
-    }
-
-    const emp = empleadosPivoteados[llaveUnica];
-
-    if (conceptosSalario.includes(conceptoLimpio)) {
-      // FIX: Validación estricta para evitar que sume días de ausentismos o comisiones
-      const esSueldoEstricto = conceptoLimpio === 'SUELDO BASICO' || conceptoLimpio === 'BASICO' || conceptoLimpio === 'SUELDO' || conceptoLimpio === 'SALARIO';
-
-      if (esSueldoEstricto) {
-        emp.sueldoBasico += valorTotal;
-        emp.diasTrabajados += cantidadDias; 
-      } else {
-        emp.otrosDevengadosSalariales += valorTotal;
-      }
-      emp.totalDevengadoSalarial += valorTotal;
-    }
-
-    if (conceptosAuxilio.includes(conceptoLimpio)) {
-      emp.auxilioPagado += valorTotal;
-    }
-  });
-
-  const hallazgos = [];
-  let riesgoFinancieroTotal = 0;
-  let conteoConformes = 0;
-  let conteoBajoPago = 0;
-  let conteoExcesos = 0;
-  let conteoNoAplica = 0;
-
-  for (const llave in empleadosPivoteados) {
-    const emp = empleadosPivoteados[llave];
-    
-    // FIX: Lógica blindada de asignación de días
-    let diasEfectivos = emp.diasTrabajados;
-    if (diasEfectivos === 0) {
-      if (emp.sueldoBasico > 0) {
-        diasEfectivos = 15; // Asumir 15 si hay pago básico pero la columna días de Excel estaba vacía
-      } else {
-        diasEfectivos = 0;  // 0 días trabajados si no hay salario básico (Ej: Vacaciones todo el mes)
-      }
-    }
-    diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
-    
-    let salarioBaseProyectado = 0;
-    if (diasEfectivos > 0) {
-      salarioBaseProyectado = (emp.sueldoBasico / diasEfectivos) * 15;
-    }
-
-    const ingresoTotalEvaluado = salarioBaseProyectado + emp.otrosDevengadosSalariales;
-    const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && ingresoTotalEvaluado <= limiteSalarialQuincenal;
-
-    let auxilioDeberSer = 0;
-    if (tieneDerechoLegal) {
-      auxilioDeberSer = Math.round(valorDiarioAuxilio * diasEfectivos);
-    }
-
-    const diferenciaExacta = auxilioDeberSer - emp.auxilioPagado;
-    const diferenciaAbsoluta = Math.abs(diferenciaExacta);
-
-    let tipoHallazgo = 'CONFORME';
-    let severidad = 'CORRECTO';
-
-    if (!tieneDerechoLegal && emp.auxilioPagado === 0) {
-      tipoHallazgo = 'NO_APLICA';
-      severidad = 'EXCLUIDO_POR_TOPE';
-      conteoNoAplica++;
-    } else if (diferenciaAbsoluta > 100) {
-      riesgoFinancieroTotal += diferenciaAbsoluta;
-      if (diferenciaExacta > 0) {
-        tipoHallazgo = 'PAGO_INSUFICIENTE';
-        severidad = 'CRÍTICA (UGPP)';
-        conteoBajoPago++;
-      } else {
-        tipoHallazgo = 'PAGO_EXCESO';
-        severidad = 'MODERADA (Exceso)';
-        conteoExcesos++;
-      }
-    } else {
-      conteoConformes++;
-    }
-
-    hallazgos.push({
-      id: `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
-      empresa: emp.empresa,
-      cedula: emp.cedula,
-      periodo: emp.periodo,
-      nombre: emp.nombre,
-      cargo: emp.cargo,
-      diasTrabajados: diasEfectivos,
-      salarioBase: emp.sueldoBasico,
-      totalDevengadoSalarial: emp.totalDevengadoSalarial,
-      auxilioDeberSer,
-      auxilioPagado: emp.auxilioPagado,
-      diferenciaExacta,
-      diferenciaAbsoluta,
-      tipoHallazgo,
-      severidad
-    });
-  }
-
-  return {
-    hallazgos,
-    kpis: {
-      totalEmpleados: Object.keys(empleadosPivoteados).length,
-      totalHallazgos: conteoBajoPago + conteoExcesos,
-      conteoConformes,
-      conteoBajoPago,
-      conteoExcesos,
-      conteoNoAplica,
-      riesgoFinancieroTotal
-    }
-  };
-}
-
-// ==========================================
-// MÓDULO 2: AUDITORÍA SEGURIDAD SOCIAL (UGPP) v5.0 (NIVEL 1 NORMATIVO)
-// ==========================================
-export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, config = {}) {
-  const pasoRedondeo = config.pasoRedondeo || 500;
-  const margenTolerancia = pasoRedondeo; 
-
-  const conceptosConstitutivos = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
-  const conceptosNoSalariales = (mapeoConceptos?.devengados_no_salariales || []).map(normalizarTexto);
-  const conceptosSalud = (mapeoConceptos?.salud || []).map(normalizarTexto);
-  const conceptosPension = (mapeoConceptos?.pension || []).map(normalizarTexto);
-  const ausentismosIBC = (mapeoConceptos?.vacaciones_incapacidades || []).map(normalizarTexto);
-  const licenciasNoRemuneradas = (mapeoConceptos?.licencias_no_remuneradas || []).map(normalizarTexto);
-
-  const registrosVistos = new Set();
-  const transaccionesLimpias = transaccionesExcel.filter(fila => {
-    const cedula = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
-    const periodo = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
-    const concepto = buscarColumna(fila, ['Codconcepto', 'NombreConcepto', 'Concepto']);
-    const cantidad = buscarColumna(fila, ['Cantidad', 'Dias', 'Cant']);
-    const total = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Deduccion']);
-    
-    if (!cedula) return false;
-    const huella = `${cedula.toString().trim()}_${periodo ? periodo.toString().trim() : ''}_${normalizarTexto(concepto)}_${cantidad}_${total}`;
-    if (registrosVistos.has(huella)) return false;
-    registrosVistos.add(huella);
-    return true;
-  });
-
-  const empleadosPivoteados = {};
-
-  transaccionesLimpias.forEach(fila => {
+ transaccionesLimpias.forEach(fila => {
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
     const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
@@ -305,7 +120,8 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, 
         tieneLicenciaNoRemunerada: false,
         descuentoSaludReal: 0,
         descuentoPensionReal: 0,
-        diasTrabajados: 0
+        diasTrabajados: 0,
+        esLiquidacion: false // 🚩 Nueva bandera
       };
     } else {
       empleadosPivoteados[llaveUnica].empresasGrupo.add(empresa);
@@ -314,7 +130,12 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // ⚡ LEXICÓN DEFENSIVO DE BACKEND (Espejo del Frontend)
+    // Detectar si el periodo incluye liquidación de prestaciones
+    if (conceptoLimpio.includes('CESANTIA') || conceptoLimpio.includes('PRIMA DE SERVICIO')) {
+      emp.esLiquidacion = true;
+    }
+
+    // ⚡ LEXICÓN DEFENSIVO DE BACKEND
     const esConstitutivoLexicon = [
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
@@ -322,36 +143,36 @@ export function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, 
       'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA'
     ].some(kw => conceptoLimpio.includes(kw));
 
-    const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIOS', 'SUSPENSION', 'VACACIONES', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
+    const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIOS', 'SUSPENSION', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
+    
+    // Las vacaciones son excluidas del IBC SI es liquidación (Compensadas)
+    const esVacacion = conceptoLimpio.includes('VACACION');
 
     const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
 
     // LÓGICA DE ASIGNACIÓN ESTRICTA
-    if ((conceptosConstitutivos.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoIBC) {
+    if ((conceptosConstitutivos.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoIBC && !esVacacion) {
       emp.totalConstitutivoIBC += valorTotal;
-      
-      // SOLO suma días si es estrictamente el Sueldo Básico, para no sumar horas de los recargos
       if (['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].includes(conceptoLimpio)) {
         emp.diasTrabajados += cantidad;
       }
-
-    } else if (ausentismosIBC.includes(conceptoLimpio) || conceptoLimpio === 'VACACIONES' || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
-      emp.valorAusentismosIBC += valorTotal;
-
+    } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
+      // 🚩 SOLO sumamos las vacaciones al IBC si NO es una liquidación de contrato
+      if (esVacacion && emp.esLiquidacion) {
+        emp.totalNoConstitutivo += valorTotal; // Pasan a ser un pago no salarial exento
+      } else {
+        emp.valorAusentismosIBC += valorTotal;
+      }
     } else if (conceptosNoSalariales.includes(conceptoLimpio) || esNoSalarialLexicon) {
       emp.totalNoConstitutivo += valorTotal;
-
     } else if (licenciasNoRemuneradas.includes(conceptoLimpio) || conceptoLimpio.includes('NO REMUNERAD') || conceptoLimpio.includes('SUSPENSION')) {
       emp.tieneLicenciaNoRemunerada = true;
-
     } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio.includes('SALUD') && !conceptoLimpio.includes('FONDO') && !conceptoLimpio.includes('EMPRESA'))) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
-
     } else if (conceptosPension.includes(conceptoLimpio) || ((conceptoLimpio.includes('PENSION') || conceptoLimpio.includes('SOLIDARIDAD')) && !conceptoLimpio.includes('FONDO') && !conceptoLimpio.includes('EMPRESA'))) {
       emp.descuentoPensionReal += Math.abs(valorTotal);
     }
   });
-
   const hallazgos = [];
   let conteoConformes = 0;
   let conteoBajoPago = 0;
