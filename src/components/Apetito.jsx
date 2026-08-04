@@ -18,7 +18,7 @@ export default function Apetito({
   columnFilters,
   handleColFilterChange,
   FilterInput,
-  applyFilters
+  applyFilters,
   renderHeaderFiltros
 }) {
   const configurados = rFiltrados.filter(r => r.capacidadRiesgo).length;
