@@ -39,7 +39,7 @@ export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
       const genAI = new GoogleGenerativeAI(apiKeys[i]);
       
       // Usamos el modelo estable actual (gemini-1.5-flash)
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       
       // Intentamos generar el contenido
       const result = await model.generateContent(prompt);
