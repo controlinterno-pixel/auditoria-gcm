@@ -69,9 +69,11 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
 
-  // ⏳ ESTADOS LOCALES PARA FILTROS DE FECHA (Historial)
+  // ⏳ ESTADOS LOCALES PARA FILTROS DE HISTORIAL
   const [filtroAnio, setFiltroAnio] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
+  const [filtroProceso, setFiltroProceso] = useState('');
+  const [filtroSubproceso, setFiltroSubproceso] = useState('');
 
   // 🧠 LÓGICA DE ENRIQUECIMIENTO (Soporte Legacy para Proceso)
   const informesEnriquecidos = safeInformes.map(inf => ({
@@ -81,11 +83,17 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
 
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
   const informesFiltradosPorFecha = informesEnriquecidos.filter(inf => {
+    // 1. Filtrar por Proceso y Subproceso
+    if (filtroProceso && inf.procesoLimpio !== filtroProceso) return false;
+    if (filtroSubproceso && inf.subproceso !== filtroSubproceso) return false;
+    
+    // 2. Filtrar por Fecha
     if (!filtroAnio && !filtroMes) return true;
     if (!inf.fecha) return false;
     const [anio, mes] = inf.fecha.split('-'); 
     if (filtroAnio && anio !== filtroAnio) return false;
     if (filtroMes && mes !== filtroMes) return false;
+    
     return true;
   });
 
@@ -807,12 +815,26 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
       {vistaActiva === 'historial' && (
         <div className="space-y-6 animate-in slide-in-from-left-8 duration-500">
           <div className="bg-white p-4 rounded-2xl border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3">
+           <div className="flex flex-wrap items-center gap-3">
               <span className="text-slate-400 font-bold text-xs uppercase tracking-widest">Filtros:</span>
+              
+              {/* SELECTOR DE PROCESO */}
+              <select value={filtroProceso} onChange={(e) => { setFiltroProceso(e.target.value); setFiltroSubproceso(''); }} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer">
+                <option value="">🏛️ Todos los Procesos</option>
+                {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+
+              {/* SELECTOR DE SUBPROCESO EN CASCADA */}
+              <select value={filtroSubproceso} onChange={(e) => setFiltroSubproceso(e.target.value)} disabled={!filtroProceso} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer disabled:opacity-50 disabled:bg-slate-50 disabled:cursor-not-allowed max-w-[200px] truncate">
+                <option value="">🗂️ Todos los Subprocesos</option>
+                {filtroProceso && [...new Set(MAPA_PROCESOS[filtroProceso] || [])].sort().map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+
               <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer">
                 <option value="">📅 Todos los Años</option>
                 {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
               </select>
+              
               <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-2 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm cursor-pointer">
                 <option value="">📆 Todos los Meses</option>
                 <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
