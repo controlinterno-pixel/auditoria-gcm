@@ -1625,8 +1625,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                     calcularMatriz5x5={calcularMatriz5x5}
                     searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
                     FilterInput={FilterInput} applyFilters={applyFilters}
-                    /* 🔥 CAMBIO: Eliminamos la propiedad renderHeaderFiltros por completo para desaparecer la barra */
-                  />
+                   </div>
                 )}
 
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
