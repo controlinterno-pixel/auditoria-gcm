@@ -1570,74 +1570,77 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
             })()}
 
 {/* 1️⃣ FASE DE PLANIFICACIÓN */}
-            {activeTab === 'plan_anual_tab' && (
-              <div className="space-y-6">
-                <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
-                  <button onClick={() => setSubTabPlanificar('plan_anual')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'plan_anual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🗓️ Cronograma Anual</button>
-                  <button onClick={() => setSubTabPlanificar('riesgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'riesgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚠️ Matriz de Riesgos</button>
-                  <button onClick={() => setSubTabPlanificar('apetito')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'apetito' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚖️ Apetito de Riesgo</button>
-                </div>
-                {subTabPlanificar === 'plan_anual' && (
-                  <PlanAnual 
-                    isAdmin={isAdmin} cFiltrados={cFiltrados} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-                    columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}
-                    applyFilters={applyFilters} editCronograma={editCronograma} setEditCronograma={setEditCronograma}
-                    handleCronogramaSubmit={handleCronogramaSubmit} formResetKey={formResetKey} setFormResetKey={setFormResetKey}
-                    scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} safeMonitoreo={safeMonitoreo}
-                    editMonitoreo={editMonitoreo} setEditMonitoreo={setEditMonitoreo} handleMonitoreoSubmit={handleMonitoreoSubmit}
-                    selectedAnios={selectedAnios} renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
-                  />
-                )}
-{subTabPlanificar === 'riesgos' && (
-  <Riesgos 
-    isAdmin={isAdmin} 
-    editRiesgo={editRiesgo} 
-    setEditRiesgo={setEditRiesgo} 
-    handleRiesgoSubmit={handleRiesgoSubmit}
-    setFormResetKey={setFormResetKey} 
-    scrollToForm={scrollToForm} 
-    handleDeleteItem={handleDeleteItem}
-    applyFilters={applyFilters} 
-    FilterInput={FilterInput} 
-    rFiltrados={rFiltrados} 
-    calcularMatriz5x5={calcularMatriz5x5}
-    searchTerm={searchTerm} 
-    setSearchTerm={setSearchTerm} 
-    columnFilters={columnFilters} 
-    handleColFilterChange={handleColFilterChange}
-    exportToExcel={exportToExcel} 
-    safeRiesgos={safeRiesgos}
-    hallazgos={safeHallazgos}
-    planesDeAccion={safePlanes}
-    setRiesgos={setRiesgos} 
-    saveToCloud={saveToCloud} 
-    showNotification={showNotification}
-  />
-)}               
-  
-{subTabPlanificar === 'apetito' && (
-  <Apetito 
-    isAdmin={isAdmin} 
-    editApetito={editApetito} 
-    setEditApetito={setEditApetito} 
-    handleApetitoSubmit={handleApetitoSubmit}
-    activeTooltip={activeTooltip} 
-    setActiveTooltip={setActiveTooltip} 
-    setFormResetKey={setFormResetKey} 
-    formResetKey={formResetKey}
-    scrollToForm={scrollToForm} 
-    rFiltrados={safeRiesgos} 
-    incFiltrados={safeIncidentes} 
-    calcularMatriz5x5={calcularMatriz5x5}
-    searchTerm={searchTerm} 
-    setSearchTerm={setSearchTerm} 
-    columnFilters={columnFilters} 
-    handleColFilterChange={handleColFilterChange}
-    FilterInput={FilterInput} 
-    applyFilters={applyFilters}
-  />
-)}
+{activeTab === 'plan_anual_tab' && (
+  <div className="space-y-6">
+    <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
+      <button onClick={() => setSubTabPlanificar('plan_anual')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'plan_anual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🗓️ Cronograma Anual</button>
+      <button onClick={() => setSubTabPlanificar('riesgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'riesgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚠️ Matriz de Riesgos</button>
+      <button onClick={() => setSubTabPlanificar('apetito')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'apetito' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚖️ Apetito de Riesgo</button>
+    </div>
 
+    {subTabPlanificar === 'plan_anual' && (
+      <PlanAnual 
+        isAdmin={isAdmin} cFiltrados={cFiltrados} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+        columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}
+        applyFilters={applyFilters} editCronograma={editCronograma} setEditCronograma={setEditCronograma}
+        handleCronogramaSubmit={handleCronogramaSubmit} formResetKey={formResetKey} setFormResetKey={setFormResetKey}
+        scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} safeMonitoreo={safeMonitoreo}
+        editMonitoreo={editMonitoreo} setEditMonitoreo={setEditMonitoreo} handleMonitoreoSubmit={handleMonitoreoSubmit}
+        selectedAnios={selectedAnios} renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
+      />
+    )}
+
+    {subTabPlanificar === 'riesgos' && (
+      <Riesgos 
+        isAdmin={isAdmin} 
+        editRiesgo={editRiesgo} 
+        setEditRiesgo={setEditRiesgo} 
+        handleRiesgoSubmit={handleRiesgoSubmit}
+        setFormResetKey={setFormResetKey} 
+        scrollToForm={scrollToForm} 
+        handleDeleteItem={handleDeleteItem}
+        applyFilters={applyFilters} 
+        FilterInput={FilterInput} 
+        rFiltrados={rFiltrados} 
+        calcularMatriz5x5={calcularMatriz5x5}
+        searchTerm={searchTerm} 
+        setSearchTerm={setSearchTerm} 
+        columnFilters={columnFilters} 
+        handleColFilterChange={handleColFilterChange}
+        exportToExcel={exportToExcel} 
+        safeRiesgos={safeRiesgos}
+        hallazgos={safeHallazgos}
+        planesDeAccion={safePlanes}
+        setRiesgos={setRiesgos} 
+        saveToCloud={saveToCloud} 
+        showNotification={showNotification}
+      />
+    )}
+
+    {subTabPlanificar === 'apetito' && (
+      <Apetito 
+        isAdmin={isAdmin} 
+        editApetito={editApetito} 
+        setEditApetito={setEditApetito} 
+        handleApetitoSubmit={handleApetitoSubmit}
+        activeTooltip={activeTooltip} 
+        setActiveTooltip={setActiveTooltip} 
+        setFormResetKey={setFormResetKey} 
+        formResetKey={formResetKey}
+        scrollToForm={scrollToForm} 
+        rFiltrados={safeRiesgos} 
+        incFiltrados={safeIncidentes} 
+        calcularMatriz5x5={calcularMatriz5x5}
+        searchTerm={searchTerm} 
+        setSearchTerm={setSearchTerm} 
+        columnFilters={columnFilters} 
+        handleColFilterChange={handleColFilterChange}
+        FilterInput={FilterInput} 
+        applyFilters={applyFilters}
+      />
+    )}
+  </div>
+)}
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
 {activeTab === 'evaluaciones' && (
   <Evaluaciones 
