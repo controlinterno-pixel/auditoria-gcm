@@ -1410,24 +1410,30 @@ if (showWelcome) {
             <span className="px-3 text-[9px] font-black uppercase text-slate-500 tracking-wider block mb-2">Proceso de Auditoría</span>
             <div className="space-y-1">
               
-              <button onClick={() => { setActiveTab('plan_anual_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'plan_anual_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+       {/* 1. Planificación - Fuerza la vista a Riesgos si no es admin para evitar pantalla vacía */}
+              <button onClick={() => { setActiveTab('plan_anual_tab'); if (!isAdmin && subTabPlanificar === 'plan_anual') setSubTabPlanificar('riesgos'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'plan_anual_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
                 <div className="flex items-center space-x-2">
                   <span>1️⃣</span> <span>Planificación</span>
                 </div>
               </button>
 
-              <button onClick={() => { setActiveTab('evaluaciones'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'evaluaciones' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <div className="flex items-center space-x-2">
-                  <span>2️⃣</span> <span>Trabajo de Campo</span>
-                </div>
-              </button>
+              {/* 2. Trabajo de Campo - Solo Admin */}
+              {isAdmin && (
+                <button onClick={() => { setActiveTab('evaluaciones'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'evaluaciones' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                  <div className="flex items-center space-x-2">
+                    <span>2️⃣</span> <span>Trabajo de Campo</span>
+                  </div>
+                </button>
+              )}
 
+              {/* 3. Resultados & Brechas - Público */}
               <button onClick={() => { setActiveTab('resultados_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'resultados_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
                 <div className="flex items-center space-x-2">
                   <span>3️⃣</span> <span>Resultados & Brechas</span>
                 </div>
               </button>
 
+              {/* 4. Planes de Acción - Público */}
               <button onClick={() => { setActiveTab('planes_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'planes_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
                 <div className="flex items-center space-x-2">
                   <span>4️⃣</span> <span>Planes de Acción</span>
@@ -1437,11 +1443,14 @@ if (showWelcome) {
                 )}
               </button>
 
-              <button onClick={() => { setActiveTab('gobernanza_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'gobernanza_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
-                <div className="flex items-center space-x-2">
-                  <span>5️⃣</span> <span>Gobernanza y Cierre</span>
-                </div>
-              </button>
+              {/* 5. Gobernanza y Cierre - Solo Admin */}
+              {isAdmin && (
+                <button onClick={() => { setActiveTab('gobernanza_tab'); }} className={`w-full text-left px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors ${activeTab === 'gobernanza_tab' ? 'bg-[#004d40] text-white font-bold shadow-md' : 'text-slate-400 hover:bg-slate-800'}`}>
+                  <div className="flex items-center space-x-2">
+                    <span>5️⃣</span> <span>Gobernanza y Cierre</span>
+                  </div>
+                </button>
+              )}       
 
             </div>
           </div>
@@ -1570,16 +1579,20 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
             })()}
 
 {/* 1️⃣ FASE DE PLANIFICACIÓN */}
-{activeTab === 'plan_anual_tab' && (
-  <div className="space-y-6">
-    <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
-      <button onClick={() => setSubTabPlanificar('plan_anual')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'plan_anual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🗓️ Cronograma Anual</button>
-      <button onClick={() => setSubTabPlanificar('riesgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'riesgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚠️ Matriz de Riesgos</button>
-      <button onClick={() => setSubTabPlanificar('apetito')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'apetito' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚖️ Apetito de Riesgo</button>
-    </div>
+ {activeTab === 'plan_anual_tab' && (
+      <div className="space-y-6">
+        <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
+          {/* Ocultamos el botón del cronograma si no es Admin */}
+          {isAdmin && (
+            <button onClick={() => setSubTabPlanificar('plan_anual')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'plan_anual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🗓️ Cronograma Anual</button>
+          )}
+          <button onClick={() => setSubTabPlanificar('riesgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'riesgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚠️ Matriz de Riesgos</button>
+          <button onClick={() => setSubTabPlanificar('apetito')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'apetito' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚖️ Apetito de Riesgo</button>
+        </div>
 
-    {subTabPlanificar === 'plan_anual' && (
-      <PlanAnual 
+        {/* Protegemos el renderizado del componente PlanAnual */}
+        {isAdmin && subTabPlanificar === 'plan_anual' && (
+          <PlanAnual
         isAdmin={isAdmin} cFiltrados={cFiltrados} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
         columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} FilterInput={FilterInput}
         applyFilters={applyFilters} editCronograma={editCronograma} setEditCronograma={setEditCronograma}
@@ -1642,9 +1655,9 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
   </div>
 )}
 
-            {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
-{activeTab === 'evaluaciones' && (
-  <Evaluaciones 
+ {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
+            {isAdmin && activeTab === 'evaluaciones' && (
+              <Evaluaciones
     isAdmin={isAdmin} editEvaluacion={editEvaluacion} setEditEvaluacion={setEditEvaluacion}
     handleEvaluacionSubmit={handleEvaluacionSubmit}
     safeRiesgos={safeRiesgos} user={user} analizarEvidenciaIA={analizarEvidenciaIA} safeEvaluaciones={safeEvaluaciones}
@@ -1752,8 +1765,8 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
               </div>
             )}
 
-            {/* 5️⃣ FASE DE GOBERNANZA, COMITÉS Y CIERRE */}
-            {activeTab === 'gobernanza_tab' && (
+           {/* 5️⃣ FASE DE GOBERNANZA, COMITÉS Y CIERRE */}
+            {isAdmin && activeTab === 'gobernanza_tab' && (
               <div className="space-y-6">
                 <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
                   <button onClick={() => setSubTabGobernanza('comites')} className={`px-4 py-2 rounded-xl transition-all ${subTabGobernanza === 'comites' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>👥 Sesiones de Comité</button>
