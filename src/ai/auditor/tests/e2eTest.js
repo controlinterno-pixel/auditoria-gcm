@@ -1,9 +1,9 @@
-/**
+﻿/**
  * @file e2eTest.js
- * @description Prueba End-to-End (E2E) para validar el flujo completo del AuditEngine con RiskSpecialist.
+ * @description Prueba End-to-End (E2E) para validar el flujo completo del AuditorEngine con RiskSpecialist.
  */
 
-import { AuditEngine } from '../core/AuditEngine.js';
+import { AuditorEngine } from "../core/AuditorEngine.js";
 
 async function runE2ETest() {
   console.log("🚀 Iniciando prueba End-to-End (E2E) del Motor IA GRC...\n");
@@ -18,14 +18,14 @@ async function runE2ETest() {
   try {
     console.log(`💬 Consulta de prueba: "${queryMock}"\n`);
     
-    // Ejecutar flujo principal a través del AuditEngine
-    const result = await AuditEngine.processQuery(queryMock, contextMock);
+    // Ejecutar flujo principal a través del AuditorEngine
+    const result = await AuditorEngine.processQuery(queryMock, contextMock);
 
     console.log("--------------------------------------------------");
-    console.log("📊 RESULTADO DEL AUDIT ENGINE:");
+    console.log("📊 RESULTADO DEL AUDITOR ENGINE:");
     console.log("--------------------------------------------------");
     console.log(`✅ ¿Es válido?: ${result.isValid}`);
-    console.log(`📋 Esquema aplicado: ${result.schema || 'N/A'}`);
+    console.log(`📋 Esquema aplicado: ${result.schema || "N/A"}`);
     console.log("--------------------------------------------------");
     console.log("📄 DATA RECIBIDA Y VALIDADA:");
     console.log(JSON.stringify(result.data, null, 2));
