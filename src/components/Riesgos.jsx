@@ -191,6 +191,7 @@ export default function Riesgos({
 // 🔍 ESTADOS DE BÚSQUEDA Y FILTROS ENTERPRISE
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroProceso, setFiltroProceso] = useState('Todos');
+  const [filtroSubproceso, setFiltroSubproceso] = useState('Todos');
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas');
   const [filtroNivel, setFiltroNivel] = useState('Todos');
   const toggleExpediente = (id) => {
@@ -1062,19 +1063,29 @@ const renderMatriz = () => {
       nivelPromedioColor = 'bg-amber-100 text-amber-800 border-amber-200';
     }
 
-    // 🔍 Filtrado dinámico en tiempo real
+// 🔍 Filtrado dinámico en tiempo real
     const riesgosFiltrados = safeRiesgos.filter(r => {
       const matchSearch = (r.descripcion || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (r.proceso || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (r.subproceso || '').toLowerCase().includes(searchTerm.toLowerCase()) || // ✨ Incluimos subproceso en la búsqueda de texto
                           String(r.id).includes(searchTerm);
       const matchProceso = filtroProceso === 'Todos' || r.proceso === filtroProceso;
+      const matchSubproceso = filtroSubproceso === 'Todos' || r.subproceso === filtroSubproceso; // ✨ Condición del nuevo filtro
       const matchClasificacion = filtroClasificacion === 'Todas' || r.clasificacionRiesgo === filtroClasificacion;
       const zoneRes = getSeverityZone(r.probabilidadResidual, r.impactoResidual);
       const matchNivel = filtroNivel === 'Todos' || zoneRes.label === filtroNivel;
-      return matchSearch && matchProceso && matchClasificacion && matchNivel;
+      return matchSearch && matchProceso && matchSubproceso && matchClasificacion && matchNivel;
     });
 
     const procesosUnicos = Array.from(new Set(safeRiesgos.map(r => r.proceso).filter(Boolean)));
+    
+    // ✨ Derivamos los subprocesos dinámicamente basados en el proceso seleccionado
+    const subprocesosUnicos = Array.from(new Set(
+      safeRiesgos
+        .filter(r => filtroProceso === 'Todos' || r.proceso === filtroProceso)
+        .map(r => r.subproceso)
+        .filter(Boolean)
+    ));
 
     return (
       <div className="space-y-6 font-sans text-slate-800 animate-in fade-in duration-300">
@@ -1148,11 +1159,24 @@ const renderMatriz = () => {
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={filtroProceso}
-              onChange={(e) => setFiltroProceso(e.target.value)}
-              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32]"
+              onChange={(e) => {
+                setFiltroProceso(e.target.value);
+                setFiltroSubproceso('Todos'); // ✨ Resetea el subproceso automáticamente si cambias de proceso
+              }}
+              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32] max-w-[160px] truncate"
             >
               <option value="Todos">Todos los procesos</option>
               {procesosUnicos.map(proc => <option key={proc} value={proc}>{proc}</option>)}
+            </select>
+
+            {/* ✨ NUEVO FILTRO DE SUBPROCESOS */}
+            <select
+              value={filtroSubproceso}
+              onChange={(e) => setFiltroSubproceso(e.target.value)}
+              className="text-xs p-2 border border-slate-200 rounded-xl bg-white font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32] max-w-[180px] truncate"
+            >
+              <option value="Todos">Todos los subprocesos</option>
+              {subprocesosUnicos.map(sp => <option key={sp} value={sp}>{sp}</option>)}
             </select>
 
             <select
