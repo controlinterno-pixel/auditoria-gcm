@@ -155,7 +155,7 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
 
   const defaultMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-  // 🔥 NUEVO: Función para crear una llave de memoria única por cada sub-pestaña
+// 🔥 NUEVO: Función para crear una llave de memoria única por cada sub-pestaña
   const getCurrentFilterKey = () => {
     if (activeTab === 'plan_anual_tab') return `plan_anual_tab_${subTabPlanificar}`;
     if (activeTab === 'resultados_tab') return `resultados_tab_${subTabResultados}`;
@@ -182,7 +182,7 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
       const cur = prev[filterKey] || { anios: defaultAnios, meses: defaultMeses };
       return { ...prev, [filterKey]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
     });
-  };
+  };  
   // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
   setSearchTerm('');
@@ -1605,16 +1605,17 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
     showNotification={showNotification}
   />
 )}               
-  {subTabPlanificar === 'apetito' && (
-          <Apetito 
-            isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
-            activeTooltip={activeTooltip} setActiveTooltip={setActiveTooltip} setFormResetKey={setFormResetKey} formResetKey={formResetKey}
-            scrollToForm={scrollToForm} rFiltrados={rFiltrados} incFiltrados={incFiltrados} calcularMatriz5x5={calcularMatriz5x5}
-            searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
-            FilterInput={FilterInput} applyFilters={applyFilters}
-            renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
-          /> 
-        )}
+  
+{subTabPlanificar === 'apetito' && (
+                  <Apetito 
+                    isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
+                    activeTooltip={activeTooltip} setActiveTooltip={setActiveTooltip} setFormResetKey={setFormResetKey} formResetKey={formResetKey}
+                    scrollToForm={scrollToForm} rFiltrados={rFiltrados} incFiltrados={incFiltrados} calcularMatriz5x5={calcularMatriz5x5}
+                    searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
+                    FilterInput={FilterInput} applyFilters={applyFilters}
+                    renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
+                  />
+                )}
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
 {activeTab === 'evaluaciones' && (
   <Evaluaciones 
