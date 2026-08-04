@@ -503,8 +503,18 @@ export default function Apetito({
                     </td>
 
                     <td className="p-4 text-center">
-                      {isAdmin && <button onClick={() => {setEditApetito(r); setFormResetKey(Date.now()); scrollToForm();}} className="bg-white border border-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full"><span>⚙️</span> <span>Ajustador</span></button>}
-                    </td>
+  {/* 🔓 Ajustador habilitado para todos los roles */}
+  <button 
+    onClick={() => {
+      setEditApetito(r); 
+      setFormResetKey(Date.now()); 
+      scrollToForm();
+    }} 
+    className="bg-white border border-slate-200 text-slate-600 font-bold px-3 py-1.5 rounded-lg text-[10px] hover:bg-slate-50 transition-all shadow-sm flex items-center justify-center space-x-1 mx-auto w-full cursor-pointer"
+  >
+    <span>⚙️</span> <span>Ajustador</span>
+  </button>
+</td>
                   </tr>
                 );
               })}

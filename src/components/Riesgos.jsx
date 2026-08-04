@@ -1289,12 +1289,14 @@ const renderMatriz = () => {
 <span className="text-[8px] text-slate-400 font-bold mt-1 block">Mitigación: <strong className="text-purple-700">{calcularMitigacionRiesgo(r)}%</strong></span>
                       </div>
 
-                      {/* GESTIÓN */}
-                      <div className="col-span-1 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => handleEditRiesgo(r)} className="p-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar">✏️</button>
-                        {isAdmin && <button onClick={() => handleDeleteRiesgo(r.id)} className="p-1.5 hover:bg-red-100 text-red-600 rounded-lg text-xs" title="Eliminar">🗑️</button>}
-                      </div>
-                    </div>
+                     {/* GESTIÓN: Todos pueden editar ✏️, pero solo Administradores pueden borrar 🗑️ */}
+<div className="col-span-1 flex items-center justify-end space-x-1" onClick={(e) => e.stopPropagation()}>
+  <button onClick={() => handleEditRiesgo(r)} className="p-1.5 hover:bg-amber-100 text-amber-800 rounded-lg text-xs" title="Editar">✏️</button>
+  {isAdmin && (
+    <button onClick={() => handleDeleteRiesgo(r.id)} className="p-1.5 hover:bg-red-100 text-red-600 rounded-lg text-xs" title="Eliminar">🗑️</button>
+  )}
+</div>
+</div>
 
 {/* ========================================================================= */}
 {/* 🚀 EXPEDIENTE SECUNDARIO DE CONTROLES (ACCORDEÓN ANIMADO 250ms)           */}
@@ -1762,11 +1764,10 @@ const renderMatriz = () => {
             <span className="mr-2">✨</span> Informe Global IA
           </button>
 
-        {isAdmin && (
-            <button onClick={handleNuevoRiesgo} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md bg-[#0A3B32] text-white hover:bg-[#062620]">
-              <span className="mr-2">➕</span> Nuevo Riesgo
-            </button>
-          )}
+       {/* 🔓 Habilitado para que cualquier usuario cree riesgos */}
+<button onClick={handleNuevoRiesgo} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md bg-[#0A3B32] text-white hover:bg-[#062620]">
+  <span className="mr-2">➕</span> Nuevo Riesgo
+</button>
         </div>
       </div>
 
