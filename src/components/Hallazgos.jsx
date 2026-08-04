@@ -331,7 +331,7 @@ export default function Hallazgos({
                     </select>
                   </div>
 
-                  {/* ✨ NUEVO: SELECTOR DE SUBPROCESO DINÁMICO */}
+                 {/* ✨ NUEVO: SELECTOR DE SUBPROCESO DINÁMICO */}
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Subproceso</label>
                     <select 
@@ -340,7 +340,7 @@ export default function Hallazgos({
                       className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
                     >
                       <option value="Todos">Todos</option>
-                      {(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat()).sort().map(sp => (
+                      {[...new Set(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => (
                         <option key={sp} value={sp}>{sp}</option>
                       ))}
                     </select>
@@ -799,15 +799,14 @@ export default function Hallazgos({
                     <option value="">🏛️ Todos los Procesos</option>
                     {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
-
-                  {/* ✨ NUEVO: FILTRO DINÁMICO DE SUBPROCESO */}
+{/* ✨ NUEVO: FILTRO DINÁMICO DE SUBPROCESO */}
                   <select 
                     value={columnFilters['subproceso'] || ''} 
                     onChange={(e) => handleColFilterChange('subproceso', e.target.value)} 
                     className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer max-w-[140px] truncate"
                   >
                     <option value="">🗂️ Todos los Subprocesos</option>
-                    {(columnFilters['proceso'] ? (MAPA_PROCESOS[columnFilters['proceso']] || []) : Object.values(MAPA_PROCESOS).flat()).sort().map(sp => (
+                    {[...new Set(columnFilters['proceso'] ? (MAPA_PROCESOS[columnFilters['proceso']] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => (
                       <option key={sp} value={sp}>{sp}</option>
                     ))}
                   </select>
