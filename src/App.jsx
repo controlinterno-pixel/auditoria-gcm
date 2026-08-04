@@ -1619,14 +1619,15 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                   <Apetito 
                     isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
                     activeTooltip={activeTooltip} setActiveTooltip={setActiveTooltip} setFormResetKey={setFormResetKey} formResetKey={formResetKey}
-                    scrollToForm={scrollToForm} rFiltrados={rFiltrados} incFiltrados={incFiltrados} calcularMatriz5x5={calcularMatriz5x5}
+                    scrollToForm={scrollToForm} 
+                    rFiltrados={safeRiesgos} /* 🔥 CAMBIO: Pasamos safeRiesgos directo para saltar el filtro de fechas */
+                    incFiltrados={safeIncidentes} /* 🔥 CAMBIO: Pasamos safeIncidentes directo */
+                    calcularMatriz5x5={calcularMatriz5x5}
                     searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
                     FilterInput={FilterInput} applyFilters={applyFilters}
-                    renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
+                    /* 🔥 CAMBIO: Eliminamos la propiedad renderHeaderFiltros por completo para desaparecer la barra */
                   />
                 )}
-              </div>
-            )}
 
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
 {activeTab === 'evaluaciones' && (
