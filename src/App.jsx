@@ -166,22 +166,29 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   
   const filterKey = getCurrentFilterKey();
 
-  // 🔥 CAMBIO: Ahora por defecto SOLO selecciona el año actual en curso (ej. 2026)
-  const selectedAnios = periodFilters[filterKey]?.anios || [new Date().getFullYear()];
+  // 🔥 EXCEPCIÓN: Determinar el filtro de años por defecto según el módulo
+  const getDefaultAnios = (key) => {
+    // Si estamos en Riesgos o Apetito, iniciamos con el filtro vacío (muestra TODO)
+    if (key === 'plan_anual_tab_riesgos' || key === 'plan_anual_tab_apetito') {
+      return []; 
+    }
+    // Para el resto de módulos, aplicamos el año en curso
+    return [new Date().getFullYear()];
+  };
+
+  const selectedAnios = periodFilters[filterKey]?.anios || getDefaultAnios(filterKey);
   const selectedMeses = periodFilters[filterKey]?.meses || defaultMeses;
 
   const setSelectedAnios = (valOrFunc) => {
     setPeriodFilters(prev => {
-      // 🔥 CAMBIO: Se ajusta el fallback inicial al año actual
-      const cur = prev[filterKey] || { anios: [new Date().getFullYear()], meses: defaultMeses };
+      const cur = prev[filterKey] || { anios: getDefaultAnios(filterKey), meses: defaultMeses };
       return { ...prev, [filterKey]: { ...cur, anios: typeof valOrFunc === 'function' ? valOrFunc(cur.anios) : valOrFunc } };
     });
   };
 
   const setSelectedMeses = (valOrFunc) => {
     setPeriodFilters(prev => {
-      // 🔥 CAMBIO: Se ajusta el fallback inicial al año actual
-      const cur = prev[filterKey] || { anios: [new Date().getFullYear()], meses: defaultMeses };
+      const cur = prev[filterKey] || { anios: getDefaultAnios(filterKey), meses: defaultMeses };
       return { ...prev, [filterKey]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
     });
   };
