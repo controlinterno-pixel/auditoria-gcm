@@ -79,6 +79,7 @@ const [busquedaRapida, setBusquedaRapida] = useState('');
   const [agruparPor, setAgruparPor] = useState('Año');
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
   const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
+  const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos'); 
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroPrioridad, setDashFiltroPrioridad] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
@@ -113,6 +114,7 @@ const [busquedaRapida, setBusquedaRapida] = useState('');
       ...p,
       idInforme: hallazgo.idInforme,
       proceso: hallazgo.proceso || 'General',
+      subproceso: hallazgo.subproceso || 'General',
       sede: hallazgo.sede || 'Hotel',
       severidad: hallazgo.severidad || 'Medio',
       esVencido,
@@ -160,6 +162,7 @@ const handleNotificarPlan = (planId) => {
   const planesFiltradosBase = planesEnriquecidos.filter(p => {
     if (dashFiltroAnio !== 'Todos' && p.anioTexto !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && p.proceso !== dashFiltroProceso) return false;
+    if (dashFiltroSubproceso !== 'Todos' && p.subproceso !== dashFiltroSubproceso) return false; 
     if (dashFiltroPrioridad !== 'Todos' && p.severidad !== dashFiltroPrioridad) return false;
     if (dashFiltroResponsable !== 'Todos' && p.responsable !== dashFiltroResponsable) return false;
     return true;
@@ -213,7 +216,7 @@ const handleNotificarPlan = (planId) => {
   const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   const limpiarFiltrosDashboard = () => {
-    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroEstado('Todos');
+    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSubproceso('Todos'); setDashFiltroEstado('Todos');
     setDashFiltroPrioridad('Todos'); setDashFiltroResponsable('Todos');
   };
 
@@ -789,15 +792,39 @@ const handleNotificarPlan = (planId) => {
                       {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </div>
+<div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
+                    <select 
+                      value={dashFiltroProceso} 
+                      onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} 
+                      className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
+                    >
+                      <option value="Todos">Todos</option>
+                      {[...new Set(planesEnriquecidos.map(p => p.proceso).filter(Boolean))].sort().map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* ✨ NUEVO: SELECTOR DE SUBPROCESO DINÁMICO */}
                   <div>
-  <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
-  <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
-    <option value="Todos">Todos</option>
-    {[...new Set(planesEnriquecidos.map(p => p.proceso).filter(Boolean))].sort().map(p => (
-      <option key={p} value={p}>{p}</option>
-    ))}
-  </select>
-</div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Subproceso</label>
+                    <select 
+                      value={dashFiltroSubproceso} 
+                      onChange={e => setDashFiltroSubproceso(e.target.value)} 
+                      className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
+                    >
+                      <option value="Todos">Todos</option>
+                      {[...new Set(
+                        planesEnriquecidos
+                          .filter(p => dashFiltroProceso === 'Todos' || p.proceso === dashFiltroProceso)
+                          .map(p => p.subproceso)
+                          .filter(Boolean)
+                      )].sort().map(sp => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
+                  </div>          
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Estado</label>
                     <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
