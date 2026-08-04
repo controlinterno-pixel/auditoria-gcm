@@ -155,24 +155,34 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
 
   const defaultMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-  // El sistema lee la pestaña activa y saca su filtro correspondiente
-  const selectedAnios = periodFilters[activeTab]?.anios || defaultAnios;
-  const selectedMeses = periodFilters[activeTab]?.meses || defaultMeses;
+  // 🔥 NUEVO: Función para crear una llave de memoria única por cada sub-pestaña
+  const getCurrentFilterKey = () => {
+    if (activeTab === 'plan_anual_tab') return `plan_anual_tab_${subTabPlanificar}`;
+    if (activeTab === 'resultados_tab') return `resultados_tab_${subTabResultados}`;
+    if (activeTab === 'planes_tab') return `planes_tab_${subTabPlanes}`;
+    if (activeTab === 'gobernanza_tab') return `gobernanza_tab_${subTabGobernanza}`;
+    return activeTab;
+  };
+  
+  const filterKey = getCurrentFilterKey();
+
+  // El sistema ahora lee la llave única para sacar su filtro correspondiente
+  const selectedAnios = periodFilters[filterKey]?.anios || defaultAnios;
+  const selectedMeses = periodFilters[filterKey]?.meses || defaultMeses;
 
   const setSelectedAnios = (valOrFunc) => {
     setPeriodFilters(prev => {
-      const cur = prev[activeTab] || { anios: defaultAnios, meses: defaultMeses };
-      return { ...prev, [activeTab]: { ...cur, anios: typeof valOrFunc === 'function' ? valOrFunc(cur.anios) : valOrFunc } };
+      const cur = prev[filterKey] || { anios: defaultAnios, meses: defaultMeses };
+      return { ...prev, [filterKey]: { ...cur, anios: typeof valOrFunc === 'function' ? valOrFunc(cur.anios) : valOrFunc } };
     });
   };
 
   const setSelectedMeses = (valOrFunc) => {
     setPeriodFilters(prev => {
-      const cur = prev[activeTab] || { anios: defaultAnios, meses: defaultMeses };
-      return { ...prev, [activeTab]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
+      const cur = prev[filterKey] || { anios: defaultAnios, meses: defaultMeses };
+      return { ...prev, [filterKey]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
     });
   };
-
   // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
   setSearchTerm('');
@@ -1595,18 +1605,17 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
     showNotification={showNotification}
   />
 )}               
-                {subTabPlanificar === 'apetito' && (
-                  <Apetito 
-                    isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
-                    activeTooltip={activeTooltip} setActiveTooltip={setActiveTooltip} setFormResetKey={setFormResetKey} formResetKey={formResetKey}
-                    scrollToForm={scrollToForm} rFiltrados={rFiltrados} incFiltrados={incFiltrados} calcularMatriz5x5={calcularMatriz5x5}
-                    searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
-                    FilterInput={FilterInput} applyFilters={applyFilters}
-                  />
-                )}
-              </div>
-            )}
-
+  {subTabPlanificar === 'apetito' && (
+  <Apetito 
+    isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
+    activeTooltip={activeTooltip} setActiveTooltip={setActiveTooltip} setFormResetKey={setFormResetKey} formResetKey={formResetKey}
+    scrollToForm={scrollToForm} rFiltrados={rFiltrados} incFiltrados={incFiltrados} calcularMatriz5x5={calcularMatriz5x5}
+    searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
+    FilterInput={FilterInput} applyFilters={applyFilters}
+    // 🔥 NUEVO: Le enviamos los botones de filtro a esta vista
+    renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
+  />
+)}
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
 {activeTab === 'evaluaciones' && (
   <Evaluaciones 

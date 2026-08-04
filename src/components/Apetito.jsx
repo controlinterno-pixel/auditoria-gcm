@@ -19,6 +19,7 @@ export default function Apetito({
   handleColFilterChange,
   FilterInput,
   applyFilters
+  renderHeaderFiltros
 }) {
   const configurados = rFiltrados.filter(r => r.capacidadRiesgo).length;
   
@@ -91,6 +92,8 @@ export default function Apetito({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+{/* 🔥 NUEVO: Aquí aparecerá la barra de meses y años */}
+      {renderHeaderFiltros && renderHeaderFiltros("Apetito de Riesgo", "Filtre la capacidad y tolerancias por periodo")}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 border-l-8 border-l-blue-500">
            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Modelos Parametrizados</h4>
