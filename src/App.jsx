@@ -1606,16 +1606,15 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
   />
 )}               
   {subTabPlanificar === 'apetito' && (
-  <Apetito 
-    isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
-    activeTooltip={activeTooltip} setActiveTooltip={setActiveTooltip} setFormResetKey={setFormResetKey} formResetKey={formResetKey}
-    scrollToForm={scrollToForm} rFiltrados={rFiltrados} incFiltrados={incFiltrados} calcularMatriz5x5={calcularMatriz5x5}
-    searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
-    FilterInput={FilterInput} applyFilters={applyFilters}
-    // 🔥 NUEVO: Le enviamos los botones de filtro a esta vista
-    renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
-  />
-)}
+          <Apetito 
+            isAdmin={isAdmin} editApetito={editApetito} setEditApetito={setEditApetito} handleApetitoSubmit={handleApetitoSubmit}
+            activeTooltip={activeTooltip} setActiveTooltip={setActiveTooltip} setFormResetKey={setFormResetKey} formResetKey={formResetKey}
+            scrollToForm={scrollToForm} rFiltrados={rFiltrados} incFiltrados={incFiltrados} calcularMatriz5x5={calcularMatriz5x5}
+            searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
+            FilterInput={FilterInput} applyFilters={applyFilters}
+            renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
+          /> 
+        )}
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
 {activeTab === 'evaluaciones' && (
   <Evaluaciones 
