@@ -1,23 +1,22 @@
 /**
  * @file ResponseValidator.js
- * @description Validador estricto de esquemas JSON para respuestas del Motor GRC.
- * Garantiza la integridad de la estructura de datos para la UI.
+ * @description Validador de contratos JSON estructurados basados en CoreSchema y sus extensiones.
  */
+
+import { CoreSchema } from '../schemas/CoreSchema.js';
 
 export class ResponseValidator {
   /**
-   * Valida y sanitiza la respuesta generada por la IA.
-   * @param {string|Object} rawResponse - Respuesta sin procesar devuelta por el modelo.
-   * @param {string} targetSchema - Nombre del esquema que debe cumplir (ej. 'DashboardSchema').
-   * @returns {Object} Respuesta validada y parseada con flag de éxito/error.
+   * Valida la estructura devuelta por el LLM.
+   * @param {string|Object} rawResponse 
+   * @param {Object} targetSchema - Esquema objetivo (ej. ExecutiveSchema).
+   * @returns {Object}
    */
   static validate(rawResponse, targetSchema) {
     let parsedData = null;
 
-    // 1. Intentar parsear a JSON si la respuesta viene como string
     try {
       if (typeof rawResponse === 'string') {
-        // Limpiar posible formato Markdown de bloque de código ```json ... ```
         const cleanedString = rawResponse
           .replace(/```json/g, '')
           .replace(/```/g, '')
@@ -31,29 +30,38 @@ export class ResponseValidator {
       return this._buildErrorPayload("La respuesta generada no tiene un formato JSON válido.", rawResponse);
     }
 
-    // 2. Validar estructura genérica mínima obligatoria
-    const hasRequiredBaseKeys = parsedData && 
-      typeof parsedData.summary === 'string' &&
-      Array.isArray(parsedData.keyInsights) &&
-      parsedData.metadata !== undefined;
+    // 1. Validar el contrato Core obligatoriamente
+    const coreKeys = CoreSchema.required;
+    const missingCoreKeys = coreKeys.filter(key => !(key in parsedData));
 
-    if (!hasRequiredBaseKeys) {
-      console.warn("[ResponseValidator Warning]: Estructura base incompleta.", parsedData);
-      return this._buildErrorPayload(`El JSON devuelto no cumple con la estructura base obligatoria (${targetSchema}).`, parsedData);
+    if (missingCoreKeys.length > 0) {
+      console.warn("[ResponseValidator Warning]: Incumplimiento del CoreSchema. Faltan claves:", missingCoreKeys);
+      return this._buildErrorPayload(
+        `La respuesta incumple el contrato base (CoreSchema). Claves faltantes: ${missingCoreKeys.join(', ')}`,
+        parsedData
+      );
     }
 
-    // 3. Respuesta exitosa con esquema garantizado
+    // 2. Validar extensiones específicas del esquema objetivo si aplica
+    if (targetSchema && targetSchema.required) {
+      const missingTargetKeys = targetSchema.required.filter(key => !(key in parsedData));
+      if (missingTargetKeys.length > 0) {
+        console.warn(`[ResponseValidator Warning]: Incumplimiento de ${targetSchema.$id}. Faltan:`, missingTargetKeys);
+        return this._buildErrorPayload(
+          `La respuesta incumple el contrato especializado (${targetSchema.$id}). Claves faltantes: ${missingTargetKeys.join(', ')}`,
+          parsedData
+        );
+      }
+    }
+
     return {
       isValid: true,
-      schema: targetSchema,
+      schema: targetSchema?.$id || "CoreSchema",
       data: parsedData,
       validatedAt: new Date().toISOString()
     };
   }
 
-  /**
-   * Helper privado para retornar respuestas de error estandarizadas.
-   */
   static _buildErrorPayload(errorMessage, rawContent) {
     return {
       isValid: false,
@@ -61,9 +69,22 @@ export class ResponseValidator {
       error: errorMessage,
       rawContent,
       data: {
-        summary: "Se generó una respuesta pero no cumple con los estándares de validación de la plataforma.",
-        keyInsights: ["Error de validación de contrato JSON."],
-        metadata: { status: "VALIDATION_FAILED" }
+        title: "Error de Validación de Contrato",
+        summary: "Se generó una respuesta pero no cumple con los estándares de integridad GRC de la plataforma.",
+        confidence: 0.0,
+        priority: "URGENT",
+        findings: ["Error en la validación del protocolo JSON."],
+        recommendations: ["Revisar el prompt del especialista o reintentar la consulta."],
+        references: [],
+        metadata: {
+          timestamp: new Date().toISOString(),
+          model: "N/A",
+          specialist: "N/A",
+          intent: "N/A",
+          domain: "N/A",
+          tokens: 0,
+          executionTimeMs: 0
+        }
       },
       validatedAt: new Date().toISOString()
     };
