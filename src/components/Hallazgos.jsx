@@ -68,6 +68,7 @@ export default function Hallazgos({
   const [agruparPor, setAgruparPor] = useState('Año'); 
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
   const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
+  const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos'); 
   const [dashFiltroSeveridad, setDashFiltroSeveridad] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
@@ -130,6 +131,7 @@ export default function Hallazgos({
   const hallazgosDashboard = hallazgosEnriquecidos.filter(h => {
     if (dashFiltroAnio !== 'Todos' && h.anioReal !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && h.procesoLimpio !== dashFiltroProceso) return false;
+    if (dashFiltroSubproceso !== 'Todos' && h.subproceso !== dashFiltroSubproceso) return false; 
     if (dashFiltroSeveridad !== 'Todos' && h.severidad !== dashFiltroSeveridad) return false;
     if (dashFiltroEstado !== 'Todos' && h.estado !== dashFiltroEstado) return false;
     if (dashFiltroResponsable !== 'Todos' && h.responsable !== dashFiltroResponsable) return false;
@@ -151,6 +153,7 @@ export default function Hallazgos({
     let key = 'Sin clasificar';
     if (agruparPor === 'Año') key = h.anioReal;
     if (agruparPor === 'Proceso') key = h.procesoLimpio;
+    if (agruparPor === 'Subproceso') key = h.subproceso || 'General'; 
     if (agruparPor === 'Estado') key = h.estado || 'Abierto';
     if (agruparPor === 'Nivel de Riesgo') key = h.severidad || 'Bajo';
     if (agruparPor === 'Responsable') key = h.responsable || 'Sin Asignar';
@@ -169,10 +172,9 @@ export default function Hallazgos({
   const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   const limpiarFiltrosDashboard = () => {
-    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSeveridad('Todos');
+    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSubproceso('Todos'); setDashFiltroSeveridad('Todos');
     setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
   };
-
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
   const hallazgosFiltradosPorFecha = hallazgosEnriquecidos.filter(h => {
     if (filtroAnio && h.anioReal !== filtroAnio) return false;
@@ -290,6 +292,7 @@ export default function Hallazgos({
                     {[
                       { id: 'Año', label: 'Vista por Año', icon: '📊' },
                       { id: 'Proceso', label: 'Vista por Proceso', icon: '🏛️' },
+                      { id: 'Subproceso', label: 'Vista por Subproceso', icon: '🗂️' }, // ✨ NUEVO BOTÓN
                       { id: 'Estado', label: 'Vista por Estado', icon: '🚩' },
                       { id: 'Nivel de Riesgo', label: 'Vista por Nivel', icon: '⚠️' },
                       { id: 'Responsable', label: 'Vista Responsable', icon: '👤' }
@@ -317,10 +320,29 @@ export default function Hallazgos({
                   </div>
                   
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">proceso</label>
-                    <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Proceso</label>
+                    <select 
+                      value={dashFiltroProceso} 
+                      onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} 
+                      className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
+                    >
                       <option value="Todos">Todos</option>
                       {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+
+                  {/* ✨ NUEVO: SELECTOR DE SUBPROCESO DINÁMICO */}
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Subproceso</label>
+                    <select 
+                      value={dashFiltroSubproceso} 
+                      onChange={e => setDashFiltroSubproceso(e.target.value)} 
+                      className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
+                    >
+                      <option value="Todos">Todos</option>
+                      {(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat()).sort().map(sp => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -764,7 +786,33 @@ export default function Hallazgos({
                <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest ml-2">Historial por Informe Emitido</h3>
                
                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-                  <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
+                  
+                  {/* ✨ NUEVO: FILTRO DINÁMICO DE PROCESO */}
+                  <select 
+                    value={columnFilters['proceso'] || ''} 
+                    onChange={(e) => {
+                      handleColFilterChange('proceso', e.target.value);
+                      handleColFilterChange('subproceso', ''); // Limpia al cambiar
+                    }} 
+                    className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer"
+                  >
+                    <option value="">🏛️ Todos los Procesos</option>
+                    {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+
+                  {/* ✨ NUEVO: FILTRO DINÁMICO DE SUBPROCESO */}
+                  <select 
+                    value={columnFilters['subproceso'] || ''} 
+                    onChange={(e) => handleColFilterChange('subproceso', e.target.value)} 
+                    className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer max-w-[140px] truncate"
+                  >
+                    <option value="">🗂️ Todos los Subprocesos</option>
+                    {(columnFilters['proceso'] ? (MAPA_PROCESOS[columnFilters['proceso']] || []) : Object.values(MAPA_PROCESOS).flat()).sort().map(sp => (
+                      <option key={sp} value={sp}>{sp}</option>
+                    ))}
+                  </select>
+
+                  <select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
                     <option value="">📅 Todos los Años</option>
                     {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
                   </select>
