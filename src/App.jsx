@@ -1641,6 +1641,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
     )}
   </div>
 )}
+
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
 {activeTab === 'evaluaciones' && (
   <Evaluaciones 
