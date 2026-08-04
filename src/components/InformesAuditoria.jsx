@@ -65,6 +65,7 @@ export default function InformesAuditoria({
   const [agruparPor, setAgruparPor] = useState('Año'); 
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
   const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
+const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
 
@@ -92,6 +93,7 @@ export default function InformesAuditoria({
   const informesDashboard = informesEnriquecidos.filter(inf => {
     if (dashFiltroAnio !== 'Todos' && inf.fecha?.split('-')[0] !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && inf.procesoLimpio !== dashFiltroProceso) return false;
+    if (dashFiltroSubproceso !== 'Todos' && inf.subproceso !== dashFiltroSubproceso) return false; 
     if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
     if (dashFiltroResponsable !== 'Todos' && inf.elaboradoPor !== dashFiltroResponsable) return false;
     return true;
@@ -112,6 +114,7 @@ export default function InformesAuditoria({
     let key = 'Sin clasificar';
     if (agruparPor === 'Año') key = inf.fecha ? inf.fecha.split('-')[0] : 'Sin Fecha';
     if (agruparPor === 'Proceso') key = inf.procesoLimpio;
+    if (agruparPor === 'Subproceso') key = inf.subproceso || 'General'; 
     if (agruparPor === 'Estado') key = inf.socializado === 'Sí' ? 'Socializados' : 'Pendientes';
     if (agruparPor === 'Responsable') key = inf.elaboradoPor || 'Sin Asignar';
 
@@ -129,10 +132,10 @@ export default function InformesAuditoria({
   }, {});
   const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-  const limpiarFiltrosDashboard = () => {
-    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); 
+ const limpiarFiltrosDashboard = () => {
+    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSubproceso('Todos');
     setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
-  };
+  }; 
 
   // ☁️ 2. DOS INSTANCIAS DE BÓVEDA (Informe Principal y Acta de Reunión)
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
@@ -269,6 +272,7 @@ export default function InformesAuditoria({
                     {[
                       { id: 'Año', label: 'Vista por Año', icon: '📊' },
                       { id: 'Proceso', label: 'Vista por Proceso', icon: '🏛️' },
+                      { id: 'Subproceso', label: 'Vista por Subproceso', icon: '🗂️' }, // ✨ NUEVO BOTÓN
                       { id: 'Estado', label: 'Vista por Estado', icon: '🚩' },
                       { id: 'Responsable', label: 'Vista por Responsable', icon: '👤' }
                     ].map(btn => (
@@ -297,15 +301,33 @@ export default function InformesAuditoria({
                   
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 mb-1 block">Macroproceso</label>
-                    <select value={dashFiltroProceso} onChange={e=>setDashFiltroProceso(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                    <select 
+                      value={dashFiltroProceso} 
+                      onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} 
+                      className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
+                    >
                       <option value="Todos">Todos</option>
                       {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
 
+                  {/* ✨ NUEVO: SELECTOR DE SUBPROCESO DINÁMICO Y LIMPIO */}
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Estado</label>
-                    <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Subproceso</label>
+                    <select 
+                      value={dashFiltroSubproceso} 
+                      onChange={e => setDashFiltroSubproceso(e.target.value)} 
+                      className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
+                    >
+                      <option value="Todos">Todos</option>
+                      {[...new Set(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Estado</label>                    <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
                       <option value="Todos">Todos</option>
                       <option value="Socializado">Socializado</option>
                       <option value="Pendiente">Pendiente</option>
@@ -351,7 +373,7 @@ export default function InformesAuditoria({
                      <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
                        <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
                          <div className="flex items-center space-x-3 flex-1 pr-4">
-                           <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
+                         <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Subproceso' ? '🗂️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
                            <h4 className="text-sm sm:text-base font-black text-slate-800 leading-tight">{grupo} <span className="text-slate-400 font-medium text-xs ml-1 whitespace-nowrap">({infs.length})</span></h4>
                            {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm shrink-0">Actual</span>}
                          </div>
@@ -500,20 +522,6 @@ export default function InformesAuditoria({
               </div>
 
               <div className="md:col-span-1">
-                 <label className="font-bold text-gray-600 block mb-1.5">📋 proceso</label>
-                 <select 
-                   name="macroproceso" 
-                   value={macroprocesoForm} 
-                   onChange={(e) => { setMacroprocesoForm(e.target.value); setSubprocesoForm('General'); }} 
-                   required 
-                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm"
-                 >
-                   <option value="">-- Seleccionar --</option>
-                   {Object.keys(MAPA_PROCESOS).map(m => <option key={m} value={m}>{m}</option>)}
-                 </select>
-              </div>
-
-              <div className="md:col-span-1">
                  <label className="font-bold text-gray-600 block mb-1.5">↳ Subproceso</label>
                  <select 
                    name="subproceso" 
@@ -524,11 +532,11 @@ export default function InformesAuditoria({
                    disabled={!macroprocesoForm}
                  >
                    <option value="">-- Seleccionar --</option>
-                   {(MAPA_PROCESOS[macroprocesoForm] || []).map(s => <option key={s} value={s}>{s}</option>)}
+                   {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(s => <option key={s} value={s}>{s}</option>)}
                  </select>
               </div>
 
-              <div className="md:col-span-1">
+                <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>
                 <input 
                   name="fecha" 

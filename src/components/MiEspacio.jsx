@@ -132,6 +132,50 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
       informes: informesVinculados
     };
   }, [procesoHomologado, cronogramaList, riesgosList, evaluacionesList, hallazgosList, planesList, informesList]);
+// 🧠 FUNCIÓN PARA COMPILAR DATOS DEL INFORME IA DEL PROCESO
+  const compilarDatosParaInforme = (procesoName) => {
+    if (!procesoName) return null;
+
+    const rProc = riesgosList.filter(r => r.proceso === procesoName);
+    const hProc = hallazgosList.filter(h => h.proceso === procesoName);
+    const pProc = planesList.filter(p => {
+        const hallazgoPadre = hallazgosList.find(h => String(h.id) === String(p.idHallazgo));
+        return hallazgoPadre?.proceso === procesoName || p.proceso === procesoName;
+    });
+
+    const hAbiertos = hProc.filter(h => h.estado !== 'Cerrado').length;
+    const rCriticos = rProc.filter(r => parseInt(r.probabilidadResidual || 0) * parseInt(r.impactoResidual || 0) > 16).length;
+    const pVencidos = pProc.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length;
+    const pCerrados = pProc.filter(p => p.estado === 'Cerrado' || p.progreso === 100).length;
+
+    let cumplimientoCalc = 100;
+    if (hProc.length > 0) {
+      cumplimientoCalc = Math.round(((hProc.length - hAbiertos) / hProc.length) * 100);
+    }
+
+    return {
+      nombreProceso: procesoName,
+      fechaGeneracion: new Date().toLocaleDateString('es-CO'),
+      cumplimiento: cumplimientoCalc,
+      totales: {
+        auditorias: 1, 
+        riesgos: rProc.length,
+        hallazgos: hProc.length,
+        planes: pProc.length
+      },
+      topRiesgos: rProc.slice(0, 5), 
+      topHallazgos: hProc.slice(0, 5),
+      estadisticas: {
+        hallazgosAbiertos: hAbiertos,
+        riesgosCriticos: rCriticos,
+        planesTotales: pProc.length,
+        planesVencidos: pVencidos,
+        planesCerrados: pCerrados
+      }
+    };
+  };
+
+  const datosInformeIA = compilarDatosParaInforme(selectedProceso);
   return (
     <div className="space-y-6 text-left">
       
@@ -314,31 +358,9 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
       </button>
     </div>
 {/* CONTENIDO DEL INFORME (PESTAÑA 1) */}
-    {pestanaActiva === 'resumen' && (
+    {pestanaActiva === 'resumen' && datosInformeIA && (
       <div className="relative animate-in fade-in duration-500 pt-4 pl-6 sm:pl-10">
-        <InformeProceso 
-          datosProceso={{
-            nombreProceso: expedienteSeleccionado.proceso,
-            fechaGeneracion: new Date().toLocaleDateString(),
-            cumplimiento: expedienteSeleccionado.hallazgos.filter(h => h.estado !== 'Abierto').length === expedienteSeleccionado.hallazgos.length && expedienteSeleccionado.hallazgos.length > 0 ? 100 : 91,
-            totales: {
-              auditorias: 1,
-              riesgos: expedienteSeleccionado.riesgos.length,
-              hallazgos: expedienteSeleccionado.hallazgos.length,
-              planes: expedienteSeleccionado.planes.length,
-            },
-            topRiesgos: expedienteSeleccionado.riesgos.slice(0, 5),
-            topHallazgos: expedienteSeleccionado.hallazgos.slice(0, 5),
-            estadisticas: {
-              hallazgosAbiertos: expedienteSeleccionado.hallazgos.filter(h => h.estado === 'Abierto').length,
-              riesgosCriticos: expedienteSeleccionado.riesgos.filter(r => (Number(r.probabilidadResidual || 1) * Number(r.impactoResidual || 1)) >= 16).length,
-              // Nuevos datos para la IA:
-              planesTotales: expedienteSeleccionado.planes.length,
-              planesCerrados: expedienteSeleccionado.planes.filter(p => p.estado === 'Cerrado').length,
-              planesVencidos: expedienteSeleccionado.planes.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length
-            }
-          }} 
-        />
+        <InformeProceso datosProceso={datosInformeIA} />
       </div>
     )}
     {/* CONTENIDO DE LOS NODOS (PESTAÑA 2) */}

@@ -1,7 +1,15 @@
 import React from 'react';
 
-const InformeProceso = ({ datosProceso }) => {
-  const { nombreProceso, fechaGeneracion, cumplimiento, totales, topRiesgos, topHallazgos, estadisticas } = datosProceso;
+const InformeProceso = ({ datosProceso = {} }) => {
+  const { 
+    nombreProceso = 'Proceso Sin Nombre', 
+    fechaGeneracion = '---', 
+    cumplimiento = 0, 
+    totales = { auditorias: 0, riesgos: 0, hallazgos: 0, planes: 0 }, 
+    topRiesgos = [], 
+    topHallazgos = [], 
+    estadisticas = {} 
+  } = datosProceso;
 
   // 🧠 MOTOR DINÁMICO MULTI-VARIABLES (Riesgos + Hallazgos + Planes)
   const generarAnalisisIA = () => {
