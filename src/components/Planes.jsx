@@ -195,10 +195,12 @@ const handleNotificarPlan = (planId) => {
   const medios = planesDashboard.filter(p => p.severidad === 'Medio').length;
   const bajos = planesDashboard.filter(p => p.severidad === 'Bajo').length;
   // Agrupador Dinámico
+ // Agrupador Dinámico
   const planesAgrupados = planesDashboard.reduce((acc, p) => {
     let key = 'Sin clasificar';
     if (agruparPor === 'Año') key = p.anioTexto;
     if (agruparPor === 'Proceso') key = p.proceso;
+    if (agruparPor === 'Subproceso') key = p.subproceso; 
     if (agruparPor === 'Estado') key = p.progreso === 100 ? 'Cerrados' : p.esVencido ? 'Vencidos' : 'En Proceso';
     if (agruparPor === 'Responsable') key = p.responsable;
     if (agruparPor === 'Prioridad') key = p.severidad;
@@ -768,6 +770,7 @@ const handleNotificarPlan = (planId) => {
                     {[
                       { id: 'Año', label: 'Vista por Año', icon: '📅' },
                       { id: 'Proceso', label: 'Vista por Proceso', icon: '🏛️' },
+                      { id: 'Subproceso', label: 'Vista por Subproceso', icon: '🗂️' }, // ✨ NUEVO BOTÓN
                       { id: 'Estado', label: 'Vista por Estado', icon: '🚩' },
                       { id: 'Prioridad', label: 'Vista por Prioridad', icon: '⚠️' },
                       { id: 'Responsable', label: 'Vista Responsable', icon: '👤' }
