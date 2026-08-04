@@ -166,23 +166,25 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   
   const filterKey = getCurrentFilterKey();
 
-  // El sistema ahora lee la llave única para sacar su filtro correspondiente
-  const selectedAnios = periodFilters[filterKey]?.anios || defaultAnios;
+  // 🔥 CAMBIO: Ahora por defecto SOLO selecciona el año actual en curso (ej. 2026)
+  const selectedAnios = periodFilters[filterKey]?.anios || [new Date().getFullYear()];
   const selectedMeses = periodFilters[filterKey]?.meses || defaultMeses;
 
   const setSelectedAnios = (valOrFunc) => {
     setPeriodFilters(prev => {
-      const cur = prev[filterKey] || { anios: defaultAnios, meses: defaultMeses };
+      // 🔥 CAMBIO: Se ajusta el fallback inicial al año actual
+      const cur = prev[filterKey] || { anios: [new Date().getFullYear()], meses: defaultMeses };
       return { ...prev, [filterKey]: { ...cur, anios: typeof valOrFunc === 'function' ? valOrFunc(cur.anios) : valOrFunc } };
     });
   };
 
   const setSelectedMeses = (valOrFunc) => {
     setPeriodFilters(prev => {
-      const cur = prev[filterKey] || { anios: defaultAnios, meses: defaultMeses };
+      // 🔥 CAMBIO: Se ajusta el fallback inicial al año actual
+      const cur = prev[filterKey] || { anios: [new Date().getFullYear()], meses: defaultMeses };
       return { ...prev, [filterKey]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
     });
-  };  
+  };
   // Limpiar buscador al cambiar de pestaña
   useEffect(() => {
   setSearchTerm('');
