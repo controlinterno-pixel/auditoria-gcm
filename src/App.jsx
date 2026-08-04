@@ -1615,7 +1615,9 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                     FilterInput={FilterInput} applyFilters={applyFilters}
                     renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
                   />
+                  </div>
                 )}
+
             {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
 {activeTab === 'evaluaciones' && (
   <Evaluaciones 
