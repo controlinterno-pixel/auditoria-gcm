@@ -1255,6 +1255,39 @@ const handleNotificarPlan = (planId) => {
               <div className="p-4 border-b flex flex-col md:flex-row justify-between items-center bg-slate-50 gap-3">
                  <h3 className="font-bold text-slate-700 uppercase text-xs tracking-widest ml-2">Seguimiento de Actividades por Informe Emitido</h3>
                  <div className="flex flex-wrap gap-2 justify-end w-full md:w-auto">
+                    
+                    {/* ✨ NUEVO: FILTRO DINÁMICO DE PROCESO */}
+                    <select 
+                      value={columnFilters['proceso'] || ''} 
+                      onChange={(e) => {
+                        handleColFilterChange('proceso', e.target.value);
+                        handleColFilterChange('subproceso', ''); // Resetea el subproceso automáticamente
+                      }} 
+                      className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer"
+                    >
+                      <option value="">🏛️ Todos los Procesos</option>
+                      {[...new Set(planesEnriquecidos.map(p => p.proceso).filter(Boolean))].sort().map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+
+                    {/* ✨ NUEVO: FILTRO DINÁMICO DE SUBPROCESO */}
+                    <select 
+                      value={columnFilters['subproceso'] || ''} 
+                      onChange={(e) => handleColFilterChange('subproceso', e.target.value)} 
+                      className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-slate-50 font-black text-slate-700 shadow-sm cursor-pointer max-w-[140px] truncate"
+                    >
+                      <option value="">🗂️ Todos los Subprocesos</option>
+                      {[...new Set(
+                        planesEnriquecidos
+                          .filter(p => !columnFilters['proceso'] || p.proceso === columnFilters['proceso'])
+                          .map(p => p.subproceso)
+                          .filter(Boolean)
+                      )].sort().map(sp => (
+                        <option key={sp} value={sp}>{sp}</option>
+                      ))}
+                    </select>
+
                     <select value={columnFilters['auditorAsignado'] || ''} onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-blue-50 font-black text-blue-800 shadow-sm cursor-pointer">
                       <option value="">🛡️ Todos los Auditores</option>
                       <option value="Rodolfo González">Rodolfo González</option>
