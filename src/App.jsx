@@ -384,42 +384,23 @@ const saveToCloud = async (partialData) => {
         fecha: inf.fecha
       }));
 
-      // 📦 2. EMPAQUETADO DEL CONTEXTO PARA LA IA (Enriquecido para cuadrar con tu Dashboard)
+    // 📦 2. EMPAQUETADO DEL CONTEXTO PARA LA IA (Inyectando Data Real para el Motor GRC)
       const contextoDatos = {
+        // 📊 2.1 Estadísticas ejecutivas 
         dashboard: {
           cumplimientoPlanAnual: avanceCronogramaGlobal + '%',
           avancePlanesAccion: (planesBase.length > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / planesBase.length) : 0) + '%',
           efectividadControles: efectividadControlesGlobal + '%'
         },
-        riesgos: {
-          total: riesgosBase.length,
-          criticos: criticosTotal,
-          operativos: riesgosBase.filter(r => r.categoria === 'Operativo').length,
-          estrategicos: riesgosBase.filter(r => r.categoria === 'Estratégico').length,
-          tecnologicos: riesgosBase.filter(r => r.categoria === 'Tecnológico').length
-        },
-        hallazgos_y_planes: {
-          hallazgosTotales: hallazgosBase.length,
-          hallazgosAbiertos: hallazgosBase.filter(h => h.estado === 'Abierto').length,
-          hallazgosCerrados: hallazgosBase.filter(h => h.estado !== 'Abierto').length,
-          // 🎯 Aquí alineamos la IA con las tarjetas de tu Dashboard
-          planesTotales: planesBase.length,
-          planesCerrados: planesBase.filter(p => p.estado === 'Cerrado' || p.progreso === 100).length,
-          planesVencidos: planesBase.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < hoy).length,
-          planesEnProceso: planesBase.filter(p => p.estado === 'En Proceso').length
-        },
-        incidentes: {
-          total: incidentesBase.length,
-          perdidasAcumuladas: '$' + incidentesBase.reduce((acc, i) => acc + (Number(i.costo) || 0), 0).toLocaleString('es-CO') + ' COP'
-        },
-        informes: {
-          totalEmitidos: resumenInformes.length,
-          detalleInformes: resumenInformes
-        },
-        indicadores: {
-          alertas: safeMonitoreo.filter(m => m.valor > m.limite).map(m => m.indicador).join(', ') || 'Ninguno bajo alerta crítica'
-        }
-      };
+        // 🚀 2.2 BASE DE DATOS REAL (Lo que necesitan los Expertos IA para responder)
+        riesgos: riesgosBase,
+        hallazgos: hallazgosBase,
+        planesAccion: planesBase,
+        controlesEvaluados: evalFiltradas,
+        incidentes: incidentesBase,
+        informesAuditoria: resumenInformes,
+        indicadoresMonitoreo: safeMonitoreo
+      };  
 // 🎯 INTERCEPTOR C-LEVEL 10/10: AUDITOR DIPLOMADO GRC & ANALÍTICA DE PATRONES
       if (
         consultaFinal.toLowerCase().includes('planes de mejoramiento') || 
