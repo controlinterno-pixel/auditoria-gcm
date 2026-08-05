@@ -510,7 +510,21 @@ Aunque el programa mantiene dinámica de ejecución, la acumulación de un **${p
       } else {
         // 🚀 Para cualquier otra consulta, sigue llamando normalmente a Gemini
         const respuestaIA = await consultarCopilotoIA(consultaFinal, contextoDatos);
-        setAuditorRespuesta(respuestaIA);
+        
+        // 🛡️ Si el motor devuelve un objeto (JSON enriquecido), activa el Modal Ejecutivo
+        if (typeof respuestaIA === 'object' && respuestaIA !== null) {
+          // 1. Dejamos un mensaje breve en el widget pequeño
+          setAuditorRespuesta(respuestaIA.summary || respuestaIA.dictamen || "Análisis completado. Revisa el informe detallado en pantalla.");
+          
+          // 2. Disparamos el Modal grande con toda la data
+          setAiModal({
+            titulo: respuestaIA.title || respuestaIA.titulo || "Informe Ejecutivo de Auditoría GRC",
+            contenido: respuestaIA
+          });
+        } else {
+          // Si devuelve texto simple, se queda en el widget
+          setAuditorRespuesta(respuestaIA);
+        }
       }
       } catch (error) {
       console.error("🔍 Error IA:", error);

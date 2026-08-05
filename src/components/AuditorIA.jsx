@@ -121,19 +121,23 @@ export default function AuditorIA({
              </div>
            </div>
 
-           {/* 4. BLOQUE PRINCIPAL: RESPUESTA O CUADRÍCULA DE SELECCIÓN */}
-           <div className="bg-[#0a1122]/70 border border-slate-800/80 p-4 rounded-2xl space-y-3 shadow-inner">
-             {auditorRespuesta ? (
-               <div className="space-y-2.5">
-                 <div className="flex items-center justify-between border-b border-slate-800/60 pb-1.5">
-                   <span className="text-[9px] uppercase tracking-widest text-blue-400 font-black">Dictamen Consolidado</span>
-                   <button onClick={() => setAuditorRespuesta('')} className="text-[9px] text-slate-400 hover:text-white font-bold bg-slate-800 px-2 py-0.5 rounded-md transition-colors">← Volver</button>
+          {/* 4. BLOQUE PRINCIPAL: RESPUESTA O CUADRÍCULA DE SELECCIÓN */}
+<div className="bg-[#0a1122]/70 border border-slate-800/80 p-4 rounded-2xl space-y-3 shadow-inner">
+  {auditorRespuesta ? (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between border-b border-slate-800/60 pb-1.5">
+        <span className="text-[9px] uppercase tracking-widest text-blue-400 font-black">Dictamen Consolidado</span>
+        <button onClick={() => setAuditorRespuesta('')} className="text-[9px] text-slate-400 hover:text-white font-bold bg-slate-800 px-2 py-0.5 rounded-md transition-colors">← Volver</button>
+      </div>
+      
+      {/* 🛡️ RENDERIZADO SEGURO DE TEXTO U OBJETO */}
+      <div className="text-slate-200 text-[11px] leading-relaxed max-h-[160px] overflow-y-auto whitespace-pre-wrap font-medium pr-1 scrollbar-thin border-l-2 border-blue-500 pl-2.5">
+                   {typeof auditorRespuesta === 'object' 
+                     ? (auditorRespuesta.summary || auditorRespuesta.dictamen || auditorRespuesta.respuesta || JSON.stringify(auditorRespuesta, null, 2))
+                     : auditorRespuesta}
                  </div>
-                 <div className="text-slate-200 text-[11px] leading-relaxed max-h-[160px] overflow-y-auto whitespace-pre-wrap font-medium pr-1 scrollbar-thin border-l-2 border-blue-500 pl-2.5">
-                   {auditorRespuesta}
-                 </div>
-               </div>
-             ) : (
+    </div>
+  ) : (
                <>
                  <div className="flex items-start space-x-2.5">
                    <div className="w-6 h-6 bg-blue-500/10 rounded-full flex items-center justify-center border border-blue-500/20 text-xs shadow-sm mt-0.5">🤖</div>
