@@ -35,14 +35,17 @@ export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
     const result = await response.json();
     console.log("✅ Respuesta recibida exitosamente del Motor GRC:", result);
 
-    // Extraemos la respuesta devuelta por el AuditEngine / Especialistas
-    if (result.data && result.data.content) {
-      return typeof result.data.content === 'object' 
-        ? JSON.stringify(result.data.content, null, 2) 
-        : result.data.content;
-    }
+// Si el engine devuelve summary o content, priorizamos el texto legible
+if (result.data) {
+  if (result.data.summary) return result.data.summary;
+  if (result.data.content) {
+    return typeof result.data.content === 'object' 
+      ? JSON.stringify(result.data.content, null, 2) 
+      : result.data.content;
+  }
+}
 
-    return typeof result.data === 'string' ? result.data : JSON.stringify(result, null, 2);
+return typeof result === 'string' ? result : JSON.stringify(result, null, 2);    
 
   } catch (error) {
     console.error("❌ Error al conectar con el Motor GRC local:", error);
