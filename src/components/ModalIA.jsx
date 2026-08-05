@@ -216,13 +216,28 @@ const fileName = `${safeTitle}.pdf`;
                     </div>
                   )}
 
-                  {/* Hallazgos */}
+                {/* Hallazgos */}
                   {(data.findings || data.hallazgos) && (
                     <div className="bg-slate-800/30 border border-slate-800 rounded-2xl p-4 space-y-2">
                       <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">⚠️ Hallazgos Identificados</h4>
-                      <ul className="space-y-1.5 text-xs text-slate-300">
+                      <ul className="space-y-2 text-xs text-slate-300">
                         {(data.findings || data.hallazgos).map((item, idx) => (
-                          <li key={idx} className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">• {item}</li>
+                          <li key={idx} className="bg-slate-900/60 p-3 rounded-xl border border-slate-800/80 flex flex-col gap-1.5 shadow-sm">
+                            {typeof item === 'string' ? (
+                              <span>• {item}</span>
+                            ) : (
+                              <>
+                                {item.HECHOS && <div><span className="text-white font-black text-[10px] uppercase tracking-wider bg-slate-800 px-1.5 py-0.5 rounded mr-1">Hechos:</span> <span className="font-medium text-slate-200">{item.HECHOS}</span></div>}
+                                {item.ANÁLISIS && <div><span className="text-amber-400 font-black text-[10px] uppercase tracking-wider bg-amber-950/30 px-1.5 py-0.5 rounded mr-1">Análisis:</span> <span className="font-medium text-amber-100">{item.ANÁLISIS}</span></div>}
+                                {item.RECOMENDACIONES && <div><span className="text-emerald-400 font-black text-[10px] uppercase tracking-wider bg-emerald-950/30 px-1.5 py-0.5 rounded mr-1">Recomendaciones:</span> <span className="font-medium text-emerald-100">{item.RECOMENDACIONES}</span></div>}
+                                
+                                {/* Fallback por si la IA envía llaves diferentes */}
+                                {!item.HECHOS && !item.ANÁLISIS && !item.RECOMENDACIONES && Object.entries(item).map(([key, value]) => (
+                                  <div key={key}><span className="text-white font-bold capitalize">{key}:</span> {value}</div>
+                                ))}
+                              </>
+                            )}
+                          </li>
                         ))}
                       </ul>
                     </div>
