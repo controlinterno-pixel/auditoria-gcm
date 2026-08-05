@@ -1,4 +1,9 @@
-// src/ai/auditor/services/GeminiService.js
+/**
+ * @file GeminiService.js
+ * @description Servicio de inferencia Gemini integrado con Clean Architecture.
+ * Soporta auto-extracción de API keys (Node/Vite/.env), filtrado de llaves y rotación matricial.
+ */
+
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -23,7 +28,9 @@ export class GeminiService {
           const trimmed = line.trim();
           if (
             trimmed.startsWith("VITE_GEMINI_API_KEY=") ||
-            trimmed.startsWith("VITE_GEMINI_API_KEYS=")
+            trimmed.startsWith("VITE_GEMINI_API_KEYS=") ||
+            trimmed.startsWith("GEMINI_API_KEY=") ||
+            trimmed.startsWith("GEMINI_API_KEYS=")
           ) {
             candidateStrings.push(trimmed.substring(trimmed.indexOf("=") + 1).trim());
           }
@@ -38,6 +45,7 @@ export class GeminiService {
       if (process.env.VITE_GEMINI_API_KEY) candidateStrings.push(process.env.VITE_GEMINI_API_KEY);
       if (process.env.VITE_GEMINI_API_KEYS) candidateStrings.push(process.env.VITE_GEMINI_API_KEYS);
       if (process.env.GEMINI_API_KEY) candidateStrings.push(process.env.GEMINI_API_KEY);
+      if (process.env.GEMINI_API_KEYS) candidateStrings.push(process.env.GEMINI_API_KEYS);
     }
 
     // 3. Entorno Vite Frontend (import.meta.env)
@@ -67,45 +75,45 @@ export class GeminiService {
       return validNonFirebaseKeys;
     }
 
-    console.error("❌ [GeminiService] No se encontraron claves válidas de Gemini (AQ...).");
+    console.error("❌ [GeminiService] No se encontraron claves válidas de Gemini en el entorno.");
     return [];
   }
 
   /**
-   * Ejecuta la consulta a Gemini utilizando el SDK oficial @google/generative-ai
+   * Genera contenido usando la matriz de llaves y modelos configurados.
+   * Adaptado para el pipeline del AuditEngine.
+   * 
+   * @param {string} promptPayload - Prompt ensamblado por PromptBuilder.
+   * @param {Object} [options={}] - Opciones de generación opcionales.
+   * @returns {Promise<{text: string, modelUsed: string}>}
    */
-  static async executeQuery({ systemInstruction, userPrompt }) {
-    const apiKeys = this.getApiKeys();
+  async generateContent(promptPayload, options = {}) {
+    const apiKeys = GeminiService.getApiKeys();
 
     if (apiKeys.length === 0) {
-      return {
-        success: false,
-        error: "No se encontraron claves de Gemini (AQ...) válidas en el archivo .env"
-      };
+      throw new Error("No se encontraron claves válidas de Gemini en el entorno (.env).");
     }
 
-    const modelNames = ["gemini-2.5-flash", "gemini-1.5-flash"];
+    const modelNames = options.modelNames || ["gemini-1.5-flash", "gemini-2.0-flash-exp"];
 
     for (let i = 0; i < apiKeys.length; i++) {
       const currentKey = apiKeys[i];
       const maskedKey = `${currentKey.substring(0, 8)}...${currentKey.slice(-4)}`;
-
       const genAI = new GoogleGenerativeAI(currentKey);
 
       for (const modelName of modelNames) {
         try {
-          console.log(`🤖 [GeminiService] Intentando Key #${i + 1} (${maskedKey}) con Modelo: ${modelName}...`);
+          console.log(`🤖 [GeminiService] Intentando Key #${i + 1} (${maskedKey}) | Modelo: ${modelName}...`);
 
           const model = genAI.getGenerativeModel({
             model: modelName,
-            systemInstruction: systemInstruction,
             generationConfig: {
-              temperature: 0.2,
-              responseMimeType: "application/json"
+              temperature: options.temperature ?? 0.1,
+              responseMimeType: options.responseMimeType || "application/json"
             }
           });
 
-          const result = await model.generateContent(userPrompt);
+          const result = await model.generateContent(promptPayload);
           const response = await result.response;
           const rawText = response.text();
 
@@ -113,24 +121,19 @@ export class GeminiService {
             throw new Error("El modelo respondió pero no devolvió texto.");
           }
 
-          console.log(`✅ [GeminiService] ¡Conexión exitosa con Key #${i + 1}!`);
+          console.log(`✅ [GeminiService] Respuesta recibida con exito (Key #${i + 1}, ${modelName}).`);
 
           return {
-            success: true,
-            rawText
+            text: rawText,
+            modelUsed: modelName
           };
 
         } catch (error) {
-          console.warn(`⚠️ [GeminiService] Falló Key #${i + 1} con ${modelName}: ${error.message}`);
+          console.warn(`⚠️ [GeminiService] Falló Key #${i + 1} (${maskedKey}) con ${modelName}: ${error.message}`);
         }
       }
-
-      if (i === apiKeys.length - 1) {
-        return {
-          success: false,
-          error: "Todas las claves y modelos fallaron en el motor de auditoría."
-        };
-      }
     }
+
+    throw new Error("Todas las claves y modelos de Gemini fallaron en la inferencia.");
   }
 }

@@ -1,6 +1,7 @@
 import { ExecutionContext } from './ExecutionContext.js';
 import { IntentClassifier } from '../specialists/IntentClassifier.js';
 import { PromptBuilder } from './PromptBuilder.js';
+import { GeminiService } from '../services/GeminiService.js';
 /**
  * @file AuditEngine.js
  * @description Orquestador principal del motor GRC. Controla el pipeline unidireccional.
@@ -86,10 +87,30 @@ export class AuditEngine {
     // (Opcional) Aquí en el futuro mediremos la cantidad de tokens para asegurar el presupuesto
   }
 
-  async _runLlmInference(context) {
+ async _runLlmInference(context) {
     console.log(" -> Llamando a Gemini API...");
-    context.llm.status = "SUCCESS";
-    context.llm.rawResponse = '{"status":"ok"}';
+    try {
+      const geminiService = new GeminiService();
+      const llmResult = await geminiService.generateContent(context.prompt.assembledPayload, {
+        temperature: 0.1,
+        responseMimeType: "application/json"
+      });
+
+      context.updateLLMResponse(llmResult.text, llmResult.modelUsed);
+    } catch (llmError) {
+      console.error(` ❌ Error en inferencia: ${llmError.message}`);
+      context.errors.push({
+        step: "LLM_INFERENCE",
+        message: llmError.message,
+        timestamp: new Date().toISOString()
+      });
+      context.llm.status = "FAILED";
+      context.llm.rawResponse = JSON.stringify({ 
+        error: "No fue posible procesar la inferencia en este momento.", 
+        details: llmError.message 
+      });
+      context.llm.modelUsed = "none";
+    }
   }
 
   async _runValidation(context) {
