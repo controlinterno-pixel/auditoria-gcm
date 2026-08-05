@@ -1,281 +1,93 @@
 import React, { useState, useRef } from 'react';
 import { exportarA_PDF } from '../utils/pdfUtils';
+import { AuditDiagnosticView } from './AuditoriaAutomatizada/AuditDiagnosticView';
 
 export default function ModalIA({ aiModal, setAiModal }) {
   if (!aiModal) return null;
 
   const rawText = aiModal?.contenido !== undefined ? aiModal.contenido : aiModal;
 
- let data = null;
-  let isRiskReport = false;
+  let data = null;
 
   try {
     const parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
     if (parsed && typeof parsed === 'object') {
       data = parsed;
-      if (parsed.encabezado || parsed.kpis) {
-        isRiskReport = true;
-      }
     }
   } catch (e) {
-    // Fallback
-  } 
-
-  const [openAccordion, setOpenAccordion] = useState('metodologia');
-  const toggleAccordion = (key) => setOpenAccordion(openAccordion === key ? null : key);
+    // Fallback si viene texto plano
+  }
 
   const pdfRef = useRef();
-  
-  // 🔥 1. NUEVO ESTADO PARA LA PANTALLA DE CARGA
   const [isExporting, setIsExporting] = useState(false);
 
   const descargarPDF = async () => {
-    // A. Mostramos la pantalla de carga (esto oculta el desorden visual)
     setIsExporting(true);
 
-    const estadoAnterior = openAccordion;
-    setOpenAccordion('all');
+    // Damos un pequeño margen para asegurar el render de captura
+    await new Promise(resolve => setTimeout(resolve, 300));
 
-    // B. Le damos 400ms para que se estire y dibuje todo detrás del telón
-    await new Promise(resolve => setTimeout(resolve, 400));
-
-    // C. Tomamos la fotografía
-const safeTitle = (aiModal?.titulo || 'Informe').replace(/[^a-zA-Z0-9]/g, '_');
-const fileName = `${safeTitle}.pdf`;
+    const safeTitle = (aiModal?.titulo || 'Informe_GRC').replace(/[^a-zA-Z0-9]/g, '_');
+    const fileName = `${safeTitle}.pdf`;
+    
     await exportarA_PDF(pdfRef, fileName);
-
-    // D. Dejamos el acordeón como estaba y quitamos la pantalla de carga
-    setOpenAccordion(estadoAnterior);
     setIsExporting(false);
   };
 
   return (
     <>
-      {/* 🔥 2. PANTALLA DE CARGA TIPO ENTERPRISE QUE CUBRE TODO (z-index ultra alto) */}
+      {/* 1. PANTALLA DE CARGA AL EXPORTAR PDF */}
       {isExporting && (
         <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-200">
           <div className="animate-spin text-5xl mb-4 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]">
             ⚙️
           </div>
           <h2 className="text-lg font-black text-blue-400 tracking-widest uppercase animate-pulse">
-            Generando Documento...
+            Generando Documento PDF...
           </h2>
           <p className="text-slate-400 text-xs font-bold mt-2">
-            Acoplando métricas y capturando interfaz
+            Compilando informe técnico y métricas de auditoría
           </p>
         </div>
       )}
 
-      {/* CONTENEDOR MODAL ORIGINAL */}
+      {/* 2. CONTENEDOR MODAL */}
       <div className="fixed inset-0 z-[250] bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-        <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">        
+        <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">        
           
           {/* CABECERA */}
           <div className="bg-slate-900/90 border-b border-slate-800 p-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">🛡️</div>
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">
+                🛡️
+              </div>
               <div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-950/80 border border-cyan-800/50 px-2 py-0.5 rounded-md">Panel Ejecutivo Inteligente</span>
-<span className="text-[10px] font-mono font-bold text-slate-400">
-  {aiModal?.titulo?.includes('Global') ? 'MATRIZ GLOBAL' : (data?.encabezado?.codigo || 'RSK-ANALYSIS')}
-</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-950/80 border border-cyan-800/50 px-2 py-0.5 rounded-md">
+                    Panel Ejecutivo Inteligente
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-slate-400">
+                    {data?.encabezado?.codigo || 'GRC-AUDIT'}
+                  </span>
                 </div>
-                <h3 className="font-extrabold text-base text-slate-100 mt-0.5">{aiModal.titulo || data?.encabezado?.proceso || 'Análisis del Riesgo Corporativo'}</h3>
+                <h3 className="font-extrabold text-base text-slate-100 mt-0.5">
+                  {aiModal.titulo || data?.encabezado?.proceso || 'Análisis de Auditoría y Riesgos'}
+                </h3>
               </div>
             </div>
-            <button onClick={() => setAiModal(null)} className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm">✕</button>
+            <button 
+              onClick={() => setAiModal(null)} 
+              className="w-9 h-9 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center font-bold text-sm"
+            >
+              ✕
+            </button>
           </div>
 
-{/* CUERPO DEL WORKSPACE */}
+          {/* CUERPO - COMPONENTE DE DIAGNÓSTICO REUTILIZABLE */}
           <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
             <div ref={pdfRef} className="space-y-6 bg-slate-900 p-2 text-slate-100 rounded-2xl">
-{isRiskReport && data ? (
-                <>
-              {/* 👇 TÍTULO Y CÓDIGO DEL RIESGO PROTEGIDO 👇 */}
-  <div className="mb-1 border-b border-slate-800/60 pb-4">
-    <h2 className="text-lg font-black text-slate-100 flex items-center gap-3">
-      <span className="whitespace-nowrap shrink-0 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
-        {data.encabezado?.codigo || 'RSK-ANALYSIS'}
-      </span>
-      <span>{aiModal.titulo || data.encabezado?.proceso || 'Dictamen de Riesgo Corporativo'}</span>
-    </h2>
-  </div>
-  
-  {/* BADGES */}
-  <div className="flex flex-wrap items-center gap-2 pb-1">
-    <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>Inh: {data.encabezado?.riesgoInherenteLabel || 'Alto'}</span>
-    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400"></span>Residual: {data.encabezado?.riesgoResidualLabel || 'Bajo'}</span>
-    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data?.encabezado?.calidadRegistroScore || data?.encabezado?.calidad || data?.kpis?.calidad || 90}/100</span>
-  </div>
-                  {/* KPIS */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    {[
-                      { label: "Score Riesgo", val: `${data.kpis.scoreRiesgo}%`, color: "text-orange-400" },
-                      { label: "Madurez", val: `${data.kpis.scoreMadurez}%`, color: "text-blue-400" },
-                      { label: "Controles", val: data.kpis.totalControles, color: "text-slate-100" },
-                      { label: "Cobertura", val: `${data.kpis.coberturaControles}%`, color: "text-emerald-400" }
-                    ].map((kpi, i) => (
-                      <div key={i} className="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl flex flex-col justify-between">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{kpi.label}</span>
-                        <span className={`text-3xl font-black mt-2 ${kpi.color}`}>{kpi.val}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* HALLAZGOS Y RECOMENDACIONES */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-slate-800/30 border border-slate-800/80 rounded-2xl p-4 space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-2">⚠️ Hallazgos</h4>
-                      <ul className="space-y-2 text-xs text-slate-300 font-medium">
-                        {data.hallazgos?.map((item, idx) => (
-                          <li key={idx} className="flex items-start space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800"><span className="text-amber-400 font-bold shrink-0">•</span><span>{item}</span></li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="bg-slate-800/30 border border-slate-800/80 rounded-2xl p-4 space-y-3">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-cyan-400 flex items-center gap-2">💡 Recomendaciones</h4>
-                      <ul className="space-y-2 text-xs text-slate-300 font-medium">
-                        {data.recomendaciones?.map((item, idx) => (
-                          <li key={idx} className="flex items-start space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800"><span className="text-cyan-400 font-bold shrink-0">✔</span><span>{item}</span></li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* PLAN DE ACCION */}
-                  <div className="bg-slate-800/30 border border-slate-800/80 rounded-2xl p-4 space-y-3">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-2">📈 Plan de Acción Inmediato</h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead><tr className="border-b border-slate-800 text-[10px] font-black uppercase text-slate-400 tracking-wider"><th className="pb-2">Prioridad</th><th className="pb-2">Acción</th><th className="pb-2 text-right">Responsable</th></tr></thead>
-                        <tbody className="divide-y divide-slate-800/50">
-                          {data.planAccion?.map((act, idx) => (
-                            <tr key={idx} className="hover:bg-slate-800/20">
-                              <td className="py-2.5"><span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${act.prioridad === 'Alta' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>{act.prioridad}</span></td>
-                              <td className="py-2.5 font-medium text-slate-200">{act.accion}</td>
-                              <td className="py-2.5 text-right font-bold text-slate-400 whitespace-nowrap">{act.responsable}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* DICTAMEN */}
-                  <div className="bg-gradient-to-r from-blue-950/40 via-slate-900 to-purple-950/40 border border-blue-500/30 p-4 rounded-2xl space-y-2">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-blue-400 flex items-center gap-2">🧠 Dictamen del Director</h4>
-                    <p className="text-xs text-slate-200 font-medium leading-relaxed italic">"{data.dictamenDirector}"</p>
-                  </div>
-
-                  {/* ACORDEONES */}
-                  <div className="space-y-2 pt-2 border-t border-slate-800">
-                    {[
-                      { id: 'metodologia', title: 'Análisis Metodológico ISO 31000', text: data.acordeonesTecnicos?.analisisMetodologico },
-                      { id: 'controles', title: 'Evaluación de Controles & COSO ERM', text: data.acordeonesTecnicos?.evaluacionControles },
-                      { id: 'kris', title: 'KRIs, Monitoreo y Evidencias', text: data.acordeonesTecnicos?.krisEvidencias }
-                    ].map((acc) => (
-                      <div key={acc.id} className="bg-slate-800/40 border border-slate-800 rounded-xl overflow-hidden">
-                        <button onClick={() => toggleAccordion(acc.id)} className="w-full p-3.5 text-left text-xs font-bold text-slate-200 flex justify-between items-center hover:bg-slate-800/60 transition-colors">
-                          <span className="flex items-center gap-2">
-                            <span>{(openAccordion === acc.id || openAccordion === 'all') ? '▼' : '▶'}</span> {acc.title}
-                          </span>
-                        </button>
-                        
-                        {(openAccordion === acc.id || openAccordion === 'all') && (
-                          <div className="p-4 text-xs text-slate-300 font-normal leading-relaxed border-t border-slate-800/60 bg-slate-900/80">
-                            {acc.text || 'Sin información técnica detallada.'}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : data ? (
-                /* RENDERIZADO ELEGANTE DE LA RESPUESTA DEL MOTOR GRC */
-                <div className="space-y-6">
-                  {/* Título y Resumen / Dictamen */}
-                  <div className="bg-slate-800/60 border border-slate-700/80 p-5 rounded-2xl space-y-3">
-                    <h2 className="text-lg font-bold text-emerald-400">
-                      {data.title || data.titulo || 'Informe Ejecutivo de Auditoría GRC'}
-                    </h2>
-                    <p className="text-xs text-slate-200 leading-relaxed font-medium whitespace-pre-wrap">
-                      {data.summary || data.dictamen || data.respuesta || (typeof data === 'string' ? data : JSON.stringify(data, null, 2))}
-                    </p>
-                  </div>
-
-                  {/* Tarjetas / Widgets */}
-                  {data.widgets && data.widgets.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {data.widgets.map((w, idx) => (
-                        <div key={idx} className="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{w.title || w.label}</span>
-                          <span className="text-xl font-bold text-white">{w.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                {/* Hallazgos */}
-                  {(data.findings || data.hallazgos) && (
-                    <div className="bg-slate-800/30 border border-slate-800 rounded-2xl p-4 space-y-2">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">⚠️ Hallazgos Identificados</h4>
-                      <ul className="space-y-2 text-xs text-slate-300">
-                        {(data.findings || data.hallazgos).map((item, idx) => (
-                          <li key={idx} className="bg-slate-900/60 p-3 rounded-xl border border-slate-800/80 flex flex-col gap-1.5 shadow-sm">
-                            {typeof item === 'string' ? (
-                              <span>• {item}</span>
-                            ) : (
-                              <>
-                                {item.HECHOS && <div><span className="text-white font-black text-[10px] uppercase tracking-wider bg-slate-800 px-1.5 py-0.5 rounded mr-1">Hechos:</span> <span className="font-medium text-slate-200">{item.HECHOS}</span></div>}
-                                {item.ANÁLISIS && <div><span className="text-amber-400 font-black text-[10px] uppercase tracking-wider bg-amber-950/30 px-1.5 py-0.5 rounded mr-1">Análisis:</span> <span className="font-medium text-amber-100">{item.ANÁLISIS}</span></div>}
-                                {item.RECOMENDACIONES && <div><span className="text-emerald-400 font-black text-[10px] uppercase tracking-wider bg-emerald-950/30 px-1.5 py-0.5 rounded mr-1">Recomendaciones:</span> <span className="font-medium text-emerald-100">{item.RECOMENDACIONES}</span></div>}
-                                
-                                {/* Fallback por si la IA envía llaves diferentes */}
-                                {!item.HECHOS && !item.ANÁLISIS && !item.RECOMENDACIONES && Object.entries(item).map(([key, value]) => (
-                                  <div key={key}><span className="text-white font-bold capitalize">{key}:</span> {value}</div>
-                                ))}
-                              </>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                 {/* 👇 PEGAR DESDE AQUÍ: Tarjetas de Alerta / Cards (NUEVO) 👇 */}
-                  {data.cards && data.cards.length > 0 && (
-                    <div className="space-y-3 pt-2">
-                      {data.cards.map((card, idx) => {
-                        const typeColors = {
-                          critical: "border-red-500/50 bg-red-950/20 text-red-400",
-                          warning: "border-amber-500/50 bg-amber-950/20 text-amber-400",
-                          info: "border-blue-500/50 bg-blue-950/20 text-blue-400",
-                          success: "border-emerald-500/50 bg-emerald-950/20 text-emerald-400"
-                        };
-                        const colorClass = typeColors[card.type] || typeColors.info;
-
-                        return (
-                          <div key={idx} className={`border p-4 rounded-xl flex flex-col gap-2 shadow-sm ${colorClass}`}>
-                            <div className="flex justify-between items-center border-b border-current/20 pb-2">
-                              <h4 className="font-bold uppercase tracking-wider text-xs flex items-center gap-2">
-                                🔔 {card.title}
-                              </h4>
-                              {card.code && (
-                                <span className="text-[10px] font-black uppercase tracking-widest bg-current/10 px-2 py-0.5 rounded-md">
-                                  {card.code}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-300 font-medium leading-relaxed">
-                              {card.content}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+              {data ? (
+                <AuditDiagnosticView auditData={data} />
               ) : (
                 <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap font-medium p-4 bg-slate-800/50 rounded-2xl border border-slate-800 overflow-auto">
                   {String(rawText)}
@@ -295,11 +107,15 @@ const fileName = `${safeTitle}.pdf`;
               >
                 Descargar PDF
               </button>
-              <button onClick={() => setAiModal(null)} className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs font-bold transition-colors">
+              <button 
+                onClick={() => setAiModal(null)} 
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs font-bold transition-colors"
+              >
                 Cerrar Panel
               </button>
             </div>
           </div>
+
         </div>
       </div>
     </>
