@@ -228,15 +228,36 @@ const fileName = `${safeTitle}.pdf`;
                     </div>
                   )}
 
-                  {/* Recomendaciones */}
-                  {(data.recommendations || data.recomendaciones) && (
-                    <div className="bg-slate-800/30 border border-slate-800 rounded-2xl p-4 space-y-2">
-                      <h4 className="text-xs font-black uppercase tracking-wider text-cyan-400">💡 Recomendaciones Estratégicas</h4>
-                      <ul className="space-y-1.5 text-xs text-slate-300">
-                        {(data.recommendations || data.recomendaciones).map((item, idx) => (
-                          <li key={idx} className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">✔ {item}</li>
-                        ))}
-                      </ul>
+                 {/* 👇 PEGAR DESDE AQUÍ: Tarjetas de Alerta / Cards (NUEVO) 👇 */}
+                  {data.cards && data.cards.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      {data.cards.map((card, idx) => {
+                        const typeColors = {
+                          critical: "border-red-500/50 bg-red-950/20 text-red-400",
+                          warning: "border-amber-500/50 bg-amber-950/20 text-amber-400",
+                          info: "border-blue-500/50 bg-blue-950/20 text-blue-400",
+                          success: "border-emerald-500/50 bg-emerald-950/20 text-emerald-400"
+                        };
+                        const colorClass = typeColors[card.type] || typeColors.info;
+
+                        return (
+                          <div key={idx} className={`border p-4 rounded-xl flex flex-col gap-2 shadow-sm ${colorClass}`}>
+                            <div className="flex justify-between items-center border-b border-current/20 pb-2">
+                              <h4 className="font-bold uppercase tracking-wider text-xs flex items-center gap-2">
+                                🔔 {card.title}
+                              </h4>
+                              {card.code && (
+                                <span className="text-[10px] font-black uppercase tracking-widest bg-current/10 px-2 py-0.5 rounded-md">
+                                  {card.code}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-300 font-medium leading-relaxed">
+                              {card.content}
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
