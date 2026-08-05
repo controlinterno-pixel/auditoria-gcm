@@ -1,14 +1,13 @@
 /**
  * @file RiskSpecialist.js
- * @description Especialista declarativo de Riesgos GRC.
+ * @description Especialista de Riesgos GRC (MoE Pattern).
  */
-
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { BaseSpecialist } from './BaseSpecialist.js';
+import { RiskManifest } from './RiskSpecialist.manifest.js';
 
-// Rutas para Node ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -18,7 +17,11 @@ const riskPromptRaw = fs.existsSync(promptPath)
   : '';
 
 export class RiskSpecialist extends BaseSpecialist {
-  domain = 'RISK';
-  specialistPrompt = riskPromptRaw;
-defaultSchema = 'DashboardSchema';
+  constructor() {
+    super();
+    this.manifest = RiskManifest;
+    this.domain = this.manifest.domain;
+    this.specialistPrompt = riskPromptRaw;
+    this.defaultSchema = this.manifest.defaultSchema;
+  }
 }
