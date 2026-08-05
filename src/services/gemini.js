@@ -10,63 +10,42 @@ if (!rawKeys) {
 // 2. MAGIA: Convertimos ese string en un arreglo (Array) de llaves individuales
 const apiKeys = rawKeys ? rawKeys.split(',').map(key => key.trim()) : [];
 
-// 3. Función para el Copiloto IA (Chat) con sistema de Rotación de Llaves
+// 3. Función para el Copiloto IA (Chat) redirigida al Motor GRC (Express Server)
 export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
-  
-  const contextoLegible = typeof contextoDatos === 'object' 
-    ? JSON.stringify(contextoDatos, null, 2) 
-    : contextoDatos;
+  try {
+    console.log("🚀 Redirigiendo consulta al Motor GRC Backend (http://localhost:3000)...");
 
-  const prompt = `
-  Eres 'Auditor IA', un asistente experto en auditoría, GRC y control interno.
-  Tu objetivo es ayudar al usuario analizando los datos del sistema y respondiendo sus dudas.
-  
-  DATOS DE CONTEXTO DEL SISTEMA ACTUAL:
-  ${contextoLegible}
-  
-  PREGUNTA DEL USUARIO:
-  ${preguntaUsuario}
-  
-  Responde de forma clara, analítica y profesional basándote en el contexto proporcionado. Usa viñetas si es necesario para facilitar la lectura.
-  `;
+    const response = await fetch('http://localhost:3000/api/v1/audit/query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query: preguntaUsuario,
+        context: contextoDatos,
+        sessionId: 'sesion-auditor-web'
+      }),
+    });
 
-  // 4. CICLO DE FALLBACK: Intentamos con cada llave una por una
-  for (let i = 0; i < apiKeys.length; i++) {
-    try {
-      console.log(`🤖 Intentando conectar con Key #${i + 1}...`);
-      
-      // Inicializamos el SDK específicamente con la llave de este turno
-      const genAI = new GoogleGenerativeAI(apiKeys[i]);
-      
-      // Usamos el modelo estable actual (gemini-1.5-flash)
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      
-      // Intentamos generar el contenido
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      
-      console.log(`✅ ¡Éxito en respuesta generada usando la Key #${i + 1}!`);
-      
-      // Si funciona, retornamos la respuesta y SALIMOS del ciclo
-      return response.text(); 
-      
-    } catch (error) {
-      console.error(`❌ Error con la Key #${i + 1}:`, error.message);
-      
-      // Si es la última llave de la lista y también falló, entonces sí arrojamos el error final
-      if (i === apiKeys.length - 1) {
-        throw new Error("No se pudo obtener respuesta del modelo. Revisa la consola.");
-      }
-      // Si no es la última, el ciclo simplemente continuará con la siguiente llave...
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Error HTTP ${response.status}`);
     }
+
+    const result = await response.json();
+    console.log("✅ Respuesta recibida exitosamente del Motor GRC:", result);
+
+    // Extraemos la respuesta devuelta por el AuditEngine / Especialistas
+    if (result.data && result.data.content) {
+      return typeof result.data.content === 'object' 
+        ? JSON.stringify(result.data.content, null, 2) 
+        : result.data.content;
+    }
+
+    return typeof result.data === 'string' ? result.data : JSON.stringify(result, null, 2);
+
+  } catch (error) {
+    console.error("❌ Error al conectar con el Motor GRC local:", error);
+    throw new Error(`Falló la conexión con el Motor GRC: ${error.message}`);
   }
-};
-
-// Funciones adicionales de tu sistema
-export const obtenerSugerenciaIA = async (texto) => {
-  return "Función sugerencia conectada"; 
-};
-
-export const obtenerAnalisisEvidenciaIA = async (texto) => {
-  return "Función análisis conectada";
 };
