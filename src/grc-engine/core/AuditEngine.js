@@ -9,13 +9,15 @@ import { CoreSchema } from '../schemas/CoreSchema.js';
 import { DashboardSchema } from '../schemas/DashboardSchema.js';
 import { ExecutiveSchema } from '../schemas/ExecutiveSchema.js';
 import { TechnicalSchema } from '../schemas/TechnicalSchema.js';
+import { ReportSchema } from '../schemas/ReportSchema.js';
+import { PromptAssembler } from './PromptAssembler.js';
 import { memoryService } from '../services/MemoryService.js';
 
 const SCHEMAS = {
   ExecutiveSchema,
   TechnicalSchema,
   DashboardSchema,
-  ReportSchema: ExecutiveSchema
+  ReportSchema
 };
 
 /**
