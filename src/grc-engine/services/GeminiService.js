@@ -94,8 +94,12 @@ export class GeminiService {
       throw new Error("No se encontraron claves válidas de Gemini en el entorno (.env).");
     }
 
-    const modelNames = options.modelNames || ["gemini-1.5-flash", "gemini-2.0-flash-exp"];
-
+const modelNames = options.modelNames || [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.5-pro",
+  "gemini-flash-latest"
+];
     for (let i = 0; i < apiKeys.length; i++) {
       const currentKey = apiKeys[i];
       const maskedKey = `${currentKey.substring(0, 8)}...${currentKey.slice(-4)}`;

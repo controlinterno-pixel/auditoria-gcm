@@ -80,19 +80,27 @@ export class IntentClassifier {
       domain = DOMAINS.GOVERNANCE;
     }
 
-    // 2. Detección de Intención/Tarea
-    let intent = INTENTS.UNKNOWN;
-    if (text.includes('analiz') || text.includes('evaluar') || text.includes('diagnostic') || text.includes('examen')) {
-      intent = INTENTS.ANALYZE;
-    } else if (text.includes('compar') || text.includes('diferencia') || text.includes('frente a') || text.includes('vs')) {
-      intent = INTENTS.COMPARE;
-    } else if (text.includes('recomiend') || text.includes('suger') || text.includes('que hacer') || text.includes('propuesta')) {
-      intent = INTENTS.RECOMMEND;
-    } else if (text.includes('resum') || text.includes('sintesis') || text.includes('estado general')) {
-      intent = INTENTS.SUMMARIZE;
-    } else if (text.includes('seguimiento') || text.includes('rastre') || text.includes('avance') || text.includes('kpi')) {
-      intent = INTENTS.TRACK;
-    }
+// 2. Detección de Intención/Tarea
+let intent = INTENTS.UNKNOWN;
+if (
+  text.includes('analiz') || 
+  text.includes('analisis') || 
+  text.includes('evaluar') || 
+  text.includes('evaluacion') || 
+  text.includes('diagnostic') || 
+  text.includes('examen') ||
+  text.includes('diagnostico')
+) {
+  intent = INTENTS.ANALYZE;
+} else if (text.includes('compar') || text.includes('diferencia') || text.includes('frente a') || text.includes('vs')) {
+  intent = INTENTS.COMPARE;
+} else if (text.includes('recomiend') || text.includes('suger') || text.includes('que hacer') || text.includes('propuesta')) {
+  intent = INTENTS.RECOMMEND;
+} else if (text.includes('resum') || text.includes('sintesis') || text.includes('estado general')) {
+  intent = INTENTS.SUMMARIZE;
+} else if (text.includes('seguimiento') || text.includes('rastre') || text.includes('avance') || text.includes('kpi')) {
+  intent = INTENTS.TRACK;
+}
 
     // 3. Detección explícita del Formato de Salida
     let outputFormat = SCHEMA_MAP[domain] || OUTPUT_FORMATS.EXECUTIVE;

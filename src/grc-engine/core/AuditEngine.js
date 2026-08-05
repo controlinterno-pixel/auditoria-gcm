@@ -1,7 +1,9 @@
 import { ExecutionContext } from './ExecutionContext.js';
-import { IntentClassifier } from '../specialists/IntentClassifier.js';
+import { IntentClassifier } from './IntentClassifier.js';
 import { PromptBuilder } from './PromptBuilder.js';
 import { GeminiService } from '../services/GeminiService.js';
+import { KnowledgeManager } from './KnowledgeManager.js';
+import { ContextBuilder } from './ContextBuilder.js';
 /**
  * @file AuditEngine.js
  * @description Orquestador principal del motor GRC. Controla el pipeline unidireccional.
@@ -72,11 +74,34 @@ export class AuditEngine {
         console.warn(" [!] Advertencia: Intención desconocida. El motor podría requerir más contexto.");
     }
   }
+async _runKnowledgeRetrieval(context) {
+  console.log(" -> Recuperando Conocimiento (RAG)...");
+  
+  // 1. Obtenemos los datos desde el KnowledgeManager
+  const rawKnowledge = await KnowledgeManager.getContext(context.classification);
+  const entities = rawKnowledge.entities || [];
 
-  async _runKnowledgeRetrieval(context) {
-    console.log(" -> Recuperando Conocimiento (RAG)...");
-    context.knowledge.cacheHit = false;
-  }
+  // 2. Mapeamos dinámicamente según el dominio clasificado
+  const domainKeyMap = {
+    RISK: 'risks',
+    CONTROL: 'controls',
+    FINDING: 'findings',
+    PLAN: 'plans',
+    GOVERNANCE: 'governance'
+  };
+
+  const keyName = domainKeyMap[context.classification.domain] || 'risks';
+
+  // 3. Formateamos el contexto para el PromptBuilder
+  const formattedContext = ContextBuilder.buildFormattedContext({
+    [keyName]: entities
+  });
+
+  // 4. Guardamos en el objeto ExecutionContext
+  context.knowledge.retrievedContext = formattedContext;
+  context.knowledge.cacheHit = false;
+  context.knowledge.retrievedEntities = entities;
+}
 
   async _runPromptAssembly(context) {
     console.log(" -> Ensamblando Prompt con reglas estrictas de plataforma...");
@@ -96,7 +121,9 @@ export class AuditEngine {
         responseMimeType: "application/json"
       });
 
-      context.updateLLMResponse(llmResult.text, llmResult.modelUsed);
+context.llm.rawResponse = llmResult.text;
+context.llm.modelUsed = llmResult.modelUsed;
+context.llm.status = "SUCCESS";
     } catch (llmError) {
       console.error(` ❌ Error en inferencia: ${llmError.message}`);
       context.errors.push({
