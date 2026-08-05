@@ -77,6 +77,7 @@ export class ContextBuilder {
         section += `   - Impacto Financiero -> Faltante: $${i.montoFaltante || 0} | Sobrante: $${i.montoSobrante || 0}\n`;
         if (i.descripcion) section += `   - Detalle del Evento: ${i.descripcion}\n`;
       });
+      
       formattedSections.push(section.trim());
     }
 
