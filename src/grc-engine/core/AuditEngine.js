@@ -4,6 +4,18 @@ import { PromptBuilder } from './PromptBuilder.js';
 import { GeminiService } from '../services/GeminiService.js';
 import { KnowledgeManager } from './KnowledgeManager.js';
 import { ContextBuilder } from './ContextBuilder.js';
+import { ResponseValidator } from '../validators/ResponseValidator.js';
+import { CoreSchema } from '../schemas/CoreSchema.js';
+import { DashboardSchema } from '../schemas/DashboardSchema.js';
+import { ExecutiveSchema } from '../schemas/ExecutiveSchema.js';
+import { TechnicalSchema } from '../schemas/TechnicalSchema.js';
+
+const SCHEMAS = {
+  ExecutiveSchema,
+  TechnicalSchema,
+  DashboardSchema,
+  ReportSchema: ExecutiveSchema
+};
 /**
  * @file AuditEngine.js
  * @description Orquestador principal del motor GRC. Controla el pipeline unidireccional.
@@ -140,8 +152,24 @@ context.llm.status = "SUCCESS";
     }
   }
 
-  async _runValidation(context) {
-    console.log(" -> Validando JSON de salida...");
-    context.validation.passed = true; 
+async _runValidation(context) {
+    console.log(" -> Validando JSON de salida con ResponseValidator...");
+    
+    const schemaName = context.classification.outputSchema;
+    const targetSchema = SCHEMAS[schemaName] || CoreSchema;
+
+    const validationResult = ResponseValidator.validate(context.llm.rawResponse, targetSchema);
+
+    context.validation = {
+      passed: validationResult.isValid,
+      schemaVersion: validationResult.schema,
+      issues: validationResult.error ? [validationResult.error] : []
+    };
+
+    if (!validationResult.isValid) {
+      console.warn(` ⚠️ Fallo en validación de contrato (${schemaName}): ${validationResult.error}`);
+    } else {
+      console.log(` ✅ Validación de contrato exitosa (${validationResult.schema}).`);
+      context.llm.parsedResponse = validationResult.data;
+    }
   }
-}
