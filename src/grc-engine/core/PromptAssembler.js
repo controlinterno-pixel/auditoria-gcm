@@ -19,27 +19,41 @@ export class PromptAssembler {
   /**
    * Ensambla las instrucciones del sistema en bloques modulares.
    */
-  static assembleSystemInstruction({ specialistPrompt = '', taskPrompt = '', schemaDefinition = null }) {
-    let instruction = `
+  import { SchemaSerializer } from '../serializers/SchemaSerializer.js';
+  import { ContextRanker } from '../rankers/ContextRanker.js';
+
+  /**
+   * Ensambla el prompt con contrato SSOT estricto y compresión inteligente de contexto.
+   */
+  static assemble({ targetSchema, structuredContext, userQuery, rawFindings = [] }) {
+    // 1. Priorizar hallazgos con ContextRanker (Top 6 críticos)
+    const topFindings = ContextRanker.rankHallazgos(rawFindings, 6);
+
+    // 2. Serializar el contrato dinámicamente desde la Única Fuente de Verdad (SSOT)
+    const serializedContract = SchemaSerializer.serialize(targetSchema);
+
+    const systemPrompt = `
 ${DEFAULT_SYSTEM_AUDITOR}
 
----
 ${DEFAULT_GUARDRAILS}
-    `;
 
-    if (specialistPrompt) {
-      instruction += `\n---\n${specialistPrompt}`;
-    }
+=== CONTRATO ESTRICTO DE SALIDA (SSOT) ===
+Debes responder ÚNICAMENTE con un objeto JSON válido que cumpla exactamente la siguiente estructura:
+${serializedContract}
+`.trim();
 
-    if (taskPrompt) {
-      instruction += `\n---\n${taskPrompt}`;
-    }
+    const userPrompt = `
+=== CONTEXTO TÉCNICO EVALUADO ===
+${structuredContext}
 
-    if (schemaDefinition) {
-      instruction += `\n---\n## ESTRUCTURA DE SALIDA ESPERADA (JSON SCHEMA):\nDebes responder adaptándote strictly a esta estructura:\n${JSON.stringify(schemaDefinition, null, 2)}`;
-    }
+=== TOP HALLAZGOS CRÍTICOS PRIORIZADOS ===
+${JSON.stringify(topFindings, null, 2)}
 
-    return instruction.trim();
+=== SOLICITUD DEL USUARIO ===
+${userQuery}
+`.trim();
+
+    return `${systemPrompt}\n\n---\n\n${userPrompt}`;
   }
 
   /**

@@ -163,8 +163,14 @@ export default function AuditorIA({
                        type="button"
                        disabled={isAuditorThinking}
                        onClick={() => {
-                         // Ejecución instantánea: Pasa el prompt directamente al cerebro de la IA
-                         handleAuditorSubmit(null, sug.query);
+                         // Invocación automatizada pasando contexto de nómina y riesgo al AuditEngine
+                         handleAuditorSubmit(null, {
+                           query: sug.query,
+                           options: {
+                             persona: 'EXECUTIVE',
+                             domain: 'AUDIT'
+                           }
+                         });
                        }}
                        className={`w-full bg-[#050a14]/90 border border-slate-800/80 hover:border-blue-500/40 hover:bg-[#0a1122] px-3 py-2.5 rounded-xl flex items-center space-x-2 text-left transition-all duration-200 group active:scale-95 disabled:opacity-30 ${idx === 0 ? 'col-span-2 justify-center' : ''}`}
                      >

@@ -123,8 +123,19 @@ export class AuditEngine {
   }
 
   async _runPromptAssembly(context) {
-    console.log(" -> Ensamblando Prompt con reglas estrictas de plataforma...");
-    context.prompt.assembledPayload = PromptBuilder.build(context);
+    console.log(" -> Ensamblando Prompt con contrato SSOT y ContextRanker...");
+    
+    // Identificar el esquema objetivo según la clasificación
+    const schemaName = context.classification.outputSchema;
+    const targetSchema = SCHEMAS[schemaName] || CoreSchema;
+
+    // Ensamblar invocando directamente el nuevo contrato desacoplado
+    context.prompt.assembledPayload = PromptAssembler.assemble({
+      targetSchema,
+      structuredContext: context.knowledge.retrievedContext,
+      userQuery: context.request.userQuery,
+      rawFindings: context.knowledge.retrievedEntities
+    });
   }
 
   async _runLlmInference(context) {
@@ -132,7 +143,7 @@ export class AuditEngine {
     try {
       const geminiService = new GeminiService();
       const llmResult = await geminiService.generateContent(context.prompt.assembledPayload, {
-        temperature: 0.1,
+        temperature: 0.0, // Cero alucinación, determinismo absoluto GRC
         responseMimeType: "application/json"
       });
 
