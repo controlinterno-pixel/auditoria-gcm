@@ -4,11 +4,12 @@ import { PromptBuilder } from './PromptBuilder.js';
 import { GeminiService } from '../services/GeminiService.js';
 import { KnowledgeManager } from './KnowledgeManager.js';
 import { ContextBuilder } from './ContextBuilder.js';
-import { ResponseValidator } from '../validators/ResponseValidator.js';
+import { ResponseValidator } from './ResponseValidator.js';
 import { CoreSchema } from '../schemas/CoreSchema.js';
 import { DashboardSchema } from '../schemas/DashboardSchema.js';
 import { ExecutiveSchema } from '../schemas/ExecutiveSchema.js';
 import { TechnicalSchema } from '../schemas/TechnicalSchema.js';
+import { memoryService } from '../services/MemoryService.js';
 
 const SCHEMAS = {
   ExecutiveSchema,
@@ -109,10 +110,16 @@ async _runKnowledgeRetrieval(context) {
     [keyName]: entities
   });
 
-  // 4. Guardamos en el objeto ExecutionContext
+// 4. Guardamos en el objeto ExecutionContext
   context.knowledge.retrievedContext = formattedContext;
   context.knowledge.cacheHit = false;
   context.knowledge.retrievedEntities = entities;
+
+  // 5. Recuperamos el historial conversacional basado en la sesión
+  context.memory.chatHistory = memoryService.getHistory(context.request.sessionId);
+  if (context.memory.chatHistory.length > 0) {
+      console.log(` -> [Memoria] ${context.memory.chatHistory.length} mensajes previos recuperados.`);
+  }
 }
 
   async _runPromptAssembly(context) {
@@ -171,7 +178,13 @@ async _runValidation(context) {
     } else {
       console.log(` ✅ Validación de contrato exitosa (${validationResult.schema}).`);
       context.llm.parsedResponse = validationResult.data;
+      
+      // Guardamos la interacción exitosa en la memoria RAM
+      memoryService.addMessage(context.request.sessionId, 'user', context.request.userQuery);
+      
+      // Guardamos solo el resumen ejecutivo para ahorrar tokens en futuras consultas
+      const assistantReply = validationResult.data.summary || "Análisis completado y entregado en el dashboard.";
+      memoryService.addMessage(context.request.sessionId, 'assistant', assistantReply);
     }
   }
-
   }

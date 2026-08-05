@@ -24,6 +24,21 @@ export class PromptBuilder {
 
     const manifest = specialist.getManifest();
 
+   const manifest = specialist.getManifest();
+
+    // 1.5 Extraemos el historial del contexto para la memoria
+    let historySection = "";
+    const history = context.memory?.chatHistory || [];
+    
+    if (history.length > 0) {
+      historySection = "HISTORIAL DE LA CONVERSACIÓN (Contexto Previo):\nUsa este historial para entender el contexto si el usuario hace preguntas de seguimiento.\n";
+      history.forEach(msg => {
+        const roleName = msg.role === 'user' ? 'Auditor' : 'Motor GRC';
+        historySection += `- ${roleName}: ${msg.content}\n`;
+      });
+      historySection += "\n";
+    }
+
     // 2. Ensamblamos el Prompt exigiendo la estructura del CoreSchema
     const assembledPrompt = `
 INSTRUCCIONES DEL ESPECIALISTA:
@@ -53,10 +68,11 @@ CAMPOS ADICIONALES PARA DASHBOARD:
 CONTEXTO INTERNO (RAG):
 ${context.knowledge.retrievedContext || "No se encontró información relevante en la plataforma."}
 
+${historySection}
 CONSULTA DEL USUARIO:
 ${context.request.userQuery}
 `;
 
     return assembledPrompt.trim();
   }
-}
+  }

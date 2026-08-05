@@ -35,6 +35,11 @@ export class ExecutionContext {
       sources: []
     };
 
+    // 3.5 Fase de Memoria Conversacional
+    this.memory = {
+      chatHistory: []
+    };
+
     // 4. Fase de Ensamblaje (PromptAssembler)
     this.prompt = {
       assembledPayload: null,
