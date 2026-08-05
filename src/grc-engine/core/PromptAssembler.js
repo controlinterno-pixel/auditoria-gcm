@@ -1,9 +1,7 @@
-import { SchemaSerializer } from '../serializers/SchemaSerializer.js';
-import { ContextRanker } from '../rankers/ContextRanker.js';
-
 /**
  * @file PromptAssembler.js
- * @description Ensamblador de prompts enriquecido con Guardrails y estructura limpia sin dependencias síncronas de disco duro.
+ * @description Ensamblador de prompts enriquecido con Guardrails.
+ * Desacoplado de archivos externos inexistentes para evitar fallos de resolución ESM en Vercel.
  */
 
 const DEFAULT_SYSTEM_AUDITOR = `
@@ -18,16 +16,45 @@ GUARDRAILS Y REGLAS DE SEGURIDAD:
 3. Devuelve siempre un formato JSON válido y estructurado.
 `;
 
+/**
+ * Ordena y filtra los hallazgos más críticos sin requerir ContextRanker externo.
+ */
+function rankHallazgos(findings = [], limit = 6) {
+  if (!Array.isArray(findings)) return [];
+  const severityWeight = {
+    CRITICAL: 4, CRITICO: 4,
+    HIGH: 3, ALTO: 3,
+    MEDIUM: 2, MEDIO: 2,
+    LOW: 1, BAJO: 1
+  };
+
+  return [...findings]
+    .sort((a, b) => {
+      const weightA = severityWeight[String(a.severity || a.severidad || '').toUpperCase()] || 0;
+      const weightB = severityWeight[String(b.severity || b.severidad || '').toUpperCase()] || 0;
+      return weightB - weightA;
+    })
+    .slice(0, limit);
+}
+
+/**
+ * Convierte el esquema objetivo a JSON legible sin requerir SchemaSerializer externo.
+ */
+function serializeSchema(schema) {
+  if (!schema) return "{}";
+  return typeof schema === 'string' ? schema : JSON.stringify(schema, null, 2);
+}
+
 export class PromptAssembler {
   /**
    * Ensambla el prompt con contrato SSOT estricto y compresión inteligente de contexto.
    */
   static assemble({ targetSchema, structuredContext, userQuery, rawFindings = [] }) {
-    // 1. Priorizar hallazgos con ContextRanker (Top 6 críticos)
-    const topFindings = ContextRanker.rankHallazgos(rawFindings, 6);
+    // 1. Priorizar hallazgos más críticos
+    const topFindings = rankHallazgos(rawFindings, 6);
 
-    // 2. Serializar el contrato dinámicamente desde la Única Fuente de Verdad (SSOT)
-    const serializedContract = SchemaSerializer.serialize(targetSchema);
+    // 2. Serializar el contrato de salida
+    const serializedContract = serializeSchema(targetSchema);
 
     const systemPrompt = `
 ${DEFAULT_SYSTEM_AUDITOR}
