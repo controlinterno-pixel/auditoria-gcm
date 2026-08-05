@@ -74,12 +74,19 @@ const modelNames = options.modelNames || [
         try {
           console.log(`🤖 [GeminiService] Intentando Key #${i + 1} (${maskedKey}) | Modelo: ${modelName}...`);
 
+          const generationConfig = {
+            temperature: options.temperature ?? 0.1,
+            responseMimeType: options.responseMimeType || "application/json"
+          };
+
+          // Si el llamador pasó un esquema estructurado (ej. ReportSchema), lo inyectamos
+          if (options.responseSchema || options.schema) {
+            generationConfig.responseSchema = options.responseSchema || options.schema;
+          }
+
           const model = genAI.getGenerativeModel({
             model: modelName,
-            generationConfig: {
-              temperature: options.temperature ?? 0.1,
-              responseMimeType: options.responseMimeType || "application/json"
-            }
+            generationConfig
           });
 
           const result = await model.generateContent(promptPayload);
