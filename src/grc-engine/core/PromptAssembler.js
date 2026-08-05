@@ -1,38 +1,30 @@
 /**
  * @file PromptAssembler.js
- * @description Ensamblador de prompts enriquecido con Guardrails, Estructura limpia y Esquemas.
+ * @description Ensamblador de prompts enriquecido con Guardrails y estructura limpia sin dependencias síncronas de disco duro.
  */
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const DEFAULT_SYSTEM_AUDITOR = `
+Eres el Auditor Principal de Control Interno y GRC para Termales de Santa Rosa de Cabal.
+Tu objetivo es evaluar de forma objetiva, rigurosa y bajo metodologías COSO ERM e ISO 31000 los riesgos, controles, hallazgos y planes de acción de la organización.
+`;
 
-// Obtener la ruta del directorio actual en ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Cargar prompts síncronamente desde el sistema de archivos
-const systemAuditorPath = path.resolve(__dirname, '../prompts/system/auditor.md');
-const guardrailsPath = path.resolve(__dirname, '../prompts/system/guardrails.md');
-
-const systemAuditorRaw = fs.existsSync(systemAuditorPath) 
-  ? fs.readFileSync(systemAuditorPath, 'utf-8') 
-  : '';
-
-const guardrailsRaw = fs.existsSync(guardrailsPath) 
-  ? fs.readFileSync(guardrailsPath, 'utf-8') 
-  : '';
+const DEFAULT_GUARDRAILS = `
+GUARDRAILS Y REGLAS DE SEGURIDAD:
+1. Responde ÚNICAMENTE basándote en los datos recibidos en el CONTEXTO INTERNO.
+2. Si no hay evidencia suficiente en el contexto para fundamentar una respuesta, indícalo expresamente.
+3. Devuelve siempre un formato JSON válido y estructurado.
+`;
 
 export class PromptAssembler {
   /**
-   * Ensambla las instrucciones del sistema en bloques modulares y desacoplados.
+   * Ensambla las instrucciones del sistema en bloques modulares.
    */
   static assembleSystemInstruction({ specialistPrompt = '', taskPrompt = '', schemaDefinition = null }) {
     let instruction = `
-${systemAuditorRaw}
+${DEFAULT_SYSTEM_AUDITOR}
 
 ---
-${guardrailsRaw}
+${DEFAULT_GUARDRAILS}
     `;
 
     if (specialistPrompt) {
@@ -44,7 +36,7 @@ ${guardrailsRaw}
     }
 
     if (schemaDefinition) {
-      instruction += `\n---\n## ESTRUCTURA DE SALIDA ESPERADA (JSON SCHEMA):\nDebes responder adaptándote estrictamente a esta estructura:\n${JSON.stringify(schemaDefinition, null, 2)}`;
+      instruction += `\n---\n## ESTRUCTURA DE SALIDA ESPERADA (JSON SCHEMA):\nDebes responder adaptándote strictly a esta estructura:\n${JSON.stringify(schemaDefinition, null, 2)}`;
     }
 
     return instruction.trim();
