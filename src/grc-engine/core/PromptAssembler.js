@@ -3,8 +3,25 @@
  * @description Ensamblador de prompts enriquecido con Guardrails, Estructura limpia y Esquemas.
  */
 
-import systemAuditorRaw from '../prompts/system/auditor.md?raw';
-import guardrailsRaw from '../prompts/system/guardrails.md?raw';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Obtener la ruta del directorio actual en ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Cargar prompts síncronamente desde el sistema de archivos
+const systemAuditorPath = path.resolve(__dirname, '../prompts/system/auditor.md');
+const guardrailsPath = path.resolve(__dirname, '../prompts/system/guardrails.md');
+
+const systemAuditorRaw = fs.existsSync(systemAuditorPath) 
+  ? fs.readFileSync(systemAuditorPath, 'utf-8') 
+  : '';
+
+const guardrailsRaw = fs.existsSync(guardrailsPath) 
+  ? fs.readFileSync(guardrailsPath, 'utf-8') 
+  : '';
 
 export class PromptAssembler {
   /**
