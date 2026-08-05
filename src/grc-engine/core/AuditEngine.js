@@ -106,6 +106,12 @@ export class AuditEngine {
       ...rawKnowledge
     });
 
+    // 🔍 ESPÍA DE DATOS DE FIREBASE / KNOWLEDGE MANAGER
+    console.log("==========================================");
+    console.log("🔎 [DEBUG] ENTIDADES RECUPERADAS DE BASE DE DATOS:");
+    console.log(JSON.stringify(entities, null, 2));
+    console.log("==========================================");
+
     context.knowledge.retrievedContext = formattedContext;
     context.knowledge.cacheHit = false;
     context.knowledge.retrievedEntities = entities;
