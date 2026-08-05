@@ -20,5 +20,5 @@ const riskPromptRaw = fs.existsSync(promptPath)
 export class RiskSpecialist extends BaseSpecialist {
   domain = 'RISK';
   specialistPrompt = riskPromptRaw;
-  defaultSchema = 'executive';
+defaultSchema = 'DashboardSchema';
 }

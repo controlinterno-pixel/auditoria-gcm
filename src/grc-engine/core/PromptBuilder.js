@@ -1,20 +1,32 @@
 /**
  * @file PromptBuilder.js
- * @description Ensamblador de prompts enriquecido con reglas de alta ejecutividad,
- * marco ISO 31000/COSO ERM y generación avanzada de UI (Cards & Widgets).
+ * @description Enrutador Inteligente (MoE). Conecta la intención del usuario con el Especialista adecuado.
  */
 
 import { RiskSpecialist } from '../specialists/RiskSpecialist.js';
+import { ControlExpert } from '../specialists/ControlExpert.js';
 import { BaseSpecialist } from '../specialists/BaseSpecialist.js';
 
 export class PromptBuilder {
   static build(context) {
-    let specialist = context.classification.domain === 'RISK' 
-      ? new RiskSpecialist() 
-      : new BaseSpecialist();
+    const domain = context.classification.domain;
+    let specialist;
+
+    // 🧠 1. ENRUTADOR (ROUTER MOE)
+    switch (domain) {
+      case 'RISK':
+        specialist = new RiskSpecialist();
+        break;
+      case 'CONTROL':
+        specialist = new ControlExpert();
+        break;
+      default:
+        specialist = new BaseSpecialist();
+    }
 
     const manifest = specialist.getManifest();
 
+    // 2. CONSTRUIR HISTORIAL DE MEMORIA
     let historySection = "";
     const history = context.memory?.chatHistory || [];
     if (history.length > 0) {
@@ -26,45 +38,35 @@ export class PromptBuilder {
       historySection += "\n";
     }
 
+    // 3. ENSAMBLAR EL SÚPER PROMPT DINÁMICO
     return `
 ROL Y PERSONA:
-Eres el Orquestador Superior de Auditoría y GRC (Certified Lead Auditor & Chief Risk Officer).
-Tu tono debe ser altamente profesional, riguroso, perspicaz y directo al grano, alineado con estándares internacionales (ISO 31000, COSO ERM, IIA Global Standards).
+${manifest.specialistPrompt}
 
 REGLA DE ORO DE PLATAFORMA (CERTEZA Y EVIDENCIA):
 Responde ÚNICAMENTE fundamentándote en la información proporcionada en "CONTEXTO INTERNO". 
 Si la información no es suficiente para responder la pregunta, responde textualmente: "No cuento con información en la plataforma para responder a esto."
 No inventes datos ni asumas situaciones que no estén respaldadas por los códigos de las entidades recibidas.
-
-GUÍA DE REDACCIÓN DE ALTO NIVEL:
-1. **Summary**: Redacta un diagnóstico ejecutivo formal estructurado según el principio de Auditoría: **Condición Observada**, **Impacto/Efecto** y **Acción Requerida**.
-2. **Findings**: Cada hallazgo debe articular la causa raíz e indicar el código exacto de la entidad (ej. HAL-04, RSK-001).
-3. **Recommendations**: Formula recomendaciones estratégicas, concretas y medibles (formato SMART).
-4. **References**: DEBES incluir explícitamente el arreglo de códigos de las entidades evaluadas (ej. ["HAL-04"], ["RSK-001", "CTR-102"]). NUNCA devuelvas "S/C" si existe un código.
-5. **Widgets y Cards**: Genera elementos de UI útiles para el Frontend:
-   - **widgets**: Tarjetas métricas con tipo ("metric", "status", "severity", "badge") y valor explicativo.
-   - **cards**: Objetos con {"title": string, "type": "warning"|"info"|"critical"|"success", "content": string, "code": string}.
+DEBES incluir explícitamente el arreglo de códigos de las entidades evaluadas en "references". NUNCA devuelvas "S/C" si existe un código.
 
 FORMATO OBLIGATORIO DE RESPUESTA (JSON):
-Devuelve EXCLUSIVAMENTE un objeto JSON válido con este esquema:
+Devuelve EXCLUSIVAMENTE un objeto JSON válido. Asegúrate de estructurarlo mentalmente basándote en el esquema: ${manifest.defaultSchema}.
 {
   "title": "Título Diagnóstico Profesional",
   "summary": "Resumen ejecutivo formal...",
   "confidence": 1.0,
   "priority": "HIGH" | "URGENT" | "MEDIUM" | "LOW",
   "findings": [
-    "Hallazgo 1 estructurado con código y detalle",
-    "Hallazgo 2..."
+    "Hallazgo 1 estructurado con código y detalle..."
   ],
   "recommendations": [
-    "Recomendación estratégica 1",
-    "Recomendación estratégica 2"
+    "Recomendación estratégica 1..."
   ],
-  "references": ["HAL-04"],
+  "references": ["HAL-04", "RSK-001"],
   "metadata": {
     "timestamp": "${new Date().toISOString()}",
     "model": "gemini-2.5-flash",
-    "specialist": "${manifest.name || 'GRC Auditor'}",
+    "specialist": "${manifest.domain}",
     "intent": "${context.classification.intent}",
     "domain": "${context.classification.domain}",
     "tokens": 0,
@@ -75,14 +77,7 @@ Devuelve EXCLUSIVAMENTE un objeto JSON válido con este esquema:
     {"type": "status", "title": "Estado de Remediación", "value": "ABIERTO - REQUIERE ACCIÓN"}
   ],
   "charts": [],
-  "cards": [
-    {
-      "title": "Alerta de Operación",
-      "type": "critical",
-      "content": "Descripción detallada del impacto operativo...",
-      "code": "HAL-04"
-    }
-  ]
+  "cards": []
 }
 
 CONTEXTO INTERNO (RAG EVIDENCIA):

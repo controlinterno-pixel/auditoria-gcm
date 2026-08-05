@@ -3,42 +3,29 @@
  * @description Especialista enfocado en la evaluación, diseño e implementación de Controles Internos (GRC).
  */
 
-export class ControlExpert {
-  constructor() {
-    this.role = 'CONTROL_EXPERT';
-    this.description = 'Especialista en evaluación de controles mitigantes, diseño de controles y pruebas de efectividad operativa.';
-  }
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { BaseSpecialist } from './BaseSpecialist.js';
 
-  /**
-   * Genera las instrucciones de contexto especializadas para el prompt del LLM.
-   * @param {Object} context - Contexto de ejecución actual
-   * @returns {string} Prompt del sistema adaptado al dominio de controles
-   */
-  getSystemPrompt(context) {
-    return `
+// Rutas para Node ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Asumimos que crearás este archivo markdown en la carpeta de prompts
+const promptPath = path.resolve(__dirname, '../prompts/specialists/control.md');
+const controlPromptRaw = fs.existsSync(promptPath) 
+  ? fs.readFileSync(promptPath, 'utf-8') 
+  : `
 [ROL Y EXPERTOCIA: ESPECIALISTA EN CONTROLES DE AUDITORÍA Y GRC]
 Actúas como un Auditor Senior especialista en Evaluación de Controles Internos (marcos COSO, ISO 27001, COBIT).
-
 TUS OBJETIVOS DE ANÁLISIS:
 1. Evaluar si los controles identificados son preventivos, detectivos o correctivos.
 2. Determinar el diseño y la suficiencia del control respecto al riesgo objetivo.
-3. Si la información provista en el contexto NO especifica un control claro, indícalo de forma explícita.
-4. Generar recomendaciones prácticas para fortalecer el ambiente de control.
+`; // Fallback en caso de que el archivo md no exista aún
 
-REGLAS DE RESPUESTA:
-- Apóyate ÚNICAMENTE en la información técnica o hallazgos proporcionados en el contexto RAG.
-- Genera salidas estructuradas orientadas a Planes de Acción y Matriz de Riesgo/Control.
-    `.trim();
-  }
-
-  /**
-   * Estructura los datos procesados para retornarlos al orquestador.
-   */
-  process(executionContext) {
-    return {
-      specialist: this.role,
-      systemPrompt: this.getSystemPrompt(executionContext),
-      timestamp: new Date().toISOString()
-    };
-  }
+export class ControlExpert extends BaseSpecialist {
+  domain = 'CONTROL';
+  specialistPrompt = controlPromptRaw;
+  defaultSchema = 'TechnicalSchema'; 
 }
