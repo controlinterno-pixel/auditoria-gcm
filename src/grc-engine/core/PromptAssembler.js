@@ -1,3 +1,6 @@
+import { SchemaSerializer } from '../serializers/SchemaSerializer.js';
+import { ContextRanker } from '../rankers/ContextRanker.js';
+
 /**
  * @file PromptAssembler.js
  * @description Ensamblador de prompts enriquecido con Guardrails y estructura limpia sin dependencias síncronas de disco duro.
@@ -16,12 +19,6 @@ GUARDRAILS Y REGLAS DE SEGURIDAD:
 `;
 
 export class PromptAssembler {
-  /**
-   * Ensambla las instrucciones del sistema en bloques modulares.
-   */
-  import { SchemaSerializer } from '../serializers/SchemaSerializer.js';
-  import { ContextRanker } from '../rankers/ContextRanker.js';
-
   /**
    * Ensambla el prompt con contrato SSOT estricto y compresión inteligente de contexto.
    */
