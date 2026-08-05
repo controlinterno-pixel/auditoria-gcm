@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { AuditEngine } from './src/grc-engine/core/AuditEngine.js';
 
 export default async function handler(req, res) {
-  // Manejo de cabeceras de seguridad y CORS en Vercel
+  // Cabeceras de seguridad y CORS para Vercel
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -19,50 +19,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, datosContexto } = req.body;
+    const { prompt, datosContexto, sessionId, conversationId } = req.body;
 
-    // Obtener la API Key desde las variables de entorno de Vercel
-    const rawKeys = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEYS;
-    const apiKey = rawKeys ? rawKeys.split(',')[0].trim() : null;
-
-    if (!apiKey) {
-      return res.status(500).json({ error: "Falta configurar la variable GEMINI_API_KEY en los ajustes de Vercel." });
+    if (!prompt) {
+      return res.status(400).json({ error: "La consulta 'prompt' es requerida." });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.2,
-        topP: 0.8,
-        maxOutputTokens: 8192,
-      }
-    });
+    // 1. Instanciar el Orquestador principal
+    const engine = new AuditEngine();
 
-    const systemPrompt = `
-    Eres el Socio Director de Auditoría Interna, Riesgos y Control Interno (GRC) de Termales Santa Rosa de Cabal.
-    Responde con autoridad técnica, enfoque en COSO ERM, ISO 31000 y máxima síntesis estratégica.
-    
-    DATOS DEL SISTEMA EN TIEMPO REAL:
-    ${JSON.stringify(datosContexto || {}, null, 2)}
-    
-    CONSULTA DEL USUARIO:
-    ${prompt}
-    `;
+    // 2. Ejecutar el pipeline completo (Clasificación, RAG, Prompt, Inferencia y Validación)
+    const executionContext = await engine.execute(prompt, sessionId, conversationId, { datosContexto });
 
-    const result = await model.generateContent(systemPrompt);
-    const responseText = await result.response.text();
-
+    // 3. Responder al frontend con la estructura requerida
     return res.status(200).json({
       status: "success",
-      respuesta: responseText
+      respuesta: executionContext.llm.parsedResponse || executionContext.llm.rawResponse,
+      telemetry: executionContext.telemetry,
+      classification: executionContext.classification,
+      validation: executionContext.validation
     });
 
   } catch (error) {
     console.error("❌ Error en Vercel Serverless Function:", error);
     return res.status(500).json({ 
       status: "error", 
-      message: error.message || "Error procesando el dictamen de auditoría." 
+      message: error.message || "Error procesando el pipeline de auditoría." 
     });
   }
 }

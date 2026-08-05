@@ -1,22 +1,37 @@
-/**
- * @file KnowledgeManager.js
- * @description Capa de abstraccion de conocimiento para el Motor GRC.
- * Encargado de consultar, filtrar y formatear datos de contexto para la IA.
- */
-
 import { DOMAINS } from './IntentClassifier.js';
 
+/**
+ * @file KnowledgeManager.js
+ * @description Capa de abstracción de conocimiento para el Motor GRC.
+ */
 export class KnowledgeManager {
   /**
-   * Obtiene y estructura el contexto de datos relevante segun la intencion del usuario.
+   * Obtiene y estructura el contexto de datos relevante según la intención del usuario.
    * @param {Object} classification - Resultado del IntentClassifier.
-   * @param {Object} userContext - Informacion de contexto de la sesion (usuario, rol, ID entidad).
+   * @param {Object} userContext - Información enviada desde el frontend o sesión.
    * @returns {Promise<Object>} Contexto formateado para ser inyectado en el Prompt.
    */
   static async getContext(classification, userContext = {}) {
     const { domain, intent } = classification;
 
-    // Estructura base del contexto que recibira el especialista
+    // Si el frontend envió información en tiempo real, la usamos directamente
+    if (userContext && Object.keys(userContext).length > 0) {
+      const domainKey = domain ? domain.toLowerCase() + 's' : 'entities';
+      const entities = Array.isArray(userContext[domainKey]) 
+        ? userContext[domainKey] 
+        : (userContext.entities || userContext.risks || userContext.controls || userContext.findings || userContext.plans || []);
+
+      return {
+        domain,
+        intent,
+        organization: "Termales de Santa Rosa de Cabal",
+        retrievedAt: new Date().toISOString(),
+        entities: entities,
+        ...userContext
+      };
+    }
+
+    // Estructura de respaldo (fallback) con mocks si no vienen datos externos
     const knowledgeBase = {
       domain,
       intent,
@@ -51,20 +66,18 @@ export class KnowledgeManager {
       console.error("[KnowledgeManager Error]: Fallo al recuperar contexto de datos.", error);
       return {
         ...knowledgeBase,
-        error: "No se pudo recuperar la informacion del sistema de auditoria."
+        error: "No se pudo recuperar la información del sistema de auditoría."
       };
     }
   }
 
-  // --- METODOS PRIVADOS DE EXTRACCION DE DATOS ---
-  // (Aqui se integraran las llamadas a Firebase / API REST de Termales)
+  // --- MÉTODOS PRIVADOS DE EXTRACTION ---
 
   static async _fetchRiskData(context) {
-    // Mock / Conector temporal simulado estructurado
     return [
       {
         id: "RSK-001",
-        name: "Contaminacion de fuentes hidrotermales por sobreaforo",
+        name: "Contaminación de fuentes hidrotermales por sobreaforo",
         impact: "ALTO",
         probability: "MEDIO",
         residualScore: 16,
@@ -73,25 +86,24 @@ export class KnowledgeManager {
     ];
   }
 
-  // En KnowledgeManager.js
-static async _fetchControlData(context) {
-  return [
-    {
-      id: "CTR-102",
-      name: "Monitoreo automatizado de caudal y temperatura",
-      effectiveness: "EFECTIVO",
-      type: "DETECTIVO",
-      coverage: 0.85,
-      description: "Aplica para mitigar el riesgo RSK-001 de sobreaforo en fuentes termales." // <-- Añadir relación
-    }
-  ];
-}
+  static async _fetchControlData(context) {
+    return [
+      {
+        id: "CTR-102",
+        name: "Monitoreo automatizado de caudal y temperatura",
+        effectiveness: "EFECTIVO",
+        type: "DETECTIVO",
+        coverage: 0.85,
+        description: "Aplica para mitigar el riesgo RSK-001 de sobreaforo en fuentes termales."
+      }
+    ];
+  }
 
   static async _fetchFindingData(context) {
     return [
       {
         id: "HAL-04",
-        title: "Retraso en la calibracion de sensores de presion",
+        title: "Retraso en la calibración de sensores de presión",
         severity: "MAYOR",
         status: "ABIERTO"
       }
@@ -102,10 +114,10 @@ static async _fetchControlData(context) {
     return [
       {
         id: "PLA-09",
-        title: "Mantenimiento preventivo e inspeccion del circuito hidraulico",
+        title: "Mantenimiento preventivo e inspección del circuito hidráulico",
         progress: 0.60,
         dueDate: "2026-09-30",
-        responsible: "Direccion de Operaciones"
+        responsible: "Dirección de Operaciones"
       }
     ];
   }
@@ -114,7 +126,7 @@ static async _fetchControlData(context) {
     return [
       {
         id: "POL-01",
-        title: "Politica de Gestion de Riesgos Ambientales y Turisticos",
+        title: "Política de Gestión de Riesgos Ambientales y Turísticos",
         complianceLevel: "92%",
         standard: "ISO 31000 / ISO 14001"
       }

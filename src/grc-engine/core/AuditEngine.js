@@ -17,14 +17,13 @@ const SCHEMAS = {
   DashboardSchema,
   ReportSchema: ExecutiveSchema
 };
+
 /**
  * @file AuditEngine.js
  * @description Orquestador principal del motor GRC. Controla el pipeline unidireccional.
  */
-
 export class AuditEngine {
   constructor() {
-    // Aquí luego inyectaremos dependencias reales (IntentClassifier, etc.)
     console.log("🚀 GRC Audit Engine Inicializado");
   }
 
@@ -33,11 +32,12 @@ export class AuditEngine {
    * @param {string} userQuery - La consulta del usuario.
    * @param {string} [sessionId] - ID de la sesión.
    * @param {string} [conversationId] - ID de la conversación.
+   * @param {Object} [options] - Opciones adicionales (ej: datosContexto enviados desde el frontend).
    * @returns {Promise<ExecutionContext>} El contexto final con la respuesta.
    */
-  async execute(userQuery, sessionId = null, conversationId = null) {
-    // 1. Inicializar el Corazón del Motor
+  async execute(userQuery, sessionId = null, conversationId = null, options = {}) {
     const context = new ExecutionContext(userQuery, sessionId, conversationId);
+    this.options = options;
     console.log(`[START] Pipeline iniciado - RequestID: ${context.request.requestId}`);
 
     try {
@@ -57,7 +57,6 @@ export class AuditEngine {
       await this._runValidation(context);
 
     } catch (error) {
-      // Manejo centralizado de errores
       context.errors.push({
         step: "PIPELINE_EXECUTION",
         message: error.message,
@@ -66,72 +65,63 @@ export class AuditEngine {
       context.llm.status = "FAILED";
       console.error(`[ERROR] Pipeline falló:`, error.message);
     } finally {
-      // 7. Observabilidad y Cierre
       context.finalize();
       console.log(`[END] Latencia total: ${context.telemetry.latencyTotalMs}ms`);
     }
 
-    return context; // Retornamos el objeto mutado en su forma final
+    return context;
   }
-
-  // --- MÉTODOS PRIVADOS DEL PIPELINE (Simulados para la primera prueba) ---
 
   async _runClassification(context) {
     console.log(" -> Ejecutando Clasificación...");
-    
-    // Invocamos al especialista heurístico pasándole la consulta original del usuario
     context.classification = IntentClassifier.classify(context.request.userQuery);
     
-    // Si la intención es desconocida, lanzamos un log de advertencia
     if (context.classification.requiresClarification) {
-        console.warn(" [!] Advertencia: Intención desconocida. El motor podría requerir más contexto.");
+      console.warn(" [!] Advertencia: Intención desconocida. El motor podría requerir más contexto.");
     }
   }
-async _runKnowledgeRetrieval(context) {
-  console.log(" -> Recuperando Conocimiento (RAG)...");
-  
-  // 1. Obtenemos los datos desde el KnowledgeManager
-  const rawKnowledge = await KnowledgeManager.getContext(context.classification);
-  const entities = rawKnowledge.entities || [];
 
-  // 2. Mapeamos dinámicamente según el dominio clasificado
-  const domainKeyMap = {
-    RISK: 'risks',
-    CONTROL: 'controls',
-    FINDING: 'findings',
-    PLAN: 'plans',
-    GOVERNANCE: 'governance'
-  };
+  async _runKnowledgeRetrieval(context) {
+    console.log(" -> Recuperando Conocimiento (RAG)...");
+    
+    // Obtenemos datos del KnowledgeManager pasando los datos de contexto si existen
+    const rawKnowledge = await KnowledgeManager.getContext(
+      context.classification, 
+      this.options?.datosContexto || {}
+    );
+    const entities = rawKnowledge.entities || [];
 
-  const keyName = domainKeyMap[context.classification.domain] || 'risks';
+    const domainKeyMap = {
+      RISK: 'risks',
+      CONTROL: 'controls',
+      FINDING: 'findings',
+      PLAN: 'plans',
+      GOVERNANCE: 'governance'
+    };
 
-  // 3. Formateamos el contexto para el PromptBuilder
-  const formattedContext = ContextBuilder.buildFormattedContext({
-    [keyName]: entities
-  });
+    const keyName = domainKeyMap[context.classification.domain] || 'risks';
 
-// 4. Guardamos en el objeto ExecutionContext
-  context.knowledge.retrievedContext = formattedContext;
-  context.knowledge.cacheHit = false;
-  context.knowledge.retrievedEntities = entities;
+    const formattedContext = ContextBuilder.buildFormattedContext({
+      [keyName]: entities,
+      ...rawKnowledge
+    });
 
-  // 5. Recuperamos el historial conversacional basado en la sesión
-  context.memory.chatHistory = memoryService.getHistory(context.request.sessionId);
-  if (context.memory.chatHistory.length > 0) {
+    context.knowledge.retrievedContext = formattedContext;
+    context.knowledge.cacheHit = false;
+    context.knowledge.retrievedEntities = entities;
+
+    context.memory.chatHistory = memoryService.getHistory(context.request.sessionId);
+    if (context.memory.chatHistory.length > 0) {
       console.log(` -> [Memoria] ${context.memory.chatHistory.length} mensajes previos recuperados.`);
+    }
   }
-}
 
   async _runPromptAssembly(context) {
     console.log(" -> Ensamblando Prompt con reglas estrictas de plataforma...");
-    
-    // Ensamblamos el texto final que se enviará a la IA
     context.prompt.assembledPayload = PromptBuilder.build(context);
-    
-    // (Opcional) Aquí en el futuro mediremos la cantidad de tokens para asegurar el presupuesto
   }
 
- async _runLlmInference(context) {
+  async _runLlmInference(context) {
     console.log(" -> Llamando a Gemini API...");
     try {
       const geminiService = new GeminiService();
@@ -140,9 +130,9 @@ async _runKnowledgeRetrieval(context) {
         responseMimeType: "application/json"
       });
 
-context.llm.rawResponse = llmResult.text;
-context.llm.modelUsed = llmResult.modelUsed;
-context.llm.status = "SUCCESS";
+      context.llm.rawResponse = llmResult.text;
+      context.llm.modelUsed = llmResult.modelUsed;
+      context.llm.status = "SUCCESS";
     } catch (llmError) {
       console.error(` ❌ Error en inferencia: ${llmError.message}`);
       context.errors.push({
@@ -159,7 +149,7 @@ context.llm.status = "SUCCESS";
     }
   }
 
-async _runValidation(context) {
+  async _runValidation(context) {
     console.log(" -> Validando JSON de salida con ResponseValidator...");
     
     const schemaName = context.classification.outputSchema;
@@ -179,12 +169,10 @@ async _runValidation(context) {
       console.log(` ✅ Validación de contrato exitosa (${validationResult.schema}).`);
       context.llm.parsedResponse = validationResult.data;
       
-      // Guardamos la interacción exitosa en la memoria RAM
       memoryService.addMessage(context.request.sessionId, 'user', context.request.userQuery);
       
-      // Guardamos solo el resumen ejecutivo para ahorrar tokens en futuras consultas
       const assistantReply = validationResult.data.summary || "Análisis completado y entregado en el dashboard.";
       memoryService.addMessage(context.request.sessionId, 'assistant', assistantReply);
     }
   }
-  }
+}
