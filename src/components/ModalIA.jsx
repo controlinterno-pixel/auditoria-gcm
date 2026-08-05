@@ -6,18 +6,20 @@ export default function ModalIA({ aiModal, setAiModal }) {
 
   const rawText = aiModal?.contenido !== undefined ? aiModal.contenido : aiModal;
 
-  let data = null;
-  let isDashboardData = false;
+ let data = null;
+  let isRiskReport = false;
 
   try {
     const parsed = typeof rawText === 'string' ? JSON.parse(rawText) : rawText;
-    if (parsed && typeof parsed === 'object' && parsed.encabezado) {
+    if (parsed && typeof parsed === 'object') {
       data = parsed;
-      isDashboardData = true;
+      if (parsed.encabezado || parsed.kpis) {
+        isRiskReport = true;
+      }
     }
   } catch (e) {
     // Fallback
-  }
+  } 
 
   const [openAccordion, setOpenAccordion] = useState('metodologia');
   const toggleAccordion = (key) => setOpenAccordion(openAccordion === key ? null : key);
@@ -88,24 +90,24 @@ const fileName = `${safeTitle}.pdf`;
 {/* CUERPO DEL WORKSPACE */}
           <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
             <div ref={pdfRef} className="space-y-6 bg-slate-900 p-2 text-slate-100 rounded-2xl">
-              {isDashboardData && data ? (
+{isRiskReport && data ? (
                 <>
-                {/* 👇 NUEVO: TÍTULO Y CÓDIGO DEL RIESGO (Visible en el PDF) 👇 */}
-                  <div className="mb-1 border-b border-slate-800/60 pb-4">
-                    <h2 className="text-lg font-black text-slate-100 flex items-center gap-3">
-                      <span className="whitespace-nowrap shrink-0 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
-                        {data.encabezado.codigo || 'RSK-ANALYSIS'}
-                      </span>
-                      <span>{aiModal.titulo || data.encabezado.proceso || 'Dictamen de Riesgo Corporativo'}</span>
-                    </h2>
-                  </div>
-                  
-                  {/* BADGES */}
-                  <div className="flex flex-wrap items-center gap-2 pb-1">
-                    <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>Inh: {data.encabezado.riesgoInherenteLabel || 'Alto'}</span>
-                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400"></span>Residual: {data.encabezado.riesgoResidualLabel || 'Bajo'}</span>
-                    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data?.encabezado?.calidadRegistroScore || data?.encabezado?.calidad || data?.kpis?.calidad || 90}/100</span>
-                  </div>
+              {/* 👇 TÍTULO Y CÓDIGO DEL RIESGO PROTEGIDO 👇 */}
+  <div className="mb-1 border-b border-slate-800/60 pb-4">
+    <h2 className="text-lg font-black text-slate-100 flex items-center gap-3">
+      <span className="whitespace-nowrap shrink-0 text-[11px] font-mono font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-3 py-1 rounded-lg uppercase tracking-widest shadow-sm">
+        {data.encabezado?.codigo || 'RSK-ANALYSIS'}
+      </span>
+      <span>{aiModal.titulo || data.encabezado?.proceso || 'Dictamen de Riesgo Corporativo'}</span>
+    </h2>
+  </div>
+  
+  {/* BADGES */}
+  <div className="flex flex-wrap items-center gap-2 pb-1">
+    <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400"></span>Inh: {data.encabezado?.riesgoInherenteLabel || 'Alto'}</span>
+    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400"></span>Residual: {data.encabezado?.riesgoResidualLabel || 'Bajo'}</span>
+    <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider">⭐ Calidad: {data?.encabezado?.calidadRegistroScore || data?.encabezado?.calidad || data?.kpis?.calidad || 90}/100</span>
+  </div>
                   {/* KPIS */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
@@ -189,6 +191,55 @@ const fileName = `${safeTitle}.pdf`;
                     ))}
                   </div>
                 </>
+              ) : data ? (
+                /* RENDERIZADO ELEGANTE DE LA RESPUESTA DEL MOTOR GRC */
+                <div className="space-y-6">
+                  {/* Título y Resumen / Dictamen */}
+                  <div className="bg-slate-800/60 border border-slate-700/80 p-5 rounded-2xl space-y-3">
+                    <h2 className="text-lg font-bold text-emerald-400">
+                      {data.title || data.titulo || 'Informe Ejecutivo de Auditoría GRC'}
+                    </h2>
+                    <p className="text-xs text-slate-200 leading-relaxed font-medium whitespace-pre-wrap">
+                      {data.summary || data.dictamen || data.respuesta || (typeof data === 'string' ? data : JSON.stringify(data, null, 2))}
+                    </p>
+                  </div>
+
+                  {/* Tarjetas / Widgets */}
+                  {data.widgets && data.widgets.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {data.widgets.map((w, idx) => (
+                        <div key={idx} className="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{w.title || w.label}</span>
+                          <span className="text-xl font-bold text-white">{w.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Hallazgos */}
+                  {(data.findings || data.hallazgos) && (
+                    <div className="bg-slate-800/30 border border-slate-800 rounded-2xl p-4 space-y-2">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-amber-400">⚠️ Hallazgos Identificados</h4>
+                      <ul className="space-y-1.5 text-xs text-slate-300">
+                        {(data.findings || data.hallazgos).map((item, idx) => (
+                          <li key={idx} className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">• {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Recomendaciones */}
+                  {(data.recommendations || data.recomendaciones) && (
+                    <div className="bg-slate-800/30 border border-slate-800 rounded-2xl p-4 space-y-2">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-cyan-400">💡 Recomendaciones Estratégicas</h4>
+                      <ul className="space-y-1.5 text-xs text-slate-300">
+                        {(data.recommendations || data.recomendaciones).map((item, idx) => (
+                          <li key={idx} className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800/80">✔ {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap font-medium p-4 bg-slate-800/50 rounded-2xl border border-slate-800 overflow-auto">
                   {String(rawText)}
