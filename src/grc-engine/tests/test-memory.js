@@ -1,5 +1,4 @@
-import { AuditEngine } from './src/grc-engine/AuditEngine.js'; // Ajusta la ruta si es necesario
-
+import { AuditEngine } from '../core/AuditEngine.js';
 async function runMemoryTest() {
     const engine = new AuditEngine();
     const sessionId = "sesion-auditor-001"; // Usamos la misma sesión para ambas preguntas
@@ -19,7 +18,7 @@ async function runMemoryTest() {
     console.log("🗣️ TURNO 2: Pregunta de seguimiento (Debe usar memoria)");
     console.log("==================================================");
     
-    // Hacemos una pregunta ambigua que depende del contexto anterior
+    // Pregunta contextual que requiere la memoria del Turno 1
     const query2 = "¿Qué controles están implementados para el primero de esos riesgos que mencionaste?";
     console.log(`Usuario: "${query2}"\n`);
     

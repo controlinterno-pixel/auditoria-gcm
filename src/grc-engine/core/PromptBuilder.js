@@ -1,6 +1,6 @@
 /**
  * @file PromptBuilder.js
- * @description Ensambla el prompt final combinando instrucciones, contexto RAG, esquemas JSON y reglas estrictas.
+ * @description Ensambla el prompt final combinando instrucciones, contexto RAG, esquemas JSON y reglas strictly.
  */
 
 import { RiskSpecialist } from '../specialists/RiskSpecialist.js';
@@ -23,8 +23,6 @@ export class PromptBuilder {
     }
 
     const manifest = specialist.getManifest();
-
-   const manifest = specialist.getManifest();
 
     // 1.5 Extraemos el historial del contexto para la memoria
     let historySection = "";
@@ -75,4 +73,4 @@ ${context.request.userQuery}
 
     return assembledPrompt.trim();
   }
-  }
+}

@@ -73,17 +73,19 @@ export class KnowledgeManager {
     ];
   }
 
-  static async _fetchControlData(context) {
-    return [
-      {
-        id: "CTR-102",
-        name: "Monitoreo automatizado de caudal y temperatura",
-        effectiveness: "EFECTIVO",
-        type: "DETECTIVO",
-        coverage: 0.85
-      }
-    ];
-  }
+  // En KnowledgeManager.js
+static async _fetchControlData(context) {
+  return [
+    {
+      id: "CTR-102",
+      name: "Monitoreo automatizado de caudal y temperatura",
+      effectiveness: "EFECTIVO",
+      type: "DETECTIVO",
+      coverage: 0.85,
+      description: "Aplica para mitigar el riesgo RSK-001 de sobreaforo en fuentes termales." // <-- Añadir relación
+    }
+  ];
+}
 
   static async _fetchFindingData(context) {
     return [
