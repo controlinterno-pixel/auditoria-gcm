@@ -3,6 +3,7 @@ import { DOMAINS } from './IntentClassifier.js';
 /**
  * @file KnowledgeManager.js
  * @description Capa de abstracción de conocimiento para el Motor GRC.
+ * Soporta llaves en español (hallazgos, riesgos, controles) e inglés.
  */
 export class KnowledgeManager {
   /**
@@ -14,24 +15,47 @@ export class KnowledgeManager {
   static async getContext(classification, userContext = {}) {
     const { domain, intent } = classification;
 
-    // Si el frontend envió información en tiempo real, la usamos directamente
-    if (userContext && Object.keys(userContext).length > 0) {
-      const domainKey = domain ? domain.toLowerCase() + 's' : 'entities';
-      const entities = Array.isArray(userContext[domainKey]) 
-        ? userContext[domainKey] 
-        : (userContext.entities || userContext.risks || userContext.controls || userContext.findings || userContext.plans || []);
+    // 1. Mapeo flexible de llaves en Español e Inglés enviadas desde el Frontend
+    const risks = userContext.risks || userContext.riesgos || [];
+    const controls = userContext.controls || userContext.controles || [];
+    const findings = userContext.findings || userContext.hallazgos || [];
+    const plans = userContext.plans || userContext.planes || [];
+    const governance = userContext.governance || userContext.gobierno || userContext.normas || [];
+
+    const hasCustomData = 
+      risks.length > 0 || 
+      controls.length > 0 || 
+      findings.length > 0 || 
+      plans.length > 0 || 
+      governance.length > 0 || 
+      (Array.isArray(userContext.entities) && userContext.entities.length > 0);
+
+    // 2. Si el frontend envió datos explícitos (en español o inglés), los estructuramos
+    if (hasCustomData) {
+      let entities = [];
+      if (domain === DOMAINS.RISK) entities = risks;
+      else if (domain === DOMAINS.CONTROL) entities = controls;
+      else if (domain === DOMAINS.FINDING) entities = findings;
+      else if (domain === DOMAINS.PLAN) entities = plans;
+      else if (domain === DOMAINS.GOVERNANCE) entities = governance;
+      else entities = userContext.entities || [...risks, ...controls, ...findings, ...plans, ...governance];
 
       return {
         domain,
         intent,
         organization: "Termales de Santa Rosa de Cabal",
         retrievedAt: new Date().toISOString(),
-        entities: entities,
+        entities,
+        risks,
+        controls,
+        findings,
+        plans,
+        governance,
         ...userContext
       };
     }
 
-    // Estructura de respaldo (fallback) con mocks si no vienen datos externos
+    // 3. Si no llegaron datos del frontend, activamos los Mocks de respaldo por dominio
     const knowledgeBase = {
       domain,
       intent,
@@ -44,18 +68,23 @@ export class KnowledgeManager {
       switch (domain) {
         case DOMAINS.RISK:
           knowledgeBase.entities = await this._fetchRiskData(userContext);
+          knowledgeBase.risks = knowledgeBase.entities;
           break;
         case DOMAINS.CONTROL:
           knowledgeBase.entities = await this._fetchControlData(userContext);
+          knowledgeBase.controls = knowledgeBase.entities;
           break;
         case DOMAINS.FINDING:
           knowledgeBase.entities = await this._fetchFindingData(userContext);
+          knowledgeBase.findings = knowledgeBase.entities;
           break;
         case DOMAINS.PLAN:
           knowledgeBase.entities = await this._fetchPlanData(userContext);
+          knowledgeBase.plans = knowledgeBase.entities;
           break;
         case DOMAINS.GOVERNANCE:
           knowledgeBase.entities = await this._fetchGovernanceData(userContext);
+          knowledgeBase.governance = knowledgeBase.entities;
           break;
         default:
           knowledgeBase.entities = [];
@@ -71,7 +100,7 @@ export class KnowledgeManager {
     }
   }
 
-  // --- MÉTODOS PRIVADOS DE EXTRACTION ---
+  // --- MÉTODOS PRIVADOS DE EXTRACCIÓN ---
 
   static async _fetchRiskData(context) {
     return [
@@ -105,7 +134,8 @@ export class KnowledgeManager {
         id: "HAL-04",
         title: "Retraso en la calibración de sensores de presión",
         severity: "MAYOR",
-        status: "ABIERTO"
+        status: "ABIERTO",
+        description: "Los sensores de presión no han recibido calibración preventiva en los últimos 6 meses."
       }
     ];
   }
