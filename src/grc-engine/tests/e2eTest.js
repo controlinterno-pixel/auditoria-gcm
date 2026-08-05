@@ -1,7 +1,7 @@
 ﻿// 1. Cargar las variables de entorno desde el .env
 import 'dotenv/config'; 
 
-// 2. Importar el motor central de auditoría (Nombre de archivo actualizado)
+// 2. Importar el motor central de auditoría
 import { AuditEngine } from '../core/AuditEngine.js';
 
 async function runE2ETest() {
@@ -24,6 +24,13 @@ async function runE2ETest() {
 
     console.log("\n✅ Pipeline Finalizado. Estado del ExecutionContext:");
     console.log(JSON.stringify(finalContext, null, 2));
+
+    // 5. Imprimir el payload final ensamblado para auditoría visual
+    console.log("\n==================================================");
+    console.log("📦 PAYLOAD ENSAMBLADO PARA EL LLM (Fase 4)");
+    console.log("==================================================\n");
+    console.log(finalContext.prompt.assembledPayload);
+    console.log("\n==================================================");
     
   } catch (error) {
     console.error("❌ Fallo en la prueba del motor:", error.message || error);

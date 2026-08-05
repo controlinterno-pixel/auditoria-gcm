@@ -35,8 +35,7 @@ Si la respuesta a la consulta no se puede deducir del contexto interno, responde
 Bajo ninguna circunstancia debes usar conocimientos externos o inventar datos.
 
 CONTEXTO INTERNO (RAG):
-${context.knowledge.retrievedContext}
-
+${context.knowledge.retrievedContext || "No se encontró información relevante en la plataforma."}
 CONSULTA DEL USUARIO:
 ${context.request.userQuery}
 `;

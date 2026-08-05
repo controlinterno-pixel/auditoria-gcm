@@ -82,7 +82,7 @@ export class IntentClassifier {
 
     // 2. Detección de Intención/Tarea
     let intent = INTENTS.UNKNOWN;
-    if (text.includes('analiz') || text.includes('evaluar') || text.includes('diagnostic') || text.includes('examen')) {
+    if (text.includes('analiz') || text.includes('análisis') || text.includes('analisis') || text.includes('evaluar') || text.includes('diagnostic') || text.includes('examen')) {
       intent = INTENTS.ANALYZE;
     } else if (text.includes('compar') || text.includes('diferencia') || text.includes('frente a') || text.includes('vs')) {
       intent = INTENTS.COMPARE;
