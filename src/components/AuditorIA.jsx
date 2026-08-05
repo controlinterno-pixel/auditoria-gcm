@@ -130,12 +130,34 @@ export default function AuditorIA({
         <button onClick={() => setAuditorRespuesta('')} className="text-[9px] text-slate-400 hover:text-white font-bold bg-slate-800 px-2 py-0.5 rounded-md transition-colors">← Volver</button>
       </div>
       
-      {/* 🛡️ RENDERIZADO SEGURO DE TEXTO U OBJETO */}
-      <div className="text-slate-200 text-[11px] leading-relaxed max-h-[160px] overflow-y-auto whitespace-pre-wrap font-medium pr-1 scrollbar-thin border-l-2 border-blue-500 pl-2.5">
-                   {typeof auditorRespuesta === 'object' 
-                     ? (auditorRespuesta.summary || auditorRespuesta.dictamen || auditorRespuesta.respuesta || JSON.stringify(auditorRespuesta, null, 2))
-                     : auditorRespuesta}
-                 </div>
+ {/* 🛡️ RENDERIZADO SEGURO DE TEXTO U OBJETO */}
+<div className="text-slate-200 text-[11px] leading-relaxed max-h-[160px] overflow-y-auto whitespace-pre-wrap font-medium pr-1 scrollbar-thin border-l-2 border-blue-500 pl-2.5">
+  {(() => {
+    if (!auditorRespuesta) return "";
+    let parsed = auditorRespuesta;
+
+    // Si viene como string JSON, intentamos desestructurarlo
+    if (typeof auditorRespuesta === 'string') {
+      try {
+        parsed = JSON.parse(auditorRespuesta.replace(/```json/g, '').replace(/```/g, '').trim());
+      } catch (e) {
+        return auditorRespuesta; // Es texto plano normal
+      }
+    }
+
+    // Extraer el texto legible en lenguaje natural
+    if (typeof parsed === 'object' && parsed !== null) {
+      return parsed.summary 
+        || parsed.dictamenDirector 
+        || parsed.resumenEjecutivo?.diagnosticoGeneral 
+        || parsed.executiveConclusion
+        || parsed.title
+        || JSON.stringify(parsed, null, 2);
+    }
+
+    return String(auditorRespuesta);
+  })()}
+</div>
     </div>
   ) : (
                <>
