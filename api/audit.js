@@ -1,4 +1,4 @@
-import { AuditEngine } from './src/grc-engine/core/AuditEngine.js';
+import { AuditEngine } from '../src/grc-engine/core/AuditEngine.js';
 
 export default async function handler(req, res) {
   // Cabeceras de seguridad y CORS para Vercel
