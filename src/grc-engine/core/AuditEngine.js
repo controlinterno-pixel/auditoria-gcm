@@ -12,6 +12,8 @@ import { TechnicalSchema } from '../schemas/TechnicalSchema.js';
 import { ReportSchema } from '../schemas/ReportSchema.js';
 import { PromptAssembler } from './PromptAssembler.js';
 import { memoryService } from '../services/MemoryService.js';
+import { RiskSpecialist } from '../specialists/RiskSpecialist.js';
+import { ControlExpert } from '../specialists/ControlExpert.js';
 
 const SCHEMAS = {
   ExecutiveSchema,
@@ -26,7 +28,11 @@ const SCHEMAS = {
  */
 export class AuditEngine {
   constructor() {
-    console.log("🚀 GRC Audit Engine Inicializado");
+    console.log("🚀 GRC Audit Engine Inicializado con Aceleración MoE");
+    this.specialists = {
+      RISK: new RiskSpecialist(),
+      CONTROL: new ControlExpert()
+    };
   }
 
   /**
@@ -124,18 +130,24 @@ export class AuditEngine {
     }
   }
 
-  async _runPromptAssembly(context) {
-    console.log(" -> Ensamblando Prompt con contrato SSOT y ContextRanker...");
+ async _runPromptAssembly(context) {
+    console.log(" -> Ensamblando Prompt con Especialista MoE y Razonamiento Auditor...");
     
-    // Identificar el esquema objetivo según la clasificación
     const schemaName = context.classification.outputSchema;
     const targetSchema = SCHEMAS[schemaName] || CoreSchema;
+    context.targetSchemaObject = targetSchema; // Referencia nativa para la API de Gemini
 
-    // Ensamblar invocando directamente el nuevo contrato desacoplado
+    const domain = context.classification.domain;
+    const activeSpecialist = this.specialists[domain];
+    const specialistPrompt = activeSpecialist ? activeSpecialist.specialistPrompt : '';
+
+    console.log(` -> Especialista activado: [${domain || 'GENERAL'}]`);
+
     context.prompt.assembledPayload = PromptAssembler.assemble({
       targetSchema,
       structuredContext: context.knowledge.retrievedContext,
       userQuery: context.request.userQuery,
+      specialistPrompt,
       rawFindings: context.knowledge.retrievedEntities
     });
   }
@@ -144,9 +156,11 @@ export class AuditEngine {
     console.log(" -> Llamando a Gemini API...");
     try {
       const geminiService = new GeminiService();
+      
       const llmResult = await geminiService.generateContent(context.prompt.assembledPayload, {
-        temperature: 0.0, // Cero alucinación, determinismo absoluto GRC
-        responseMimeType: "application/json"
+        temperature: 0.0,
+        responseMimeType: "application/json",
+        responseSchema: context.targetSchemaObject
       });
 
       context.llm.rawResponse = llmResult.text;
@@ -190,7 +204,9 @@ export class AuditEngine {
       
       memoryService.addMessage(context.request.sessionId, 'user', context.request.userQuery);
       
-      const assistantReply = validationResult.data.summary || "Análisis completado y entregado en el dashboard.";
+const assistantReply = validationResult.data.summary || 
+                             validationResult.data.resumenEjecutivo?.diagnosticoGeneral || 
+                             "Análisis completado y entregado en el dashboard.";
       memoryService.addMessage(context.request.sessionId, 'assistant', assistantReply);
     }
   }

@@ -1,96 +1,66 @@
 /**
  * @file PromptAssembler.js
- * @description Ensamblador de prompts con simplificación de esquemas para evitar que la IA devuelva el meta-esquema.
+ * @description Ensamblador que conecta el Sistema Base (10 pasos), Guardrails y Especialistas del motor GRC.
  */
 
-const DEFAULT_SYSTEM_AUDITOR = `
-Eres el Auditor Principal de Control Interno y GRC para Termales de Santa Rosa de Cabal.
-Tu objetivo es evaluar de forma objetiva, rigurosa y bajo metodologías COSO ERM e ISO 31000 los riesgos, controles, hallazgos y planes de acción de la organización.
+const SYSTEM_AUDITOR_PROTOCOL = `
+# SISTEMA BASE: Auditor IA - GRC Engine (Termales de Santa Rosa de Cabal)
+Eres 'Auditor IA', el motor principal de Governance, Risk, and Compliance (GRC).
+
+# PROCESO DE RAZONAMIENTO OBLIGATORIO (SECUENCIA DE 10 PASOS):
+1. Comprensión de Intención: Analiza la solicitud exacta.
+2. Validación de Evidencia: Evalúa integridad de datos. Faltas de variables clave deben declararse; JAMÁS inventes apetitos o métricas no provistas.
+3. Análisis de Marcos: Evalúa bajo ISO 31000 / COSO ERM.
+4. Cuantificación Severa: Exposición (Riesgo Residual = Probabilidad × Impacto).
+5. Suficiencia de Controles: Valida naturaleza (Preventivo, Detectivo, Correctivo).
+6. Causa Raíz e Impacto: Falla de fondo y consecuencia estratégica.
+7. Priorización Estratégica: Filtra únicamente hallazgos críticos de mayor impacto.
+8. Recomendaciones Accionables (CAPA): Especifica Qué hacer, Tipo de Control y Efecto Esperado.
+9. Auto-Reflexión / Control de Calidad: ¿Hay suposiciones no fundamentadas? Diferencia Hechos vs. Interpretaciones.
+10. Generación del Dictamen JSON.
+
+# REGLAS ESTRICTAS DE CALIDAD:
+- Cero Frases Vacías o motivacionales.
+- Lenguaje de Auditoría Senior (Eficacia Operativa, Deficiencia Material, Exposición Residual, Remediación).
+- Trazabilidad y declaración explícita de limitaciones si falta evidencia.
 `;
 
-const DEFAULT_GUARDRAILS = `
-GUARDRAILS Y REGLAS DE SEGURIDAD:
-1. Responde ÚNICAMENTE basándote en los datos recibidos en el CONTEXTO INTERNO.
-2. Si no hay evidencia suficiente en el contexto para fundamentar una respuesta, indícalo expresamente.
-3. Devuelve siempre un formato JSON válido y estructurado.
+const GUARDRAILS = `
+# GUARDRAILS DE SEGURIDAD Y INTEGRIDAD GRC:
+1. Veracidad: Basate ÚNICAMENTE en los datos provistos.
+2. Manejo de Inconsistencias: Si faltan métricas o apetito de riesgo, declara "Información insuficiente en el contexto" en las limitaciones.
+3. Cero Alucinación: Inferencia estrictamente probabilística según los hechos del contexto.
 `;
-
-function rankHallazgos(findings = [], limit = 6) {
-  if (!Array.isArray(findings)) return [];
-  const severityWeight = {
-    CRITICAL: 4, CRITICO: 4,
-    HIGH: 3, ALTO: 3,
-    MEDIUM: 2, MEDIO: 2,
-    LOW: 1, BAJO: 1
-  };
-
-  return [...findings]
-    .sort((a, b) => {
-      const weightA = severityWeight[String(a.severity || a.severidad || '').toUpperCase()] || 0;
-      const weightB = severityWeight[String(b.severity || b.severidad || '').toUpperCase()] || 0;
-      return weightB - weightA;
-    })
-    .slice(0, limit);
-}
-
-/**
- * Convierte un JSON Schema con "properties" en un ejemplo de objeto con valores a llenar.
- * Esto evita que la IA devuelva los atributos "type", "description" o "properties".
- */
-function serializeSchemaToExample(schema) {
-  if (!schema) return "{}";
-
-  if (schema.properties) {
-    const example = {};
-    for (const [key, prop] of Object.entries(schema.properties)) {
-      if (prop.type === "string") example[key] = `<Texto descriptivo para ${key}>`;
-      else if (prop.type === "number") example[key] = 0.95;
-      else if (prop.type === "array") example[key] = [`<Elemento 1 de ${key}>`];
-      else if (prop.type === "object") example[key] = {};
-      else example[key] = `<Valor para ${key}>`;
-    }
-    return JSON.stringify(example, null, 2);
-  }
-
-  return typeof schema === 'string' ? schema : JSON.stringify(schema, null, 2);
-}
 
 export class PromptAssembler {
-  static assemble({ targetSchema, structuredContext, userQuery, rawFindings = [] }) {
-    const topFindings = rankHallazgos(rawFindings, 6);
-    const serializedContract = serializeSchemaToExample(targetSchema);
+  /**
+   * Ensambla el prompt completo para el LLM.
+   */
+  static assemble({ targetSchema, structuredContext, userQuery, specialistPrompt = "", rawFindings = [] }) {
+    const formattedSchemaPrompt = typeof targetSchema === 'string' 
+      ? targetSchema 
+      : JSON.stringify(targetSchema, null, 2);
 
-    const systemPrompt = `
-${DEFAULT_SYSTEM_AUDITOR}
-
-${DEFAULT_GUARDRAILS}
-
-=== CONTRATO ESTRICTO DE SALIDA (ESTRUCURA OBLIGATORIA) ===
-No devuelvas metadatos de esquema ni tipos de datos. Llena la siguiente estructura con tu análisis real en formato JSON:
-${serializedContract}
-`.trim();
-
-    const userPrompt = `
-=== CONTEXTO TÉCNICO EVALUADO ===
-${structuredContext}
-
-=== TOP HALLAZGOS CRÍTICOS PRIORIZADOS ===
-${JSON.stringify(topFindings, null, 2)}
-
-=== SOLICITUD DEL USUARIO ===
-${userQuery}
-`.trim();
-
-    return `${systemPrompt}\n\n---\n\n${userPrompt}`;
-  }
-
-  static assembleUserPrompt(structuredContext, userQuery) {
     return `
-### CONTEXTO DE NEGOCIO PROCESADO:
+${SYSTEM_AUDITOR_PROTOCOL}
+
+${GUARDRAILS}
+
+=== ESPECIFICACIÓN DEL ESPECIALISTA ASIGNADO ===
+${specialistPrompt}
+
+=== CONTEXTO TÉCNICO DE NEGOCIO RECUPERADO (DATOS REALES) ===
 ${structuredContext}
 
-### SOLICITUD DE USUARIO:
+=== HALLAZGOS Y ENTIDADES ===
+${JSON.stringify(rawFindings, null, 2)}
+
+=== CONTRATO DE SALIDA REQUERIDO (ESTRUCTURA JSON) ===
+El output DEBE cumplir estrictamente con el esquema definido.
+${formattedSchemaPrompt}
+
+=== SOLICITUD DE AUDITORÍA DE USUARIO ===
 ${userQuery}
-    `.trim();
+`.trim();
   }
 }
