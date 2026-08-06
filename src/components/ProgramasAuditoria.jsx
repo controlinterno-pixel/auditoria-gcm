@@ -171,28 +171,25 @@ export default function ProgramasAuditoria({
     setVistaActiva('kanban');
   };
 
-  const TarjetaKanban = ({ p }) => (
-    <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow relative cursor-pointer" onClick={() => handleEditarPrograma(p)}>
-      <div className="flex justify-between items-start mb-2">
-        <span className="text-[10px] font-black uppercase text-[#0A3B32] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{p.vigencia || 'Sin Vigencia'}</span>
-        {isAdmin && (
-          <button onClick={(e) => { e.stopPropagation(); handleDeleteItem('programas', p.id); }} className="text-red-400 hover:text-red-600 text-xs">🗑️</button>
-        )}
+const TarjetaKanban = ({ p }) => (
+    <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group" onClick={() => handleEditarPrograma(p)}>
+      <div className="flex justify-between items-start mb-1">
+        <div className="flex items-center gap-2">
+          <span className="text-blue-500 bg-blue-50 p-1.5 rounded-lg text-sm">📄</span>
+          <h4 className="font-bold text-slate-800 text-[13px]">{p.proceso ? `Auditoría a ${p.proceso}` : 'Programa de Auditoría'}</h4>
+        </div>
+        <button className="text-slate-400 hover:text-slate-600 text-lg leading-none">⋯</button>
       </div>
-      <h4 className="font-bold text-slate-800 text-sm leading-tight mb-1">{p.proceso || 'Sin Proceso Asignado'}</h4>
-      <p className="text-[10px] text-slate-500 line-clamp-2 mb-3">{p.objetivo || 'Sin objetivo definido...'}</p>
+      <p className="text-[10px] text-slate-500 mb-4 pl-9">{p.subproceso || 'Gestión General'} • {p.vigencia || '2025'}</p>
       
-      {p.archivoAdjuntoUrl && (
-         <div className="mb-2">
-            <span className="bg-blue-50 text-blue-700 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-blue-200 flex items-center w-fit">
-              <span className="mr-1">📎</span> Adjunto
-            </span>
-         </div>
-      )}
-
-      <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-[9px] font-bold text-slate-400">
-        <span>👨‍💻 {p.creadoPor?.split('@')[0]}</span>
-        <span>{p.matrizPruebas?.length || 0} Pruebas</span>
+      <div className="flex justify-between items-end pt-2 mt-2 border-t border-slate-50">
+        <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
+          {p.elaboradoPor ? p.elaboradoPor.substring(0,2).toUpperCase() : 'AL'}
+        </div>
+        <div className="text-[9px] text-slate-400 flex flex-col items-end">
+          {p.estado === 'Aprobado' && <span className="text-emerald-500 font-bold mb-1 flex items-center gap-1"><span className="border border-emerald-500 rounded-full w-3 h-3 flex items-center justify-center">✔</span> Aprobado: {p.fechaCreacion || '05/05/2025'}</span>}
+          <span>Actualizado: {p.fechaCreacion || '12/05/2025'}</span>
+        </div>
       </div>
     </div>
   );
@@ -200,70 +197,195 @@ export default function ProgramasAuditoria({
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
-      {/* CABECERA */}
+      {/* CABECERA ACTUALIZADA */}
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-800">Programas de Auditoría</h2>
-          <p className="text-xs text-slate-500 font-bold mt-1">Gobernanza y planeación bajo el enfoque de 3 Líneas (ISO 31000)</p>
+          <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+            <span className="bg-slate-800 text-white p-2 rounded-xl text-lg shadow-md">📄</span> 
+            Programas de Auditoría
+          </h2>
+          <p className="text-xs text-slate-500 font-bold mt-1 ml-14">Gobernanza y planeación bajo el enfoque de 3 Líneas (ISO 31000)</p>
         </div>
         <div>
           {vistaActiva === 'formulario' ? (
-            <button onClick={() => setVistaActiva('kanban')} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors">
+            <button onClick={() => setVistaActiva('kanban')} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors shadow-sm">
               🔙 Volver al Tablero
             </button>
           ) : (
-            isAdmin && (
-              <button onClick={handleNuevoPrograma} className="px-5 py-2.5 bg-[#0A3B32] hover:bg-[#062620] text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center shadow-md transition-colors">
-                <span className="mr-2">➕</span> Nuevo Programa
+            <div className="flex gap-2">
+              <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-slate-50 flex items-center transition-colors shadow-sm">
+                <span className="mr-2">♈</span> Filtros
               </button>
-            )
+              <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-slate-50 flex items-center transition-colors shadow-sm">
+                <span className="mr-2">📥</span> Exportar
+              </button>
+              {isAdmin && (
+                <button onClick={handleNuevoPrograma} className="px-5 py-2.5 bg-[#0A3B32] hover:bg-[#062620] text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center shadow-md transition-colors">
+                  <span className="mr-2">➕</span> Nuevo Programa
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* VISTA 1: TABLERO KANBAN */}
+      {/* VISTA 1: DASHBOARD COMPLETO (KPIs, Kanban y Tabla) */}
       {vistaActiva === 'kanban' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        <div className="space-y-6">
           
-          {/* Columna Borrador */}
-          <div className="bg-slate-100/50 rounded-2xl p-4 border border-slate-200 flex flex-col h-full min-h-[60vh]">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-4 flex items-center justify-between">
-              <span>📝 En Diseño / Borrador</span>
-              <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md">{programasBorrador.length}</span>
-            </h3>
-            <div className="space-y-3 flex-1">
-              {programasBorrador.map(p => <TarjetaKanban key={p.id} p={p} />)}
-              {programasBorrador.length === 0 && <div className="text-center text-slate-400 text-xs py-8 italic font-bold">Sin programas en esta fase</div>}
+          {/* 1. TARJETAS DE MÉTRICAS SUPERIORES (KPIs) */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white border border-slate-200 p-4 rounded-2xl flex items-center shadow-sm">
+              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mr-4">📄</div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500">Total Programas</p>
+                <div className="flex items-end gap-2">
+                  <span className="text-2xl font-black text-slate-800">{safeProgramas.length}</span>
+                  <span className="text-[9px] font-bold text-slate-400 mb-1">En todos los estados</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-2xl flex items-center shadow-sm">
+              <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center text-xl mr-4">✏️</div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500">En Diseño / Borrador</p>
+                <div className="flex items-end gap-2">
+                  <span className="text-2xl font-black text-slate-800">{programasBorrador.length}</span>
+                  <span className="text-[9px] font-bold text-slate-400 mb-1">{safeProgramas.length > 0 ? Math.round((programasBorrador.length / safeProgramas.length) * 100) : 0}% del total</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-2xl flex items-center shadow-sm">
+              <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-xl flex items-center justify-center text-xl mr-4">👁️</div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500">En Revisión</p>
+                <div className="flex items-end gap-2">
+                  <span className="text-2xl font-black text-slate-800">{programasRevision.length}</span>
+                  <span className="text-[9px] font-bold text-slate-400 mb-1">{safeProgramas.length > 0 ? Math.round((programasRevision.length / safeProgramas.length) * 100) : 0}% del total</span>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white border border-slate-200 p-4 rounded-2xl flex items-center shadow-sm">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center text-xl mr-4">✅</div>
+              <div>
+                <p className="text-[10px] font-black text-slate-500">Aprobados</p>
+                <div className="flex items-end gap-2">
+                  <span className="text-2xl font-black text-slate-800">{programasAprobados.length}</span>
+                  <span className="text-[9px] font-bold text-slate-400 mb-1">{safeProgramas.length > 0 ? Math.round((programasAprobados.length / safeProgramas.length) * 100) : 0}% del total</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Columna En Revisión */}
-          <div className="bg-amber-50/30 rounded-2xl p-4 border border-amber-200/50 flex flex-col h-full min-h-[60vh]">
-            <h3 className="text-xs font-black uppercase tracking-widest text-amber-600 mb-4 flex items-center justify-between">
-              <span>⏳ En Revisión (Gerencia)</span>
-              <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-md">{programasRevision.length}</span>
-            </h3>
-            <div className="space-y-3 flex-1">
-              {programasRevision.map(p => <TarjetaKanban key={p.id} p={p} />)}
-              {programasRevision.length === 0 && <div className="text-center text-amber-300 text-xs py-8 italic font-bold">Sin programas en esta fase</div>}
+          {/* 2. TABLERO KANBAN ESTILO TARJETAS */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-200 flex flex-col min-h-[300px]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-4 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> EN DISEÑO / BORRADOR</span>
+                <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center">{programasBorrador.length}</span>
+              </h3>
+              <div className="space-y-3 flex-1">
+                {programasBorrador.map(p => <TarjetaKanban key={p.id} p={p} />)}
+                {programasBorrador.length === 0 && <div className="text-center text-slate-400 text-xs py-8 italic font-bold">Sin programas</div>}
+              </div>
+              {programasBorrador.length > 0 && <button className="text-blue-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasBorrador.length})</button>}
+            </div>
+
+            <div className="bg-orange-50/30 rounded-2xl p-4 border border-orange-100 flex flex-col min-h-[300px]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-orange-600 mb-4 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> EN REVISIÓN (GERENCIA)</span>
+                <span className="bg-orange-100 text-orange-700 w-5 h-5 rounded-full flex items-center justify-center">{programasRevision.length}</span>
+              </h3>
+              <div className="space-y-3 flex-1">
+                {programasRevision.map(p => <TarjetaKanban key={p.id} p={p} />)}
+                {programasRevision.length === 0 && <div className="text-center text-orange-300 text-xs py-8 italic font-bold">Sin programas</div>}
+              </div>
+              {programasRevision.length > 0 && <button className="text-orange-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasRevision.length})</button>}
+            </div>
+
+            <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-100 flex flex-col min-h-[300px]">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-4 flex items-center justify-between">
+                <span className="flex items-center gap-1.5"><span className="text-slate-400">⋮⋮</span> APROBADOS (LISTOS)</span>
+                <span className="bg-emerald-100 text-emerald-700 w-5 h-5 rounded-full flex items-center justify-center">{programasAprobados.length}</span>
+              </h3>
+              <div className="space-y-3 flex-1">
+                {programasAprobados.map(p => <TarjetaKanban key={p.id} p={p} />)}
+                {programasAprobados.length === 0 && <div className="text-center text-emerald-300 text-xs py-8 italic font-bold">Sin programas</div>}
+              </div>
+              {programasAprobados.length > 0 && <button className="text-emerald-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasAprobados.length})</button>}
             </div>
           </div>
 
-          {/* Columna Aprobados */}
-          <div className="bg-emerald-50/30 rounded-2xl p-4 border border-emerald-200/50 flex flex-col h-full min-h-[60vh]">
-            <h3 className="text-xs font-black uppercase tracking-widest text-emerald-600 mb-4 flex items-center justify-between">
-              <span>✅ Aprobados (Listos)</span>
-              <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-md">{programasAprobados.length}</span>
-            </h3>
-            <div className="space-y-3 flex-1">
-              {programasAprobados.map(p => <TarjetaKanban key={p.id} p={p} />)}
-              {programasAprobados.length === 0 && <div className="text-center text-emerald-300 text-xs py-8 italic font-bold">Sin programas en esta fase</div>}
+          {/* 3. TABLA INFERIOR DE PROGRAMAS */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-extrabold text-slate-800 text-sm">Todos los Programas de Auditoría</h3>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+                <input type="text" placeholder="Buscar programa..." className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 w-64" />
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-slate-600">
+                <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-500 border-b border-slate-100">
+                  <tr>
+                    <th className="p-4">Programa</th>
+                    <th className="p-4">Proceso / Subproceso</th>
+                    <th className="p-4">Responsable</th>
+                    <th className="p-4">Vigencia</th>
+                    <th className="p-4">Estado</th>
+                    <th className="p-4">Última actualización</th>
+                    <th className="p-4 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {safeProgramas.length === 0 ? (
+                    <tr><td colSpan="7" className="text-center p-6 italic text-slate-400">No hay programas registrados.</td></tr>
+                  ) : (
+                    safeProgramas.map(p => (
+                      <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
+                        <td className="p-4 font-bold text-slate-800 flex items-center gap-2">
+                          <span className="text-blue-500 text-lg bg-blue-50 p-1.5 rounded-lg">📄</span>
+                          {p.proceso ? `Auditoría al Proceso de ${p.proceso}` : 'Programa sin título'}
+                        </td>
+                        <td className="p-4 text-slate-500">{p.proceso || '-'} <br/> <span className="text-[9px]">{p.subproceso}</span></td>
+                        <td className="p-4 font-medium">{p.elaboradoPor?.split('@')[0] || 'Auditor Líder'}</td>
+                        <td className="p-4">{p.vigencia || '2025'}</td>
+                        <td className="p-4">
+                          <span className={`px-2.5 py-1 rounded-full text-[9px] font-black tracking-wider border ${
+                            p.estado === 'Aprobado' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' :
+                            p.estado === 'En Revisión' ? 'bg-orange-50 text-orange-600 border-orange-200' :
+                            'bg-blue-50 text-blue-600 border-blue-200'
+                          }`}>
+                            {p.estado || 'Borrador'}
+                          </span>
+                        </td>
+                        <td className="p-4">{p.fechaCreacion || '12/05/2025'}</td>
+                        <td className="p-4 flex items-center justify-center gap-2">
+                          <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition-colors shadow-sm">👁️</button>
+                          <button onClick={() => handleEditarPrograma(p)} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors shadow-sm">✏️</button>
+                          {isAdmin && (
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteItem('programas', p.id); }} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors shadow-sm">⋯</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 flex justify-between items-center text-xs text-slate-500 bg-white">
+              <span>Mostrando 1 a {safeProgramas.length} de {safeProgramas.length} programas</span>
+              <div className="flex gap-1">
+                <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 flex items-center justify-center">&lt;</button>
+                <button className="w-7 h-7 rounded-lg bg-[#0A3B32] text-white font-bold flex items-center justify-center shadow-md">1</button>
+                <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center">2</button>
+                <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center">&gt;</button>
+              </div>
             </div>
           </div>
-
         </div>
       )}
-
       {/* VISTA 2: ASISTENTE DE CREACIÓN (STEPPER) */}
       {vistaActiva === 'formulario' && (
         <div className="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden max-w-5xl mx-auto mb-10">
