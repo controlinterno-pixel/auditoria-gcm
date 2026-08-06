@@ -258,9 +258,6 @@ export default function ProgramasAuditoria({
             </button>
           ) : (
             <div className="flex gap-2">
-              <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-slate-50 flex items-center transition-colors shadow-sm">
-                <span className="mr-2">♈</span> Filtros
-              </button>
               <button 
                 onClick={handleExportarExcel}
                 className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 flex items-center transition-colors shadow-sm"
