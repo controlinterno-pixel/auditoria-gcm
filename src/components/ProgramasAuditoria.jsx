@@ -12,14 +12,23 @@ export default function ProgramasAuditoria({
   const [step, setStep] = useState(1);
   const [editPrograma, setEditPrograma] = useState(null);
 
-  // Estados del Formulario (Basado en el PDF de Termales)
+  // 📝 Estados del Formulario (Paso 1: Contexto)
   const [entidad, setEntidad] = useState('RECREFAM S.A.S. (Termales Santa Rosa de Cabal)');
   const [vigencia, setVigencia] = useState('');
   const [proceso, setProceso] = useState('');
+  const [subproceso, setSubproceso] = useState('');
+  const [elaboradoPor, setElaboradoPor] = useState('');
+  const [revisadoPor, setRevisadoPor] = useState('');
+  const [aprobadoPor, setAprobadoPor] = useState('');
   const [objetivo, setObjetivo] = useState('');
+  const [objetivosEspecificos, setObjetivosEspecificos] = useState('');
+  const [alcance, setAlcance] = useState('');
+  const [cronogramaTexto, setCronogramaTexto] = useState('');
   
-  // Matriz de 3 Líneas de Defensa (Dinámica)
+  // 🛡️ Matriz de 3 Líneas de Defensa (Paso 2)
   const [matrizPruebas, setMatrizPruebas] = useState([]);
+  
+  // 🏁 Estado y Cierre (Paso 3)
   const [estadoPrograma, setEstadoPrograma] = useState('Borrador');
 
   const safeProgramas = Array.isArray(programas) ? programas : [];
@@ -34,7 +43,14 @@ export default function ProgramasAuditoria({
     setEntidad('RECREFAM S.A.S. (Termales Santa Rosa de Cabal)');
     setVigencia('');
     setProceso('');
+    setSubproceso('');
+    setElaboradoPor(user?.email || '');
+    setRevisadoPor('');
+    setAprobadoPor('');
     setObjetivo('');
+    setObjetivosEspecificos('');
+    setAlcance('');
+    setCronogramaTexto('');
     setMatrizPruebas([{ id: Date.now(), riesgo: '', linea1: '', linea2: '', linea3: '' }]);
     setEstadoPrograma('Borrador');
     setStep(1);
@@ -46,7 +62,14 @@ export default function ProgramasAuditoria({
     setEntidad(prog.entidad || '');
     setVigencia(prog.vigencia || '');
     setProceso(prog.proceso || '');
+    setSubproceso(prog.subproceso || '');
+    setElaboradoPor(prog.elaboradoPor || '');
+    setRevisadoPor(prog.revisadoPor || '');
+    setAprobadoPor(prog.aprobadoPor || '');
     setObjetivo(prog.objetivo || '');
+    setObjetivosEspecificos(prog.objetivosEspecificos || '');
+    setAlcance(prog.alcance || '');
+    setCronogramaTexto(prog.cronogramaTexto || '');
     setMatrizPruebas(prog.matrizPruebas || []);
     setEstadoPrograma(prog.estado || 'Borrador');
     setStep(1);
@@ -66,21 +89,30 @@ export default function ProgramasAuditoria({
   };
 
   const handleGuardarPrograma = async (e) => {
-    e.preventDefault();
+    if(e) e.preventDefault();
     const ts = new Date().toLocaleString();
     
+    // Validación básica
+    if(!proceso || !objetivo) {
+      alert("⚠️ Faltan campos obligatorios en el Paso 1 (Proceso y Objetivo General).");
+      setStep(1);
+      return;
+    }
+
     let updatedList;
     if (editPrograma) {
       const mod = {
         ...editPrograma,
-        entidad, vigencia, proceso, objetivo, matrizPruebas, estado: estadoPrograma,
+        entidad, vigencia, proceso, subproceso, elaboradoPor, revisadoPor, aprobadoPor,
+        objetivo, objetivosEspecificos, alcance, cronogramaTexto, matrizPruebas, estado: estadoPrograma,
         historialCambios: [...(editPrograma.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: `Actualizado a estado: ${estadoPrograma}` }]
       };
       updatedList = safeProgramas.map(p => p.id === editPrograma.id ? mod : p);
     } else {
       const nuevo = {
         id: Date.now(),
-        entidad, vigencia, proceso, objetivo, matrizPruebas, estado: estadoPrograma,
+        entidad, vigencia, proceso, subproceso, elaboradoPor, revisadoPor, aprobadoPor,
+        objetivo, objetivosEspecificos, alcance, cronogramaTexto, matrizPruebas, estado: estadoPrograma,
         creadoPor: user?.email || 'Sistema',
         fechaCreacion: new Date().toISOString().split('T')[0],
         historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Programa Creado' }]
@@ -181,7 +213,7 @@ export default function ProgramasAuditoria({
 
       {/* VISTA 2: ASISTENTE DE CREACIÓN (STEPPER) */}
       {vistaActiva === 'formulario' && (
-        <div className="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden max-w-5xl mx-auto">
+        <div className="bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden max-w-5xl mx-auto mb-10">
           
           {/* Cabecera Stepper */}
           <div className="bg-slate-900 text-white p-6 flex items-center justify-center space-x-8 text-xs font-black uppercase tracking-widest">
@@ -201,29 +233,74 @@ export default function ProgramasAuditoria({
             </div>
           </div>
 
-          <form onSubmit={handleGuardarPrograma} className="p-8">
+          {/* 🛡️ Contenedor Principal (Reemplazó al form para evitar envíos automáticos) */}
+          <div className="p-8">
             
             {/* PASO 1: CONTEXTO GENERAL */}
             {step === 1 && (
               <div className="space-y-6 animate-in slide-in-from-right-8">
                 <h3 className="text-sm font-black text-[#0A3B32] border-b pb-2">1. OBJETIVOS Y ALCANCE</h3>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-bold text-slate-600">
+                  
+                  {/* Fila 1 */}
                   <div>
                     <label className="block mb-1.5">Entidad / Empresa</label>
-                    <input type="text" value={entidad} onChange={e => setEntidad(e.target.value)} required className="w-full p-2.5 border rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-[#0A3B32]" />
+                    <input type="text" value={entidad} onChange={e => setEntidad(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-[#0A3B32]" />
                   </div>
                   <div>
                     <label className="block mb-1.5">Vigencia (Ej. Segundo Semestre 2026)</label>
-                    <input type="text" value={vigencia} onChange={e => setVigencia(e.target.value)} required placeholder="Periodo de auditoría..." className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32]" />
+                    <input type="text" value={vigencia} onChange={e => setVigencia(e.target.value)} placeholder="Periodo de auditoría..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32]" />
                   </div>
+                  
+                  {/* Fila 2 */}
+                  <div>
+                    <label className="block mb-1.5">Proceso a Auditar <span className="text-red-500">*</span></label>
+                    <input type="text" value={proceso} onChange={e => setProceso(e.target.value)} placeholder="Ej: Tesorería y Recaudo..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32]" />
+                  </div>
+                  <div>
+                    <label className="block mb-1.5">Subproceso</label>
+                    <input type="text" value={subproceso} onChange={e => setSubproceso(e.target.value)} placeholder="Ej: Manejo de Caja Menor..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32]" />
+                  </div>
+
+                  {/* Fila 3: Firmas */}
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                      <label className="block mb-1.5 text-blue-700">✍️ Elaborado por</label>
+                      <input type="text" value={elaboradoPor} onChange={e => setElaboradoPor(e.target.value)} placeholder="Nombre del auditor..." className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block mb-1.5 text-amber-700">🔍 Revisado por</label>
+                      <input type="text" value={revisadoPor} onChange={e => setRevisadoPor(e.target.value)} placeholder="Nombre del líder..." className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block mb-1.5 text-emerald-700">🔒 Aprobado por</label>
+                      <input type="text" value={aprobadoPor} onChange={e => setAprobadoPor(e.target.value)} placeholder="Nombre del gerente..." className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white" />
+                    </div>
+                  </div>
+
+                  {/* Fila 4 */}
                   <div className="md:col-span-2">
-                    <label className="block mb-1.5">Proceso a Auditar</label>
-                    <input type="text" value={proceso} onChange={e => setProceso(e.target.value)} required placeholder="Ej: Tesorería y Recaudo..." className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32]" />
+                    <label className="block mb-1.5">Objetivo General <span className="text-red-500">*</span></label>
+                    <textarea rows="2" value={objetivo} onChange={e => setObjetivo(e.target.value)} placeholder="Propósito principal del programa..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32] resize-none"></textarea>
                   </div>
+
+                  {/* Fila 5 */}
                   <div className="md:col-span-2">
-                    <label className="block mb-1.5">Objetivo General</label>
-                    <textarea rows="3" value={objetivo} onChange={e => setObjetivo(e.target.value)} required placeholder="Propósito principal del programa..." className="w-full p-2.5 border rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32] resize-none"></textarea>
+                    <label className="block mb-1.5">Objetivos Específicos</label>
+                    <textarea rows="3" value={objetivosEspecificos} onChange={e => setObjetivosEspecificos(e.target.value)} placeholder="Listar los objetivos puntuales..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32] resize-none"></textarea>
                   </div>
+
+                  {/* Fila 6 */}
+                  <div>
+                    <label className="block mb-1.5">Alcance</label>
+                    <textarea rows="3" value={alcance} onChange={e => setAlcance(e.target.value)} placeholder="Periodos, áreas y sistemas involucrados..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32] resize-none"></textarea>
+                  </div>
+                  <div>
+                    <label className="block mb-1.5">Cronograma Resumido</label>
+                    <textarea rows="3" value={cronogramaTexto} onChange={e => setCronogramaTexto(e.target.value)} placeholder="Ej: Fase I: Julio, Fase II: Agosto..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32] resize-none"></textarea>
+                  </div>
+
                 </div>
               </div>
             )}
@@ -237,30 +314,30 @@ export default function ProgramasAuditoria({
                 </div>
                 
                 <div className="space-y-4">
-                  {matrizPruebas.map((fila, index) => (
+                  {matrizPruebas.map((fila) => (
                     <div key={fila.id} className="bg-slate-50 border border-slate-200 p-4 rounded-2xl relative">
-                      <button type="button" onClick={() => eliminarFilaMatriz(fila.id)} className="absolute -top-3 -right-2 bg-red-100 text-red-600 w-6 h-6 rounded-full flex items-center justify-center font-black hover:bg-red-200">✕</button>
+                      <button type="button" onClick={() => eliminarFilaMatriz(fila.id)} className="absolute -top-3 -right-2 bg-red-100 text-red-600 w-6 h-6 rounded-full flex items-center justify-center font-black hover:bg-red-200 shadow-sm">✕</button>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-medium text-slate-700">
                         <div>
                           <label className="font-bold mb-1 block">⚠️ Riesgo Inherente</label>
-                          <textarea rows="4" value={fila.riesgo} onChange={e => actualizarFilaMatriz(fila.id, 'riesgo', e.target.value)} placeholder="Ej: Fraude por cuadres pendientes..." className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-amber-400 resize-none text-xs" required></textarea>
+                          <textarea rows="4" value={fila.riesgo} onChange={e => actualizarFilaMatriz(fila.id, 'riesgo', e.target.value)} placeholder="Ej: Fraude por cuadres pendientes..." className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 resize-none text-xs bg-white"></textarea>
                         </div>
                         <div>
-                          <label className="font-bold mb-1 block text-blue-700">🛡️ Controles 1ª Línea (Operación)</label>
-                          <textarea rows="4" value={fila.linea1} onChange={e => actualizarFilaMatriz(fila.id, 'linea1', e.target.value)} placeholder="Ej: Ingreso de billetes a Cash Today al cierre..." className="w-full p-2 border border-blue-200 bg-blue-50/30 rounded-lg outline-none focus:ring-2 focus:ring-blue-400 resize-none text-xs" required></textarea>
+                          <label className="font-bold mb-1 block text-blue-700">🛡️ Controles 1ª Línea</label>
+                          <textarea rows="4" value={fila.linea1} onChange={e => actualizarFilaMatriz(fila.id, 'linea1', e.target.value)} placeholder="Operación directa..." className="w-full p-2 border border-blue-200 bg-blue-50/30 rounded-lg outline-none focus:ring-2 focus:ring-blue-400 resize-none text-xs"></textarea>
                         </div>
                         <div>
-                          <label className="font-bold mb-1 block text-emerald-700">👁️ Controles 2ª Línea (Supervisión)</label>
-                          <textarea rows="4" value={fila.linea2} onChange={e => actualizarFilaMatriz(fila.id, 'linea2', e.target.value)} placeholder="Ej: Revisión en piso por supervisor..." className="w-full p-2 border border-emerald-200 bg-emerald-50/30 rounded-lg outline-none focus:ring-2 focus:ring-emerald-400 resize-none text-xs" required></textarea>
+                          <label className="font-bold mb-1 block text-emerald-700">👁️ Controles 2ª Línea</label>
+                          <textarea rows="4" value={fila.linea2} onChange={e => actualizarFilaMatriz(fila.id, 'linea2', e.target.value)} placeholder="Supervisión o Jefatura..." className="w-full p-2 border border-emerald-200 bg-emerald-50/30 rounded-lg outline-none focus:ring-2 focus:ring-emerald-400 resize-none text-xs"></textarea>
                         </div>
                         <div>
-                          <label className="font-bold mb-1 block text-purple-700">🎯 Pruebas de Auditoría (3ª Línea)</label>
-                          <textarea rows="4" value={fila.linea3} onChange={e => actualizarFilaMatriz(fila.id, 'linea3', e.target.value)} placeholder="Ej: PT-REC-01 Arqueo Sorpresivo..." className="w-full p-2 border border-purple-200 bg-purple-50/30 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 resize-none text-xs" required></textarea>
+                          <label className="font-bold mb-1 block text-purple-700">🎯 Pruebas (3ª Línea)</label>
+                          <textarea rows="4" value={fila.linea3} onChange={e => actualizarFilaMatriz(fila.id, 'linea3', e.target.value)} placeholder="Procedimientos de auditoría interna..." className="w-full p-2 border border-purple-200 bg-purple-50/30 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 resize-none text-xs"></textarea>
                         </div>
                       </div>
                     </div>
                   ))}
-                  {matrizPruebas.length === 0 && <p className="text-center text-xs text-slate-400 italic font-bold">Haz clic en "Agregar Área de Riesgo" para empezar a diseñar la matriz de controles y pruebas.</p>}
+                  {matrizPruebas.length === 0 && <p className="text-center text-xs text-slate-400 italic font-bold py-6">Haz clic en "Agregar Área de Riesgo" para empezar a diseñar la matriz.</p>}
                 </div>
               </div>
             )}
@@ -275,7 +352,7 @@ export default function ProgramasAuditoria({
                   
                   <div className="inline-flex flex-col text-left max-w-sm w-full mx-auto">
                     <label className="font-black text-[10px] uppercase text-emerald-900 tracking-widest mb-1.5">Estado del Programa:</label>
-                    <select value={estadoPrograma} onChange={e => setEstadoPrograma(e.target.value)} className="p-3 border border-emerald-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer">
+                    <select value={estadoPrograma} onChange={e => setEstadoPrograma(e.target.value)} className="p-3 border border-emerald-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer bg-white">
                       <option value="Borrador">📝 Borrador (Sigo diseñándolo)</option>
                       <option value="En Revisión">⏳ En Revisión (Enviado a Comité)</option>
                       <option value="Aprobado">✅ Aprobado (Listo para Auditoría en campo)</option>
@@ -291,7 +368,7 @@ export default function ProgramasAuditoria({
               </div>
             )}
 
-            {/* BOTONERA INFERIOR */}
+            {/* BOTONERA INFERIOR (Blindada) */}
             <div className="mt-10 flex justify-between pt-4 border-t border-slate-100">
               {step > 1 ? (
                 <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 hover:bg-slate-200 rounded-xl text-xs transition-colors">
@@ -300,17 +377,25 @@ export default function ProgramasAuditoria({
               ) : <div></div>}
               
               {step < 3 ? (
-                <button type="button" onClick={() => setStep(step + 1)} className="px-8 py-2.5 bg-[#0A3B32] text-white font-black uppercase tracking-widest rounded-xl text-xs hover:bg-[#062620] shadow-md transition-all hover:scale-105">
+                <button 
+                  type="button" 
+                  onClick={(e) => { e.preventDefault(); setStep(step + 1); }} 
+                  className="px-8 py-2.5 bg-[#0A3B32] text-white font-black uppercase tracking-widest rounded-xl text-xs hover:bg-[#062620] shadow-md transition-all hover:scale-105"
+                >
                   Siguiente
                 </button>
               ) : (
-                <button type="submit" className="px-8 py-2.5 bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl text-xs hover:bg-emerald-700 shadow-md transition-all hover:scale-105">
+                <button 
+                  type="button" 
+                  onClick={handleGuardarPrograma} 
+                  className="px-8 py-2.5 bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl text-xs hover:bg-emerald-700 shadow-md transition-all hover:scale-105"
+                >
                   💾 Guardar Programa
                 </button>
               )}
             </div>
 
-          </form>
+          </div>
         </div>
       )}
 
