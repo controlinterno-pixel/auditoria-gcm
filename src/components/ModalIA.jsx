@@ -6,7 +6,7 @@ import { AuditDiagnosticView } from './AuditoriaAutomatizada/AuditDiagnosticView
 
 /**
  * Normalizador Universal GRC
- * Parsea tanto JSON estructurado como respuestas con Markdown (###)
+ * Parsea tanto JSON estructurado como respuestas con Markdown (### Titulo: contenido)
  */
 function normalizeAuditData(parsedData, rawText) {
   if (!parsedData || typeof parsedData !== 'object') return null;
@@ -19,17 +19,30 @@ function normalizeAuditData(parsedData, rawText) {
     rawDictamen = rawDictamen.dictamen || '';
   }
 
-  // 2. PARSER INTELIGENTE DE SECCIONES MARKDOWN (### Dictamen, ### Hallazgos, etc.)
+  // Si parsedData tiene summary o executiveConclusion como string con ###, también lo usamos
+  if (typeof rawDictamen !== 'string' || !rawDictamen.includes('###')) {
+    const posiblesTextos = [parsedData.summary, parsedData.executiveConclusion, parsedData.diagnosticoGeneral];
+    for (const t of posiblesTextos) {
+      if (typeof t === 'string' && t.includes('###')) {
+        rawDictamen = t;
+        break;
+      }
+    }
+  }
+
+  // 2. PARSER ULTRA-ROBUSTO CON REGEX PARA MARKDOWN (### Titulo: Contenido)
   const secciones = {};
   if (typeof rawDictamen === 'string' && rawDictamen.includes('###')) {
-    const bloques = rawDictamen.split(/###\s+/);
-    bloques.forEach(b => {
-      if (!b.trim()) return;
-      const lineas = b.trim().split('\n');
-      const titulo = lineas[0].replace(/[:*]/g, '').trim().toLowerCase();
-      const contenido = lineas.slice(1).join('\n').trim();
-      secciones[titulo] = contenido || lineas[0];
-    });
+    // Regex que captura "### Titulo:" o "### Titulo\n" y todo su contenido hasta el siguiente "###" o el final
+    const regexSeccion = /###\s*([^:\n#]+):?\s*([\s\S]*?)(?=(?:###|$))/g;
+    let match;
+    while ((match = regexSeccion.exec(rawDictamen)) !== null) {
+      const titulo = match[1].trim().toLowerCase();
+      const contenido = match[2].trim();
+      if (titulo && contenido) {
+        secciones[titulo] = contenido;
+      }
+    }
   }
 
   // Función auxiliar para recuperar texto según posibles nombres de sección
@@ -37,15 +50,16 @@ function normalizeAuditData(parsedData, rawText) {
     for (const a of alias) {
       const key = a.toLowerCase();
       if (secciones[key]) return secciones[key];
-      if (parsedData[a]) return parsedData[a];
+      if (parsedData[a] && typeof parsedData[a] === 'string' && !parsedData[a].includes('###')) {
+        return parsedData[a];
+      }
     }
     return null;
   };
 
-  // Extraer cada bloque Big Four
+  // Extraer cada bloque Big Four de forma limpia (sin etiquetas ###)
   const dictamenEjecutivo = getSeccion(['Dictamen Ejecutivo', 'dictamenDirector', 'summary', 'executiveConclusion']) 
-    || rawDictamen 
-    || "Evaluación técnica de auditoría completada.";
+    || (typeof rawDictamen === 'string' ? rawDictamen.replace(/###[^#]*###?/g, '').trim() : "Evaluación técnica de auditoría completada.");
 
   const hallazgosTxt = getSeccion(['Hallazgos Estratégicos', 'findings', 'hallazgos', 'A HALLAZGOS']) 
     || "Se identificaron oportunidades de mejora en la disciplina operativa de los controles.";
@@ -64,7 +78,7 @@ function normalizeAuditData(parsedData, rawText) {
   const madurez = kpis.scoreMadurez ?? parsedData.scoreMadurez ?? 67;
   const cobertura = kpis.coberturaControles ?? parsedData.coberturaControles ?? 92;
 
-  // 3. RETORNAR EL CONTRATO UNIFICADO PARA EL FRONTEND
+  // 3. RETORNAR EL CONTRATO UNIFICADO LIMPIO
   return {
     resumenEjecutivo: {
       empresa: 'Termales de Santa Rosa de Cabal',
@@ -81,10 +95,10 @@ function normalizeAuditData(parsedData, rawText) {
     },
     diagnosticoRiesgosCriticos: [
       {
-        codigo: parsedData.encabezado?.codigo || 'RSK-ANALYSIS',
+        codigo: parsedData.encabezado?.codigo || 'MATRIZ-GLOBAL',
         proceso: 'Evaluación Corporativa',
         nivelRiesgoISO31000: 'Alto',
-        descripcion: typeof analisisRiesgosTxt === 'string' ? analisisRiesgosTxt.substring(0, 220) + '...' : 'Análisis detallado de riesgos.',
+        descripcion: typeof analisisRiesgosTxt === 'string' ? analisisRiesgosTxt : 'Análisis detallado de riesgos.',
         evaluacionControles: `Madurez del diseño en ${madurez}% con cobertura estimada del ${cobertura}%.`,
         probabilidadResidual: 4,
         impactoResidual: 4
