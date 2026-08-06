@@ -185,8 +185,39 @@ export default function ProgramasAuditoria({
     setVistaActiva('kanban');
   };
 
-const TarjetaKanban = ({ p }) => (
-    <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group" onClick={() => handleEditarPrograma(p)}>
+// --- 📥 FUNCIÓN EXPORTAR EXCEL (CSV) ---
+  const handleExportarExcel = () => {
+    if (programasFiltrados.length === 0) {
+      alert("No hay programas para exportar con los filtros actuales.");
+      return;
+    }
+
+    // Definir cabeceras y mapear los datos filtrados
+    const cabeceras = ['Proceso', 'Subproceso', 'Responsable', 'Vigencia', 'Estado', 'Ultima Actualizacion', 'Objetivo'];
+    const filas = programasFiltrados.map(p => [
+      `"${p.proceso || 'General'}"`,
+      `"${p.subproceso || '-'}"`,
+      `"${p.elaboradoPor || 'Auditor'}"`,
+      `"${p.vigencia || ''}"`,
+      `"${p.estado || 'Borrador'}"`,
+      `"${p.fechaCreacion || ''}"`,
+      `"${(p.objetivo || '').replace(/"/g, '""')}"` // Escapar comillas en el texto
+    ]);
+
+    const contenidoCSV = [cabeceras.join(','), ...filas.map(f => f.join(','))].join('\n');
+    
+    // El Uint8Array(BOM) asegura que Excel lea bien los acentos en español
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), contenidoCSV], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Programas_Auditoria_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const TarjetaKanban = ({ p }) => (
+<div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group" onClick={() => handleEditarPrograma(p)}>
       <div className="flex justify-between items-start mb-1">
         <div className="flex items-center gap-2">
           <span className="text-blue-500 bg-blue-50 p-1.5 rounded-lg text-sm">📄</span>
@@ -230,7 +261,10 @@ const TarjetaKanban = ({ p }) => (
               <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-slate-50 flex items-center transition-colors shadow-sm">
                 <span className="mr-2">♈</span> Filtros
               </button>
-              <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-slate-50 flex items-center transition-colors shadow-sm">
+              <button 
+                onClick={handleExportarExcel}
+                className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-bold hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 flex items-center transition-colors shadow-sm"
+              >
                 <span className="mr-2">📥</span> Exportar
               </button>
               {isAdmin && (
