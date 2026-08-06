@@ -9,51 +9,70 @@ import { AuditDiagnosticView } from './AuditoriaAutomatizada/AuditDiagnosticView
 function normalizeAuditData(parsedData, rawText) {
   if (!parsedData || typeof parsedData !== 'object') return null;
 
-  // Si ya cumple exactamente con la estructura de AuditDiagnosticView
+  // 1. Si ya viene con el formato exacto del componente visual
   if (parsedData.resumenEjecutivo && parsedData.diagnosticoRiesgosCriticos) {
     return parsedData;
   }
 
-  // Extraer datos flexibles de la IA
-  const title = parsedData.dashboardTitle || parsedData.proceso || 'Análisis de Auditoría y Riesgos';
-  const marco = parsedData.marcoMetodologico || 'ISO 31000 / COSO ERM';
-  const resumen = parsedData.resumenEjecutivo || {};
+  // 2. Si viene con el formato del Motor GRC (aiEngine.js)
+  if (parsedData.encabezado || parsedData.dictamenDirector || parsedData.planAccion) {
+    
+    // Mapeo seguro del Plan de Acción
+    const mapeoPlanCAPA = Array.isArray(parsedData.planAccion) 
+      ? parsedData.planAccion.map((accion, index) => ({
+          prioridad: (accion.prioridad || 'MEDIA').toUpperCase(),
+          codigoRiesgo: parsedData.encabezado?.codigo || `R-0${index + 1}`,
+          proceso: accion.responsable || parsedData.encabezado?.proceso || 'Gestión',
+          accionRemediacion: accion.accion || 'Acción de remediación requerida.'
+        }))
+      : [];
 
-  const totalRiesgos = resumen.totalRiesgosEvaluados ?? 5;
-  const totalHallazgos = resumen.totalHallazgosRegistrados ?? 3;
+    // Mapeo seguro del Riesgo
+    const mapeoRiesgo = {
+      codigo: parsedData.encabezado?.codigo || 'R-01',
+      proceso: parsedData.encabezado?.proceso || 'Proceso Auditado',
+      nivelRiesgoISO31000: parsedData.encabezado?.riesgoResidualLabel || 'Medio',
+      descripcion: (parsedData.hallazgos && parsedData.hallazgos[0]) || 'Evaluación de riesgo ejecutada.',
+      evaluacionControles: parsedData.acordeonesTecnicos?.evaluacionControles || 'Controles evaluados bajo estándar.',
+      probabilidadResidual: parsedData.kpis?.scoreRiesgo > 60 ? 4 : (parsedData.kpis?.scoreRiesgo > 35 ? 3 : 2),
+      impactoResidual: parsedData.kpis?.scoreRiesgo > 60 ? 4 : (parsedData.kpis?.scoreRiesgo > 35 ? 3 : 2)
+    };
 
+    return {
+      resumenEjecutivo: {
+        empresa: 'Termales de Santa Rosa de Cabal',
+        marcoMetodologico: 'ISO 31000 / COSO ERM',
+        diagnosticoGeneral: parsedData.dictamenDirector || 'Evaluación ejecutada exitosamente.',
+        alertaCiberseguridad: 'Monitoreo continuo de activos digitales activo.'
+      },
+      hallazgosAuditoria: {
+        totalHallazgos: parsedData.hallazgos ? parsedData.hallazgos.length : 0,
+        abiertos: parsedData.hallazgos || [],
+        cerradosCount: 0
+      },
+      diagnosticoRiesgosCriticos: [mapeoRiesgo],
+      planCAPAPriorizado: mapeoPlanCAPA.length > 0 ? mapeoPlanCAPA : [{
+        prioridad: 'MEDIA',
+        codigoRiesgo: 'R-01',
+        proceso: 'General',
+        accionRemediacion: 'Revisión general de controles requerida.'
+      }],
+      limitacionesEvidencia: ['Trazabilidad derivada de la muestra presentada en el sistema.']
+    };
+  }
+
+  // 3. Fallback genérico de seguridad si la estructura es totalmente desconocida
   return {
     resumenEjecutivo: {
       empresa: 'Termales de Santa Rosa de Cabal',
-      marcoMetodologico: marco,
-      diagnosticoGeneral: typeof resumen === 'string' ? resumen : (parsedData.dictamenDirector || `Evaluación técnica ejecutada bajo los lineamientos del marco ${marco}.`),
-      alertaCiberseguridad: parsedData.alertaCiberseguridad || 'Monitoreo continuo de activos digitales y controles de acceso activos.'
+      marcoMetodologico: 'Generación Dinámica',
+      diagnosticoGeneral: 'No se detectó un formato GRC estandarizado en la respuesta.',
+      alertaCiberseguridad: '-'
     },
-    hallazgosAuditoria: {
-      totalHallazgos: totalHallazgos,
-      abiertos: Array(totalHallazgos).fill({}),
-      cerradosCount: 0
-    },
-    diagnosticoRiesgosCriticos: parsedData.diagnosticoRiesgosCriticos || [
-      {
-        codigo: 'R-01',
-        proceso: title,
-        nivelRiesgoISO31000: 'Alto',
-        descripcion: `Evaluación de vulnerabilidad e impacto potencial sobre el proceso ${title}.`,
-        evaluacionControles: 'Controles parciales requeridos. Se sugiere revisión quincenal.',
-        probabilidadResidual: 4,
-        impactoResidual: 4
-      }
-    ],
-    planCAPAPriorizado: parsedData.planCAPAPriorizado || [
-      {
-        prioridad: 'ALTA',
-        codigoRiesgo: 'R-01',
-        proceso: title,
-        accionRemediacion: 'Implementar salvaguardas automatizadas y matriz de segregación de funciones.'
-      }
-    ],
-    limitacionesEvidencia: parsedData.limitacionesEvidencia || ['Trazabilidad derivada de la muestra presentada.']
+    hallazgosAuditoria: { totalHallazgos: 1, abiertos: [{}], cerradosCount: 0 },
+    diagnosticoRiesgosCriticos: [],
+    planCAPAPriorizado: [],
+    limitacionesEvidencia: ['Estructura JSON no coincide con los contratos esperados.']
   };
 }
 
