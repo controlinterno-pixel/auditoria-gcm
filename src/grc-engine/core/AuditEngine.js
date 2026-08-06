@@ -159,8 +159,7 @@ export class AuditEngine {
       
       const llmResult = await geminiService.generateContent(context.prompt.assembledPayload, {
         temperature: 0.0,
-        responseMimeType: "application/json",
-        responseSchema: context.targetSchemaObject
+        responseMimeType: "application/json"
       });
 
       context.llm.rawResponse = llmResult.text;
