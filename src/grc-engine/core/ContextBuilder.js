@@ -10,6 +10,12 @@ export class ContextBuilder {
       return "No hay datos o contexto relevante disponible en el sistema para esta consulta.";
     }
 
+    // Si vienen entidades genéricas mapeadas desde userContext/datosContexto
+    if (Array.isArray(rawData.entities) && rawData.entities.length > 0 && !rawData.risks && !rawData.findings) {
+      const domainKey = (rawData.domain || 'FINDING').toLowerCase() + 's';
+      rawData[domainKey] = rawData.entities;
+    }
+
     let formattedSections = [];
 
     // 1. Procesar Riesgos (Alineado con risk.md y la fórmula de criticidad)

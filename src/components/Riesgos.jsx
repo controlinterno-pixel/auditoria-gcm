@@ -429,29 +429,41 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         
       const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
 
-      // 2. PROMPT DE AUDITORÍA AVANZADA (UNIFICADO BIG FOUR)
-      const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna de una firma Big Four. Evalúa el riesgo RSK-${riesgo.id}.
+      // 2. PROMPT DE AUDITORÍA AVANZADA (EVALUACIÓN MULTIMÓDULO BIG FOUR)
+      const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna (estilo Big Four). Evalúa el riesgo RSK-${riesgo.id}.
 
-DATOS REPOSITORIO GRC:
+DATOS DEL RIESGO Y CONTEXTO GRC:
 - Score Residual Calculado: ${scoreRiesgoReal}%
-- Madurez de Controles: ${madurezReal}%
-- Total Controles Registrados: ${totalControlesReal}
-- Cobertura de Mitigación: ${coberturaReal}%
-- Observaciones / Bitácora: "${riesgo.seguimientoBitacora || 'Sin hallazgos registrados.'}"
+- Madurez Teórica: ${madurezReal}%
+- Total de Controles: ${totalControlesReal}
+- Cobertura Teórica: ${coberturaReal}%
+- Bitácora / Evidencias: "${riesgo.seguimientoBitacora || 'Sin evidencias en bitácora.'}"
 - Plan de Acción: "${riesgo.planAccionRiesgo || 'Sin plan registrado.'}"
 - Descripción: "${riesgo.descripcion}"
 
-REGLA DE INTEGRIDAD DE MÉTRICAS:
-Usa estrictamente las métricas oficiales proporcionadas (${scoreRiesgoReal}%, ${madurezReal}%, ${coberturaReal}%). NUNCA inventes números como '20%' o '23%'. Si hay fallas operativas, explica la brecha utilizando los porcentajes reales.
+Tu misión es realizar un análisis cuantitativo y profundo contrastando el diseño teórico vs la realidad de campo.
+Responde ÚNICAMENTE con un objeto JSON (sin comillas de markdown ni texto extra) con la siguiente estructura exacta:
 
-FORMATO DE SALIDA OBLIGATORIO:
-Escribe la respuesta dentro de la propiedad 'dictamen' utilizando estrictamente estos 6 encabezados en Markdown:
-### Dictamen Ejecutivo
-### Hallazgos Estratégicos
-### Análisis de Riesgos
-### Relaciones Encontradas
-### Tendencias
-### Recomendaciones Accionables`;  
+{
+  "headerBadges": { "inherente": "MEDIO", "residual": "MEDIO", "calidad": "90/100" },
+  "kpis": { "scoreRiesgo": "${scoreRiesgoReal}%", "scoreMadurez": "${madurezReal}%", "totalControles": ${totalControlesReal}, "coberturaControles": "${coberturaReal}%" },
+  "analisisEjecutivo": "Párrafo 1: Análisis detallado del riesgo, brecha entre madurez teórica (${madurezReal}%) y real por falta de evidencia en bitácora.\\n\\nPárrafo 2: Impacto económico/operativo directo en el negocio y competitividad.",
+  "recomendaciones": [
+    "Implementar un programa de fortalecimiento que eleve la madurez operativa hacia el nivel de diseño teórico del ${madurezReal}%.",
+    "Establecer un sistema de monitoreo continuo y reporte de efectividad para cerrar la brecha de cobertura."
+  ],
+  "planAccion": [
+    {
+      "prioridad": "ALTA",
+      "accion": "Diseñar e implementar el plan de mejora de efectividad con KPIs y auditorías periódicas.",
+      "responsable": "Comité de Innovación y Dirección de Operaciones"
+    }
+  ],
+  "dictamenDirector": "\"Evaluación de ATENCIÓN REQUERIDA para la Dirección. La disparidad entre el diseño teórico (${madurezReal}%) y la evidencia en bitácora expone a la empresa a un riesgo latente.\"",
+  "iso31000": "El análisis se realizó bajo ISO 31000, contrastando el diseño teórico con la evidencia operativa y revelando brechas de ejecución.",
+  "cosoErm": "Bajo COSO ERM, la evaluación de los ${totalControlesReal} controles indica ineficacia operativa para reducir el riesgo inherente al residual deseado.",
+  "kris": "1) KRI Madurez: Meta ${madurezReal}%. 2) KRI Cobertura: Meta ${coberturaReal}%. 3) KRI Respuesta: < 7 días."
+}`; 
 
       // 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);

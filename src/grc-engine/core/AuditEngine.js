@@ -89,20 +89,9 @@ export class AuditEngine {
     );
     const entities = rawKnowledge.entities || [];
 
-    const domainKeyMap = {
-      RISK: 'risks',
-      CONTROL: 'controls',
-      FINDING: 'findings',
-      PLAN: 'plans',
-      GOVERNANCE: 'governance'
-    };
-
-    const keyName = domainKeyMap[context.classification.domain] || 'risks';
-
-    const formattedContext = ContextBuilder.buildFormattedContext({
-      [keyName]: entities,
-      ...rawKnowledge
-    });
+    // Pasa la estructura cruda directamente a ContextBuilder para que procese tanto 
+    // las listas estándar (risks, findings) como los datos externos enviados (datosContexto)
+    const formattedContext = ContextBuilder.buildFormattedContext(rawKnowledge);
 
     // 🔍 ESPÍA DE DATOS DE FIREBASE / KNOWLEDGE MANAGER
     console.log("==========================================");
@@ -180,6 +169,7 @@ export class AuditEngine {
     context.validation = {
       passed: validationResult.isValid,
       schemaVersion: validationResult.schema,
+     
       issues: validationResult.error ? [validationResult.error] : []
     };
 

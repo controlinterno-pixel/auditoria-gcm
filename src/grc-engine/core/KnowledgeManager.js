@@ -16,9 +16,9 @@ export class KnowledgeManager {
     const { domain, intent } = classification;
 
     // 1. Extraer todas las tablas enviadas desde la plataforma (Soporte Español e Inglés)
-    const risks = userContext.risks || userContext.riesgos || [];
+   const risks = userContext.risks || userContext.riesgos || [];
     const controls = userContext.controls || userContext.controles || userContext.evaluaciones || [];
-    const findings = userContext.findings || userContext.hallazgos || [];
+    const findings = userContext.findings || userContext.hallazgos || userContext.empleados || userContext.registros || [];
     const plans = userContext.plans || userContext.planes || [];
     const incidents = userContext.incidents || userContext.incidentes || [];
     const governance = userContext.governance || userContext.gobierno || userContext.normas || [];

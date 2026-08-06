@@ -1,8 +1,6 @@
 // Ruta: src/components/ModalIA.jsx
 import React, { useState, useRef } from 'react';
 import { exportarA_PDF } from '../utils/pdfUtils';
-import { AuditDiagnosticView } from './AuditoriaAutomatizada/AuditDiagnosticView';
-
 
 function cleanMarkdown(text) {
   if (typeof text !== 'string') return text;
@@ -22,21 +20,23 @@ function normalizePanelEjecutivo(parsedData, rawText) {
     }
   }
 
-  // 1. Extracción ultra-flexible de KPIs (busca en primer nivel o dentro de data.kpis)
+  // 1. Extracción de Badges y KPIs
   const kpis = data.kpis || {};
+  const badges = data.headerBadges || {};
+
   const scoreRiesgo = data.scoreRiesgo ?? kpis.scoreRiesgo ?? '36%';
   const madurez = data.scoreMadurez ?? kpis.scoreMadurez ?? data.madurez ?? '62%';
   const cobertura = data.coberturaControles ?? kpis.coberturaControles ?? data.cobertura ?? '95%';
   const totalControles = data.totalControles ?? kpis.totalControles ?? 3;
 
-  // 2. Análisis Ejecutivo (evita volcar el JSON completo si no encuentra la clave)
+  // 2. Análisis Ejecutivo
   let analisis = data.analisis || data.analisisEjecutivo || data.diagnosticoGeneral;
   if (!analisis && typeof rawText === 'string' && !rawText.trim().startsWith('{')) {
     analisis = rawText;
   }
-  analisis = cleanMarkdown(analisis || "Evaluación técnica de auditoría realizada.");
+  analisis = cleanMarkdown(analisis || "Evaluación técnica de auditoría realizada. No se detectaron suficientes datos para un análisis cruzado.");
 
-  // 3. Recomendaciones (soporta Arrays o Strings formateados)
+  // 3. Recomendaciones
   let recomendaciones = data.recomendaciones;
   if (typeof recomendaciones === 'string') {
     recomendaciones = recomendaciones.split(/(?:\r?\n|;|\. )+/).filter(r => r.trim().length > 5);
@@ -48,7 +48,7 @@ function normalizePanelEjecutivo(parsedData, rawText) {
     ];
   }
 
-  // 4. Plan de Acción (evita filas vacías en la tabla)
+  // 4. Plan de Acción
   let planAccion = data.planAccion;
   if (!Array.isArray(planAccion) || planAccion.length === 0) {
     planAccion = [
@@ -60,17 +60,20 @@ function normalizePanelEjecutivo(parsedData, rawText) {
     ];
   }
 
-  // 5. Dictamen del Director (limpia los encabezados ###)
-  let dictamen = data.dictamenDirector || data.dictamen || "Atención requerida sobre la efectividad operativa de los controles.";
+  // 5. Dictamen del Director
+  let dictamen = data.dictamenDirector || data.dictamen || "\"Atención requerida sobre la efectividad operativa de los controles.\"";
   dictamen = cleanMarkdown(dictamen);
 
-  // 6. Secciones Metodológicas (Mapea acuerdosTecnicos y kpisEvidencias)
+  // 6. Secciones Metodológicas
   const acuerdos = data.acuerdosTecnicos || {};
-  const iso31000 = cleanMarkdown(data.iso31000 || acuerdos.analisisMetodologico || "Análisis realizado bajo los principios de la norma ISO 31000.");
-  const cosoErm = cleanMarkdown(data.cosoErm || acuerdos.evaluacionControles || acuerdos.isoCosoAlignment || "Evaluación de controles bajo el marco COSO ERM.");
-  const kris = cleanMarkdown(data.kris || data.kpisEvidencias || "Monitoreo continuo de indicadores clave de riesgo.");
+  const iso31000 = cleanMarkdown(data.iso31000 || acuerdos.analisisMetodologico || "Análisis realizado bajo los principios de la norma ISO 31000, evaluando riesgo y exposición.");
+  const cosoErm = cleanMarkdown(data.cosoErm || acuerdos.evaluacionControles || acuerdos.isoCosoAlignment || "Evaluación de controles bajo el marco COSO ERM indicando la madurez operativa.");
+  const kris = cleanMarkdown(data.kris || data.kpisEvidencias || `1) KRI Madurez: Meta ${madurez}. 2) KRI Cobertura: Meta ${cobertura}.`);
 
   return {
+    inherente: badges.inherente || data.inherente || 'MEDIO',
+    residual: badges.residual || data.residual || 'MEDIO',
+    calidad: badges.calidad || data.calidad || '90/100',
     scoreRiesgo: typeof scoreRiesgo === 'number' ? `${scoreRiesgo}%` : scoreRiesgo,
     madurez: typeof madurez === 'number' ? `${madurez}%` : madurez,
     cobertura: typeof cobertura === 'number' ? `${cobertura}%` : cobertura,
@@ -101,8 +104,9 @@ export default function ModalIA({ aiModal, setAiModal }) {
   } catch (e) {
     parsedData = null;
   }
-console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
-const panelData = normalizePanelEjecutivo(parsedData, rawText);
+  
+  console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
+  const panelData = normalizePanelEjecutivo(parsedData, rawText);
 
   // Hooks y Handlers para PDF
   const pdfRef = useRef();
@@ -119,6 +123,7 @@ const panelData = normalizePanelEjecutivo(parsedData, rawText);
     await exportarA_PDF(pdfRef, fileName, colorFondo);
     setIsExporting(false);
   };
+
   /* CUERPO DEL INFORME EN 7 BLOQUES (PANEL EJECUTIVO INTELIGENTE) */
   return (
     <>
@@ -153,7 +158,7 @@ const panelData = normalizePanelEjecutivo(parsedData, rawText);
             </div>
             <button 
               onClick={() => setAiModal(null)} 
-              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-bold"
+              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-bold transition-colors"
             >
               ✕
             </button>
@@ -161,40 +166,49 @@ const panelData = normalizePanelEjecutivo(parsedData, rawText);
 
           {/* ESTRUCTURA VISUAL DE 7 BLOQUES (RSK-189) */}
           <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-white text-slate-800">
-            <div ref={pdfRef} className="p-6 space-y-6 text-sm">
+            <div ref={pdfRef} className="p-6 space-y-6 text-xs leading-relaxed text-slate-800">
               
+              {/* BADGES SUPERIORES */}
+              <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-500 uppercase border-b pb-2">
+                <span>INH: <strong className="text-slate-800">{panelData?.inherente}</strong></span>
+                <span>RESIDUAL: <strong className="text-slate-800">{panelData?.residual}</strong></span>
+                <span>CALIDAD: <strong className="text-slate-800">{panelData?.calidad}</strong></span>
+              </div>
+
               {/* BLOQUE 1: KPIS */}
               <div className="grid grid-cols-4 gap-4 text-center">
-                <div className="bg-slate-100 p-3 rounded-xl border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Score Riesgo</span>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Score Riesgo</span>
                   <span className="text-xl font-black text-amber-600">{panelData?.scoreRiesgo}</span>
                 </div>
-                <div className="bg-slate-100 p-3 rounded-xl border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Madurez</span>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Madurez</span>
                   <span className="text-xl font-black text-blue-600">{panelData?.madurez}</span>
                 </div>
-                <div className="bg-slate-100 p-3 rounded-xl border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Controles</span>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Controles</span>
                   <span className="text-xl font-black text-slate-700">{panelData?.totalControles}</span>
                 </div>
-                <div className="bg-slate-100 p-3 rounded-xl border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Cobertura</span>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cobertura</span>
                   <span className="text-xl font-black text-emerald-600">{panelData?.cobertura}</span>
                 </div>
               </div>
 
               {/* BLOQUE 2: ANÁLISIS EJECUTIVO */}
-              <div className="text-justify leading-relaxed text-slate-700">
-                <p>{panelData?.analisis}</p>
+              <div className="text-justify space-y-2 text-slate-700">
+                {panelData?.analisis.split('\n\n').map((parrafo, idx) => (
+                  <p key={idx}>{parrafo}</p>
+                ))}
               </div>
 
               {/* BLOQUE 3: RECOMENDACIONES */}
-              <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 border-b pb-1 text-xs uppercase tracking-wider">Recomendaciones</h4>
+              <div className="space-y-2 pt-1">
+                <h4 className="font-extrabold text-slate-900 border-b pb-1 text-[11px] uppercase tracking-wider">Recomendaciones</h4>
                 <ul className="space-y-2 text-slate-700">
                   {panelData?.recomendaciones.map((rec, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="text-emerald-600 font-bold">✔</span>
+                    <li key={idx} className="flex items-start gap-2 text-justify">
+                      <span className="text-emerald-600 font-bold shrink-0">✔</span>
                       <span>{rec}</span>
                     </li>
                   ))}
@@ -202,22 +216,22 @@ const panelData = normalizePanelEjecutivo(parsedData, rawText);
               </div>
 
               {/* BLOQUE 4: PLAN DE ACCIÓN */}
-              <div className="space-y-2">
-                <h4 className="font-bold text-slate-900 border-b pb-1 text-xs uppercase tracking-wider">Plan de Acción Inmediato</h4>
-                <table className="w-full text-left border-collapse border border-slate-200 text-xs">
+              <div className="space-y-2 pt-1">
+                <h4 className="font-extrabold text-slate-900 border-b pb-1 text-[11px] uppercase tracking-wider">Plan de Acción Inmediato</h4>
+                <table className="w-full text-left border-collapse border border-slate-200 text-[11px]">
                   <thead>
-                    <tr className="bg-slate-100 text-slate-600 uppercase border-b">
-                      <th className="p-2 border-r w-24">Prioridad</th>
-                      <th className="p-2 border-r">Acción</th>
-                      <th className="p-2 w-48">Responsable</th>
+                    <tr className="bg-slate-100 text-slate-600 uppercase text-[10px] border-b">
+                      <th className="p-2 border-r w-24 font-bold">Prioridad</th>
+                      <th className="p-2 border-r font-bold">Acción</th>
+                      <th className="p-2 w-48 font-bold">Responsable</th>
                     </tr>
                   </thead>
                   <tbody>
                     {panelData?.planAccion.map((item, idx) => (
                       <tr key={idx} className="border-b">
-                        <td className="p-2 border-r font-bold text-red-600">{item.prioridad}</td>
-                        <td className="p-2 border-r text-slate-700">{item.accion}</td>
-                        <td className="p-2 font-medium text-slate-800">{item.responsable}</td>
+                        <td className="p-2 border-r font-black text-red-600 align-top">{item.prioridad}</td>
+                        <td className="p-2 border-r text-slate-700 text-justify align-top">{item.accion}</td>
+                        <td className="p-2 font-bold text-slate-800 align-top">{item.responsable}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -225,32 +239,32 @@ const panelData = normalizePanelEjecutivo(parsedData, rawText);
               </div>
 
               {/* BLOQUE 5: DICTAMEN DEL DIRECTOR */}
-              <div className="bg-slate-50 border-l-4 border-slate-800 p-4 italic text-slate-700">
-                <h5 className="font-bold not-italic text-slate-900 mb-1 text-xs uppercase tracking-wider">Dictamen del Director</h5>
+              <div className="bg-slate-50 border-l-4 border-slate-800 p-4 italic text-slate-700 text-justify rounded-r-xl">
+                <h5 className="font-extrabold not-italic text-slate-900 mb-1 text-[10px] uppercase tracking-wider">Dictamen del Director</h5>
                 {panelData?.dictamen}
               </div>
 
               {/* BLOQUE 6: ISO 31000 */}
-              <div className="space-y-1">
-                <h5 className="font-bold text-slate-900 text-xs uppercase flex items-center gap-1">
+              <div className="space-y-1 pt-1">
+                <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                   <span>▼</span> Análisis Metodológico ISO 31000
                 </h5>
-                <p className="text-xs text-slate-600 text-justify">{panelData?.iso31000}</p>
+                <p className="text-slate-600 text-justify">{panelData?.iso31000}</p>
               </div>
 
               {/* BLOQUE 7: COSO ERM & KRIS */}
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200">
                 <div className="space-y-1">
-                  <h5 className="font-bold text-slate-900 text-xs uppercase flex items-center gap-1">
+                  <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                     <span>▼</span> Evaluación de Controles & COSO ERM
                   </h5>
-                  <p className="text-xs text-slate-600 text-justify">{panelData?.cosoErm}</p>
+                  <p className="text-slate-600 text-justify">{panelData?.cosoErm}</p>
                 </div>
                 <div className="space-y-1">
-                  <h5 className="font-bold text-slate-900 text-xs uppercase flex items-center gap-1">
+                  <h5 className="font-extrabold text-slate-900 text-[10px] uppercase flex items-center gap-1">
                     <span>▼</span> KRIs, Monitoreo y Evidencias
                   </h5>
-                  <p className="text-xs text-slate-600 text-justify">{panelData?.kris}</p>
+                  <p className="text-slate-600 text-justify">{panelData?.kris}</p>
                 </div>
               </div>
 
@@ -279,7 +293,7 @@ const panelData = normalizePanelEjecutivo(parsedData, rawText);
               </button>
               <button 
                 onClick={() => setAiModal(null)} 
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-bold"
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-bold transition-colors"
               >
                 Cerrar
               </button>
