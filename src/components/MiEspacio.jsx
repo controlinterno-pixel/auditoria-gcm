@@ -73,6 +73,7 @@ export default function MiEspacio({
 const [pestanaActiva, setPestanaActiva] = useState('resumen');
   
   // Listas seguras contra valores nulos
+  const programasList = Array.isArray(safeProgramas) ? safeProgramas : [];
   const planesList = Array.isArray(safePlanes) ? safePlanes : [];
   const hallazgosList = Array.isArray(safeHallazgos) ? safeHallazgos : [];
   const cronogramaList = Array.isArray(safeCronograma) ? safeCronograma : [];
@@ -111,27 +112,30 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
       return norm === target || norm.includes(target) || target.includes(norm);
     };
 
-    const auditorias = cronogramaList.filter(c => matchesTarget(c.proceso) || matchesTarget(c.subproceso));
+   const auditorias = cronogramaList.filter(c => matchesTarget(c.proceso) || matchesTarget(c.subproceso));
     const auditoria = auditorias.length > 0 ? auditorias[auditorias.length - 1] : { responsable: 'Múltiples / No asignado', enfoque: 'N/A', meses: [] };
+
+    // 📋 VINCULACIÓN DEL NUEVO MÓDULO DE PROGRAMAS
+    const programasVinculados = programasList.filter(p => matchesTarget(p.proceso) || matchesTarget(p.subproceso));
 
     const riesgosVinculados = riesgosList.filter(r => matchesTarget(r.proceso) || matchesTarget(r.macroproceso) || matchesTarget(r.subproceso));
     const evaluacionesVinculadas = evaluacionesList.filter(ev => riesgosVinculados.some(r => r.id === ev.idRiesgo) || matchesTarget(ev.proceso) || matchesTarget(ev.subproceso));
     const hallazgosVinculados = hallazgosList.filter(h => matchesTarget(h.proceso) || matchesTarget(h.subproceso) || riesgosVinculados.some(r => r.id === h.idRiesgo));
     const planesVinculados = planesList.filter(p => hallazgosVinculados.some(h => h.id === p.idHallazgo) || matchesTarget(p.proceso) || matchesTarget(p.subproceso));
     
-    // 🔍 AHORA BUSCA EN PROCESO, SUBPROCESO Y MACROPROCESO
     const informesVinculados = informesList.filter(inf => matchesTarget(inf.proceso) || matchesTarget(inf.subproceso) || matchesTarget(inf.macroproceso));
 
     return {
       auditoria,
       proceso: procesoHomologado,
+      programas: programasVinculados, 
       riesgos: riesgosVinculados,
       evaluaciones: evaluacionesVinculadas,
       hallazgos: hallazgosVinculados,
       planes: planesVinculados,
       informes: informesVinculados
     };
-  }, [procesoHomologado, cronogramaList, riesgosList, evaluacionesList, hallazgosList, planesList, informesList]);
+  }, [procesoHomologado, cronogramaList, programasList, riesgosList, evaluacionesList, hallazgosList, planesList, informesList]); 
 // 🧠 FUNCIÓN PARA COMPILAR DATOS DEL INFORME IA DEL PROCESO
   const compilarDatosParaInforme = (procesoName) => {
     if (!procesoName) return null;
@@ -354,7 +358,7 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
             : 'bg-[#060b16] text-slate-500 border-slate-800 border-b-transparent hover:text-slate-300'
         }`}
       >
-        ⚙️ Detalle Operativo (6 Nodos)
+        ⚙️ Detalle Operativo (7 Nodos)
       </button>
     </div>
 {/* CONTENIDO DEL INFORME (PESTAÑA 1) */}
@@ -394,13 +398,50 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
                 </div>
               </div>
 
-              {/* NODO 2: RIESGOS */}
+              {/* 🆕 NODO 2: PROGRAMAS DE AUDITORÍA */}
+              <div className="relative flex items-start group">
+                <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-indigo-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(99,102,241,0.5)] group-hover:scale-110 transition-transform">
+                  📋
+                </div>
+                <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-indigo-500/40 transition-colors shadow-lg">
+                  <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">2. Programas de Auditoría (Documento de Ejecución)</span>
+                  
+                  {expedienteSeleccionado.programas.length === 0 ? (
+                     <div className="text-[11px] text-slate-500 italic py-2">⚠️ Aún no se ha diseñado ni aprobado un programa estructurado para este proceso.</div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {expedienteSeleccionado.programas.map((p, i) => (
+                        <div 
+                          key={i} 
+                          onClick={() => {
+                            if(setActiveTab) setActiveTab('plan_anual_tab'); 
+                          }}
+                          className="flex justify-between items-center bg-[#060b16] hover:bg-[#0c162b] p-3 rounded-xl border border-slate-800 hover:border-indigo-500/40 shadow-inner cursor-pointer transition-all group/item"
+                          title="Ir a Planificación para consultar este programa"
+                        >
+                          <div className="flex flex-col pr-4">
+                             <span className="text-[11px] text-slate-300 font-bold truncate group-hover/item:text-white transition-colors">
+                               {p.objetivo || 'Programa de Auditoría en Curso'}
+                             </span>
+                             <span className="text-[9px] text-slate-500 mt-0.5 font-medium">{p.vigencia || 'Sin vigencia'} • Áreas de Riesgo: {p.matrizPruebas?.length || 0}</span>
+                          </div>
+                          <div className="flex items-center space-x-2 shrink-0">
+                            <span className={`px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-widest border ${p.estado === 'Aprobado' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'}`}>{p.estado || 'Borrador'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* NODO 3: RIESGOS */}
               <div className="relative flex items-start group">
                 <div className="absolute -left-[24px] sm:-left-[24px] w-12 h-12 bg-[#060b16] border-2 border-orange-500 rounded-full flex items-center justify-center text-xl shadow-[0_0_20px_rgba(249,115,22,0.5)] group-hover:scale-110 transition-transform">
                   🔥
                 </div>
                 <div className="ml-10 sm:ml-12 bg-slate-900/60 border border-slate-800 p-5 rounded-2xl w-full hover:border-orange-500/40 transition-colors shadow-lg">
-                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">2. Riesgos Mapeados del Proceso</span>
+                  <span className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-3 block border-b border-slate-800/80 pb-2">3. Riesgos Mapeados del Proceso</span>
                   <div className="flex items-center space-x-5">
                     <div className="text-4xl font-black text-white">{expedienteSeleccionado.riesgos.length}</div>
                     <div className="text-[11px] text-slate-400 font-medium">
