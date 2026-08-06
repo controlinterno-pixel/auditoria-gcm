@@ -429,42 +429,29 @@ const [editRiesgo, setEditRiesgo] = useState(null);
         
       const scoreRiesgoReal = Math.round(((riesgo.probabilidadResidual ?? 15) * (riesgo.impactoResidual ?? 30)) / 100);
 
-      // 2. PROMPT DE AUDITORÍA AVANZADA: EVALUACIÓN DE HALLAZGOS Y EFECTIVIDAD OPERATIVA
-      const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna. Evalúa el riesgo RSK-${riesgo.id}.
+      // 2. PROMPT DE AUDITORÍA AVANZADA (UNIFICADO BIG FOUR)
+      const promptFilaReal = `Actúa como Socio Director de GRC y Auditoría Interna de una firma Big Four. Evalúa el riesgo RSK-${riesgo.id}.
 
-📊 DATOS TEÓRICOS DEL SISTEMA (DISEÑO DEL CONTROL EN PAPEL):
-- Score Residual Teórico Calculado: ${scoreRiesgoReal}%
-- Madurez Teórica del Diseño: ${madurezReal}%
-- Total de Controles Registrados: ${totalControlesReal}
-- Cobertura Teórica: ${coberturaReal}%
+DATOS REPOSITORIO GRC:
+- Score Residual Calculado: ${scoreRiesgoReal}%
+- Madurez de Controles: ${madurezReal}%
+- Total Controles Registrados: ${totalControlesReal}
+- Cobertura de Mitigación: ${coberturaReal}%
+- Observaciones / Bitácora: "${riesgo.seguimientoBitacora || 'Sin hallazgos registrados.'}"
+- Plan de Acción: "${riesgo.planAccionRiesgo || 'Sin plan registrado.'}"
+- Descripción: "${riesgo.descripcion}"
 
-🚨 EVIDENCIA OPERATIVA Y HALLAZGOS REALES (BITÁCORA Y CAMPO):
-- Observaciones / Hallazgos de Bitácora: "${riesgo.seguimientoBitacora || 'Sin observaciones o hallazgos registrados en la bitácora.'}"
-- Plan de Acción Registrado: "${riesgo.planAccionRiesgo || 'Sin plan registrado.'}"
-- Descripción del Riesgo: "${riesgo.descripcion}"
+REGLA DE INTEGRIDAD DE MÉTRICAS:
+Usa estrictamente las métricas oficiales proporcionadas (${scoreRiesgoReal}%, ${madurezReal}%, ${coberturaReal}%). NUNCA inventes números como '20%' o '23%'. Si hay fallas operativas, explica la brecha utilizando los porcentajes reales.
 
-INSTRUCCIONES CRÍTICAS PARA GENERAR VALOR ESTRATÉGICO:
-
-1. ANÁLISIS CRÍTICO DE HALLAZGOS (Efectividad Operativa vs. Diseño):
-   - Revisa minuciosamente el campo 'Observaciones / Hallazgos de Bitácora'.
-   - SI DETECTAS UN HALLAZGO (ej. desactualización de datos, descuadres, fallas en inventario), DEBES ADVERTIR EXPLÍCITAMENTE en la sección de Hallazgos y en el Dictamen que existe una **"FALSA SENSACIÓN DE SEGURIDAD"**. Explica a la Junta que, aunque matemáticamente el diseño de los ${totalControlesReal} controles da una cobertura del ${coberturaReal}%, en la práctica el hallazgo demuestra que los controles NO están siendo ejecutados con efectividad.
-   - Analiza el IMPACTO REAL de ese hallazgo sobre el negocio (pérdidas financieras, distorsión en estados financieros, compras innecesarias de activos, etc.).
-
-2. DICTAMEN DEL DIRECTOR CON VALOR AÑADIDO:
-   - Si hay un hallazgo crítico, el dictamen NO debe ser "ejemplar" ni de felicitación. Debe ser un dictamen de **"ALERTA OPERATIVA / ATENCIÓN REQUERIDA"**, instando a la Gerencia a corregir la falla humana/sistémica de inmediato.
-   - Si NO hay hallazgos en la bitácora, valida que la operación se mantiene alineada con el diseño teórico.
-
-3. PLAN DE ACCIÓN Y RECOMENDACIONES:
-   - El Plan de Acción debe atacar directamente la Causa Raíz identificada en el hallazgo de la bitácora (ej. auditoría física de choque, automatización de conciliaciones en Zeus/ERP).
-
-4. RESTRICCIÓN DE INTEGRIDAD:
-   - Utiliza exactamente las métricas proporcionadas (${scoreRiesgoReal}%, ${madurezReal}%, ${totalControlesReal} controles) para explicar la brecha. NUNCA inventes porcentajes externos que no existan.
-
-5. REGLA RIGUROSA DE PORCENTAJES:
-   - Para la Madurez, utiliza SIEMPRE el valor real: ${madurezReal}%. 
-   - NUNCA inventes o menciones números como '20%'. Si vas a señalar la falla operativa, redacta: 'A pesar de contar con una madurez teórica del ${madurezReal}%, la falta de evidencia en bitácora demuestra que en la práctica los controles no se ejecutan.'
-
-Genera la respuesta estructurada en el JSON requerido para la interfaz.`;   
+FORMATO DE SALIDA OBLIGATORIO:
+Escribe la respuesta dentro de la propiedad 'dictamen' utilizando estrictamente estos 6 encabezados en Markdown:
+### Dictamen Ejecutivo
+### Hallazgos Estratégicos
+### Análisis de Riesgos
+### Relaciones Encontradas
+### Tendencias
+### Recomendaciones Accionables`;  
 
       // 3. Enviamos el prompt blindado
       const textoCompleto = await analizarRiesgoConIA(promptFilaReal);
