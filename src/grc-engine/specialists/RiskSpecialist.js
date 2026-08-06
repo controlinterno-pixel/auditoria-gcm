@@ -2,19 +2,16 @@
  * @file RiskSpecialist.js
  * @description Especialista de Riesgos GRC (MoE Pattern).
  */
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { BaseSpecialist } from './BaseSpecialist.js';
 import { RiskManifest } from './RiskSpecialist.manifest.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const riskPromptRaw = `
+# OBJETIVO
+Emitir un dictamen técnico de auditoría y gestión de riesgos que permita a la Alta Dirección tomar decisiones estratégicas.
 
-const promptPath = path.resolve(__dirname, '../prompts/specialists/risk.md');
-const riskPromptRaw = fs.existsSync(promptPath) 
-  ? fs.readFileSync(promptPath, 'utf-8') 
-  : '';
+[ROL Y EXPERTOCIA: ESPECIALISTA EN RIESGOS]
+Ejecuta la secuencia metodológica de 10 pasos. Calcula y categoriza numéricamente la exposición (Riesgo Residual). Define planes de remediación específicos (CAPA).
+`;
 
 export class RiskSpecialist extends BaseSpecialist {
   constructor() {
