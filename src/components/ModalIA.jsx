@@ -92,7 +92,7 @@ export default function ModalIA({ aiModal, setAiModal }) {
   } catch (e) {
     parsedData = null;
   }
-
+console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
   const auditData = normalizeAuditData(parsedData, rawText);
   const pdfRef = useRef();
   const [isExporting, setIsExporting] = useState(false);
