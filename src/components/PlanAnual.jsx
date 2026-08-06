@@ -395,8 +395,19 @@ const descargarCronogramaPDF = () => {
                          );
                        })}
                       {(isAdmin && !isExporting) && (
-                         <td className="border border-slate-300 p-2 text-center bg-slate-50">
-                           <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 bg-white border border-orange-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-colors">✏️ Modificar</button>
+                        <td className="border border-slate-300 p-2 text-center bg-slate-50 flex items-center justify-center space-x-1">
+                           <button onClick={() => {setEditCronograma(c); setFormResetKey(Date.now()); scrollToForm();}} className="text-orange-500 hover:text-orange-700 bg-white border border-orange-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-colors" title="Modificar Plan">✏️</button>
+                           
+                           {/* NUEVO BOTÓN CONTEXTUAL DEL PROGRAMA */}
+                           <button 
+                             onClick={() => {
+                               // Aquí dispararemos el Side-Panel del programa en el siguiente Sprint
+                               console.log("Crear programa para:", c.proceso);
+                             }} 
+                             className="text-blue-600 hover:text-blue-800 bg-blue-50 border border-blue-200 px-2 py-1 rounded shadow-sm text-[10px] font-bold transition-colors flex items-center"
+                           >
+                             <span>📋 Crear Programa</span>
+                           </button>
                          </td>
                        )} 
                      </tr>

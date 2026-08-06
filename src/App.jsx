@@ -16,6 +16,7 @@ import Evaluaciones from './components/Evaluaciones';
 import Riesgos from './components/Riesgos';
 import Apetito from './components/Apetito';
 import PlanAnual from './components/PlanAnual';
+import ProgramasAuditoria from './components/ProgramasAuditoria'; 
 import AuditorIA from './components/AuditorIA';
 import Comites from './components/Comites';
 import ConceptMapper from './components/AuditoriaAutomatizada/ConceptMapper';
@@ -111,7 +112,10 @@ const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
   const [editInformeAuditoria, setEditInformeAuditoria] = useState(null);
 const [comites, setComites] = useState([]);
 const [editComite, setEditComite] = useState(null);
-
+// --- NUEVOS ESTADOS PARA PROGRAMAS DE AUDITORÍA ---
+  const [programas, setProgramas] = useState([]);
+  const [editPrograma, setEditPrograma] = useState(null);
+  const safeProgramas = Array.isArray(programas) ? programas : [];
  // =====================================================================
   // ⚙️ ENTIDADES PRINCIPALES (ESTADOS DE BASE DE DATOS)
   // =====================================================================
@@ -276,6 +280,7 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
         setMonitoreo(data.monitoreo || defaultMonitoreo);
         setInformesAuditoria(data.informesAuditoria || []);
         setComites(data.comites || []);
+        setProgramas(data.programas || []);
         setAuditoresLista(data.auditoresLista || ["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
 } else {
         // Solo un admin validado puede inicializar la base de datos vacía
@@ -324,6 +329,7 @@ const saveToCloud = async (partialData) => {
     if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
     if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); }
     if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); setComites(updated); }
+   if (listType === 'programas') { updated = safeProgramas.filter(p => p.id !== id); setProgramas(updated); }
     await saveToCloud({ [listType]: updated }); showNotification("Registro eliminado.", "success");
   };
   const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
@@ -1581,6 +1587,9 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
           {isAdmin && (
             <button onClick={() => setSubTabPlanificar('plan_anual')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'plan_anual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🗓️ Cronograma Anual</button>
           )}
+          {/* NUEVO BOTÓN PARA EL DASHBOARD DE PROGRAMAS */}
+          <button onClick={() => setSubTabPlanificar('programas')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'programas' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📋 Programas de Auditoría</button>
+          
           <button onClick={() => setSubTabPlanificar('riesgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'riesgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚠️ Matriz de Riesgos</button>
           <button onClick={() => setSubTabPlanificar('apetito')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'apetito' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚖️ Apetito de Riesgo</button>
         </div>
@@ -1597,7 +1606,16 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
         selectedAnios={selectedAnios} renderHeaderFiltros={(t, s) => <HeaderFiltros titulo={t} subtitulo={s} defaultAnios={defaultAnios} defaultMeses={defaultMeses} selectedAnios={selectedAnios} selectedMeses={selectedMeses} toggleAnio={toggleAnio} toggleMes={toggleMes} setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses} />}
       />
     )}
-
+{subTabPlanificar === 'programas' && (
+      <ProgramasAuditoria 
+        programas={safeProgramas}
+        setProgramas={setProgramas}
+        saveToCloud={saveToCloud}
+        isAdmin={isAdmin}
+        user={user}
+        handleDeleteItem={handleDeleteItem}
+      />
+    )}
     {subTabPlanificar === 'riesgos' && (
       <Riesgos 
         isAdmin={isAdmin} 
@@ -1692,7 +1710,9 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                 )}
                 {subTabResultados === 'informes' && isAdmin && (
                   <InformesAuditoria 
-                    informesAuditoria={informesAuditoria} setInformesAuditoria={setInformesAuditoria} editInformeAuditoria={editInformeAuditoria}
+                    informesAuditoria={informesAuditoria} 
+                    safeProgramas={safeProgramas} /* 👈 ¡AQUÍ ESTÁ LA LÍNEA QUE FALTABA! */
+                    setInformesAuditoria={setInformesAuditoria} editInformeAuditoria={editInformeAuditoria}
                     setEditInformeAuditoria={setEditInformeAuditoria} isAdmin={isAdmin} user={user} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
                     columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} exportToExcel={exportToExcel}
                     handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit} isSubmitting={isSubmitting} setFormResetKey={setFormResetKey}

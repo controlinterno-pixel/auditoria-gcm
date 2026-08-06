@@ -12,6 +12,7 @@ import { apiService } from '../services/apiService';
 
 export default function InformesAuditoria({ 
   informesAuditoria, 
+  safeProgramas = [],
   editInformeAuditoria, 
   setEditInformeAuditoria, 
   isAdmin, 
@@ -60,6 +61,19 @@ export default function InformesAuditoria({
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(null);
+  
+  // 🛑 LÓGICA DE HARD CONTROL: Bloqueo inteligente si no hay programas
+  const handleCrearNuevoInforme = () => {
+    const programasAprobados = safeProgramas.filter(p => p.estado === 'Aprobado');
+    
+    if (programasAprobados.length === 0) {
+      alert("🛑 ACCIÓN DENEGADA: No puedes emitir un informe porque no tienes ningún Programa de Auditoría en estado 'Aprobado'.\n\nPor favor, dirígete al módulo de Planificación > Programas de Auditoría para crear y aprobar uno primero.");
+      return; // Bloquea la ejecución, no abre el formulario
+    }
+    
+    setEditInformeAuditoria(null); 
+    setVistaActiva('nuevo');
+  };
 
   // 🎛️ ESTADOS DEL PANEL LATERAL
   const [agruparPor, setAgruparPor] = useState('Año'); 
@@ -208,7 +222,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
           <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Resumen Visual</button>
           <button onClick={() => setVistaActiva('historial')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📜 Historial Completo</button>
           {isAdmin && (
-            <button onClick={() => { setEditInformeAuditoria(null); setVistaActiva('nuevo'); }} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md ${vistaActiva === 'nuevo' ? 'bg-[#0A3B32] text-white ring-4 ring-emerald-500/20' : 'bg-[#0A3B32] text-white hover:bg-[#062620]'}`}>
+            <button onClick={handleCrearNuevoInforme} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md ${vistaActiva === 'nuevo' ? 'bg-[#0A3B32] text-white ring-4 ring-emerald-500/20' : 'bg-[#0A3B32] text-white hover:bg-[#062620]'}`}>
               <span className="mr-2">➕</span> Nuevo Informe
             </button>
           )}
@@ -517,6 +531,30 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
             <input type="hidden" name="proceso" value={macroprocesoForm} />
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+
+              {/* 🛡️ HARD CONTROL: VINCULACIÓN OBLIGATORIA AL PROGRAMA */}
+              <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2">
+                <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📋 Vincular Programa de Auditoría (Pre-requisito)</label>
+                <select
+                  name="programaId"
+                  required
+                  defaultValue={editInformeAuditoria?.programaId || ''}
+                  onChange={(e) => {
+                    const prog = safeProgramas.find(p => String(p.id) === String(e.target.value));
+                    if (prog) {
+                       setMacroprocesoForm(prog.proceso || '');
+                       setSubprocesoForm(prog.subproceso || 'General');
+                    }
+                  }}
+                  className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer"
+                >
+                  <option value="">-- Seleccione un Programa Aprobado --</option>
+                  {safeProgramas.filter(p => p.estado === 'Aprobado').map(p => (
+                    <option key={p.id} value={p.id}>{p.entidad} - {p.proceso} ({p.vigencia})</option>
+                  ))}
+                </select>
+                <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">Al seleccionar el programa, el sistema autocompletará el área y proceso auditado.</p>
+              </div>
               
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 block mb-1.5">Título del Informe Formal</label>
