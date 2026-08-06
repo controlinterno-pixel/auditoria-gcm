@@ -1489,6 +1489,7 @@ if (showWelcome) {
             {activeTab === 'tablero' && (
               <MiEspacio
                 user={user}
+                safeProgramas={safeProgramas}
                 safePlanes={safePlanes}
                 safeHallazgos={safeHallazgos}
                 safeComites={safeComites}
