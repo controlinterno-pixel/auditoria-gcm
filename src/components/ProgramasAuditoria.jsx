@@ -58,11 +58,25 @@ export default function ProgramasAuditoria({
       setSubproceso('');
     }
   };
+// --- 🔍 NUEVOS ESTADOS Y LÓGICA DE FILTRADO ---
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filtroProceso, setFiltroProceso] = useState('');
+  const [filtroSubproceso, setFiltroSubproceso] = useState('');
 
-  // Agrupar para Kanban
-  const programasBorrador = safeProgramas.filter(p => p.estado === 'Borrador');
-  const programasRevision = safeProgramas.filter(p => p.estado === 'En Revisión');
-  const programasAprobados = safeProgramas.filter(p => p.estado === 'Aprobado');
+  const subprocesosFiltro = filtroProceso ? (MAPA_PROCESOS[filtroProceso] || []) : [];
+
+  const programasFiltrados = safeProgramas.filter(p => {
+    const matchBusqueda = (p.proceso?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || 
+                          (p.objetivo?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+    const matchProceso = filtroProceso ? p.proceso === filtroProceso : true;
+    const matchSubproceso = filtroSubproceso ? p.subproceso === filtroSubproceso : true;
+    return matchBusqueda && matchProceso && matchSubproceso;
+  });
+
+  // Agrupar para Kanban (ahora responden a los filtros en tiempo real)
+  const programasBorrador = programasFiltrados.filter(p => p.estado === 'Borrador');
+  const programasRevision = programasFiltrados.filter(p => p.estado === 'En Revisión');
+  const programasAprobados = programasFiltrados.filter(p => p.estado === 'Aprobado');
 
   const handleNuevoPrograma = () => {
     setEditPrograma(null);
@@ -316,15 +330,50 @@ const TarjetaKanban = ({ p }) => (
             </div>
           </div>
 
-          {/* 3. TABLA INFERIOR DE PROGRAMAS */}
+  {/* 3. TABLA INFERIOR DE PROGRAMAS Y FILTROS */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-extrabold text-slate-800 text-sm">Todos los Programas de Auditoría</h3>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-slate-400">🔍</span>
-                <input type="text" placeholder="Buscar programa..." className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 w-64" />
+            
+            {/* BARRA DE BÚSQUEDA Y FILTROS DINÁMICOS */}
+            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center bg-slate-50/50 gap-4">
+              <h3 className="font-extrabold text-slate-800 text-sm w-full md:w-auto">Todos los Programas</h3>
+              
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
+                {/* Selector Proceso */}
+                <select 
+                  value={filtroProceso} 
+                  onChange={(e) => { setFiltroProceso(e.target.value); setFiltroSubproceso(''); }}
+                  className="px-3 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 bg-white cursor-pointer text-slate-600 font-medium"
+                >
+                  <option value="">Todos los Procesos</option>
+                  {listadoMacros.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+
+                {/* Selector Subproceso (dependiente) */}
+                <select 
+                  value={filtroSubproceso} 
+                  onChange={(e) => setFiltroSubproceso(e.target.value)}
+                  disabled={!filtroProceso}
+                  className={`px-3 py-2 border rounded-xl text-xs outline-none transition-colors font-medium ${!filtroProceso ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-white border-slate-200 text-slate-600 cursor-pointer focus:border-blue-500'}`}
+                >
+                  <option value="">Todos los Subprocesos</option>
+                  {subprocesosFiltro.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+
+                {/* Buscador de Texto */}
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-slate-400">🔍</span>
+                  <input 
+                    type="text" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Buscar programa..." 
+                    className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs outline-none focus:border-blue-500 w-full md:w-48 lg:w-64 font-medium" 
+                  />
+                </div>
               </div>
             </div>
+
+            {/* TABLA DE RESULTADOS */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-600">
                 <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-500 border-b border-slate-100">
@@ -339,16 +388,16 @@ const TarjetaKanban = ({ p }) => (
                   </tr>
                 </thead>
                 <tbody>
-                  {safeProgramas.length === 0 ? (
-                    <tr><td colSpan="7" className="text-center p-6 italic text-slate-400">No hay programas registrados.</td></tr>
+                  {programasFiltrados.length === 0 ? (
+                    <tr><td colSpan="7" className="text-center p-8 italic text-slate-500 font-bold bg-white">No hay programas que coincidan con la búsqueda.</td></tr>
                   ) : (
-                    safeProgramas.map(p => (
+                    programasFiltrados.map(p => (
                       <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
                         <td className="p-4 font-bold text-slate-800 flex items-center gap-2">
                           <span className="text-blue-500 text-lg bg-blue-50 p-1.5 rounded-lg">📄</span>
                           {p.proceso ? `Auditoría al Proceso de ${p.proceso}` : 'Programa sin título'}
                         </td>
-                        <td className="p-4 text-slate-500">{p.proceso || '-'} <br/> <span className="text-[9px]">{p.subproceso}</span></td>
+                        <td className="p-4 text-slate-500">{p.proceso || '-'} <br/> <span className="text-[9px] font-bold text-slate-400">{p.subproceso}</span></td>
                         <td className="p-4 font-medium">{p.elaboradoPor?.split('@')[0] || 'Auditor Líder'}</td>
                         <td className="p-4">{p.vigencia || '2025'}</td>
                         <td className="p-4">
@@ -360,7 +409,7 @@ const TarjetaKanban = ({ p }) => (
                             {p.estado || 'Borrador'}
                           </span>
                         </td>
-                        <td className="p-4">{p.fechaCreacion || '12/05/2025'}</td>
+                        <td className="p-4 font-medium">{p.fechaCreacion || '12/05/2025'}</td>
                         <td className="p-4 flex items-center justify-center gap-2">
                           <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center transition-colors shadow-sm">👁️</button>
                           <button onClick={() => handleEditarPrograma(p)} className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-amber-600 hover:bg-amber-50 flex items-center justify-center transition-colors shadow-sm">✏️</button>
@@ -374,12 +423,12 @@ const TarjetaKanban = ({ p }) => (
                 </tbody>
               </table>
             </div>
+            
             <div className="p-4 flex justify-between items-center text-xs text-slate-500 bg-white">
-              <span>Mostrando 1 a {safeProgramas.length} de {safeProgramas.length} programas</span>
+              <span className="font-medium">Mostrando {programasFiltrados.length} programas filtrados (Total: {safeProgramas.length})</span>
               <div className="flex gap-1">
                 <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-400 flex items-center justify-center">&lt;</button>
                 <button className="w-7 h-7 rounded-lg bg-[#0A3B32] text-white font-bold flex items-center justify-center shadow-md">1</button>
-                <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center">2</button>
                 <button className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center">&gt;</button>
               </div>
             </div>
