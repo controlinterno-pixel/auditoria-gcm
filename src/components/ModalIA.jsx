@@ -42,91 +42,7 @@ function normalizePanelEjecutivo(parsedData, rawText) {
 }
 
 
-  // 2. PARSER ULTRA-ROBUSTO CON REGEX PARA MARKDOWN (### Titulo: Contenido)
-  const secciones = {};
-  if (typeof rawDictamen === 'string' && rawDictamen.includes('###')) {
-    // Regex que captura "### Titulo:" o "### Titulo\n" y todo su contenido hasta el siguiente "###" o el final
-    const regexSeccion = /###\s*([^:\n#]+):?\s*([\s\S]*?)(?=(?:###|$))/g;
-    let match;
-    while ((match = regexSeccion.exec(rawDictamen)) !== null) {
-      const titulo = match[1].trim().toLowerCase();
-      const contenido = match[2].trim();
-      if (titulo && contenido) {
-        secciones[titulo] = contenido;
-      }
-    }
-  }
-
-  // Función auxiliar para recuperar texto según posibles nombres de sección
-  const getSeccion = (alias) => {
-    for (const a of alias) {
-      const key = a.toLowerCase();
-      if (secciones[key]) return secciones[key];
-      if (parsedData[a] && typeof parsedData[a] === 'string' && !parsedData[a].includes('###')) {
-        return parsedData[a];
-      }
-    }
-    return null;
-  };
-
-  // Extraer cada bloque Big Four de forma limpia (sin etiquetas ###)
-  const dictamenEjecutivo = getSeccion(['Dictamen Ejecutivo', 'dictamenDirector', 'summary', 'executiveConclusion']) 
-    || (typeof rawDictamen === 'string' ? rawDictamen.replace(/###[^#]*###?/g, '').trim() : "Evaluación técnica de auditoría completada.");
-
-  const hallazgosTxt = getSeccion(['Hallazgos Estratégicos', 'findings', 'hallazgos', 'A HALLAZGOS']) 
-    || "Se identificaron oportunidades de mejora en la disciplina operativa de los controles.";
-
-  const analisisRiesgosTxt = getSeccion(['Análisis de Riesgos', 'risks', 'riesgos']) 
-    || dictamenEjecutivo;
-
-  const recomendacionesTxt = getSeccion(['Recomendaciones Accionables', 'recommendations', 'recomendaciones', 'RECOMENDACIONES']) 
-    || "Fortalecer la efectividad operativa de los controles e integrar monitoreo en tiempo real.";
-
-  const planAccionTxt = getSeccion(['Plan de Acción Inmediato', 'planAccion', 'actionPlans', 'PLAN DE ACCIÓN INMEDIATO']) 
-    || recomendacionesTxt;
-
-  // KPIs unificados
-  const kpis = parsedData.kpis || {};
-  const madurez = kpis.scoreMadurez ?? parsedData.scoreMadurez ?? 67;
-  const cobertura = kpis.coberturaControles ?? parsedData.coberturaControles ?? 92;
-
-  // 3. RETORNAR EL CONTRATO UNIFICADO LIMPIO
-  return {
-    resumenEjecutivo: {
-      empresa: 'Termales de Santa Rosa de Cabal',
-      marcoMetodologico: 'ISO 31000 / COSO ERM',
-      diagnosticoGeneral: dictamenEjecutivo,
-      alertaCiberseguridad: 'Monitoreo continuo de activos y segregación de funciones.'
-    },
-    hallazgosAuditoria: {
-      totalHallazgos: 2,
-      abiertos: [
-        { descripcion: hallazgosTxt }
-      ],
-      cerradosCount: 0
-    },
-    diagnosticoRiesgosCriticos: [
-      {
-        codigo: parsedData.encabezado?.codigo || 'MATRIZ-GLOBAL',
-        proceso: 'Evaluación Corporativa',
-        nivelRiesgoISO31000: 'Alto',
-        descripcion: typeof analisisRiesgosTxt === 'string' ? analisisRiesgosTxt : 'Análisis detallado de riesgos.',
-        evaluacionControles: `Madurez del diseño en ${madurez}% con cobertura estimada del ${cobertura}%.`,
-        probabilidadResidual: 4,
-        impactoResidual: 4
-      }
-    ],
-    planCAPAPriorizado: [
-      {
-        prioridad: 'ALTA',
-        codigoRiesgo: 'CAPA-01',
-        proceso: 'Comité de Riesgos y Auditoría Interna',
-        accionRemediacion: typeof planAccionTxt === 'string' ? planAccionTxt : 'Implementar salvaguardas operativas de inmediato.'
-      }
-    ],
-    limitacionesEvidencia: ['Análisis derivado de la evidencia estructurada disponible en el sistema.']
-  };
-}
+ 
 
 export default function ModalIA({ aiModal, setAiModal }) {
   if (!aiModal) return null;
@@ -145,8 +61,23 @@ export default function ModalIA({ aiModal, setAiModal }) {
     parsedData = null;
   }
 console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
-  const panelData = normalizePanelEjecutivo(parsedData, rawText);
+const panelData = normalizePanelEjecutivo(parsedData, rawText);
 
+  // Hooks y Handlers para PDF
+  const pdfRef = useRef();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const descargarPDF = async (modoModoBlanco = false) => {
+    setIsExporting(true);
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    const safeTitle = (aiModal?.titulo || 'Informe_GRC_Ejecutivo').replace(/[^a-zA-Z0-9]/g, '_');
+    const fileName = `${safeTitle}.pdf`;
+    
+    const colorFondo = modoModoBlanco ? '#ffffff' : '#0f172a';
+    await exportarA_PDF(pdfRef, fileName, colorFondo);
+    setIsExporting(false);
+  };
   /* CUERPO DEL INFORME EN 7 BLOQUES (PANEL EJECUTIVO INTELIGENTE) */
   return (
     <>
