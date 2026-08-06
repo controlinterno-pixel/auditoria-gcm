@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+// Importamos el diccionario oficial de procesos
+import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 export default function ProgramasAuditoria({ 
   programas = [], 
@@ -12,11 +14,17 @@ export default function ProgramasAuditoria({
   const [step, setStep] = useState(1);
   const [editPrograma, setEditPrograma] = useState(null);
 
+  // Extraemos la lista de Macroprocesos del diccionario
+  const listadoMacros = Object.keys(MAPA_PROCESOS);
+
   // 📝 Estados del Formulario (Paso 1: Contexto)
   const [entidad, setEntidad] = useState('RECREFAM S.A.S. (Termales Santa Rosa de Cabal)');
   const [vigencia, setVigencia] = useState('');
-  const [proceso, setProceso] = useState('');
-  const [subproceso, setSubproceso] = useState('');
+  
+  // Cambiamos Proceso y Subproceso para inicializar con los valores del mapa
+  const [proceso, setProceso] = useState(listadoMacros[0] || '');
+  const [subproceso, setSubproceso] = useState(listadoMacros[0] ? MAPA_PROCESOS[listadoMacros[0]][0] : '');
+  
   const [elaboradoPor, setElaboradoPor] = useState('');
   const [revisadoPor, setRevisadoPor] = useState('');
   const [aprobadoPor, setAprobadoPor] = useState('');
@@ -25,6 +33,10 @@ export default function ProgramasAuditoria({
   const [alcance, setAlcance] = useState('');
   const [cronogramaTexto, setCronogramaTexto] = useState('');
   
+  // Estado para el adjunto del programa
+  const [archivoAdjuntoUrl, setArchivoAdjuntoUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
   // 🛡️ Matriz de 3 Líneas de Defensa (Paso 2)
   const [matrizPruebas, setMatrizPruebas] = useState([]);
   
@@ -32,6 +44,20 @@ export default function ProgramasAuditoria({
   const [estadoPrograma, setEstadoPrograma] = useState('Borrador');
 
   const safeProgramas = Array.isArray(programas) ? programas : [];
+
+  // Lógica de subprocesos dinámicos
+  const subprocesosDisponibles = MAPA_PROCESOS[proceso] || [];
+  const tieneSubprocesosReales = subprocesosDisponibles.length > 1 || (subprocesosDisponibles.length === 1 && subprocesosDisponibles[0] !== "General");
+
+  const handleProcesoChange = (e) => {
+    const nuevoProceso = e.target.value;
+    setProceso(nuevoProceso);
+    if (MAPA_PROCESOS[nuevoProceso] && MAPA_PROCESOS[nuevoProceso].length > 0) {
+      setSubproceso(MAPA_PROCESOS[nuevoProceso][0]);
+    } else {
+      setSubproceso('');
+    }
+  };
 
   // Agrupar para Kanban
   const programasBorrador = safeProgramas.filter(p => p.estado === 'Borrador');
@@ -42,8 +68,8 @@ export default function ProgramasAuditoria({
     setEditPrograma(null);
     setEntidad('RECREFAM S.A.S. (Termales Santa Rosa de Cabal)');
     setVigencia('');
-    setProceso('');
-    setSubproceso('');
+    setProceso(listadoMacros[0] || '');
+    setSubproceso(listadoMacros[0] ? MAPA_PROCESOS[listadoMacros[0]][0] : '');
     setElaboradoPor(user?.email || '');
     setRevisadoPor('');
     setAprobadoPor('');
@@ -51,6 +77,7 @@ export default function ProgramasAuditoria({
     setObjetivosEspecificos('');
     setAlcance('');
     setCronogramaTexto('');
+    setArchivoAdjuntoUrl('');
     setMatrizPruebas([{ id: Date.now(), riesgo: '', linea1: '', linea2: '', linea3: '' }]);
     setEstadoPrograma('Borrador');
     setStep(1);
@@ -61,7 +88,7 @@ export default function ProgramasAuditoria({
     setEditPrograma(prog);
     setEntidad(prog.entidad || '');
     setVigencia(prog.vigencia || '');
-    setProceso(prog.proceso || '');
+    setProceso(prog.proceso || listadoMacros[0] || '');
     setSubproceso(prog.subproceso || '');
     setElaboradoPor(prog.elaboradoPor || '');
     setRevisadoPor(prog.revisadoPor || '');
@@ -70,10 +97,27 @@ export default function ProgramasAuditoria({
     setObjetivosEspecificos(prog.objetivosEspecificos || '');
     setAlcance(prog.alcance || '');
     setCronogramaTexto(prog.cronogramaTexto || '');
+    setArchivoAdjuntoUrl(prog.archivoAdjuntoUrl || '');
     setMatrizPruebas(prog.matrizPruebas || []);
     setEstadoPrograma(prog.estado || 'Borrador');
     setStep(1);
     setVistaActiva('formulario');
+  };
+
+  // Simulación de carga de archivo
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    // Simular un tiempo de carga (aquí reemplazarías con tu lógica real de API)
+    setTimeout(() => {
+      // url temporal simulada
+      const fakeUrl = `https://repos.termalessantarosa.com.co/programas/${file.name.replace(/\s+/g, '_')}`;
+      setArchivoAdjuntoUrl(fakeUrl);
+      setIsUploading(false);
+      alert("✅ Programa adjuntado correctamente.");
+    }, 1500);
   };
 
   const agregarFilaMatriz = () => {
@@ -88,8 +132,7 @@ export default function ProgramasAuditoria({
     setMatrizPruebas(matrizPruebas.filter(fila => fila.id !== id));
   };
 
-  const handleGuardarPrograma = async (e) => {
-    if(e) e.preventDefault();
+  const handleGuardarPrograma = async () => {
     const ts = new Date().toLocaleString();
     
     // Validación básica
@@ -104,7 +147,8 @@ export default function ProgramasAuditoria({
       const mod = {
         ...editPrograma,
         entidad, vigencia, proceso, subproceso, elaboradoPor, revisadoPor, aprobadoPor,
-        objetivo, objetivosEspecificos, alcance, cronogramaTexto, matrizPruebas, estado: estadoPrograma,
+        objetivo, objetivosEspecificos, alcance, cronogramaTexto, archivoAdjuntoUrl, 
+        matrizPruebas, estado: estadoPrograma,
         historialCambios: [...(editPrograma.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: `Actualizado a estado: ${estadoPrograma}` }]
       };
       updatedList = safeProgramas.map(p => p.id === editPrograma.id ? mod : p);
@@ -112,7 +156,8 @@ export default function ProgramasAuditoria({
       const nuevo = {
         id: Date.now(),
         entidad, vigencia, proceso, subproceso, elaboradoPor, revisadoPor, aprobadoPor,
-        objetivo, objetivosEspecificos, alcance, cronogramaTexto, matrizPruebas, estado: estadoPrograma,
+        objetivo, objetivosEspecificos, alcance, cronogramaTexto, archivoAdjuntoUrl, 
+        matrizPruebas, estado: estadoPrograma,
         creadoPor: user?.email || 'Sistema',
         fechaCreacion: new Date().toISOString().split('T')[0],
         historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Programa Creado' }]
@@ -137,6 +182,14 @@ export default function ProgramasAuditoria({
       <h4 className="font-bold text-slate-800 text-sm leading-tight mb-1">{p.proceso || 'Sin Proceso Asignado'}</h4>
       <p className="text-[10px] text-slate-500 line-clamp-2 mb-3">{p.objetivo || 'Sin objetivo definido...'}</p>
       
+      {p.archivoAdjuntoUrl && (
+         <div className="mb-2">
+            <span className="bg-blue-50 text-blue-700 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-blue-200 flex items-center w-fit">
+              <span className="mr-1">📎</span> Adjunto
+            </span>
+         </div>
+      )}
+
       <div className="border-t border-slate-100 pt-2 flex justify-between items-center text-[9px] font-bold text-slate-400">
         <span>👨‍💻 {p.creadoPor?.split('@')[0]}</span>
         <span>{p.matrizPruebas?.length || 0} Pruebas</span>
@@ -233,7 +286,7 @@ export default function ProgramasAuditoria({
             </div>
           </div>
 
-          {/* 🛡️ Contenedor Principal (Reemplazó al form para evitar envíos automáticos) */}
+          {/* 🛡️ Contenedor Principal. NOTA: NO usamos <form> para evitar submits accidentales al dar Enter */}
           <div className="p-8">
             
             {/* PASO 1: CONTEXTO GENERAL */}
@@ -253,29 +306,54 @@ export default function ProgramasAuditoria({
                     <input type="text" value={vigencia} onChange={e => setVigencia(e.target.value)} placeholder="Periodo de auditoría..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32]" />
                   </div>
                   
-                  {/* Fila 2 */}
+                  {/* Fila 2: Listas Desplegables de Procesos */}
                   <div>
                     <label className="block mb-1.5">Proceso a Auditar <span className="text-red-500">*</span></label>
-                    <input type="text" value={proceso} onChange={e => setProceso(e.target.value)} placeholder="Ej: Tesorería y Recaudo..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32]" />
+                    <select 
+                      value={proceso} 
+                      onChange={handleProcesoChange} 
+                      className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32] bg-white cursor-pointer"
+                    >
+                      <option value="" disabled>Seleccione un proceso...</option>
+                      {listadoMacros.map(macro => (
+                        <option key={macro} value={macro}>{macro}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
-                    <label className="block mb-1.5">Subproceso</label>
-                    <input type="text" value={subproceso} onChange={e => setSubproceso(e.target.value)} placeholder="Ej: Manejo de Caja Menor..." className="w-full p-2.5 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-[#0A3B32]" />
+                    <label className="block mb-1.5">Subproceso Específico</label>
+                    <select 
+                      value={subproceso} 
+                      onChange={(e) => setSubproceso(e.target.value)} 
+                      disabled={!tieneSubprocesosReales || !proceso}
+                      className={`w-full p-2.5 border rounded-xl outline-none transition-colors ${
+                        (!tieneSubprocesosReales || !proceso)
+                          ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' 
+                          : 'bg-white border-slate-300 focus:ring-2 focus:ring-[#0A3B32] cursor-pointer'      
+                      }`}
+                    >
+                      {!proceso && <option value="">Esperando selección...</option>}
+                      {proceso && subprocesosDisponibles.map(sub => (
+                        <option key={sub} value={sub}>
+                          {!tieneSubprocesosReales && sub === "General" ? "No aplica subdivisión" : sub}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Fila 3: Firmas */}
                   <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-5 bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <div>
                       <label className="block mb-1.5 text-blue-700">✍️ Elaborado por</label>
-                      <input type="text" value={elaboradoPor} onChange={e => setElaboradoPor(e.target.value)} placeholder="Nombre del auditor..." className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                      <input type="text" value={elaboradoPor} onChange={e => setElaboradoPor(e.target.value)} placeholder="Nombre del auditor..." className="w-full p-2.5 border border-blue-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
                     </div>
                     <div>
                       <label className="block mb-1.5 text-amber-700">🔍 Revisado por</label>
-                      <input type="text" value={revisadoPor} onChange={e => setRevisadoPor(e.target.value)} placeholder="Nombre del líder..." className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white" />
+                      <input type="text" value={revisadoPor} onChange={e => setRevisadoPor(e.target.value)} placeholder="Nombre del líder..." className="w-full p-2.5 border border-amber-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500 bg-white" />
                     </div>
                     <div>
                       <label className="block mb-1.5 text-emerald-700">🔒 Aprobado por</label>
-                      <input type="text" value={aprobadoPor} onChange={e => setAprobadoPor(e.target.value)} placeholder="Nombre del gerente..." className="w-full p-2.5 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white" />
+                      <input type="text" value={aprobadoPor} onChange={e => setAprobadoPor(e.target.value)} placeholder="Nombre del gerente..." className="w-full p-2.5 border border-emerald-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 bg-white" />
                     </div>
                   </div>
 
@@ -310,29 +388,29 @@ export default function ProgramasAuditoria({
               <div className="space-y-6 animate-in slide-in-from-right-8">
                 <div className="flex justify-between items-center border-b pb-2">
                   <h3 className="text-sm font-black text-[#0A3B32]">2. MATRIZ DE AUDITORÍA (ENFOQUE TRES LÍNEAS)</h3>
-                  <button type="button" onClick={agregarFilaMatriz} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-colors">➕ Agregar Área de Riesgo</button>
+                  <button type="button" onClick={agregarFilaMatriz} className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-100 transition-colors shadow-sm border border-blue-200">➕ Agregar Área de Riesgo</button>
                 </div>
                 
                 <div className="space-y-4">
                   {matrizPruebas.map((fila) => (
-                    <div key={fila.id} className="bg-slate-50 border border-slate-200 p-4 rounded-2xl relative">
-                      <button type="button" onClick={() => eliminarFilaMatriz(fila.id)} className="absolute -top-3 -right-2 bg-red-100 text-red-600 w-6 h-6 rounded-full flex items-center justify-center font-black hover:bg-red-200 shadow-sm">✕</button>
+                    <div key={fila.id} className="bg-slate-50 border border-slate-200 p-4 rounded-2xl relative shadow-sm">
+                      <button type="button" onClick={() => eliminarFilaMatriz(fila.id)} className="absolute -top-3 -right-2 bg-red-100 text-red-600 w-6 h-6 rounded-full flex items-center justify-center font-black hover:bg-red-200 shadow-md">✕</button>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-medium text-slate-700">
                         <div>
                           <label className="font-bold mb-1 block">⚠️ Riesgo Inherente</label>
-                          <textarea rows="4" value={fila.riesgo} onChange={e => actualizarFilaMatriz(fila.id, 'riesgo', e.target.value)} placeholder="Ej: Fraude por cuadres pendientes..." className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 resize-none text-xs bg-white"></textarea>
+                          <textarea rows="4" value={fila.riesgo} onChange={e => actualizarFilaMatriz(fila.id, 'riesgo', e.target.value)} placeholder="Ej: Fraude por cuadres pendientes..." className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-400 resize-none text-xs bg-white shadow-inner"></textarea>
                         </div>
                         <div>
                           <label className="font-bold mb-1 block text-blue-700">🛡️ Controles 1ª Línea</label>
-                          <textarea rows="4" value={fila.linea1} onChange={e => actualizarFilaMatriz(fila.id, 'linea1', e.target.value)} placeholder="Operación directa..." className="w-full p-2 border border-blue-200 bg-blue-50/30 rounded-lg outline-none focus:ring-2 focus:ring-blue-400 resize-none text-xs"></textarea>
+                          <textarea rows="4" value={fila.linea1} onChange={e => actualizarFilaMatriz(fila.id, 'linea1', e.target.value)} placeholder="Operación directa..." className="w-full p-2 border border-blue-200 bg-blue-50/50 rounded-lg outline-none focus:ring-2 focus:ring-blue-400 resize-none text-xs"></textarea>
                         </div>
                         <div>
                           <label className="font-bold mb-1 block text-emerald-700">👁️ Controles 2ª Línea</label>
-                          <textarea rows="4" value={fila.linea2} onChange={e => actualizarFilaMatriz(fila.id, 'linea2', e.target.value)} placeholder="Supervisión o Jefatura..." className="w-full p-2 border border-emerald-200 bg-emerald-50/30 rounded-lg outline-none focus:ring-2 focus:ring-emerald-400 resize-none text-xs"></textarea>
+                          <textarea rows="4" value={fila.linea2} onChange={e => actualizarFilaMatriz(fila.id, 'linea2', e.target.value)} placeholder="Supervisión o Jefatura..." className="w-full p-2 border border-emerald-200 bg-emerald-50/50 rounded-lg outline-none focus:ring-2 focus:ring-emerald-400 resize-none text-xs"></textarea>
                         </div>
                         <div>
                           <label className="font-bold mb-1 block text-purple-700">🎯 Pruebas (3ª Línea)</label>
-                          <textarea rows="4" value={fila.linea3} onChange={e => actualizarFilaMatriz(fila.id, 'linea3', e.target.value)} placeholder="Procedimientos de auditoría interna..." className="w-full p-2 border border-purple-200 bg-purple-50/30 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 resize-none text-xs"></textarea>
+                          <textarea rows="4" value={fila.linea3} onChange={e => actualizarFilaMatriz(fila.id, 'linea3', e.target.value)} placeholder="Procedimientos de auditoría interna..." className="w-full p-2 border border-purple-200 bg-purple-50/50 rounded-lg outline-none focus:ring-2 focus:ring-purple-400 resize-none text-xs"></textarea>
                         </div>
                       </div>
                     </div>
@@ -342,33 +420,70 @@ export default function ProgramasAuditoria({
               </div>
             )}
 
-            {/* PASO 3: GESTIÓN DE ESTADO Y CIERRE */}
+            {/* PASO 3: GESTIÓN DE ESTADO, ADJUNTOS Y CIERRE */}
             {step === 3 && (
               <div className="space-y-6 animate-in slide-in-from-right-8">
                 <h3 className="text-sm font-black text-[#0A3B32] border-b pb-2">3. ESTADO DE APROBACIÓN Y CIERRE</h3>
                 
-                <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl text-center space-y-4">
-                  <p className="text-xs text-emerald-800 font-medium">El programa contiene <strong className="font-black">{matrizPruebas.length}</strong> áreas de riesgo configuradas. Define el estado actual del programa para continuar.</p>
-                  
-                  <div className="inline-flex flex-col text-left max-w-sm w-full mx-auto">
-                    <label className="font-black text-[10px] uppercase text-emerald-900 tracking-widest mb-1.5">Estado del Programa:</label>
-                    <select value={estadoPrograma} onChange={e => setEstadoPrograma(e.target.value)} className="p-3 border border-emerald-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer bg-white">
-                      <option value="Borrador">📝 Borrador (Sigo diseñándolo)</option>
-                      <option value="En Revisión">⏳ En Revisión (Enviado a Comité)</option>
-                      <option value="Aprobado">✅ Aprobado (Listo para Auditoría en campo)</option>
-                    </select>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {/* Zona de Estado */}
+                   <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl text-center flex flex-col justify-center h-full">
+                     <p className="text-xs text-emerald-800 font-medium mb-4">El programa contiene <strong className="font-black">{matrizPruebas.length}</strong> áreas de riesgo configuradas. Define el estado actual del programa para continuar.</p>
+                     
+                     <div className="inline-flex flex-col text-left w-full max-w-[250px] mx-auto">
+                       <label className="font-black text-[10px] uppercase text-emerald-900 tracking-widest mb-1.5">Estado del Programa:</label>
+                       <select value={estadoPrograma} onChange={e => setEstadoPrograma(e.target.value)} className="p-3 border border-emerald-300 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm cursor-pointer bg-white">
+                         <option value="Borrador">📝 Borrador (Sigo diseñándolo)</option>
+                         <option value="En Revisión">⏳ En Revisión (Enviado a Comité)</option>
+                         <option value="Aprobado">✅ Aprobado (Listo para Auditoría en campo)</option>
+                       </select>
+                     </div>
 
-                  {estadoPrograma === 'Aprobado' && (
-                    <div className="mt-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest animate-pulse">
-                      ¡Al guardar, este programa liberará la emisión de Informes de Auditoría!
-                    </div>
-                  )}
+                     {estadoPrograma === 'Aprobado' && (
+                       <div className="mt-4 text-[10px] font-black text-emerald-600 uppercase tracking-widest animate-pulse">
+                         ¡Al guardar, este programa liberará la emisión de Informes de Auditoría!
+                       </div>
+                     )}
+                   </div>
+
+                   {/* Zona de Adjunto (Bóveda Documental) */}
+                   <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col justify-center items-center text-center relative hover:border-slate-300 transition-colors">
+                     <div className="absolute top-3 left-4 text-[9px] font-black uppercase text-slate-500 tracking-widest">
+                       Bóveda Documental
+                     </div>
+                     
+                     {isUploading ? (
+                        <div className="space-y-3 w-full mt-4">
+                          <div className="text-3xl animate-bounce">🚀</div>
+                          <div className="w-full bg-slate-200 rounded-full h-2 max-w-[80%] mx-auto overflow-hidden">
+                            <div className="bg-blue-500 h-2 rounded-full w-full animate-pulse"></div>
+                          </div>
+                          <p className="text-[9px] font-bold text-blue-600 animate-pulse uppercase tracking-wider">Anexando Documento...</p>
+                        </div>
+                     ) : archivoAdjuntoUrl ? (
+                        <div className="space-y-3 mt-4 w-full">
+                           <div className="text-4xl">📎</div>
+                           <p className="text-[10px] font-bold text-slate-600 px-4 line-clamp-2">Documento Anexado Correctamente</p>
+                           <a href={archivoAdjuntoUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 font-bold hover:underline">Ver Documento</a>
+                           <label className="block mt-2 cursor-pointer text-slate-400 hover:text-slate-600 text-[9px] font-bold uppercase tracking-wider underline">
+                             Reemplazar Archivo 
+                             <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleFileUpload} />
+                           </label>
+                        </div>
+                     ) : (
+                        <label className="cursor-pointer flex flex-col items-center space-y-3 group w-full mt-4">
+                          <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform text-blue-500">📁</div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-4">Adjuntar PDF del Programa (Opcional)</p>
+                          <span className="bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-lg text-[10px] font-bold shadow-sm group-hover:bg-blue-100 transition-colors">Seleccionar Archivo</span>
+                          <input type="file" className="hidden" accept=".pdf,.doc,.docx" onChange={handleFileUpload} />
+                        </label>
+                     )}
+                   </div>
                 </div>
               </div>
             )}
 
-            {/* BOTONERA INFERIOR (Blindada) */}
+            {/* BOTONERA INFERIOR (Blindada contra submits accidentales) */}
             <div className="mt-10 flex justify-between pt-4 border-t border-slate-100">
               {step > 1 ? (
                 <button type="button" onClick={() => setStep(step - 1)} className="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 hover:bg-slate-200 rounded-xl text-xs transition-colors">
@@ -379,7 +494,7 @@ export default function ProgramasAuditoria({
               {step < 3 ? (
                 <button 
                   type="button" 
-                  onClick={(e) => { e.preventDefault(); setStep(step + 1); }} 
+                  onClick={() => setStep(step + 1)} 
                   className="px-8 py-2.5 bg-[#0A3B32] text-white font-black uppercase tracking-widest rounded-xl text-xs hover:bg-[#062620] shadow-md transition-all hover:scale-105"
                 >
                   Siguiente
@@ -388,9 +503,9 @@ export default function ProgramasAuditoria({
                 <button 
                   type="button" 
                   onClick={handleGuardarPrograma} 
-                  className="px-8 py-2.5 bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl text-xs hover:bg-emerald-700 shadow-md transition-all hover:scale-105"
+                  className="px-8 py-2.5 bg-emerald-600 text-white font-black uppercase tracking-widest rounded-xl text-xs hover:bg-emerald-700 shadow-md transition-all hover:scale-105 flex items-center"
                 >
-                  💾 Guardar Programa
+                  <span className="mr-2">💾</span> Guardar Programa
                 </button>
               )}
             </div>
