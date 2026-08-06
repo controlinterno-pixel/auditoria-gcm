@@ -64,7 +64,7 @@ const homologarProcesoUniversal = (nombreEntrante, listaOficial = []) => {
 };
 
 export default function MiEspacio({
-  user, safePlanes = [], safeHallazgos = [], safeComites = [], safeCronograma = [],
+  user, safeProgramas = [], safePlanes = [], safeHallazgos = [], safeComites = [], safeCronograma = [],
   safeRiesgos = [], safeEvaluaciones = [], informesAuditoria = [],
   activeTab, setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm,
   selectedProceso, setSelectedProceso

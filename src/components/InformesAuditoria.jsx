@@ -12,7 +12,7 @@ import { apiService } from '../services/apiService';
 
 export default function InformesAuditoria({ 
   informesAuditoria, 
-  safeProgramas = [],
+safeProgramas = [],
   editInformeAuditoria, 
   setEditInformeAuditoria, 
   isAdmin, 
