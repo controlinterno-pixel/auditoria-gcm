@@ -669,28 +669,28 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
       const planesVencidos = planesDeAccion.filter(p => p.estado === 'Vencido' || p.vencido).length || 19;
 
 // ====================================================================
-      // 2. PROMPT STRICTO CORPORATIVO (ENFOQUE 70/30 INTEGRAL)
+      // 2. PROMPT STRICTO CORPORATIVO (ESQUELETO BIG FOUR)
       // ====================================================================
       const promptGlobalReal = `Actúa como Socio Director Global de Enterprise Risk Management (ERM) de una firma Big Four.
 Tu misión es redactar el Informe Estratégico General de la MATRIZ CORPORATIVA COMPLETA (${totalRiesgos} RIESGOS Y ${totalControles} CONTROLES) para la Junta Directiva de Termales de Santa Rosa de Cabal.
 
-REGLA DE ORO DE PROPORCIÓN: Tu análisis debe enfocarse un 70% en el diseño de la Matriz de Riesgos y un 30% en los resultados de auditoría como prueba de estrés operativo.
+Aplica el protocolo de razonamiento Big Four (Diseño Teórico vs. Ejecución Real) e investiga si existe una "FALSA SENSACIÓN DE SEGURIDAD".
 
-ESTABLECIMIENTO DE CONTEXTO OBLIGATORIO:
-- Este informe evalúa la TOTALIDAD DE LA EMPRESA. Queda estrictamente prohibido referirse a un solo riesgo o a un solo proceso. Estás evaluando los ${totalControles} controles corporativos.
-- Score de Riesgo Residual Global: ${avgResidualScore}%
-- Madurez de Controles Global: ${madurezGlobal}%
-- Cobertura de Mitigación Global: ${mitigacionPromedio}%
-- Total de Riesgos Corporativos: ${totalRiesgos} (Altos/Críticos: ${altosYCriticos})
-- Total de Controles Evaluados: ${totalControles}
-- Concentración por Procesos: ${topProcesosStr}
-- Taxonomía ISO: ${topCategoriasStr}
-- Soporte Operativo: ${totalHallazgos} hallazgos de auditoría y ${planesVencidos} planes de acción vencidos de ${totalPlanes}.
+DATOS DE ENTRADA:
+- Total Riesgos: ${totalRiesgos} (Altos/Críticos: ${altosYCriticos})
+- Total Controles: ${totalControles}
+- Cobertura Teórica: ${mitigacionPromedio}%
+- Madurez Real de Controles: ${madurezGlobal}%
+- Score Residual Global: ${avgResidualScore}%
+- Soporte Operativo: ${totalHallazgos} hallazgos y ${planesVencidos} planes vencidos de ${totalPlanes}.
 
-REGLAS DE REDACCIÓN LÓGICA (ESTRICTO):
-1. Elogia el Diseño (La Matriz): Tienes una matriz madura con ${totalRiesgos} riesgos identificados y ${totalControles} controles, logrando una altísima cobertura teórica del ${mitigacionPromedio}% y llevando el riesgo residual a un excelente ${avgResidualScore}%. Redacta esto como un logro estratégico y robusto de la gerencia. NUNCA hables de "baja cobertura" ni de un "riesgo crítico". 
-2. Cuestiona la Ejecución (Auditoría): Usa los ${totalHallazgos} hallazgos y los ${planesVencidos} planes de acción vencidos como un contraste. Explica que, aunque el diseño de la matriz es de clase mundial, la madurez real es del ${madurezGlobal}% debido a la falta de disciplina operativa reflejada en los planes vencidos.
-3. El Riesgo Real: Advierte a la Junta Directiva que los controles existen en el papel, pero si no se ejecutan los planes de acción, esa alta cobertura del ${mitigacionPromedio}% creará una "falsa sensación de seguridad".
+Escribe la respuesta en formato JSON exacto donde la propiedad 'dictamen' contenga estrictamente estos 6 encabezados en Markdown:
+### Dictamen Ejecutivo
+### Hallazgos Estratégicos
+### Análisis de Riesgos
+### Relaciones Encontradas
+### Tendencias
+### Recomendaciones Accionables
 
 FORMATO DE SALIDA JSON EXACTO:
 {
@@ -706,7 +706,7 @@ FORMATO DE SALIDA JSON EXACTO:
     "coberturaControles": ${mitigacionPromedio},
     "calidad": 90
   },
-  "dictamen": "Texto redactado en markdown con secciones A HALLAZGOS, RECOMENDACIONES, PLAN DE ACCIÓN INMEDIATO, DICTAMEN DEL DIRECTOR, ISO 31000, COSO ERM y KRIS"
+  "dictamen": "Texto en markdown estructurado obligatoriamente con las 6 secciones anteriores."
 }`;
 
       // ====================================================================
