@@ -4,45 +4,86 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { AuditDiagnosticView } from './AuditoriaAutomatizada/AuditDiagnosticView';
 
 
+function cleanMarkdown(text) {
+  if (typeof text !== 'string') return text;
+  // Elimina encabezados tipo ### y limpia caracteres extra de formato
+  return text.replace(/###\s*([^:\n#]+):?/g, '$1:').trim();
+}
+
 function normalizePanelEjecutivo(parsedData, rawText) {
   if (!parsedData && !rawText) return null;
-  const data = parsedData || {};
+  
+  let data = parsedData || {};
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data.replace(/```json/g, '').replace(/```/g, '').trim());
+    } catch (e) {
+      data = {};
+    }
+  }
 
-  const scoreRiesgo = data.scoreRiesgo || '36%';
-  const madurez = data.scoreMadurez || data.madurez || '62%';
-  const cobertura = data.coberturaControles || data.cobertura || '95%';
-  const totalControles = data.totalControles || 3;
+  // 1. Extracción ultra-flexible de KPIs (busca en primer nivel o dentro de data.kpis)
+  const kpis = data.kpis || {};
+  const scoreRiesgo = data.scoreRiesgo ?? kpis.scoreRiesgo ?? '36%';
+  const madurez = data.scoreMadurez ?? kpis.scoreMadurez ?? data.madurez ?? '62%';
+  const cobertura = data.coberturaControles ?? kpis.coberturaControles ?? data.cobertura ?? '95%';
+  const totalControles = data.totalControles ?? kpis.totalControles ?? 3;
+
+  // 2. Análisis Ejecutivo (evita volcar el JSON completo si no encuentra la clave)
+  let analisis = data.analisis || data.analisisEjecutivo || data.diagnosticoGeneral;
+  if (!analisis && typeof rawText === 'string' && !rawText.trim().startsWith('{')) {
+    analisis = rawText;
+  }
+  analisis = cleanMarkdown(analisis || "Evaluación técnica de auditoría realizada.");
+
+  // 3. Recomendaciones (soporta Arrays o Strings formateados)
+  let recomendaciones = data.recomendaciones;
+  if (typeof recomendaciones === 'string') {
+    recomendaciones = recomendaciones.split(/(?:\r?\n|;|\. )+/).filter(r => r.trim().length > 5);
+  }
+  if (!Array.isArray(recomendaciones) || recomendaciones.length === 0) {
+    recomendaciones = [
+      `Implementar un programa de fortalecimiento para elevar la efectividad operativa de los ${totalControles} controles hacia el nivel de diseño.`,
+      `Establecer un sistema de monitoreo continuo que asegure cerrar la brecha entre cobertura teórica y evidencia ejecutable.`
+    ];
+  }
+
+  // 4. Plan de Acción (evita filas vacías en la tabla)
+  let planAccion = data.planAccion;
+  if (!Array.isArray(planAccion) || planAccion.length === 0) {
+    planAccion = [
+      {
+        prioridad: 'ALTA',
+        accion: `Diseñar e implementar el plan de mejora de efectividad para los ${totalControles} controles registrados.`,
+        responsable: 'Comité de Innovación y Dirección de Operaciones'
+      }
+    ];
+  }
+
+  // 5. Dictamen del Director (limpia los encabezados ###)
+  let dictamen = data.dictamenDirector || data.dictamen || "Atención requerida sobre la efectividad operativa de los controles.";
+  dictamen = cleanMarkdown(dictamen);
+
+  // 6. Secciones Metodológicas (Mapea acuerdosTecnicos y kpisEvidencias)
+  const acuerdos = data.acuerdosTecnicos || {};
+  const iso31000 = cleanMarkdown(data.iso31000 || acuerdos.analisisMetodologico || "Análisis realizado bajo los principios de la norma ISO 31000.");
+  const cosoErm = cleanMarkdown(data.cosoErm || acuerdos.evaluacionControles || acuerdos.isoCosoAlignment || "Evaluación de controles bajo el marco COSO ERM.");
+  const kris = cleanMarkdown(data.kris || data.kpisEvidencias || "Monitoreo continuo de indicadores clave de riesgo.");
 
   return {
-    scoreRiesgo,
+    scoreRiesgo: typeof scoreRiesgo === 'number' ? `${scoreRiesgo}%` : scoreRiesgo,
     madurez: typeof madurez === 'number' ? `${madurez}%` : madurez,
     cobertura: typeof cobertura === 'number' ? `${cobertura}%` : cobertura,
     totalControles,
-    analisis: data.analisisEjecutivo || data.dictamen || (typeof rawText === 'string' ? rawText : "Evaluación técnica realizada."),
-    recomendaciones: Array.isArray(data.recomendaciones) && data.recomendaciones.length > 0
-      ? data.recomendaciones
-      : [
-          `Implementar un programa de fortalecimiento para elevar la efectividad operativa de los ${totalControles} controles hacia el nivel de diseño.`,
-          `Establecer un sistema de monitoreo continuo que asegure cerrar la brecha entre cobertura teórica y evidencia ejecutable.`
-        ],
-    planAccion: Array.isArray(data.planAccion) && data.planAccion.length > 0
-      ? data.planAccion
-      : [
-          {
-            prioridad: 'ALTA',
-            accion: `Diseñar e implementar el plan de mejora de efectividad para los ${totalControles} controles registrados.`,
-            responsable: 'Comité de Innovación y Dirección de Operaciones'
-          }
-        ],
-    dictamen: data.dictamenDirector || `"El análisis del riesgo revela una situación de ATENCIÓN REQUERIDA para la Dirección. Si bien el diseño de los controles es teóricamente sólido, se requiere validar la efectividad en campo para proteger el valor de la organización."`,
-    iso31000: data.iso31000 || `El análisis se realizó bajo los principios de la norma ISO 31000, evaluando y tratando el riesgo desde la perspectiva de impacto y probabilidad de ocurrencia.`,
-    cosoErm: data.cosoErm || `Bajo el marco COSO ERM, la evaluación de los ${totalControles} controles indica una estructura de diseño adecuada que debe ser respaldada con evidencia continua de ejecución.`,
-    kris: data.kris || `1) KRI de Madurez: Meta ${madurez}. 2) KRI de Cobertura: Meta ${cobertura}. 3) KRI de Oportunidad: Atención a hallazgos en menos de 7 días.`
+    analisis,
+    recomendaciones,
+    planAccion,
+    dictamen,
+    iso31000,
+    cosoErm,
+    kris
   };
-}
-
-
- 
+} 
 
 export default function ModalIA({ aiModal, setAiModal }) {
   if (!aiModal) return null;
