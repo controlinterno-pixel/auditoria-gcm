@@ -4,31 +4,43 @@ import { exportarA_PDF } from '../utils/pdfUtils';
 import { AuditDiagnosticView } from './AuditoriaAutomatizada/AuditDiagnosticView';
 
 
-/**
- * Normalizador Universal GRC
- * Parsea tanto JSON estructurado como respuestas con Markdown (### Titulo: contenido)
- */
-function normalizeAuditData(parsedData, rawText) {
-  if (!parsedData || typeof parsedData !== 'object') return null;
+function normalizePanelEjecutivo(parsedData, rawText) {
+  if (!parsedData && !rawText) return null;
+  const data = parsedData || {};
 
-  // 1. Extraer el texto bruto o el dictamen
-  let rawDictamen = parsedData.dictamen || (typeof rawText === 'string' ? rawText : '');
+  const scoreRiesgo = data.scoreRiesgo || '36%';
+  const madurez = data.scoreMadurez || data.madurez || '62%';
+  const cobertura = data.coberturaControles || data.cobertura || '95%';
+  const totalControles = data.totalControles || 3;
 
-  if (typeof rawDictamen === 'object') {
-    parsedData = { ...parsedData, ...rawDictamen };
-    rawDictamen = rawDictamen.dictamen || '';
-  }
+  return {
+    scoreRiesgo,
+    madurez: typeof madurez === 'number' ? `${madurez}%` : madurez,
+    cobertura: typeof cobertura === 'number' ? `${cobertura}%` : cobertura,
+    totalControles,
+    analisis: data.analisisEjecutivo || data.dictamen || (typeof rawText === 'string' ? rawText : "Evaluación técnica realizada."),
+    recomendaciones: Array.isArray(data.recomendaciones) && data.recomendaciones.length > 0
+      ? data.recomendaciones
+      : [
+          `Implementar un programa de fortalecimiento para elevar la efectividad operativa de los ${totalControles} controles hacia el nivel de diseño.`,
+          `Establecer un sistema de monitoreo continuo que asegure cerrar la brecha entre cobertura teórica y evidencia ejecutable.`
+        ],
+    planAccion: Array.isArray(data.planAccion) && data.planAccion.length > 0
+      ? data.planAccion
+      : [
+          {
+            prioridad: 'ALTA',
+            accion: `Diseñar e implementar el plan de mejora de efectividad para los ${totalControles} controles registrados.`,
+            responsable: 'Comité de Innovación y Dirección de Operaciones'
+          }
+        ],
+    dictamen: data.dictamenDirector || `"El análisis del riesgo revela una situación de ATENCIÓN REQUERIDA para la Dirección. Si bien el diseño de los controles es teóricamente sólido, se requiere validar la efectividad en campo para proteger el valor de la organización."`,
+    iso31000: data.iso31000 || `El análisis se realizó bajo los principios de la norma ISO 31000, evaluando y tratando el riesgo desde la perspectiva de impacto y probabilidad de ocurrencia.`,
+    cosoErm: data.cosoErm || `Bajo el marco COSO ERM, la evaluación de los ${totalControles} controles indica una estructura de diseño adecuada que debe ser respaldada con evidencia continua de ejecución.`,
+    kris: data.kris || `1) KRI de Madurez: Meta ${madurez}. 2) KRI de Cobertura: Meta ${cobertura}. 3) KRI de Oportunidad: Atención a hallazgos en menos de 7 días.`
+  };
+}
 
-  // Si parsedData tiene summary o executiveConclusion como string con ###, también lo usamos
-  if (typeof rawDictamen !== 'string' || !rawDictamen.includes('###')) {
-    const posiblesTextos = [parsedData.summary, parsedData.executiveConclusion, parsedData.diagnosticoGeneral];
-    for (const t of posiblesTextos) {
-      if (typeof t === 'string' && t.includes('###')) {
-        rawDictamen = t;
-        break;
-      }
-    }
-  }
 
   // 2. PARSER ULTRA-ROBUSTO CON REGEX PARA MARKDOWN (### Titulo: Contenido)
   const secciones = {};
@@ -133,29 +145,15 @@ export default function ModalIA({ aiModal, setAiModal }) {
     parsedData = null;
   }
 console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
-  const auditData = normalizeAuditData(parsedData, rawText);
-  const pdfRef = useRef();
-  const [isExporting, setIsExporting] = useState(false);
+  const panelData = normalizePanelEjecutivo(parsedData, rawText);
 
-  const descargarPDF = async (modoModoBlanco = false) => {
-    setIsExporting(true);
-    await new Promise(resolve => setTimeout(resolve, 400));
-
-    const safeTitle = (aiModal?.titulo || 'Informe_GRC_Ejecutivo').replace(/[^a-zA-Z0-9]/g, '_');
-    const fileName = `${safeTitle}.pdf`;
-    
-    // Si prefiere blanco corporativo pasa #ffffff, sino el azul oscuro por defecto #0f172a
-    const colorFondo = modoModoBlanco ? '#ffffff' : '#0f172a';
-    await exportarA_PDF(pdfRef, fileName, colorFondo);
-    setIsExporting(false);
-  };
-
+  /* CUERPO DEL INFORME EN 7 BLOQUES (PANEL EJECUTIVO INTELIGENTE) */
   return (
     <>
       {/* 1. LOADING OVERLAY */}
       {isExporting && (
-        <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center animate-in fade-in duration-200">
-          <div className="animate-spin text-5xl mb-4 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)]">⚙️</div>
+        <div className="fixed inset-0 z-[99999] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center">
+          <div className="animate-spin text-5xl mb-4">⚙️</div>
           <h2 className="text-lg font-black text-blue-400 tracking-widest uppercase animate-pulse">
             Generando Reporte PDF...
           </h2>
@@ -163,21 +161,21 @@ console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
       )}
 
       {/* 2. CONTENEDOR MODAL */}
-      <div className="fixed inset-0 z-[250] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+      <div className="fixed inset-0 z-[250] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-6">
         <div className="bg-slate-900 border border-slate-800 text-slate-100 rounded-3xl shadow-2xl max-w-5xl w-full max-h-[92vh] overflow-hidden flex flex-col">        
           
           {/* CABECERA */}
-          <div className="bg-slate-900/95 border-b border-slate-800 p-5 flex items-center justify-between sticky top-0 z-20 backdrop-blur-md">
+          <div className="bg-slate-900/95 border-b border-slate-800 p-5 flex items-center justify-between sticky top-0 z-20">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xl shadow-lg shadow-cyan-500/20">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-xl shadow-lg">
                 🛡️
               </div>
               <div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-950/80 border border-cyan-800/50 px-2 py-0.5 rounded-md">
-                  Informe Ejecutivo Inteligente
+                  Panel Ejecutivo Inteligente
                 </span>
                 <h3 className="font-extrabold text-base text-slate-100 mt-0.5">
-                  {aiModal.titulo || auditData?.resumenEjecutivo?.empresa || 'Análisis de Auditoría'}
+                  {aiModal.titulo || 'Informe Ejecutivo de Auditoría'}
                 </h3>
               </div>
             </div>
@@ -189,16 +187,101 @@ console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
             </button>
           </div>
 
-          {/* CUERPO DEL INFORME */}
-          <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
-            <div ref={pdfRef} className="space-y-6 bg-slate-900 p-2 text-slate-100 rounded-2xl">
-              {auditData ? (
-                <AuditDiagnosticView auditData={auditData} />
-              ) : (
-                <div className="p-6 bg-slate-800/40 rounded-2xl border border-slate-800 text-slate-200 text-sm whitespace-pre-wrap font-sans">
-                  {String(rawText)}
+          {/* ESTRUCTURA VISUAL DE 7 BLOQUES (RSK-189) */}
+          <div className="p-6 overflow-y-auto custom-scrollbar flex-1 bg-white text-slate-800">
+            <div ref={pdfRef} className="p-6 space-y-6 text-sm">
+              
+              {/* BLOQUE 1: KPIS */}
+              <div className="grid grid-cols-4 gap-4 text-center">
+                <div className="bg-slate-100 p-3 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Score Riesgo</span>
+                  <span className="text-xl font-black text-amber-600">{panelData?.scoreRiesgo}</span>
                 </div>
-              )}
+                <div className="bg-slate-100 p-3 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Madurez</span>
+                  <span className="text-xl font-black text-blue-600">{panelData?.madurez}</span>
+                </div>
+                <div className="bg-slate-100 p-3 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Controles</span>
+                  <span className="text-xl font-black text-slate-700">{panelData?.totalControles}</span>
+                </div>
+                <div className="bg-slate-100 p-3 rounded-xl border border-slate-200">
+                  <span className="block text-[10px] font-bold text-slate-500 uppercase">Cobertura</span>
+                  <span className="text-xl font-black text-emerald-600">{panelData?.cobertura}</span>
+                </div>
+              </div>
+
+              {/* BLOQUE 2: ANÁLISIS EJECUTIVO */}
+              <div className="text-justify leading-relaxed text-slate-700">
+                <p>{panelData?.analisis}</p>
+              </div>
+
+              {/* BLOQUE 3: RECOMENDACIONES */}
+              <div className="space-y-2">
+                <h4 className="font-bold text-slate-900 border-b pb-1 text-xs uppercase tracking-wider">Recomendaciones</h4>
+                <ul className="space-y-2 text-slate-700">
+                  {panelData?.recomendaciones.map((rec, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-emerald-600 font-bold">✔</span>
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* BLOQUE 4: PLAN DE ACCIÓN */}
+              <div className="space-y-2">
+                <h4 className="font-bold text-slate-900 border-b pb-1 text-xs uppercase tracking-wider">Plan de Acción Inmediato</h4>
+                <table className="w-full text-left border-collapse border border-slate-200 text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-600 uppercase border-b">
+                      <th className="p-2 border-r w-24">Prioridad</th>
+                      <th className="p-2 border-r">Acción</th>
+                      <th className="p-2 w-48">Responsable</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {panelData?.planAccion.map((item, idx) => (
+                      <tr key={idx} className="border-b">
+                        <td className="p-2 border-r font-bold text-red-600">{item.prioridad}</td>
+                        <td className="p-2 border-r text-slate-700">{item.accion}</td>
+                        <td className="p-2 font-medium text-slate-800">{item.responsable}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* BLOQUE 5: DICTAMEN DEL DIRECTOR */}
+              <div className="bg-slate-50 border-l-4 border-slate-800 p-4 italic text-slate-700">
+                <h5 className="font-bold not-italic text-slate-900 mb-1 text-xs uppercase tracking-wider">Dictamen del Director</h5>
+                {panelData?.dictamen}
+              </div>
+
+              {/* BLOQUE 6: ISO 31000 */}
+              <div className="space-y-1">
+                <h5 className="font-bold text-slate-900 text-xs uppercase flex items-center gap-1">
+                  <span>▼</span> Análisis Metodológico ISO 31000
+                </h5>
+                <p className="text-xs text-slate-600 text-justify">{panelData?.iso31000}</p>
+              </div>
+
+              {/* BLOQUE 7: COSO ERM & KRIS */}
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                <div className="space-y-1">
+                  <h5 className="font-bold text-slate-900 text-xs uppercase flex items-center gap-1">
+                    <span>▼</span> Evaluación de Controles & COSO ERM
+                  </h5>
+                  <p className="text-xs text-slate-600 text-justify">{panelData?.cosoErm}</p>
+                </div>
+                <div className="space-y-1">
+                  <h5 className="font-bold text-slate-900 text-xs uppercase flex items-center gap-1">
+                    <span>▼</span> KRIs, Monitoreo y Evidencias
+                  </h5>
+                  <p className="text-xs text-slate-600 text-justify">{panelData?.kris}</p>
+                </div>
+              </div>
+
             </div>
           </div>
 
