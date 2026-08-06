@@ -5,21 +5,12 @@ import { KnowledgeManager } from './KnowledgeManager.js';
 import { ContextBuilder } from './ContextBuilder.js';
 import { ResponseValidator } from './ResponseValidator.js';
 import { CoreSchema } from '../schemas/CoreSchema.js';
-import { DashboardSchema } from '../schemas/DashboardSchema.js';
-import { ExecutiveSchema } from '../schemas/ExecutiveSchema.js';
-import { TechnicalSchema } from '../schemas/TechnicalSchema.js';
-import { ReportSchema } from '../schemas/ReportSchema.js';
 import { PromptAssembler } from './PromptAssembler.js';
 import { memoryService } from '../services/MemoryService.js';
 import { RiskSpecialist } from '../specialists/RiskSpecialist.js';
 import { ControlExpert } from '../specialists/ControlExpert.js';
 
-const SCHEMAS = {
-  ExecutiveSchema,
-  TechnicalSchema,
-  DashboardSchema,
-  ReportSchema
-};
+
 
 /**
  * @file AuditEngine.js
@@ -132,9 +123,8 @@ export class AuditEngine {
  async _runPromptAssembly(context) {
     console.log(" -> Ensamblando Prompt con Especialista MoE y Razonamiento Auditor...");
     
-    const schemaName = context.classification.outputSchema;
-    const targetSchema = SCHEMAS[schemaName] || CoreSchema;
-    context.targetSchemaObject = targetSchema; // Referencia nativa para la API de Gemini
+    const targetSchema = CoreSchema;
+    context.targetSchemaObject = targetSchema;
 
     const domain = context.classification.domain;
     const activeSpecialist = this.specialists[domain];
@@ -183,8 +173,7 @@ export class AuditEngine {
   async _runValidation(context) {
     console.log(" -> Validando JSON de salida con ResponseValidator...");
     
-    const schemaName = context.classification.outputSchema;
-    const targetSchema = SCHEMAS[schemaName] || CoreSchema;
+   const targetSchema = CoreSchema;
 
     const validationResult = ResponseValidator.validate(context.llm.rawResponse, targetSchema);
 
@@ -195,7 +184,7 @@ export class AuditEngine {
     };
 
     if (!validationResult.isValid) {
-      console.warn(` ⚠️ Fallo en validación de contrato (${schemaName}): ${validationResult.error}`);
+console.warn(` ⚠️ Fallo en validación de contrato: ${validationResult.error}`);
     } else {
       console.log(` ✅ Validación de contrato exitosa (${validationResult.schema}).`);
       context.llm.parsedResponse = validationResult.data;

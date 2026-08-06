@@ -60,12 +60,25 @@ ${JSON.stringify(rawFindings, null, 2)}
 === SOLICITUD DE AUDITORÍA ===
 "${userQuery}"
 
-=== INSTRUCCIONES DE LLENADO DE JSON ESPECÍFICAS ===
-Al generar la respuesta en el formato JSON solicitado a continuación, ASEGÚRATE DE CUMPLIR CON:
-1. 'diagnosticoGeneral' o 'descripcion': Debe ser un análisis detallado de mínimo 3 a 4 oraciones técnicas que incluya el impacto ISO 31000/COSO ERM, causa raíz y exposición residual.
-2. 'evaluacionControles': Debe especificar si el control es Preventivo o Detectivo, si tiene eficacia operativa y por qué resulta suficiente o deficiente.
-3. 'accionCapa' o 'planRemediacion': Debe indicar la salvaguarda técnica exacta a implementar y la meta de reducción del riesgo residual.
 
+=== INSTRUCCIONES DE LLENADO DE JSON Y ESTRUCTURA DE SALIDA ===
+Al generar la respuesta en el formato JSON solicitado a continuación, CUMPLE ESTRICTAMENTE CON:
+
+1. Campo 'kpis':
+   - 'scoreRiesgo': Número (0-100) del riesgo residual calculado.
+   - 'scoreMadurez': Número (0-100) de madurez de los controles.
+   - 'totalControles': Cantidad exacta de controles evaluados.
+   - 'coberturaControles': Número (0-100) de cobertura/mitigación lograda.
+   - 'calidad': Puntaje (0-100) de calidad de la información.
+
+2. Campo 'dictamen': Debe ser un texto en Markdown enriquecido que contenga OBLIGATORIAMENTE los siguientes encabezados para ser interpretado por el Dashboard:
+   - A HALLAZGOS
+   - RECOMENDACIONES
+   - PLAN DE ACCIÓN INMEDIATO
+   - DICTAMEN DEL DIRECTOR
+   - ▼Análisis Metodológico ISO 31000
+   - ▼ Evaluación de Controles & COSO ERM
+   -  KRIs, Monitoreo y Evidencias
 === CONTRATO DE SALIDA REQUERIDO (JSON SCHEMA) ===
 ${formattedSchemaPrompt}
 `.trim();

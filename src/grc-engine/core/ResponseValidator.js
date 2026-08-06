@@ -110,48 +110,26 @@ export class ResponseValidator {
     };
   }
 
- /**
-   * Genera una estructura de respaldo (fallback) idéntica al contrato AuditDiagnosticView
-   * para garantizar que el frontend nunca colapse.
-   */
-  static _buildErrorPayload(errorMessage, rawContent) {
+static _buildErrorPayload(errorMessage, rawContent) {
     return {
       isValid: false,
-      schema: 'AuditDiagnosticFallback',
+      schema: 'CoreSchemaFallback',
       error: errorMessage,
       rawContent,
       data: {
-        resumenEjecutivo: {
-          empresa: "Termales de Santa Rosa de Cabal",
-          marcoMetodologico: "ISO 31000 / COSO ERM",
-          diagnosticoGeneral: `[Aviso de Integridad]: Se completó la inferencia pero la respuesta requirió sanitización. Detalle: ${errorMessage}`,
-          alertaCiberseguridad: "Monitoreo de seguridad y trazabilidad de sesión activo."
+        encabezado: {
+          codigo: "DIAG-FALLBACK",
+          titulo: "Diagnóstico de Contingencia GRC",
+          calidad: 50
         },
-        hallazgosAuditoria: {
-          totalHallazgos: 1,
-          abiertos: [{}],
-          cerradosCount: 0
+        kpis: {
+          scoreRiesgo: 0,
+          scoreMadurez: 0,
+          totalControles: 0,
+          coberturaControles: 0,
+          calidad: 50
         },
-        diagnosticoRiesgosCriticos: [
-          {
-            codigo: "R-FALLBACK-01",
-            proceso: "Evaluación de Estructura GRC",
-            nivelRiesgoISO31000: "Medio",
-            descripcion: "Discrepancia menor detectada en el contrato JSON de respuesta.",
-            evaluacionControles: "Revisar logs de ejecución en AuditEngine.",
-            probabilidadResidual: 2,
-            impactoResidual: 3
-          }
-        ],
-        planCAPAPriorizado: [
-          {
-            prioridad: 1,
-            codigoRiesgo: "R-FALLBACK-01",
-            proceso: "Motor GRC",
-            accionRemediacion: "Reejecutar la consulta con un prompt más específico."
-          }
-        ],
-        limitacionesEvidencia: ["Sanitización automática aplicada por ResponseValidator."]
+        dictamen: `### A HALLAZGOS\nSe detectó una discrepancia en el formato del análisis generado.\n\n### RECOMENDACIONES\nReejecutar la consulta desde el Dashboard o la Matriz de Riesgos.\n\n### PLAN DE ACCIÓN INMEDIATO\n- Verificar logs de Inferencia en el AuditEngine.\n\n### DICTAMEN DEL DIRECTOR\n"Inferencia completada con avisos de estructura: ${errorMessage}"\n\n### ▼Análisis Metodológico ISO 31000\nEvaluación en modo de contingencia.\n\n### ▼ Evaluación de Controles & COSO ERM\nRevisión de controles pendiente.\n\n###  KRIs, Monitoreo y Evidencias\nSin evidencias adicionales.`
       },
       validatedAt: new Date().toISOString()
     };

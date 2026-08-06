@@ -1,79 +1,42 @@
 /**
- * @file CoreSchema.js
- * @description Lenguaje interno universal del Motor GRC.
- * Todos los esquemas especializados heredan de esta estructura base.
+ * Master Schema Oficial - GRC Analysis Engine
+ * Alineado con ModalIA.jsx y la generación del PDF Ejecutivo.
  */
-
-import { ImpactLevel, PriorityLevel } from './constants.js';
-
 export const CoreSchema = {
   $id: "CoreSchema",
   type: "object",
-  required: [
-    "title",
-    "summary",
-    "confidence",
-    "priority",
-    "findings",
-    "recommendations",
-    "references",
-    "metadata"
-  ],
+  required: ["encabezado", "kpis", "dictamen"],
   properties: {
-    title: {
-      type: "string",
-      description: "Titulo descriptivo del analisis realizado por la IA."
-    },
-    summary: {
-      type: "string",
-      description: "Resumen ejecutivo o respuesta principal simplificada."
-    },
-    confidence: {
-      type: "number",
-      minimum: 0,
-      maximum: 1,
-      description: "Grado de certeza del modelo sobre la respuesta (0.0 a 1.0)."
-    },
-    priority: {
-      type: "string",
-      enum: Object.values(PriorityLevel),
-      description: "Prioridad asignada al resultado."
-    },
-    findings: {
-      type: "array",
-      items: { type: "string" },
-      description: "Puntos clave o hallazgos especificos identificados."
-    },
-    recommendations: {
-      type: "array",
-      items: { type: "string" },
-      description: "Acciones recomendadas derivadas del analisis."
-    },
-    references: {
-      type: "array",
-      items: { type: "string" },
-      description: "Trazabilidad de entidades GRC o normas consultadas (ej. RSK-001, ISO 31000:2018)."
-    },
-    metadata: {
+    encabezado: {
       type: "object",
-      required: [
-        "timestamp",
-        "model",
-        "specialist",
-        "intent",
-        "domain",
-        "tokens",
-        "executionTimeMs"
-      ],
+      required: ["codigo", "titulo", "calidad"],
       properties: {
-        timestamp: { type: "string" },
-        model: { type: "string" },
-        specialist: { type: "string" },
-        intent: { type: "string" },
-        domain: { type: "string" },
-        tokens: { type: "number" },
-        executionTimeMs: { type: "number" }
+        codigo: { type: "string", description: "Código del reporte, ej: RSK-189 o MATRIZ-GLOBAL" },
+        titulo: { type: "string", description: "Título ejecutivo del panel" },
+        calidad: { type: "number", description: "Puntaje de calidad del informe (0 a 100)" }
       }
+    },
+    kpis: {
+      type: "object",
+      required: ["scoreRiesgo", "scoreMadurez", "totalControles", "coberturaControles", "calidad"],
+      properties: {
+        scoreRiesgo: { type: "number", description: "Porcentaje de score residual real/calculado" },
+        scoreMadurez: { type: "number", description: "Porcentaje de madurez de controles" },
+        totalControles: { type: "number", description: "Cantidad total de controles asociados" },
+        coberturaControles: { type: "number", description: "Porcentaje de mitigación o cobertura lograda" },
+        calidad: { type: "number", description: "Puntaje de calidad de la matriz" }
+      }
+    },
+    dictamen: {
+      type: "string",
+      description: `Texto en Markdown que DEBE incluir obligatoriamente las siguientes secciones separadas por encabezados:
+      - A HALLAZGOS
+      - RECOMENDACIONES
+      - PLAN DE ACCIÓN INMEDIATO
+      - DICTAMEN DEL DIRECTOR
+      - ▼Análisis Metodológico ISO 31000
+      - ▼ Evaluación de Controles & COSO ERM
+      -  KRIs, Monitoreo y Evidencias`
     }
   }
 };
