@@ -1,6 +1,5 @@
 import { ExecutionContext } from './ExecutionContext.js';
 import { IntentClassifier } from './IntentClassifier.js';
-import { PromptBuilder } from './PromptBuilder.js';
 import { GeminiService } from '../services/GeminiService.js';
 import { KnowledgeManager } from './KnowledgeManager.js';
 import { ContextBuilder } from './ContextBuilder.js';
