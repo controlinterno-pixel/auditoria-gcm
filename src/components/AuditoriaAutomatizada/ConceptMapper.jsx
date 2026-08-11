@@ -1,7 +1,7 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auditarAuxilioTransporte, auditarSeguridadSocial } from '../../utils/motorAuditoria';
-import { guardarNominaHistorica } from '../../services/historicoService';
+import { guardarNominaHistorica, obtenerListaHistoricos } from '../../services/historicoService';
 
 const normalizarTexto = (str) => {
   if (!str) return "";
@@ -26,6 +26,13 @@ const ConceptMapper = () => {
   const [modoCarga, setModoCarga] = useState('auditar');
   const [periodoHistorico, setPeriodoHistorico] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [listaHistoricosBD, setListaHistoricosBD] = useState([]);
+
+  useEffect(() => {
+    if (modoCarga === 'historico') {
+      obtenerListaHistoricos().then(data => setListaHistoricosBD(data));
+    }
+  }, [modoCarga, isUploading]);
 
   const [mapping, setMapping] = useState({
     salario_base: [], 
@@ -198,7 +205,7 @@ const ConceptMapper = () => {
     setResumenKpi(resultadoEngine.kpis);
   };
 
-const handleStartAuditUGPP = async () => {
+  const handleStartAuditUGPP = async () => {
     if (!datosExcel || datosExcel.length === 0) return;
     setIsUploading(true);
     try {
@@ -234,7 +241,6 @@ const handleStartAuditUGPP = async () => {
   const esConceptoConstitutivoAuto = (nombreConcepto) => {
     if (!nombreConcepto) return false;
     const norm = normalizarTexto(nombreConcepto);
-    // Exclusiones estrictas
     if (
       norm.includes('NO REMUNERAD') || 
       norm.includes('CESANTIA') || 
@@ -243,7 +249,6 @@ const handleStartAuditUGPP = async () => {
     ) {
       return false;
     }
-    // Lexicón extendido completo (Coincide con el mapeo inteligente)
     const palabras = [
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
@@ -254,11 +259,9 @@ const handleStartAuditUGPP = async () => {
     return palabras.some(kw => norm.includes(kw));
   };
 
-  // 🔍 MODAL DE DESGLOSE PIVOTEADO POR CÉDULA + PERÍODO
   const obtenerDesgloseEmpleado = (empleado) => {
     if (!datosExcel || !empleado) return [];
     
-    // Función auxiliar idéntica a la del backend para extraer montos reales
     const parsearMontoModal = (val) => {
       if (!val) return 0;
       if (typeof val === 'number') return isNaN(val) ? 0 : val;
@@ -296,7 +299,6 @@ const handleStartAuditUGPP = async () => {
       const valorRaw = buscarColumnaModal(t, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago', 'Deduccion']);
       const valor = parsearMontoModal(valorRaw);
       
-      // Verificación robusta: Mira en salario base, en ausentismos, o usa el auto-analizador
       const esConstitutivo = 
         (mapping.salario_base || []).includes(concepto) || 
         (mapping.vacaciones_incapacidades || []).includes(concepto) || 
@@ -305,7 +307,7 @@ const handleStartAuditUGPP = async () => {
       return { concepto, valor, incluidoEnIBC: esConstitutivo };
     });
   };
-  // 🤖 ANALIZADOR INFORMATIVO DE CAUSALES DE LA BRECHA IMPLÍCITA (NIVEL 2)
+
   const obtenerAnalisisCausalesModal = (empleado) => {
     if (!empleado) return [];
     const desgloses = obtenerDesgloseEmpleado(empleado);
@@ -326,7 +328,7 @@ const handleStartAuditUGPP = async () => {
     if (tieneLicenciaRem) causales.push({ titulo: "📜 Licencia Remunerada", desc: "Liquidación legal con auxilio completo conforme a Art. 127 CST." });
     if (brecha <= pasoRedondeo && brecha > 0) causales.push({ titulo: "📐 Redondeo del ERP", desc: `Aproximación por regla paramétrica ($${pasoRedondeo.toLocaleString('es-CO')}).` });
 
-  if (causales.length === 0) {
+    if (causales.length === 0) {
       causales.push({ titulo: "⚙️ Regla Interna del ERP", desc: "Diferencia causada por promedio de IBC de períodos anteriores o redondeos de módulo." });
     }
 
@@ -350,7 +352,7 @@ const handleStartAuditUGPP = async () => {
       setDatosExcel(null);
       setFileName("");
       setPeriodoHistorico("");
-      setModoCarga('auditar');
+      // La tabla se refrescará sola gracias al useEffect
     } catch (err) {
       alert("❌ Error guardando el histórico: " + err.message);
     } finally {
@@ -388,7 +390,6 @@ const handleStartAuditUGPP = async () => {
         )}
       </div>
     
-
       {/* 1. Cargar Archivo */}
       <div className="bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8">
         <h3 className="text-lg font-medium text-slate-700 mb-4">📥 1. Cargar Nómina Quincenal</h3>
@@ -406,16 +407,56 @@ const handleStartAuditUGPP = async () => {
 
      {/* 2. Configuración o Guardado Histórico */}
       {modoCarga === 'historico' ? (
-        <div className={`bg-white rounded-xl shadow-md p-6 border border-emerald-200 bg-emerald-50 mb-8 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>
-          <h3 className="text-lg font-medium text-emerald-800 mb-4">💾 2. Guardar en Base de Datos</h3>
-          <p className="text-sm text-emerald-700 mb-4">Haz clic en el botón de abajo para enviar la nómina cargada a Firebase y usarla en promedios futuros.</p>
-          <button 
-            onClick={handleGuardarHistorico}
-            disabled={isUploading || !datosExcel}
-            className="px-8 py-3 bg-emerald-600 text-white font-bold rounded-lg shadow-md hover:bg-emerald-700 transition-colors disabled:opacity-50"
-          >
-            {isUploading ? '⏳ Guardando...' : '💾 Confirmar y Guardar Histórico'}
-          </button>
+        <div className="space-y-6 mb-8">
+          <div className={`bg-white rounded-xl shadow-md p-6 border border-emerald-200 bg-emerald-50 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>
+            <h3 className="text-lg font-medium text-emerald-800 mb-4">💾 2. Guardar en Base de Datos</h3>
+            <p className="text-sm text-emerald-700 mb-4">Haz clic en el botón de abajo para enviar la nómina cargada a Firebase y usarla en promedios futuros.</p>
+            <button 
+              onClick={handleGuardarHistorico}
+              disabled={isUploading || !datosExcel}
+              className="px-8 py-3 bg-emerald-600 text-white font-bold rounded-lg shadow-md hover:bg-emerald-700 transition-colors disabled:opacity-50"
+            >
+              {isUploading ? '⏳ Guardando...' : '💾 Confirmar y Guardar Histórico'}
+            </button>
+          </div>
+
+          {/* 📋 NUEVA TABLA VISUAL DE HISTÓRICOS GUARDADOS */}
+          <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+            <div className="bg-slate-800 p-4 flex justify-between items-center">
+              <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                <span>🗄️</span> Bases Históricas Disponibles en la Nube
+              </h3>
+              <span className="bg-slate-700 text-cyan-300 text-xs px-2 py-1 rounded font-mono">
+                {listaHistoricosBD.length} Registros
+              </span>
+            </div>
+            <div className="p-0 overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">Período</th>
+                    <th className="p-3">Empresa</th>
+                    <th className="p-3">Total Transacciones</th>
+                    <th className="p-3">Fecha de Subida</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {listaHistoricosBD.length === 0 ? (
+                    <tr><td colSpan="4" className="p-4 text-center text-slate-400 italic">No hay nóminas guardadas en la base de datos.</td></tr>
+                  ) : (
+                    listaHistoricosBD.map((hist) => (
+                      <tr key={hist.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-bold text-emerald-700">{hist.periodo}</td>
+                        <td className="p-3 font-semibold text-slate-800">{hist.empresa}</td>
+                        <td className="p-3 font-mono text-slate-600">{hist.totalRegistros}</td>
+                        <td className="p-3 text-slate-500">{new Date(hist.fechaCarga).toLocaleString('es-CO')}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       ) : (
       <div className={`bg-white rounded-xl shadow-md p-6 border border-slate-200 mb-8 ${!datosExcel ? 'opacity-50 pointer-events-none' : ''}`}>

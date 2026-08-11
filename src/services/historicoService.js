@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 // Importación apuntando a utils con minúscula (estándar común)
@@ -18,7 +18,11 @@ export const guardarNominaHistorica = async (filasExcel, periodo) => {
     const porEmpresa = {};
     
     datosEstructurados.forEach(emp => {
-      const empNombre = emp.Empresa || emp.empresa || emp.Compania || 'GENERAL';
+      // Búsqueda inteligente ignorando mayúsculas o espacios
+      const llaves = Object.keys(emp);
+      const llaveEmpresa = llaves.find(k => k.toLowerCase().includes('empresa') || k.toLowerCase().includes('compania'));
+      
+      const empNombre = llaveEmpresa ? emp[llaveEmpresa] : 'GENERAL';
       const empresasLista = String(empNombre).split('+').map(e => e.trim());
       
       empresasLista.forEach(e => {
@@ -76,6 +80,25 @@ export const cargarNominaHistorica = async (periodo, empresa = 'GENERAL') => {
     }
   } catch (error) {
     console.error(`Error consultando histórico para ${periodo}:`, error);
+    return [];
+  }
+};
+
+/**
+ * 📋 OBTENER LISTADO DE HISTÓRICOS GUARDADOS
+ * Trae un resumen de todas las nóminas subidas a Firebase para mostrarlas en pantalla.
+ */
+export const obtenerListaHistoricos = async () => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'nominas_historicas'));
+    const lista = [];
+    querySnapshot.forEach((doc) => {
+      lista.push({ id: doc.id, ...doc.data() });
+    });
+    // Ordenamos para que los meses más recientes salgan primero
+    return lista.sort((a, b) => b.periodo.localeCompare(a.periodo));
+  } catch (error) {
+    console.error("Error obteniendo lista de históricos:", error);
     return [];
   }
 };
