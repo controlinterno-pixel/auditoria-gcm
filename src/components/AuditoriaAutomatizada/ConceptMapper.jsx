@@ -345,7 +345,7 @@ const handleStartAuditUGPP = async () => {
     
     setIsUploading(true);
     try {
-      const res = await guardarNominaHistorica(datosExcel, periodoHistorico, 'Termales');
+      const res = await guardarNominaHistorica(datosExcel, periodoHistorico);
       alert("✅ " + res.message);
       setDatosExcel(null);
       setFileName("");

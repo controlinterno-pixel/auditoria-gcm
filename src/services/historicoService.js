@@ -4,7 +4,7 @@ import { db } from './firebase';
 // Importación apuntando a utils con minúscula (estándar común)
 import { normalizarSabanaNomina } from "../utils/normalizadorNomina";
 
-export const guardarNominaHistorica = async (filasExcel, periodo, empresa = 'Termales') => {
+export const guardarNominaHistorica = async (filasExcel, periodo) => {
   try {
     if (!filasExcel || filasExcel.length === 0) {
       throw new Error("No hay datos en la nómina para guardar.");
@@ -14,23 +14,42 @@ export const guardarNominaHistorica = async (filasExcel, periodo, empresa = 'Ter
       ? normalizarSabanaNomina(filasExcel)
       : filasExcel;
     
-    const empresaLimpia = empresa.toString().trim().replace(/[\s/]/g, '_');
-    const periodoLimpio = periodo.toString().trim().replace('/', '-');
-    const docId = `${empresaLimpia}_${periodoLimpio}`;
+    // 🔍 AGRUPAR POR EMPRESA (Detecta Fam, RecreFam, etc.)
+    const porEmpresa = {};
     
-    const docRef = doc(db, 'nominas_historicas', docId);
+    datosEstructurados.forEach(emp => {
+      const empNombre = emp.Empresa || emp.empresa || emp.Compania || 'GENERAL';
+      const empresasLista = String(empNombre).split('+').map(e => e.trim());
+      
+      empresasLista.forEach(e => {
+        if (!porEmpresa[e]) porEmpresa[e] = [];
+        porEmpresa[e].push(emp);
+      });
+    });
 
-    await setDoc(docRef, {
-      periodo: periodoLimpio,
-      empresa: empresaLimpia,
-      fechaCarga: new Date().toISOString(),
-      totalRegistros: datosEstructurados.length,
-      empleados: datosEstructurados 
-    }, { merge: true });
+    const periodoLimpio = String(periodo).trim().replace('/', '-');
 
+    // 💾 GUARDAR UN DOCUMENTO POR CADA EMPRESA
+    const promesasGuardado = Object.keys(porEmpresa).map(async (empNombre) => {
+      const empresaLimpia = empNombre.replace(/[\s/]/g, '_');
+      const docId = `${empresaLimpia}_${periodoLimpio}`; // Ej: "Fam_2026-05"
+      const docRef = doc(db, 'nominas_historicas', docId);
+
+      return setDoc(docRef, {
+        periodo: periodoLimpio,
+        empresa: empresaLimpia,
+        fechaCarga: new Date().toISOString(),
+        totalRegistros: porEmpresa[empNombre].length,
+        empleados: porEmpresa[empNombre]
+      }, { merge: true });
+    });
+
+    await Promise.all(promesasGuardado);
+
+    const listaEmpresas = Object.keys(porEmpresa).join(', ');
     return { 
       success: true, 
-      message: `Nómina del período ${periodoLimpio} guardada con éxito en Firestore.` 
+      message: `Nómina guardada con éxito para las empresas: [${listaEmpresas}].` 
     };
   } catch (error) {
     console.error("Error guardando nómina histórica:", error);
@@ -38,7 +57,7 @@ export const guardarNominaHistorica = async (filasExcel, periodo, empresa = 'Ter
   }
 };
 
-export const cargarNominaHistorica = async (periodo, empresa = 'Termales') => {
+export const cargarNominaHistorica = async (periodo, empresa = 'GENERAL') => {
   try {
     if (!periodo) return [];
 
