@@ -14,15 +14,35 @@ export const guardarNominaHistorica = async (filasExcel, periodo) => {
       ? normalizarSabanaNomina(filasExcel)
       : filasExcel;
     
-    // 🔍 AGRUPAR POR EMPRESA (Detecta Fam, RecreFam, etc.)
+    // 🔍 AGRUPAR POR EMPRESA (Búsqueda Profunda y Defensiva)
     const porEmpresa = {};
     
     datosEstructurados.forEach(emp => {
-      // Búsqueda inteligente ignorando mayúsculas o espacios
-      const llaves = Object.keys(emp);
-      const llaveEmpresa = llaves.find(k => k.toLowerCase().includes('empresa') || k.toLowerCase().includes('compania'));
+      let empNombre = emp.empresa || emp.Empresa || emp.Compania;
       
-      const empNombre = llaveEmpresa ? emp[llaveEmpresa] : 'GENERAL';
+      // 1. Buscar en las llaves del empleado normalizado
+      if (!empNombre) {
+        const llaves = Object.keys(emp);
+        const llaveEmpresa = llaves.find(k => k.toLowerCase().includes('empresa') || k.toLowerCase().includes('compania'));
+        if (llaveEmpresa) empNombre = emp[llaveEmpresa];
+      }
+
+      // 2. Si no la encuentra, rescatarla del Excel crudo original usando la cédula
+      if (!empNombre && emp.cedula && filasExcel) {
+        const filaOriginal = filasExcel.find(f => 
+          String(f.Identificacion) === String(emp.cedula) || 
+          String(f.Cedula) === String(emp.cedula) ||
+          String(f.Documento) === String(emp.cedula)
+        );
+        if (filaOriginal) {
+          const llavesRaw = Object.keys(filaOriginal);
+          const llaveEmp = llavesRaw.find(k => k.toLowerCase().includes('empresa') || k.toLowerCase().includes('compania'));
+          if (llaveEmp) empNombre = filaOriginal[llaveEmp];
+        }
+      }
+
+      // 3. Fallback final
+      empNombre = empNombre || 'GENERAL';
       const empresasLista = String(empNombre).split('+').map(e => e.trim());
       
       empresasLista.forEach(e => {
