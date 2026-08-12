@@ -1646,10 +1646,13 @@ const handleNotificarPlan = (planId) => {
           <div ref={dictamenRef} className="w-[1000px] bg-white p-12 font-sans text-slate-800">
             
             {/* Cabecera Institucional */}
-            <div className="flex justify-between items-start border-b-4 border-[#0A3B32] pb-6 mb-8">
-              <div>
-                <h1 className="text-3xl font-black text-[#0A3B32]">TERMALES SANTA ROSA DE CABAL</h1>
-                <h2 className="text-xl font-bold text-slate-600 mt-2">DICTAMEN DE EVALUACIÓN DE AUDITORÍA</h2>
+            <div className="flex justify-between items-center border-b-4 border-[#0A3B32] pb-6 mb-8">
+              <div className="flex items-center gap-6">
+                {/* Asumo que es un PNG. Si es JPG, cambia la extensión a .jpg */}
+                <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-24 h-auto object-contain drop-shadow-sm" />
+                <div>
+                  <h1 className="text-3xl font-black text-[#0A3B32]">TERMALES SANTA ROSA DE CABAL</h1>
+                  <h2 className="text-xl font-bold text-slate-600 mt-1">DICTAMEN DE EVALUACIÓN DE AUDITORÍA</h2>
                 <p className="text-sm font-bold text-slate-400 mt-1">
                   Referencia de Informe: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme || 'N/A'}
                 </p>
