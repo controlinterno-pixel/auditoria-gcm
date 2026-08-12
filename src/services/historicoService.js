@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 // Importación apuntando a utils con minúscula (estándar común)
@@ -120,5 +120,18 @@ export const obtenerListaHistoricos = async () => {
   } catch (error) {
     console.error("Error obteniendo lista de históricos:", error);
     return [];
+  }
+};
+/**
+ * 🗑️ PASO 4: ELIMINAR HISTÓRICO
+ * Borra un documento específico de la base de datos.
+ */
+export const eliminarNominaHistorica = async (docId) => {
+  try {
+    await deleteDoc(doc(db, 'nominas_historicas', docId));
+    return { success: true };
+  } catch (error) {
+    console.error("Error eliminando histórico:", error);
+    throw new Error("No se pudo eliminar el registro en la nube.");
   }
 };

@@ -1,7 +1,7 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import React, { useState, useEffect } from 'react';
 import { auditarAuxilioTransporte, auditarSeguridadSocial } from '../../utils/motorAuditoria';
-import { guardarNominaHistorica, obtenerListaHistoricos } from '../../services/historicoService';
+import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica } from '../../services/historicoService';
 
 const normalizarTexto = (str) => {
   if (!str) return "";
@@ -335,6 +335,19 @@ const ConceptMapper = () => {
     return causales;
   };
 
+  const handleEliminarHistorico = async (id, periodo, empresa) => {
+    if (window.confirm(`⚠️ ¿Estás seguro de eliminar permanentemente la base histórica de ${empresa} (${periodo})?\n\nEsta acción no se puede deshacer.`)) {
+      try {
+        await eliminarNominaHistorica(id);
+        const data = await obtenerListaHistoricos();
+        setListaHistoricosBD(data);
+        alert(`🗑️ Registro de ${empresa} eliminado con éxito.`);
+      } catch (error) {
+        alert("❌ Error al eliminar: " + error.message);
+      }
+    }
+  };
+
   const handleGuardarHistorico = async () => {
     if (!periodoHistorico) {
       alert("⚠️ Por favor selecciona el mes (Ej: Marzo 2026) antes de guardar el histórico.");
@@ -438,11 +451,12 @@ const ConceptMapper = () => {
                     <th className="p-3">Empresa</th>
                     <th className="p-3">Total Transacciones</th>
                     <th className="p-3">Fecha de Subida</th>
+                    <th className="p-3 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {listaHistoricosBD.length === 0 ? (
-                    <tr><td colSpan="4" className="p-4 text-center text-slate-400 italic">No hay nóminas guardadas en la base de datos.</td></tr>
+                    <tr><td colSpan="5" className="p-4 text-center text-slate-400 italic">No hay nóminas guardadas en la base de datos.</td></tr>
                   ) : (
                     listaHistoricosBD.map((hist) => (
                       <tr key={hist.id} className="hover:bg-slate-50 transition-colors">
@@ -450,6 +464,15 @@ const ConceptMapper = () => {
                         <td className="p-3 font-semibold text-slate-800">{hist.empresa}</td>
                         <td className="p-3 font-mono text-slate-600">{hist.totalRegistros}</td>
                         <td className="p-3 text-slate-500">{new Date(hist.fechaCarga).toLocaleString('es-CO')}</td>
+                        <td className="p-3 text-center">
+                          <button
+                            onClick={() => handleEliminarHistorico(hist.id, hist.periodo, hist.empresa)}
+                            className="px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded font-bold transition-colors text-[10px]"
+                            title="Eliminar registro"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
