@@ -412,29 +412,26 @@ const handleNotificarPlan = (planId) => {
     const esAprobado = puntajeHolistico >= 80;
     const correoResponsableLider = modalEval.planes[0]?.correoResponsable || 'controlinterno@termales.com.co';
 
-    // Actualizamos en lote TODAS las actividades de este paquete
+    // Actualizamos en lote TODAS las actividades de este paquete (Solo Evaluamos el Diseño)
     modalEval.planes.forEach(plan => {
       const idx = updatedPlanesList.findIndex(p => p.id === plan.id);
       if (idx !== -1) {
         updatedPlanesList[idx] = {
           ...updatedPlanesList[idx],
-          estadoWorkflow: esAprobado ? 'Cerrado' : 'Borrador',
-          estado: esAprobado ? 'Cerrado' : 'En Proceso',
-          progreso: esAprobado ? 100 : 90, 
+          // NO TOCAMOS EL PROGRESO (0%). Solo validamos si el diseño es viable.
           historialCambios: [
             ...(updatedPlanesList[idx].historialCambios || []),
             { 
               fecha: ts, 
               usuario: 'Auditor', 
               accion: esAprobado 
-                ? `✅ Paquete APROBADO en conjunto (Score Calidad: ${puntajeHolistico}%).` 
-                : `❌ Paquete RECHAZADO en conjunto (Score Calidad: ${puntajeHolistico}%). Motivo: ${justificacion}` 
+                ? `✅ DISEÑO DEL PLAN APROBADO (Score Calidad: ${puntajeHolistico}%). Listo para iniciar ejecución.` 
+                : `❌ DISEÑO DEL PLAN RECHAZADO (Score Calidad: ${puntajeHolistico}%). Se requiere reformular. Motivo: ${justificacion}` 
             }
           ]
         };
       }
     });
-
     setPlanes(updatedPlanesList);
     await saveToCloud({ planes: updatedPlanesList });
 
@@ -1393,9 +1390,26 @@ const handleNotificarPlan = (planId) => {
                                   <td className="p-3 text-center flex flex-col space-y-1 items-center justify-center">
                                     <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full">Gestionar</button>
                                     
-                                    {p.estadoWorkflow === 'En Revisión' && (
-                                      <div className="mt-1 pt-1 border-t border-slate-200">
-                                        <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest text-center block leading-tight bg-amber-50 rounded py-0.5">Esperando Eval.<br/>Agrupada</span>
+                                   {p.estadoWorkflow === 'En Revisión' && (
+                                      <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
+                                        <button type="button" onClick={() => {
+                                          if(window.confirm("¿Aprobar evidencia y CERRAR este plan definitivamente?")) {
+                                            const ts = new Date().toLocaleString();
+                                            const mod = { ...p, estadoWorkflow: 'Cerrado', estado: 'Cerrado', progreso: 100, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Evidencias aprobadas. Plan CERRADO.' }] };
+                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
+                                            setPlanes(updated); saveToCloud({ planes: updated }); alert("Plan Cerrado.");
+                                          }
+                                        }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✓ Aprobar Evidencia</button>
+                                        
+                                        <button type="button" onClick={() => {
+                                          const r = prompt("Motivo del rechazo de la evidencia:");
+                                          if(r) {
+                                            const ts = new Date().toLocaleString();
+                                            const mod = { ...p, estadoWorkflow: 'Borrador', progreso: 90, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: `❌ Evidencia rechazada. Motivo: ${r}` }] };
+                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
+                                            setPlanes(updated); saveToCloud({ planes: updated }); alert("Rechazo enviado.");
+                                          }
+                                        }} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✕ Rechazar Evidencia</button>
                                       </div>
                                     )}
 
@@ -1406,18 +1420,18 @@ const handleNotificarPlan = (planId) => {
                            </tbody>
                           </table>
                           
-                          {/* ⚖️ BOTÓN MAESTRO DE EVALUACIÓN HOLÍSTICA */}
-                          {planesDelInforme.some(p => p.estadoWorkflow === 'En Revisión') && isAdmin && (
+                         {/* ⚖️ BOTÓN MAESTRO DE EVALUACIÓN HOLÍSTICA (DISEÑO) */}
+                          {planesDelInforme.length > 0 && isAdmin && (
                             <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row justify-between items-center shadow-sm gap-3 animate-in fade-in">
                               <div className="text-center md:text-left">
-                                <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Gobernanza y Calificación COSO</p>
-                                <p className="text-[9px] text-slate-500 font-medium mt-0.5">Hay {planesDelInforme.filter(p => p.estadoWorkflow === 'En Revisión').length} actividades en revisión para este informe. Evalúe el paquete completo.</p>
+                                <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Gobernanza y Calificación de Diseño (COSO)</p>
+                                <p className="text-[9px] text-slate-500 font-medium mt-0.5">Evalúe la calidad, completitud y coherencia del paquete de acciones formulado.</p>
                               </div>
                               <button 
                                 onClick={() => setModalEval({ 
                                   activo: true, 
                                   idInforme: idInf, 
-                                  planes: planesDelInforme.filter(p => p.estadoWorkflow === 'En Revisión'),
+                                  planes: planesDelInforme,
                                   totalActividades: planesDelInforme.length
                                 })}
                                 className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
