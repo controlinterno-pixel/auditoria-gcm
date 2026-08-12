@@ -89,6 +89,11 @@ const [busquedaRapida, setBusquedaRapida] = useState('');
   const [matrixState, setMatrixState] = useState({});
   const [uploadingCell, setUploadingCell] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  // ⚖️ ESTADOS PARA EVALUACIÓN HOLÍSTICA DEL PLAN (METODOLOGÍA EXCEL)
+  const [modalEval, setModalEval] = useState({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
+  const [criterios, setCriterios] = useState({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
+  const [justificacion, setJustificacion] = useState('');
+  const puntajeHolistico = Math.round((criterios.c1 * 0.3) + (criterios.c2 * 0.2) + (criterios.c3 * 0.2) + (criterios.c4 * 0.2) + (criterios.c5 * 0.1));
 // ⚡ MEJORA UX: Carga automáticamente la matriz del informe al dar clic en "Gestionar" desde el historial
   React.useEffect(() => {
     if (editPlan) {
@@ -395,72 +400,60 @@ const handleNotificarPlan = (planId) => {
     handleInformeChange(formInformeId, updatedPlanesList, updatedHallazgos);
   };
 
-  // 🛡️ NUEVA FUNCIÓN: GOBERNANZA DE EVALUACIÓN DIRECTA PARA EL AUDITOR (APROBAR / RECHAZAR)
-  const handleEvaluacionAuditor = async (plan, aprobado) => {
+ // 🛡️ NUEVA FUNCIÓN: EVALUACIÓN HOLÍSTICA Y PONDERADA DEL PLAN DE ACCIÓN
+  const confirmarEvaluacionHolistica = async () => {
+    if (puntajeHolistico < 80 && justificacion.trim() === '') {
+      return alert("❌ Debe proporcionar una justificación técnica detallada para rechazar el plan (Puntaje menor a 80%).");
+    }
+    if (!window.confirm(`¿Confirmar evaluación de este paquete de acciones con un score de ${puntajeHolistico}%?`)) return;
+
     const ts = new Date().toLocaleString();
     let updatedPlanesList = [...safePlanes];
-    const idx = updatedPlanesList.findIndex(p => p.id === plan.id);
-    if (idx === -1) return;
+    const esAprobado = puntajeHolistico >= 80;
+    const correoResponsableLider = modalEval.planes[0]?.correoResponsable || 'controlinterno@termales.com.co';
 
-    if (aprobado) {
-      // CASO A: APROBAR PLAN DE ACCIÓN
-      updatedPlanesList[idx] = {
-        ...updatedPlanesList[idx],
-        estadoWorkflow: 'Cerrado',
-        estado: 'Cerrado',
-        progreso: 100,
-        historialCambios: [
-          ...(updatedPlanesList[idx].historialCambios || []),
-          { fecha: ts, usuario: 'Auditor', accion: 'Plan de acción aprobado y CERRADO formalmente.' }
-        ]
-      };
-
-      setPlanes(updatedPlanesList);
-      await saveToCloud({ planes: updatedPlanesList });
-
-      if (ejecutarDespachoGmailApi) {
-        await ejecutarDespachoGmailApi({
-          ref_consecutivo: `CIERRE-PLAN-${plan.id}`,
-          titulo_informe: `Plan de Acción CERRADO Exitosamente`,
-          proceso_auditado: `Felicitaciones, el auditor aprobo las evidencias suministradas. El estado cambio a CERRADO.`,
-          enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
-          destinatarios: plan.correoResponsable
-        });
+    // Actualizamos en lote TODAS las actividades de este paquete
+    modalEval.planes.forEach(plan => {
+      const idx = updatedPlanesList.findIndex(p => p.id === plan.id);
+      if (idx !== -1) {
+        updatedPlanesList[idx] = {
+          ...updatedPlanesList[idx],
+          estadoWorkflow: esAprobado ? 'Cerrado' : 'Borrador',
+          estado: esAprobado ? 'Cerrado' : 'En Proceso',
+          progreso: esAprobado ? 100 : 90, 
+          historialCambios: [
+            ...(updatedPlanesList[idx].historialCambios || []),
+            { 
+              fecha: ts, 
+              usuario: 'Auditor', 
+              accion: esAprobado 
+                ? `✅ Paquete APROBADO en conjunto (Score Calidad: ${puntajeHolistico}%).` 
+                : `❌ Paquete RECHAZADO en conjunto (Score Calidad: ${puntajeHolistico}%). Motivo: ${justificacion}` 
+            }
+          ]
+        };
       }
-      alert("✅ ¡Plan de acción aprobado y cerrado con éxito!");
-    } else {
-      // CASO B: RECHAZAR PLAN DE ACCIÓN
-      const explicacion = prompt("Por favor, escriba la explicación o motivo del rechazo para el jefe de área:");
-      if (explicacion === null) return;
-      if (explicacion.trim() === '') return alert("❌ Debe digitar una explicación para poder rechazar el plan.");
+    });
 
-      updatedPlanesList[idx] = {
-        ...updatedPlanesList[idx],
-        estadoWorkflow: 'Borrador',
-        estado: 'En Proceso',
-        progreso: 90, // Bajamos el avance del 100% para habilitar la re-edición del Jefe
-        historialCambios: [
-          ...(updatedPlanesList[idx].historialCambios || []),
-          { fecha: ts, usuario: 'Auditor', accion: `Plan RECHAZADO por el auditor. Motivo: ${explicacion}` }
-        ]
-      };
+    setPlanes(updatedPlanesList);
+    await saveToCloud({ planes: updatedPlanesList });
 
-      setPlanes(updatedPlanesList);
-      await saveToCloud({ planes: updatedPlanesList });
-
-      if (ejecutarDespachoGmailApi) {
-        await ejecutarDespachoGmailApi({
-          ref_consecutivo: `RECHAZO-PLAN-${plan.id}`,
-          titulo_informe: `Plan de Acción RECHAZADO por el Auditor`,
-          proceso_auditado: `Su plan requiere revisiones adicionales. Motivo: "${explicacion}". Debe continuar gestionando y subiendo nuevas evidencias.`,
-          enlace_pdf: 'https://auditoria-gcm.vercel.app',
-          destinatarios: plan.correoResponsable
-        });
-      }
-      alert("❌ Plan rechazado. Se envió la notificación con el motivo detallado al jefe de área.");
+    if (ejecutarDespachoGmailApi) {
+      await ejecutarDespachoGmailApi({
+        ref_consecutivo: esAprobado ? `CIERRE-MASIVO` : `RECHAZO-MASIVO`,
+        titulo_informe: esAprobado ? `✅ Plan de Acción APROBADO (${puntajeHolistico}%)` : `❌ Plan de Acción RECHAZADO (${puntajeHolistico}%)`,
+        proceso_auditado: esAprobado 
+          ? `Felicitaciones, el paquete de acciones fue evaluado y cumple con la calidad COSO/ISO 31000 requerida.` 
+          : `El paquete propuesto no supera la evaluación de madurez (Requiere 80%). Justificación: "${justificacion}".`,
+        enlace_pdf: 'https://auditoria-gcm.vercel.app',
+        destinatarios: correoResponsableLider
+      });
     }
 
-    if (formInformeId) handleInformeChange(formInformeId);
+    alert(esAprobado ? "✅ ¡Paquete de acciones aprobado y cerrado con éxito!" : "❌ Plan rechazado en bloque. Notificación enviada.");
+    setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
+    setJustificacion('');
+    setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   };
 
   // =========================================================
@@ -1401,9 +1394,8 @@ const handleNotificarPlan = (planId) => {
                                     <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full">Gestionar</button>
                                     
                                     {p.estadoWorkflow === 'En Revisión' && (
-                                      <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                        <button type="button" onClick={() => handleEvaluacionAuditor(p, true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✓ Aprobar</button>
-                                        <button type="button" onClick={() => handleEvaluacionAuditor(p, false)} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✕ Rechazar</button>
+                                      <div className="mt-1 pt-1 border-t border-slate-200">
+                                        <span className="text-[8px] font-bold text-amber-600 uppercase tracking-widest text-center block leading-tight bg-amber-50 rounded py-0.5">Esperando Eval.<br/>Agrupada</span>
                                       </div>
                                     )}
 
@@ -1411,8 +1403,29 @@ const handleNotificarPlan = (planId) => {
                                   </td>
                                 </tr>
                               ))}
-                            </tbody>
+                           </tbody>
                           </table>
+                          
+                          {/* ⚖️ BOTÓN MAESTRO DE EVALUACIÓN HOLÍSTICA */}
+                          {planesDelInforme.some(p => p.estadoWorkflow === 'En Revisión') && isAdmin && (
+                            <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row justify-between items-center shadow-sm gap-3 animate-in fade-in">
+                              <div className="text-center md:text-left">
+                                <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Gobernanza y Calificación COSO</p>
+                                <p className="text-[9px] text-slate-500 font-medium mt-0.5">Hay {planesDelInforme.filter(p => p.estadoWorkflow === 'En Revisión').length} actividades en revisión para este informe. Evalúe el paquete completo.</p>
+                              </div>
+                              <button 
+                                onClick={() => setModalEval({ 
+                                  activo: true, 
+                                  idInforme: idInf, 
+                                  planes: planesDelInforme.filter(p => p.estadoWorkflow === 'En Revisión'),
+                                  totalActividades: planesDelInforme.length
+                                })}
+                                className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
+                              >
+                                <span>⚖️</span> Evaluar Plan Integral
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -1425,6 +1438,98 @@ const handleNotificarPlan = (planId) => {
           </div>
         );
       })()}
+
+      {/* ===================================================================== */}
+      {/* ⚖️ MODAL DE EVALUACIÓN HOLÍSTICA PONDERADA (METODOLOGÍA EXCEL)        */}
+      {/* ===================================================================== */}
+      {modalEval.activo && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
+            
+            <div className="bg-[#0A3B32] p-5 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-white font-black text-lg flex items-center gap-2"><span>⚖️</span> Evaluación Ponderada del Plan de Acción</h3>
+                <p className="text-emerald-100 text-[10px] font-medium tracking-wide uppercase mt-0.5">Metodología COSO/ISO 31000 - Evaluando {modalEval.planes.length} actividad(es).</p>
+              </div>
+              <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 })} className="text-emerald-100 hover:text-white font-black text-xl px-2 transition-colors">✕</button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-inner">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Parámetros de Calificación del Paquete</h4>
+                
+                <div className="space-y-4">
+                  {[
+                    { id: 'c1', titulo: 'Completitud y Cobertura (30%)', desc: '¿El plan atiende todos los hallazgos o dejó riesgos por fuera?', peso: 0.3 },
+                    { id: 'c2', titulo: 'Análisis de Causa Raíz (20%)', desc: '¿Va a la raíz del problema o solo propone paños de agua tibia?', peso: 0.2 },
+                    { id: 'c3', titulo: 'Planes de Choque Inmediato (20%)', desc: '¿Hay acciones de contingencia a corto plazo para frenar el impacto?', peso: 0.2 },
+                    { id: 'c4', titulo: 'Temporalidad y Fechas (20%)', desc: '¿Las fechas programadas son realistas y oportunas?', peso: 0.2 },
+                    { id: 'c5', titulo: 'Controles e Indicadores (10%)', desc: '¿Proponen formas claras de medir la efectividad (KRIs/KPIs)?', peso: 0.1 }
+                  ].map(crit => (
+                    <div key={crit.id} className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-slate-300">
+                      <div className="flex-1">
+                        <label className="text-xs font-black text-slate-800 uppercase tracking-wide">{crit.titulo}</label>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{crit.desc}</p>
+                      </div>
+                      <div className="w-full md:w-1/3 flex items-center gap-3">
+                        <input 
+                          type="range" min="0" max="100" step="5" 
+                          value={criterios[crit.id]} 
+                          onChange={(e) => setCriterios({...criterios, [crit.id]: Number(e.target.value)})}
+                          className="w-full accent-[#0A3B32] cursor-pointer"
+                        />
+                        <span className={`font-mono font-black text-[11px] w-12 text-center rounded py-1 border shadow-sm ${criterios[crit.id] >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : criterios[crit.id] >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                          {criterios[crit.id]}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-6">
+                <div className="flex-1 space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Dictamen / Justificación de Auditoría</label>
+                  <textarea 
+                    value={justificacion}
+                    onChange={(e) => setJustificacion(e.target.value)}
+                    placeholder="Escriba el motivo de la calificación (Obligatorio si el puntaje es menor a 80%)..."
+                    className={`w-full border rounded-xl p-4 text-xs font-medium focus:bg-white outline-none min-h-[120px] transition-all shadow-sm ${puntajeHolistico < 80 && justificacion.trim() === '' ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:border-[#0A3B32]'}`}
+                  />
+                  {puntajeHolistico < 80 && justificacion.trim() === '' && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para rechazar.</span>}
+                </div>
+                
+                <div className="w-full md:w-64 bg-slate-900 rounded-2xl p-5 flex flex-col justify-center items-center text-center shadow-lg shrink-0 relative overflow-hidden">
+                  <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-20 ${puntajeHolistico >= 80 ? 'bg-emerald-400' : puntajeHolistico >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}></div>
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-2 relative z-10">Score Ponderado</p>
+                  <span className={`text-6xl font-black font-mono leading-none relative z-10 ${puntajeHolistico >= 80 ? 'text-emerald-400' : puntajeHolistico >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                    {puntajeHolistico}<span className="text-3xl text-slate-500 ml-1">%</span>
+                  </span>
+                  <span className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider relative z-10 shadow-sm ${puntajeHolistico >= 80 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : puntajeHolistico >= 50 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50'}`}>
+                    {puntajeHolistico >= 80 ? '✅ Plan Viable' : puntajeHolistico >= 50 ? '⚠️ Requiere Ajustes' : '❌ Plan Inoperante'}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="bg-slate-50 border-t border-slate-200 p-5 flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center md:text-left">
+                La calificación se aplicará en lote a las {modalEval.planes.length} actividades seleccionadas.
+              </span>
+              <div className="flex gap-3 w-full md:w-auto">
+                <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 })} className="w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
+                  Cancelar
+                </button>
+                <button onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${puntajeHolistico >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                  {puntajeHolistico >= 80 ? '✅ Aprobar Todo' : '✕ Rechazar Todo'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
