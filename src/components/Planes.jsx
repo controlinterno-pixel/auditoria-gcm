@@ -1648,19 +1648,19 @@ const handleNotificarPlan = (planId) => {
             {/* Cabecera Institucional */}
             <div className="flex justify-between items-center border-b-4 border-[#0A3B32] pb-6 mb-8">
               <div className="flex items-center gap-6">
-                {/* Asumo que es un PNG. Si es JPG, cambia la extensión a .jpg */}
                 <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-24 h-auto object-contain drop-shadow-sm" />
                 <div>
                   <h1 className="text-3xl font-black text-[#0A3B32]">TERMALES SANTA ROSA DE CABAL</h1>
                   <h2 className="text-xl font-bold text-slate-600 mt-1">DICTAMEN DE EVALUACIÓN DE AUDITORÍA</h2>
-                <p className="text-sm font-bold text-slate-400 mt-1">
-                  Referencia de Informe: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme || 'N/A'}
-                </p>
-                <p className="text-sm font-bold text-slate-400">
-                  Proceso Auditado: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.proceso || 'Proceso General'}
-                </p>
+                  <p className="text-sm font-bold text-slate-400 mt-1">
+                    Referencia de Informe: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme || 'N/A'}
+                  </p>
+                  <p className="text-sm font-bold text-slate-400">
+                    Proceso Auditado: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.proceso || 'Proceso General'}
+                  </p>
+                </div>
               </div>
-              <div className="text-right text-sm">
+              <div className="text-right text-sm shrink-0">
                 <p><span className="font-bold">Fecha de Emisión:</span> {new Date().toLocaleDateString('es-CO')}</p>
                 <p><span className="font-bold">De:</span> Control Interno y Auditoría Interna</p>
                 <p><span className="font-bold">Para:</span> Liderazgo de Proceso</p>
