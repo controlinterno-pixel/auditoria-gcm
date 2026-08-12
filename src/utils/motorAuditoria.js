@@ -7,6 +7,7 @@ import { cargarNominaHistorica } from '../services/historicoService';
 const HISTORICO_LEGAL = {
   2024: { smlmv: 1300000, auxTransporte: 162000 },
   2025: { smlmv: 1469000, auxTransporte: 181440 },
+  // 🔥 RESTAURADOS LOS VALORES CORRECTOS DEL 2026
   2026: { smlmv: 1880000, auxTransporte: 249096 },
 };
 
@@ -64,6 +65,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   const constantes = HISTORICO_LEGAL[anoAuditoria] || HISTORICO_LEGAL[2026];
   const { smlmv, auxTransporte } = constantes;
   
+  // El tope legal para NO recibir auxilio de transporte es de 2 SMLMV MENSUALES.
+  // Como evaluamos quincenas, el tope quincenal es exactamente 1 SMLMV (1.880.000).
   const limiteSalarialQuincenal = smlmv;
   const valorDiarioAuxilio = auxTransporte / 30; 
 
@@ -84,7 +87,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     registrosVistos.add(huella);
     return true;
   });
-const empleadosPivoteados = {};
+
+  const empleadosPivoteados = {};
 
   transaccionesLimpias.forEach(fila => {
     const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
@@ -110,17 +114,11 @@ const empleadosPivoteados = {};
 
     if (!empleadosPivoteados[llaveUnica]) {
       empleadosPivoteados[llaveUnica] = {
-        llaveUnica,
-        empresa, 
-        cedula,
-        periodo,
+        llaveUnica, empresa, cedula, periodo,
         nombre: nombreRaw ? nombreRaw.toString().trim() : 'Sin Nombre',
         cargo: cargoRaw ? cargoRaw.toString().trim() : 'Sin Cargo',
-        sueldoBasico: 0,
-        otrosDevengadosSalariales: 0,
-        totalDevengadoSalarial: 0,
-        auxilioPagado: 0,
-        diasTrabajados: 0,
+        sueldoBasico: 0, otrosDevengadosSalariales: 0, totalDevengadoSalarial: 0,
+        auxilioPagado: 0, diasTrabajados: 0,
         empresasGrupo: new Set([empresa])
       };
     } else {
@@ -130,7 +128,16 @@ const empleadosPivoteados = {};
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    if (conceptosSalario.includes(conceptoLimpio)) {
+    // ⚡ SE AÑADIÓ EL LEXICÓN INTELIGENTE AL TRANSPORTE PARA NO PERDER COMISIONES NI RECARGOS
+    const esConstitutivoLexicon = [
+      'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
+      'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
+      'DESTAJO', 'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA'
+    ].some(kw => conceptoLimpio.includes(kw));
+    
+    const esExcluidoTransporte = ['VACACION', 'INCAPACIDAD', 'NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIOS', 'SUSPENSION'].some(kw => conceptoLimpio.includes(kw));
+
+    if ((conceptosSalario.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoTransporte) {
       const esSueldoEstricto = conceptoLimpio === 'SUELDO BASICO' || conceptoLimpio === 'BASICO' || conceptoLimpio === 'SUELDO' || conceptoLimpio === 'SALARIO';
 
       if (esSueldoEstricto) {
@@ -142,7 +149,7 @@ const empleadosPivoteados = {};
       emp.totalDevengadoSalarial += valorTotal;
     }
 
-    if (conceptosAuxilio.includes(conceptoLimpio)) {
+    if (conceptosAuxilio.includes(conceptoLimpio) || conceptoLimpio.includes('SUBSIDIO DE TRANSPORTE')) {
       emp.auxilioPagado += valorTotal;
     }
   });
@@ -172,6 +179,7 @@ const empleadosPivoteados = {};
       salarioBaseProyectado = (emp.sueldoBasico / diasEfectivos) * 15;
     }
 
+    // Se evalúa si lo proyectado a la quincena + comisiones/extras supera 1 SMMLV
     const ingresoTotalEvaluado = salarioBaseProyectado + emp.otrosDevengadosSalariales;
     const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && ingresoTotalEvaluado <= limiteSalarialQuincenal;
 
@@ -207,20 +215,11 @@ const empleadosPivoteados = {};
 
     hallazgos.push({
       id: `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
-      empresa: emp.empresa,
-      cedula: emp.cedula,
-      periodo: emp.periodo,
-      nombre: emp.nombre,
-      cargo: emp.cargo,
-      diasTrabajados: diasEfectivos,
-      salarioBase: emp.sueldoBasico,
-      totalDevengadoSalarial: emp.totalDevengadoSalarial,
-      auxilioDeberSer,
-      auxilioPagado: emp.auxilioPagado,
-      diferenciaExacta,
-      diferenciaAbsoluta,
-      tipoHallazgo,
-      severidad
+      empresa: emp.empresa, cedula: emp.cedula, periodo: emp.periodo,
+      nombre: emp.nombre, cargo: emp.cargo, diasTrabajados: diasEfectivos,
+      salarioBase: emp.sueldoBasico, totalDevengadoSalarial: emp.totalDevengadoSalarial,
+      auxilioDeberSer, auxilioPagado: emp.auxilioPagado, diferenciaExacta, diferenciaAbsoluta,
+      tipoHallazgo, severidad
     });
   }
 
@@ -229,14 +228,11 @@ const empleadosPivoteados = {};
     kpis: {
       totalEmpleados: Object.keys(empleadosPivoteados).length,
       totalHallazgos: conteoBajoPago + conteoExcesos,
-      conteoConformes,
-      conteoBajoPago,
-      conteoExcesos,
-      conteoNoAplica,
-      riesgoFinancieroTotal
+      conteoConformes, conteoBajoPago, conteoExcesos, conteoNoAplica, riesgoFinancieroTotal
     }
   };
 }
+
 // ==========================================
 // MÓDULO 2: AUDITORÍA SEGURIDAD SOCIAL (UGPP) v5.0 (NIVEL 1 NORMATIVO)
 // ==========================================
@@ -287,7 +283,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     // 🗓️ NORMALIZADOR INTELIGENTE DE PERÍODO ISO (YYYY-MM)
     let periodoNormalizadoISO = "";
     if (anoMesRaw) {
-      // Maneja "2026/05", "2026-05", "202605"
       const str = anoMesRaw.toString().replace('/', '-').trim();
       if (str.includes('-')) {
         const [a, m] = str.split('-');
@@ -298,7 +293,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     } 
     
     if (!periodoNormalizadoISO && anoRaw && periodoCons) {
-      // Fallback si solo hay Año e IDEN_Periodo
       periodoNormalizadoISO = `${anoRaw}-05`; 
     }
 
@@ -310,22 +304,13 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     if (!empleadosPivoteados[llaveUnica]) {
       empleadosPivoteados[llaveUnica] = {
-        llaveUnica,
-        cedula,
-        periodo: periodoCons,
-        periodoISO: periodoNormalizadoISO, // Guarda p. ej. "2026-05"
+        llaveUnica, cedula, periodo: periodoCons, periodoISO: periodoNormalizadoISO,
         nombre: buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']) || 'Sin Nombre',
         cargo: buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo',
-        empresa,
-        empresasGrupo: new Set([empresa]),
-        totalConstitutivoIBC: 0,
-        totalNoConstitutivo: 0,
-        valorAusentismosIBC: 0,
-        tieneLicenciaNoRemunerada: false,
-        descuentoSaludReal: 0,
-        descuentoPensionReal: 0,
-        diasTrabajados: 0,
-        esLiquidacion: false 
+        empresa, empresasGrupo: new Set([empresa]),
+        totalConstitutivoIBC: 0, totalNoConstitutivo: 0, valorAusentismosIBC: 0,
+        tieneLicenciaNoRemunerada: false, descuentoSaludReal: 0, descuentoPensionReal: 0,
+        diasTrabajados: 0, esLiquidacion: false 
       };
     } else {
       empleadosPivoteados[llaveUnica].empresasGrupo.add(empresa);
@@ -334,7 +319,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Detectar si el período incluye liquidación de prestaciones
     if (conceptoLimpio.includes('CESANTIA') || conceptoLimpio.includes('PRIMA DE SERVICIO')) {
       emp.esLiquidacion = true;
     }
@@ -375,10 +359,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
   });
 
   const hallazgos = [];
-  let conteoConformes = 0;
-  let conteoBajoPago = 0;
-  let conteoExcesos = 0;
-  let conteoDesalineados = 0;
+  let conteoConformes = 0, conteoBajoPago = 0, conteoExcesos = 0, conteoDesalineados = 0;
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
@@ -389,15 +370,12 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
     let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
-    // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
+    // 🏖️ PROMEDIO HISTÓRICO LEGAL PARA VACACIONES (ART. 70 DECRETO 806/1998)
     if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
       const [anoStr, mesStr] = emp.periodoISO.split('-');
       let ano = parseInt(anoStr);
       let mes = parseInt(mesStr) - 1;
-      if (mes === 0) {
-        mes = 12;
-        ano -= 1;
-      }
+      if (mes === 0) { mes = 12; ano -= 1; }
       const periodoAnterior = `${ano}-${mes.toString().padStart(2, '0')}`;
       
       try {
@@ -418,13 +396,13 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       }
     }
     
-    // Ley 1393 (Tope 40%)
+    // Ley 1393 (Tope 40% No Salarial)
     const limite40 = totalDevengado * 0.40;
     if (emp.totalNoConstitutivo > limite40) {
       ibcBruto += (emp.totalNoConstitutivo - limite40);
     }
 
-    // Redondeo al paso configurado
+    // Redondeo al paso configurado (generalmente la empresa lo hace a 500)
     const ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
     const deberSerSalud = Math.round(ibcLiquidacion * 0.04);
     const deberSerPension = Math.round(ibcLiquidacion * 0.04);
@@ -461,21 +439,12 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     hallazgos.push({
       id: `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
-      empresa: emp.empresa,
-      cedula: emp.cedula,
-      periodo: emp.periodo,
-      nombre: emp.nombre,
-      cargo: emp.cargo, 
-      diasTrabajados: diasEfectivos,
-      salarioBase: ibcLiquidacion,
-      ibcImplicito: ibcImplicitoSalud || ibcImplicitoPension,
-      ibcImplicitoPension,
-      totalDevengadoSalarial: totalDevengado,
-      auxilioDeberSer: deberSerSalud,
-      auxilioPagado: emp.descuentoSaludReal,
-      diferenciaExacta: difSalud,
-      tipoHallazgo,
-      severidad
+      empresa: emp.empresa, cedula: emp.cedula, periodo: emp.periodo,
+      nombre: emp.nombre, cargo: emp.cargo, diasTrabajados: diasEfectivos,
+      salarioBase: ibcLiquidacion, ibcImplicito: ibcImplicitoSalud || ibcImplicitoPension,
+      ibcImplicitoPension, totalDevengadoSalarial: totalDevengado,
+      auxilioDeberSer: deberSerSalud, auxilioPagado: emp.descuentoSaludReal,
+      diferenciaExacta: difSalud, tipoHallazgo, severidad
     });
   }
 
@@ -483,12 +452,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     hallazgos,
     kpis: {
       totalEmpleados: Object.keys(empleadosPivoteados).length,
-      conteoConformes,
-      conteoBajoPago,
-      conteoExcesos, 
-      conteoDesalineados,
-      conteoNoAplica: 0 
+      conteoConformes, conteoBajoPago, conteoExcesos, conteoDesalineados, conteoNoAplica: 0 
     }
   };
 }
-
