@@ -1559,73 +1559,77 @@ const handleNotificarPlan = (planId) => {
                                   </div>
                                 </div>
 
-                                {/* Tabla Maestra de Actividades (Estilo Big Four) */}
-                                <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-                                  <table className="w-full text-left text-[10px]">
-                                    <thead className="bg-[#0A3B32] text-white">
-                                      <tr>
-                                        <th className="p-4 font-bold uppercase tracking-widest w-16 text-center">ID</th>
-                                        <th className="p-4 font-bold uppercase tracking-widest w-[380px]">Descripción del Hallazgo Base</th>
-                                        <th className="p-4 font-bold uppercase tracking-widest">Acción de Mejoramiento</th>
-                                        <th className="p-4 font-bold uppercase tracking-widest w-32">Responsable</th>
-                                        <th className="p-4 font-bold uppercase tracking-widest w-24 text-center">Cronograma</th>
-                                        <th className="p-4 font-bold uppercase tracking-widest w-20 text-center">Avance</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-200">
-                                      {planesDelInforme.map((act, index) => {
-                                        const h = safeHallazgos.find(x => String(x.id) === String(act.idHallazgo)) || {};
-                                        return (
-                                          <tr key={`pdf-row-${act.id}`} className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} break-inside-avoid`}>
-                                            <td className="p-4 align-top text-center">
-                                              <span className="font-mono font-black text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1 rounded">
-                                                PLA-{act.id.toString().slice(-4)}
-                                              </span>
-                                            </td>
-                                            <td className="p-4 align-top pr-6">
-                                              <div className="font-black text-[#0A3B32] text-[9px] uppercase tracking-wider mb-2 flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 block"></span>
-                                                {h.ref || 'S/N'}
-                                              </div>
-                                              <p className="font-medium text-slate-700 leading-relaxed text-justify whitespace-pre-wrap">
-                                                {h.descripcion || h.titulo || 'Sin descripción detallada registrada.'}
-                                              </p>
-                                            </td>
-                                            <td className="p-4 align-top pr-6">
-                                              <div className="font-black text-[#0A3B32] text-[9px] uppercase tracking-wider mb-2 flex items-center gap-2">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block"></span>
-                                                Acción Requerida
-                                              </div>
-                                              <p className="font-bold text-slate-800 leading-relaxed text-justify whitespace-pre-wrap">
-                                                {act.accion}
-                                              </p>
-                                            </td>
-                                            <td className="p-4 align-top">
-                                              <span className="font-bold text-slate-700 block">
-                                                {act.responsable || 'N/A'}
-                                              </span>
-                                            </td>
-                                            <td className="p-4 align-top text-center space-y-3">
-                                              <div>
-                                                <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Inicio</span>
-                                                <span className="block text-slate-700 font-mono">{act.fechaInicio || 'N/A'}</span>
-                                              </div>
-                                              <div>
-                                                <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Límite</span>
-                                                <span className="block text-[#0A3B32] font-mono font-black">{act.fecha || 'N/A'}</span>
-                                              </div>
-                                            </td>
-                                            <td className="p-4 align-top text-center">
-                                              <div className={`mx-auto flex flex-col items-center justify-center w-12 h-12 rounded-full border-2 ${act.progreso === 100 ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : act.progreso === 0 ? 'border-rose-500 text-rose-600 bg-rose-50' : 'border-amber-500 text-amber-600 bg-amber-50'}`}>
-                                                <span className="font-black text-sm leading-none">{act.progreso}</span>
-                                                <span className="text-[7px] font-bold uppercase mt-0.5">%</span>
-                                              </div>
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
+                                {/* Tabla Maestra de Actividades (Estilo Big Four - Refactorizada a Divs para evitar cortes) */}
+                                <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm flex flex-col">
+                                  
+                                  {/* Cabecera */}
+                                  <div className="bg-[#0A3B32] text-white flex text-[10px]">
+                                    <div className="p-4 font-bold uppercase tracking-widest w-16 text-center shrink-0">ID</div>
+                                    <div className="p-4 font-bold uppercase tracking-widest w-[380px] shrink-0">Descripción del Hallazgo Base</div>
+                                    <div className="p-4 font-bold uppercase tracking-widest flex-1">Acción de Mejoramiento</div>
+                                    <div className="p-4 font-bold uppercase tracking-widest w-32 shrink-0">Responsable</div>
+                                    <div className="p-4 font-bold uppercase tracking-widest w-24 text-center shrink-0">Cronograma</div>
+                                    <div className="p-4 font-bold uppercase tracking-widest w-20 text-center shrink-0">Avance</div>
+                                  </div>
+
+                                  {/* Cuerpo */}
+                                  <div className="flex flex-col text-[10px] divide-y divide-slate-200">
+                                    {planesDelInforme.map((act, index) => {
+                                      const h = safeHallazgos.find(x => String(x.id) === String(act.idHallazgo)) || {};
+                                      return (
+                                        <div 
+                                          key={`pdf-row-${act.id}`} 
+                                          style={{ pageBreakInside: 'avoid' }} 
+                                          className={`flex break-inside-avoid ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}
+                                        >
+                                          <div className="p-4 w-16 text-center shrink-0">
+                                            <span className="font-mono font-black text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1 rounded">
+                                              PLA-{act.id.toString().slice(-4)}
+                                            </span>
+                                          </div>
+                                          <div className="p-4 w-[380px] pr-6 shrink-0">
+                                            <div className="font-black text-[#0A3B32] text-[9px] uppercase tracking-wider mb-2 flex items-center gap-2">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 block"></span>
+                                              {h.ref || 'S/N'}
+                                            </div>
+                                            <p className="font-medium text-slate-700 leading-relaxed text-justify whitespace-pre-wrap">
+                                              {h.descripcion || h.titulo || 'Sin descripción detallada registrada.'}
+                                            </p>
+                                          </div>
+                                          <div className="p-4 flex-1 pr-6">
+                                            <div className="font-black text-[#0A3B32] text-[9px] uppercase tracking-wider mb-2 flex items-center gap-2">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 block"></span>
+                                              Acción Requerida
+                                            </div>
+                                            <p className="font-bold text-slate-800 leading-relaxed text-justify whitespace-pre-wrap">
+                                              {act.accion}
+                                            </p>
+                                          </div>
+                                          <div className="p-4 w-32 shrink-0">
+                                            <span className="font-bold text-slate-700 block">
+                                              {act.responsable || 'N/A'}
+                                            </span>
+                                          </div>
+                                          <div className="p-4 w-24 text-center space-y-3 shrink-0">
+                                            <div>
+                                              <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Inicio</span>
+                                              <span className="block text-slate-700 font-mono">{act.fechaInicio || 'N/A'}</span>
+                                            </div>
+                                            <div>
+                                              <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest">Límite</span>
+                                              <span className="block text-[#0A3B32] font-mono font-black">{act.fecha || 'N/A'}</span>
+                                            </div>
+                                          </div>
+                                          <div className="p-4 w-20 text-center shrink-0">
+                                            <div className={`mx-auto flex flex-col items-center justify-center w-12 h-12 rounded-full border-2 ${act.progreso === 100 ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : act.progreso === 0 ? 'border-rose-500 text-rose-600 bg-rose-50' : 'border-amber-500 text-amber-600 bg-amber-50'}`}>
+                                              <span className="font-black text-sm leading-none">{act.progreso}</span>
+                                              <span className="text-[7px] font-bold uppercase mt-0.5">%</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
 
                                 {/* Firmas de Autorización */}
