@@ -1576,7 +1576,7 @@ const handleNotificarPlan = (planId) => {
                                       {planesDelInforme.map((act, index) => {
                                         const h = safeHallazgos.find(x => String(x.id) === String(act.idHallazgo)) || {};
                                         return (
-                                          <tr key={`pdf-row-${act.id}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                                          <tr key={`pdf-row-${act.id}`} className={`${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} break-inside-avoid`}>
                                             <td className="p-4 align-top text-center">
                                               <span className="font-mono font-black text-slate-500 bg-slate-100 border border-slate-200 px-2 py-1 rounded">
                                                 PLA-{act.id.toString().slice(-4)}
