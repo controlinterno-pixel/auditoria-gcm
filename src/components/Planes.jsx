@@ -1460,15 +1460,15 @@ const handleNotificarPlan = (planId) => {
                                   )}
                                 </div>
                                 
-                                {evalGuardada ? (
+                               {evalGuardada ? (
                                   <div className="flex gap-2 w-full md:w-auto">
                                     <button 
                                       onClick={() => {
-                                        setCriterios(evalGuardada.criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
-                                        setJustificacion(evalGuardada.justificacion || '');
+                                        setCriterios(evalGuardada?.criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
+                                        setJustificacion(evalGuardada?.justificacion || '');
                                         setModalEval({ 
-                                          activo: true, idInforme: idInf, planes: planesDelInforme,
-                                          totalActividades: planesDelInforme.length, isReadOnly: true // MODO SOLO LECTURA
+                                          activo: true, idInforme: idInf, planes: planesDelInforme || [],
+                                          totalActividades: planesDelInforme?.length || 0, isReadOnly: true 
                                         });
                                       }}
                                       className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2.5 rounded-xl text-xs font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
@@ -1480,7 +1480,10 @@ const handleNotificarPlan = (planId) => {
                                       onClick={() => {
                                         setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
                                         setJustificacion('');
-                                        setModalEval({ activo: true, idInforme: idInf, planes: planesDelInforme, totalActividades: planesDelInforme.length, isReadOnly: false });
+                                        setModalEval({ 
+                                          activo: true, idInforme: idInf, planes: planesDelInforme || [], 
+                                          totalActividades: planesDelInforme?.length || 0, isReadOnly: false 
+                                        });
                                       }}
                                       className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-2.5 rounded-xl text-[10px] font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-1 w-full md:w-auto justify-center"
                                       title="Volver a evaluar si hubo un error"
@@ -1493,7 +1496,10 @@ const handleNotificarPlan = (planId) => {
                                     onClick={() => {
                                       setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
                                       setJustificacion('');
-                                      setModalEval({ activo: true, idInforme: idInf, planes: planesDelInforme, totalActividades: planesDelInforme.length, isReadOnly: false });
+                                      setModalEval({ 
+                                        activo: true, idInforme: idInf, planes: planesDelInforme || [], 
+                                        totalActividades: planesDelInforme?.length || 0, isReadOnly: false 
+                                      });
                                     }}
                                     className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
                                   >
@@ -1515,6 +1521,122 @@ const handleNotificarPlan = (planId) => {
           </div>
         );
       })()}
+{/* ===================================================================== */}
+      {/* ⚖️ MODAL DE EVALUACIÓN HOLÍSTICA PONDERADA (METODOLOGÍA EXCEL)        */}
+      {/* ===================================================================== */}
+      {modalEval.activo && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
+            
+            <div className="bg-[#0A3B32] p-5 flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="text-white font-black text-lg flex items-center gap-2"><span>⚖️</span> Evaluación Ponderada del Plan de Acción</h3>
+                <p className="text-emerald-100 text-[10px] font-medium tracking-wide uppercase mt-0.5">Metodología COSO/ISO 31000 - Evaluando {modalEval?.planes?.length || 0} actividad(es).</p>
+              </div>
+              <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="text-emerald-100 hover:text-white font-black text-xl px-2 transition-colors">✕</button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-inner">
+                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Parámetros de Calificación del Paquete</h4>
+                
+                <div className="space-y-4">
+                  {[
+                    { id: 'c1', titulo: 'Completitud y Cobertura (30%)', desc: '¿El plan atiende todos los hallazgos o dejó riesgos por fuera?', peso: 0.3 },
+                    { id: 'c2', titulo: 'Análisis de Causa Raíz (20%)', desc: '¿Va a la raíz del problema o solo propone paños de agua tibia?', peso: 0.2 },
+                    { id: 'c3', titulo: 'Planes de Choque Inmediato (20%)', desc: '¿Hay acciones de contingencia a corto plazo para frenar el impacto?', peso: 0.2 },
+                    { id: 'c4', titulo: 'Temporalidad y Fechas (20%)', desc: '¿Las fechas programadas son realistas y oportunas?', peso: 0.2 },
+                    { id: 'c5', titulo: 'Controles e Indicadores (10%)', desc: '¿Proponen formas claras de medir la efectividad (KRIs/KPIs)?', peso: 0.1 }
+                  ].map(crit => {
+                    const valorCriterio = criterios?.[crit.id] ?? 100;
+                    return (
+                    <div key={crit.id} className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-slate-300">
+                      <div className="flex-1">
+                        <label className="text-xs font-black text-slate-800 uppercase tracking-wide">{crit.titulo}</label>
+                        <p className="text-[10px] text-slate-500 mt-0.5">{crit.desc}</p>
+                      </div>
+                      <div className="w-full md:w-1/3 flex items-center gap-3">
+                        <input 
+                          type="range" min="0" max="100" step="5" 
+                          value={valorCriterio} 
+                          onChange={(e) => setCriterios({...criterios, [crit.id]: Number(e.target.value)})}
+                          disabled={modalEval.isReadOnly}
+                          className={`w-full accent-[#0A3B32] ${modalEval.isReadOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                        />
+                        <span className={`font-mono font-black text-[11px] w-12 text-center rounded py-1 border shadow-sm ${valorCriterio >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : valorCriterio >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                          {valorCriterio}%
+                        </span>
+                      </div>
+                    </div>
+                  )})}
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-6">
+                <div className="flex-1 space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Dictamen / Justificación de Auditoría</label>
+                  <textarea 
+                    value={justificacion || ''}
+                    onChange={(e) => setJustificacion(e.target.value)}
+                    disabled={modalEval.isReadOnly}
+                    placeholder="Escriba el motivo de la calificación (Obligatorio si el puntaje es menor a 80%)..."
+                    className={`w-full border rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] transition-all shadow-sm ${modalEval.isReadOnly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : ((puntajeHolistico || 0) < 80 && (!justificacion || justificacion.trim() === '') ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:border-[#0A3B32]')}`}
+                  />
+                  {!modalEval.isReadOnly && (puntajeHolistico || 0) < 80 && (!justificacion || justificacion.trim() === '') && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para rechazar.</span>}
+                </div>
+                
+              <div className="w-full md:w-64 flex flex-col gap-4 shrink-0">
+                  <div className="bg-slate-900 rounded-2xl p-5 flex flex-col justify-center items-center text-center shadow-lg relative overflow-hidden flex-1">
+                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-20 ${(puntajeHolistico || 0) >= 80 ? 'bg-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}></div>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-2 relative z-10">Score Ponderado</p>
+                    <span className={`text-6xl font-black font-mono leading-none relative z-10 ${(puntajeHolistico || 0) >= 80 ? 'text-emerald-400' : (puntajeHolistico || 0) >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                      {puntajeHolistico || 0}<span className="text-3xl text-slate-500 ml-1">%</span>
+                    </span>
+                    <span className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider relative z-10 shadow-sm ${(puntajeHolistico || 0) >= 80 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : (puntajeHolistico || 0) >= 50 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50'}`}>
+                      {(puntajeHolistico || 0) >= 80 ? '✅ Plan Viable' : (puntajeHolistico || 0) >= 50 ? '⚠️ Requiere Ajustes' : '❌ Plan Inoperante'}
+                    </span>
+                  </div>
+
+                  {modalEval.isReadOnly && (
+                    <button 
+                      onClick={() => exportarA_PDF(dictamenRef, `Dictamen_Plan_${modalEval.idInforme || 'N/A'}.pdf`, '#ffffff')}
+                      className="bg-[#0A3B32] hover:bg-[#062620] text-white px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2"
+                    >
+                      📄 Descargar Dictamen PDF
+                    </button>
+                  )}
+                </div>
+              </div>
+
+            </div>
+
+            <div className="bg-slate-50 border-t border-slate-200 p-5 flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center md:text-left">
+                {modalEval.isReadOnly 
+                  ? "Esta es una vista histórica de solo lectura. No se puede modificar." 
+                  : `La calificación se aplicará en lote a las ${modalEval?.planes?.length || 0} actividades seleccionadas.`}
+              </span>
+              <div className="flex gap-3 w-full md:w-auto">
+                {modalEval.isReadOnly ? (
+                  <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="w-full md:w-auto px-8 py-3 rounded-xl text-xs font-black text-white bg-slate-800 hover:bg-slate-900 transition-colors uppercase tracking-widest shadow-sm">
+                    Cerrar Visualización
+                  </button>
+                ) : (
+                  <>
+                    <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
+                      Cancelar
+                    </button>
+                    <button onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${(puntajeHolistico || 0) >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                      {(puntajeHolistico || 0) >= 80 ? '✅ Aprobar Diseño' : '✕ Rechazar Diseño'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ===================================================================== */}
       {/* 📄 LIENZO OCULTO PARA EXPORTAR EL DICTAMEN A PDF                      */}
@@ -1528,11 +1650,11 @@ const handleNotificarPlan = (planId) => {
               <div>
                 <h1 className="text-3xl font-black text-[#0A3B32]">TERMALES SANTA ROSA DE CABAL</h1>
                 <h2 className="text-xl font-bold text-slate-600 mt-2">DICTAMEN DE EVALUACIÓN DE AUDITORÍA</h2>
-               <p className="text-sm font-bold text-slate-400 mt-1">
-                  Referencia de Informe: {informesAuditoria && Array.isArray(informesAuditoria) ? (informesAuditoria.find(i => String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme || 'N/A') : 'N/A'}
+                <p className="text-sm font-bold text-slate-400 mt-1">
+                  Referencia de Informe: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme || 'N/A'}
                 </p>
                 <p className="text-sm font-bold text-slate-400">
-                  Proceso Auditado: {informesAuditoria && Array.isArray(informesAuditoria) ? (informesAuditoria.find(i => String(i.id) === String(modalEval.idInforme))?.proceso || 'Proceso General') : 'Proceso General'}
+                  Proceso Auditado: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.proceso || 'Proceso General'}
                 </p>
               </div>
               <div className="text-right text-sm">
@@ -1551,16 +1673,16 @@ const handleNotificarPlan = (planId) => {
             <div className="mb-8">
               <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">1. Calificación Global y Ponderada</h3>
               <div className="flex gap-6 items-center bg-slate-50 p-6 rounded-xl border border-slate-200">
-                <div className={`w-32 h-32 rounded-full flex flex-col items-center justify-center border-8 shrink-0 ${puntajeHolistico >= 80 ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : puntajeHolistico >= 50 ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-red-500 text-red-700 bg-red-50'}`}>
-                  <span className="text-5xl font-black leading-none">{puntajeHolistico}</span>
+                <div className={`w-32 h-32 rounded-full flex flex-col items-center justify-center border-8 shrink-0 ${(puntajeHolistico || 0) >= 80 ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : (puntajeHolistico || 0) >= 50 ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-red-500 text-red-700 bg-red-50'}`}>
+                  <span className="text-5xl font-black leading-none">{puntajeHolistico || 0}</span>
                   <span className="text-xs font-bold uppercase mt-1">Puntos / 100</span>
                 </div>
                 <div className="flex-1">
-                  <h4 className={`text-2xl font-black uppercase mb-2 ${puntajeHolistico >= 80 ? 'text-emerald-700' : puntajeHolistico >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
-                    {puntajeHolistico >= 80 ? 'ESTADO: VIABLE (APROBADO)' : 'ESTADO: CRÍTICO (RECHAZADO)'}
+                  <h4 className={`text-2xl font-black uppercase mb-2 ${(puntajeHolistico || 0) >= 80 ? 'text-emerald-700' : (puntajeHolistico || 0) >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
+                    {(puntajeHolistico || 0) >= 80 ? 'ESTADO: VIABLE (APROBADO)' : 'ESTADO: CRÍTICO (RECHAZADO)'}
                   </h4>
                   <p className="text-base text-slate-700 font-medium leading-relaxed">
-                    {puntajeHolistico >= 80 
+                    {(puntajeHolistico || 0) >= 80 
                       ? 'El plan propuesto cumple con los criterios de calidad técnica requeridos, demuestra un análisis de causa raíz adecuado y ha sido autorizado formalmente para iniciar su fase de ejecución.'
                       : 'El plan propuesto es técnicamente inoperante en su estado actual y no garantiza la mitigación del riesgo. Se exige su rechazo inmediato y la reformulación obligatoria de las acciones correctivas en la plataforma institucional.'}
                   </p>
@@ -1581,11 +1703,11 @@ const handleNotificarPlan = (planId) => {
                 </thead>
                 <tbody>
                   {[
-                    { t: 'Completitud y Cobertura: ¿Atiende todos los hallazgos sin omitir riesgos?', p: '30%', v: criterios.c1 },
-                    { t: 'Análisis de Causa Raíz: ¿Va a la raíz del problema y no solo al síntoma?', p: '20%', v: criterios.c2 },
-                    { t: 'Planes de Choque Inmediato: ¿Implementa contingencias a corto plazo?', p: '20%', v: criterios.c3 },
-                    { t: 'Temporalidad: ¿Las fechas son realistas y oportunas?', p: '20%', v: criterios.c4 },
-                    { t: 'Indicadores: ¿Propone controles medibles y KPIs claros?', p: '10%', v: criterios.c5 }
+                    { t: 'Completitud y Cobertura: ¿Atiende todos los hallazgos sin omitir riesgos?', p: '30%', v: criterios?.c1 ?? 100 },
+                    { t: 'Análisis de Causa Raíz: ¿Va a la raíz del problema y no solo al síntoma?', p: '20%', v: criterios?.c2 ?? 100 },
+                    { t: 'Planes de Choque Inmediato: ¿Implementa contingencias a corto plazo?', p: '20%', v: criterios?.c3 ?? 100 },
+                    { t: 'Temporalidad: ¿Las fechas son realistas y oportunas?', p: '20%', v: criterios?.c4 ?? 100 },
+                    { t: 'Indicadores: ¿Propone controles medibles y KPIs claros?', p: '10%', v: criterios?.c5 ?? 100 }
                   ].map((row, i) => (
                     <tr key={i} className="border-b border-slate-200">
                       <td className="p-4 font-bold text-slate-700">{row.t}</td>
