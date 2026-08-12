@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
+import { exportarA_PDF } from '../utils/pdfExport';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -90,7 +91,8 @@ const [busquedaRapida, setBusquedaRapida] = useState('');
   const [uploadingCell, setUploadingCell] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   // ⚖️ ESTADOS PARA EVALUACIÓN HOLÍSTICA DEL PLAN (METODOLOGÍA EXCEL)
-  const [modalEval, setModalEval] = useState({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
+  const [modalEval, setModalEval] = useState({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false });
+  const dictamenRef = useRef(null);
   const [criterios, setCriterios] = useState({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   const [justificacion, setJustificacion] = useState('');
   const puntajeHolistico = Math.round((criterios.c1 * 0.3) + (criterios.c2 * 0.2) + (criterios.c3 * 0.2) + (criterios.c4 * 0.2) + (criterios.c5 * 0.1));
@@ -443,16 +445,18 @@ const handleNotificarPlan = (planId) => {
     await saveToCloud({ planes: updatedPlanesList });
 
   if (ejecutarDespachoGmailApi) {
-      // Limpiamos caracteres especiales para que no lleguen rotos al correo (ÃƒÂ³)
       const quitarAcentos = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       
-      const tituloLimpio = esAprobado ? `Plan de Accion APROBADO (${puntajeHolistico}%)` : `Plan de Accion RECHAZADO (${puntajeHolistico}%)`;
+      const tituloLimpio = esAprobado 
+        ? `DICTAMEN APROBATORIO: Evaluacion de Plan de Accion (${puntajeHolistico}/100)` 
+        : `REQUERIMIENTO DE REESTRUCTURACION: Plan de Accion Inviable (${puntajeHolistico}/100)`;
+      
       const mensajeLimpio = esAprobado 
-        ? `El paquete de acciones cumple con la calidad GRC requerida y puede iniciar su ejecucion.`
-        : `El plan no supera el 80% de calidad requerido. Ingrese a la plataforma GCM para leer el dictamen del auditor y reformular las acciones.`;
+        ? `1. CALIFICACION GLOBAL (SCORE: ${puntajeHolistico}/100)\nDe acuerdo con el marco metodologico de Riesgos, el plan de mejoramiento ha sido evaluado como VIABLE.\n\n2. DICTAMEN DE AUDITORIA:\n"${justificacion || 'Las acciones propuestas atacan la causa raiz y plantean tiempos coherentes.'}"\n\n3. RESOLUCION:\nSe autoriza formalmente a la Direccion responsable el inicio de la fase de ejecucion y el futuro cargue de evidencias en la plataforma GCM.`
+        : `1. CALIFICACION GLOBAL (SCORE: ${puntajeHolistico}/100 - CRITICO)\nDe acuerdo con el marco metodologico de Riesgos y las Normas Globales de Auditoria Interna, el plan propuesto es tecnicamente inoperante en su estado actual.\n\n2. JUSTIFICACION TECNICA DEL RECHAZO:\n"${justificacion}"\n\n3. DICTAMEN Y REQUERIMIENTO:\nSe RECHAZA el plan y se solicita a la Direccion responsable su reestructuracion inmediata en la plataforma GCM, incorporando acciones de choque inmediatas y controles medibles para evitar la materializacion del riesgo.`;
 
       await ejecutarDespachoGmailApi({
-        ref_consecutivo: esAprobado ? `EVAL-APROBADA` : `EVAL-RECHAZADA`,
+        ref_consecutivo: esAprobado ? `DICTAMEN-APROBADO` : `DICTAMEN-CRITICO`,
         titulo_informe: quitarAcentos(tituloLimpio),
         proceso_auditado: quitarAcentos(mensajeLimpio),
         enlace_pdf: 'https://auditoria-gcm.vercel.app',
@@ -1510,103 +1514,100 @@ const handleNotificarPlan = (planId) => {
       })()}
 
       {/* ===================================================================== */}
-      {/* ⚖️ MODAL DE EVALUACIÓN HOLÍSTICA PONDERADA (METODOLOGÍA EXCEL)        */}
+      {/* 📄 LIENZO OCULTO PARA EXPORTAR EL DICTAMEN A PDF                      */}
+      {/* ===================================================================== */}
       {modalEval.activo && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
+        <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
+          <div ref={dictamenRef} className="w-[1000px] bg-white p-12 font-sans text-slate-800">
             
-            <div className="bg-[#0A3B32] p-5 flex justify-between items-center shrink-0">
+            {/* Cabecera Institucional */}
+            <div className="flex justify-between items-start border-b-4 border-[#0A3B32] pb-6 mb-8">
               <div>
-                <h3 className="text-white font-black text-lg flex items-center gap-2"><span>⚖️</span> Evaluación Ponderada del Plan de Acción</h3>
-                <p className="text-emerald-100 text-[10px] font-medium tracking-wide uppercase mt-0.5">Metodología COSO/ISO 31000 - Evaluando {modalEval.planes.length} actividad(es).</p>
+                <h1 className="text-3xl font-black text-[#0A3B32]">TERMALES SANTA ROSA DE CABAL</h1>
+                <h2 className="text-xl font-bold text-slate-600 mt-2">DICTAMEN DE EVALUACIÓN DE AUDITORÍA</h2>
+                <p className="text-sm font-bold text-slate-400 mt-1">
+                  Referencia de Informe: {informesAuditoria.find(i => String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme}
+                </p>
+                <p className="text-sm font-bold text-slate-400">
+                  Proceso Auditado: {informesAuditoria.find(i => String(i.id) === String(modalEval.idInforme))?.proceso || 'Proceso General'}
+                </p>
               </div>
-              <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="text-emerald-100 hover:text-white font-black text-xl px-2 transition-colors">✕</button>
+              <div className="text-right text-sm">
+                <p><span className="font-bold">Fecha de Emisión:</span> {new Date().toLocaleDateString('es-CO')}</p>
+                <p><span className="font-bold">De:</span> Control Interno y Auditoría Interna</p>
+                <p><span className="font-bold">Para:</span> Liderazgo de Proceso</p>
+              </div>
             </div>
 
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-inner">
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Parámetros de Calificación del Paquete</h4>
-                
-                <div className="space-y-4">
+            {/* Texto Introductorio formal */}
+            <p className="text-base text-justify mb-8 font-medium leading-relaxed">
+              El presente documento constituye el dictamen oficial sobre el paquete de acciones correctivas propuesto por el área responsable para mitigar los riesgos derivados del informe en referencia. La evaluación se fundamenta en el marco metodológico del Sistema Integral de Riesgos y las Normas Globales de Auditoría Interna.
+            </p>
+
+            {/* Sección 1: Calificación */}
+            <div className="mb-8">
+              <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">1. Calificación Global y Ponderada</h3>
+              <div className="flex gap-6 items-center bg-slate-50 p-6 rounded-xl border border-slate-200">
+                <div className={`w-32 h-32 rounded-full flex flex-col items-center justify-center border-8 shrink-0 ${puntajeHolistico >= 80 ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : puntajeHolistico >= 50 ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-red-500 text-red-700 bg-red-50'}`}>
+                  <span className="text-5xl font-black leading-none">{puntajeHolistico}</span>
+                  <span className="text-xs font-bold uppercase mt-1">Puntos / 100</span>
+                </div>
+                <div className="flex-1">
+                  <h4 className={`text-2xl font-black uppercase mb-2 ${puntajeHolistico >= 80 ? 'text-emerald-700' : puntajeHolistico >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
+                    {puntajeHolistico >= 80 ? 'ESTADO: VIABLE (APROBADO)' : 'ESTADO: CRÍTICO (RECHAZADO)'}
+                  </h4>
+                  <p className="text-base text-slate-700 font-medium leading-relaxed">
+                    {puntajeHolistico >= 80 
+                      ? 'El plan propuesto cumple con los criterios de calidad técnica requeridos, demuestra un análisis de causa raíz adecuado y ha sido autorizado formalmente para iniciar su fase de ejecución.'
+                      : 'El plan propuesto es técnicamente inoperante en su estado actual y no garantiza la mitigación del riesgo. Se exige su rechazo inmediato y la reformulación obligatoria de las acciones correctivas en la plataforma institucional.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Sección 2: Criterios */}
+            <div className="mb-8">
+              <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">2. Desglose de Evaluación Técnica</h3>
+              <table className="w-full text-base text-left border-collapse border border-slate-300">
+                <thead className="bg-slate-800 text-white">
+                  <tr>
+                    <th className="p-4 border border-slate-400">Criterio Metodológico (COSO/ISO 31000)</th>
+                    <th className="p-4 border border-slate-400 text-center w-24">Peso</th>
+                    <th className="p-4 border border-slate-400 text-center w-32">Calificación</th>
+                  </tr>
+                </thead>
+                <tbody>
                   {[
-                    { id: 'c1', titulo: 'Completitud y Cobertura (30%)', desc: '¿El plan atiende todos los hallazgos o dejó riesgos por fuera?', peso: 0.3 },
-                    { id: 'c2', titulo: 'Análisis de Causa Raíz (20%)', desc: '¿Va a la raíz del problema o solo propone paños de agua tibia?', peso: 0.2 },
-                    { id: 'c3', titulo: 'Planes de Choque Inmediato (20%)', desc: '¿Hay acciones de contingencia a corto plazo para frenar el impacto?', peso: 0.2 },
-                    { id: 'c4', titulo: 'Temporalidad y Fechas (20%)', desc: '¿Las fechas programadas son realistas y oportunas?', peso: 0.2 },
-                    { id: 'c5', titulo: 'Controles e Indicadores (10%)', desc: '¿Proponen formas claras de medir la efectividad (KRIs/KPIs)?', peso: 0.1 }
-                  ].map(crit => (
-                    <div key={crit.id} className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm transition-all hover:border-slate-300">
-                      <div className="flex-1">
-                        <label className="text-xs font-black text-slate-800 uppercase tracking-wide">{crit.titulo}</label>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{crit.desc}</p>
-                      </div>
-                      <div className="w-full md:w-1/3 flex items-center gap-3">
-                        <input 
-                          type="range" min="0" max="100" step="5" 
-                          value={criterios[crit.id]} 
-                          onChange={(e) => setCriterios({...criterios, [crit.id]: Number(e.target.value)})}
-                          disabled={modalEval.isReadOnly}
-                          className={`w-full accent-[#0A3B32] ${modalEval.isReadOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                        />
-                        <span className={`font-mono font-black text-[11px] w-12 text-center rounded py-1 border shadow-sm ${criterios[crit.id] >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : criterios[crit.id] >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                          {criterios[crit.id]}%
-                        </span>
-                      </div>
-                    </div>
+                    { t: 'Completitud y Cobertura: ¿Atiende todos los hallazgos sin omitir riesgos?', p: '30%', v: criterios.c1 },
+                    { t: 'Análisis de Causa Raíz: ¿Va a la raíz del problema y no solo al síntoma?', p: '20%', v: criterios.c2 },
+                    { t: 'Planes de Choque Inmediato: ¿Implementa contingencias a corto plazo?', p: '20%', v: criterios.c3 },
+                    { t: 'Temporalidad: ¿Las fechas son realistas y oportunas?', p: '20%', v: criterios.c4 },
+                    { t: 'Indicadores: ¿Propone controles medibles y KPIs claros?', p: '10%', v: criterios.c5 }
+                  ].map((row, i) => (
+                    <tr key={i} className="border-b border-slate-200">
+                      <td className="p-4 font-bold text-slate-700">{row.t}</td>
+                      <td className="p-4 text-center text-slate-500 font-bold">{row.p}</td>
+                      <td className={`p-4 text-center font-black ${row.v >= 80 ? 'text-emerald-600' : row.v >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{row.v}%</td>
+                    </tr>
                   ))}
-                </div>
-              </div>
-
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="flex-1 space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Dictamen / Justificación de Auditoría</label>
-                  <textarea 
-                    value={justificacion}
-                    onChange={(e) => setJustificacion(e.target.value)}
-                    disabled={modalEval.isReadOnly}
-                    placeholder="Escriba el motivo de la calificación (Obligatorio si el puntaje es menor a 80%)..."
-                    className={`w-full border rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] transition-all shadow-sm ${modalEval.isReadOnly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : (puntajeHolistico < 80 && justificacion.trim() === '' ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:border-[#0A3B32]')}`}
-                  />
-                  {!modalEval.isReadOnly && puntajeHolistico < 80 && justificacion.trim() === '' && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para rechazar.</span>}
-                </div>
-                
-                <div className="w-full md:w-64 bg-slate-900 rounded-2xl p-5 flex flex-col justify-center items-center text-center shadow-lg shrink-0 relative overflow-hidden">
-                  <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl opacity-20 ${puntajeHolistico >= 80 ? 'bg-emerald-400' : puntajeHolistico >= 50 ? 'bg-amber-400' : 'bg-rose-400'}`}></div>
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black mb-2 relative z-10">Score Ponderado</p>
-                  <span className={`text-6xl font-black font-mono leading-none relative z-10 ${puntajeHolistico >= 80 ? 'text-emerald-400' : puntajeHolistico >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
-                    {puntajeHolistico}<span className="text-3xl text-slate-500 ml-1">%</span>
-                  </span>
-                  <span className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider relative z-10 shadow-sm ${puntajeHolistico >= 80 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50' : puntajeHolistico >= 50 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50' : 'bg-rose-500/20 text-rose-300 border border-rose-500/50'}`}>
-                    {puntajeHolistico >= 80 ? '✅ Plan Viable' : puntajeHolistico >= 50 ? '⚠️ Requiere Ajustes' : '❌ Plan Inoperante'}
-                  </span>
-                </div>
-              </div>
-
+                </tbody>
+              </table>
             </div>
 
-            <div className="bg-slate-50 border-t border-slate-200 p-5 flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center md:text-left">
-                {modalEval.isReadOnly 
-                  ? "Esta es una vista histórica de solo lectura. No se puede modificar." 
-                  : `La calificación se aplicará en lote a las ${modalEval.planes.length} actividades seleccionadas.`}
-              </span>
-              <div className="flex gap-3 w-full md:w-auto">
-                {modalEval.isReadOnly ? (
-                  <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="w-full md:w-auto px-8 py-3 rounded-xl text-xs font-black text-white bg-slate-800 hover:bg-slate-900 transition-colors uppercase tracking-widest shadow-sm">
-                    Cerrar Visualización
-                  </button>
-                ) : (
-                  <>
-                    <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
-                      Cancelar
-                    </button>
-                    <button onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${puntajeHolistico >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                      {puntajeHolistico >= 80 ? '✅ Aprobar Diseño' : '✕ Rechazar Diseño'}
-                    </button>
-                  </>
-                )}
+            {/* Sección 3: Dictamen Escrito */}
+            <div className="mb-8">
+              <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">3. Justificación y Dictamen Oficial del Auditor</h3>
+              <div className="bg-slate-50 p-6 rounded-xl border border-slate-300 min-h-[150px]">
+                <p className="text-base font-medium text-slate-800 whitespace-pre-wrap italic">
+                  "{justificacion || 'Se han revisado las acciones propuestas frente a los criterios normativos y se concluye que el diseño del plan es robusto. No se presentan observaciones adicionales, se autoriza proceder con la ejecución.'}"
+                </p>
               </div>
+            </div>
+
+            {/* Pie de página Legal */}
+            <div className="mt-16 pt-6 border-t-2 border-slate-300 flex justify-between items-center text-xs text-slate-500 font-bold">
+              <span className="uppercase tracking-widest">Documento Oficial Generado por el Sistema GCM</span>
+              <span>Auditoría Interna Corporativa</span>
             </div>
           </div>
         </div>
