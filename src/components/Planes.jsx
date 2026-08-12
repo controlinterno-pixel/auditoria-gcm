@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 
 import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
-import { exportarA_PDF } from '../utils/pdfExport';
+import { exportarA_PDF } from '../utils/pdfUtils';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
