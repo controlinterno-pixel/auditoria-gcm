@@ -412,13 +412,20 @@ const handleNotificarPlan = (planId) => {
     const esAprobado = puntajeHolistico >= 80;
     const correoResponsableLider = modalEval.planes[0]?.correoResponsable || 'controlinterno@termales.com.co';
 
-    // Actualizamos en lote TODAS las actividades de este paquete (Solo Evaluamos el Diseño)
+    // Actualizamos en lote TODAS las actividades (Guardamos memoria de la evaluación)
     modalEval.planes.forEach(plan => {
       const idx = updatedPlanesList.findIndex(p => p.id === plan.id);
       if (idx !== -1) {
         updatedPlanesList[idx] = {
           ...updatedPlanesList[idx],
-          // NO TOCAMOS EL PROGRESO (0%). Solo validamos si el diseño es viable.
+          estadoWorkflow: esAprobado ? 'En Ejecución' : 'Borrador', // Cambia el estado para liberar el flujo
+          evaluacionHolistica: { // 💾 AQUÍ SE GUARDA LA MEMORIA
+            fecha: ts,
+            puntaje: puntajeHolistico,
+            justificacion: justificacion,
+            criterios: { ...criterios },
+            aprobado: esAprobado
+          },
           historialCambios: [
             ...(updatedPlanesList[idx].historialCambios || []),
             { 
@@ -1420,40 +1427,70 @@ const handleNotificarPlan = (planId) => {
                            </tbody>
                           </table>
                           
-                         {/* ⚖️ BOTÓN MAESTRO DE EVALUACIÓN HOLÍSTICA (DISEÑO) */}
-                          {planesDelInforme.length > 0 && isAdmin && (
-                            <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row justify-between items-center shadow-sm gap-3 animate-in fade-in">
-                              <div className="text-center md:text-left">
-                                <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Gobernanza y Calificación de Diseño (COSO)</p>
-                                <p className="text-[9px] text-slate-500 font-medium mt-0.5">Evalúe la calidad, completitud y coherencia del paquete de acciones formulado.</p>
+                         {/* ⚖️ BOTÓN MAESTRO DE EVALUACIÓN HOLÍSTICA (DISEÑO Y MEMORIA) */}
+                          {planesDelInforme.length > 0 && isAdmin && (() => {
+                            const planConEval = planesDelInforme.find(p => p.evaluacionHolistica);
+                            const evalGuardada = planConEval ? planConEval.evaluacionHolistica : null;
+
+                            return (
+                              <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row justify-between items-center shadow-sm gap-3 animate-in fade-in">
+                                <div className="text-center md:text-left">
+                                  <p className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest">⚖️ Gobernanza y Calificación de Diseño (COSO)</p>
+                                  {evalGuardada ? (
+                                    <p className="text-[9px] text-emerald-600 font-bold mt-0.5">
+                                      ✅ Evaluado el {evalGuardada.fecha} con un Score de {evalGuardada.puntaje}%.
+                                    </p>
+                                  ) : (
+                                    <p className="text-[9px] text-slate-500 font-medium mt-0.5">
+                                      Evalúe la calidad, completitud y coherencia del paquete de acciones formulado.
+                                    </p>
+                                  )}
+                                </div>
+                                
+                                {evalGuardada ? (
+                                  <div className="flex gap-2 w-full md:w-auto">
+                                    <button 
+                                      onClick={() => {
+                                        setCriterios(evalGuardada.criterios);
+                                        setJustificacion(evalGuardada.justificacion || '');
+                                        setModalEval({ 
+                                          activo: true, idInforme: idInf, planes: planesDelInforme,
+                                          totalActividades: planesDelInforme.length, isReadOnly: true // MODO SOLO LECTURA
+                                        });
+                                      }}
+                                      className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-5 py-2.5 rounded-xl text-xs font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
+                                    >
+                                      <span>👁️</span> Ver Calificación Realizada
+                                    </button>
+                                    
+                                    <button 
+                                      onClick={() => {
+                                        setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
+                                        setJustificacion('');
+                                        setModalEval({ activo: true, idInforme: idInf, planes: planesDelInforme, totalActividades: planesDelInforme.length, isReadOnly: false });
+                                      }}
+                                      className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-2.5 rounded-xl text-[10px] font-black shadow-sm transition-all uppercase tracking-widest flex items-center gap-1 w-full md:w-auto justify-center"
+                                      title="Volver a evaluar si hubo un error"
+                                    >
+                                      🔄 Re-Evaluar
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    onClick={() => {
+                                      setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
+                                      setJustificacion('');
+                                      setModalEval({ activo: true, idInforme: idInf, planes: planesDelInforme, totalActividades: planesDelInforme.length, isReadOnly: false });
+                                    }}
+                                    className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
+                                  >
+                                    <span>⚖️</span> Evaluar Plan Integral
+                                  </button>
+                                )}
                               </div>
-                              <button 
-                                onClick={() => setModalEval({ 
-                                  activo: true, 
-                                  idInforme: idInf, 
-                                  planes: planesDelInforme,
-                                  totalActividades: planesDelInforme.length
-                                })}
-                                className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
-                              >
-                                <span>⚖️</span> Evaluar Plan Integral
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-          </div>
-        );
-      })()}
-
-      {/* ===================================================================== */}
+                            );
+                          })()}
+     {/* ===================================================================== */}
       {/* ⚖️ MODAL DE EVALUACIÓN HOLÍSTICA PONDERADA (METODOLOGÍA EXCEL)        */}
       {/* ===================================================================== */}
       {modalEval.activo && (
@@ -1465,7 +1502,7 @@ const handleNotificarPlan = (planId) => {
                 <h3 className="text-white font-black text-lg flex items-center gap-2"><span>⚖️</span> Evaluación Ponderada del Plan de Acción</h3>
                 <p className="text-emerald-100 text-[10px] font-medium tracking-wide uppercase mt-0.5">Metodología COSO/ISO 31000 - Evaluando {modalEval.planes.length} actividad(es).</p>
               </div>
-              <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 })} className="text-emerald-100 hover:text-white font-black text-xl px-2 transition-colors">✕</button>
+              <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="text-emerald-100 hover:text-white font-black text-xl px-2 transition-colors">✕</button>
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
@@ -1491,7 +1528,8 @@ const handleNotificarPlan = (planId) => {
                           type="range" min="0" max="100" step="5" 
                           value={criterios[crit.id]} 
                           onChange={(e) => setCriterios({...criterios, [crit.id]: Number(e.target.value)})}
-                          className="w-full accent-[#0A3B32] cursor-pointer"
+                          disabled={modalEval.isReadOnly}
+                          className={`w-full accent-[#0A3B32] ${modalEval.isReadOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                         />
                         <span className={`font-mono font-black text-[11px] w-12 text-center rounded py-1 border shadow-sm ${criterios[crit.id] >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : criterios[crit.id] >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
                           {criterios[crit.id]}%
@@ -1508,10 +1546,11 @@ const handleNotificarPlan = (planId) => {
                   <textarea 
                     value={justificacion}
                     onChange={(e) => setJustificacion(e.target.value)}
+                    disabled={modalEval.isReadOnly}
                     placeholder="Escriba el motivo de la calificación (Obligatorio si el puntaje es menor a 80%)..."
-                    className={`w-full border rounded-xl p-4 text-xs font-medium focus:bg-white outline-none min-h-[120px] transition-all shadow-sm ${puntajeHolistico < 80 && justificacion.trim() === '' ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:border-[#0A3B32]'}`}
+                    className={`w-full border rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] transition-all shadow-sm ${modalEval.isReadOnly ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : (puntajeHolistico < 80 && justificacion.trim() === '' ? 'border-red-300 bg-red-50 focus:border-red-500' : 'border-slate-300 bg-slate-50 focus:border-[#0A3B32]')}`}
                   />
-                  {puntajeHolistico < 80 && justificacion.trim() === '' && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para rechazar.</span>}
+                  {!modalEval.isReadOnly && puntajeHolistico < 80 && justificacion.trim() === '' && <span className="text-[9px] font-bold text-red-500 block">⚠️ La justificación es obligatoria para rechazar.</span>}
                 </div>
                 
                 <div className="w-full md:w-64 bg-slate-900 rounded-2xl p-5 flex flex-col justify-center items-center text-center shadow-lg shrink-0 relative overflow-hidden">
@@ -1530,15 +1569,25 @@ const handleNotificarPlan = (planId) => {
 
             <div className="bg-slate-50 border-t border-slate-200 p-5 flex flex-col md:flex-row justify-between items-center gap-3 shrink-0">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center md:text-left">
-                La calificación se aplicará en lote a las {modalEval.planes.length} actividades seleccionadas.
+                {modalEval.isReadOnly 
+                  ? "Esta es una vista histórica de solo lectura. No se puede modificar." 
+                  : `La calificación se aplicará en lote a las ${modalEval.planes.length} actividades seleccionadas.`}
               </span>
               <div className="flex gap-3 w-full md:w-auto">
-                <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 })} className="w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
-                  Cancelar
-                </button>
-                <button onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${puntajeHolistico >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
-                  {puntajeHolistico >= 80 ? '✅ Aprobar Todo' : '✕ Rechazar Todo'}
-                </button>
+                {modalEval.isReadOnly ? (
+                  <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="w-full md:w-auto px-8 py-3 rounded-xl text-xs font-black text-white bg-slate-800 hover:bg-slate-900 transition-colors uppercase tracking-widest shadow-sm">
+                    Cerrar Visualización
+                  </button>
+                ) : (
+                  <>
+                    <button onClick={() => setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false })} className="w-full md:w-auto px-5 py-3 rounded-xl text-xs font-black text-slate-600 bg-white border border-slate-300 hover:bg-slate-100 transition-colors uppercase tracking-widest shadow-sm">
+                      Cancelar
+                    </button>
+                    <button onClick={confirmarEvaluacionHolistica} className={`w-full md:w-auto px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2 text-white ${puntajeHolistico >= 80 ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'}`}>
+                      {puntajeHolistico >= 80 ? '✅ Aprobar Diseño' : '✕ Rechazar Diseño'}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
