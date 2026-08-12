@@ -241,7 +241,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 }
 
 // ==========================================
-// MÓDULO 2: AUDITORÍA SEGURIDAD SOCIAL (UGPP) v5.0 (NIVEL 1 NORMATIVO)
+// MÓDULO 2: AUDITORÍA SEGURIDAD SOCIAL (UGPP) v5.0
 // ==========================================
 export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, config = {}) {
   const pasoRedondeo = config.pasoRedondeo || 500;
@@ -281,13 +281,13 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     const valorRaw = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Devengado', 'Monto', 'Pago', 'Deduccion']);
     const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
     const cantidadRaw = buscarColumna(fila, ['Cantidad', 'Dias', 'Cant']);
+    const cargoRaw = buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || '';
 
     if (!cedulaRaw) return;
 
     const cedula = cedulaRaw.toString().trim();
     const periodoCons = periodoRaw ? periodoRaw.toString().trim() : '228';
     
-    // 🗓️ NORMALIZADOR INTELIGENTE DE PERÍODO ISO (YYYY-MM)
     let periodoNormalizadoISO = "";
     if (anoMesRaw) {
       const str = anoMesRaw.toString().replace('/', '-').trim();
@@ -314,9 +314,9 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         llaveUnica,
         cedula,
         periodo: periodoCons,
-        periodoISO: periodoNormalizadoISO, 
+        periodoISO: periodoNormalizadoISO,
         nombre: buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']) || 'Sin Nombre',
-        cargo: buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo',
+        cargo: cargoRaw,
         empresa,
         empresasGrupo: new Set([empresa]),
         totalConstitutivoIBC: 0,
@@ -326,7 +326,8 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         descuentoSaludReal: 0,
         descuentoPensionReal: 0,
         diasTrabajados: 0,
-        esLiquidacion: false 
+        esLiquidacion: false,
+        esAprendizSena: normalizarTexto(cargoRaw).includes('APRENDIZ') || normalizarTexto(cargoRaw).includes('SENA') || conceptoLimpio.includes('SOSTENIMIENTO')
       };
     } else {
       empleadosPivoteados[llaveUnica].empresasGrupo.add(empresa);
@@ -335,12 +336,12 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Detectar si el período incluye liquidación de prestaciones
-    if (conceptoLimpio.includes('CESANTIA') || conceptoLimpio.includes('PRIMA DE SERVICIO')) {
+    // Detectar si el período incluye liquidación de prestaciones definitivas
+    if (conceptoLimpio === 'CESANTIA' || conceptoLimpio === 'PRIMA DE SERVICIO' || conceptoLimpio === 'INTERESES SOBRE CESANTIA') {
       emp.esLiquidacion = true;
     }
 
-    // ⚡ LEXICÓN DEFENSIVO DE BACKEND
+    // ⚡ LEXICÓN DEFENSIVO
     const esConstitutivoLexicon = [
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
@@ -348,29 +349,33 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA'
     ].some(kw => conceptoLimpio.includes(kw));
 
-    const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIOS', 'SUSPENSION', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
+    const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
     const esVacacion = conceptoLimpio.includes('VACACION');
     const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
 
-    // LÓGICA DE ASIGNACIÓN ESTRICTA
-    if ((conceptosConstitutivos.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoIBC && !esVacacion) {
+    // LÓGICA DE ASIGNACIÓN CON NETEO DE CONCEPTOS
+    if (conceptoLimpio.includes('SOSTENIMIENTO')) {
+      emp.totalNoConstitutivo += valorTotal;
+      emp.esAprendizSena = true;
+    } else if ((conceptosConstitutivos.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoIBC && !esVacacion) {
       emp.totalConstitutivoIBC += valorTotal;
       if (['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].includes(conceptoLimpio)) {
         emp.diasTrabajados += cantidad;
       }
     } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
       if (esVacacion && emp.esLiquidacion) {
-        emp.totalNoConstitutivo += valorTotal; 
+        emp.totalNoConstitutivo += valorTotal; // En liquidación definitiva las vacaciones compensadas no cotizan
       } else {
-        emp.valorAusentismosIBC += valorTotal;
+        // Netea positivos y negativos (reversiones de vacaciones)
+        emp.valorAusentismosIBC += valorTotal; 
       }
     } else if (conceptosNoSalariales.includes(conceptoLimpio) || esNoSalarialLexicon) {
       emp.totalNoConstitutivo += valorTotal;
     } else if (licenciasNoRemuneradas.includes(conceptoLimpio) || conceptoLimpio.includes('NO REMUNERAD') || conceptoLimpio.includes('SUSPENSION')) {
       emp.tieneLicenciaNoRemunerada = true;
-    } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio.includes('SALUD') && !conceptoLimpio.includes('FONDO') && !conceptoLimpio.includes('EMPRESA'))) {
+    } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio === 'SALUD')) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
-    } else if (conceptosPension.includes(conceptoLimpio) || ((conceptoLimpio.includes('PENSION') || conceptoLimpio.includes('SOLIDARIDAD')) && !conceptoLimpio.includes('FONDO') && !conceptoLimpio.includes('EMPRESA'))) {
+    } else if (conceptosPension.includes(conceptoLimpio) || (conceptoLimpio === 'PENSION' || conceptoLimpio === 'SOLIDARIDAD')) {
       emp.descuentoPensionReal += Math.abs(valorTotal);
     }
   });
@@ -383,52 +388,62 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
-    
-    let diasEfectivos = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
-    diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
 
-    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
-    let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
+    let ibcLiquidacion = 0;
+    let deberSerSalud = 0;
+    let deberSerPension = 0;
 
-    // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
-    if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
-      const [anoStr, mesStr] = emp.periodoISO.split('-');
-      let ano = parseInt(anoStr);
-      let mes = parseInt(mesStr) - 1;
-      if (mes === 0) {
-        mes = 12;
-        ano -= 1;
-      }
-      const periodoAnterior = `${ano}-${mes.toString().padStart(2, '0')}`;
-      
-      try {
-        const historicoMesAnterior = await cargarNominaHistorica(periodoAnterior, emp.empresa || 'Termales');
-        if (historicoMesAnterior && historicoMesAnterior.length > 0) {
-          const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
-          if (empHist && empHist.ibcImplicito > 0) {
-            const ibcDiarioAnterior = empHist.ibcImplicito / 30;
-            const diasAusentismo = 15 - emp.diasTrabajados;
-            const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
-            
-            // Sustituimos el valor reportado por la base legal histórica
-            ibcBruto = (emp.totalConstitutivoIBC) + ajusteIBCVacaciones;
-          }
+    if (emp.esAprendizSena) {
+      // Regla Especial SENA: $0 retención a salud para el aprendiz
+      ibcLiquidacion = emp.totalNoConstitutivo || 394000;
+      deberSerSalud = 0;
+      deberSerPension = 0;
+    } else {
+      let diasEfectivos = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
+      diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
+
+      const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
+      let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
+
+      // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
+      if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
+        const [anoStr, mesStr] = emp.periodoISO.split('-');
+        let ano = parseInt(anoStr);
+        let mes = parseInt(mesStr) - 1;
+        if (mes === 0) {
+          mes = 12;
+          ano -= 1;
         }
-      } catch (err) {
-        console.warn("No se pudo cargar el histórico para " + emp.cedula, err);
+        const periodoAnterior = `${ano}-${mes.toString().padStart(2, '0')}`;
+        
+        try {
+          const historicoMesAnterior = await cargarNominaHistorica(periodoAnterior, emp.empresa || 'Termales');
+          if (historicoMesAnterior && historicoMesAnterior.length > 0) {
+            const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
+            if (empHist && empHist.ibcImplicito > 0) {
+              const ibcDiarioAnterior = empHist.ibcImplicito / 30;
+              const diasAusentismo = 15 - emp.diasTrabajados;
+              const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
+              
+              ibcBruto = (emp.totalConstitutivoIBC) + ajusteIBCVacaciones;
+            }
+          }
+        } catch (err) {
+          console.warn("No se pudo cargar el histórico para " + emp.cedula, err);
+        }
       }
-    }
-    
-    // Ley 1393 (Tope 40%)
-    const limite40 = totalDevengado * 0.40;
-    if (emp.totalNoConstitutivo > limite40) {
-      ibcBruto += (emp.totalNoConstitutivo - limite40);
-    }
+      
+      // Ley 1393 (Tope 40%)
+      const limite40 = totalDevengado * 0.40;
+      if (emp.totalNoConstitutivo > limite40) {
+        ibcBruto += (emp.totalNoConstitutivo - limite40);
+      }
 
-    // Redondeo al paso configurado (Matemática UGPP vs ERP original)
-    const ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
-    const deberSerSalud = Math.round(ibcLiquidacion * 0.04);
-    const deberSerPension = Math.round(ibcLiquidacion * 0.04);
+      // Redondeo al paso configurado
+      ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
+      deberSerSalud = Math.round(ibcLiquidacion * 0.04);
+      deberSerPension = Math.round(ibcLiquidacion * 0.04);
+    }
 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
     const difPension = deberSerPension - emp.descuentoPensionReal;
@@ -442,7 +457,11 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
-    if (desalineacionBases) {
+    if (emp.esAprendizSena && emp.descuentoSaludReal === 0) {
+      tipoHallazgo = 'CONFORME';
+      severidad = 'CORRECTO (Aprendiz SENA)';
+      conteoConformes++;
+    } else if (desalineacionBases) {
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
       conteoDesalineados++;
@@ -467,11 +486,11 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       periodo: emp.periodo,
       nombre: emp.nombre,
       cargo: emp.cargo, 
-      diasTrabajados: diasEfectivos,
+      diasTrabajados: emp.diasTrabajados,
       salarioBase: ibcLiquidacion,
       ibcImplicito: ibcImplicitoSalud || ibcImplicitoPension,
       ibcImplicitoPension,
-      totalDevengadoSalarial: totalDevengado,
+      totalDevengadoSalarial: emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC,
       auxilioDeberSer: deberSerSalud,
       auxilioPagado: emp.descuentoSaludReal,
       diferenciaExacta: difSalud,
