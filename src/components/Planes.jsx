@@ -447,25 +447,18 @@ const handleNotificarPlan = (planId) => {
     setPlanes(updatedPlanesList);
     await saveToCloud({ planes: updatedPlanesList });
 
-  if (ejecutarDespachoGmailApi) {
-      const quitarAcentos = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      
-      const tituloLimpio = esAprobado 
-        ? `DICTAMEN APROBATORIO: Evaluacion de Plan de Accion (${puntajeHolistico}/100)` 
-        : `REQUERIMIENTO DE REESTRUCTURACION: Plan de Accion Inviable (${puntajeHolistico}/100)`;
-      
-      const mensajeLimpio = esAprobado 
-        ? `1. CALIFICACION GLOBAL (SCORE: ${puntajeHolistico}/100)\nDe acuerdo con el marco metodologico de Riesgos, el plan de mejoramiento ha sido evaluado como VIABLE.\n\n2. DICTAMEN DE AUDITORIA:\n"${justificacion || 'Las acciones propuestas atacan la causa raiz y plantean tiempos coherentes.'}"\n\n3. RESOLUCION:\nSe autoriza formalmente a la Direccion responsable el inicio de la fase de ejecucion y el futuro cargue de evidencias en la plataforma GCM.`
-        : `1. CALIFICACION GLOBAL (SCORE: ${puntajeHolistico}/100 - CRITICO)\nDe acuerdo con el marco metodologico de Riesgos y las Normas Globales de Auditoria Interna, el plan propuesto es tecnicamente inoperante en su estado actual.\n\n2. JUSTIFICACION TECNICA DEL RECHAZO:\n"${justificacion}"\n\n3. DICTAMEN Y REQUERIMIENTO:\nSe RECHAZA el plan y se solicita a la Direccion responsable su reestructuracion inmediata en la plataforma GCM, incorporando acciones de choque inmediatas y controles medibles para evitar la materializacion del riesgo.`;
+  // 📧 Redactar borrador en Gmail automáticamente para adjuntar PDF
+    const tituloLimpio = esAprobado 
+      ? `DICTAMEN APROBATORIO: Evaluación de Plan de Acción (${puntajeHolistico}/100)` 
+      : `REQUERIMIENTO DE REESTRUCTURACIÓN: Plan de Acción Inviable (${puntajeHolistico}/100)`;
+    
+    const mensajeLimpio = esAprobado 
+      ? `Estimado/a Líder de Proceso,\n\nAdjunto a este correo encontrará el Dictamen de Auditoría Oficial en formato PDF.\n\n1. CALIFICACIÓN GLOBAL (SCORE: ${puntajeHolistico}/100)\nDe acuerdo con el marco metodológico de Riesgos, el plan de mejoramiento ha sido evaluado como VIABLE.\n\n2. DICTAMEN DE AUDITORÍA:\n"${justificacion || 'Las acciones propuestas atacan la causa raíz y plantean tiempos coherentes.'}"\n\n3. RESOLUCIÓN:\nSe autoriza formalmente a la Dirección responsable el inicio de la fase de ejecución y el futuro cargue de evidencias en la plataforma GCM.\n\nAtentamente,\nAuditoría Interna`
+      : `Estimado/a Líder de Proceso,\n\nAdjunto a este correo encontrará el Dictamen de Auditoría Oficial en formato PDF.\n\n1. CALIFICACIÓN GLOBAL (SCORE: ${puntajeHolistico}/100 - CRÍTICO)\nDe acuerdo con el marco metodológico de Riesgos y las Normas Globales de Auditoría Interna, el plan propuesto es técnicamente inoperante en su estado actual.\n\n2. JUSTIFICACIÓN TÉCNICA DEL RECHAZO:\n"${justificacion}"\n\n3. DICTAMEN Y REQUERIMIENTO:\nSe RECHAZA el plan y se solicita a la Dirección responsable su reestructuración inmediata en la plataforma GCM, incorporando acciones de choque inmediatas y controles medibles para evitar la materialización del riesgo.\n\nAtentamente,\nAuditoría Interna`;
 
-      await ejecutarDespachoGmailApi({
-        ref_consecutivo: esAprobado ? `DICTAMEN-APROBADO` : `DICTAMEN-CRITICO`,
-        titulo_informe: quitarAcentos(tituloLimpio),
-        proceso_auditado: quitarAcentos(mensajeLimpio),
-        enlace_pdf: 'https://auditoria-gcm.vercel.app',
-        destinatarios: correoResponsableLider
-      });
-    }
+    // Abre una nueva pestaña directamente con la ventana de redacción de Gmail
+    const mailtoLink = `https://mail.google.com/mail/?view=cm&fs=1&to=${correoResponsableLider || ''}&su=${encodeURIComponent(tituloLimpio)}&body=${encodeURIComponent(mensajeLimpio)}`;
+    window.open(mailtoLink, '_blank');
 
     alert(esAprobado ? "✅ ¡Paquete de acciones aprobado y cerrado con éxito!" : "❌ Plan rechazado en bloque. Notificación enviada.");
     setModalEval({ activo: false, idInforme: null, planes: [], totalActividades: 0 });
