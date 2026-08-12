@@ -95,7 +95,10 @@ const [busquedaRapida, setBusquedaRapida] = useState('');
   const dictamenRef = useRef(null);
   const [criterios, setCriterios] = useState({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   const [justificacion, setJustificacion] = useState('');
-  const puntajeHolistico = Math.round((criterios.c1 * 0.3) + (criterios.c2 * 0.2) + (criterios.c3 * 0.2) + (criterios.c4 * 0.2) + (criterios.c5 * 0.1));
+  
+  // 🛡️ Salvaguarda: Si el registro es viejo y no tiene criterios, usa 100 por defecto para no romper React
+  const safeCriterios = criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 };
+  const puntajeHolistico = Math.round((safeCriterios.c1 * 0.3) + (safeCriterios.c2 * 0.2) + (safeCriterios.c3 * 0.2) + (safeCriterios.c4 * 0.2) + (safeCriterios.c5 * 0.1));
 // ⚡ MEJORA UX: Carga automáticamente la matriz del informe al dar clic en "Gestionar" desde el historial
   React.useEffect(() => {
     if (editPlan) {
@@ -1461,7 +1464,7 @@ const handleNotificarPlan = (planId) => {
                                   <div className="flex gap-2 w-full md:w-auto">
                                     <button 
                                       onClick={() => {
-                                        setCriterios(evalGuardada.criterios);
+                                        setCriterios(evalGuardada.criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
                                         setJustificacion(evalGuardada.justificacion || '');
                                         setModalEval({ 
                                           activo: true, idInforme: idInf, planes: planesDelInforme,
