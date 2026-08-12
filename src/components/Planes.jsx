@@ -1587,14 +1587,22 @@ const handleNotificarPlan = (planId) => {
                                               PLA-{act.id.toString().slice(-4)}
                                             </span>
                                           </div>
-                                          <div className="p-4 w-[380px] pr-6 shrink-0">
+                                        <div className="p-4 w-[380px] pr-6 shrink-0">
                                             <div className="font-black text-[#0A3B32] text-[9px] uppercase tracking-wider mb-2 flex items-center gap-2">
                                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500 block"></span>
                                               {h.ref || 'S/N'}
                                             </div>
-                                            <p className="font-medium text-slate-700 leading-relaxed text-justify whitespace-pre-wrap">
-                                              {h.descripcion || h.titulo || 'Sin descripción detallada registrada.'}
-                                            </p>
+                                            <div className="font-medium text-slate-700 leading-relaxed text-justify relative">
+                                              <p className="line-clamp-4">
+                                                {h.descripcion || h.titulo || 'Sin descripción detallada registrada.'}
+                                              </p>
+                                              {/* Pequeña nota aclaratoria para el lector */}
+                                              {(h.descripcion?.length > 250 || h.titulo?.length > 250) && (
+                                                <span className="text-[8px] font-bold text-slate-400 italic mt-1 block">
+                                                  (Ver informe original para detalle completo)
+                                                </span>
+                                              )}
+                                            </div>
                                           </div>
                                           <div className="p-4 flex-1 pr-6">
                                             <div className="font-black text-[#0A3B32] text-[9px] uppercase tracking-wider mb-2 flex items-center gap-2">
