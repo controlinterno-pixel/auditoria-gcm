@@ -1513,8 +1513,8 @@ const handleNotificarPlan = (planId) => {
                             );
                           })()}
 
-                         {/* ===================================================================== */}
-                          {/* 📄 LIENZO OCULTO: MATRIZ DE PLAN DE MEJORAMIENTO COMPLETO (ESTILO EJECUTIVO BIG 4) */}
+                        {/* ===================================================================== */}
+                          {/* 📄 LIENZO OCULTO: MATRIZ DE PLAN DE MEJORAMIENTO COMPLETO (BIG 4)       */}
                           {/* ===================================================================== */}
                           {createPortal(
                             <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
