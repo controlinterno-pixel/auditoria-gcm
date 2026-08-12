@@ -442,13 +442,19 @@ const handleNotificarPlan = (planId) => {
     setPlanes(updatedPlanesList);
     await saveToCloud({ planes: updatedPlanesList });
 
-    if (ejecutarDespachoGmailApi) {
+  if (ejecutarDespachoGmailApi) {
+      // Limpiamos caracteres especiales para que no lleguen rotos al correo (ÃƒÂ³)
+      const quitarAcentos = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      
+      const tituloLimpio = esAprobado ? `Plan de Accion APROBADO (${puntajeHolistico}%)` : `Plan de Accion RECHAZADO (${puntajeHolistico}%)`;
+      const mensajeLimpio = esAprobado 
+        ? `El paquete de acciones cumple con la calidad GRC requerida y puede iniciar su ejecucion.`
+        : `El plan no supera el 80% de calidad requerido. Ingrese a la plataforma GCM para leer el dictamen del auditor y reformular las acciones.`;
+
       await ejecutarDespachoGmailApi({
-        ref_consecutivo: esAprobado ? `CIERRE-MASIVO` : `RECHAZO-MASIVO`,
-        titulo_informe: esAprobado ? `✅ Plan de Acción APROBADO (${puntajeHolistico}%)` : `❌ Plan de Acción RECHAZADO (${puntajeHolistico}%)`,
-        proceso_auditado: esAprobado 
-          ? `Felicitaciones, el paquete de acciones fue evaluado y cumple con la calidad COSO/ISO 31000 requerida.` 
-          : `El paquete propuesto no supera la evaluación de madurez (Requiere 80%). Justificación: "${justificacion}".`,
+        ref_consecutivo: esAprobado ? `EVAL-APROBADA` : `EVAL-RECHAZADA`,
+        titulo_informe: quitarAcentos(tituloLimpio),
+        proceso_auditado: quitarAcentos(mensajeLimpio),
         enlace_pdf: 'https://auditoria-gcm.vercel.app',
         destinatarios: correoResponsableLider
       });
