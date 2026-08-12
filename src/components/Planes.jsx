@@ -1528,11 +1528,11 @@ const handleNotificarPlan = (planId) => {
               <div>
                 <h1 className="text-3xl font-black text-[#0A3B32]">TERMALES SANTA ROSA DE CABAL</h1>
                 <h2 className="text-xl font-bold text-slate-600 mt-2">DICTAMEN DE EVALUACIÓN DE AUDITORÍA</h2>
-                <p className="text-sm font-bold text-slate-400 mt-1">
-                  Referencia de Informe: {informesAuditoria.find(i => String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme}
+               <p className="text-sm font-bold text-slate-400 mt-1">
+                  Referencia de Informe: {informesAuditoria && Array.isArray(informesAuditoria) ? (informesAuditoria.find(i => String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme || 'N/A') : 'N/A'}
                 </p>
                 <p className="text-sm font-bold text-slate-400">
-                  Proceso Auditado: {informesAuditoria.find(i => String(i.id) === String(modalEval.idInforme))?.proceso || 'Proceso General'}
+                  Proceso Auditado: {informesAuditoria && Array.isArray(informesAuditoria) ? (informesAuditoria.find(i => String(i.id) === String(modalEval.idInforme))?.proceso || 'Proceso General') : 'Proceso General'}
                 </p>
               </div>
               <div className="text-right text-sm">
