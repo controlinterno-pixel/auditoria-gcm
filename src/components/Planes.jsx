@@ -1485,14 +1485,26 @@ const handleNotificarPlan = (planId) => {
                                     className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-xs font-black shadow-md transition-all uppercase tracking-widest flex items-center gap-2 w-full md:w-auto justify-center"
                                   >
                                     <span>⚖️</span> Evaluar Plan Integral
-                                  </button>
+                                 </button>
                                 )}
                               </div>
                             );
                           })()}
-     {/* ===================================================================== */}
-      {/* ⚖️ MODAL DE EVALUACIÓN HOLÍSTICA PONDERADA (METODOLOGÍA EXCEL)        */}
+                        </div>
+                      )}
+
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+          </div>
+        );
+      })()}
+
       {/* ===================================================================== */}
+      {/* ⚖️ MODAL DE EVALUACIÓN HOLÍSTICA PONDERADA (METODOLOGÍA EXCEL)        */}
       {modalEval.activo && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95">
