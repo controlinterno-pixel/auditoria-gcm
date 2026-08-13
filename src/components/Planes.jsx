@@ -1621,94 +1621,94 @@ const handleNotificarPlan = (planId) => {
                         </div>
                       )}
 
-                      {/* ===================================================================== */}
+                     {/* ===================================================================== */}
                       {/* 📄 LIENZO OCULTO PARA EXPORTAR EL PLAN DE ACCIÓN INSTITUCIONAL        */}
                       {/* ===================================================================== */}
                       {createPortal(
                         <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
                           <div 
-  ref={(el) => (planRefs.current[idInf] = el)} 
-  className="w-[1350px] bg-white p-8 font-sans text-slate-800"
->
+                            ref={(el) => (planRefs.current[idInf] = el)} 
+                            style={{ width: '1350px', backgroundColor: '#ffffff', padding: '32px', fontFamily: 'sans-serif', color: '#1e293b' }}
+                          >
                             {/* Cabecera Membretada */}
-                            <div className="flex justify-between items-center border-b-2 border-[#0A3B32] pb-4 mb-6 break-inside-avoid">
-                              <div className="flex items-center gap-6">
-                                <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-36 h-auto object-contain" />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0A3B32', paddingBottom: '16px', marginBottom: '24px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                <img src="/logo_termales.png" alt="Termales Santa Rosa" style={{ width: '144px', height: 'auto', objectFit: 'contain' }} />
                                 <div>
-                                  <h1 className="text-2xl font-black text-[#0A3B32] uppercase tracking-widest">Termales Santa Rosa de Cabal</h1>
-                                  <h2 className="text-xl font-bold text-slate-600 mt-1">PLAN DE MEJORAMIENTO CORPORATIVO</h2>
+                                  <h1 style={{ fontSize: '24px', fontWeight: '900', color: '#0A3B32', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Termales Santa Rosa de Cabal</h1>
+                                  <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#475569', marginTop: '4px', margin: 0 }}>PLAN DE MEJORAMIENTO CORPORATIVO</h2>
                                 </div>
                               </div>
-                              <div className="text-right bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Referencia Oficial</p>
-                                <p className="text-xl font-black text-[#0A3B32]">{refInforme}</p>
+                              <div style={{ textAlign: 'right', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Referencia Oficial</div>
+                                <div style={{ fontSize: '20px', fontWeight: '900', color: '#0A3B32', marginTop: '2px' }}>{refInforme}</div>
                               </div>
                             </div>
 
-                            {/* Información General Dinámica (Diseño Limpio Anti-Solapamiento) */}
-                            <div className="grid grid-cols-4 gap-6 mb-6 bg-slate-50 p-6 rounded-xl border border-slate-300 break-inside-avoid">
-                              <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">FECHA EMISIÓN / REGISTRO</span>
-                                <span className="text-xs font-black text-slate-800 block">{fechaInforme || 'N/A'}</span>
-                              </div>
+                            {/* Información General Dinámica en Tabla Rígida (Anti-Solapamiento 100%) */}
+                            <table style={{ width: '100%', marginBottom: '24px', borderCollapse: 'separate', borderSpacing: '12px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1', padding: '12px' }}>
+                              <tbody>
+                                <tr>
+                                  <td style={{ verticalAlign: 'top', width: '25%' }}>
+                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>FECHA EMISIÓN / REGISTRO</div>
+                                    <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e293b' }}>{fechaInforme || 'N/A'}</div>
+                                  </td>
+                                  <td style={{ verticalAlign: 'top', width: '50%' }} colSpan={2}>
+                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>FUENTE / TÍTULO DEL INFORME</div>
+                                    <div style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a', lineHeight: '1.4' }}>{tituloInforme || 'Sin Título'}</div>
+                                  </td>
+                                  <td style={{ verticalAlign: 'top', width: '25%' }}>
+                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>PROCESO AUDITADO</div>
+                                    <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e293b', textTransform: 'uppercase' }}>{procesoInforme || 'General'}</div>
+                                  </td>
+                                </tr>
+                                <tr>
+                                  <td style={{ verticalAlign: 'top', width: '25%' }}>
+                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>TIPO DE PLAN</div>
+                                    <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e293b' }}>Acción Correctiva / De Proceso</div>
+                                  </td>
+                                  <td style={{ verticalAlign: 'top', width: '50%' }} colSpan={2}>
+                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>OBJETIVO / ALCANCE</div>
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#334155', lineHeight: '1.4' }}>
+                                      Fortalecimiento de los controles del proceso para garantizar el cumplimiento legal, documental y operativo derivado de la auditoría.
+                                    </div>
+                                  </td>
+                                  <td style={{ verticalAlign: 'top', width: '25%' }}>
+                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>VENCIMIENTO GLOBAL</div>
+                                    <div style={{ fontSize: '12px', fontWeight: '900', color: '#dc2626' }}>
+                                      {(() => {
+                                        const fechas = planesDelInforme.map(p => p.fecha).filter(Boolean);
+                                        return fechas.length > 0 ? fechas.sort().reverse()[0] : 'N/A';
+                                      })()}
+                                    </div>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
 
-                              <div className="col-span-2 flex flex-col gap-1">
-                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">FUENTE / TÍTULO DEL INFORME</span>
-                                <span className="text-xs font-black text-slate-900 leading-normal block">{tituloInforme || 'Sin Título'}</span>
-                              </div>
-
-                              <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">PROCESO AUDITADO</span>
-                                <span className="text-xs font-black text-slate-800 uppercase block">{procesoInforme || 'General'}</span>
-                              </div>
-
-                              <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">TIPO DE PLAN</span>
-                                <span className="text-xs font-black text-slate-800 block">Acción Correctiva / De Proceso</span>
-                              </div>
-
-                              <div className="col-span-2 flex flex-col gap-1">
-                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">OBJETIVO / ALCANCE</span>
-                                <span className="text-xs font-bold text-slate-700 leading-snug block">
-                                  Fortalecimiento de los controles del proceso para garantizar el cumplimiento legal, documental y operativo derivado de la auditoría.
-                                </span>
-                              </div>
-
-                              <div className="flex flex-col gap-1">
-                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">VENCIMIENTO GLOBAL</span>
-                                <span className="text-xs font-black text-red-600 block">
-                                  {(() => {
-                                    const fechas = planesDelInforme.map(p => p.fecha).filter(Boolean);
-                                    return fechas.length > 0 ? fechas.sort().reverse()[0] : 'N/A';
-                                  })()}
-                                </span>
-                              </div>
-                            </div>
-
-                           {/* Tabla de Actividades (Blindaje Anti-Corte de Página) */}
-                            <table className="w-full text-left border-collapse border-2 border-[#0A3B32]">
-                              <thead className="bg-[#0A3B32] text-white text-[8px] uppercase tracking-wider">
-                                <tr style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                                  <th className="p-2 border border-slate-500 text-center w-8">No.</th>
-                                  <th className="p-2 border border-slate-500 w-48">Descripción Observación y/o Hallazgo</th>
-                                  <th className="p-2 border border-slate-500 text-center w-24">Clase de Observación</th>
-                                  <th className="p-2 border border-slate-500 w-24">Áreas / Procesos Vinculados</th>
-                                  <th className="p-2 border border-slate-500 w-48">Acciones de Mejoramiento</th>
-                                  <th className="p-2 border border-slate-500 w-24">Mecanismo de Seguimiento</th>
-                                  <th className="p-2 border border-slate-500 w-32">Resp. Seguimiento (Auditor)</th>
-                                  <th className="p-2 border border-slate-500 text-center w-16">Meta / Unidad</th>
-                                  <th className="p-2 border border-slate-500 text-center w-20">Fecha Inicio</th>
-                                  <th className="p-2 border border-slate-500 text-center w-20">Fecha Terminación</th>
-                                  <th className="p-2 border border-slate-500 text-center w-16">Plazo (Semanas)</th>
-                                  <th className="p-2 border border-slate-500 text-center w-20">Estado / Observación</th>
-                                  <th className="p-2 border border-slate-500 w-32">Responsable de Mejoramiento</th>
+                            {/* Tabla de Actividades (Estructura de Renglón Rígido) */}
+                            <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', border: '2px solid #0A3B32' }}>
+                              <thead>
+                                <tr style={{ backgroundColor: '#0A3B32', color: '#ffffff', fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.05em', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', textAlign: 'center', width: '32px' }}>No.</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', width: '220px' }}>Descripción Observación y/o Hallazgo</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', textAlign: 'center', width: '90px' }}>Clase de Observación</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', width: '110px' }}>Áreas / Procesos Vinculados</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', width: '220px' }}>Acciones de Mejoramiento</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', width: '110px' }}>Mecanismo de Seguimiento</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', width: '130px' }}>Resp. Seguimiento (Auditor)</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', textAlign: 'center', width: '60px' }}>Meta / Unidad</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', textAlign: 'center', width: '75px' }}>Fecha Inicio</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', textAlign: 'center', width: '75px' }}>Fecha Terminación</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', textAlign: 'center', width: '60px' }}>Plazo (Semanas)</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', textAlign: 'center', width: '85px' }}>Estado / Observación</th>
+                                  <th style={{ padding: '8px', border: '1px solid #475569', width: '130px' }}>Responsable de Mejoramiento</th>
                                 </tr>
                               </thead>
-                              <tbody className="text-[8px] text-slate-700 bg-white">
+                              <tbody style={{ fontSize: '8px', color: '#334155', backgroundColor: '#ffffff' }}>
                                 {planesDelInforme.map((p, idx) => {
                                   const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(p.idHallazgo));
                                   
-                                  // Cálculo Matemático de Semanas
                                   let semanas = 'N/A';
                                   if (p.fechaInicio && p.fecha) {
                                     const d1 = new Date(p.fechaInicio);
@@ -1723,81 +1723,82 @@ const handleNotificarPlan = (planId) => {
                                   return (
                                     <tr 
                                       key={idx} 
-                                      className="border-b border-slate-300 hover:bg-slate-50 break-inside-avoid" 
                                       style={{ 
+                                        borderBottom: '1px solid #cbd5e1', 
                                         pageBreakInside: 'avoid', 
-                                        breakInside: 'avoid'
+                                        breakInside: 'avoid' 
                                       }}
                                     >
                                       {/* 1. NO */}
-                                      <td className="p-1.5 border-r border-slate-300 text-center font-black text-slate-900 align-top text-[8px]">{idx + 1}</td>
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', textAlign: 'center', fontWeight: '900', color: '#0f172a', verticalAlign: 'top' }}>{idx + 1}</td>
                                       
                                       {/* 2. DESCRIPCIÓN OBSERVACIÓN Y/O HALLAZGO */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top font-medium text-slate-800 text-[8.5px] leading-tight max-w-[220px]">
-                                        <span className="font-bold text-red-600 mb-0.5 inline-block">
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontSize: '8.5px', lineHeight: '1.3' }}>
+                                        <div style={{ fontWeight: 'bold', color: '#dc2626', marginBottom: '3px' }}>
                                           {hallazgoBase?.ref || `HAL-${p.idHallazgo}`}
-                                        </span>
-                                        <br />
-                                        {hallazgoBase?.titulo || hallazgoBase?.descripcion || hallazgoBase?.hallazgo || hallazgoBase?.detalle || hallazgoBase?.observacion || 'Sin descripción detallada registrada.'}
+                                        </div>
+                                        <div style={{ fontWeight: '500', color: '#1e293b' }}>
+                                          {hallazgoBase?.titulo || hallazgoBase?.descripcion || hallazgoBase?.hallazgo || hallazgoBase?.detalle || hallazgoBase?.observacion || 'Sin descripción detallada registrada.'}
+                                        </div>
                                       </td>
                                       
                                       {/* 3. CLASE DE OBSERVACIÓN */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top text-center font-black uppercase text-[#0A3B32] text-[8px]">
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: '900', textTransform: 'uppercase', color: '#0A3B32' }}>
                                         {hallazgoBase?.claseObservacion || 'No Conformidad'}
                                       </td>
                                       
                                       {/* 4. ÁREAS / PROCESOS */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top uppercase font-bold text-slate-800 text-[8px]">
-                                        {p.proceso}
-                                        <span className="block text-slate-500 font-medium text-[7.5px]">{p.sede}</span>
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textTransform: 'uppercase', fontWeight: 'bold', color: '#1e293b', fontSize: '8px', lineHeight: '1.3' }}>
+                                        <div>{p.proceso}</div>
+                                        <div style={{ color: '#64748b', fontWeight: '500', fontSize: '7.5px', marginTop: '3px' }}>{p.sede}</div>
                                       </td>
                                       
                                       {/* 5. ACCIONES DE MEJORAMIENTO */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top text-[8.5px] leading-tight">
-                                        <span className="font-bold text-blue-600 mb-0.5 block">PLA-{p.id.toString().slice(-4)}</span>
-                                        <p className="font-black text-slate-900 leading-tight">{p.accion}</p>
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontSize: '8.5px', lineHeight: '1.3' }}>
+                                        <div style={{ fontWeight: 'bold', color: '#2563eb', marginBottom: '3px' }}>PLA-{p.id.toString().slice(-4)}</div>
+                                        <div style={{ fontWeight: '900', color: '#0f172a' }}>{p.accion}</div>
                                       </td>
                                       
                                       {/* 6. MECANISMO DE SEGUIMIENTO */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top font-medium text-slate-600 uppercase text-[7.5px]">
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontWeight: '500', color: '#475569', textTransform: 'uppercase', fontSize: '7.5px' }}>
                                         Revisión de Evidencias Digitales GCM
                                       </td>
                                       
                                       {/* 7. RESPONSABLE DE SEGUIMIENTO */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top font-black text-[#0A3B32] text-[8px]">
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontWeight: '900', color: '#0A3B32' }}>
                                         {p.auditorAsignado || 'Auditoría Interna'}
                                       </td>
                                       
                                       {/* 8. META */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top text-center text-[8px]">
-                                        <span className="bg-emerald-100 text-emerald-800 font-black px-1.5 py-0.5 rounded">100%</span>
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center' }}>
+                                        <span style={{ backgroundColor: '#d1fae5', color: '#065f46', fontWeight: '900', padding: '2px 6px', borderRadius: '4px', fontSize: '8px' }}>100%</span>
                                       </td>
                                       
                                       {/* 9. FECHA INICIO */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top text-center font-bold text-slate-800 text-[8px]">
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold', color: '#1e293b' }}>
                                         {p.fechaInicio || 'N/A'}
                                       </td>
                                       
                                       {/* 10. FECHA TERMINACIÓN */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top text-center font-bold text-slate-800 text-[8px]">
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold', color: '#1e293b' }}>
                                         {p.fecha || 'N/A'}
                                       </td>
                                       
                                       {/* 11. PLAZO SEMANAS */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top text-center font-black text-blue-700 text-[8px]">
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: '900', color: '#1d4ed8' }}>
                                         {semanas}
                                       </td>
                                       
                                       {/* 12. ESTADO / OBSERVACIONES */}
-                                      <td className="p-1.5 border-r border-slate-300 align-top text-center text-[8px]">
-                                        <span className={`px-1.5 py-0.5 rounded font-black uppercase text-[7px] ${p.progreso === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontSize: '8px', lineHeight: '1.3' }}>
+                                        <div style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '4px', fontWeight: '900', textTransform: 'uppercase', fontSize: '7px', backgroundColor: p.progreso === 100 ? '#d1fae5' : '#fef3c7', color: p.progreso === 100 ? '#065f46' : '#92400e', marginBottom: '3px' }}>
                                           {p.estadoWorkflow || 'En Proceso'}
-                                        </span>
-                                        <span className="block mt-0.5 font-black text-slate-800 text-[7.5px]">{p.progreso}% Avance</span>
+                                        </div>
+                                        <div style={{ fontWeight: '900', color: '#1e293b', fontSize: '7.5px' }}>{p.progreso}% Avance</div>
                                       </td>
                                       
                                       {/* 13. RESPONSABLE DE MEJORAMIENTO */}
-                                      <td className="p-1.5 align-top font-black text-slate-900 uppercase text-[8px]">
+                                      <td style={{ padding: '6px', verticalAlign: 'top', fontWeight: '900', color: '#0f172a', textTransform: 'uppercase' }}>
                                         {p.responsable || 'Sin Asignar'}
                                       </td>
                                     </tr>
@@ -1807,25 +1808,25 @@ const handleNotificarPlan = (planId) => {
                             </table>
 
                             {/* Sección de Firmas Dinámicas */}
-                            <div className="mt-16 flex justify-between px-16 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
-                              <div className="text-center w-72">
-                                <div className="border-b-2 border-slate-400 h-12 mb-2"></div>
-                                <p className="text-xs font-black text-slate-800 uppercase">
+                            <div style={{ marginTop: '64px', display: 'flex', justifyContent: 'space-between', paddingLeft: '64px', paddingRight: '64px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                              <div style={{ textAlign: 'center', width: '288px' }}>
+                                <div style={{ borderBottom: '2px solid #475569', height: '48px', marginBottom: '8px' }}></div>
+                                <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e293b', textTransform: 'uppercase' }}>
                                   {planesDelInforme[0]?.responsable || 'FIRMA LÍDER DEL PROCESO'}
-                                </p>
-                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Responsable de Ejecución</p>
+                                </div>
+                                <div style={{ fontSize: '9px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>Responsable de Ejecución</div>
                               </div>
-                              <div className="text-center w-72">
-                                <div className="border-b-2 border-slate-400 h-12 mb-2"></div>
-                                <p className="text-xs font-black text-slate-800 uppercase">
+                              <div style={{ textAlign: 'center', width: '288px' }}>
+                                <div style={{ borderBottom: '2px solid #475569', height: '48px', marginBottom: '8px' }}></div>
+                                <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e293b', textTransform: 'uppercase' }}>
                                   {planesDelInforme[0]?.auditorAsignado || 'FIRMA CONTROL INTERNO'}
-                                </p>
-                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Aprobación y Seguimiento</p>
+                                </div>
+                                <div style={{ fontSize: '9px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '4px' }}>Aprobación y Seguimiento</div>
                               </div>
                             </div>
 
                             {/* Pie de Página */}
-                            <div className="mt-12 border-t-2 border-[#0A3B32] pt-4 flex justify-between items-center text-[9px] text-slate-500 font-black uppercase tracking-widest break-inside-avoid">
+                            <div style={{ marginTop: '48px', borderTop: '2px solid #0A3B32', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#64748b', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                               <span>Generado Automáticamente por el Sistema GCM Auditor V5</span>
                               <span>Uso Oficial - Control Interno</span>
                             </div>
