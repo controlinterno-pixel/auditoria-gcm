@@ -460,12 +460,20 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         
         if (empHist && empHist.ibcImplicito > 0) {
           const ibcDiarioAnterior = empHist.ibcImplicito / 30;
-          const diasAusentismo = 15 - emp.diasTrabajados;
-          // Si el empleado trabajó 0 días, asumimos los 15 días de la quincena como ausentismo
-          const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
+          
+          // 🛡️ REGLA: No inflar el IBC con históricos fantasma si el empleado fue liquidado (esLiquidacion)
+          let ajusteIBCVacaciones = 0;
+          if (!emp.esLiquidacion) {
+             const diasAusentismo = 15 - emp.diasTrabajados;
+             // Si el ausentismo no es exactamente 15, tomamos el faltante real.
+             ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
+          } else {
+             // Si está liquidado, el IBC es estrictamente lo devengado
+             ajusteIBCVacaciones = emp.valorAusentismosIBC;
+          }
           
           ibcBruto = (emp.totalConstitutivoIBC) + ajusteIBCVacaciones;
-          emp.usoHistoricoAnterior = true; // 👈 Marcamos que la auditoría usó el dato histórico
+          emp.usoHistoricoAnterior = true; 
           emp.ibcAnteriorDetectado = empHist.ibcImplicito;
         }
       }
