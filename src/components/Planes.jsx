@@ -53,9 +53,24 @@ export default function Planes({
 
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
+  const [generandoPdfId, setGenerandoPdfId] = useState(null);
 
   // Referencias para exportar el Plan de Acción Institucional (Ahora en el scope correcto)
   const planRefs = useRef({});
+
+  const handleDescargarPdfConLoader = async (idInf, refInforme) => {
+    if (generandoPdfId) return; // Evita clics dobles
+    try {
+      setGenerandoPdfId(idInf); // Activa la pantalla de carga
+      await new Promise(resolve => setTimeout(resolve, 100)); 
+      await exportarA_PDF(planRefs.current[idInf], `Plan_Mejoramiento_${refInforme}.pdf`, '#ffffff');
+    } catch (error) {
+      console.error("Error al generar PDF:", error);
+      alert("❌ Ocurrió un error al generar el PDF. Por favor reintente.");
+    } finally {
+      setGenerandoPdfId(null); // Desactiva el loader al terminar
+    }
+  };
 
   const buscarPlanPorId = (e) => {
     e.preventDefault();
@@ -1376,11 +1391,27 @@ const handleNotificarPlan = (planId) => {
 <div id={`plan-completo-${idInf}`} className="p-3 bg-white border-t border-slate-50 overflow-x-auto relative">
 <div className="flex justify-between items-center mb-3">
                             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Desglose de Actividades</h4>
-                            <button 
-  onClick={() => exportarA_PDF(planRefs.current[idInf], `Plan_Mejoramiento_${refInforme}.pdf`, '#ffffff')}
-  className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-2"
+                       <button 
+  type="button"
+  disabled={generandoPdfId === idInf}
+  onClick={() => handleDescargarPdfConLoader(idInf, refInforme)}
+  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 text-white ${
+    generandoPdfId === idInf 
+      ? 'bg-amber-600 opacity-90 cursor-wait' 
+      : 'bg-slate-800 hover:bg-slate-900 cursor-pointer'
+  }`}
 >
-  📥 Descargar Formato Institucional
+  {generandoPdfId === idInf ? (
+    <>
+      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+      <span>Generando Documento...</span>
+    </>
+  ) : (
+    <>
+      <span>📥</span>
+      <span>Descargar Formato Institucional</span>
+    </>
+  )}
 </button>
                           </div>
                           <table className="w-full text-xs text-left divide-y border border-slate-100 rounded-xl overflow-hidden shadow-inner">
@@ -1955,6 +1986,22 @@ const handleNotificarPlan = (planId) => {
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⏳ OVERLAY SUTIL DE PROCESAMIENTO DE PDF */}
+      {generandoPdfId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] flex items-center justify-center animate-in fade-in duration-200">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl border border-slate-200 flex flex-col items-center gap-4 max-w-sm w-full mx-4 text-center animate-in zoom-in-95">
+            <div className="w-12 h-12 border-4 border-[#0A3B32] border-t-transparent rounded-full animate-spin"></div>
+            <div>
+              <h4 className="font-black text-slate-800 text-sm uppercase tracking-wider">Generando Reporte Oficial</h4>
+              <p className="text-slate-500 text-xs font-bold mt-1">Procesando y formateando los datos de auditoría...</p>
+            </div>
+            <div className="bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] font-mono font-bold text-slate-600">
+              Por favor espere un momento 📄
             </div>
           </div>
         </div>
