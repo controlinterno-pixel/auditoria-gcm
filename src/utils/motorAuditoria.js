@@ -464,12 +464,17 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-        // Función interna de escaneo sobre cualquier conjunto de registros
-        const buscarSaludEnArreglo = (arreglo) => {
+        // Función interna de escaneo (A prueba de Arrays y Objetos de Firebase)
+        const buscarSaludEnArreglo = (dataFirebase) => {
           let suma = 0;
-          if (!arreglo || !Array.isArray(arreglo)) return 0;
+          if (!dataFirebase) return 0;
+          
+          // Si Firebase lo devolvió como Objeto, lo convertimos a Array forzosamente
+          const arreglo = Array.isArray(dataFirebase) ? dataFirebase : Object.values(dataFirebase);
           
           arreglo.forEach(h => {
+            if (typeof h !== 'object' || h === null) return;
+            
             const cedulaFilaRaw = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento', 'Identificación', 'ID', 'CedulaEmpleado']);
             const cedulaFilaLimpia = limpiarCedula(cedulaFilaRaw);
             
@@ -491,7 +496,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
           });
           return suma;
         };
-
         // 1. Probar en las llaves específicas de la empresa asociada
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
         const llavesAProbar = [
