@@ -1685,10 +1685,10 @@ const handleNotificarPlan = (planId) => {
                               </div>
                             </div>
 
-                            {/* Tabla de Actividades (14 Columnas Reales) */}
+                           {/* Tabla de Actividades (Blindaje Anti-Corte de Página) */}
                             <table className="w-full text-left border-collapse border-2 border-[#0A3B32]">
                               <thead className="bg-[#0A3B32] text-white text-[8px] uppercase tracking-wider">
-                                <tr>
+                                <tr style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                                   <th className="p-2 border border-slate-500 text-center w-8">No.</th>
                                   <th className="p-2 border border-slate-500 w-48">Descripción Observación y/o Hallazgo</th>
                                   <th className="p-2 border border-slate-500 text-center w-24">Clase de Observación</th>
@@ -1721,7 +1721,15 @@ const handleNotificarPlan = (planId) => {
                                   }
 
                                   return (
-                                    <tr key={idx} className="border-b border-slate-300 break-inside-avoid hover:bg-slate-50" style={{ pageBreakInside: 'avoid' }}>
+                                    <tr 
+                                      key={idx} 
+                                      className="border-b border-slate-300 hover:bg-slate-50" 
+                                      style={{ 
+                                        pageBreakInside: 'avoid', 
+                                        breakInside: 'avoid',
+                                        pageBreakAfter: 'auto'
+                                      }}
+                                    >
                                      {/* 1. NO */}
                                       <td className="p-2 border-r border-slate-300 text-center font-black text-slate-900 align-top">{idx + 1}</td>
                                       
