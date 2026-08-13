@@ -299,7 +299,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     const cedula = cedulaRaw.toString().trim();
     const periodoCons = periodoRaw ? periodoRaw.toString().trim() : '228';
     
-   let periodoNormalizadoISO = "";
+    let periodoNormalizadoISO = "";
     if (anoMesRaw) {
       const str = anoMesRaw.toString().replace('/', '-').trim();
       if (str.includes('-')) {
@@ -310,7 +310,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       }
     } 
     
-    // Extracción dinámica del mes según la quincena o la fecha (evita dejar '-05' fijo)
     if (!periodoNormalizadoISO && anoRaw) {
       const mesDetectado = Math.ceil((parseInt(periodoCons) || 228) / 2) % 12 || 5;
       periodoNormalizadoISO = `${anoRaw}-${mesDetectado.toString().padStart(2, '0')}`; 
@@ -339,7 +338,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         descuentoSaludReal: 0,
         descuentoPensionReal: 0,
         diasTrabajados: 0,
-        esLiquidacion: llavesLiquidacion.has(llaveUnica), // Pre-identificado
+        esLiquidacion: llavesLiquidacion.has(llaveUnica),
         esAprendizSena: normalizarTexto(cargoRaw).includes('APRENDIZ') || normalizarTexto(cargoRaw).includes('SENA') || conceptoLimpio.includes('SOSTENIMIENTO')
       };
     } else {
@@ -349,12 +348,12 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-   // Lexicón defensivo
+   // Lexicón defensivo corregido (Se remueve "Día de la familia" de los excluidos para que sume a la base)
     const esConstitutivoLexicon = [
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
       'DESTAJO', 'AUXILIO SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 
-      'COMPENSACION SALARIAL', 'LICENCIA REMUNERADA' // 👈 DÍA DE LA FAMILIA SE ELIMINÓ DE AQUÍ
+      'COMPENSACION SALARIAL', 'LICENCIA REMUNERADA' 
     ].some(kw => conceptoLimpio.includes(kw));
 
     const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION', 'INCAPACIDAD', 'INC.', 'FAMILIA'].some(excl => conceptoLimpio.includes(excl));
@@ -371,10 +370,8 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       }
     } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
       if (emp.esLiquidacion && (conceptoLimpio === 'VACACIONES' || conceptoLimpio === 'VACACIONES COMPENSADAS')) {
-        // En liquidación definitiva las vacaciones compensadas no cotizan a Salud/Pensión
         emp.totalNoConstitutivo += valorTotal; 
       } else {
-        // Netea positivos y negativos (reversiones de vacaciones)
         emp.valorAusentismosIBC += valorTotal; 
       }
     } else if (conceptosNoSalariales.includes(conceptoLimpio) || esNoSalarialLexicon) {
@@ -388,26 +385,24 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     }
   });
 
-// 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Sincronizado con formato 2026-04 de la Nube)
+  // 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Sincronizado con formato 2026-04 de la Nube)
   const historicosPreCargados = {};
   const periodosEmpresasNecesarios = new Set();
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
-    // Usamos el periodoISO (ej: 2026-05) para calcular el mes anterior matemáticamente
     if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
         const [anoStr, mesStr] = emp.periodoISO.split('-');
         let ano = parseInt(anoStr); 
         let mes = parseInt(mesStr) - 1;
         if (mes === 0) { mes = 12; ano -= 1; }
         
-        const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`; // Resultado: "2026-04"
+        const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
         const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
         periodosEmpresasNecesarios.add(keyConsulta);
     }
   }
 
-  // Consultamos a Firebase/BD solo los meses estrictamente necesarios de forma masiva
   for (const key of periodosEmpresasNecesarios) {
     const [perAnterior, empresa] = key.split('|');
     try {
@@ -433,7 +428,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     let deberSerPension = 0;
 
     if (emp.esAprendizSena) {
-      // Regla Especial SENA: $0 retención a salud para el aprendiz
       ibcLiquidacion = emp.totalNoConstitutivo || 394000;
       deberSerSalud = 0;
       deberSerPension = 0;
@@ -444,10 +438,9 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
       let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
-   // 🏖️ PROMEDIO HISTÓRICO LEGAL E HÍBRIDO DEL ERP
+      // 🏖️ PROMEDIO HISTÓRICO LEGAL E HÍBRIDO DEL ERP
       if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
         
-        // 1. Calculamos el periodo "2026-04" para ir a buscar a Firebase
         const [anoStr, mesStr] = emp.periodoISO.split('-');
         let ano = parseInt(anoStr); 
         let mes = parseInt(mesStr) - 1;
@@ -457,7 +450,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
         const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
         
-        // 2. Extraer el IBC sumando la "Salud" del mes anterior
+        // Extraer el IBC sumando la "Salud" del mes anterior, ignorando signos negativos
         let saludHistoricaTotal = 0;
         historicoMesAnterior.forEach(h => {
             const cedulaFila = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
@@ -481,19 +474,17 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
              
              // 🛡️ REGLA HÍBRIDA DE PRECISIÓN:
-             // Comparamos el histórico calculado vs lo devengado real del ERP
              const calculoHistorico = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
              const calculoDirectoERP = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
              
-             // Si el ERP no está usando histórico sino la vacación directa, empatamos con el ERP
-             // (Esto previene falsos positivos en empresas que no operan el histórico de 1998)
+             // Validar cuál se acerca más al ERP
              const difVsHistorico = Math.abs((Math.round(calculoHistorico / 500) * 500 * 0.04) - emp.descuentoSaludReal);
              const difVsDirecto = Math.abs((Math.round(calculoDirectoERP / 500) * 500 * 0.04) - emp.descuentoSaludReal);
 
              if (difVsDirecto < difVsHistorico && difVsDirecto <= margenTolerancia) {
-                ibcBruto = calculoDirectoERP; // El ERP fue literal
+                ibcBruto = calculoDirectoERP; 
              } else {
-                ibcBruto = calculoHistorico; // El ERP sí usó histórico de ley
+                ibcBruto = calculoHistorico; 
                 emp.usoHistoricoAnterior = true; 
                 emp.ibcAnteriorDetectado = ibcImplicitoHist;
              }
@@ -501,7 +492,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           }
         } else {
-          // Fallback si no cruzó en la Nube
           ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
         }
       }
@@ -512,7 +502,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         ibcBruto += (emp.totalNoConstitutivo - limite40);
       }
 
-      // Redondeo al paso configurado
       ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
       deberSerSalud = Math.round(ibcLiquidacion * 0.04);
       deberSerPension = Math.round(ibcLiquidacion * 0.04);
@@ -530,7 +519,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
-    // Un margen de hasta $1.500 es normal por diferencias en cortes de decimales al promediar el mes anterior
+    // Un margen de hasta $1.500 es normal por cortes de decimales al promediar el mes anterior
     const toleranciaUsoHistorico = emp.usoHistoricoAnterior ? 1500 : margenTolerancia;
 
     if (emp.esAprendizSena && emp.descuentoSaludReal === 0) {
@@ -572,7 +561,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       diferenciaExacta: difSalud,
       tipoHallazgo,
       severidad,
-      usoHistoricoAnterior: emp.usoHistoricoAnterior, // 👈 Inyectamos a la UI
+      usoHistoricoAnterior: emp.usoHistoricoAnterior,
       ibcAnteriorDetectado: emp.ibcAnteriorDetectado
     });
   }
