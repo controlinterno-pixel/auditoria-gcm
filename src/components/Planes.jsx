@@ -1645,38 +1645,43 @@ const handleNotificarPlan = (planId) => {
                               </div>
                             </div>
 
-                            {/* Información General Dinámica */}
-                            <div className="grid grid-cols-4 gap-4 mb-6 bg-slate-50 p-5 rounded-xl border border-slate-200 break-inside-avoid shadow-inner">
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">Fecha de Emisión / Registro</p>
-                                <p className="text-sm font-black text-slate-800">{fechaInforme}</p>
+                            {/* Información General Dinámica (Diseño Limpio Anti-Solapamiento) */}
+                            <div className="grid grid-cols-4 gap-6 mb-6 bg-slate-50 p-6 rounded-xl border border-slate-300 break-inside-avoid">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">FECHA EMISIÓN / REGISTRO</span>
+                                <span className="text-xs font-black text-slate-800 block">{fechaInforme || 'N/A'}</span>
                               </div>
-                              <div className="col-span-2">
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">Fuente / Título del Informe</p>
-                                <p className="text-sm font-black text-slate-800">{tituloInforme}</p>
+
+                              <div className="col-span-2 flex flex-col gap-1">
+                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">FUENTE / TÍTULO DEL INFORME</span>
+                                <span className="text-xs font-black text-slate-900 leading-normal block">{tituloInforme || 'Sin Título'}</span>
                               </div>
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">Proceso Auditado</p>
-                                <p className="text-sm font-black text-slate-800">{procesoInforme}</p>
+
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">PROCESO AUDITADO</span>
+                                <span className="text-xs font-black text-slate-800 uppercase block">{procesoInforme || 'General'}</span>
                               </div>
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">Tipo de Plan</p>
-                                <p className="text-sm font-black text-slate-800">Acción Correctiva / De Proceso</p>
+
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">TIPO DE PLAN</span>
+                                <span className="text-xs font-black text-slate-800 block">Acción Correctiva / De Proceso</span>
                               </div>
-                              <div className="col-span-2">
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">Objetivo / Alcance</p>
-                                <p className="text-[11px] font-bold text-slate-600 leading-tight">
+
+                              <div className="col-span-2 flex flex-col gap-1">
+                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">OBJETIVO / ALCANCE</span>
+                                <span className="text-xs font-bold text-slate-700 leading-snug block">
                                   Fortalecimiento de los controles del proceso para garantizar el cumplimiento legal, documental y operativo derivado de la auditoría.
-                                </p>
+                                </span>
                               </div>
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">Vencimiento Global</p>
-                                <p className="text-sm font-black text-red-600">
+
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">VENCIMIENTO GLOBAL</span>
+                                <span className="text-xs font-black text-red-600 block">
                                   {(() => {
                                     const fechas = planesDelInforme.map(p => p.fecha).filter(Boolean);
                                     return fechas.length > 0 ? fechas.sort().reverse()[0] : 'N/A';
                                   })()}
-                                </p>
+                                </span>
                               </div>
                             </div>
 
