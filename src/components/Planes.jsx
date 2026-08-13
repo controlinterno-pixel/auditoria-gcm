@@ -53,8 +53,7 @@ export default function Planes({
 
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
-  const [generandoPdfId, setGenerandoPdfId] = useState(null);
-
+const [evalDetalleModal, setEvalDetalleModal] = useState(null);
   // Referencias para exportar el Plan de Acción Institucional (Ahora en el scope correcto)
   const planRefs = useRef({});
 
@@ -1936,7 +1935,7 @@ const handleNotificarPlan = (planId) => {
                 </div>
               </div>
 
-       {/* 📜 HISTORIAL COMPLETO DE CALIFICACIONES REALIZADAS */}
+      {/* 📜 HISTORIAL COMPLETO DE CALIFICACIONES REALIZADAS (CON BOTÓN DE DESGLOSE) */}
               {(() => {
                 const historial = modalEval.planes[0]?.historialEvaluaciones || 
                   (modalEval.planes[0]?.evaluacionHolistica ? [modalEval.planes[0].evaluacionHolistica] : []);
@@ -1948,19 +1947,37 @@ const handleNotificarPlan = (planId) => {
                     <h4 className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest mb-3 flex items-center gap-2">
                       <span>📜</span> Historial de Evaluaciones ({historial.length})
                     </h4>
-                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                       {historial.map((ev, hIdx) => (
-                        <div key={hIdx} className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs shadow-sm">
-                          <div className="flex items-center gap-3">
-                            <span className={`px-2.5 py-1 rounded-lg font-black text-[10px] font-mono ${ev.aprobado ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                        <div 
+                          key={hIdx} 
+                          className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs shadow-sm transition-all hover:border-[#0A3B32]"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className={`px-2.5 py-1 rounded-lg font-black text-[10px] font-mono shrink-0 ${ev.aprobado ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
                               {ev.puntaje}% ({ev.aprobado ? 'APROBADO' : 'RECHAZADO'})
                             </span>
-                            <div>
+                            <div className="truncate">
                               <p className="font-bold text-slate-800 text-[11px]">{ev.fecha}</p>
-                              {ev.justificacion && <p className="text-[10px] text-slate-500 italic mt-0.5">"{ev.justificacion}"</p>}
+                              {ev.justificacion && (
+                                <p className="text-[10px] text-slate-500 italic mt-0.5 truncate max-w-md">
+                                  "{ev.justificacion}"
+                                </p>
+                              )}
                             </div>
                           </div>
-                          {hIdx === 0 && <span className="bg-blue-100 text-blue-800 text-[9px] font-black px-2 py-0.5 rounded uppercase">Más Reciente</span>}
+                          
+                          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                            {hIdx === 0 && <span className="bg-blue-100 text-blue-800 text-[9px] font-black px-2 py-1 rounded uppercase">Más Reciente</span>}
+                            <button
+                              type="button"
+                              onClick={() => setEvalDetalleModal(ev)}
+                              className="bg-[#0A3B32] hover:bg-[#062620] text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+                            >
+                              <span>🔍</span>
+                              <span>Ver Desglose</span>
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2039,7 +2056,104 @@ const handleNotificarPlan = (planId) => {
           </div>
         </div>
       )}
+{/* 🔍 MINI-MODAL SUTIL: DESGLOSE PUNTO POR PUNTO DE EVALUACIÓN HISTÓRICA */}
+      {evalDetalleModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95">
+            
+            {/* Cabecera */}
+            <div className="bg-[#0A3B32] p-4 flex justify-between items-center text-white shrink-0">
+              <div>
+                <h4 className="font-black text-sm flex items-center gap-2">
+                  <span>📊</span> Detalle de Criterios Evaluados
+                </h4>
+                <p className="text-emerald-100 text-[10px] font-medium mt-0.5">
+                  Registro del {evalDetalleModal.fecha}
+                </p>
+              </div>
+              <button 
+                onClick={() => setEvalDetalleModal(null)} 
+                className="text-emerald-100 hover:text-white font-black text-lg px-2 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
 
+            {/* Cuerpo de Criterios */}
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+              
+              {/* Badge de Score Global */}
+              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Resultado Global</span>
+                  <span className={`text-xs font-black uppercase ${evalDetalleModal.aprobado ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {evalDetalleModal.aprobado ? '✅ PLAN VIABLE (APROBADO)' : '❌ PLAN RECHAZADO'}
+                  </span>
+                </div>
+                <span className={`text-3xl font-black font-mono px-4 py-1 rounded-xl border ${evalDetalleModal.aprobado ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                  {evalDetalleModal.puntaje}%
+                </span>
+              </div>
+
+              {/* Lista de los 5 Criterios COSO */}
+              <div className="space-y-2.5">
+                <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b pb-1">
+                  Calificación por Parámetro Técnico
+                </h5>
+                
+                {[
+                  { id: 'c1', nombre: 'Completitud y Cobertura (30%)', desc: 'Atención a todos los hallazgos' },
+                  { id: 'c2', nombre: 'Análisis de Causa Raíz (20%)', desc: 'Ataque a la causa profunda' },
+                  { id: 'c3', nombre: 'Planes de Choque Inmediato (20%)', desc: 'Acciones de contingencia cortas' },
+                  { id: 'c4', nombre: 'Temporalidad y Fechas (20%)', desc: 'Coherencia en tiempos' },
+                  { id: 'c5', nombre: 'Controles e Indicadores (10%)', desc: 'KRIs/KPIs medibles' }
+                ].map(item => {
+                  const nota = evalDetalleModal.criterios?.[item.id] ?? 100;
+                  return (
+                    <div key={item.id} className="bg-white p-3 rounded-xl border border-slate-100 shadow-xs space-y-1">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-slate-800">{item.nombre}</span>
+                        <span className={`font-mono font-black text-[11px] px-2 py-0.5 rounded border ${nota >= 80 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : nota >= 50 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200'}`}>
+                          {nota}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all ${nota >= 80 ? 'bg-emerald-500' : nota >= 50 ? 'bg-amber-500' : 'bg-rose-500'}`} 
+                          style={{ width: `${nota}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Justificación completa */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                  Dictamen / Observación Registrada
+                </span>
+                <p className="text-xs font-medium text-slate-700 italic leading-relaxed whitespace-pre-wrap">
+                  "{evalDetalleModal.justificacion || 'Sin observaciones adicionales registradas.'}"
+                </p>
+              </div>
+
+            </div>
+
+            {/* Cierre */}
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end shrink-0">
+              <button 
+                type="button"
+                onClick={() => setEvalDetalleModal(null)} 
+                className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all cursor-pointer"
+              >
+                Cerrar Detalle
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
