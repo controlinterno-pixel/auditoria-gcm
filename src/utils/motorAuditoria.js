@@ -15,6 +15,15 @@ const normalizarTexto = (str) => {
   return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 };
 
+const limpiarCedula = (val) => {
+  if (val === null || val === undefined) return "";
+  let str = val.toString().trim();
+  if (str.includes('.')) {
+    str = str.split('.')[0];
+  }
+  return str.replace(/\D/g, '');
+};
+
 const parsearMonto = (val) => {
   if (val === null || val === undefined) return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
@@ -76,7 +85,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const total = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor']);
     
     if (!cedula) return false;
-    const huella = `${cedula.toString().trim()}_${periodo ? periodo.toString().trim() : ''}_${normalizarTexto(concepto)}_${cantidad}_${total}`;
+    const huella = `${limpiarCedula(cedula)}_${periodo ? periodo.toString().trim() : ''}_${normalizarTexto(concepto)}_${cantidad}_${total}`;
     if (registrosVistos.has(huella)) return false;
     registrosVistos.add(huella);
     return true;
@@ -98,7 +107,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     if (!cedulaRaw) return; 
 
     const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
-    const cedula = cedulaRaw.toString().trim();
+    const cedula = limpiarCedula(cedulaRaw);
     const periodo = periodoRaw ? periodoRaw.toString().trim() : '228';
     
     const llaveUnica = `${cedula}_${periodo}`;    
@@ -259,7 +268,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     const total = buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Deduccion']);
     
     if (!cedula) return false;
-    const huella = `${cedula.toString().trim()}_${periodo ? periodo.toString().trim() : ''}_${normalizarTexto(concepto)}_${cantidad}_${total}`;
+    const huella = `${limpiarCedula(cedula)}_${periodo ? periodo.toString().trim() : ''}_${normalizarTexto(concepto)}_${cantidad}_${total}`;
     if (registrosVistos.has(huella)) return false;
     registrosVistos.add(huella);
     return true;
@@ -272,7 +281,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     const periodo = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
     const concepto = normalizarTexto(buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
     if (cedula && (concepto === 'CESANTIA' || concepto === 'PRIMA DE SERVICIO' || concepto === 'INTERESES SOBRE CESANTIA' || concepto === 'LIQUIDACION PARCIAL DE CESANTIA')) {
-      llavesLiquidacion.add(`${cedula.toString().trim()}_${periodo ? periodo.toString().trim() : '228'}`);
+      llavesLiquidacion.add(`${limpiarCedula(cedula)}_${periodo ? periodo.toString().trim() : '228'}`);
     }
   });
 
@@ -292,7 +301,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     if (!cedulaRaw) return;
 
-    const cedula = cedulaRaw.toString().trim();
+    const cedula = limpiarCedula(cedulaRaw);
     const periodoCons = periodoRaw ? periodoRaw.toString().trim() : '228';
     
     // BLINDAJE DE FORMATO DE FECHAS
@@ -453,19 +462,17 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const keyConsulta = `${periodoAnteriorStr}|${primeraEmpresa}`;
         const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
         
-        // 🚀 Extraer el IBC sumando la "Salud" del mes anterior, con limpieza estricta de Cédulas
+        // 🚀 Extraer el IBC sumando la "Salud" del mes anterior, con limpieza estricta de Cédulas (.split('.')[0])
         let saludHistoricaTotal = 0;
-        const empCedulaLimpia = emp.cedula ? emp.cedula.toString().replace(/\D/g, '') : '';
 
         historicoMesAnterior.forEach(h => {
             const cedulaFilaRaw = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
-            const cedulaFilaLimpia = cedulaFilaRaw ? cedulaFilaRaw.toString().replace(/\D/g, '') : '';
+            const cedulaFilaLimpia = limpiarCedula(cedulaFilaRaw);
             
-            if (cedulaFilaLimpia && cedulaFilaLimpia === empCedulaLimpia) {
+            if (cedulaFilaLimpia && cedulaFilaLimpia === emp.cedula) {
                 const conceptoRaw = buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
                 const cLimpio = normalizarTexto(conceptoRaw);
                 if (cLimpio.includes('SALUD') && !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL')) {
-                    // Ampliamos las columnas de búsqueda para el valor
                     const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Devengado', 'Pago', 'Monto']);
                     saludHistoricaTotal += Math.abs(parsearMonto(valRaw));
                 }
