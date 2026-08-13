@@ -1369,8 +1369,8 @@ const handleNotificarPlan = (planId) => {
 
                      {/* Sub-tabla Desplegable de Actividades Amarradas */}
                       {isExpanded && (
-                        <div className="p-3 bg-white border-t border-slate-50 overflow-x-auto relative">
-                          <div className="flex justify-between items-center mb-3">
+<div id={`plan-completo-${idInf}`} className="p-3 bg-white border-t border-slate-50 overflow-x-auto relative">
+<div className="flex justify-between items-center mb-3">
                             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Desglose de Actividades</h4>
                             <button 
                               onClick={() => exportarA_PDF(`plan-completo-${idInf}`, `Plan_Mejoramiento_${refInforme}.pdf`, '#ffffff')}
