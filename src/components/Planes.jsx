@@ -1627,84 +1627,168 @@ const handleNotificarPlan = (planId) => {
                         <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
                           <div 
                             ref={(el) => (planRefs.current[idInf] = el)} 
-                            className="w-[1200px] bg-white p-10 font-sans text-slate-800"
+                            className="w-[1600px] bg-white p-10 font-sans text-slate-800"
                           >
                             {/* Cabecera Membretada */}
-                            <div className="flex justify-between items-center border-b-2 border-slate-300 pb-4 mb-6 break-inside-avoid">
-                              <div className="flex items-center gap-4">
-                                <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-32 h-auto object-contain" />
+                            <div className="flex justify-between items-center border-b-2 border-[#0A3B32] pb-4 mb-6 break-inside-avoid">
+                              <div className="flex items-center gap-6">
+                                <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-36 h-auto object-contain" />
                                 <div>
-                                  <h1 className="text-2xl font-black text-[#0A3B32] uppercase">Termales Santa Rosa de Cabal</h1>
-                                  <h2 className="text-lg font-bold text-slate-600">PLAN DE MEJORAMIENTO CORPORATIVO</h2>
+                                  <h1 className="text-2xl font-black text-[#0A3B32] uppercase tracking-widest">Termales Santa Rosa de Cabal</h1>
+                                  <h2 className="text-xl font-bold text-slate-600 mt-1">PLAN DE MEJORAMIENTO CORPORATIVO</h2>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className="text-xs font-bold text-slate-500 uppercase">Fuente del Plan / Título del Informe</p>
-                                <p className="text-sm font-black text-slate-800">{tituloInforme}</p>
-                                <p className="text-xs font-bold text-slate-500 uppercase mt-2">Referencia Oficial</p>
-                                <p className="text-sm font-black text-slate-800">{refInforme}</p>
+                              <div className="text-right bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Referencia Oficial</p>
+                                <p className="text-xl font-black text-[#0A3B32]">{refInforme}</p>
                               </div>
                             </div>
 
-                            {/* Información General */}
-                            <div className="grid grid-cols-4 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200 break-inside-avoid">
+                            {/* Información General Dinámica */}
+                            <div className="grid grid-cols-4 gap-4 mb-6 bg-slate-50 p-5 rounded-xl border border-slate-200 break-inside-avoid shadow-inner">
                               <div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">Fecha de Emisión</p>
-                                <p className="text-xs font-black text-slate-800">{fechaInforme}</p>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Fecha de Emisión / Registro</p>
+                                <p className="text-sm font-black text-slate-800">{fechaInforme}</p>
                               </div>
                               <div className="col-span-2">
-                                <p className="text-[10px] font-bold text-slate-500 uppercase">Proceso Auditado Vinculado</p>
-                                <p className="text-xs font-black text-slate-800">{procesoInforme}</p>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Fuente / Título del Informe</p>
+                                <p className="text-sm font-black text-slate-800">{tituloInforme}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Proceso Auditado</p>
+                                <p className="text-sm font-black text-slate-800">{procesoInforme}</p>
                               </div>
                               <div>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase">Tipo de Plan</p>
-                                <p className="text-xs font-black text-slate-800">Acción Correctiva / De Proceso</p>
+                                <p className="text-sm font-black text-slate-800">Acción Correctiva / De Proceso</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Objetivo / Alcance</p>
+                                <p className="text-[11px] font-bold text-slate-600 leading-tight">
+                                  Fortalecimiento de los controles del proceso para garantizar el cumplimiento legal, documental y operativo derivado de la auditoría.
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Vencimiento Global</p>
+                                <p className="text-sm font-black text-red-600">
+                                  {(() => {
+                                    const fechas = planesDelInforme.map(p => p.fecha).filter(Boolean);
+                                    return fechas.length > 0 ? fechas.sort().reverse()[0] : 'N/A';
+                                  })()}
+                                </p>
                               </div>
                             </div>
 
-                            {/* Tabla de Actividades */}
-                            <table className="w-full text-xs text-left border-collapse border border-slate-300">
-                              <thead className="bg-[#0A3B32] text-white">
+                            {/* Tabla de Actividades (14 Columnas Reales) */}
+                            <table className="w-full text-left border-collapse border-2 border-[#0A3B32]">
+                              <thead className="bg-[#0A3B32] text-white text-[8px] uppercase tracking-wider">
                                 <tr>
-                                  <th className="p-3 border border-slate-400 w-20 text-center">ID</th>
-                                  <th className="p-3 border border-slate-400 w-1/3">Descripción del Hallazgo Base</th>
-                                  <th className="p-3 border border-slate-400 w-1/3">Acción Requerida</th>
-                                  <th className="p-3 border border-slate-400">Responsable</th>
-                                  <th className="p-3 border border-slate-400 w-24 text-center">Cronograma / Avance</th>
+                                  <th className="p-2 border border-slate-500 text-center w-8">No.</th>
+                                  <th className="p-2 border border-slate-500 w-48">Descripción Observación y/o Hallazgo</th>
+                                  <th className="p-2 border border-slate-500 w-32">Causas Identificadas</th>
+                                  <th className="p-2 border border-slate-500 text-center w-24">Clase de Observación</th>
+                                  <th className="p-2 border border-slate-500 w-24">Áreas / Procesos Vinculados</th>
+                                  <th className="p-2 border border-slate-500 w-48">Acciones de Mejoramiento</th>
+                                  <th className="p-2 border border-slate-500 w-24">Mecanismo de Seguimiento</th>
+                                  <th className="p-2 border border-slate-500 w-32">Resp. Seguimiento (Auditor)</th>
+                                  <th className="p-2 border border-slate-500 text-center w-16">Meta / Unidad</th>
+                                  <th className="p-2 border border-slate-500 text-center w-20">Fecha Inicio</th>
+                                  <th className="p-2 border border-slate-500 text-center w-20">Fecha Terminación</th>
+                                  <th className="p-2 border border-slate-500 text-center w-16">Plazo (Semanas)</th>
+                                  <th className="p-2 border border-slate-500 text-center w-20">Estado / Observación</th>
+                                  <th className="p-2 border border-slate-500 w-32">Responsable de Mejoramiento</th>
                                 </tr>
                               </thead>
-                              <tbody>
+                              <tbody className="text-[8px] text-slate-700 bg-white">
                                 {planesDelInforme.map((p, idx) => {
                                   const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(p.idHallazgo));
+                                  
+                                  // Cálculo Matemático de Semanas
+                                  let semanas = 'N/A';
+                                  if (p.fechaInicio && p.fecha) {
+                                    const d1 = new Date(p.fechaInicio);
+                                    const d2 = new Date(p.fecha);
+                                    if (!isNaN(d1) && !isNaN(d2)) {
+                                      const diffTime = Math.abs(d2 - d1);
+                                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                      semanas = (diffDays / 7).toFixed(1);
+                                    }
+                                  }
+
                                   return (
-                                    <tr key={idx} className="border-b border-slate-300 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
-                                      <td className="p-3 border-r border-slate-300 font-mono font-black text-slate-800 text-center align-top">
-                                        PLA-{p.id.toString().slice(-4)}
+                                    <tr key={idx} className="border-b border-slate-300 break-inside-avoid hover:bg-slate-50" style={{ pageBreakInside: 'avoid' }}>
+                                      {/* 1. NO */}
+                                      <td className="p-2 border-r border-slate-300 text-center font-black text-slate-900 align-top">{idx + 1}</td>
+                                      
+                                      {/* 2. DESCRIPCIÓN */}
+                                      <td className="p-2 border-r border-slate-300 align-top font-medium">
+                                        <span className="font-bold text-red-600 block mb-1">HAL-{p.idHallazgo}</span>
+                                        {hallazgoBase?.descripcion || 'Sin descripción detallada.'}
                                       </td>
-                                      <td className="p-3 border-r border-slate-300 align-top">
-                                        <div className="font-bold text-[10px] text-red-600 mb-1">HAL-{p.idHallazgo}</div>
-                                        <p className="text-[10px] text-slate-700 whitespace-pre-wrap">{hallazgoBase ? hallazgoBase.descripcion : 'Descripción no disponible.'}</p>
+                                      
+                                      {/* 3. CAUSAS */}
+                                      <td className="p-2 border-r border-slate-300 align-top italic text-slate-600">
+                                        {hallazgoBase?.causaRaiz || 'Análisis de causa raíz no documentado en la plataforma.'}
                                       </td>
-                                      <td className="p-3 border-r border-slate-300 align-top">
-                                        <p className="font-bold text-[11px] text-slate-900">{p.accion}</p>
+                                      
+                                      {/* 4. CLASE */}
+                                      <td className="p-2 border-r border-slate-300 align-top text-center font-bold uppercase text-[#0A3B32]">
+                                        {hallazgoBase?.claseObservacion || 'No Conformidad'}
                                       </td>
-                                      <td className="p-3 border-r border-slate-300 text-[10px] font-bold text-slate-700 align-top">
-                                        {p.responsable}
-                                        <span className="block text-slate-400 font-normal mt-1">{p.sede}</span>
+                                      
+                                      {/* 5. ÁREAS / PROCESOS */}
+                                      <td className="p-2 border-r border-slate-300 align-top uppercase font-bold text-slate-800">
+                                        {p.proceso}
+                                        <span className="block text-slate-500 font-medium mt-1">{p.sede}</span>
                                       </td>
-                                      <td className="p-3 align-top">
-                                        <div className="flex justify-between items-center mb-1 border-b pb-1">
-                                          <span className="text-[9px] font-bold text-slate-500 uppercase">Inicio</span>
-                                          <span className="text-[9px] font-black text-slate-800">{p.fechaInicio || 'N/A'}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center mb-2">
-                                          <span className="text-[9px] font-bold text-slate-500 uppercase">Límite</span>
-                                          <span className="text-[9px] font-black text-slate-800">{p.fecha || 'N/A'}</span>
-                                        </div>
-                                        <div className="flex items-center justify-center gap-1 mt-2 bg-slate-100 p-1 rounded">
-                                          <span className="text-xl font-black text-[#0A3B32]">{p.progreso}</span>
-                                          <span className="text-[10px] font-bold text-slate-500">%</span>
-                                        </div>
+                                      
+                                      {/* 6. ACCIONES DE MEJORAMIENTO */}
+                                      <td className="p-2 border-r border-slate-300 align-top">
+                                        <span className="font-bold text-blue-600 block mb-1">PLA-{p.id.toString().slice(-4)}</span>
+                                        <p className="font-black text-slate-900 leading-tight">{p.accion}</p>
+                                      </td>
+                                      
+                                      {/* 7. MECANISMO DE SEGUIMIENTO */}
+                                      <td className="p-2 border-r border-slate-300 align-top font-medium text-slate-600 uppercase">
+                                        Revisión de Evidencias Digitales GCM
+                                      </td>
+                                      
+                                      {/* 8. RESPONSABLE DE SEGUIMIENTO */}
+                                      <td className="p-2 border-r border-slate-300 align-top font-black text-[#0A3B32]">
+                                        {p.auditorAsignado || 'Auditoría Interna'}
+                                      </td>
+                                      
+                                      {/* 9. META */}
+                                      <td className="p-2 border-r border-slate-300 align-top text-center">
+                                        <span className="bg-emerald-100 text-emerald-800 font-black px-2 py-1 rounded">100%</span>
+                                      </td>
+                                      
+                                      {/* 10. FECHA INICIO */}
+                                      <td className="p-2 border-r border-slate-300 align-top text-center font-bold text-slate-800">
+                                        {p.fechaInicio || 'N/A'}
+                                      </td>
+                                      
+                                      {/* 11. FECHA TERMINACIÓN */}
+                                      <td className="p-2 border-r border-slate-300 align-top text-center font-bold text-slate-800">
+                                        {p.fecha || 'N/A'}
+                                      </td>
+                                      
+                                      {/* 12. PLAZO SEMANAS */}
+                                      <td className="p-2 border-r border-slate-300 align-top text-center font-black text-blue-700">
+                                        {semanas}
+                                      </td>
+                                      
+                                      {/* 13. ESTADO / OBSERVACIONES */}
+                                      <td className="p-2 border-r border-slate-300 align-top text-center">
+                                        <span className={`px-2 py-1 rounded font-black uppercase text-[7px] ${p.progreso === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                          {p.estadoWorkflow || 'En Proceso'}
+                                        </span>
+                                        <span className="block mt-1 font-black text-slate-800">{p.progreso}% Avance</span>
+                                      </td>
+                                      
+                                      {/* 14. RESPONSABLE DE MEJORAMIENTO */}
+                                      <td className="p-2 align-top font-black text-slate-900 uppercase">
+                                        {p.responsable || 'Sin Asignar'}
                                       </td>
                                     </tr>
                                   );
@@ -1712,31 +1796,33 @@ const handleNotificarPlan = (planId) => {
                               </tbody>
                             </table>
 
-                            {/* Sección de Firmas */}
-                            <div className="mt-12 flex justify-between px-12 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
-                              <div className="text-center w-64">
-                                <div className="border-b border-slate-400 h-16 mb-2"></div>
-                                <p className="text-xs font-black text-slate-800">FIRMA LÍDER DEL PROCESO</p>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase">Responsable de Ejecución</p>
+                            {/* Sección de Firmas Dinámicas */}
+                            <div className="mt-16 flex justify-between px-16 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
+                              <div className="text-center w-72">
+                                <div className="border-b-2 border-slate-400 h-12 mb-2"></div>
+                                <p className="text-xs font-black text-slate-800 uppercase">
+                                  {planesDelInforme[0]?.responsable || 'FIRMA LÍDER DEL PROCESO'}
+                                </p>
+                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Responsable de Ejecución</p>
                               </div>
-                              <div className="text-center w-64">
-                                <div className="border-b border-slate-400 h-16 mb-2"></div>
-                                <p className="text-xs font-black text-slate-800">FIRMA CONTROL INTERNO</p>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase">Aprobación y Seguimiento</p>
+                              <div className="text-center w-72">
+                                <div className="border-b-2 border-slate-400 h-12 mb-2"></div>
+                                <p className="text-xs font-black text-slate-800 uppercase">
+                                  {planesDelInforme[0]?.auditorAsignado || 'FIRMA CONTROL INTERNO'}
+                                </p>
+                                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">Aprobación y Seguimiento</p>
                               </div>
                             </div>
 
                             {/* Pie de Página */}
-                            <div className="mt-12 border-t-2 border-[#0A3B32] pt-4 flex justify-between items-center text-[10px] text-slate-500 font-bold break-inside-avoid">
-                              <span>GENERADO AUTOMÁTICAMENTE POR EL SISTEMA GCM AUDITOR V5</span>
-                              <span>USO OFICIAL - CONTROL INTERNO</span>
+                            <div className="mt-12 border-t-2 border-[#0A3B32] pt-4 flex justify-between items-center text-[9px] text-slate-500 font-black uppercase tracking-widest break-inside-avoid">
+                              <span>Generado Automáticamente por el Sistema GCM Auditor V5</span>
+                              <span>Uso Oficial - Control Interno</span>
                             </div>
                           </div>
                         </div>,
                         document.body
                       )}
-                      {/* FIN DEL LIENZO INSTITUCIONAL */}
-
                     </div>
                   );
                 })}
