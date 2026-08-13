@@ -1736,7 +1736,7 @@ const handleNotificarPlan = (planId) => {
                                   <th style={{ padding: '8px', border: '1px solid #475569', width: '130px' }}>Responsable de Mejoramiento</th>
                                 </tr>
                               </thead>
-                              <tbody style={{ fontSize: '8px', color: '#334155', backgroundColor: '#ffffff' }}>
+                              <tbody style={{ fontSize: '9.5px', color: '#0f172a', backgroundColor: '#ffffff' }}>
                                 {planesDelInforme.map((p, idx) => {
                                   const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(p.idHallazgo));
                                   
@@ -1754,6 +1754,7 @@ const handleNotificarPlan = (planId) => {
                                   return (
                                     <tr 
                                       key={idx} 
+                                      className="break-inside-avoid"
                                       style={{ 
                                         borderBottom: '1px solid #cbd5e1', 
                                         pageBreakInside: 'avoid', 
@@ -1761,75 +1762,75 @@ const handleNotificarPlan = (planId) => {
                                       }}
                                     >
                                       {/* 1. NO */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', textAlign: 'center', fontWeight: '900', color: '#0f172a', verticalAlign: 'top' }}>{idx + 1}</td>
+                                      <td style={{ padding: '8px 4px', borderRight: '1px solid #cbd5e1', textAlign: 'center', fontWeight: '900', color: '#0f172a', verticalAlign: 'top', fontSize: '10px' }}>{idx + 1}</td>
                                       
                                       {/* 2. DESCRIPCIÓN OBSERVACIÓN Y/O HALLAZGO */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontSize: '8.5px', lineHeight: '1.3' }}>
-                                        <div style={{ fontWeight: 'bold', color: '#dc2626', marginBottom: '3px' }}>
+                                      <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontSize: '9.5px', lineHeight: '1.35' }}>
+                                        <div style={{ fontWeight: '900', color: '#dc2626', marginBottom: '3px', fontSize: '10px' }}>
                                           {hallazgoBase?.ref || `HAL-${p.idHallazgo}`}
                                         </div>
-                                        <div style={{ fontWeight: '500', color: '#1e293b' }}>
+                                        <div style={{ fontWeight: '500', color: '#0f172a' }}>
                                           {hallazgoBase?.titulo || hallazgoBase?.descripcion || hallazgoBase?.hallazgo || hallazgoBase?.detalle || hallazgoBase?.observacion || 'Sin descripción detallada registrada.'}
                                         </div>
                                       </td>
                                       
                                       {/* 3. CLASE DE OBSERVACIÓN */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: '900', textTransform: 'uppercase', color: '#0A3B32' }}>
+                                      <td style={{ padding: '8px 4px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: '900', textTransform: 'uppercase', color: '#0A3B32', fontSize: '9px' }}>
                                         {hallazgoBase?.claseObservacion || 'No Conformidad'}
                                       </td>
                                       
                                       {/* 4. ÁREAS / PROCESOS */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textTransform: 'uppercase', fontWeight: 'bold', color: '#1e293b', fontSize: '8px', lineHeight: '1.3' }}>
+                                      <td style={{ padding: '8px 4px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textTransform: 'uppercase', fontWeight: 'bold', color: '#0f172a', fontSize: '9px', lineHeight: '1.3' }}>
                                         <div>{p.proceso}</div>
-                                        <div style={{ color: '#64748b', fontWeight: '500', fontSize: '7.5px', marginTop: '3px' }}>{p.sede}</div>
+                                        <div style={{ color: '#475569', fontWeight: '600', fontSize: '8.5px', marginTop: '3px' }}>{p.sede}</div>
                                       </td>
                                       
                                       {/* 5. ACCIONES DE MEJORAMIENTO */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontSize: '8.5px', lineHeight: '1.3' }}>
-                                        <div style={{ fontWeight: 'bold', color: '#2563eb', marginBottom: '3px' }}>PLA-{p.id.toString().slice(-4)}</div>
+                                      <td style={{ padding: '8px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontSize: '9.5px', lineHeight: '1.35' }}>
+                                        <div style={{ fontWeight: '900', color: '#2563eb', marginBottom: '3px', fontSize: '10px' }}>PLA-{p.id.toString().slice(-4)}</div>
                                         <div style={{ fontWeight: '900', color: '#0f172a' }}>{p.accion}</div>
                                       </td>
                                       
                                       {/* 6. MECANISMO DE SEGUIMIENTO */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontWeight: '500', color: '#475569', textTransform: 'uppercase', fontSize: '7.5px' }}>
+                                      <td style={{ padding: '8px 4px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontWeight: '600', color: '#334155', textTransform: 'uppercase', fontSize: '8.5px' }}>
                                         Revisión de Evidencias Digitales GCM
                                       </td>
                                       
                                       {/* 7. RESPONSABLE DE SEGUIMIENTO */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontWeight: '900', color: '#0A3B32' }}>
+                                      <td style={{ padding: '8px 4px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', fontWeight: '900', color: '#0A3B32', fontSize: '9px' }}>
                                         {p.auditorAsignado || 'Auditoría Interna'}
                                       </td>
                                       
                                       {/* 8. META */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center' }}>
-                                        <span style={{ backgroundColor: '#d1fae5', color: '#065f46', fontWeight: '900', padding: '2px 6px', borderRadius: '4px', fontSize: '8px' }}>100%</span>
+                                      <td style={{ padding: '8px 2px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center' }}>
+                                        <span style={{ backgroundColor: '#d1fae5', color: '#065f46', fontWeight: '900', padding: '2px 6px', borderRadius: '4px', fontSize: '9px' }}>100%</span>
                                       </td>
                                       
                                       {/* 9. FECHA INICIO */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold', color: '#1e293b' }}>
+                                      <td style={{ padding: '8px 2px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold', color: '#0f172a', fontSize: '9px' }}>
                                         {p.fechaInicio || 'N/A'}
                                       </td>
                                       
                                       {/* 10. FECHA TERMINACIÓN */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold', color: '#1e293b' }}>
+                                      <td style={{ padding: '8px 2px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: 'bold', color: '#0f172a', fontSize: '9px' }}>
                                         {p.fecha || 'N/A'}
                                       </td>
                                       
                                       {/* 11. PLAZO SEMANAS */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: '900', color: '#1d4ed8' }}>
+                                      <td style={{ padding: '8px 2px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontWeight: '900', color: '#1d4ed8', fontSize: '9px' }}>
                                         {semanas}
                                       </td>
                                       
                                       {/* 12. ESTADO / OBSERVACIONES */}
-                                      <td style={{ padding: '6px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontSize: '8px', lineHeight: '1.3' }}>
-                                        <div style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '4px', fontWeight: '900', textTransform: 'uppercase', fontSize: '7px', backgroundColor: p.progreso === 100 ? '#d1fae5' : '#fef3c7', color: p.progreso === 100 ? '#065f46' : '#92400e', marginBottom: '3px' }}>
+                                      <td style={{ padding: '8px 2px', borderRight: '1px solid #cbd5e1', verticalAlign: 'top', textAlign: 'center', fontSize: '9px', lineHeight: '1.3' }}>
+                                        <div style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '4px', fontWeight: '900', textTransform: 'uppercase', fontSize: '8px', backgroundColor: p.progreso === 100 ? '#d1fae5' : '#fef3c7', color: p.progreso === 100 ? '#065f46' : '#92400e', marginBottom: '3px' }}>
                                           {p.estadoWorkflow || 'En Proceso'}
                                         </div>
-                                        <div style={{ fontWeight: '900', color: '#1e293b', fontSize: '7.5px' }}>{p.progreso}% Avance</div>
+                                        <div style={{ fontWeight: '900', color: '#0f172a', fontSize: '8.5px' }}>{p.progreso}% Avance</div>
                                       </td>
                                       
                                       {/* 13. RESPONSABLE DE MEJORAMIENTO */}
-                                      <td style={{ padding: '6px', verticalAlign: 'top', fontWeight: '900', color: '#0f172a', textTransform: 'uppercase' }}>
+                                      <td style={{ padding: '8px 4px', verticalAlign: 'top', fontWeight: '900', color: '#0f172a', textTransform: 'uppercase', fontSize: '9px' }}>
                                         {p.responsable || 'Sin Asignar'}
                                       </td>
                                     </tr>

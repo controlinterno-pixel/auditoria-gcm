@@ -77,7 +77,7 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf', bgColo
 
     const dataUrl = await toPng(element, {
       quality: 1.0,
-      pixelRatio: 2,
+      pixelRatio: 4, // 🚀 Aumenta la resolución a 4x Ultra HD Cristalino
       backgroundColor: bgColor, 
     });
 
