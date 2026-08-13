@@ -27,10 +27,10 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf', bgColo
       width: element.style.width,
     };
 
-    element.style.position = 'absolute';
+   element.style.position = 'absolute';
     element.style.top = '0';
     element.style.left = '0';
-    element.style.width = '1200px'; 
+    element.style.width = '1350px'; 
     element.style.height = 'max-content';             
     element.style.maxHeight = 'none';
     element.style.overflow = 'visible';
@@ -40,8 +40,9 @@ export const exportarA_PDF = async (target, fileName = 'Informe_GRC.pdf', bgColo
     // =========================================================================
     const A4_WIDTH_MM = 297; 
     const A4_HEIGHT_MM = 210;
-    // Calculamos dónde caerá la guillotina del PDF en píxeles reales de pantalla
-    const PAGE_HEIGHT_PX = Math.floor(1200 * (A4_HEIGHT_MM / A4_WIDTH_MM)); 
+    // Calculamos dinámicamente la altura exacta del corte según el ancho real del elemento (1350px)
+    const TARGET_WIDTH_PX = element.scrollWidth || 1350;
+    const PAGE_HEIGHT_PX = Math.floor(TARGET_WIDTH_PX * (A4_HEIGHT_MM / A4_WIDTH_MM)); 
 
     // Buscamos todas las filas que tengan la clase que pusimos (break-inside-avoid)
     const rows = Array.from(element.querySelectorAll('.break-inside-avoid'));

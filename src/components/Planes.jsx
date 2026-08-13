@@ -1754,11 +1754,11 @@ const handleNotificarPlan = (planId) => {
                                   return (
                                     <tr 
                                       key={idx} 
-                                      className="break-inside-avoid"
+                                      className="break-inside-avoid pdf-row-avoid"
                                       style={{ 
                                         borderBottom: '1px solid #cbd5e1', 
                                         pageBreakInside: 'avoid', 
-                                        breakInside: 'avoid' 
+                                        breakInside: 'avoid'
                                       }}
                                     >
                                       {/* 1. NO */}
