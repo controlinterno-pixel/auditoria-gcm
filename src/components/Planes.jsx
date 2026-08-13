@@ -437,28 +437,36 @@ const handleNotificarPlan = (planId) => {
     const esAprobado = puntajeHolistico >= 80;
     const correoResponsableLider = modalEval.planes[0]?.correoResponsable || 'controlinterno@termales.com.co';
 
-    // Actualizamos en lote TODAS las actividades (Guardamos memoria de la evaluación)
+    // Actualizamos en lote TODAS las actividades (Acumulando el Historial de Calificaciones)
     modalEval.planes.forEach(plan => {
       const idx = updatedPlanesList.findIndex(p => p.id === plan.id);
       if (idx !== -1) {
+        const nuevaEval = { 
+          fecha: ts,
+          puntaje: puntajeHolistico,
+          justificacion: justificacion,
+          criterios: { ...criterios },
+          aprobado: esAprobado
+        };
+
+        // Preservamos todas las calificaciones anteriores
+        const historialPrevio = updatedPlanesList[idx].historialEvaluaciones || 
+          (updatedPlanesList[idx].evaluacionHolistica ? [updatedPlanesList[idx].evaluacionHolistica] : []);
+        const nuevoHistorial = [nuevaEval, ...historialPrevio];
+
         updatedPlanesList[idx] = {
           ...updatedPlanesList[idx],
-          estadoWorkflow: esAprobado ? 'En Ejecución' : 'Borrador', // Cambia el estado para liberar el flujo
-          evaluacionHolistica: { // 💾 AQUÍ SE GUARDA LA MEMORIA
-            fecha: ts,
-            puntaje: puntajeHolistico,
-            justificacion: justificacion,
-            criterios: { ...criterios },
-            aprobado: esAprobado
-          },
+          estadoWorkflow: esAprobado ? 'En Ejecución' : 'Borrador',
+          evaluacionHolistica: nuevaEval,
+          historialEvaluaciones: nuevoHistorial, // 👈 Se guarda el historial completo
           historialCambios: [
             ...(updatedPlanesList[idx].historialCambios || []),
             { 
               fecha: ts, 
               usuario: 'Auditor', 
               accion: esAprobado 
-                ? `✅ DISEÑO DEL PLAN APROBADO (Score Calidad: ${puntajeHolistico}%). Listo para iniciar ejecución.` 
-                : `❌ DISEÑO DEL PLAN RECHAZADO (Score Calidad: ${puntajeHolistico}%). Se requiere reformular. Motivo: ${justificacion}` 
+                ? `✅ DISEÑO DEL PLAN APROBADO (Score Calidad: ${puntajeHolistico}%).` 
+                : `❌ DISEÑO DEL PLAN RECHAZADO (Score Calidad: ${puntajeHolistico}%). Motivo: ${justificacion}` 
             }
           ]
         };
@@ -876,6 +884,7 @@ const handleNotificarPlan = (planId) => {
                   </button>
                </div>
             </div>
+
 
             {/* 2. Acordeones Dinámicos Centrales */}
             <div className="lg:col-span-2 space-y-4">
@@ -1927,6 +1936,38 @@ const handleNotificarPlan = (planId) => {
                 </div>
               </div>
 
+       {/* 📜 HISTORIAL COMPLETO DE CALIFICACIONES REALIZADAS */}
+              {(() => {
+                const historial = modalEval.planes[0]?.historialEvaluaciones || 
+                  (modalEval.planes[0]?.evaluacionHolistica ? [modalEval.planes[0].evaluacionHolistica] : []);
+                
+                if (historial.length === 0) return null;
+
+                return (
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-inner mb-4">
+                    <h4 className="text-[10px] font-black text-[#0A3B32] uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <span>📜</span> Historial de Evaluaciones ({historial.length})
+                    </h4>
+                    <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                      {historial.map((ev, hIdx) => (
+                        <div key={hIdx} className="bg-white p-3 rounded-xl border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 text-xs shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <span className={`px-2.5 py-1 rounded-lg font-black text-[10px] font-mono ${ev.aprobado ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                              {ev.puntaje}% ({ev.aprobado ? 'APROBADO' : 'RECHAZADO'})
+                            </span>
+                            <div>
+                              <p className="font-bold text-slate-800 text-[11px]">{ev.fecha}</p>
+                              {ev.justificacion && <p className="text-[10px] text-slate-500 italic mt-0.5">"{ev.justificacion}"</p>}
+                            </div>
+                          </div>
+                          {hIdx === 0 && <span className="bg-blue-100 text-blue-800 text-[9px] font-black px-2 py-0.5 rounded uppercase">Más Reciente</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-1 space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block">Dictamen / Justificación de Auditoría</label>
@@ -1951,15 +1992,6 @@ const handleNotificarPlan = (planId) => {
                       {(puntajeHolistico || 0) >= 80 ? '✅ Plan Viable' : (puntajeHolistico || 0) >= 50 ? '⚠️ Requiere Ajustes' : '❌ Plan Inoperante'}
                     </span>
                   </div>
-
-                  {modalEval.isReadOnly && (
-                    <button 
-                      onClick={() => exportarA_PDF(dictamenRef, `Dictamen_Plan_${modalEval.idInforme || 'N/A'}.pdf`, '#ffffff')}
-                      className="bg-[#0A3B32] hover:bg-[#062620] text-white px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-md transition-all flex items-center justify-center gap-2"
-                    >
-                      📄 Descargar Dictamen PDF
-                    </button>
-                  )}
                 </div>
               </div>
 
