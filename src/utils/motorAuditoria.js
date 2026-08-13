@@ -444,10 +444,10 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
       let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
-     // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
+    // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
       if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
         
-        // Calculamos el "2026-04" basado en el "2026-05" del empleado
+        // 1. Calculamos el periodo "2026-04" para ir a buscar a Firebase
         const [anoStr, mesStr] = emp.periodoISO.split('-');
         let ano = parseInt(anoStr); 
         let mes = parseInt(mesStr) - 1;
@@ -457,19 +457,21 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
         const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
         
-        // 🚀 NUEVO: Extraer el IBC sumando la Salud del mes anterior directamente del Excel guardado
+        // 2. 🚀 Extraer el IBC sumando la "Salud" del mes anterior directamente del JSON/Excel crudo
         let saludHistoricaTotal = 0;
         historicoMesAnterior.forEach(h => {
-            const cedulaFila = (h.Identificacion || h.Cedula || h.Documento || h.NIT || '').toString().trim();
-            if (cedulaFila === emp.cedula) {
-                const cLimpio = normalizarTexto(h.NombreConcepto || h.Concepto || h.Descripcion || '');
+            const cedulaFila = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+            if (cedulaFila && cedulaFila.toString().trim() === emp.cedula) {
+                const conceptoRaw = buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
+                const cLimpio = normalizarTexto(conceptoRaw);
                 if (cLimpio.includes('SALUD') && !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL')) {
-                    const val = parsearMonto(h.Total || h.Valor || h.TotalDevengado || h.Deduccion || 0);
-                    saludHistoricaTotal += Math.abs(val);
+                    const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion']);
+                    saludHistoricaTotal += Math.abs(parsearMonto(valRaw));
                 }
             }
         });
 
+        // Calculamos el IBC a partir del 4% de la salud total encontrada
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
         if (ibcImplicitoHist > 0) {
@@ -485,7 +487,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              emp.usoHistoricoAnterior = true; 
              emp.ibcAnteriorDetectado = ibcImplicitoHist;
           } else {
-             // Si es liquidación, respetamos lo devengado estrictamente
+             // Si es liquidación (Ej. Alvarez, Betancur), respetamos lo devengado estrictamente sin histórico
              ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           }
         }
