@@ -456,10 +456,24 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         
         const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
         const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
-        const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
         
-        if (empHist && empHist.ibcImplicito > 0) {
-          const ibcDiarioAnterior = empHist.ibcImplicito / 30;
+        // 🚀 NUEVO: Extraer el IBC sumando la Salud del mes anterior directamente del Excel guardado
+        let saludHistoricaTotal = 0;
+        historicoMesAnterior.forEach(h => {
+            const cedulaFila = (h.Identificacion || h.Cedula || h.Documento || h.NIT || '').toString().trim();
+            if (cedulaFila === emp.cedula) {
+                const cLimpio = normalizarTexto(h.NombreConcepto || h.Concepto || h.Descripcion || '');
+                if (cLimpio.includes('SALUD') && !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL')) {
+                    const val = parsearMonto(h.Total || h.Valor || h.TotalDevengado || h.Deduccion || 0);
+                    saludHistoricaTotal += Math.abs(val);
+                }
+            }
+        });
+
+        const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
+        
+        if (ibcImplicitoHist > 0) {
+          const ibcDiarioAnterior = ibcImplicitoHist / 30;
           
           let ajusteIBCVacaciones = 0;
           // Si NO es una liquidación definitiva, aplicamos el histórico proporcional
@@ -469,7 +483,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              
              ibcBruto = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
              emp.usoHistoricoAnterior = true; 
-             emp.ibcAnteriorDetectado = empHist.ibcImplicito;
+             emp.ibcAnteriorDetectado = ibcImplicitoHist;
           } else {
              // Si es liquidación, respetamos lo devengado estrictamente
              ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
