@@ -53,7 +53,9 @@ export default function Planes({
 
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
-const [evalDetalleModal, setEvalDetalleModal] = useState(null);
+  const [generandoPdfId, setGenerandoPdfId] = useState(null); // 👈 ¡Faltaba declarar este estado!
+  const [evalDetalleModal, setEvalDetalleModal] = useState(null);
+
   // Referencias para exportar el Plan de Acción Institucional (Ahora en el scope correcto)
   const planRefs = useRef({});
 
