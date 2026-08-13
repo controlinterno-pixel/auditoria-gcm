@@ -388,31 +388,22 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     }
   });
 
-// 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Quincena o Mes Anterior)
+// 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Sincronizado con formato 2026-04 de la Nube)
   const historicosPreCargados = {};
   const periodosEmpresasNecesarios = new Set();
 
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
-    if (emp.valorAusentismosIBC > 0) {
-        let periodoAnteriorStr = "";
-        const quincenaActual = parseInt(emp.periodo);
+    // Usamos el periodoISO (ej: 2026-05) para calcular el mes anterior matemáticamente
+    if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
+        const [anoStr, mesStr] = emp.periodoISO.split('-');
+        let ano = parseInt(anoStr); 
+        let mes = parseInt(mesStr) - 1;
+        if (mes === 0) { mes = 12; ano -= 1; }
         
-        // 🚀 NUEVA LÓGICA: Si el periodo es numérico (ej. 228), retrocedemos 2 para hallar la quincena equivalente del mes anterior (226)
-        if (!isNaN(quincenaActual) && quincenaActual > 100) {
-           periodoAnteriorStr = (quincenaActual - 2).toString();
-        } else if (emp.periodoISO) {
-           // Fallback por si el periodo viene como fecha "2026-05"
-           const [anoStr, mesStr] = emp.periodoISO.split('-');
-           let ano = parseInt(anoStr); let mes = parseInt(mesStr) - 1;
-           if (mes === 0) { mes = 12; ano -= 1; }
-           periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
-        }
-        
-        if (periodoAnteriorStr) {
-          const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
-          periodosEmpresasNecesarios.add(keyConsulta);
-        }
+        const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`; // Resultado: "2026-04"
+        const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
+        periodosEmpresasNecesarios.add(keyConsulta);
     }
   }
 
@@ -453,43 +444,39 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
       let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
-      // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
-      if (emp.valorAusentismosIBC > 0) {
-        let periodoAnteriorStr = "";
-        const quincenaActual = parseInt(emp.periodo);
+     // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
+      if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
         
-        if (!isNaN(quincenaActual) && quincenaActual > 100) {
-           periodoAnteriorStr = (quincenaActual - 2).toString(); 
-        } else if (emp.periodoISO) {
-           const [anoStr, mesStr] = emp.periodoISO.split('-');
-           let ano = parseInt(anoStr); let mes = parseInt(mesStr) - 1;
-           if (mes === 0) { mes = 12; ano -= 1; }
-           periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
-        }
-
-        if (periodoAnteriorStr) {
-          const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
-          const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
-          const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
+        // Calculamos el "2026-04" basado en el "2026-05" del empleado
+        const [anoStr, mesStr] = emp.periodoISO.split('-');
+        let ano = parseInt(anoStr); 
+        let mes = parseInt(mesStr) - 1;
+        if (mes === 0) { mes = 12; ano -= 1; }
+        const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
+        
+        const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
+        const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
+        const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
+        
+        if (empHist && empHist.ibcImplicito > 0) {
+          const ibcDiarioAnterior = empHist.ibcImplicito / 30;
           
-          if (empHist && empHist.ibcImplicito > 0) {
-            const ibcDiarioAnterior = empHist.ibcImplicito / 30;
-            
-            let ajusteIBCVacaciones = 0;
-            if (!emp.esLiquidacion) {
-               const diasAusentismo = 15 - emp.diasTrabajados;
-               ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
-            } else {
-               ajusteIBCVacaciones = emp.valorAusentismosIBC;
-            }
-            
-            ibcBruto = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
-            emp.usoHistoricoAnterior = true; 
-            emp.ibcAnteriorDetectado = empHist.ibcImplicito;
+          let ajusteIBCVacaciones = 0;
+          // Si NO es una liquidación definitiva, aplicamos el histórico proporcional
+          if (!emp.esLiquidacion) {
+             const diasAusentismo = 15 - emp.diasTrabajados;
+             ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
+             
+             ibcBruto = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
+             emp.usoHistoricoAnterior = true; 
+             emp.ibcAnteriorDetectado = empHist.ibcImplicito;
+          } else {
+             // Si es liquidación, respetamos lo devengado estrictamente
+             ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           }
         }
       }
-      
+            
       // Ley 1393 (Tope 40%)
       const limite40 = totalDevengado * 0.40;
       if (emp.totalNoConstitutivo > limite40) {
@@ -526,9 +513,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
       conteoDesalineados++;
     } else if (Math.abs(difSalud) <= toleranciaUsoHistorico && Math.abs(difPension) <= toleranciaUsoHistorico) {
-      tipoHallazgo = 'CONFORME';
-      severidad = 'CORRECTO';
-      conteoConformes++;
       tipoHallazgo = 'CONFORME';
       severidad = 'CORRECTO';
       conteoConformes++;
