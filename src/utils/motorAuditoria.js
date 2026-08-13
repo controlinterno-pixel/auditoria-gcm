@@ -317,13 +317,13 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       periodoNormalizadoISO = `${anoMesStr.substring(0, 4)}-${anoMesStr.substring(4, 6)}`;
     }
     
-    if (!periodoNormalizadoISO && anoRaw) {
+  if (!periodoNormalizadoISO && anoRaw) {
       const p = parseInt(periodoCons) || 228;
-      let mesDetectado = (Math.floor(p / 2) % 12) - 1;
-      if (mesDetectado <= 0) mesDetectado += 12;
-      periodoNormalizadoISO = `${anoRaw}-${mesDetectado.toString().padStart(2, '0')}`; 
+      // Fórmula matemática para mapear la quincena (ej: 227/228) al mes exacto (05 = Mayo)
+      let mesNum = ((Math.ceil(p / 2) - 1) % 12) + 1;
+      if (mesNum <= 0) mesNum += 12;
+      periodoNormalizadoISO = `${anoRaw}-${mesNum.toString().padStart(2, '0')}`; 
     }
-
     const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
     const llaveUnica = `${cedula}_${periodoCons}`;
     const conceptoLimpio = normalizarTexto(conceptoRaw);
@@ -524,8 +524,9 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
       if (ibcImplicitoHist > 0) {
-          // Ajuste a la base quincenal de 15 días guardada en la Nube
-          const ibcDiarioAnterior = ibcImplicitoHist / 15;
+          // 🏖️ El histórico en la Nube representa el mes completo (30 días)
+          // Dividimos entre 30 para obtener la tarifa diaria legal exacta
+          const ibcDiarioAnterior = ibcImplicitoHist / 30;
           
           if (!emp.esLiquidacion) {
              const diasAusentismo = 15 - emp.diasTrabajados;
