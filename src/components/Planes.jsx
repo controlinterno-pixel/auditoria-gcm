@@ -51,8 +51,11 @@ export default function Planes({
   informesAuditoria = []
 }) {
 
-const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
 const [busquedaRapida, setBusquedaRapida] = useState('');
+
+  // Referencias para exportar el Plan de Acción Institucional (Ahora en el scope correcto)
+  const planRefs = useRef({});
+
   const buscarPlanPorId = (e) => {
     e.preventDefault();
     if (!busquedaRapida.trim()) return;
@@ -62,8 +65,6 @@ const [busquedaRapida, setBusquedaRapida] = useState('');
     
     // Buscamos el plan que termine en esos números
     const planEncontrado = safePlanes.find(p => p.id.toString().endsWith(idBuscado));
-// Referencias para exportar el Plan de Acción Institucional
-  const planRefs = useRef({});
 
     if (planEncontrado) {
       setEditPlan(planEncontrado);
