@@ -53,7 +53,7 @@ export default function Planes({
 
 const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
-  
+
   // Referencias para exportar el Plan de Acción Institucional (Ahora en el scope correcto)
   const planRefs = useRef({});
 
@@ -1686,7 +1686,6 @@ const handleNotificarPlan = (planId) => {
                                 <tr>
                                   <th className="p-2 border border-slate-500 text-center w-8">No.</th>
                                   <th className="p-2 border border-slate-500 w-48">Descripción Observación y/o Hallazgo</th>
-                                  <th className="p-2 border border-slate-500 w-32">Causas Identificadas</th>
                                   <th className="p-2 border border-slate-500 text-center w-24">Clase de Observación</th>
                                   <th className="p-2 border border-slate-500 w-24">Áreas / Procesos Vinculados</th>
                                   <th className="p-2 border border-slate-500 w-48">Acciones de Mejoramiento</th>
@@ -1721,19 +1720,15 @@ const handleNotificarPlan = (planId) => {
                                       {/* 1. NO */}
                                       <td className="p-2 border-r border-slate-300 text-center font-black text-slate-900 align-top">{idx + 1}</td>
                                       
-                                      {/* 2. DESCRIPCIÓN */}
-                                      <td className="p-2 border-r border-slate-300 align-top font-medium">
-                                        <span className="font-bold text-red-600 block mb-1">HAL-{p.idHallazgo}</span>
-                                        {hallazgoBase?.descripcion || 'Sin descripción detallada.'}
+                                    {/* 2. DESCRIPCIÓN OBSERVACIÓN Y/O HALLAZGO (DATOS REALES) */}
+                                      <td className="p-2 border-r border-slate-300 align-top font-medium text-slate-800 text-[9px] leading-tight">
+                                        <span className="font-bold text-red-600 mb-1 inline-block">HAL-{p.idHallazgo}</span>
+                                        <br />
+                                        {hallazgoBase?.descripcion || 'Sin descripción detallada registrada.'}
                                       </td>
                                       
-                                      {/* 3. CAUSAS */}
-                                      <td className="p-2 border-r border-slate-300 align-top italic text-slate-600">
-                                        {hallazgoBase?.causaRaiz || 'Análisis de causa raíz no documentado en la plataforma.'}
-                                      </td>
-                                      
-                                      {/* 4. CLASE */}
-                                      <td className="p-2 border-r border-slate-300 align-top text-center font-bold uppercase text-[#0A3B32]">
+                                      {/* 3. CLASE DE OBSERVACIÓN (DATOS REALES) */}
+                                      <td className="p-2 border-r border-slate-300 align-top text-center font-black uppercase text-[#0A3B32]">
                                         {hallazgoBase?.claseObservacion || 'No Conformidad'}
                                       </td>
                                       
