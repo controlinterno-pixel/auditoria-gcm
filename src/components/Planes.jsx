@@ -1627,9 +1627,9 @@ const handleNotificarPlan = (planId) => {
                       {createPortal(
                         <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
                           <div 
-                            ref={(el) => (planRefs.current[idInf] = el)} 
-                            className="w-[1600px] bg-white p-10 font-sans text-slate-800"
-                          >
+  ref={(el) => (planRefs.current[idInf] = el)} 
+  className="w-[1350px] bg-white p-8 font-sans text-slate-800"
+>
                             {/* Cabecera Membretada */}
                             <div className="flex justify-between items-center border-b-2 border-[#0A3B32] pb-4 mb-6 break-inside-avoid">
                               <div className="flex items-center gap-6">
@@ -1723,19 +1723,18 @@ const handleNotificarPlan = (planId) => {
                                   return (
                                     <tr 
                                       key={idx} 
-                                      className="border-b border-slate-300 hover:bg-slate-50" 
+                                      className="border-b border-slate-300 hover:bg-slate-50 break-inside-avoid" 
                                       style={{ 
                                         pageBreakInside: 'avoid', 
-                                        breakInside: 'avoid',
-                                        pageBreakAfter: 'auto'
+                                        breakInside: 'avoid'
                                       }}
                                     >
-                                     {/* 1. NO */}
-                                      <td className="p-2 border-r border-slate-300 text-center font-black text-slate-900 align-top">{idx + 1}</td>
+                                      {/* 1. NO */}
+                                      <td className="p-1.5 border-r border-slate-300 text-center font-black text-slate-900 align-top text-[8px]">{idx + 1}</td>
                                       
-                                      {/* 2. DESCRIPCIÓN OBSERVACIÓN Y/O HALLAZGO (DATOS REALES CON FALLBACK AUTOMÁTICO) */}
-                                      <td className="p-2 border-r border-slate-300 align-top font-medium text-slate-800 text-[9px] leading-tight">
-                                        <span className="font-bold text-red-600 mb-1 inline-block">
+                                      {/* 2. DESCRIPCIÓN OBSERVACIÓN Y/O HALLAZGO */}
+                                      <td className="p-1.5 border-r border-slate-300 align-top font-medium text-slate-800 text-[8.5px] leading-tight max-w-[220px]">
+                                        <span className="font-bold text-red-600 mb-0.5 inline-block">
                                           {hallazgoBase?.ref || `HAL-${p.idHallazgo}`}
                                         </span>
                                         <br />
@@ -1743,62 +1742,62 @@ const handleNotificarPlan = (planId) => {
                                       </td>
                                       
                                       {/* 3. CLASE DE OBSERVACIÓN */}
-                                      <td className="p-2 border-r border-slate-300 align-top text-center font-black uppercase text-[#0A3B32]">
+                                      <td className="p-1.5 border-r border-slate-300 align-top text-center font-black uppercase text-[#0A3B32] text-[8px]">
                                         {hallazgoBase?.claseObservacion || 'No Conformidad'}
                                       </td>
                                       
                                       {/* 4. ÁREAS / PROCESOS */}
-                                      <td className="p-2 border-r border-slate-300 align-top uppercase font-bold text-slate-800">
+                                      <td className="p-1.5 border-r border-slate-300 align-top uppercase font-bold text-slate-800 text-[8px]">
                                         {p.proceso}
-                                        <span className="block text-slate-500 font-medium mt-1">{p.sede}</span>
+                                        <span className="block text-slate-500 font-medium text-[7.5px]">{p.sede}</span>
                                       </td>
                                       
                                       {/* 5. ACCIONES DE MEJORAMIENTO */}
-                                      <td className="p-2 border-r border-slate-300 align-top">
-                                        <span className="font-bold text-blue-600 block mb-1">PLA-{p.id.toString().slice(-4)}</span>
+                                      <td className="p-1.5 border-r border-slate-300 align-top text-[8.5px] leading-tight">
+                                        <span className="font-bold text-blue-600 mb-0.5 block">PLA-{p.id.toString().slice(-4)}</span>
                                         <p className="font-black text-slate-900 leading-tight">{p.accion}</p>
                                       </td>
                                       
                                       {/* 6. MECANISMO DE SEGUIMIENTO */}
-                                      <td className="p-2 border-r border-slate-300 align-top font-medium text-slate-600 uppercase">
+                                      <td className="p-1.5 border-r border-slate-300 align-top font-medium text-slate-600 uppercase text-[7.5px]">
                                         Revisión de Evidencias Digitales GCM
                                       </td>
                                       
                                       {/* 7. RESPONSABLE DE SEGUIMIENTO */}
-                                      <td className="p-2 border-r border-slate-300 align-top font-black text-[#0A3B32]">
+                                      <td className="p-1.5 border-r border-slate-300 align-top font-black text-[#0A3B32] text-[8px]">
                                         {p.auditorAsignado || 'Auditoría Interna'}
                                       </td>
                                       
                                       {/* 8. META */}
-                                      <td className="p-2 border-r border-slate-300 align-top text-center">
-                                        <span className="bg-emerald-100 text-emerald-800 font-black px-2 py-1 rounded">100%</span>
+                                      <td className="p-1.5 border-r border-slate-300 align-top text-center text-[8px]">
+                                        <span className="bg-emerald-100 text-emerald-800 font-black px-1.5 py-0.5 rounded">100%</span>
                                       </td>
                                       
                                       {/* 9. FECHA INICIO */}
-                                      <td className="p-2 border-r border-slate-300 align-top text-center font-bold text-slate-800">
+                                      <td className="p-1.5 border-r border-slate-300 align-top text-center font-bold text-slate-800 text-[8px]">
                                         {p.fechaInicio || 'N/A'}
                                       </td>
                                       
                                       {/* 10. FECHA TERMINACIÓN */}
-                                      <td className="p-2 border-r border-slate-300 align-top text-center font-bold text-slate-800">
+                                      <td className="p-1.5 border-r border-slate-300 align-top text-center font-bold text-slate-800 text-[8px]">
                                         {p.fecha || 'N/A'}
                                       </td>
                                       
                                       {/* 11. PLAZO SEMANAS */}
-                                      <td className="p-2 border-r border-slate-300 align-top text-center font-black text-blue-700">
+                                      <td className="p-1.5 border-r border-slate-300 align-top text-center font-black text-blue-700 text-[8px]">
                                         {semanas}
                                       </td>
                                       
                                       {/* 12. ESTADO / OBSERVACIONES */}
-                                      <td className="p-2 border-r border-slate-300 align-top text-center">
-                                        <span className={`px-2 py-1 rounded font-black uppercase text-[7px] ${p.progreso === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                      <td className="p-1.5 border-r border-slate-300 align-top text-center text-[8px]">
+                                        <span className={`px-1.5 py-0.5 rounded font-black uppercase text-[7px] ${p.progreso === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                                           {p.estadoWorkflow || 'En Proceso'}
                                         </span>
-                                        <span className="block mt-1 font-black text-slate-800">{p.progreso}% Avance</span>
+                                        <span className="block mt-0.5 font-black text-slate-800 text-[7.5px]">{p.progreso}% Avance</span>
                                       </td>
                                       
                                       {/* 13. RESPONSABLE DE MEJORAMIENTO */}
-                                      <td className="p-2 align-top font-black text-slate-900 uppercase">
+                                      <td className="p-1.5 align-top font-black text-slate-900 uppercase text-[8px]">
                                         {p.responsable || 'Sin Asignar'}
                                       </td>
                                     </tr>
