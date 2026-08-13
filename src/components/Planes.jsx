@@ -62,6 +62,8 @@ const [busquedaRapida, setBusquedaRapida] = useState('');
     
     // Buscamos el plan que termine en esos números
     const planEncontrado = safePlanes.find(p => p.id.toString().endsWith(idBuscado));
+// Referencias para exportar el Plan de Acción Institucional
+  const planRefs = useRef({});
 
     if (planEncontrado) {
       setEditPlan(planEncontrado);
@@ -1373,11 +1375,11 @@ const handleNotificarPlan = (planId) => {
 <div className="flex justify-between items-center mb-3">
                             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Desglose de Actividades</h4>
                             <button 
-                              onClick={() => exportarA_PDF(`plan-completo-${idInf}`, `Plan_Mejoramiento_${refInforme}.pdf`, '#ffffff')}
-                              className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-2"
-                            >
-                              📥 Descargar Plan de Acción Completo
-                            </button>
+  onClick={() => exportarA_PDF(planRefs.current[idInf], `Plan_Mejoramiento_${refInforme}.pdf`, '#ffffff')}
+  className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-2"
+>
+  📥 Descargar Formato Institucional
+</button>
                           </div>
                           <table className="w-full text-xs text-left divide-y border border-slate-100 rounded-xl overflow-hidden shadow-inner">
                             <thead className="bg-slate-900 text-white font-bold text-[10px] uppercase tracking-wider">
@@ -1743,109 +1745,124 @@ const handleNotificarPlan = (planId) => {
         </div>
       )}
 
-      {/* ===================================================================== */}
-      {/* 📄 LIENZO OCULTO PARA EXPORTAR EL DICTAMEN A PDF                      */}
-      {/* ===================================================================== */}
-      {modalEval.activo && (
-        <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
-          <div ref={dictamenRef} className="w-[1000px] bg-white p-12 font-sans text-slate-800">
-            
-            {/* Cabecera Institucional */}
-            <div className="flex justify-between items-center border-b-4 border-[#0A3B32] pb-6 mb-8">
-              <div className="flex items-center gap-6">
-                <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-24 h-auto object-contain drop-shadow-sm" />
-                <div>
-                  <h1 className="text-3xl font-black text-[#0A3B32]">TERMALES SANTA ROSA DE CABAL</h1>
-                  <h2 className="text-xl font-bold text-slate-600 mt-1">DICTAMEN DE EVALUACIÓN DE AUDITORÍA</h2>
-                  <p className="text-sm font-bold text-slate-400 mt-1">
-                    Referencia de Informe: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.ref || modalEval.idInforme || 'N/A'}
-                  </p>
-                  <p className="text-sm font-bold text-slate-400">
-                    Proceso Auditado: {(informesAuditoria || []).find(i => i && String(i.id) === String(modalEval.idInforme))?.proceso || 'Proceso General'}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right text-sm shrink-0">
-                <p><span className="font-bold">Fecha de Emisión:</span> {new Date().toLocaleDateString('es-CO')}</p>
-                <p><span className="font-bold">De:</span> Control Interno y Auditoría Interna</p>
-                <p><span className="font-bold">Para:</span> Liderazgo de Proceso</p>
-              </div>
-            </div>
+    {/* FIN DEL LIENZO OCULTO (DICTAMEN) */}
 
-            {/* Texto Introductorio formal */}
-            <p className="text-base text-justify mb-8 font-medium leading-relaxed">
-              El presente documento constituye el dictamen oficial sobre el paquete de acciones correctivas propuesto por el área responsable para mitigar los riesgos derivados del informe en referencia. La evaluación se fundamenta en el marco metodológico del Sistema Integral de Riesgos y las Normas Globales de Auditoría Interna.
-            </p>
+                          {/* ===================================================================== */}
+                          {/* 📄 LIENZO OCULTO PARA EXPORTAR EL PLAN DE ACCIÓN INSTITUCIONAL        */}
+                          {/* ===================================================================== */}
+                          {createPortal(
+                            <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
+                              <div 
+                                ref={(el) => (planRefs.current[idInf] = el)} 
+                                className="w-[1200px] bg-white p-10 font-sans text-slate-800"
+                              >
+                                {/* Cabecera Membretada */}
+                                <div className="flex justify-between items-center border-b-2 border-slate-300 pb-4 mb-6 break-inside-avoid">
+                                  <div className="flex items-center gap-4">
+                                    <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-32 h-auto object-contain" />
+                                    <div>
+                                      <h1 className="text-2xl font-black text-[#0A3B32] uppercase">Termales Santa Rosa de Cabal</h1>
+                                      <h2 className="text-lg font-bold text-slate-600">PLAN DE MEJORAMIENTO CORPORATIVO</h2>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs font-bold text-slate-500 uppercase">Fuente del Plan / Título del Informe</p>
+                                    <p className="text-sm font-black text-slate-800">{tituloInforme}</p>
+                                    <p className="text-xs font-bold text-slate-500 uppercase mt-2">Referencia Oficial</p>
+                                    <p className="text-sm font-black text-slate-800">{refInforme}</p>
+                                  </div>
+                                </div>
 
-            {/* Sección 1: Calificación */}
-            <div className="mb-8">
-              <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">1. Calificación Global y Ponderada</h3>
-              <div className="flex gap-6 items-center bg-slate-50 p-6 rounded-xl border border-slate-200">
-                <div className={`w-32 h-32 rounded-full flex flex-col items-center justify-center border-8 shrink-0 ${(puntajeHolistico || 0) >= 80 ? 'border-emerald-500 text-emerald-700 bg-emerald-50' : (puntajeHolistico || 0) >= 50 ? 'border-amber-500 text-amber-700 bg-amber-50' : 'border-red-500 text-red-700 bg-red-50'}`}>
-                  <span className="text-5xl font-black leading-none">{puntajeHolistico || 0}</span>
-                  <span className="text-xs font-bold uppercase mt-1">Puntos / 100</span>
-                </div>
-                <div className="flex-1">
-                  <h4 className={`text-2xl font-black uppercase mb-2 ${(puntajeHolistico || 0) >= 80 ? 'text-emerald-700' : (puntajeHolistico || 0) >= 50 ? 'text-amber-700' : 'text-red-700'}`}>
-                    {(puntajeHolistico || 0) >= 80 ? 'ESTADO: VIABLE (APROBADO)' : 'ESTADO: CRÍTICO (RECHAZADO)'}
-                  </h4>
-                  <p className="text-base text-slate-700 font-medium leading-relaxed">
-                    {(puntajeHolistico || 0) >= 80 
-                      ? 'El plan propuesto cumple con los criterios de calidad técnica requeridos, demuestra un análisis de causa raíz adecuado y ha sido autorizado formalmente para iniciar su fase de ejecución.'
-                      : 'El plan propuesto es técnicamente inoperante en su estado actual y no garantiza la mitigación del riesgo. Se exige su rechazo inmediato y la reformulación obligatoria de las acciones correctivas en la plataforma institucional.'}
-                  </p>
-                </div>
-              </div>
-            </div>
+                                {/* Información General */}
+                                <div className="grid grid-cols-4 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200 break-inside-avoid">
+                                  <div>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Fecha de Emisión</p>
+                                    <p className="text-xs font-black text-slate-800">{fechaInforme}</p>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Proceso Auditado Vinculado</p>
+                                    <p className="text-xs font-black text-slate-800">{procesoInforme}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Tipo de Plan</p>
+                                    <p className="text-xs font-black text-slate-800">Acción Correctiva / De Proceso</p>
+                                  </div>
+                                </div>
 
-            {/* Sección 2: Criterios */}
-            <div className="mb-8">
-              <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">2. Desglose de Evaluación Técnica</h3>
-              <table className="w-full text-base text-left border-collapse border border-slate-300">
-                <thead className="bg-slate-800 text-white">
-                  <tr>
-                    <th className="p-4 border border-slate-400">Criterio Metodológico (COSO/ISO 31000)</th>
-                    <th className="p-4 border border-slate-400 text-center w-24">Peso</th>
-                    <th className="p-4 border border-slate-400 text-center w-32">Calificación</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { t: 'Completitud y Cobertura: ¿Atiende todos los hallazgos sin omitir riesgos?', p: '30%', v: criterios?.c1 ?? 100 },
-                    { t: 'Análisis de Causa Raíz: ¿Va a la raíz del problema y no solo al síntoma?', p: '20%', v: criterios?.c2 ?? 100 },
-                    { t: 'Planes de Choque Inmediato: ¿Implementa contingencias a corto plazo?', p: '20%', v: criterios?.c3 ?? 100 },
-                    { t: 'Temporalidad: ¿Las fechas son realistas y oportunas?', p: '20%', v: criterios?.c4 ?? 100 },
-                    { t: 'Indicadores: ¿Propone controles medibles y KPIs claros?', p: '10%', v: criterios?.c5 ?? 100 }
-                  ].map((row, i) => (
-                    <tr key={i} className="border-b border-slate-200">
-                      <td className="p-4 font-bold text-slate-700">{row.t}</td>
-                      <td className="p-4 text-center text-slate-500 font-bold">{row.p}</td>
-                      <td className={`p-4 text-center font-black ${row.v >= 80 ? 'text-emerald-600' : row.v >= 50 ? 'text-amber-600' : 'text-red-600'}`}>{row.v}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                                {/* Tabla de Actividades */}
+                                <table className="w-full text-xs text-left border-collapse border border-slate-300">
+                                  <thead className="bg-[#0A3B32] text-white">
+                                    <tr>
+                                      <th className="p-3 border border-slate-400 w-20 text-center">ID</th>
+                                      <th className="p-3 border border-slate-400 w-1/3">Descripción del Hallazgo Base</th>
+                                      <th className="p-3 border border-slate-400 w-1/3">Acción Requerida</th>
+                                      <th className="p-3 border border-slate-400">Responsable</th>
+                                      <th className="p-3 border border-slate-400 w-24 text-center">Cronograma / Avance</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {planesDelInforme.map((p, idx) => {
+                                      const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(p.idHallazgo));
+                                      return (
+                                        <tr key={idx} className="border-b border-slate-300 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
+                                          <td className="p-3 border-r border-slate-300 font-mono font-black text-slate-800 text-center align-top">
+                                            PLA-{p.id.toString().slice(-4)}
+                                          </td>
+                                          <td className="p-3 border-r border-slate-300 align-top">
+                                            <div className="font-bold text-[10px] text-red-600 mb-1">HAL-{p.idHallazgo}</div>
+                                            <p className="text-[10px] text-slate-700 whitespace-pre-wrap">{hallazgoBase ? hallazgoBase.descripcion : 'Descripción no disponible.'}</p>
+                                          </td>
+                                          <td className="p-3 border-r border-slate-300 align-top">
+                                            <p className="font-bold text-[11px] text-slate-900">{p.accion}</p>
+                                          </td>
+                                          <td className="p-3 border-r border-slate-300 text-[10px] font-bold text-slate-700 align-top">
+                                            {p.responsable}
+                                            <span className="block text-slate-400 font-normal mt-1">{p.sede}</span>
+                                          </td>
+                                          <td className="p-3 align-top">
+                                            <div className="flex justify-between items-center mb-1 border-b pb-1">
+                                              <span className="text-[9px] font-bold text-slate-500 uppercase">Inicio</span>
+                                              <span className="text-[9px] font-black text-slate-800">{p.fechaInicio || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center mb-2">
+                                              <span className="text-[9px] font-bold text-slate-500 uppercase">Límite</span>
+                                              <span className="text-[9px] font-black text-slate-800">{p.fecha || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex items-center justify-center gap-1 mt-2 bg-slate-100 p-1 rounded">
+                                              <span className="text-xl font-black text-[#0A3B32]">{p.progreso}</span>
+                                              <span className="text-[10px] font-bold text-slate-500">%</span>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
 
-            {/* Sección 3: Dictamen Escrito */}
-            <div className="mb-8">
-              <h3 className="text-lg font-black text-[#0A3B32] bg-slate-100 p-3 rounded-lg mb-4 uppercase">3. Justificación y Dictamen Oficial del Auditor</h3>
-              <div className="bg-slate-50 p-6 rounded-xl border border-slate-300 min-h-[150px]">
-                <p className="text-base font-medium text-slate-800 whitespace-pre-wrap italic">
-                  "{justificacion || 'Se han revisado las acciones propuestas frente a los criterios normativos y se concluye que el diseño del plan es robusto. No se presentan observaciones adicionales, se autoriza proceder con la ejecución.'}"
-                </p>
-              </div>
-            </div>
+                                {/* Sección de Firmas */}
+                                <div className="mt-12 flex justify-between px-12 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
+                                  <div className="text-center w-64">
+                                    <div className="border-b border-slate-400 h-16 mb-2"></div>
+                                    <p className="text-xs font-black text-slate-800">FIRMA LÍDER DEL PROCESO</p>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase">Responsable de Ejecución</p>
+                                  </div>
+                                  <div className="text-center w-64">
+                                    <div className="border-b border-slate-400 h-16 mb-2"></div>
+                                    <p className="text-xs font-black text-slate-800">FIRMA CONTROL INTERNO</p>
+                                    <p className="text-[10px] text-slate-500 font-bold uppercase">Aprobación y Seguimiento</p>
+                                  </div>
+                                </div>
 
-            {/* Pie de página Legal */}
-            <div className="mt-16 pt-6 border-t-2 border-slate-300 flex justify-between items-center text-xs text-slate-500 font-bold">
-              <span className="uppercase tracking-widest">Documento Oficial Generado por el Sistema GCM</span>
-              <span>Auditoría Interna Corporativa</span>
-            </div>
-          </div>
-        </div>
-      )}
-
+                                {/* Pie de Página */}
+                                <div className="mt-12 border-t-2 border-[#0A3B32] pt-4 flex justify-between items-center text-[10px] text-slate-500 font-bold break-inside-avoid">
+                                  <span>GENERADO AUTOMÁTICAMENTE POR EL SISTEMA GCM AUDITOR V5</span>
+                                  <span>USO OFICIAL - CONTROL INTERNO</span>
+                                </div>
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+        
     </div>
   );
 }
