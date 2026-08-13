@@ -409,8 +409,11 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         
         const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
-        const keyConsulta = `${periodoAnteriorStr}|${primeraEmpresa}`;
-        periodosEmpresasNecesarios.add(keyConsulta);
+        
+        // Carga variaciones por si en Firebase está guardado en Mayúsculas/Minúsculas
+        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa}`);
+        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`);
+        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`);
     }
   }
 
@@ -458,26 +461,61 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         if (mes === 0) { mes = 12; ano -= 1; }
         const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
         
-        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
-        const keyConsulta = `${periodoAnteriorStr}|${primeraEmpresa}`;
-        const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
-        
-        // 🚀 Extraer el IBC sumando la "Salud" del mes anterior, con limpieza estricta de Cédulas (.split('.')[0])
+        const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-        historicoMesAnterior.forEach(h => {
-            const cedulaFilaRaw = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+        // Función interna de escaneo sobre cualquier conjunto de registros
+        const buscarSaludEnArreglo = (arreglo) => {
+          let suma = 0;
+          if (!arreglo || !Array.isArray(arreglo)) return 0;
+          
+          arreglo.forEach(h => {
+            const cedulaFilaRaw = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento', 'Identificación', 'ID', 'CedulaEmpleado']);
             const cedulaFilaLimpia = limpiarCedula(cedulaFilaRaw);
             
-            if (cedulaFilaLimpia && cedulaFilaLimpia === emp.cedula) {
-                const conceptoRaw = buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
-                const cLimpio = normalizarTexto(conceptoRaw);
-                if (cLimpio.includes('SALUD') && !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL')) {
-                    const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Devengado', 'Pago', 'Monto']);
-                    saludHistoricaTotal += Math.abs(parsearMonto(valRaw));
-                }
+            if (cedulaFilaLimpia && cedulaFilaLimpia === empCedulaLimpia) {
+              const conceptoRaw = buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle', 'Nombre concepto']);
+              const cLimpio = normalizarTexto(conceptoRaw);
+              
+              const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
+                              !cLimpio.includes('FONDO') && 
+                              !cLimpio.includes('PATRONAL') &&
+                              !cLimpio.includes('PROVISION') &&
+                              !cLimpio.includes('EMPRESA');
+                              
+              if (esSalud) {
+                const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Devengado', 'Pago', 'Monto']);
+                suma += Math.abs(parsearMonto(valRaw));
+              }
             }
-        });
+          });
+          return suma;
+        };
+
+        // 1. Probar en las llaves específicas de la empresa asociada
+        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
+        const llavesAProbar = [
+          `${periodoAnteriorStr}|${primeraEmpresa}`,
+          `${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`,
+          `${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`
+        ];
+
+        for (const k of llavesAProbar) {
+          if (historicosPreCargados[k]) {
+            saludHistoricaTotal = buscarSaludEnArreglo(historicosPreCargados[k]);
+            if (saludHistoricaTotal > 0) break;
+          }
+        }
+
+        // 2. Fallback Global: Si el nombre de empresa no coincidió, buscar en cualquier empresa cargada de ese mismo mes
+        if (saludHistoricaTotal === 0) {
+          for (const k in historicosPreCargados) {
+            if (k.startsWith(`${periodoAnteriorStr}|`)) {
+              saludHistoricaTotal = buscarSaludEnArreglo(historicosPreCargados[k]);
+              if (saludHistoricaTotal > 0) break;
+            }
+          }
+        }
 
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
