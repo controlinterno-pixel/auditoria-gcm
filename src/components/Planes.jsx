@@ -1614,21 +1614,138 @@ const handleNotificarPlan = (planId) => {
         </div>,
         document.body
       )}
-                          {/* FIN DEL LIENZO OCULTO */}
+{/* FIN DEL LIENZO OCULTO */}
 
                         </div>
                       )}
+
+                      {/* ===================================================================== */}
+                      {/* 📄 LIENZO OCULTO PARA EXPORTAR EL PLAN DE ACCIÓN INSTITUCIONAL        */}
+                      {/* ===================================================================== */}
+                      {createPortal(
+                        <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
+                          <div 
+                            ref={(el) => (planRefs.current[idInf] = el)} 
+                            className="w-[1200px] bg-white p-10 font-sans text-slate-800"
+                          >
+                            {/* Cabecera Membretada */}
+                            <div className="flex justify-between items-center border-b-2 border-slate-300 pb-4 mb-6 break-inside-avoid">
+                              <div className="flex items-center gap-4">
+                                <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-32 h-auto object-contain" />
+                                <div>
+                                  <h1 className="text-2xl font-black text-[#0A3B32] uppercase">Termales Santa Rosa de Cabal</h1>
+                                  <h2 className="text-lg font-bold text-slate-600">PLAN DE MEJORAMIENTO CORPORATIVO</h2>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-bold text-slate-500 uppercase">Fuente del Plan / Título del Informe</p>
+                                <p className="text-sm font-black text-slate-800">{tituloInforme}</p>
+                                <p className="text-xs font-bold text-slate-500 uppercase mt-2">Referencia Oficial</p>
+                                <p className="text-sm font-black text-slate-800">{refInforme}</p>
+                              </div>
+                            </div>
+
+                            {/* Información General */}
+                            <div className="grid grid-cols-4 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200 break-inside-avoid">
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Fecha de Emisión</p>
+                                <p className="text-xs font-black text-slate-800">{fechaInforme}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Proceso Auditado Vinculado</p>
+                                <p className="text-xs font-black text-slate-800">{procesoInforme}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-500 uppercase">Tipo de Plan</p>
+                                <p className="text-xs font-black text-slate-800">Acción Correctiva / De Proceso</p>
+                              </div>
+                            </div>
+
+                            {/* Tabla de Actividades */}
+                            <table className="w-full text-xs text-left border-collapse border border-slate-300">
+                              <thead className="bg-[#0A3B32] text-white">
+                                <tr>
+                                  <th className="p-3 border border-slate-400 w-20 text-center">ID</th>
+                                  <th className="p-3 border border-slate-400 w-1/3">Descripción del Hallazgo Base</th>
+                                  <th className="p-3 border border-slate-400 w-1/3">Acción Requerida</th>
+                                  <th className="p-3 border border-slate-400">Responsable</th>
+                                  <th className="p-3 border border-slate-400 w-24 text-center">Cronograma / Avance</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {planesDelInforme.map((p, idx) => {
+                                  const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(p.idHallazgo));
+                                  return (
+                                    <tr key={idx} className="border-b border-slate-300 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
+                                      <td className="p-3 border-r border-slate-300 font-mono font-black text-slate-800 text-center align-top">
+                                        PLA-{p.id.toString().slice(-4)}
+                                      </td>
+                                      <td className="p-3 border-r border-slate-300 align-top">
+                                        <div className="font-bold text-[10px] text-red-600 mb-1">HAL-{p.idHallazgo}</div>
+                                        <p className="text-[10px] text-slate-700 whitespace-pre-wrap">{hallazgoBase ? hallazgoBase.descripcion : 'Descripción no disponible.'}</p>
+                                      </td>
+                                      <td className="p-3 border-r border-slate-300 align-top">
+                                        <p className="font-bold text-[11px] text-slate-900">{p.accion}</p>
+                                      </td>
+                                      <td className="p-3 border-r border-slate-300 text-[10px] font-bold text-slate-700 align-top">
+                                        {p.responsable}
+                                        <span className="block text-slate-400 font-normal mt-1">{p.sede}</span>
+                                      </td>
+                                      <td className="p-3 align-top">
+                                        <div className="flex justify-between items-center mb-1 border-b pb-1">
+                                          <span className="text-[9px] font-bold text-slate-500 uppercase">Inicio</span>
+                                          <span className="text-[9px] font-black text-slate-800">{p.fechaInicio || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center mb-2">
+                                          <span className="text-[9px] font-bold text-slate-500 uppercase">Límite</span>
+                                          <span className="text-[9px] font-black text-slate-800">{p.fecha || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex items-center justify-center gap-1 mt-2 bg-slate-100 p-1 rounded">
+                                          <span className="text-xl font-black text-[#0A3B32]">{p.progreso}</span>
+                                          <span className="text-[10px] font-bold text-slate-500">%</span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+
+                            {/* Sección de Firmas */}
+                            <div className="mt-12 flex justify-between px-12 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
+                              <div className="text-center w-64">
+                                <div className="border-b border-slate-400 h-16 mb-2"></div>
+                                <p className="text-xs font-black text-slate-800">FIRMA LÍDER DEL PROCESO</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">Responsable de Ejecución</p>
+                              </div>
+                              <div className="text-center w-64">
+                                <div className="border-b border-slate-400 h-16 mb-2"></div>
+                                <p className="text-xs font-black text-slate-800">FIRMA CONTROL INTERNO</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase">Aprobación y Seguimiento</p>
+                              </div>
+                            </div>
+
+                            {/* Pie de Página */}
+                            <div className="mt-12 border-t-2 border-[#0A3B32] pt-4 flex justify-between items-center text-[10px] text-slate-500 font-bold break-inside-avoid">
+                              <span>GENERADO AUTOMÁTICAMENTE POR EL SISTEMA GCM AUDITOR V5</span>
+                              <span>USO OFICIAL - CONTROL INTERNO</span>
+                            </div>
+                          </div>
+                        </div>,
+                        document.body
+                      )}
+                      {/* FIN DEL LIENZO INSTITUCIONAL */}
 
                     </div>
                   );
                 })}
               </div>
             )}
-
           </div>
         );
       })()}
-{/* ===================================================================== */}
+
+      {/* ===================================================================== */}
       {/* ⚖️ MODAL DE EVALUACIÓN HOLÍSTICA PONDERADA (METODOLOGÍA EXCEL)        */}
       {/* ===================================================================== */}
       {modalEval.activo && (
@@ -1745,124 +1862,6 @@ const handleNotificarPlan = (planId) => {
         </div>
       )}
 
-    {/* FIN DEL LIENZO OCULTO (DICTAMEN) */}
-
-                          {/* ===================================================================== */}
-                          {/* 📄 LIENZO OCULTO PARA EXPORTAR EL PLAN DE ACCIÓN INSTITUCIONAL        */}
-                          {/* ===================================================================== */}
-                          {createPortal(
-                            <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
-                              <div 
-                                ref={(el) => (planRefs.current[idInf] = el)} 
-                                className="w-[1200px] bg-white p-10 font-sans text-slate-800"
-                              >
-                                {/* Cabecera Membretada */}
-                                <div className="flex justify-between items-center border-b-2 border-slate-300 pb-4 mb-6 break-inside-avoid">
-                                  <div className="flex items-center gap-4">
-                                    <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-32 h-auto object-contain" />
-                                    <div>
-                                      <h1 className="text-2xl font-black text-[#0A3B32] uppercase">Termales Santa Rosa de Cabal</h1>
-                                      <h2 className="text-lg font-bold text-slate-600">PLAN DE MEJORAMIENTO CORPORATIVO</h2>
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-xs font-bold text-slate-500 uppercase">Fuente del Plan / Título del Informe</p>
-                                    <p className="text-sm font-black text-slate-800">{tituloInforme}</p>
-                                    <p className="text-xs font-bold text-slate-500 uppercase mt-2">Referencia Oficial</p>
-                                    <p className="text-sm font-black text-slate-800">{refInforme}</p>
-                                  </div>
-                                </div>
-
-                                {/* Información General */}
-                                <div className="grid grid-cols-4 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200 break-inside-avoid">
-                                  <div>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Fecha de Emisión</p>
-                                    <p className="text-xs font-black text-slate-800">{fechaInforme}</p>
-                                  </div>
-                                  <div className="col-span-2">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Proceso Auditado Vinculado</p>
-                                    <p className="text-xs font-black text-slate-800">{procesoInforme}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase">Tipo de Plan</p>
-                                    <p className="text-xs font-black text-slate-800">Acción Correctiva / De Proceso</p>
-                                  </div>
-                                </div>
-
-                                {/* Tabla de Actividades */}
-                                <table className="w-full text-xs text-left border-collapse border border-slate-300">
-                                  <thead className="bg-[#0A3B32] text-white">
-                                    <tr>
-                                      <th className="p-3 border border-slate-400 w-20 text-center">ID</th>
-                                      <th className="p-3 border border-slate-400 w-1/3">Descripción del Hallazgo Base</th>
-                                      <th className="p-3 border border-slate-400 w-1/3">Acción Requerida</th>
-                                      <th className="p-3 border border-slate-400">Responsable</th>
-                                      <th className="p-3 border border-slate-400 w-24 text-center">Cronograma / Avance</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {planesDelInforme.map((p, idx) => {
-                                      const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(p.idHallazgo));
-                                      return (
-                                        <tr key={idx} className="border-b border-slate-300 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
-                                          <td className="p-3 border-r border-slate-300 font-mono font-black text-slate-800 text-center align-top">
-                                            PLA-{p.id.toString().slice(-4)}
-                                          </td>
-                                          <td className="p-3 border-r border-slate-300 align-top">
-                                            <div className="font-bold text-[10px] text-red-600 mb-1">HAL-{p.idHallazgo}</div>
-                                            <p className="text-[10px] text-slate-700 whitespace-pre-wrap">{hallazgoBase ? hallazgoBase.descripcion : 'Descripción no disponible.'}</p>
-                                          </td>
-                                          <td className="p-3 border-r border-slate-300 align-top">
-                                            <p className="font-bold text-[11px] text-slate-900">{p.accion}</p>
-                                          </td>
-                                          <td className="p-3 border-r border-slate-300 text-[10px] font-bold text-slate-700 align-top">
-                                            {p.responsable}
-                                            <span className="block text-slate-400 font-normal mt-1">{p.sede}</span>
-                                          </td>
-                                          <td className="p-3 align-top">
-                                            <div className="flex justify-between items-center mb-1 border-b pb-1">
-                                              <span className="text-[9px] font-bold text-slate-500 uppercase">Inicio</span>
-                                              <span className="text-[9px] font-black text-slate-800">{p.fechaInicio || 'N/A'}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center mb-2">
-                                              <span className="text-[9px] font-bold text-slate-500 uppercase">Límite</span>
-                                              <span className="text-[9px] font-black text-slate-800">{p.fecha || 'N/A'}</span>
-                                            </div>
-                                            <div className="flex items-center justify-center gap-1 mt-2 bg-slate-100 p-1 rounded">
-                                              <span className="text-xl font-black text-[#0A3B32]">{p.progreso}</span>
-                                              <span className="text-[10px] font-bold text-slate-500">%</span>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-
-                                {/* Sección de Firmas */}
-                                <div className="mt-12 flex justify-between px-12 break-inside-avoid" style={{ pageBreakInside: 'avoid' }}>
-                                  <div className="text-center w-64">
-                                    <div className="border-b border-slate-400 h-16 mb-2"></div>
-                                    <p className="text-xs font-black text-slate-800">FIRMA LÍDER DEL PROCESO</p>
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase">Responsable de Ejecución</p>
-                                  </div>
-                                  <div className="text-center w-64">
-                                    <div className="border-b border-slate-400 h-16 mb-2"></div>
-                                    <p className="text-xs font-black text-slate-800">FIRMA CONTROL INTERNO</p>
-                                    <p className="text-[10px] text-slate-500 font-bold uppercase">Aprobación y Seguimiento</p>
-                                  </div>
-                                </div>
-
-                                {/* Pie de Página */}
-                                <div className="mt-12 border-t-2 border-[#0A3B32] pt-4 flex justify-between items-center text-[10px] text-slate-500 font-bold break-inside-avoid">
-                                  <span>GENERADO AUTOMÁTICAMENTE POR EL SISTEMA GCM AUDITOR V5</span>
-                                  <span>USO OFICIAL - CONTROL INTERNO</span>
-                                </div>
-                              </div>
-                            </div>,
-                            document.body
-                          )}
-        
     </div>
   );
 }
