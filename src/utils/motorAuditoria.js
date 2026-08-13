@@ -7,7 +7,6 @@ import { cargarNominaHistorica } from '../services/historicoService';
 const HISTORICO_LEGAL = {
   2024: { smlmv: 1300000, auxTransporte: 162000 },
   2025: { smlmv: 1469000, auxTransporte: 181440 },
-  // Valores confirmados para el año 2026
   2026: { smlmv: 1880000, auxTransporte: 249096 },
 };
 
@@ -33,11 +32,8 @@ const parsearMonto = (val) => {
     }
   } else if (str.includes(',')) {
     const parts = str.split(',');
-    str = parts.length === 2 && parts[1].length <= 2 
-      ? `${parts[0]}.${parts[1]}` 
-      : parts.join('');
+    str = parts.length === 2 && parts[1].length <= 2 ? `${parts[0]}.${parts[1]}` : parts.join('');
   }
-
   const num = parseFloat(str);
   return isNaN(num) ? 0 : num;
 };
@@ -309,11 +305,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         periodoNormalizadoISO = `${str.substring(0, 4)}-${str.substring(4, 6)}`;
       }
     } 
-    
-    if (!periodoNormalizadoISO && anoRaw) {
-      const mesDetectado = Math.ceil((parseInt(periodoCons) || 228) / 2) % 12 || 5;
-      periodoNormalizadoISO = `${anoRaw}-${mesDetectado.toString().padStart(2, '0')}`; 
-    }
 
     const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
     const llaveUnica = `${cedula}_${periodoCons}`;
@@ -334,6 +325,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         totalConstitutivoIBC: 0,
         totalNoConstitutivo: 0,
         valorAusentismosIBC: 0,
+        vacacionesLiquidacion: 0, 
         tieneLicenciaNoRemunerada: false,
         descuentoSaludReal: 0,
         descuentoPensionReal: 0,
@@ -348,7 +340,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-   // Lexicón defensivo corregido (Se remueve "Día de la familia" de los excluidos para que sume a la base)
+    // Lexicón que excluye "FAMILIA" (Día de la familia es 100% no base por ERP)
     const esConstitutivoLexicon = [
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
@@ -370,7 +362,8 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       }
     } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
       if (emp.esLiquidacion && (conceptoLimpio === 'VACACIONES' || conceptoLimpio === 'VACACIONES COMPENSADAS')) {
-        emp.totalNoConstitutivo += valorTotal; 
+        // En liquidación definitiva las vacaciones compensadas NO son base de salud (quedan aisladas)
+        emp.vacacionesLiquidacion += valorTotal; 
       } else {
         emp.valorAusentismosIBC += valorTotal; 
       }
@@ -385,7 +378,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     }
   });
 
-  // 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Sincronizado con formato 2026-04 de la Nube)
+  // 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Sincronizado con formato Firebase Ej: 2026-04)
   const historicosPreCargados = {};
   const periodosEmpresasNecesarios = new Set();
 
@@ -398,7 +391,8 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         if (mes === 0) { mes = 12; ano -= 1; }
         
         const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
-        const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
+        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
+        const keyConsulta = `${periodoAnteriorStr}|${primeraEmpresa}`;
         periodosEmpresasNecesarios.add(keyConsulta);
     }
   }
@@ -447,7 +441,8 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         if (mes === 0) { mes = 12; ano -= 1; }
         const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
         
-        const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
+        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
+        const keyConsulta = `${periodoAnteriorStr}|${primeraEmpresa}`;
         const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
         
         // Extraer el IBC sumando la "Salud" del mes anterior, ignorando signos negativos
@@ -477,7 +472,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              const calculoHistorico = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
              const calculoDirectoERP = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
              
-             // Validar cuál se acerca más al ERP
              const difVsHistorico = Math.abs((Math.round(calculoHistorico / 500) * 500 * 0.04) - emp.descuentoSaludReal);
              const difVsDirecto = Math.abs((Math.round(calculoDirectoERP / 500) * 500 * 0.04) - emp.descuentoSaludReal);
 
@@ -496,12 +490,12 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         }
       }
             
-      // Ley 1393 (Tope 40%)
+      // Ley 1393 (Tope 40%) 
       const limite40 = totalDevengado * 0.40;
       if (emp.totalNoConstitutivo > limite40) {
         ibcBruto += (emp.totalNoConstitutivo - limite40);
       }
-
+      
       ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
       deberSerSalud = Math.round(ibcLiquidacion * 0.04);
       deberSerPension = Math.round(ibcLiquidacion * 0.04);
@@ -519,7 +513,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
-    // Un margen de hasta $1.500 es normal por cortes de decimales al promediar el mes anterior
+    // Margen de $1.500 para redondeos de divisiones mes vencido
     const toleranciaUsoHistorico = emp.usoHistoricoAnterior ? 1500 : margenTolerancia;
 
     if (emp.esAprendizSena && emp.descuentoSaludReal === 0) {
