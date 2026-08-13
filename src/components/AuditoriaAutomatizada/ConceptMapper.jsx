@@ -1,7 +1,7 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import React, { useState, useEffect } from 'react';
 import { auditarAuxilioTransporte, auditarSeguridadSocial } from '../../utils/motorAuditoria';
-import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica } from '../../services/historicoService';
+import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica, cargarNominaHistorica } from '../../services/historicoService';
 
 const normalizarTexto = (str) => {
   if (!str) return "";
@@ -563,7 +563,46 @@ const ConceptMapper = () => {
           ))}
         </div>
 
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex flex-wrap justify-between items-center gap-4">
+          {/* 🗄️ Carga instantánea desde el histórico sin re-subir archivo */}
+          {listaHistoricosBD.length > 0 && (
+            <div className="flex items-center gap-2 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+              <span className="text-xs font-bold text-emerald-800">🗄️ Cargar desde Nube:</span>
+              <select 
+                onChange={async (e) => {
+                  const idSel = e.target.value;
+                  if (!idSel) return;
+                  const histSel = listaHistoricosBD.find(h => h.id === idSel);
+                  if (histSel) {
+                    setIsUploading(true);
+                    try {
+                      const dataCargada = await cargarNominaHistorica(histSel.periodo, histSel.empresa);
+                      if (dataCargada && dataCargada.length > 0) {
+                        setDatosExcel(dataCargada);
+                        setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
+                        const conceptosLimpios = [...new Set(dataCargada.map(f => normalizarTexto(f['NombreConcepto'] || f['Concepto'])))].filter(Boolean);
+                        setConceptosExtraidosUI(conceptosLimpios);
+                        ejecutarAutoMapeoInteligente(conceptosLimpios);
+                        setHallazgos(null);
+                        setResumenKpi(null);
+                      }
+                    } catch (err) {
+                      alert("Error cargando histórico desde la nube.");
+                    } finally {
+                      setIsUploading(false);
+                    }
+                  }
+                }}
+                className="text-xs font-bold bg-white border border-emerald-300 rounded p-1.5 text-slate-800 outline-none cursor-pointer"
+              >
+                <option value="">-- Seleccionar Nómina Guardada --</option>
+                {listaHistoricosBD.map(h => (
+                  <option key={h.id} value={h.id}>{h.periodo} - {h.empresa} ({h.totalRegistros} reg.)</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {pestanaActiva === 'TRANSPORTE' ? (
             <button 
               onClick={handleStartAudit}
@@ -575,7 +614,7 @@ const ConceptMapper = () => {
             <button 
               onClick={handleStartAuditUGPP}
               disabled={isUploading}
-              className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+              className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed ml-auto"
             >
               {isUploading ? '⏳ Consultando Histórico y Auditando...' : '🛡️ Ejecutar Auditoría UGPP'}
             </button>

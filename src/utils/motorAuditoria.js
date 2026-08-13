@@ -269,6 +269,17 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     return true;
   });
 
+  // 🔍 PRE-IDENTIFICACIÓN: Detectar qué empleados tienen liquidaciones definitivas
+  const llavesLiquidacion = new Set();
+  transaccionesLimpias.forEach(fila => {
+    const cedula = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+    const periodo = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
+    const concepto = normalizarTexto(buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
+    if (cedula && (concepto === 'CESANTIA' || concepto === 'PRIMA DE SERVICIO' || concepto === 'INTERESES SOBRE CESANTIA' || concepto === 'LIQUIDACION PARCIAL DE CESANTIA')) {
+      llavesLiquidacion.add(`${cedula.toString().trim()}_${periodo ? periodo.toString().trim() : '228'}`);
+    }
+  });
+
   const empleadosPivoteados = {};
 
   transaccionesLimpias.forEach(fila => {
@@ -288,7 +299,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     const cedula = cedulaRaw.toString().trim();
     const periodoCons = periodoRaw ? periodoRaw.toString().trim() : '228';
     
-    let periodoNormalizadoISO = "";
+   let periodoNormalizadoISO = "";
     if (anoMesRaw) {
       const str = anoMesRaw.toString().replace('/', '-').trim();
       if (str.includes('-')) {
@@ -299,8 +310,10 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       }
     } 
     
-    if (!periodoNormalizadoISO && anoRaw && periodoCons) {
-      periodoNormalizadoISO = `${anoRaw}-05`; 
+    // Extracción dinámica del mes según la quincena o la fecha (evita dejar '-05' fijo)
+    if (!periodoNormalizadoISO && anoRaw) {
+      const mesDetectado = Math.ceil((parseInt(periodoCons) || 228) / 2) % 12 || 5;
+      periodoNormalizadoISO = `${anoRaw}-${mesDetectado.toString().padStart(2, '0')}`; 
     }
 
     const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
@@ -326,7 +339,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         descuentoSaludReal: 0,
         descuentoPensionReal: 0,
         diasTrabajados: 0,
-        esLiquidacion: false,
+        esLiquidacion: llavesLiquidacion.has(llaveUnica), // Pre-identificado
         esAprendizSena: normalizarTexto(cargoRaw).includes('APRENDIZ') || normalizarTexto(cargoRaw).includes('SENA') || conceptoLimpio.includes('SOSTENIMIENTO')
       };
     } else {
@@ -336,12 +349,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Detectar si el período incluye liquidación de prestaciones definitivas
-    if (conceptoLimpio === 'CESANTIA' || conceptoLimpio === 'PRIMA DE SERVICIO' || conceptoLimpio === 'INTERESES SOBRE CESANTIA') {
-      emp.esLiquidacion = true;
-    }
-
-    // ⚡ LEXICÓN DEFENSIVO
+    // Lexicón defensivo
     const esConstitutivoLexicon = [
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
@@ -353,7 +361,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     const esVacacion = conceptoLimpio.includes('VACACION');
     const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
 
-    // LÓGICA DE ASIGNACIÓN CON NETEO DE CONCEPTOS
     if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       emp.totalNoConstitutivo += valorTotal;
       emp.esAprendizSena = true;
@@ -363,8 +370,9 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         emp.diasTrabajados += cantidad;
       }
     } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
-      if (esVacacion && emp.esLiquidacion) {
-        emp.totalNoConstitutivo += valorTotal; // En liquidación definitiva las vacaciones compensadas no cotizan
+      if (emp.esLiquidacion && (conceptoLimpio === 'VACACIONES' || conceptoLimpio === 'VACACIONES COMPENSADAS')) {
+        // En liquidación definitiva las vacaciones compensadas no cotizan a Salud/Pensión
+        emp.totalNoConstitutivo += valorTotal; 
       } else {
         // Netea positivos y negativos (reversiones de vacaciones)
         emp.valorAusentismosIBC += valorTotal; 
