@@ -523,8 +523,9 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
-        if (ibcImplicitoHist > 0) {
-          const ibcDiarioAnterior = ibcImplicitoHist / 30;
+      if (ibcImplicitoHist > 0) {
+          // Ajuste a la base quincenal de 15 días guardada en la Nube
+          const ibcDiarioAnterior = ibcImplicitoHist / 15;
           
           if (!emp.esLiquidacion) {
              const diasAusentismo = 15 - emp.diasTrabajados;
