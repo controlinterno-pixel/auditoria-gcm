@@ -51,8 +51,9 @@ export default function Planes({
   informesAuditoria = []
 }) {
 
-const [busquedaRapida, setBusquedaRapida] = useState('');
-
+const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
+  const [busquedaRapida, setBusquedaRapida] = useState('');
+  
   // Referencias para exportar el Plan de Acción Institucional (Ahora en el scope correcto)
   const planRefs = useRef({});
 
