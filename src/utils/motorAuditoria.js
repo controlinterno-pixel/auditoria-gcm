@@ -444,7 +444,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
       let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
-    // 🏖️ PROMEDIO HISTÓRICO LEGAL (ART. 70 DECRETO 806/1998)
+   // 🏖️ PROMEDIO HISTÓRICO LEGAL E HÍBRIDO DEL ERP
       if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
         
         // 1. Calculamos el periodo "2026-04" para ir a buscar a Firebase
@@ -457,7 +457,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const keyConsulta = `${periodoAnteriorStr}|${emp.empresa || 'Termales'}`;
         const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
         
-        // 2. 🚀 Extraer el IBC sumando la "Salud" del mes anterior directamente del JSON/Excel crudo
+        // 2. Extraer el IBC sumando la "Salud" del mes anterior
         let saludHistoricaTotal = 0;
         historicoMesAnterior.forEach(h => {
             const cedulaFila = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
@@ -471,25 +471,38 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
             }
         });
 
-        // Calculamos el IBC a partir del 4% de la salud total encontrada
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
         if (ibcImplicitoHist > 0) {
           const ibcDiarioAnterior = ibcImplicitoHist / 30;
           
-          let ajusteIBCVacaciones = 0;
-          // Si NO es una liquidación definitiva, aplicamos el histórico proporcional
           if (!emp.esLiquidacion) {
              const diasAusentismo = 15 - emp.diasTrabajados;
-             ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
+             const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
              
-             ibcBruto = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
-             emp.usoHistoricoAnterior = true; 
-             emp.ibcAnteriorDetectado = ibcImplicitoHist;
+             // 🛡️ REGLA HÍBRIDA DE PRECISIÓN:
+             // Comparamos el histórico calculado vs lo devengado real del ERP
+             const calculoHistorico = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
+             const calculoDirectoERP = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
+             
+             // Si el ERP no está usando histórico sino la vacación directa, empatamos con el ERP
+             // (Esto previene falsos positivos en empresas que no operan el histórico de 1998)
+             const difVsHistorico = Math.abs((Math.round(calculoHistorico / 500) * 500 * 0.04) - emp.descuentoSaludReal);
+             const difVsDirecto = Math.abs((Math.round(calculoDirectoERP / 500) * 500 * 0.04) - emp.descuentoSaludReal);
+
+             if (difVsDirecto < difVsHistorico && difVsDirecto <= margenTolerancia) {
+                ibcBruto = calculoDirectoERP; // El ERP fue literal
+             } else {
+                ibcBruto = calculoHistorico; // El ERP sí usó histórico de ley
+                emp.usoHistoricoAnterior = true; 
+                emp.ibcAnteriorDetectado = ibcImplicitoHist;
+             }
           } else {
-             // Si es liquidación (Ej. Alvarez, Betancur), respetamos lo devengado estrictamente sin histórico
              ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           }
+        } else {
+          // Fallback si no cruzó en la Nube
+          ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
         }
       }
             
