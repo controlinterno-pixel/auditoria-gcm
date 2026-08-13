@@ -349,15 +349,15 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Lexicón defensivo
+   // Lexicón defensivo
     const esConstitutivoLexicon = [
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
       'DESTAJO', 'AUXILIO SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 
-      'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA'
+      'COMPENSACION SALARIAL', 'LICENCIA REMUNERADA' // 👈 DÍA DE LA FAMILIA SE ELIMINÓ DE AQUÍ
     ].some(kw => conceptoLimpio.includes(kw));
 
-    const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
+    const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION', 'INCAPACIDAD', 'INC.', 'FAMILIA'].some(excl => conceptoLimpio.includes(excl));
     const esVacacion = conceptoLimpio.includes('VACACION');
     const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
 
@@ -502,6 +502,9 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
+    // Un margen de hasta $1.500 es normal por diferencias en cortes de decimales al promediar el mes anterior
+    const toleranciaUsoHistorico = emp.usoHistoricoAnterior ? 1500 : margenTolerancia;
+
     if (emp.esAprendizSena && emp.descuentoSaludReal === 0) {
       tipoHallazgo = 'CONFORME';
       severidad = 'CORRECTO (Aprendiz SENA)';
@@ -510,7 +513,10 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
       conteoDesalineados++;
-    } else if (Math.abs(difSalud) <= margenTolerancia && Math.abs(difPension) <= margenTolerancia) {
+    } else if (Math.abs(difSalud) <= toleranciaUsoHistorico && Math.abs(difPension) <= toleranciaUsoHistorico) {
+      tipoHallazgo = 'CONFORME';
+      severidad = 'CORRECTO';
+      conteoConformes++;
       tipoHallazgo = 'CONFORME';
       severidad = 'CORRECTO';
       conteoConformes++;
