@@ -321,8 +321,15 @@ const ConceptMapper = () => {
     
     const brecha = Math.abs(empleado.salarioBase - (empleado.ibcImplicito || 0));
 
-    if (tieneVacaciones) causales.push({ titulo: "🏖️ Vacaciones Novedad/Ajuste", desc: "El ERP liquidó ausentismo pagado con fórmula desacumulada/promedio de días no hábiles." });
-    if (tieneIncapacidad) causales.push({ titulo: "🏥 Incapacidad de Nómina", desc: "Base de cotización ajustada por la entidad según días de ausentismo médico." });
+   if (empleado.usoHistoricoAnterior) {
+      causales.push({ 
+        titulo: "🧠 Recálculo con Histórico (Dec. 806/98)", 
+        desc: `El motor detectó el ausentismo y extrajo el IBC real del mes anterior ($${empleado.ibcAnteriorDetectado?.toLocaleString('es-CO')}) de la base de datos para realizar la liquidación correcta UGPP.` 
+      });
+    } else {
+      if (tieneVacaciones) causales.push({ titulo: "🏖️ Vacaciones (Sin Histórico)", desc: "Se detectó ausentismo pero no se halló histórico en la Nube del mes pasado. El cálculo podría diferir de la UGPP." });
+      if (tieneIncapacidad) causales.push({ titulo: "🏥 Incapacidad (Sin Histórico)", desc: "Base ajustada por ausentismo médico. Se requiere cargar el histórico en la Nube para auditar al 100%." });
+    }
     if (tieneExtras) causales.push({ titulo: "⏰ Recargos / Horas Extras", desc: "Inclusión de variables operativas en el mes vencido por el ERP." });
     if (tieneDiaFamilia) causales.push({ titulo: "👨‍👩‍👧 Día de la Familia", desc: "El ERP incluyó el devengado salarial remunerado en la base de liquidación." });
     if (tieneLicenciaRem) causales.push({ titulo: "📜 Licencia Remunerada", desc: "Liquidación legal con auxilio completo conforme a Art. 127 CST." });

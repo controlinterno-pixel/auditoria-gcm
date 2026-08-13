@@ -388,6 +388,39 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     }
   });
 
+// 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Mes Anterior)
+  // Evita hacer cientos de consultas individuales a la BD dentro del bucle
+  const historicosPreCargados = {};
+  const periodosEmpresasNecesarios = new Set();
+
+  for (const llave in empleadosPivoteados) {
+    const emp = empleadosPivoteados[llave];
+    if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
+      const [anoStr, mesStr] = emp.periodoISO.split('-');
+      let ano = parseInt(anoStr);
+      let mes = parseInt(mesStr) - 1;
+      if (mes === 0) {
+        mes = 12;
+        ano -= 1;
+      }
+      const periodoAnterior = `${ano}-${mes.toString().padStart(2, '0')}`;
+      const keyConsulta = `${periodoAnterior}|${emp.empresa || 'Termales'}`;
+      periodosEmpresasNecesarios.add(keyConsulta);
+    }
+  }
+
+  // Consultamos a Firebase/BD solo los meses estrictamente necesarios de forma masiva
+  for (const key of periodosEmpresasNecesarios) {
+    const [perAnterior, empresa] = key.split('|');
+    try {
+      const dataHist = await cargarNominaHistorica(perAnterior, empresa);
+      historicosPreCargados[key] = dataHist || [];
+    } catch (e) {
+      console.warn(`No se halló histórico para ${key}`);
+      historicosPreCargados[key] = [];
+    }
+  }
+
   const hallazgos = [];
   let conteoConformes = 0;
   let conteoBajoPago = 0;
@@ -418,26 +451,22 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const [anoStr, mesStr] = emp.periodoISO.split('-');
         let ano = parseInt(anoStr);
         let mes = parseInt(mesStr) - 1;
-        if (mes === 0) {
-          mes = 12;
-          ano -= 1;
-        }
+        if (mes === 0) { mes = 12; ano -= 1; }
         const periodoAnterior = `${ano}-${mes.toString().padStart(2, '0')}`;
+        const keyConsulta = `${periodoAnterior}|${emp.empresa || 'Termales'}`;
         
-        try {
-          const historicoMesAnterior = await cargarNominaHistorica(periodoAnterior, emp.empresa || 'Termales');
-          if (historicoMesAnterior && historicoMesAnterior.length > 0) {
-            const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
-            if (empHist && empHist.ibcImplicito > 0) {
-              const ibcDiarioAnterior = empHist.ibcImplicito / 30;
-              const diasAusentismo = 15 - emp.diasTrabajados;
-              const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
-              
-              ibcBruto = (emp.totalConstitutivoIBC) + ajusteIBCVacaciones;
-            }
-          }
-        } catch (err) {
-          console.warn("No se pudo cargar el histórico para " + emp.cedula, err);
+        const historicoMesAnterior = historicosPreCargados[keyConsulta] || [];
+        const empHist = historicoMesAnterior.find(h => h.cedula === emp.cedula);
+        
+        if (empHist && empHist.ibcImplicito > 0) {
+          const ibcDiarioAnterior = empHist.ibcImplicito / 30;
+          const diasAusentismo = 15 - emp.diasTrabajados;
+          // Si el empleado trabajó 0 días, asumimos los 15 días de la quincena como ausentismo
+          const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
+          
+          ibcBruto = (emp.totalConstitutivoIBC) + ajusteIBCVacaciones;
+          emp.usoHistoricoAnterior = true; // 👈 Marcamos que la auditoría usó el dato histórico
+          emp.ibcAnteriorDetectado = empHist.ibcImplicito;
         }
       }
       
@@ -487,7 +516,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       conteoExcesos++;
     }
 
-    hallazgos.push({
+   hallazgos.push({
       id: `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
       empresa: emp.empresa,
       cedula: emp.cedula,
@@ -503,7 +532,9 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       auxilioPagado: emp.descuentoSaludReal,
       diferenciaExacta: difSalud,
       tipoHallazgo,
-      severidad
+      severidad,
+      usoHistoricoAnterior: emp.usoHistoricoAnterior, // 👈 Inyectamos a la UI
+      ibcAnteriorDetectado: emp.ibcAnteriorDetectado
     });
   }
 
