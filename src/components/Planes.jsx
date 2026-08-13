@@ -1717,64 +1717,66 @@ const handleNotificarPlan = (planId) => {
 
                                   return (
                                     <tr key={idx} className="border-b border-slate-300 break-inside-avoid hover:bg-slate-50" style={{ pageBreakInside: 'avoid' }}>
-                                      {/* 1. NO */}
+                                     {/* 1. NO */}
                                       <td className="p-2 border-r border-slate-300 text-center font-black text-slate-900 align-top">{idx + 1}</td>
                                       
-                                    {/* 2. DESCRIPCIÓN OBSERVACIÓN Y/O HALLAZGO (DATOS REALES) */}
+                                      {/* 2. DESCRIPCIÓN OBSERVACIÓN Y/O HALLAZGO (DATOS REALES CON FALLBACK AUTOMÁTICO) */}
                                       <td className="p-2 border-r border-slate-300 align-top font-medium text-slate-800 text-[9px] leading-tight">
-                                        <span className="font-bold text-red-600 mb-1 inline-block">HAL-{p.idHallazgo}</span>
+                                        <span className="font-bold text-red-600 mb-1 inline-block">
+                                          {hallazgoBase?.ref || `HAL-${p.idHallazgo}`}
+                                        </span>
                                         <br />
-                                        {hallazgoBase?.descripcion || 'Sin descripción detallada registrada.'}
+                                        {hallazgoBase?.titulo || hallazgoBase?.descripcion || hallazgoBase?.hallazgo || hallazgoBase?.detalle || hallazgoBase?.observacion || 'Sin descripción detallada registrada.'}
                                       </td>
                                       
-                                      {/* 3. CLASE DE OBSERVACIÓN (DATOS REALES) */}
+                                      {/* 3. CLASE DE OBSERVACIÓN */}
                                       <td className="p-2 border-r border-slate-300 align-top text-center font-black uppercase text-[#0A3B32]">
                                         {hallazgoBase?.claseObservacion || 'No Conformidad'}
                                       </td>
                                       
-                                      {/* 5. ÁREAS / PROCESOS */}
+                                      {/* 4. ÁREAS / PROCESOS */}
                                       <td className="p-2 border-r border-slate-300 align-top uppercase font-bold text-slate-800">
                                         {p.proceso}
                                         <span className="block text-slate-500 font-medium mt-1">{p.sede}</span>
                                       </td>
                                       
-                                      {/* 6. ACCIONES DE MEJORAMIENTO */}
+                                      {/* 5. ACCIONES DE MEJORAMIENTO */}
                                       <td className="p-2 border-r border-slate-300 align-top">
                                         <span className="font-bold text-blue-600 block mb-1">PLA-{p.id.toString().slice(-4)}</span>
                                         <p className="font-black text-slate-900 leading-tight">{p.accion}</p>
                                       </td>
                                       
-                                      {/* 7. MECANISMO DE SEGUIMIENTO */}
+                                      {/* 6. MECANISMO DE SEGUIMIENTO */}
                                       <td className="p-2 border-r border-slate-300 align-top font-medium text-slate-600 uppercase">
                                         Revisión de Evidencias Digitales GCM
                                       </td>
                                       
-                                      {/* 8. RESPONSABLE DE SEGUIMIENTO */}
+                                      {/* 7. RESPONSABLE DE SEGUIMIENTO */}
                                       <td className="p-2 border-r border-slate-300 align-top font-black text-[#0A3B32]">
                                         {p.auditorAsignado || 'Auditoría Interna'}
                                       </td>
                                       
-                                      {/* 9. META */}
+                                      {/* 8. META */}
                                       <td className="p-2 border-r border-slate-300 align-top text-center">
                                         <span className="bg-emerald-100 text-emerald-800 font-black px-2 py-1 rounded">100%</span>
                                       </td>
                                       
-                                      {/* 10. FECHA INICIO */}
+                                      {/* 9. FECHA INICIO */}
                                       <td className="p-2 border-r border-slate-300 align-top text-center font-bold text-slate-800">
                                         {p.fechaInicio || 'N/A'}
                                       </td>
                                       
-                                      {/* 11. FECHA TERMINACIÓN */}
+                                      {/* 10. FECHA TERMINACIÓN */}
                                       <td className="p-2 border-r border-slate-300 align-top text-center font-bold text-slate-800">
                                         {p.fecha || 'N/A'}
                                       </td>
                                       
-                                      {/* 12. PLAZO SEMANAS */}
+                                      {/* 11. PLAZO SEMANAS */}
                                       <td className="p-2 border-r border-slate-300 align-top text-center font-black text-blue-700">
                                         {semanas}
                                       </td>
                                       
-                                      {/* 13. ESTADO / OBSERVACIONES */}
+                                      {/* 12. ESTADO / OBSERVACIONES */}
                                       <td className="p-2 border-r border-slate-300 align-top text-center">
                                         <span className={`px-2 py-1 rounded font-black uppercase text-[7px] ${p.progreso === 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                                           {p.estadoWorkflow || 'En Proceso'}
@@ -1782,7 +1784,7 @@ const handleNotificarPlan = (planId) => {
                                         <span className="block mt-1 font-black text-slate-800">{p.progreso}% Avance</span>
                                       </td>
                                       
-                                      {/* 14. RESPONSABLE DE MEJORAMIENTO */}
+                                      {/* 13. RESPONSABLE DE MEJORAMIENTO */}
                                       <td className="p-2 align-top font-black text-slate-900 uppercase">
                                         {p.responsable || 'Sin Asignar'}
                                       </td>
