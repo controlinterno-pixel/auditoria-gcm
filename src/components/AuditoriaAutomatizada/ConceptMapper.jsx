@@ -321,13 +321,17 @@ const ConceptMapper = () => {
     
     const brecha = Math.abs(empleado.salarioBase - (empleado.ibcImplicito || 0));
 
-   if (empleado.usoHistoricoAnterior) {
+if (empleado.usoHistoricoAnterior) {
       causales.push({ 
         titulo: "🧠 Recálculo con Histórico (Dec. 806/98)", 
-        desc: `El motor detectó el ausentismo y extrajo el IBC real del mes anterior ($${empleado.ibcAnteriorDetectado?.toLocaleString('es-CO')}) de la base de datos para realizar la liquidación correcta UGPP.` 
+        desc: `El motor aplicó el IBC proporcional del mes anterior ($${(empleado.ibcAnteriorDetectado || 0).toLocaleString('es-CO')}) alineándose con la UGPP.` 
       });
-    } else {
-      if (tieneVacaciones) causales.push({ titulo: "🏖️ Vacaciones (Sin Histórico)", desc: "Se detectó ausentismo pero no se halló histórico en la Nube del mes pasado. El cálculo podría diferir de la UGPP." });
+    } else if (tieneVacaciones && !empleado.usoHistoricoAnterior) {
+      causales.push({ 
+        titulo: "🏖️ Vacaciones (Sin Histórico)", 
+        desc: "Se detectó ausentismo pero la Regla Híbrida determinó que el ERP usó la base nominal del mes actual." 
+      });
+    }
       if (tieneIncapacidad) causales.push({ titulo: "🏥 Incapacidad (Sin Histórico)", desc: "Base ajustada por ausentismo médico. Se requiere cargar el histórico en la Nube para auditar al 100%." });
     }
     if (tieneExtras) causales.push({ titulo: "⏰ Recargos / Horas Extras", desc: "Inclusión de variables operativas en el mes vencido por el ERP." });
@@ -744,8 +748,10 @@ const ConceptMapper = () => {
                         {Number(h.diasTrabajados).toFixed(2).replace(/\.00$/, '')}
                       </td>
                       
-                      <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
-                      
+<td className="px-4 py-3 text-right font-mono text-slate-700">
+  ${h.salarioBase.toLocaleString('es-CO')}
+  {h.usoHistoricoAnterior && <span className="text-[10px] text-emerald-600 block leading-none mt-0.5">🧠 HISTÓRICO</span>}
+</td>
                       {tipoAuditoriaActiva !== 'TRANSPORTE' && (
                         <td 
                           onClick={() => setEmpleadoDiagonal(h)}
@@ -815,8 +821,11 @@ const ConceptMapper = () => {
             <div className="p-6 max-h-[75vh] overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase">IBC Motor (Base Real Quincenal)</span>
-                  <p className="text-xl font-extrabold text-blue-900">${empleadoDiagonal.salarioBase.toLocaleString('es-CO')}</p>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">IBC NORMATIVO RECALCULADO</span>
+                  <p className="text-xl font-extrabold text-emerald-700">${empleadoDiagonal.salarioBase.toLocaleString('es-CO')}</p>
+                  {empleadoDiagonal.usoHistoricoAnterior && (
+                    <p className="text-[10px] text-emerald-600 font-bold mt-1">✓ Incluye Histórico de Vacaciones</p>
+                  )}
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-indigo-600 uppercase">IBC Implícito (Registrado ERP)</span>
@@ -853,19 +862,30 @@ const ConceptMapper = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-mono">
-                    {obtenerDesgloseEmpleado(empleadoDiagonal).map((item, idx) => (
-                      <tr key={idx} className={item.incluidoEnIBC ? 'bg-emerald-50/40' : 'bg-red-50/40'}>
-                        <td className="p-2.5 font-sans font-bold">
-                          {item.incluidoEnIBC ? (
-                            <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]">✔ INCLUIDO</span>
-                          ) : (
-                            <span className="text-red-700 bg-red-100 px-2 py-0.5 rounded text-[10px]">✘ OMITIDO</span>
-                          )}
-                        </td>
-                        <td className="p-2.5 font-sans font-medium text-slate-800">{item.concepto}</td>
-                        <td className="p-2.5 text-right font-bold">${item.valor.toLocaleString('es-CO')}</td>
-                      </tr>
-                    ))}
+                    {obtenerDesgloseEmpleado(empleadoDiagonal).map((item, idx) => {
+                      const esVacacion = item.concepto.includes('VACACION') || item.concepto.includes('INCAPACIDAD');
+                      const tagStyle = esVacacion 
+                        ? 'text-indigo-700 bg-indigo-100' 
+                        : item.incluidoEnIBC 
+                          ? 'text-emerald-700 bg-emerald-100' 
+                          : 'text-red-700 bg-red-100';
+                          
+                      const tagText = esVacacion 
+                        ? '🧠 TRATAMIENTO HISTÓRICO' 
+                        : item.incluidoEnIBC 
+                          ? '✔ INCLUIDO' 
+                          : '✘ OMITIDO';
+
+                      return (
+                        <tr key={idx} className={esVacacion ? 'bg-indigo-50/30' : item.incluidoEnIBC ? 'bg-emerald-50/40' : 'bg-red-50/40'}>
+                          <td className="p-2.5 font-sans font-bold">
+                            <span className={`${tagStyle} px-2 py-0.5 rounded text-[10px]`}>{tagText}</span>
+                          </td>
+                          <td className="p-2.5 font-sans font-medium text-slate-800">{item.concepto}</td>
+                          <td className="p-2.5 text-right font-bold">${item.valor.toLocaleString('es-CO')}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

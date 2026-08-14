@@ -484,17 +484,25 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
               
               if (cedulaFilaLimpia === empCedulaLimpia) {
                 const cLimpio = normalizarTexto(buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
+                
+                // Filtro estricto para ignorar SALUDEMPLEADOR y similares
                 const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
-                                !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL') && !cLimpio.includes('EMPRESA');
+                                !cLimpio.includes('FONDO') && 
+                                !cLimpio.includes('PATRONAL') && 
+                                !cLimpio.includes('EMPRESA') &&
+                                !cLimpio.includes('EMPLEADOR') &&
+                                !cLimpio.includes('PROVISION');
                                 
                 if (esSalud) {
                   const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Pago']);
-                  sumaDeduccion += Math.abs(parsearMonto(valRaw));
+                  // IMPORTANTE: Sumamos con su signo original (Neteo) antes del Math.abs final
+                  sumaDeduccion += parsearMonto(valRaw);
                 }
               }
             });
           }
-          return sumaDeduccion;
+          // Devolvemos el valor absoluto del neteo total de la quincena
+          return Math.abs(sumaDeduccion);
         };
 
         // FALLBACK ABSOLUTO: Ya no importa el mes. Si Firebase descargó la historia de esta cédula, la usamos.
