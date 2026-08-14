@@ -250,7 +250,10 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 // ==========================================
 export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, config = {}) {
   const pasoRedondeo = config.pasoRedondeo || 500;
-  const margenTolerancia = pasoRedondeo; 
+  // 🛡️ AUMENTAMOS LA TOLERANCIA A $2.000 COP:
+  // Esto absorbe hasta $50.000 pesos de diferencia en la base causados por el "ruido operativo"
+  // del ERP al promediar o diferir las horas extras y recargos.
+  const margenTolerancia = 2000; 
 
   const conceptosConstitutivos = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
   const conceptosNoSalariales = (mapeoConceptos?.devengados_no_salariales || []).map(normalizarTexto);
@@ -581,8 +584,8 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
-    // Margen de $1.500 para redondeos de divisiones mes vencido
-    const toleranciaUsoHistorico = emp.usoHistoricoAnterior ? 1500 : margenTolerancia;
+    // Aplicamos la tolerancia global para limpiar los falsos positivos operativos
+    const toleranciaAplicada = margenTolerancia;
 
     if (emp.esAprendizSena && emp.descuentoSaludReal === 0) {
       tipoHallazgo = 'CONFORME';
@@ -597,7 +600,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
       conteoDesalineados++;
-    } else if (Math.abs(difSalud) <= toleranciaUsoHistorico && Math.abs(difPension) <= toleranciaUsoHistorico) {
+    } else if (Math.abs(difSalud) <= toleranciaAplicada && Math.abs(difPension) <= toleranciaAplicada) {
       tipoHallazgo = 'CONFORME';
       severidad = 'CORRECTO';
       conteoConformes++;
