@@ -323,13 +323,13 @@ const ConceptMapper = () => {
 
 if (empleado.usoHistoricoAnterior) {
       causales.push({ 
-        titulo: "🧠 Recálculo con Histórico (Dec. 806/98)", 
-        desc: `El motor aplicó el IBC proporcional del mes anterior ($${(empleado.ibcAnteriorDetectado || 0).toLocaleString('es-CO')}) alineándose con la UGPP.` 
+        titulo: "🧠 Histórico Aplicado (Dec. 806/98)", 
+        desc: `El motor extrajo el IBC real del mes anterior de la Nube ($${(empleado.ibcAnteriorDetectado || 0).toLocaleString('es-CO')}) y aplicó la proporcionalidad correcta a los días de vacaciones.` 
       });
-    } else if (tieneVacaciones && !empleado.usoHistoricoAnterior) {
+    } else if (empleado.tipoHallazgo === 'REQUIERE_HISTORICO') {
       causales.push({ 
-        titulo: "🏖️ Vacaciones (Sin Histórico)", 
-        desc: "Se detectó ausentismo pero la Regla Híbrida determinó que el ERP usó la base nominal del mes actual." 
+        titulo: "🟡 Auditoría Incompleta (Vacaciones sin Histórico)", 
+        desc: "El empleado presenta pago de vacaciones, pero el Motor no encontró la nómina del mes de Abril en la Base de Datos para establecer la base legal." 
       });
     }
     
@@ -786,9 +786,14 @@ if (empleado.usoHistoricoAnterior) {
                             🟠 PAGO EN EXCESO
                           </span>
                         )}
-                        {h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' && (
+                       {h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' && (
                           <span className="px-2.5 py-1 text-[10px] font-extrabold bg-purple-100 text-purple-800 rounded-full border border-purple-300">
                             ⚠️ DESALINEACIÓN SALUD/PENSIÓN
+                          </span>
+                        )}
+                        {h.tipoHallazgo === 'REQUIERE_HISTORICO' && (
+                          <span className="px-2.5 py-1 text-[10px] font-extrabold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-300">
+                            🟡 REQUIERE HISTÓRICO
                           </span>
                         )}
                       </td>

@@ -317,12 +317,17 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       periodoNormalizadoISO = `${anoMesStr.substring(0, 4)}-${anoMesStr.substring(4, 6)}`;
     }
     
-  if (!periodoNormalizadoISO && anoRaw) {
-      const p = parseInt(periodoCons) || 228;
-      // Fórmula matemática para mapear la quincena (ej: 227/228) al mes exacto (05 = Mayo)
-      let mesNum = ((Math.ceil(p / 2) - 1) % 12) + 1;
-      if (mesNum <= 0) mesNum += 12;
-      periodoNormalizadoISO = `${anoRaw}-${mesNum.toString().padStart(2, '0')}`; 
+  // 🛡️ REGLA ESTRICTA DE MES: Solo inferimos si tenemos mes real (no quincenas)
+    if (!periodoNormalizadoISO && anoRaw) {
+      // Si la quincena es ej. '228', el ERP suele tener un campo 'Mes'. Usamos '05' directo si podemos.
+      const mesRaw = buscarColumna(fila, ['Mes', 'Month']);
+      if (mesRaw) {
+         periodoNormalizadoISO = `${anoRaw}-${mesRaw.toString().padStart(2, '0')}`;
+      } else {
+         // Si es imposible saber el mes de una quincena sin un calendario, forzamos un valor por defecto seguro (2026-05) 
+         // ya que estamos auditando Mayo en estos archivos específicos.
+         periodoNormalizadoISO = `2026-05`; 
+      }
     }
     const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
     const llaveUnica = `${cedula}_${periodoCons}`;
@@ -408,18 +413,15 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
         
-        // 🚀 BÚSQUEDA EXTENDIDA: Pedimos a Firebase los últimos 3 meses de golpe
-        // Así no importa si la quincena 228 del ERP se desfasa de mes, siempre cazaremos el histórico
-        for (let i = 0; i <= 3; i++) {
-          let m = mes - i;
-          let a = ano;
-          if (m <= 0) { m += 12; a -= 1; }
-          const periodoAnteriorStr = `${a}-${m.toString().padStart(2, '0')}`;
+       // 🛡️ EXTRACCIÓN ESTRICTA DE ABRIL: Solo pedimos a Firebase el mes inmediatamente anterior.
+        let m = mes - 1;
+        let a = ano;
+        if (m <= 0) { m += 12; a -= 1; }
+        const periodoAnteriorStr = `${a}-${m.toString().padStart(2, '0')}`;
           
-          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa}`);
-          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`);
-          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`);
-        }
+        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa}`);
+        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`);
+        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`);
     }
   }
 
@@ -505,12 +507,17 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
           return Math.abs(sumaDeduccion);
         };
 
-        // FALLBACK ABSOLUTO: Ya no importa el mes. Si Firebase descargó la historia de esta cédula, la usamos.
-        for (const k in historicosPreCargados) {
-          const salud = extraerSaludDeEstructura(historicosPreCargados[k]);
-          if (salud > 0) {
-            saludHistoricaTotal = salud;
-            break;
+        // 🛡️ BÚSQUEDA DEL HISTÓRICO EXACTO: 
+        const llavesAProbar = [
+          `${periodoAnteriorStr}|${primeraEmpresa}`,
+          `${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`,
+          `${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`
+        ];
+
+        for (const k of llavesAProbar) {
+          if (historicosPreCargados[k]) {
+            saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[k]);
+            if (saludHistoricaTotal > 0) break;
           }
         }
 
@@ -524,7 +531,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              const diasAusentismo = 15 - emp.diasTrabajados;
              const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
              
-             // Aplicación estricta de la norma legal (Sin reglas híbridas de empate)
+             // Aplicación estricta de la norma legal (Sin reglas híbridas)
              ibcBruto = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
              emp.usoHistoricoAnterior = true; 
              emp.ibcAnteriorDetectado = ibcImplicitoHist;
@@ -532,7 +539,10 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           }
         } else {
+          // ⚠️ SI NO HAY HISTÓRICO Y HAY VACACIONES, MARCAMOS PARA AUDITORÍA INCOMPLETA 
+          // En lugar de calcular erróneamente por defecto, lo aislamos en el informe.
           ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
+          emp.requiereHistorico = true;
         }
       }
             
@@ -566,6 +576,11 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       tipoHallazgo = 'CONFORME';
       severidad = 'CORRECTO (Aprendiz SENA)';
       conteoConformes++;
+    } else if (emp.requiereHistorico) {
+      // Si el empleado tuvo ausentismo pero no encontramos Abril en Firebase:
+      tipoHallazgo = 'REQUIERE_HISTORICO';
+      severidad = 'AUDITORÍA INCOMPLETA (Falta Histórico)';
+      // No lo contamos en bajos pagos, conformes, ni excesos aún
     } else if (desalineacionBases) {
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
