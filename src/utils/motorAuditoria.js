@@ -525,19 +525,17 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
           return Math.abs(sumaDeduccion);
         };
 
-        // 🛡️ BÚSQUEDA DEL HISTÓRICO EXACTO: 
+        // 🛡️ BÚSQUEDA DEL HISTÓRICO (INTELIGENTE SIN IMPORTAR ESPACIOS O MAYÚSCULAS): 
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
-        const llavesAProbar = [
-          `${periodoAnteriorStr}|${primeraEmpresa}`,
-          `${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`,
-          `${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`
-        ];
+        
+        // Encontramos la llave sin importar si en Firebase se guardó con espacios extra o diferente capitalización
+        const llaveEncontrada = Object.keys(historicosPreCargados).find(k => 
+           k.includes(periodoAnteriorStr) && 
+           normalizarTexto(k).includes(normalizarTexto(primeraEmpresa))
+        );
 
-        for (const k of llavesAProbar) {
-          if (historicosPreCargados[k]) {
-            saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[k]);
-            if (saludHistoricaTotal > 0) break;
-          }
+        if (llaveEncontrada && historicosPreCargados[llaveEncontrada]) {
+            saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[llaveEncontrada]);
         }
 
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
