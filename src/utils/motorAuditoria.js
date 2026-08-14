@@ -508,6 +508,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         };
 
         // 🛡️ BÚSQUEDA DEL HISTÓRICO EXACTO: 
+        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
         const llavesAProbar = [
           `${periodoAnteriorStr}|${primeraEmpresa}`,
           `${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`,
