@@ -368,10 +368,10 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
       'DESTAJO', 'AUXILIO SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 
-      'COMPENSACION SALARIAL', 'LICENCIA REMUNERADA' 
+      'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA'
     ].some(kw => conceptoLimpio.includes(kw));
 
-    const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION', 'INCAPACIDAD', 'INC.', 'FAMILIA'].some(excl => conceptoLimpio.includes(excl));
+const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
     const esVacacion = conceptoLimpio.includes('VACACION');
     const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
 
