@@ -472,36 +472,54 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-        // 🚀 Escáner universal para desempacar objetos de Firebase
+       // 🚀 Escáner universal PROFUNDO para desempacar objetos de Firebase
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
-          let listaRegistros = Array.isArray(dataFirebase) ? dataFirebase : 
-                              (dataFirebase.transacciones || dataFirebase.registros || Object.values(dataFirebase));
           
+          // Desempaquetar capas múltiples de Firebase (ej: Array de Documentos que contienen 'transacciones')
+          let listaRegistros = [];
+          const arrayInicial = Array.isArray(dataFirebase) ? dataFirebase : Object.values(dataFirebase);
+          
+          arrayInicial.forEach(item => {
+            if (!item || typeof item !== 'object') return;
+            if (Array.isArray(item.transacciones)) {
+              listaRegistros = listaRegistros.concat(item.transacciones);
+            } else if (Array.isArray(item.registros)) {
+              listaRegistros = listaRegistros.concat(item.registros);
+            } else if (item.Identificacion || item.Cedula || item.Documento || item.NombreConcepto) {
+              listaRegistros.push(item);
+            }
+          });
+          
+          if (listaRegistros.length === 0) listaRegistros = arrayInicial;
+
           let sumaDeduccion = 0;
-          if (Array.isArray(listaRegistros)) {
-            listaRegistros.forEach(h => {
-              if (!h || typeof h !== 'object') return;
-              const cedulaFilaLimpia = limpiarCedula(buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']));
+          listaRegistros.forEach(h => {
+            if (!h || typeof h !== 'object') return;
+            const cedulaFilaLimpia = limpiarCedula(buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']));
+            
+            if (cedulaFilaLimpia === empCedulaLimpia) {
+              const cLimpio = normalizarTexto(buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
               
-              if (cedulaFilaLimpia === empCedulaLimpia) {
-                const cLimpio = normalizarTexto(buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
-                
-                // Filtro estricto para ignorar SALUDEMPLEADOR y similares
-                const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
-                                !cLimpio.includes('FONDO') && 
-                                !cLimpio.includes('PATRONAL') && 
-                                !cLimpio.includes('EMPRESA') &&
-                                !cLimpio.includes('EMPLEADOR') &&
-                                !cLimpio.includes('PROVISION');
-                                
-                if (esSalud) {
-                  const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Pago']);
-                  // IMPORTANTE: Sumamos con su signo original (Neteo) antes del Math.abs final
-                  sumaDeduccion += parsearMonto(valRaw);
-                }
+              // Filtro estricto para ignorar SALUDEMPLEADOR y similares
+              const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
+                              !cLimpio.includes('FONDO') && 
+                              !cLimpio.includes('PATRONAL') && 
+                              !cLimpio.includes('EMPRESA') &&
+                              !cLimpio.includes('EMPLEADOR') &&
+                              !cLimpio.includes('PROVISION');
+                              
+              if (esSalud) {
+                const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Pago']);
+                // IMPORTANTE: Sumamos con su signo original (Neteo) antes del Math.abs final
+                sumaDeduccion += parsearMonto(valRaw);
               }
-            });
+            }
+          });
+          // Devolvemos el valor absoluto del neteo total de la quincena
+          return Math.abs(sumaDeduccion);
+              }
+            };
           }
           // Devolvemos el valor absoluto del neteo total de la quincena
           return Math.abs(sumaDeduccion);
