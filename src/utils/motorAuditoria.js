@@ -519,8 +519,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
           // Devolvemos el valor absoluto del neteo total de la quincena
           return Math.abs(sumaDeduccion);
               }
-            };
-          }
+              
           // Devolvemos el valor absoluto del neteo total de la quincena
           return Math.abs(sumaDeduccion);
         };
