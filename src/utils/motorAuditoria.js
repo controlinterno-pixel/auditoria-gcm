@@ -523,7 +523,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
-      if (ibcImplicitoHist > 0) {
+     if (ibcImplicitoHist > 0) {
           // 🏖️ El histórico en la Nube representa el mes completo (30 días)
           // Dividimos entre 30 para obtener la tarifa diaria legal exacta
           const ibcDiarioAnterior = ibcImplicitoHist / 30;
