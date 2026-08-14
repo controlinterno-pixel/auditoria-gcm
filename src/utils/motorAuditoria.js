@@ -475,29 +475,34 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-       // 🚀 Escáner universal PROFUNDO para desempacar objetos de Firebase
+       // 🚀 Escáner universal PROFUNDO (Recursivo) para desempacar objetos de Firebase
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
           
-          let listaRegistros = [];
-          const arrayInicial = Array.isArray(dataFirebase) ? dataFirebase : Object.values(dataFirebase);
+          let flatList = [];
           
-          arrayInicial.forEach(item => {
-            if (!item || typeof item !== 'object') return;
-            if (Array.isArray(item.transacciones)) {
-              listaRegistros = listaRegistros.concat(item.transacciones);
-            } else if (Array.isArray(item.registros)) {
-              listaRegistros = listaRegistros.concat(item.registros);
-            } else if (item.Identificacion || item.Cedula || item.Documento || item.NombreConcepto) {
-              listaRegistros.push(item);
+          // Taladro recursivo para romper cualquier envoltura de Firebase
+          const aplanarDatos = (obj) => {
+            if (!obj || typeof obj !== 'object') return;
+            if (Array.isArray(obj)) {
+              obj.forEach(aplanarDatos);
+            } else if (obj.transacciones && Array.isArray(obj.transacciones)) {
+              obj.transacciones.forEach(aplanarDatos);
+            } else if (obj.registros && Array.isArray(obj.registros)) {
+              obj.registros.forEach(aplanarDatos);
+            } else if (obj.Identificacion || obj.Cedula || obj.Documento || obj.NombreConcepto) {
+              flatList.push(obj);
+            } else {
+              Object.values(obj).forEach(val => {
+                if (Array.isArray(val) || typeof val === 'object') aplanarDatos(val);
+              });
             }
-          });
+          };
           
-          if (listaRegistros.length === 0) listaRegistros = arrayInicial;
+          aplanarDatos(dataFirebase);
 
           let sumaDeduccion = 0;
-          listaRegistros.forEach(h => {
-            if (!h || typeof h !== 'object') return;
+          flatList.forEach(h => {
             const cedulaFilaLimpia = limpiarCedula(buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']));
             
             if (cedulaFilaLimpia === empCedulaLimpia) {
@@ -513,12 +518,10 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
                               
               if (esSalud) {
                 const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Pago']);
-                // IMPORTANTE: Sumamos con su signo original (Neteo) antes del Math.abs final
                 sumaDeduccion += parsearMonto(valRaw);
               }
             }
           });
-          // Devolvemos el valor absoluto del neteo total de la quincena
           return Math.abs(sumaDeduccion);
         };
 
