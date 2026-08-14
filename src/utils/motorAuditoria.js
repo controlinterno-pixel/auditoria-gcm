@@ -7,7 +7,7 @@ import { cargarNominaHistorica } from '../services/historicoService';
 const HISTORICO_LEGAL = {
   2024: { smlmv: 1300000, auxTransporte: 162000 },
   2025: { smlmv: 1469000, auxTransporte: 181440 },
-  2026: { smlmv: 1880000, auxTransporte: 249096 },
+  2026: { smlmv: 1750905, auxTransporte: 249095 }, // Valores oficiales actualizados
 };
 
 const normalizarTexto = (str) => {
@@ -524,19 +524,10 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              const diasAusentismo = 15 - emp.diasTrabajados;
              const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
              
-             const calculoHistorico = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
-             const calculoDirectoERP = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
-             
-             const difVsHistorico = Math.abs((Math.round(calculoHistorico / 500) * 500 * 0.04) - emp.descuentoSaludReal);
-             const difVsDirecto = Math.abs((Math.round(calculoDirectoERP / 500) * 500 * 0.04) - emp.descuentoSaludReal);
-
-             if (difVsDirecto < difVsHistorico && difVsDirecto <= margenTolerancia) {
-                ibcBruto = calculoDirectoERP; 
-             } else {
-                ibcBruto = calculoHistorico; 
-                emp.usoHistoricoAnterior = true; 
-                emp.ibcAnteriorDetectado = ibcImplicitoHist;
-             }
+             // Aplicación estricta de la norma legal (Sin reglas híbridas de empate)
+             ibcBruto = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
+             emp.usoHistoricoAnterior = true; 
+             emp.ibcAnteriorDetectado = ibcImplicitoHist;
           } else {
              ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           }
