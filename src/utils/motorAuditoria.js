@@ -404,16 +404,22 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
     if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
         const [anoStr, mesStr] = emp.periodoISO.split('-');
         let ano = parseInt(anoStr); 
-        let mes = parseInt(mesStr) - 1;
-        if (mes === 0) { mes = 12; ano -= 1; }
+        let mes = parseInt(mesStr);
         
-        const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
         
-        // Carga variaciones por si en Firebase está guardado en Mayúsculas/Minúsculas
-        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa}`);
-        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`);
-        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`);
+        // 🚀 BÚSQUEDA EXTENDIDA: Pedimos a Firebase los últimos 3 meses de golpe
+        // Así no importa si la quincena 228 del ERP se desfasa de mes, siempre cazaremos el histórico
+        for (let i = 0; i <= 3; i++) {
+          let m = mes - i;
+          let a = ano;
+          if (m <= 0) { m += 12; a -= 1; }
+          const periodoAnteriorStr = `${a}-${m.toString().padStart(2, '0')}`;
+          
+          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa}`);
+          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`);
+          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`);
+        }
     }
   }
 
@@ -464,87 +470,52 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-        // 🚀 Escáner universal compatible con Arreglos, Objetos y sub-estructuras de Firebase
+        // 🚀 Escáner universal para desempacar objetos de Firebase
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
+          let listaRegistros = Array.isArray(dataFirebase) ? dataFirebase : 
+                              (dataFirebase.transacciones || dataFirebase.registros || Object.values(dataFirebase));
           
-          let listaRegistros = [];
-          // Firebase puede meter el array dentro de un objeto, debemos desempacarlo
-          if (Array.isArray(dataFirebase)) {
-            listaRegistros = dataFirebase;
-          } else if (typeof dataFirebase === 'object') {
-            if (Array.isArray(dataFirebase.transacciones)) {
-              listaRegistros = dataFirebase.transacciones;
-            } else if (Array.isArray(dataFirebase.registros)) {
-              listaRegistros = dataFirebase.registros;
-            } else {
-              listaRegistros = Object.values(dataFirebase);
-            }
-          }
-
           let sumaDeduccion = 0;
-          listaRegistros.forEach(h => {
-            if (!h || typeof h !== 'object') return;
-            
-            const cedulaFilaRaw = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento', 'Identificación', 'ID', 'CedulaEmpleado']);
-            const cedulaFilaLimpia = limpiarCedula(cedulaFilaRaw);
-            
-            if (cedulaFilaLimpia && cedulaFilaLimpia === empCedulaLimpia) {
-              const conceptoRaw = buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle', 'Nombre concepto']);
-              const cLimpio = normalizarTexto(conceptoRaw);
+          if (Array.isArray(listaRegistros)) {
+            listaRegistros.forEach(h => {
+              if (!h || typeof h !== 'object') return;
+              const cedulaFilaLimpia = limpiarCedula(buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']));
               
-              const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
-                              !cLimpio.includes('FONDO') && 
-                              !cLimpio.includes('PATRONAL') &&
-                              !cLimpio.includes('PROVISION') &&
-                              !cLimpio.includes('EMPRESA');
-                              
-              if (esSalud) {
-                // Se añadieron alias clave: VR_TOTAL, VALOR_TOTAL para asegurar lectura
-                const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Devengado', 'Pago', 'Monto', 'VR_TOTAL', 'VALOR_TOTAL']);
-                sumaDeduccion += Math.abs(parsearMonto(valRaw));
+              if (cedulaFilaLimpia === empCedulaLimpia) {
+                const cLimpio = normalizarTexto(buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
+                const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
+                                !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL') && !cLimpio.includes('EMPRESA');
+                                
+                if (esSalud) {
+                  const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Pago']);
+                  sumaDeduccion += Math.abs(parsearMonto(valRaw));
+                }
               }
-            }
-          });
+            });
+          }
           return sumaDeduccion;
         };
 
-        // 1. Búsqueda por empresa directa
-        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
-        const llavesAProbar = [
-          `${periodoAnteriorStr}|${primeraEmpresa}`,
-          `${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`,
-          `${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`
-        ];
-
-        for (const k of llavesAProbar) {
-          if (historicosPreCargados[k]) {
-            saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[k]);
-            if (saludHistoricaTotal > 0) break;
+        // FALLBACK ABSOLUTO: Ya no importa el mes. Si Firebase descargó la historia de esta cédula, la usamos.
+        for (const k in historicosPreCargados) {
+          const salud = extraerSaludDeEstructura(historicosPreCargados[k]);
+          if (salud > 0) {
+            saludHistoricaTotal = salud;
+            break;
           }
         }
 
-        // 2. FALLBACK GLOBAL: Si no encontró por el nombre exacto de la empresa, busca en todas las bases del mes anterior
-        if (saludHistoricaTotal === 0) {
-          for (const k in historicosPreCargados) {
-            if (k.startsWith(`${periodoAnteriorStr}|`)) {
-              saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[k]);
-              if (saludHistoricaTotal > 0) break;
-            }
-          }
-        }
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
-     if (ibcImplicitoHist > 0) {
-          // 🏖️ El histórico en la Nube representa el mes completo (30 días)
-          // Dividimos entre 30 para obtener la tarifa diaria legal exacta
+        if (ibcImplicitoHist > 0) {
+          // El histórico de Firebase es de mes completo, dividimos en 30
           const ibcDiarioAnterior = ibcImplicitoHist / 30;
           
           if (!emp.esLiquidacion) {
              const diasAusentismo = 15 - emp.diasTrabajados;
              const ajusteIBCVacaciones = ibcDiarioAnterior * (diasAusentismo > 0 ? diasAusentismo : 15);
              
-             // 🛡️ REGLA HÍBRIDA DE PRECISIÓN: Comparar Histórico vs Directo del ERP
              const calculoHistorico = emp.totalConstitutivoIBC + ajusteIBCVacaciones;
              const calculoDirectoERP = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
              
@@ -562,7 +533,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
              ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           }
         } else {
-          // Si ibcImplicitoHist es 0 (no cruzó con la BD histórica), usamos el directo del ERP
           ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
         }
       }
