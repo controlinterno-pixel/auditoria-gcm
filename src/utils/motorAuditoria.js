@@ -476,7 +476,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
           
-          // Desempaquetar capas múltiples de Firebase (ej: Array de Documentos que contienen 'transacciones')
           let listaRegistros = [];
           const arrayInicial = Array.isArray(dataFirebase) ? dataFirebase : Object.values(dataFirebase);
           
@@ -518,10 +517,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
           });
           // Devolvemos el valor absoluto del neteo total de la quincena
           return Math.abs(sumaDeduccion);
-              }
-              
-          // Devolvemos el valor absoluto del neteo total de la quincena
-          return Math.abs(sumaDeduccion);
         };
 
         // 🛡️ BÚSQUEDA DEL HISTÓRICO EXACTO: 
@@ -558,7 +553,6 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
           }
         } else {
           // ⚠️ SI NO HAY HISTÓRICO Y HAY VACACIONES, MARCAMOS PARA AUDITORÍA INCOMPLETA 
-          // En lugar de calcular erróneamente por defecto, lo aislamos en el informe.
           ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           emp.requiereHistorico = true;
         }
@@ -577,7 +571,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
     const difPension = deberSerPension - emp.descuentoPensionReal;
-
+   
     const ibcImplicitoSalud = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
     const ibcImplicitoPension = emp.descuentoPensionReal > 0 ? Math.round(emp.descuentoPensionReal / 0.04) : 0;
     
