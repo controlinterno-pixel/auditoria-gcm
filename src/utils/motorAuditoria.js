@@ -464,16 +464,26 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-        // Función interna de escaneo (A prueba de Arrays y Objetos de Firebase)
-        const buscarSaludEnArreglo = (dataFirebase) => {
-          let suma = 0;
+        // 🚀 Escáner universal compatible con Arreglos, Objetos y sub-estructuras de Firebase
+        const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
           
-          // Si Firebase lo devolvió como Objeto, lo convertimos a Array forzosamente
-          const arreglo = Array.isArray(dataFirebase) ? dataFirebase : Object.values(dataFirebase);
-          
-          arreglo.forEach(h => {
-            if (typeof h !== 'object' || h === null) return;
+          let listaRegistros = [];
+          if (Array.isArray(dataFirebase)) {
+            listaRegistros = dataFirebase;
+          } else if (typeof dataFirebase === 'object') {
+            if (Array.isArray(dataFirebase.transacciones)) {
+              listaRegistros = dataFirebase.transacciones;
+            } else if (Array.isArray(dataFirebase.registros)) {
+              listaRegistros = dataFirebase.registros;
+            } else {
+              listaRegistros = Object.values(dataFirebase);
+            }
+          }
+
+          let sumaDeduccion = 0;
+          listaRegistros.forEach(h => {
+            if (!h || typeof h !== 'object') return;
             
             const cedulaFilaRaw = buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento', 'Identificación', 'ID', 'CedulaEmpleado']);
             const cedulaFilaLimpia = limpiarCedula(cedulaFilaRaw);
@@ -489,14 +499,16 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
                               !cLimpio.includes('EMPRESA');
                               
               if (esSalud) {
-                const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Devengado', 'Pago', 'Monto']);
-                suma += Math.abs(parsearMonto(valRaw));
+                // Se añadieron alias clave: VR_TOTAL, VALOR_TOTAL para asegurar lectura
+                const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Devengado', 'Pago', 'Monto', 'VR_TOTAL', 'VALOR_TOTAL']);
+                sumaDeduccion += Math.abs(parsearMonto(valRaw));
               }
             }
           });
-          return suma;
+          return sumaDeduccion;
         };
-        // 1. Probar en las llaves específicas de la empresa asociada
+
+        // 1. Búsqueda por empresa directa
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
         const llavesAProbar = [
           `${periodoAnteriorStr}|${primeraEmpresa}`,
@@ -506,21 +518,20 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 
         for (const k of llavesAProbar) {
           if (historicosPreCargados[k]) {
-            saludHistoricaTotal = buscarSaludEnArreglo(historicosPreCargados[k]);
+            saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[k]);
             if (saludHistoricaTotal > 0) break;
           }
         }
 
-        // 2. Fallback Global: Si el nombre de empresa no coincidió, buscar en cualquier empresa cargada de ese mismo mes
+        // 2. FALLBACK GLOBAL: Si no encontró por el nombre exacto de la empresa, busca en todas las bases del mes anterior
         if (saludHistoricaTotal === 0) {
           for (const k in historicosPreCargados) {
             if (k.startsWith(`${periodoAnteriorStr}|`)) {
-              saludHistoricaTotal = buscarSaludEnArreglo(historicosPreCargados[k]);
+              saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[k]);
               if (saludHistoricaTotal > 0) break;
             }
           }
         }
-
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
      if (ibcImplicitoHist > 0) {
