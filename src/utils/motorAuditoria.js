@@ -469,6 +469,7 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
           if (!dataFirebase) return 0;
           
           let listaRegistros = [];
+          // Firebase puede meter el array dentro de un objeto, debemos desempacarlo
           if (Array.isArray(dataFirebase)) {
             listaRegistros = dataFirebase;
           } else if (typeof dataFirebase === 'object') {
