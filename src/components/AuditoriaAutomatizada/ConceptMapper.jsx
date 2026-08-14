@@ -332,8 +332,8 @@ if (empleado.usoHistoricoAnterior) {
         desc: "Se detectó ausentismo pero la Regla Híbrida determinó que el ERP usó la base nominal del mes actual." 
       });
     }
-      if (tieneIncapacidad) causales.push({ titulo: "🏥 Incapacidad (Sin Histórico)", desc: "Base ajustada por ausentismo médico. Se requiere cargar el histórico en la Nube para auditar al 100%." });
-    }
+    
+    if (tieneIncapacidad) causales.push({ titulo: "🏥 Incapacidad (Sin Histórico)", desc: "Base ajustada por ausentismo médico. Se requiere cargar el histórico en la Nube para auditar al 100%." });
     if (tieneExtras) causales.push({ titulo: "⏰ Recargos / Horas Extras", desc: "Inclusión de variables operativas en el mes vencido por el ERP." });
     if (tieneDiaFamilia) causales.push({ titulo: "👨‍👩‍👧 Día de la Familia", desc: "El ERP incluyó el devengado salarial remunerado en la base de liquidación." });
     if (tieneLicenciaRem) causales.push({ titulo: "📜 Licencia Remunerada", desc: "Liquidación legal con auxilio completo conforme a Art. 127 CST." });
