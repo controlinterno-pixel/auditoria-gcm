@@ -607,9 +607,10 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
             }
         }
 
-       const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
+    const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
         if (ibcImplicitoHist > 0) {
+          // Si encuentra histórico, liquida con la base del mes anterior (Dec. 806/98)
           const ibcDiarioAnterior = ibcImplicitoHist / 30;
           
           if (!emp.esLiquidacion) {
@@ -623,11 +624,10 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
              ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           }
         } else {
-          // Fallback: Si no hay histórico en la nube, audita con el devengado de nómina
+          // Fallback Automático: Audita directamente con el devengado de nómina si no hay histórico
           ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           emp.requiereHistorico = false;
         }
-            
       // Ley 1393 (Tope 40%) - Las vacaciones de liquidacion NO suman aqui
       const limite40 = totalDevengado * 0.40;
       if (emp.totalNoConstitutivo > limite40) {
@@ -712,7 +712,11 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         severidad = 'ILEGAL (Deducción a Aprendiz en Etapa Lectiva)';
         conteoExcesos++;
       }
- } else if (emp.esMaternidad) {
+} else if (emp.requiereHistorico) {
+      // Este bloque ya no se ejecutará para vacaciones gracias al Fallback, pero se mantiene por seguridad
+      tipoHallazgo = 'REQUIERE_HISTORICO';
+      severidad = 'AUDITORÍA INCOMPLETA (Falta Histórico)';
+    } else if (emp.esMaternidad) {
       tipoHallazgo = 'CONFORME';
       severidad = 'CORRECTO (Maternidad - IBC validado por ERP)';
       conteoConformes++;
