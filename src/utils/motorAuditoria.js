@@ -410,9 +410,9 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       emp.tieneLicenciaNoRemunerada = true;
     } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio === 'SALUD')) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
-    } else if (conceptosPension.includes(conceptoLimpio) || (conceptoLimpio === 'PENSION' || conceptoLimpio === 'SOLIDARIDAD')) {
+  } else if (conceptosPension.includes(conceptoLimpio) || (conceptoLimpio === 'PENSION')) {
       emp.descuentoPensionReal += Math.abs(valorTotal);
-    }
+    } 
   });
 
   // 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Sincronizado con formato Firebase Ej: 2026-04)
