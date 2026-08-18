@@ -633,12 +633,9 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       // Aplicación de regla de retención si la base supera el mínimo exento (~95 UVT)
       emp.retencionDeberSer = baseUVT > 95 ? Math.round((baseUVT - 95) * 0.19 * uvtActual) : 0;
 
-      // ⚖️ AUDITORÍA DE MÍNIMO VITAL (Art. 154 / 155 CST)
-      // La suma total de deducciones no puede dejar al empleado con un neto inferior a 1 SMMLV
-      const smlmvQuincenal = (HISTORICO_LEGAL[anoCalculo]?.smlmv || 1750905) / 2;
-      const deduccionMaximaPermitida = Math.max(0, totalDevengado - smlmvQuincenal);
-      
-      emp.alertaSobrededuccion = emp.totalDeduccionesLegales > deduccionMaximaPermitida; 
+     // ⚖️ AUDITORÍA DE MÍNIMO VITAL (Art. 154 / 155 CST)
+      // Solo alerta si las deducciones superan el 50% del devengado quincenal
+      emp.alertaSobrededuccion = emp.totalDeduccionesLegales > (totalDevengado * 0.50); 
     }
 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
@@ -703,10 +700,14 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         tipoHallazgo = 'REQUIERE_HISTORICO';
         severidad = 'AUDITORÍA INCOMPLETA (Falta Histórico)';
       }
-  } else if (desalineacionBases) {
+} else if (desalineacionBases) {
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
       conteoDesalineados++;
+    } else if (Math.abs(difSalud) <= toleranciaAplicada && Math.abs(difPension) <= toleranciaAplicada) {
+      tipoHallazgo = 'CONFORME';
+      severidad = 'CORRECTO';
+      conteoConformes++;
     } else if (Math.abs(difCaja) > margenTolerancia || Math.abs(difSenaIcbf) > margenTolerancia) {
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Inconsistencia en Pago de Parafiscales)';
@@ -718,11 +719,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     } else if (emp.alertaSobrededuccion) {
       tipoHallazgo = 'PAGO_EXCESO';
       severidad = 'CRÍTICA (Vulneración al Mínimo Vital por Deducciones/Libranzas)';
-      conteoExcesos++;
-    } else if (Math.abs(difSalud) <= toleranciaAplicada && Math.abs(difPension) <= toleranciaAplicada && Math.abs(difCaja) <= toleranciaAplicada) {
-      tipoHallazgo = 'CONFORME';
-      severidad = 'CORRECTO';
-      conteoConformes++;
+      conteoExcesos++; 
     } else if (difSalud > margenTolerancia || difPension > margenTolerancia) {
       tipoHallazgo = 'PAGO_INSUFICIENTE'; 
       severidad = 'CRÍTICA (Riesgo UGPP)';
