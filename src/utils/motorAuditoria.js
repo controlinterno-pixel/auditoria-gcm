@@ -509,7 +509,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-    // 🚀 Escáner DUAL ULTRA-PRECISO: Extrae Salud del Histórico sin contaminación de llaves Firebase
+   // 🚀 Escáner DUAL ULTRA-PRECISO: Extrae Salud del Histórico sin contaminación de llaves Firebase
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
           let sumaDeduccion = 0;
@@ -582,7 +582,6 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
           procesarObjeto(dataFirebase, "");
           return Math.abs(sumaDeduccion);
         };
-
         // 1. Búsqueda en los históricos precargados de Firebase
         Object.keys(historicosPreCargados).forEach(k => {
            if (historicosPreCargados[k] && historicosPreCargados[k].length > 0) {
