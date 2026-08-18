@@ -444,59 +444,41 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     }
   });
 
-  // 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Sincronizado con formato Firebase Ej: 2026-04)
+ // 🧠 PRE-CARGA PARALELA Y SÍNCRONA DE HISTÓRICOS EN FIREBASE (PROMISE.ALL)
   const historicosPreCargados = {};
-  const periodosEmpresasNecesarios = new Set();
+  const empresasConsultar = ['Fam', 'RecreFam', 'FAM', 'RECREFAM', 'GENERAL', 'Termales'];
+  const periodoAnteriorStr = '2026-04'; // Período base obligatorio para la consulta
 
-  for (const llave in empleadosPivoteados) {
-    const emp = empleadosPivoteados[llave];
-    if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
-        const [anoStr, mesStr] = emp.periodoISO.split('-');
-        let ano = parseInt(anoStr); 
-        let mes = parseInt(mesStr);
-        
-        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
-        
-       // 🛡️ EXTRACCIÓN ESTRICTA DE ABRIL: Solo pedimos a Firebase el mes inmediatamente anterior.
-        let m = mes - 1;
-        let a = ano;
-        if (m <= 0) { m += 12; a -= 1; }
-        const periodoAnteriorStr = `${a}-${m.toString().padStart(2, '0')}`;
-          
-    // Carga universal para asegurar que traiga las bases históricas de la Nube
-        ['Fam', 'RecreFam', 'FAM', 'RECREFAM', primeraEmpresa].forEach(empNom => {
-          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${empNom}`);
-        });    
-    }
-  }
-
-for (const key of periodosEmpresasNecesarios) {
-    const [perAnterior, empresa] = key.split('|');
-    try {
-      const dataHist = await cargarNominaHistorica(perAnterior, empresa);
-      let listaPlana = [];
-
-      // Desempaquetado profundo: Extrae el array de transacciones sin importar cómo lo haya guardado Firebase
-      if (Array.isArray(dataHist)) {
-        dataHist.forEach(item => {
-          if (item?.transacciones && Array.isArray(item.transacciones)) {
-            listaPlana.push(...item.transacciones);
-          } else if (item?.registros && Array.isArray(item.registros)) {
-            listaPlana.push(...item.registros);
-          } else {
-            listaPlana.push(item);
+  const promesasCarga = [];
+  empresasConsultar.forEach(empNom => {
+    const key = `${periodoAnteriorStr}|${empNom}`;
+    promesasCarga.push(
+      cargarNominaHistorica(periodoAnteriorStr, empNom)
+        .then(dataHist => {
+          let listaPlana = [];
+          if (Array.isArray(dataHist)) {
+            dataHist.forEach(item => {
+              if (item?.transacciones && Array.isArray(item.transacciones)) {
+                listaPlana.push(...item.transacciones);
+              } else if (item?.registros && Array.isArray(item.registros)) {
+                listaPlana.push(...item.registros);
+              } else {
+                listaPlana.push(item);
+              }
+            });
+          } else if (dataHist && typeof dataHist === 'object') {
+            listaPlana = dataHist.transacciones || dataHist.registros || dataHist.datos || [];
           }
-        });
-      } else if (dataHist && typeof dataHist === 'object') {
-        listaPlana = dataHist.transacciones || dataHist.registros || dataHist.datos || [];
-      }
+          historicosPreCargados[key] = listaPlana;
+        })
+        .catch(() => {
+          historicosPreCargados[key] = [];
+        })
+    );
+  });
 
-      historicosPreCargados[key] = listaPlana;
-    } catch (e) {
-      console.warn(`No se halló histórico para ${key}`);
-      historicosPreCargados[key] = [];
-    }
-  }
+  // Forzar a Javascript a esperar que Firebase devuelva el 100% de los datos antes de continuar
+  await Promise.all(promesasCarga);
 
   const hallazgos = [];
   let conteoConformes = 0;
@@ -523,18 +505,11 @@ for (const key of periodosEmpresasNecesarios) {
       let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
       // 🏖️ PROMEDIO HISTÓRICO LEGAL E HÍBRIDO DEL ERP
-      if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
-        
-        const [anoStr, mesStr] = emp.periodoISO.split('-');
-        let ano = parseInt(anoStr); 
-        let mes = parseInt(mesStr) - 1;
-        if (mes === 0) { mes = 12; ano -= 1; }
-        const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
-        
+      if (emp.valorAusentismosIBC > 0) {
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-// 🚀 Escáner universal CON Detección Inteligente de Cédula en Llaves Superiores
+        // 🚀 Escáner universal recursivo sobre el mapa resuelto de Firebase
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
           let sumaDeduccion = 0;
@@ -547,7 +522,6 @@ for (const key of periodosEmpresasNecesarios) {
               return;
             } 
 
-            // 1. Extraer llaves del objeto actual
             const llaves = Object.keys(obj);
             const getVal = (aliases) => {
                const k = llaves.find(key => aliases.includes(key.toLowerCase().replace(/[\s_]/g, '')));
@@ -555,14 +529,11 @@ for (const key of periodosEmpresasNecesarios) {
             };
 
             let cedulaActual = cedulaPadre;
-            
-            // 2. Buscar cédula dentro de los campos
             const cedulaObj = getVal(['identificacion', 'cedula', 'documento', 'nit']);
             if (cedulaObj) {
                cedulaActual = limpiarCedula(cedulaObj);
             }
 
-            // 3. Revisar las transacciones y acumular salud
             const concepto = getVal(['nombreconcepto', 'concepto', 'descripcion', 'detalle']);
             if (concepto && cedulaActual === empCedulaLimpia) {
                const cLimpio = normalizarTexto(concepto);
@@ -576,12 +547,10 @@ for (const key of periodosEmpresasNecesarios) {
                }
             }
 
-            // 4. Recorrer sub-objetos heredando las llaves numéricas si representan una Cédula
             for (const key of llaves) {
               const val = obj[key];
               if (val && typeof val === 'object') {
                 const keyLimpia = limpiarCedula(key);
-                // Si la llave es un número de cédula (6+ dígitos), se transmite como cedulaPadre
                 const cedulaParaHijos = (keyLimpia.length >= 6) ? keyLimpia : cedulaActual;
                 procesarObjeto(val, cedulaParaHijos);
               }
@@ -592,13 +561,9 @@ for (const key of periodosEmpresasNecesarios) {
           return Math.abs(sumaDeduccion);
         };
 
-       // 🛡️ BÚSQUEDA DEL HISTÓRICO ROBUSTA (FIREBASE + LOCAL)
-        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
-        
-        // 1. Búsqueda insensible a mayúsculas, minúsculas o estructuras en Firebase
-       // 🚀 Búsqueda Universal por Cédula en todas las bases cargadas de Abril
+        // 1. Búsqueda en Firebase
         Object.keys(historicosPreCargados).forEach(k => {
-           if (k.includes(periodoAnteriorStr) && historicosPreCargados[k] && historicosPreCargados[k].length > 0) {
+           if (historicosPreCargados[k] && historicosPreCargados[k].length > 0) {
               const saludDeEstaBase = extraerSaludDeEstructura(historicosPreCargados[k]);
               if (saludDeEstaBase > 0) {
                  saludHistoricaTotal = saludDeEstaBase;
@@ -606,7 +571,7 @@ for (const key of periodosEmpresasNecesarios) {
            }
         });
 
-        // 2. RESPALDO AUTOMÁTICO: Si la nube está vacía, busca en el Excel cargado
+        // 2. Respaldo Local (Excel)
         if (saludHistoricaTotal === 0 && transaccionesExcel && transaccionesExcel.length > 0) {
             const transaccionesAbril = transaccionesExcel.filter(f => {
                const anoMesRow = buscarColumna(f, ['AñoMes', 'AnoMes', 'PERIODO_MES', 'FECHA']);
@@ -619,7 +584,7 @@ for (const key of periodosEmpresasNecesarios) {
             if (transaccionesAbril.length > 0) {
                 saludHistoricaTotal = extraerSaludDeEstructura(transaccionesAbril);
             }
-        } 
+        }
 
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
