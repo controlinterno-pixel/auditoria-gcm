@@ -611,13 +611,26 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         ibcBruto += (emp.totalNoConstitutivo - limite40);
       }
 
-      ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
+    ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
       deberSerSalud = Math.round(ibcLiquidacion * 0.04);
       deberSerPension = Math.round(ibcLiquidacion * 0.04);
+
+      // 🧮 MÓDULO 360: CÁLCULO DE PARAFISCALES Y EXONERACIÓN LEY 1607/1819
+      emp.deberSerCaja = Math.round(ibcLiquidacion * 0.04); // Caja siempre es 4%
+      
+      const anoCalculo = emp.periodoISO ? parseInt(emp.periodoISO.split('-')[0]) : 2026;
+      const topeExoneracion = (HISTORICO_LEGAL[anoCalculo]?.smlmv || 1750905) * 10;
+      
+      // Si gana 10 mínimos o más, paga 5% (2% SENA + 3% ICBF). Si gana menos, está exonerado (0).
+      emp.deberSerSenaIcbf = ibcLiquidacion >= topeExoneracion ? Math.round(ibcLiquidacion * 0.05) : 0; 
     }
 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
     const difPension = deberSerPension - emp.descuentoPensionReal;
+
+    // Diferencias Módulo 360° (El motor solo evalúa si el usuario incluyó los conceptos en la pantalla)
+    const difCaja = conceptosCaja.length > 0 ? emp.deberSerCaja - emp.aporteCajaReal : 0;
+    const difSenaIcbf = conceptosSenaIcbf.length > 0 ? emp.deberSerSenaIcbf - emp.aporteSenaIcbfReal : 0;
    
     const ibcImplicitoSalud = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
     const ibcImplicitoPension = emp.descuentoPensionReal > 0 ? Math.round(emp.descuentoPensionReal / 0.04) : 0;
@@ -673,11 +686,15 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         tipoHallazgo = 'REQUIERE_HISTORICO';
         severidad = 'AUDITORÍA INCOMPLETA (Falta Histórico)';
       }
-    } else if (desalineacionBases) {
+  } else if (desalineacionBases) {
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
       conteoDesalineados++;
-    } else if (Math.abs(difSalud) <= toleranciaAplicada && Math.abs(difPension) <= toleranciaAplicada) {
+    } else if (Math.abs(difCaja) > margenTolerancia || Math.abs(difSenaIcbf) > margenTolerancia) {
+      tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
+      severidad = 'ADVERTENCIA (Inconsistencia en Pago de Parafiscales)';
+      conteoDesalineados++;
+    } else if (Math.abs(difSalud) <= toleranciaAplicada && Math.abs(difPension) <= toleranciaAplicada && Math.abs(difCaja) <= toleranciaAplicada) {
       tipoHallazgo = 'CONFORME';
       severidad = 'CORRECTO';
       conteoConformes++;
