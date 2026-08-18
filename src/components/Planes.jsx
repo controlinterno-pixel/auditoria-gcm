@@ -495,6 +495,66 @@ const handleNotificarPlan = (planId) => {
     setCriterios({ c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 });
   };
 
+  // 🗑️ NUEVA FUNCIÓN: ELIMINAR UNA EVALUACIÓN DEL HISTORIAL (SOLO ADMIN)
+  const handleEliminarEvaluacion = async (indexEliminar) => {
+    if (!isAdmin) {
+      return alert("❌ Permiso denegado. Solo un Administrador puede eliminar evaluaciones.");
+    }
+    
+    if (!window.confirm("¿Estás seguro de que deseas ELIMINAR esta evaluación del historial? Esta acción es irreversible y recalculará el estado del plan.")) return;
+
+    const ts = new Date().toLocaleString();
+    let updatedPlanesList = [...safePlanes];
+    let updatedModalPlanes = [];
+
+    // Iteramos sobre las actividades que se están viendo en el modal
+    modalEval.planes.forEach(planEval => {
+      const idx = updatedPlanesList.findIndex(p => p.id === planEval.id);
+      
+      if (idx !== -1) {
+        const planAnterior = updatedPlanesList[idx];
+        const historialPrevio = planAnterior.historialEvaluaciones || 
+          (planAnterior.evaluacionHolistica ? [planAnterior.evaluacionHolistica] : []);
+        
+        // Filtramos para quitar la evaluación en el índice seleccionado
+        const nuevoHistorial = historialPrevio.filter((_, i) => i !== indexEliminar);
+        
+        // La nueva evaluación "vigente" será la primera de la lista restante, o null si ya no quedan
+        const nuevaEvaluacionVigente = nuevoHistorial.length > 0 ? nuevoHistorial[0] : null;
+        
+        // Recalculamos el estado del Workflow
+        let nuevoEstadoWorkflow = planAnterior.estadoWorkflow;
+        if (nuevoHistorial.length === 0) {
+           // Si nos quedamos sin evaluaciones, regresamos el plan a En Revisión (ya que su progreso debe ser 100)
+           nuevoEstadoWorkflow = planAnterior.progreso === 100 ? 'En Revisión' : 'Borrador';
+        } else if (nuevaEvaluacionVigente) {
+           nuevoEstadoWorkflow = nuevaEvaluacionVigente.aprobado ? 'En Ejecución' : 'Borrador';
+        }
+
+        const planActualizado = {
+          ...planAnterior,
+          estadoWorkflow: nuevoEstadoWorkflow,
+          evaluacionHolistica: nuevaEvaluacionVigente,
+          historialEvaluaciones: nuevoHistorial,
+          historialCambios: [
+            ...(planAnterior.historialCambios || []),
+            { fecha: ts, usuario: 'Administrador', accion: `🗑️ Evaluación del historial eliminada por el administrador.` }
+          ]
+        };
+
+        updatedPlanesList[idx] = planActualizado;
+        updatedModalPlanes.push(planActualizado);
+      }
+    });
+
+    // Actualizamos los estados globales y de la nube
+    setPlanes(updatedPlanesList);
+    setModalEval(prev => ({ ...prev, planes: updatedModalPlanes })); // Refresca el modal al instante
+    await saveToCloud({ planes: updatedPlanesList });
+    
+    alert("✅ La evaluación fue eliminada exitosamente del historial.");
+  };
+  
   // =========================================================
   // 📂 LOGICA FORMULARIO Y API ORIGINAL (CUSTODIADA)
   // =========================================================
@@ -1969,8 +2029,21 @@ const handleNotificarPlan = (planId) => {
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                         <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
                             {hIdx === 0 && <span className="bg-blue-100 text-blue-800 text-[9px] font-black px-2 py-1 rounded uppercase">Más Reciente</span>}
+                            
+                            {/* ✨ BOTÓN DE ELIMINAR: SOLO VISIBLE PARA ADMINISTRADORES */}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleEliminarEvaluacion(hIdx)}
+                                className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-sm border border-red-200 cursor-pointer"
+                                title="Eliminar esta evaluación (Solo Administradores)"
+                              >
+                                <span>🗑️</span>
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => setEvalDetalleModal(ev)}
