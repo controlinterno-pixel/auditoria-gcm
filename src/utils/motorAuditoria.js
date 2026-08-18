@@ -411,7 +411,11 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio === 'SALUD')) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
   } else if (conceptosPension.includes(conceptoLimpio) || (conceptoLimpio === 'PENSION')) {
-      emp.descuentoPensionReal += Math.abs(valorTotal);
+      // ⚠️ ADVERTENCIA: Nos aseguramos explícitamente de NO sumar el Fondo de Solidaridad aquí, 
+      // de lo contrario, el IBC de pensión se descuadrará con el de salud en salarios altos.
+      if (conceptoLimpio !== 'SOLIDARIDAD') {
+        emp.descuentoPensionReal += Math.abs(valorTotal);
+      }
     } 
   });
 
