@@ -38,29 +38,38 @@ export default function Hallazgos({
   const [responsablesMultiples, setResponsablesMultiples] = React.useState([]);
   const [responsableTemp, setResponsableTemp] = React.useState('');
 
-// 🌟 ESTADOS REFACTORIZADOS PARA MACRO Y SUBPROCESO
+ // 🌟 ESTADOS REFACTORIZADOS PARA MACRO Y SUBPROCESO
   const [procesoForm, setProcesoForm] = useState('');
   const [subprocesoForm, setSubprocesoForm] = useState('');
+  const [autoFillData, setAutoFillData] = useState(null); 
 
-  // 🧠 TRADUCTOR AUTOMÁTICO PARA EL BOTÓN "EDITAR"
+  // 🧠 TRADUCTOR AUTOMÁTICO Y AUTORRELLENO DE RIESGOS EMERGENTES
   React.useEffect(() => {
+    const tempAuto = sessionStorage.getItem('hallazgo_emergente_auto');
+
     if (editHallazgo) {
-      if (editHallazgo.sede) {
-        setSedesMultiples(editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede]);
-      }
-      if (editHallazgo.responsable) {
-        setResponsablesMultiples(editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable]);
-      }
-      // Restaurar valores jerárquicos de manera limpia
+      if (editHallazgo.sede) setSedesMultiples(editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede]);
+      if (editHallazgo.responsable) setResponsablesMultiples(editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable]);
       setProcesoForm(editHallazgo.proceso || '');
       setSubprocesoForm(editHallazgo.subproceso || 'General');
+      setAutoFillData(null);
+    } else if (tempAuto && vistaActiva === 'nuevo') {
+      // 🚀 CAPTURA MAGICA DEL MÓDULO DE TRABAJO DE CAMPO
+      const data = JSON.parse(tempAuto);
+      setAutoFillData(data);
+      setProcesoForm(data.proceso || '');
+      setSubprocesoForm(data.subproceso || 'General');
+      setSedesMultiples(['Administrativos']); 
+      setResponsablesMultiples([]);
+      sessionStorage.removeItem('hallazgo_emergente_auto'); // Limpiamos la memoria
     } else {
       setSedesMultiples(['Administrativos']);
       setResponsablesMultiples([]);
       setProcesoForm('');
       setSubprocesoForm('');
+      setAutoFillData(null);
     }
-  }, [editHallazgo]);
+  }, [editHallazgo, vistaActiva]);
   // Consolidar todos los cargos de las sedes elegidas
   const cargosDisponibles = sedesMultiples.flatMap(s => CARGOS_POR_SEDE[s] || []);
 
@@ -595,7 +604,7 @@ export default function Hallazgos({
 
             <div className="md:col-span-1">
               <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
-              <select name="claseObservacion" defaultValue={editHallazgo?.claseObservacion||'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700">
+<select name="claseObservacion" defaultValue={editHallazgo?.claseObservacion || autoFillData?.claseObservacion || 'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700">
                 <option value="Hallazgo">Hallazgo</option>
                 <option value="No Conformidad">No Conformidad</option>
                 <option value="Oportunidad de Mejora">Oportunidad de Mejora</option>
@@ -614,7 +623,7 @@ export default function Hallazgos({
             {/* ================= FILA 2: ORIGEN Y CONTEXTO JERÁRQUICO (2 + 1 + 1 = 4) ================= */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
-              <select name="idInforme" defaultValue={editHallazgo?.idInforme||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+<select name="idInforme" defaultValue={editHallazgo?.idInforme || autoFillData?.idInforme || ''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
                 <option value="">-- Seleccione el Informe Radicado --</option>
                 {informesAuditoria.map((inf) => (
                   <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
@@ -706,7 +715,7 @@ export default function Hallazgos({
                 <label className="font-black text-red-800 block mb-1 uppercase tracking-widest text-[10px]">⚠️ Nivel de Severidad</label>
                 <p className="text-[9px] text-red-600 font-medium">Clasificación del riesgo asociado a esta desviación.</p>
               </div>
-              <select name="severidad" defaultValue={editHallazgo?.severidad||'Medio'} className="border border-red-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-800 w-48 shadow-sm">
+<select name="severidad" defaultValue={editHallazgo?.severidad || autoFillData?.severidad || 'Medio'} className="border border-red-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-800 w-48 shadow-sm">
                 <option value="Crítico">Crítico</option>
                 <option value="Alto">Alto</option>
                 <option value="Medio">Medio</option>
@@ -716,7 +725,7 @@ export default function Hallazgos({
 
             <div className="md:col-span-4">
               <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
-              <textarea name="titulo" defaultValue={editHallazgo?.titulo||''} required rows="5" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner" />
+<textarea name="titulo" defaultValue={editHallazgo?.titulo || autoFillData?.titulo || ''} required rows="5" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner" />
             </div>            
             
             <div className="md:col-span-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner mt-2">

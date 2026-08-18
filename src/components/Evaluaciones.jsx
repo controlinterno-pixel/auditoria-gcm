@@ -40,6 +40,7 @@ export default function Evaluaciones({
   user,
   analizarEvidenciaIA,
   safeEvaluaciones = [],
+  informesAuditoria = [],
   formatSafeDate,
   searchTerm,
   setSearchTerm,
@@ -57,6 +58,7 @@ export default function Evaluaciones({
   const [subprocesoSel, setSubprocesoSel] = useState('');
   const [riesgoIdSel, setRiesgoIdSel] = useState('');
   const [controlSel, setControlSel] = useState('');
+  const [informeSel, setInformeSel] = useState('');
 
   // 🧪 ESTADOS DEL MOTOR COSO
   const [diseno, setDiseno] = useState('Eficaz');
@@ -174,6 +176,20 @@ const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
     // Invoca la función global de guardado en Firebase / App.jsx
     await handleEvaluacionSubmit(e);
 
+    // 🌟 NUEVO: Si es Riesgo Emergente, auto-generamos el Hallazgo en memoria
+    if (riesgoIdSel === 'EMERGENTE' && informeSel) {
+      const payloadHallazgo = {
+        idInforme: informeSel,
+        proceso: procesoSel,
+        subproceso: subprocesoSel,
+        titulo: comentarios || 'Riesgo emergente detectado en campo sin observaciones detalladas.',
+        claseObservacion: 'Riesgo Emergente',
+        severidad: calificacionFinal === 100 ? 'Bajo' : (calificacionFinal === 50 ? 'Medio' : 'Alto')
+      };
+      sessionStorage.setItem('hallazgo_emergente_auto', JSON.stringify(payloadHallazgo));
+      alert("✅ Evaluación guardada.\n\nSe ha preparado un Hallazgo automáticamente con tu observación. Por favor, ve al módulo 'Planes y Hallazgos' y presiona 'Nuevo Hallazgo' para radicarlo.");
+    }
+
     // ⚡ LIMPIEZA PARCIAL: Mantenemos Proceso, Subproceso y Riesgo para continuar con el siguiente control
     if (!editEvaluacion) {
       setControlSel('');
@@ -181,6 +197,7 @@ const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
       setComentarios('');
       setDiseno('Eficaz');
       setEjecucion('Eficaz');
+      setInformeSel(''); // Limpiamos el selector de informe
     }
   };
 
@@ -332,16 +349,30 @@ const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
             </div>
 
           </div>
-{/* 💡 AVISO VISUAL CUANDO SE SELECCIONA RIESGO EMERGENTE */}
-            {riesgoIdSel === 'EMERGENTE' && (
-              <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-2xl text-xs font-medium flex items-center gap-3 shadow-sm animate-in fade-in duration-200">
-                <span className="text-xl">💡</span>
-                <p>
-                  Estás registrando un <strong>Riesgo Emergente</strong>. Asegúrate de detallar la causa y el impacto detectado en el campo de <em>Observaciones Tácticas</em> para que el dueño del proceso y el área de Riesgos puedan formalizarlo posteriormente.
+{/* 💡 VINCULACIÓN AUTOMÁTICA DE HALLAZGO EMERGENTE */}
+          {riesgoIdSel === 'EMERGENTE' && (
+            <div className="md:col-span-4 lg:col-span-4 bg-amber-50 border border-amber-200 text-amber-900 p-5 rounded-2xl shadow-sm animate-in fade-in duration-200 mt-2">
+              <div className="flex items-start gap-3 mb-4">
+                <span className="text-2xl">💡</span>
+                <p className="text-xs font-medium">
+                  Estás registrando un <strong>Riesgo Emergente</strong>. Detalla la falla en las <em>Observaciones Tácticas</em>. <br/>
+                  Para automatizar la creación del Hallazgo, selecciona a qué <strong>Informe Emitido</strong> quedará amarrado:
                 </p>
               </div>
-            )}
-
+              <select
+                value={informeSel}
+                onChange={(e) => setInformeSel(e.target.value)}
+                required={riesgoIdSel === 'EMERGENTE'}
+                className="w-full text-xs p-3 bg-white border border-amber-300 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-amber-500 shadow-sm outline-none cursor-pointer"
+              >
+                <option value="">-- Seleccione el Informe de Auditoría Origen --</option>
+                {informesAuditoria.map(inf => (
+                  <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
+                ))}
+              </select>
+            </div>
+          )}
+                
           {/* 🧮 CÁLCULO COSO Y EVALUACIÓN DE EFICACIA */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center bg-white p-4 rounded-2xl border border-slate-200">
             
