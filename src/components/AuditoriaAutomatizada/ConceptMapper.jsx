@@ -499,7 +499,7 @@ if (empleado.usoHistoricoAnterior) {
               onClick={() => setPestanaActiva('UGPP')}
               className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'UGPP' ? 'bg-indigo-700 text-white border-b-4 border-indigo-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
             >
-              🛡️ Motor Riesgo UGPP (4%)
+              🛡️ Motor Auditoría Integral (360°)
             </button>
           </div>
 
@@ -598,6 +598,7 @@ if (empleado.usoHistoricoAnterior) {
           {pestanaActiva === 'TRANSPORTE' ? (
             <button 
               onClick={handleStartAudit}
+              
               className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors w-full md:w-auto"
             >
               ⚡ Ejecutar Auditoría de Transporte
@@ -608,7 +609,7 @@ if (empleado.usoHistoricoAnterior) {
               disabled={isUploading}
               className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed ml-auto"
             >
-              {isUploading ? '⏳ Consultando Histórico y Auditando...' : '🛡️ Ejecutar Auditoría UGPP'}
+              {isUploading ? '⏳ Consultando Histórico y Auditando...' : '🛡️ Ejecutar Auditoría Integral'}
             </button>
           )}
         </div>

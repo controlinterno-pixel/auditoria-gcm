@@ -255,12 +255,19 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
   // del ERP al promediar o diferir las horas extras y recargos.
   const margenTolerancia = 2000; 
 
-  const conceptosConstitutivos = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
+const conceptosConstitutivos = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
   const conceptosNoSalariales = (mapeoConceptos?.devengados_no_salariales || []).map(normalizarTexto);
   const conceptosSalud = (mapeoConceptos?.salud || []).map(normalizarTexto);
   const conceptosPension = (mapeoConceptos?.pension || []).map(normalizarTexto);
   const ausentismosIBC = (mapeoConceptos?.vacaciones_incapacidades || []).map(normalizarTexto);
   const licenciasNoRemuneradas = (mapeoConceptos?.licencias_no_remuneradas || []).map(normalizarTexto);
+  
+  // -- NUEVOS MAPEOS 360° --
+  const conceptosCaja = (mapeoConceptos?.caja_compensacion || []).map(normalizarTexto);
+  const conceptosSenaIcbf = (mapeoConceptos?.sena_icbf || []).map(normalizarTexto);
+  const conceptosARL = (mapeoConceptos?.riesgos_laborales || []).map(normalizarTexto);
+  const conceptosRetefuente = (mapeoConceptos?.retencion_fuente || []).map(normalizarTexto);
+  const conceptosDeducciones = (mapeoConceptos?.deducciones_libranzas || []).map(normalizarTexto);
 
   const registrosVistos = new Set();
   const transaccionesLimpias = transaccionesExcel.filter(fila => {
@@ -352,9 +359,15 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         totalNoConstitutivo: 0,
         valorAusentismosIBC: 0,
         vacacionesLiquidacion: 0, 
-        tieneLicenciaNoRemunerada: false,
-      descuentoSaludReal: 0,
+     tieneLicenciaNoRemunerada: false,
+        descuentoSaludReal: 0,
         descuentoPensionReal: 0,
+        // -- BOLSAS NUEVAS 360° --
+        aporteCajaReal: 0,
+        aporteSenaIcbfReal: 0,
+        aporteARLReal: 0,
+        retencionFuenteReal: 0,
+        totalDeduccionesLegales: 0, 
         diasTrabajados: 0,
         esLiquidacion: llavesLiquidacion.has(llaveUnica),
         esAprendizSena: normalizarTexto(cargoRaw).includes('APRENDIZ') || normalizarTexto(cargoRaw).includes('SENA') || conceptoLimpio.includes('SOSTENIMIENTO'),
@@ -416,13 +429,19 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       emp.tieneLicenciaNoRemunerada = true;
     } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio === 'SALUD')) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
-  } else if (conceptosPension.includes(conceptoLimpio) || (conceptoLimpio === 'PENSION')) {
-      // ⚠️ ADVERTENCIA: Nos aseguramos explícitamente de NO sumar el Fondo de Solidaridad aquí, 
-      // de lo contrario, el IBC de pensión se descuadrará con el de salud en salarios altos.
-      if (conceptoLimpio !== 'SOLIDARIDAD') {
-        emp.descuentoPensionReal += Math.abs(valorTotal);
-      }
-    } 
+    } else if (conceptosPension.includes(conceptoLimpio) || (conceptoLimpio === 'PENSION')) {
+      if (conceptoLimpio !== 'SOLIDARIDAD') emp.descuentoPensionReal += Math.abs(valorTotal);
+    } else if (conceptosCaja.includes(conceptoLimpio)) {
+      emp.aporteCajaReal += Math.abs(valorTotal);
+    } else if (conceptosSenaIcbf.includes(conceptoLimpio)) {
+      emp.aporteSenaIcbfReal += Math.abs(valorTotal);
+    } else if (conceptosARL.includes(conceptoLimpio)) {
+      emp.aporteARLReal += Math.abs(valorTotal);
+    } else if (conceptosRetefuente.includes(conceptoLimpio)) {
+      emp.retencionFuenteReal += Math.abs(valorTotal);
+    } else if (conceptosDeducciones.includes(conceptoLimpio)) {
+      emp.totalDeduccionesLegales += Math.abs(valorTotal);
+    }
   });
 
   // 🧠 PRE-CARGA EFICIENTE DE HISTÓRICOS (Sincronizado con formato Firebase Ej: 2026-04)
