@@ -510,80 +510,80 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         let saludHistoricaTotal = 0;
 
     // 🚀 Escáner DUAL ULTRA-PRECISO: Extrae Salud del Histórico sin contaminación de llaves Firebase
-      const extraerSaludDeEstructura = (dataFirebase) => {
-        if (!dataFirebase) return 0;
-        let sumaDeduccion = 0;
-        
-        const procesarObjeto = (obj, cedulaPadre = "") => {
-          if (!obj || typeof obj !== 'object') return;
+        const extraerSaludDeEstructura = (dataFirebase) => {
+          if (!dataFirebase) return 0;
+          let sumaDeduccion = 0;
           
-          if (Array.isArray(obj)) {
-            obj.forEach(item => procesarObjeto(item, cedulaPadre));
-            return;
-          } 
+          const procesarObjeto = (obj, cedulaPadre = "") => {
+            if (!obj || typeof obj !== 'object') return;
+            
+            if (Array.isArray(obj)) {
+              obj.forEach(item => procesarObjeto(item, cedulaPadre));
+              return;
+            } 
 
-          const llaves = Object.keys(obj);
-          const getVal = (aliases) => {
-             const k = llaves.find(key => aliases.includes(key.toLowerCase().replace(/[\s_]/g, '')));
-             return k ? obj[k] : undefined;
-          };
+            const llaves = Object.keys(obj);
+            const getVal = (aliases) => {
+               const k = llaves.find(key => aliases.includes(key.toLowerCase().replace(/[\s_]/g, '')));
+               return k ? obj[k] : undefined;
+            };
 
-          let cedulaActual = cedulaPadre;
-          
-          // 1. Búsqueda explícita de campos de identidad en la fila u objeto
-          const cedulaObj = getVal(['identificacion', 'cedula', 'documento', 'nit', 'id', 'cedulaempleado']);
-          if (cedulaObj) {
-             const cLimpia = limpiarCedula(cedulaObj);
-             if (cLimpia.length >= 6) cedulaActual = cLimpia;
-          }
+            let cedulaActual = cedulaPadre;
+            
+            // 1. Búsqueda explícita de campos de identidad en la fila u objeto
+            const cedulaObj = getVal(['identificacion', 'cedula', 'documento', 'nit', 'id', 'cedulaempleado']);
+            if (cedulaObj) {
+               const cLimpia = limpiarCedula(cedulaObj);
+               if (cLimpia.length >= 6) cedulaActual = cLimpia;
+            }
 
-          // 2. Coincidencia estricta con el empleado auditado
-          if (cedulaActual === empCedulaLimpia) {
-             const concepto = getVal(['nombreconcepto', 'concepto', 'descripcion', 'detalle']);
-             
-             if (concepto) {
-               // Formato Transacción Individual
-               const cLimpio = normalizarTexto(concepto);
-               const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
-                               !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL') && 
-                               !cLimpio.includes('EMPRESA') && !cLimpio.includes('EMPLEADOR') && 
-                               !cLimpio.includes('PROVISION');
-               if (esSalud) {
-                 const valor = getVal(['totaldevengado', 'valortotal', 'vrtotal', 'total', 'valor', 'deduccion', 'pago']);
-                 if (valor !== undefined && valor !== null) sumaDeduccion += parsearMonto(valor);
-               }
-             } else {
-               // Formato Resumen Consolidado de Firebase
-               const saludDirecta = getVal(['descuentosaludreal', 'saludreal', 'descuentosalud', 'salud', 'auxiliodeberser', 'saludpagada']);
-               if (saludDirecta !== undefined && saludDirecta !== null) {
-                 sumaDeduccion += parsearMonto(saludDirecta);
+            // 2. Coincidencia estricta con el empleado auditado
+            if (cedulaActual === empCedulaLimpia) {
+               const concepto = getVal(['nombreconcepto', 'concepto', 'descripcion', 'detalle']);
+               
+               if (concepto) {
+                 // Formato Transacción Individual
+                 const cLimpio = normalizarTexto(concepto);
+                 const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
+                                 !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL') && 
+                                 !cLimpio.includes('EMPRESA') && !cLimpio.includes('EMPLEADOR') && 
+                                 !cLimpio.includes('PROVISION');
+                 if (esSalud) {
+                   const valor = getVal(['totaldevengado', 'valortotal', 'vrtotal', 'total', 'valor', 'deduccion', 'pago']);
+                   if (valor !== undefined && valor !== null) sumaDeduccion += parsearMonto(valor);
+                 }
                } else {
-                 const ibcDirecto = getVal(['ibcimplicito', 'salariobase', 'ibc', 'ibcimplicitosalud']);
-                 if (ibcDirecto !== undefined && ibcDirecto !== null) {
-                   const montoIBC = parsearMonto(ibcDirecto);
-                   if (montoIBC > 0) sumaDeduccion += Math.round(montoIBC * 0.04);
+                 // Formato Resumen Consolidado de Firebase
+                 const saludDirecta = getVal(['descuentosaludreal', 'saludreal', 'descuentosalud', 'salud', 'auxiliodeberser', 'saludpagada']);
+                 if (saludDirecta !== undefined && saludDirecta !== null) {
+                   sumaDeduccion += parsearMonto(saludDirecta);
+                 } else {
+                   const ibcDirecto = getVal(['ibcimplicito', 'salariobase', 'ibc', 'ibcimplicitosalud']);
+                   if (ibcDirecto !== undefined && ibcDirecto !== null) {
+                     const montoIBC = parsearMonto(ibcDirecto);
+                     if (montoIBC > 0) sumaDeduccion += Math.round(montoIBC * 0.04);
+                   }
                  }
                }
-             }
-          }
-
-          // 3. Descendencia recursiva segura: solo asigna cédula si la llave es 100% numérica de 6 a 10 dígitos
-          for (const key of llaves) {
-            const val = obj[key];
-            if (val && typeof val === 'object') {
-              const keyTrim = key.toString().trim();
-              const esCedulaPura = /^\d{6,10}$/.test(keyTrim);
-              const cedulaParaHijos = esCedulaPura ? keyTrim : cedulaActual;
-              procesarObjeto(val, cedulaParaHijos);
             }
-          }
+
+            // 3. Descendencia recursiva segura: solo asigna cédula si la llave es 100% numérica de 6 a 10 dígitos
+            for (const key of llaves) {
+              const val = obj[key];
+              if (val && typeof val === 'object') {
+                const keyTrim = key.toString().trim();
+                const esCedulaPura = /^\d{6,10}$/.test(keyTrim);
+                const cedulaParaHijos = esCedulaPura ? keyTrim : cedulaActual;
+                procesarObjeto(val, cedulaParaHijos);
+              }
+            }
+          };
+
+          procesarObjeto(dataFirebase, "");
+          return Math.abs(sumaDeduccion);
         };
 
-        procesarObjeto(dataFirebase, "");
-        const historicosPreCargados = {};
-      };
-
-        // 1. Búsqueda en Firebase
+        // 1. Búsqueda en los históricos precargados de Firebase
         Object.keys(historicosPreCargados).forEach(k => {
            if (historicosPreCargados[k] && historicosPreCargados[k].length > 0) {
               const saludDeEstaBase = extraerSaludDeEstructura(historicosPreCargados[k]);
