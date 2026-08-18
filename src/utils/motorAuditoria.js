@@ -622,7 +622,23 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       const topeExoneracion = (HISTORICO_LEGAL[anoCalculo]?.smlmv || 1750905) * 10;
       
       // Si gana 10 mínimos o más, paga 5% (2% SENA + 3% ICBF). Si gana menos, está exonerado (0).
-      emp.deberSerSenaIcbf = ibcLiquidacion >= topeExoneracion ? Math.round(ibcLiquidacion * 0.05) : 0; 
+      emp.deberSerSenaIcbf = ibcLiquidacion >= topeExoneracion ? Math.round(ibcLiquidacion * 0.05) : 0;
+
+      // 📜 AUDITORÍA DE RETENCIÓN EN LA FUENTE (Sujeta a tabla del Art. 383 Estatuto Tributario)
+      // Base gravable simplificada: Devengado menos salud y pensión obligatoria
+      const ingresoNetoGravable = Math.max(0, totalDevengado - (deberSerSalud + deberSerPension));
+      const uvtActual = 49799; // Valor UVT oficial para parametrización del motor
+      const baseUVT = ingresoNetoGravable / uvtActual;
+      
+      // Aplicación de regla de retención si la base supera el mínimo exento (~95 UVT)
+      emp.retencionDeberSer = baseUVT > 95 ? Math.round((baseUVT - 95) * 0.19 * uvtActual) : 0;
+
+      // ⚖️ AUDITORÍA DE MÍNIMO VITAL (Art. 154 / 155 CST)
+      // La suma total de deducciones no puede dejar al empleado con un neto inferior a 1 SMMLV
+      const smlmvQuincenal = (HISTORICO_LEGAL[anoCalculo]?.smlmv || 1750905) / 2;
+      const deduccionMaximaPermitida = Math.max(0, totalDevengado - smlmvQuincenal);
+      
+      emp.alertaSobrededuccion = emp.totalDeduccionesLegales > deduccionMaximaPermitida; 
     }
 
     const difSalud = deberSerSalud - emp.descuentoSaludReal;
@@ -631,6 +647,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     // Diferencias Módulo 360° (El motor solo evalúa si el usuario incluyó los conceptos en la pantalla)
     const difCaja = conceptosCaja.length > 0 ? emp.deberSerCaja - emp.aporteCajaReal : 0;
     const difSenaIcbf = conceptosSenaIcbf.length > 0 ? emp.deberSerSenaIcbf - emp.aporteSenaIcbfReal : 0;
+    const difRetefuente = conceptosRetefuente.length > 0 ? emp.retencionDeberSer - emp.retencionFuenteReal : 0;
    
     const ibcImplicitoSalud = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
     const ibcImplicitoPension = emp.descuentoPensionReal > 0 ? Math.round(emp.descuentoPensionReal / 0.04) : 0;
@@ -694,6 +711,14 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Inconsistencia en Pago de Parafiscales)';
       conteoDesalineados++;
+    } else if (Math.abs(difRetefuente) > 5000) {
+      tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
+      severidad = 'ADVERTENCIA (Descuadre en Cálculo de Retención en la Fuente)';
+      conteoDesalineados++;
+    } else if (emp.alertaSobrededuccion) {
+      tipoHallazgo = 'PAGO_EXCESO';
+      severidad = 'CRÍTICA (Vulneración al Mínimo Vital por Deducciones/Libranzas)';
+      conteoExcesos++;
     } else if (Math.abs(difSalud) <= toleranciaAplicada && Math.abs(difPension) <= toleranciaAplicada && Math.abs(difCaja) <= toleranciaAplicada) {
       tipoHallazgo = 'CONFORME';
       severidad = 'CORRECTO';
