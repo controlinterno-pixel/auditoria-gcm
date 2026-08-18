@@ -470,11 +470,28 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     }
   }
 
-  for (const key of periodosEmpresasNecesarios) {
+for (const key of periodosEmpresasNecesarios) {
     const [perAnterior, empresa] = key.split('|');
     try {
       const dataHist = await cargarNominaHistorica(perAnterior, empresa);
-      historicosPreCargados[key] = dataHist || [];
+      let listaPlana = [];
+
+      // Desempaquetado profundo: Extrae el array de transacciones sin importar cómo lo haya guardado Firebase
+      if (Array.isArray(dataHist)) {
+        dataHist.forEach(item => {
+          if (item?.transacciones && Array.isArray(item.transacciones)) {
+            listaPlana.push(...item.transacciones);
+          } else if (item?.registros && Array.isArray(item.registros)) {
+            listaPlana.push(...item.registros);
+          } else {
+            listaPlana.push(item);
+          }
+        });
+      } else if (dataHist && typeof dataHist === 'object') {
+        listaPlana = dataHist.transacciones || dataHist.registros || dataHist.datos || [];
+      }
+
+      historicosPreCargados[key] = listaPlana;
     } catch (e) {
       console.warn(`No se halló histórico para ${key}`);
       historicosPreCargados[key] = [];
