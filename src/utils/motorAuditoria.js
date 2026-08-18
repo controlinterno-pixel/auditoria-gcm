@@ -497,72 +497,65 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-     // 🚀 Escáner universal PROFUNDO (Recursivo y Seguro) para Firebase
+     // 🚀 Escáner universal CON CONTEXTO DE IDENTIDAD
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
-          let flatList = [];
-          
-          const aplanarDatos = (obj) => {
-            if (!obj || typeof obj !== 'object') return;
-            if (Array.isArray(obj)) {
-              obj.forEach(aplanarDatos);
-            } else {
-              const llaves = Object.keys(obj).map(k => k.toLowerCase());
-              if (llaves.includes('transacciones') && Array.isArray(obj.transacciones || obj.Transacciones)) {
-                (obj.transacciones || obj.Transacciones).forEach(aplanarDatos);
-              } else if (llaves.includes('registros') && Array.isArray(obj.registros || obj.Registros)) {
-                (obj.registros || obj.Registros).forEach(aplanarDatos);
-              } else if (llaves.some(k => ['identificacion', 'cedula', 'documento', 'nombreconcepto', 'concepto'].includes(k))) {
-                flatList.push(obj);
-              } else {
-                Object.values(obj).forEach(val => {
-                  if (Array.isArray(val) || typeof val === 'object') aplanarDatos(val);
-                });
-              }
-            }
-          };
-          
-          aplanarDatos(dataFirebase);
-
           let sumaDeduccion = 0;
-          flatList.forEach(h => {
-            const buscarSeguro = (llavesBusqueda) => {
-               const llavesObj = Object.keys(h);
-               for(let alias of llavesBusqueda) {
-                  const encontrada = llavesObj.find(k => k.toLowerCase().replace(/[\s_]/g, '') === alias.toLowerCase().replace(/[\s_]/g, ''));
-                  if (encontrada) return h[encontrada];
-               }
-               return undefined;
+          
+          const procesarObjeto = (obj, cedulaPadre) => {
+            if (!obj || typeof obj !== 'object') return;
+            
+            if (Array.isArray(obj)) {
+              obj.forEach(item => procesarObjeto(item, cedulaActual));
+              return;
+            }
+
+            const llaves = Object.keys(obj);
+            const getVal = (aliases) => {
+               const k = llaves.find(key => aliases.includes(key.toLowerCase().replace(/[\s_]/g, '')));
+               return k ? obj[k] : undefined;
             };
 
-            const cedulaFilaLimpia = limpiarCedula(buscarSeguro(['Identificacion', 'Cedula', 'NIT', 'Documento']));
-            
-            if (cedulaFilaLimpia === empCedulaLimpia) {
-              const cLimpio = normalizarTexto(buscarSeguro(['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
-              
-              const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
-                              !cLimpio.includes('FONDO') && 
-                              !cLimpio.includes('PATRONAL') && 
-                              !cLimpio.includes('EMPRESA') &&
-                              !cLimpio.includes('EMPLEADOR') &&
-                              !cLimpio.includes('PROVISION');
-                              
-              if (esSalud) {
-                const valRaw = buscarSeguro(['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Pago']);
-                sumaDeduccion += parsearMonto(valRaw);
-              }
+            // Hereda la cédula del padre si está agrupado, o la busca en la fila actual
+            let cedulaActual = cedulaPadre;
+            const cedulaObj = getVal(['identificacion', 'cedula', 'documento', 'nit']);
+            if (cedulaObj) {
+               cedulaActual = limpiarCedula(cedulaObj);
             }
-          });
+
+            const concepto = getVal(['nombreconcepto', 'concepto', 'descripcion', 'detalle']);
+            if (concepto && cedulaActual === empCedulaLimpia) {
+               const cLimpio = normalizarTexto(concepto);
+               const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
+                               !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL') && 
+                               !cLimpio.includes('EMPRESA') && !cLimpio.includes('EMPLEADOR') && 
+                               !cLimpio.includes('PROVISION');
+               if (esSalud) {
+                 const valor = getVal(['totaldevengado', 'valortotal', 'vrtotal', 'total', 'valor', 'deduccion', 'pago']);
+                 if (valor !== undefined && valor !== null) sumaDeduccion += parsearMonto(valor);
+               }
+            }
+
+            // Viaja a las sub-carpetas sin olvidar de quién es la cédula
+            Object.values(obj).forEach(val => {
+              if (Array.isArray(val) || typeof val === 'object') {
+                procesarObjeto(val, cedulaActual);
+              }
+            });
+          };
+
+          procesarObjeto(dataFirebase, "");
           return Math.abs(sumaDeduccion);
         };
 
-        // 🛡️ BÚSQUEDA DEL HISTÓRICO (INTELIGENTE SIN IMPORTAR ESPACIOS O MAYÚSCULAS): 
+        // 🛡️ BÚSQUEDA DEL HISTÓRICO (EVITANDO CAJAS VACÍAS): 
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
         
-        // Encontramos la llave sin importar si en Firebase se guardó con espacios extra o diferente capitalización
         const llaveEncontrada = Object.keys(historicosPreCargados).find(k => 
            k.includes(periodoAnteriorStr) && 
-           normalizarTexto(k).includes(normalizarTexto(primeraEmpresa))
+           normalizarTexto(k).includes(normalizarTexto(primeraEmpresa)) &&
+           historicosPreCargados[k] && 
+           historicosPreCargados[k].length > 0 // <-- Esto fuerza a que ignore las consultas vacías
         );
 
         if (llaveEncontrada && historicosPreCargados[llaveEncontrada]) {
