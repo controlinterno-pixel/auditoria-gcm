@@ -221,13 +221,14 @@ const ConceptMapper = () => {
     }
   };
 
-  const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
+const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
     const coincideFiltro = 
       filtroTipo === 'TODOS' ? true :
       filtroTipo === 'CONFORME' ? h.tipoHallazgo === 'CONFORME' :
       filtroTipo === 'PAGO_EXCESO' ? h.tipoHallazgo === 'PAGO_EXCESO' :
       filtroTipo === 'PAGO_INSUFICIENTE' ? h.tipoHallazgo === 'PAGO_INSUFICIENTE' :
-      filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' : true;
+      filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' :
+      filtroTipo === 'REQUIERE_HISTORICO' ? h.tipoHallazgo === 'REQUIERE_HISTORICO' : true;
 
     const term = busqueda.toLowerCase();
     const coincideBusqueda = 
@@ -687,10 +688,13 @@ if (empleado.usoHistoricoAnterior) {
               <button onClick={() => setFiltroTipo('PAGO_EXCESO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
                 🟠 Excesos ({resumenKpi?.conteoExcesos})
               </button>
-              <button onClick={() => setFiltroTipo('DESALINEACION_SUBSISTEMAS')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? 'bg-purple-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+            <button onClick={() => setFiltroTipo('DESALINEACION_SUBSISTEMAS')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? 'bg-purple-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
                 ⚠️ Desalineados ({resumenKpi?.conteoDesalineados || 0})
               </button>
-            </div>
+              <button onClick={() => setFiltroTipo('REQUIERE_HISTORICO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'REQUIERE_HISTORICO' ? 'bg-yellow-600 font-bold text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
+                🟡 Sin Histórico ({hallazgos.filter(h => h.tipoHallazgo === 'REQUIERE_HISTORICO').length})
+              </button>
+            </div>  
           </div>
 
           <div className="overflow-x-auto max-h-[550px]">
