@@ -398,7 +398,13 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       if (['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].includes(conceptoLimpio)) {
         emp.diasTrabajados += cantidad;
       }
-    } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
+   } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
+      
+      // RASTREO: Etiquetar si es Maternidad para regla especial
+      if (conceptoLimpio.includes('MATERNIDAD')) {
+        emp.esMaternidad = true;
+      }
+
       if (emp.esLiquidacion && (conceptoLimpio === 'VACACIONES' || conceptoLimpio === 'VACACIONES COMPENSADAS')) {
         emp.vacacionesLiquidacion += valorTotal; 
       } else {
@@ -645,9 +651,16 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         conteoExcesos++;
       }
     } else if (emp.requiereHistorico) {
-      // Si el empleado tuvo ausentismo pero no encontramos Abril en Firebase:
-      tipoHallazgo = 'REQUIERE_HISTORICO';
-      severidad = 'AUDITORÍA INCOMPLETA (Falta Histórico)';
+      if (emp.esMaternidad) {
+        // La maternidad se liquida con meses previos al parto. Le decimos al motor que confíe en el ERP.
+        tipoHallazgo = 'CONFORME';
+        severidad = 'CORRECTO (Maternidad - IBC validado por ERP)';
+        conteoConformes++;
+      } else {
+        // Si son Vacaciones comunes y corrientes sin datos previos, sí requiere revisión
+        tipoHallazgo = 'REQUIERE_HISTORICO';
+        severidad = 'AUDITORÍA INCOMPLETA (Falta Histórico)';
+      }
     } else if (desalineacionBases) {
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
