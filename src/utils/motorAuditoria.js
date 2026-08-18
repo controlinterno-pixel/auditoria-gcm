@@ -353,12 +353,15 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
         valorAusentismosIBC: 0,
         vacacionesLiquidacion: 0, 
         tieneLicenciaNoRemunerada: false,
-        descuentoSaludReal: 0,
+      descuentoSaludReal: 0,
         descuentoPensionReal: 0,
         diasTrabajados: 0,
         esLiquidacion: llavesLiquidacion.has(llaveUnica),
-        esAprendizSena: normalizarTexto(cargoRaw).includes('APRENDIZ') || normalizarTexto(cargoRaw).includes('SENA') || conceptoLimpio.includes('SOSTENIMIENTO')
-      };
+        esAprendizSena: normalizarTexto(cargoRaw).includes('APRENDIZ') || normalizarTexto(cargoRaw).includes('SENA') || conceptoLimpio.includes('SOSTENIMIENTO'),
+        // Nuevas variables para rastrear la etapa SENA
+        tieneLectiva: false,
+        tieneProductiva: false
+      };  
     } else {
       empleadosPivoteados[llaveUnica].empresasGrupo.add(empresa);
       empleadosPivoteados[llaveUnica].empresa = Array.from(empleadosPivoteados[llaveUnica].empresasGrupo).join(' + ');
@@ -377,6 +380,15 @@ export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos 
 const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
     const esVacacion = conceptoLimpio.includes('VACACION');
     const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
+
+  // RASTREO DE ETAPA SENA:
+    if (conceptoLimpio.includes('LECTIVA')) {
+      emp.tieneLectiva = true;
+    }
+    // Si el ERP le paga "Sueldo" a un aprendiz, sabemos que lo pasaron a etapa Productiva
+    if (emp.esAprendizSena && (conceptoLimpio.includes('SUELDO') || conceptoLimpio.includes('SALARIO') || conceptoLimpio.includes('PRODUCTIVA'))) {
+      emp.tieneProductiva = true;
+    }
 
     if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       emp.totalNoConstitutivo += valorTotal;
@@ -475,27 +487,28 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-       // 🚀 Escáner universal PROFUNDO (Recursivo) para desempacar objetos de Firebase
+     // 🚀 Escáner universal PROFUNDO (Recursivo y Seguro) para Firebase
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
-          
           let flatList = [];
           
-          // Taladro recursivo para romper cualquier envoltura de Firebase
           const aplanarDatos = (obj) => {
             if (!obj || typeof obj !== 'object') return;
             if (Array.isArray(obj)) {
               obj.forEach(aplanarDatos);
-            } else if (obj.transacciones && Array.isArray(obj.transacciones)) {
-              obj.transacciones.forEach(aplanarDatos);
-            } else if (obj.registros && Array.isArray(obj.registros)) {
-              obj.registros.forEach(aplanarDatos);
-            } else if (obj.Identificacion || obj.Cedula || obj.Documento || obj.NombreConcepto) {
-              flatList.push(obj);
             } else {
-              Object.values(obj).forEach(val => {
-                if (Array.isArray(val) || typeof val === 'object') aplanarDatos(val);
-              });
+              const llaves = Object.keys(obj).map(k => k.toLowerCase());
+              if (llaves.includes('transacciones') && Array.isArray(obj.transacciones || obj.Transacciones)) {
+                (obj.transacciones || obj.Transacciones).forEach(aplanarDatos);
+              } else if (llaves.includes('registros') && Array.isArray(obj.registros || obj.Registros)) {
+                (obj.registros || obj.Registros).forEach(aplanarDatos);
+              } else if (llaves.some(k => ['identificacion', 'cedula', 'documento', 'nombreconcepto', 'concepto'].includes(k))) {
+                flatList.push(obj);
+              } else {
+                Object.values(obj).forEach(val => {
+                  if (Array.isArray(val) || typeof val === 'object') aplanarDatos(val);
+                });
+              }
             }
           };
           
@@ -503,12 +516,20 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
 
           let sumaDeduccion = 0;
           flatList.forEach(h => {
-            const cedulaFilaLimpia = limpiarCedula(buscarColumna(h, ['Identificacion', 'Cedula', 'NIT', 'Documento']));
+            const buscarSeguro = (llavesBusqueda) => {
+               const llavesObj = Object.keys(h);
+               for(let alias of llavesBusqueda) {
+                  const encontrada = llavesObj.find(k => k.toLowerCase().replace(/[\s_]/g, '') === alias.toLowerCase().replace(/[\s_]/g, ''));
+                  if (encontrada) return h[encontrada];
+               }
+               return undefined;
+            };
+
+            const cedulaFilaLimpia = limpiarCedula(buscarSeguro(['Identificacion', 'Cedula', 'NIT', 'Documento']));
             
             if (cedulaFilaLimpia === empCedulaLimpia) {
-              const cLimpio = normalizarTexto(buscarColumna(h, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
+              const cLimpio = normalizarTexto(buscarSeguro(['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
               
-              // Filtro estricto para ignorar SALUDEMPLEADOR y similares
               const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
                               !cLimpio.includes('FONDO') && 
                               !cLimpio.includes('PATRONAL') && 
@@ -517,7 +538,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
                               !cLimpio.includes('PROVISION');
                               
               if (esSalud) {
-                const valRaw = buscarColumna(h, ['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Pago']);
+                const valRaw = buscarSeguro(['TotalDevengado', 'ValorTotal', 'VRTotal', 'Total', 'Valor', 'Deduccion', 'Pago']);
                 sumaDeduccion += parsearMonto(valRaw);
               }
             }
@@ -585,18 +606,33 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
     
-    // Aplicamos la tolerancia global para limpiar los falsos positivos operativos
+  // Aplicamos la tolerancia global para limpiar los falsos positivos operativos
     const toleranciaAplicada = margenTolerancia;
+
+    // ETIQUETA SENA INTELIGENTE
+    if (emp.esAprendizSena) {
+      if (emp.tieneLectiva && emp.tieneProductiva) {
+        emp.cargo = "APRENDIZ (TRANSICIÓN LECTIVA A PRODUCTIVA)";
+      } else if (emp.tieneLectiva) {
+        emp.cargo = "APRENDIZ (ETAPA LECTIVA)";
+      } else if (emp.tieneProductiva) {
+        emp.cargo = "APRENDIZ (ETAPA PRODUCTIVA - MAL PARAMETRIZADO)";
+      } else {
+        emp.cargo = "APRENDIZ SENA";
+      }
+    }
 
     if (emp.esAprendizSena && emp.descuentoSaludReal === 0) {
       tipoHallazgo = 'CONFORME';
-      severidad = 'CORRECTO (Aprendiz SENA)';
+      severidad = 'CORRECTO (Aporte asumido por la empresa)';
       conteoConformes++;
+    } else if (emp.esAprendizSena && (emp.descuentoSaludReal > 0 || emp.descuentoPensionReal > 0)) {
+      tipoHallazgo = 'PAGO_EXCESO';
+      severidad = 'ILEGAL (Deducción de Salud/Pensión a Aprendiz)';
+      conteoExcesos++;
     } else if (emp.requiereHistorico) {
-      // Si el empleado tuvo ausentismo pero no encontramos Abril en Firebase:
       tipoHallazgo = 'REQUIERE_HISTORICO';
       severidad = 'AUDITORÍA INCOMPLETA (Falta Histórico)';
-      // No lo contamos en bajos pagos, conformes, ni excesos aún
     } else if (desalineacionBases) {
       tipoHallazgo = 'DESALINEACION_SUBSISTEMAS';
       severidad = 'ADVERTENCIA (Desalineación Salud/Pensión)';
