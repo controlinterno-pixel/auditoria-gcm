@@ -616,21 +616,32 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       } else if (emp.tieneLectiva) {
         emp.cargo = "APRENDIZ (ETAPA LECTIVA)";
       } else if (emp.tieneProductiva) {
-        emp.cargo = "APRENDIZ (ETAPA PRODUCTIVA - MAL PARAMETRIZADO)";
+        emp.cargo = "APRENDIZ (ETAPA PRODUCTIVA)";
       } else {
         emp.cargo = "APRENDIZ SENA";
       }
     }
 
-    if (emp.esAprendizSena && emp.descuentoSaludReal === 0) {
-      tipoHallazgo = 'CONFORME';
-      severidad = 'CORRECTO (Aporte asumido por la empresa)';
-      conteoConformes++;
-    } else if (emp.esAprendizSena && (emp.descuentoSaludReal > 0 || emp.descuentoPensionReal > 0)) {
-      tipoHallazgo = 'PAGO_EXCESO';
-      severidad = 'ILEGAL (Deducción de Salud/Pensión a Aprendiz)';
-      conteoExcesos++;
+    // LÓGICA DE VALIDACIÓN SENA (Aceptando los descuentos en Etapa Productiva)
+    if (emp.esAprendizSena) {
+      if (emp.tieneProductiva || (emp.tieneLectiva && emp.tieneProductiva)) {
+        // Si está en Productiva o Transición, aceptamos los descuentos de ley sin alerta
+        tipoHallazgo = 'CONFORME';
+        severidad = 'CORRECTO (Descuentos aplicados en Etapa Productiva)';
+        conteoConformes++;
+      } else if (emp.descuentoSaludReal === 0 && emp.descuentoPensionReal === 0) {
+        // Si está en Lectiva y no le descuentan nada, está perfecto
+        tipoHallazgo = 'CONFORME';
+        severidad = 'CORRECTO (Etapa Lectiva sin deducciones)';
+        conteoConformes++;
+      } else {
+        // Solo alertamos si está puramente en Lectiva y le hicieron descuentos
+        tipoHallazgo = 'PAGO_EXCESO';
+        severidad = 'ILEGAL (Deducción a Aprendiz en Etapa Lectiva)';
+        conteoExcesos++;
+      }
     } else if (emp.requiereHistorico) {
+      // Si el empleado tuvo ausentismo pero no encontramos Abril en Firebase:
       tipoHallazgo = 'REQUIERE_HISTORICO';
       severidad = 'AUDITORÍA INCOMPLETA (Falta Histórico)';
     } else if (desalineacionBases) {
