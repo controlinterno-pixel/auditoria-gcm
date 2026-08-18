@@ -505,10 +505,10 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
           const procesarObjeto = (obj, cedulaPadre) => {
             if (!obj || typeof obj !== 'object') return;
             
-            if (Array.isArray(obj)) {
-              obj.forEach(item => procesarObjeto(item, cedulaActual));
+           if (Array.isArray(obj)) {
+              obj.forEach(item => procesarObjeto(item, cedulaPadre));
               return;
-            }
+            } 
 
             const llaves = Object.keys(obj);
             const getVal = (aliases) => {
