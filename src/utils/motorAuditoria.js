@@ -577,8 +577,17 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
            historicosPreCargados[k].length > 0 // <-- Esto fuerza a que ignore las consultas vacías
         );
 
-        if (llaveEncontrada && historicosPreCargados[llaveEncontrada]) {
+       // 1. Buscar primero en la Nube (Firebase)
+        if (llaveEncontrada && historicosPreCargados[llaveEncontrada] && historicosPreCargados[llaveEncontrada].length > 0) {
             saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[llaveEncontrada]);
+        }
+
+        // 2. RESPALDO AUTOMÁTICO: Si la Nube no tiene datos, buscar en el mismo Excel cargado
+        if (saludHistoricaTotal === 0 && transaccionesExcel && transaccionesExcel.length > 0) {
+            saludHistoricaTotal = extraerSaludDeEstructura(transaccionesExcel.filter(f => {
+               const anoMesRow = buscarColumna(f, ['AñoMes', 'AnoMes', 'PERIODO_MES', 'FECHA']);
+               return anoMesRow && anoMesRow.toString().includes('04'); // Extrae Abril automáticamente
+            }));
         }
 
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
