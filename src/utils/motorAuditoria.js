@@ -463,9 +463,10 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         if (m <= 0) { m += 12; a -= 1; }
         const periodoAnteriorStr = `${a}-${m.toString().padStart(2, '0')}`;
           
-        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa}`);
-        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${primeraEmpresa.toUpperCase()}`);
-        periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${normalizarTexto(primeraEmpresa)}`);
+    // Carga universal para asegurar que traiga las bases históricas de la Nube
+        ['Fam', 'RecreFam', 'FAM', 'RECREFAM', primeraEmpresa].forEach(empNom => {
+          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${empNom}`);
+        });    
     }
   }
 
@@ -571,17 +572,15 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
         
         // 1. Búsqueda insensible a mayúsculas, minúsculas o estructuras en Firebase
-        const llaveEncontrada = Object.keys(historicosPreCargados).find(k => {
-           const coincidePeriodo = k.includes(periodoAnteriorStr) || k.includes('2026-04');
-           const coincideEmp = normalizarTexto(k).includes(normalizarTexto(primeraEmpresa));
-           const tieneDatos = historicosPreCargados[k] && 
-                             (Array.isArray(historicosPreCargados[k]) ? historicosPreCargados[k].length > 0 : Object.keys(historicosPreCargados[k]).length > 0);
-           return coincidePeriodo && coincideEmp && tieneDatos;
+       // 🚀 Búsqueda Universal por Cédula en todas las bases cargadas de Abril
+        Object.keys(historicosPreCargados).forEach(k => {
+           if (k.includes(periodoAnteriorStr) && historicosPreCargados[k] && historicosPreCargados[k].length > 0) {
+              const saludDeEstaBase = extraerSaludDeEstructura(historicosPreCargados[k]);
+              if (saludDeEstaBase > 0) {
+                 saludHistoricaTotal = saludDeEstaBase;
+              }
+           }
         });
-
-        if (llaveEncontrada && historicosPreCargados[llaveEncontrada]) {
-            saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[llaveEncontrada]);
-        }
 
         // 2. RESPALDO AUTOMÁTICO: Si la nube está vacía, busca en el Excel cargado
         if (saludHistoricaTotal === 0 && transaccionesExcel && transaccionesExcel.length > 0) {
