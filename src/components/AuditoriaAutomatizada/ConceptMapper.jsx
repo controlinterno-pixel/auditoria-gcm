@@ -525,7 +525,7 @@ if (empleado.usoHistoricoAnterior) {
             .filter(cat => 
               pestanaActiva === 'TRANSPORTE' 
                 ? ['salario_base', 'aux_transporte', 'vacaciones_incapacidades', 'licencias_no_remuneradas'].includes(cat.id)
-                : ['salario_base', 'devengados_no_salariales', 'salud', 'pension', 'vacaciones_incapacidades', 'licencias_no_remuneradas'].includes(cat.id)
+                : ['salario_base', 'devengados_no_salariales', 'salud', 'pension', 'vacaciones_incapacidades', 'licencias_no_remuneradas', 'caja_compensacion', 'riesgos_laborales', 'sena_icbf', 'prestaciones_sociales', 'deducciones_libranzas', 'retencion_fuente'].includes(cat.id)
             )
             .map((category) => (
             <div key={category.id} className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
