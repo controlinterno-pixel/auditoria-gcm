@@ -567,28 +567,36 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
           return Math.abs(sumaDeduccion);
         };
 
-        // 🛡️ BÚSQUEDA DEL HISTÓRICO (EVITANDO CAJAS VACÍAS): 
+       // 🛡️ BÚSQUEDA DEL HISTÓRICO ROBUSTA (FIREBASE + LOCAL)
         const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
         
-        const llaveEncontrada = Object.keys(historicosPreCargados).find(k => 
-           k.includes(periodoAnteriorStr) && 
-           normalizarTexto(k).includes(normalizarTexto(primeraEmpresa)) &&
-           historicosPreCargados[k] && 
-           historicosPreCargados[k].length > 0 // <-- Esto fuerza a que ignore las consultas vacías
-        );
+        // 1. Búsqueda insensible a mayúsculas, minúsculas o estructuras en Firebase
+        const llaveEncontrada = Object.keys(historicosPreCargados).find(k => {
+           const coincidePeriodo = k.includes(periodoAnteriorStr) || k.includes('2026-04');
+           const coincideEmp = normalizarTexto(k).includes(normalizarTexto(primeraEmpresa));
+           const tieneDatos = historicosPreCargados[k] && 
+                             (Array.isArray(historicosPreCargados[k]) ? historicosPreCargados[k].length > 0 : Object.keys(historicosPreCargados[k]).length > 0);
+           return coincidePeriodo && coincideEmp && tieneDatos;
+        });
 
-       // 1. Buscar primero en la Nube (Firebase)
-        if (llaveEncontrada && historicosPreCargados[llaveEncontrada] && historicosPreCargados[llaveEncontrada].length > 0) {
+        if (llaveEncontrada && historicosPreCargados[llaveEncontrada]) {
             saludHistoricaTotal = extraerSaludDeEstructura(historicosPreCargados[llaveEncontrada]);
         }
 
-        // 2. RESPALDO AUTOMÁTICO: Si la Nube no tiene datos, buscar en el mismo Excel cargado
+        // 2. RESPALDO AUTOMÁTICO: Si la nube está vacía, busca en el Excel cargado
         if (saludHistoricaTotal === 0 && transaccionesExcel && transaccionesExcel.length > 0) {
-            saludHistoricaTotal = extraerSaludDeEstructura(transaccionesExcel.filter(f => {
+            const transaccionesAbril = transaccionesExcel.filter(f => {
                const anoMesRow = buscarColumna(f, ['AñoMes', 'AnoMes', 'PERIODO_MES', 'FECHA']);
-               return anoMesRow && anoMesRow.toString().includes('04'); // Extrae Abril automáticamente
-            }));
-        }
+               const perRow = buscarColumna(f, ['IDEN_Periodo', 'Periodo', 'Quincena']);
+               const esAbrilMes = anoMesRow && (anoMesRow.toString().includes('04') || anoMesRow.toString().includes('2026/04') || anoMesRow.toString().includes('2026-04'));
+               const esAbrilQuincena = perRow && (perRow.toString() === '226' || perRow.toString() === '227');
+               return esAbrilMes || esAbrilQuincena;
+            });
+
+            if (transaccionesAbril.length > 0) {
+                saludHistoricaTotal = extraerSaludDeEstructura(transaccionesAbril);
+            }
+        } 
 
         const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
