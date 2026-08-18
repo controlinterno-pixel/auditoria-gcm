@@ -34,87 +34,61 @@ const ConceptMapper = () => {
     }
   }, [modoCarga, isUploading]);
 
-  const [mapping, setMapping] = useState({
+const [mapping, setMapping] = useState({
+    // Core UGPP
     salario_base: [], 
     aux_transporte: [], 
     vacaciones_incapacidades: [], 
     licencias_no_remuneradas: [], 
     salud: [], 
     pension: [], 
-    devengados_no_salariales: [] 
+    devengados_no_salariales: [],
+    // Nuevos Módulos 360°
+    caja_compensacion: [],
+    riesgos_laborales: [],
+    sena_icbf: [],
+    prestaciones_sociales: [],
+    deducciones_libranzas: [],
+    retencion_fuente: []
   });
 
-  const systemCategories = [
+const systemCategories = [
     { id: 'salario_base', label: 'Salariales y Constitutivos IBC', required: true },
     { id: 'aux_transporte', label: 'Auxilio de Transporte', required: true },
+    { id: 'vacaciones_incapacidades', label: 'Ausentismos que Cotizan (Vacaciones/Incapacidad)', required: false },
     { id: 'devengados_no_salariales', label: 'Devengados NO Salariales (Ley 1393)', required: false },
     { id: 'salud', label: 'Deducciones de Salud (4%)', required: true },
     { id: 'pension', label: 'Deducciones de Pensión (4%)', required: true },
-    { id: 'vacaciones_incapacidades', label: 'Ausentismos que Cotizan (Vacaciones/Incapacidad)', required: false },
-    { id: 'licencias_no_remuneradas', label: 'Licencias No Remuneradas / Suspensiones', required: false }
+    { id: 'caja_compensacion', label: 'Caja de Compensación (4%)', required: false },
+    { id: 'riesgos_laborales', label: 'Riesgos Laborales (ARL)', required: false },
+    { id: 'sena_icbf', label: 'SENA (2%) e ICBF (3%)', required: false },
+    { id: 'prestaciones_sociales', label: 'Prestaciones (Prima, Cesantías, Intereses)', required: false },
+    { id: 'deducciones_libranzas', label: 'Deducciones Varias y Libranzas (Límite Ley)', required: false },
+    { id: 'retencion_fuente', label: 'Retención en la Fuente', required: false }
   ];
   
   // ⚡ AUTO-MAPEO AMPLIADO CON LEXICÓN DE NÓMINA COLOMBIANA
   const ejecutarAutoMapeoInteligente = (conceptos) => {
     const autoSalario = conceptos.filter(c => {
-      if (
-        c.includes('NO REMUNERAD') || 
-        c.includes('SUSPENSION') || 
-        c.includes('VACACIONES') || 
-        c.includes('CESANTIA') || 
-        c.includes('PRIMA DE SERVICIO')
-      ) {
-        return false;
-      }
-      const palabrasClave = [
-        'SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 
-        'BONIFICACION PRESTACIONAL', 'BONIFICACION SALARIAL', 'AUXILIO SALARIAL', 
-        'PRIMA SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 'COMPENSACION SALARIAL',
-        'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA', 'INCENTIVO', 'DESTAJO'
-      ];
-      return palabrasClave.some(kw => c.includes(kw));
+      if (['NO REMUNERAD', 'SUSPENSION', 'VACACIONES', 'CESANTIA', 'PRIMA'].some(kw => c.includes(kw))) return false;
+      return ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL', 'BONIFICACION SALARIAL', 'AUXILIO SALARIAL', 'PRIMA SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA', 'INCENTIVO', 'DESTAJO'].some(kw => c.includes(kw));
     });
 
     const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
+    const autoVacacionesIncap = conceptos.filter(c => c === 'VACACIONES' || c.includes('INCAPACIDAD') || c.includes('INC.') || c.includes('VACAC'));
+    const autoLicenciasNoRem = conceptos.filter(c => ['NO REMUNERAD', 'SUSPENSION', 'PERMISO NO REMUNERADO', 'LICENCIA NO REMUNERADA', 'FALTA'].some(kw => c.includes(kw)));
+    
+    const autoSalud = conceptos.filter(c => c.includes('SALUD') && !['FONDO', 'PATRONAL', 'AJUSTE', 'PROVISION', 'EMPRESA'].some(kw => c.includes(kw)));
+    const autoPension = conceptos.filter(c => (c.includes('PENSION') || c.includes('SOLIDARIDAD')) && !['FONDO', 'VOLUNTARIA', 'PATRONAL', 'EMPRESA'].some(kw => c.includes(kw)));
+    const autoNoSalarial = conceptos.filter(c => ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO'].some(kw => c.includes(kw)));
 
-    const autoVacacionesIncap = conceptos.filter(c => 
-      c === 'VACACIONES' || 
-      c.includes('INCAPACIDAD') || 
-      c.includes('INC.') || 
-      c.includes('VACAC')
-    );
-
-    const autoLicenciasNoRem = conceptos.filter(c => 
-      c.includes('NO REMUNERAD') || 
-      c.includes('SUSPENSION') || 
-      c.includes('PERMISO NO REMUNERADO') ||
-      c.includes('LICENCIA NO REMUNERADA') ||
-      c.includes('FALTA')
-    );
-
-    const autoSalud = conceptos.filter(c => 
-      c.includes('SALUD') && 
-      !c.includes('FONDO') &&
-      !c.includes('PATRONAL') &&
-      !c.includes('AJUSTE') &&
-      !c.includes('PROVISION') &&
-      !c.includes('EMPRESA')
-    );
-
-    const autoPension = conceptos.filter(c => 
-      (c.includes('PENSION') || c.includes('PENSIONES') || c.includes('SOLIDARIDAD')) && 
-      !c.includes('FONDO') && 
-      !c.includes('VOLUNTARIA') &&
-      !c.includes('PATRONAL') &&
-      !c.includes('EMPRESA')
-    );
-
-    const autoNoSalarial = conceptos.filter(c => 
-      c.includes('BONIFICACION NO PRESTACIONAL') || 
-      c.includes('VIATICO') ||
-      c.includes('RODAMIENTO') || 
-      c.includes('SOSTENIMIENTO') 
-    );
+    // Nuevos Auto-Filtros Inteligentes
+    const autoCaja = conceptos.filter(c => c.includes('CAJA') || c.includes('COMPENSACION'));
+    const autoARL = conceptos.filter(c => c.includes('RIESGOS') || c.includes('ARL') || c.includes('PROFESIONALES'));
+    const autoSenaIcbf = conceptos.filter(c => c.includes('SENA') || c.includes('ICBF'));
+    const autoPrestaciones = conceptos.filter(c => ['PRIMA', 'CESANTIA', 'INTERES'].some(kw => c.includes(kw)) && !c.includes('SALARIAL'));
+    const autoDeducciones = conceptos.filter(c => ['LIBRANZA', 'PRESTAMO', 'FONDO DE EMPLEADOS', 'DESCUENTO', 'EMBARGO', 'PLAN EXEQUIAL', 'SINDICATO'].some(kw => c.includes(kw)));
+    const autoRetefuente = conceptos.filter(c => c.includes('RETENCION') || c.includes('FUENTE') || c.includes('RETEFUENTE'));
  
     setMapping({
       salario_base: autoSalario,
@@ -123,9 +97,14 @@ const ConceptMapper = () => {
       licencias_no_remuneradas: autoLicenciasNoRem,
       salud: autoSalud,
       pension: autoPension,
-      devengados_no_salariales: autoNoSalarial
+      devengados_no_salariales: autoNoSalarial,
+      caja_compensacion: autoCaja,
+      riesgos_laborales: autoARL,
+      sena_icbf: autoSenaIcbf,
+      prestaciones_sociales: autoPrestaciones,
+      deducciones_libranzas: autoDeducciones,
+      retencion_fuente: autoRetefuente
     });
-  };
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
