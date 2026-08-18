@@ -477,7 +477,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     );
   });
 
-  // Forzar a Javascript a esperar que Firebase devuelva el 100% de los datos antes de continuar
+   // Forzar a Javascript a esperar que Firebase devuelva el 100% de los datos antes de continuar
   await Promise.all(promesasCarga);
 
   const hallazgos = [];
@@ -580,7 +580,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         };
 
         procesarObjeto(dataFirebase, "");
-        return Math.abs(sumaDeduccion);
+        const historicosPreCargados = {};
       };
 
         // 1. Búsqueda en Firebase
