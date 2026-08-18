@@ -1669,7 +1669,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
   </div>
 )}
 
- {/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
+{/* 2️⃣ FASE DE TRABAJO DE CAMPO */}
             {isAdmin && activeTab === 'evaluaciones' && (
               <Evaluaciones
     isAdmin={isAdmin} editEvaluacion={editEvaluacion} setEditEvaluacion={setEditEvaluacion}
@@ -1678,6 +1678,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
     formatSafeDate={formatSafeDate} searchTerm={searchTerm} setSearchTerm={setSearchTerm} columnFilters={columnFilters}
     handleColFilterChange={handleColFilterChange} FilterInput={FilterInput} applyFilters={applyFilters}
     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem}
+    informesAuditoria={informesAuditoria} /* 👈 ESTA LÍNEA SOLUCIONA EL PROBLEMA */
   />
 )}
             {/* 3️⃣ FASE DE RESULTADOS & BRECHAS */}
