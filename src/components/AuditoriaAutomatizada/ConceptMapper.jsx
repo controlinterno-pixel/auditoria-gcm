@@ -105,6 +105,7 @@ const systemCategories = [
       deducciones_libranzas: autoDeducciones,
       retencion_fuente: autoRetefuente
     });
+    };
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
