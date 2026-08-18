@@ -509,7 +509,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-        // 🚀 Escáner universal recursivo sobre el mapa resuelto de Firebase
+      // 🚀 Escáner DUAL: Soporta Transacciones Crudas Y Registros Consolidados en Nube
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
           let sumaDeduccion = 0;
@@ -529,24 +529,44 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
             };
 
             let cedulaActual = cedulaPadre;
-            const cedulaObj = getVal(['identificacion', 'cedula', 'documento', 'nit']);
+            
+            // 1. Extraer cédula de la transacción u objeto consolidado
+            const cedulaObj = getVal(['identificacion', 'cedula', 'documento', 'nit', 'id']);
             if (cedulaObj) {
                cedulaActual = limpiarCedula(cedulaObj);
             }
 
-            const concepto = getVal(['nombreconcepto', 'concepto', 'descripcion', 'detalle']);
-            if (concepto && cedulaActual === empCedulaLimpia) {
-               const cLimpio = normalizarTexto(concepto);
-               const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
-                               !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL') && 
-                               !cLimpio.includes('EMPRESA') && !cLimpio.includes('EMPLEADOR') && 
-                               !cLimpio.includes('PROVISION');
-               if (esSalud) {
-                 const valor = getVal(['totaldevengado', 'valortotal', 'vrtotal', 'total', 'valor', 'deduccion', 'pago']);
-                 if (valor !== undefined && valor !== null) sumaDeduccion += parsearMonto(valor);
+            // 2. Evaluación de Coincidencia de Cédula
+            if (cedulaActual === empCedulaLimpia) {
+               const concepto = getVal(['nombreconcepto', 'concepto', 'descripcion', 'detalle']);
+               
+               if (concepto) {
+                 // FORMATO A: Transacción Cruda (Detalle de nómina)
+                 const cLimpio = normalizarTexto(concepto);
+                 const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
+                                 !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL') && 
+                                 !cLimpio.includes('EMPRESA') && !cLimpio.includes('EMPLEADOR') && 
+                                 !cLimpio.includes('PROVISION');
+                 if (esSalud) {
+                   const valor = getVal(['totaldevengado', 'valortotal', 'vrtotal', 'total', 'valor', 'deduccion', 'pago']);
+                   if (valor !== undefined && valor !== null) sumaDeduccion += parsearMonto(valor);
+                 }
+               } else {
+                 // FORMATO B: Registro Consolidado/Pivoteado de Firebase (Resumen de Empleado)
+                 const saludDirecta = getVal(['descuentosaludreal', 'saludreal', 'descuentosalud', 'salud', 'auxiliodeberser']);
+                 if (saludDirecta !== undefined && saludDirecta !== null) {
+                   sumaDeduccion += parsearMonto(saludDirecta);
+                 } else {
+                   const ibcDirecto = getVal(['ibcimplicito', 'salariobase', 'ibc', 'ibcimplicitosalud']);
+                   if (ibcDirecto !== undefined && ibcDirecto !== null) {
+                     const montoIBC = parsearMonto(ibcDirecto);
+                     if (montoIBC > 0) sumaDeduccion += Math.round(montoIBC * 0.04);
+                   }
+                 }
                }
             }
 
+            // 3. Herencia de cédula para llaves de grupos numéricos
             for (const key of llaves) {
               const val = obj[key];
               if (val && typeof val === 'object') {
