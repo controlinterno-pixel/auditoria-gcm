@@ -534,32 +534,35 @@ for (const key of periodosEmpresasNecesarios) {
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
 
-     // 🚀 Escáner universal CON CONTEXTO DE IDENTIDAD
+// 🚀 Escáner universal CON Detección Inteligente de Cédula en Llaves Superiores
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
           let sumaDeduccion = 0;
           
-          const procesarObjeto = (obj, cedulaPadre) => {
+          const procesarObjeto = (obj, cedulaPadre = "") => {
             if (!obj || typeof obj !== 'object') return;
             
-           if (Array.isArray(obj)) {
+            if (Array.isArray(obj)) {
               obj.forEach(item => procesarObjeto(item, cedulaPadre));
               return;
             } 
 
+            // 1. Extraer llaves del objeto actual
             const llaves = Object.keys(obj);
             const getVal = (aliases) => {
                const k = llaves.find(key => aliases.includes(key.toLowerCase().replace(/[\s_]/g, '')));
                return k ? obj[k] : undefined;
             };
 
-            // Hereda la cédula del padre si está agrupado, o la busca en la fila actual
             let cedulaActual = cedulaPadre;
+            
+            // 2. Buscar cédula dentro de los campos
             const cedulaObj = getVal(['identificacion', 'cedula', 'documento', 'nit']);
             if (cedulaObj) {
                cedulaActual = limpiarCedula(cedulaObj);
             }
 
+            // 3. Revisar las transacciones y acumular salud
             const concepto = getVal(['nombreconcepto', 'concepto', 'descripcion', 'detalle']);
             if (concepto && cedulaActual === empCedulaLimpia) {
                const cLimpio = normalizarTexto(concepto);
@@ -573,12 +576,16 @@ for (const key of periodosEmpresasNecesarios) {
                }
             }
 
-            // Viaja a las sub-carpetas sin olvidar de quién es la cédula
-            Object.values(obj).forEach(val => {
-              if (Array.isArray(val) || typeof val === 'object') {
-                procesarObjeto(val, cedulaActual);
+            // 4. Recorrer sub-objetos heredando las llaves numéricas si representan una Cédula
+            for (const key of llaves) {
+              const val = obj[key];
+              if (val && typeof val === 'object') {
+                const keyLimpia = limpiarCedula(key);
+                // Si la llave es un número de cédula (6+ dígitos), se transmite como cedulaPadre
+                const cedulaParaHijos = (keyLimpia.length >= 6) ? keyLimpia : cedulaActual;
+                procesarObjeto(val, cedulaParaHijos);
               }
-            });
+            }
           };
 
           procesarObjeto(dataFirebase, "");
