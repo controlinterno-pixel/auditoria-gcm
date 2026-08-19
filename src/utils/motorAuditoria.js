@@ -444,16 +444,31 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     }
   });
 
- // 🧠 PRE-CARGA PARALELA Y SÍNCRONA DE HISTÓRICOS EN FIREBASE (PROMISE.ALL)
+ // 🧠 PRE-CARGA DINÁMICA Y SÍNCRONA DE HISTÓRICOS EN FIREBASE (PROMISE.ALL)
   const historicosPreCargados = {};
-  const empresasConsultar = ['Fam', 'RecreFam', 'FAM', 'RECREFAM', 'GENERAL', 'Termales'];
-  const periodoAnteriorStr = '2026-04'; // Período base obligatorio para la consulta
+  const periodosEmpresasNecesarios = new Set();
+
+  for (const llave in empleadosPivoteados) {
+    const emp = empleadosPivoteados[llave];
+    if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
+        const [anoStr, mesStr] = emp.periodoISO.split('-');
+        let ano = parseInt(anoStr); 
+        let mes = parseInt(mesStr) - 1;
+        if (mes <= 0) { mes += 12; ano -= 1; }
+        const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
+        
+        const primeraEmpresa = Array.from(emp.empresasGrupo)[0] || 'Termales';
+        ['Fam', 'RecreFam', 'FAM', 'RECREFAM', primeraEmpresa].forEach(empNom => {
+          periodosEmpresasNecesarios.add(`${periodoAnteriorStr}|${empNom}`);
+        });    
+    }
+  }
 
   const promesasCarga = [];
-  empresasConsultar.forEach(empNom => {
-    const key = `${periodoAnteriorStr}|${empNom}`;
+  periodosEmpresasNecesarios.forEach(key => {
+    const [perAnterior, empresa] = key.split('|');
     promesasCarga.push(
-      cargarNominaHistorica(periodoAnteriorStr, empNom)
+      cargarNominaHistorica(perAnterior, empresa)
         .then(dataHist => {
           let listaPlana = [];
           if (Array.isArray(dataHist)) {
@@ -462,12 +477,14 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
                 listaPlana.push(...item.transacciones);
               } else if (item?.registros && Array.isArray(item.registros)) {
                 listaPlana.push(...item.registros);
+              } else if (item?.data && Array.isArray(item.data)) {
+                listaPlana.push(...item.data);
               } else {
                 listaPlana.push(item);
               }
             });
           } else if (dataHist && typeof dataHist === 'object') {
-            listaPlana = dataHist.transacciones || dataHist.registros || dataHist.datos || [];
+            listaPlana = dataHist.transacciones || dataHist.registros || dataHist.datos || dataHist.data || Object.values(dataHist) || [];
           }
           historicosPreCargados[key] = listaPlana;
         })
@@ -477,7 +494,6 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     );
   });
 
-   // Forzar a Javascript a esperar que Firebase devuelva el 100% de los datos antes de continuar
   await Promise.all(promesasCarga);
 
   const hallazgos = [];
@@ -504,12 +520,18 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
       let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
-      // 🏖️ PROMEDIO HISTÓRICO LEGAL E HÍBRIDO DEL ERP
-      if (emp.valorAusentismosIBC > 0) {
+     // 🏖️ PROMEDIO HISTÓRICO LEGAL E HÍBRIDO DEL ERP
+      if (emp.valorAusentismosIBC > 0 && emp.periodoISO) {
         const empCedulaLimpia = limpiarCedula(emp.cedula);
         let saludHistoricaTotal = 0;
+        
+        const [anoStr, mesStr] = emp.periodoISO.split('-');
+        let ano = parseInt(anoStr); 
+        let mes = parseInt(mesStr) - 1;
+        if (mes <= 0) { mes += 12; ano -= 1; }
+        const periodoAnteriorStr = `${ano}-${mes.toString().padStart(2, '0')}`;
 
-   // 🚀 Escáner DUAL ULTRA-PRECISO: Extrae Salud del Histórico sin contaminación de llaves Firebase
+        // 🚀 Escáner DUAL ULTRA-PRECISO
         const extraerSaludDeEstructura = (dataFirebase) => {
           if (!dataFirebase) return 0;
           let sumaDeduccion = 0;
@@ -530,19 +552,15 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
 
             let cedulaActual = cedulaPadre;
             
-            // 1. Búsqueda explícita de campos de identidad en la fila u objeto
             const cedulaObj = getVal(['identificacion', 'cedula', 'documento', 'nit', 'id', 'cedulaempleado']);
             if (cedulaObj) {
                const cLimpia = limpiarCedula(cedulaObj);
                if (cLimpia.length >= 6) cedulaActual = cLimpia;
             }
 
-            // 2. Coincidencia estricta con el empleado auditado
             if (cedulaActual === empCedulaLimpia) {
                const concepto = getVal(['nombreconcepto', 'concepto', 'descripcion', 'detalle']);
-               
                if (concepto) {
-                 // Formato Transacción Individual
                  const cLimpio = normalizarTexto(concepto);
                  const esSalud = (cLimpio.includes('SALUD') || conceptosSalud.includes(cLimpio)) &&
                                  !cLimpio.includes('FONDO') && !cLimpio.includes('PATRONAL') && 
@@ -553,7 +571,6 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
                    if (valor !== undefined && valor !== null) sumaDeduccion += parsearMonto(valor);
                  }
                } else {
-                 // Formato Resumen Consolidado de Firebase
                  const saludDirecta = getVal(['descuentosaludreal', 'saludreal', 'descuentosalud', 'salud', 'auxiliodeberser', 'saludpagada']);
                  if (saludDirecta !== undefined && saludDirecta !== null) {
                    sumaDeduccion += parsearMonto(saludDirecta);
@@ -567,7 +584,6 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
                }
             }
 
-            // 3. Descendencia recursiva segura: solo asigna cédula si la llave es 100% numérica de 6 a 10 dígitos
             for (const key of llaves) {
               const val = obj[key];
               if (val && typeof val === 'object') {
@@ -582,12 +598,13 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
           procesarObjeto(dataFirebase, "");
           return Math.abs(sumaDeduccion);
         };
+
         // 1. Búsqueda en los históricos precargados de Firebase
         Object.keys(historicosPreCargados).forEach(k => {
-           if (historicosPreCargados[k] && historicosPreCargados[k].length > 0) {
+           if (k.includes(periodoAnteriorStr) && historicosPreCargados[k] && historicosPreCargados[k].length > 0) {
               const saludDeEstaBase = extraerSaludDeEstructura(historicosPreCargados[k]);
               if (saludDeEstaBase > 0) {
-                 saludHistoricaTotal = saludDeEstaBase;
+                 saludHistoricaTotal += saludDeEstaBase;
               }
            }
         });
@@ -597,9 +614,15 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
             const transaccionesAbril = transaccionesExcel.filter(f => {
                const anoMesRow = buscarColumna(f, ['AñoMes', 'AnoMes', 'PERIODO_MES', 'FECHA']);
                const perRow = buscarColumna(f, ['IDEN_Periodo', 'Periodo', 'Quincena']);
-               const esAbrilMes = anoMesRow && (anoMesRow.toString().includes('04') || anoMesRow.toString().includes('2026/04') || anoMesRow.toString().includes('2026-04'));
-               const esAbrilQuincena = perRow && (perRow.toString() === '226' || perRow.toString() === '227');
-               return esAbrilMes || esAbrilQuincena;
+               const anoMesStr = anoMesRow ? anoMesRow.toString().replace('/', '-') : '';
+               const esMesAnterior = anoMesStr.includes(periodoAnteriorStr) || anoMesStr.includes(periodoAnteriorStr.replace('-', '/'));
+               
+               const perStr = perRow ? perRow.toString() : '';
+               const numPer = parseInt(perStr);
+               const numPerActual = parseInt(emp.periodo);
+               const esQuincenaAnterior = numPer && !isNaN(numPer) && numPerActual && !isNaN(numPerActual) && (numPer === numPerActual - 2 || numPer === numPerActual - 3);
+
+               return esMesAnterior || esQuincenaAnterior;
             });
 
             if (transaccionesAbril.length > 0) {
@@ -607,10 +630,9 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
             }
         }
 
-    const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
+        const ibcImplicitoHist = saludHistoricaTotal > 0 ? Math.round(saludHistoricaTotal / 0.04) : 0;
         
         if (ibcImplicitoHist > 0) {
-          // Si encuentra histórico, liquida con la base del mes anterior (Dec. 806/98)
           const ibcDiarioAnterior = ibcImplicitoHist / 30;
           
           if (!emp.esLiquidacion) {
@@ -628,7 +650,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
           ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           emp.requiereHistorico = false;
         }
-      } // <--- ¡ESTA ES LA LLAVE MÁGICA QUE FALTABA!
+      }
             
       // Ley 1393 (Tope 40%) - Las vacaciones de liquidacion NO suman aqui
       const limite40 = totalDevengado * 0.40;
