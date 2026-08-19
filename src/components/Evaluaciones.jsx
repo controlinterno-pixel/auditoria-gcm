@@ -78,10 +78,27 @@ export default function Evaluaciones({
     }
   }, [editEvaluacion]);
 
+ // 🧹 Utilidad para limpiar nombres de archivos (elimina tildes y espacios)
+  const sanitizarNombreArchivo = (nombreOriginal) => {
+    return nombreOriginal
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9.\-_]/g, "")
+      .toLowerCase();
+  };
+
   // Manejador de subida directa a repos.termalessantarosa.com.co
   const handleFileUploadEvaluacion = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const originalFile = e.target.files[0];
+    if (!originalFile) return;
+
+    // 🌟 Limpiar el nombre y crear el nuevo archivo sin tildes ni espacios
+    const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
+    const file = new File([originalFile], nombreLimpio, {
+      type: originalFile.type,
+      lastModified: originalFile.lastModified,
+    });
 
     try {
       const payloadMeta = {
@@ -101,7 +118,6 @@ export default function Evaluaciones({
       alert(`⚠️ No se pudo subir el soporte:\n${err.message}`);
     }
   };
-
   // 🔄 Cargar datos si se entra en modo Edición
   useEffect(() => {
     if (editEvaluacion) {
