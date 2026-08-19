@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-// Importamos el diccionario oficial de procesos
-import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
+// ☁️ IMPORTAR HOOK Y SERVICIO DE API
+import { useDataFetching } from '../hooks/useDataFetching';
+import { apiService } from '../services/apiService';
 
 export default function ProgramasAuditoria({ 
   programas = [], 
@@ -35,7 +35,6 @@ export default function ProgramasAuditoria({
   
   // Estado para el adjunto del programa
   const [archivoAdjuntoUrl, setArchivoAdjuntoUrl] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
 
   // 🛡️ Matriz de 3 Líneas de Defensa (Paso 2)
   const [matrizPruebas, setMatrizPruebas] = useState([]);
@@ -118,20 +117,47 @@ export default function ProgramasAuditoria({
     setVistaActiva('formulario');
   };
 
-  // Simulación de carga de archivo
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    setIsUploading(true);
-    // Simular un tiempo de carga (aquí reemplazarías con tu lógica real de API)
-    setTimeout(() => {
-      // url temporal simulada
-      const fakeUrl = `https://repos.termalessantarosa.com.co/programas/${file.name.replace(/\s+/g, '_')}`;
-      setArchivoAdjuntoUrl(fakeUrl);
-      setIsUploading(false);
+  // ☁️ HOOK PARA LA BÓVEDA DE TERMALES
+  const { isLoading: isUploading, error: uploadError, ejecutarPeticion: ejecutarSubidaPrograma } = useDataFetching();
+
+  // 🧹 Utilidad para limpiar nombres de archivos
+  const sanitizarNombreArchivo = (nombreOriginal) => {
+    return nombreOriginal
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9.\-_]/g, "")
+      .toLowerCase();
+  };
+
+  // ☁️ Manejador de subida directa a la API oficial
+  const handleFileUpload = async (e) => {
+    const originalFile = e.target.files[0];
+    if (!originalFile) return;
+
+    const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
+    const file = new File([originalFile], nombreLimpio, {
+      type: originalFile.type,
+      lastModified: originalFile.lastModified,
+    });
+
+    try {
+      const payloadMeta = {
+        appName: 'controlInterno',
+        description: 'Soporte del Programa de Auditoría',
+        fieldName: 'file'
+      };
+
+      const data = await ejecutarSubidaPrograma(
+        apiService.subirEvidencia(file, payloadMeta)
+      );
+      
+      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+      setArchivoAdjuntoUrl(urlFinal);
       alert("✅ Programa adjuntado correctamente.");
-    }, 1500);
+    } catch (err) {
+      alert(`⚠️ No se pudo subir el archivo:\n${err.message}`);
+    }
   };
 
   const agregarFilaMatriz = () => {
