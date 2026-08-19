@@ -166,15 +166,31 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const { isLoading: isUploading, error: uploadError, ejecutarPeticion: ejecutarSubidaInforme } = useDataFetching();
   const { isLoading: isActaUploading, error: actaUploadError, ejecutarPeticion: ejecutarSubidaActa } = useDataFetching();
 
+  // 🧹 Utilidad para limpiar nombres de archivos
+  const sanitizarNombreArchivo = (nombreOriginal) => {
+    return nombreOriginal
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9.\-_]/g, "")
+      .toLowerCase();
+  };
+
   const handleFileUpload = async (e, type) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const originalFile = e.target.files[0];
+    if (!originalFile) return;
+
+    // 🌟 Limpiar el nombre
+    const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
+    const file = new File([originalFile], nombreLimpio, {
+      type: originalFile.type,
+      lastModified: originalFile.lastModified,
+    });
 
     try {
       const payloadMeta = {
         appName: 'controlInterno',
         description: `Documento adjunto desde GCM Auditor - ${type}`,
-        // 💡 Si tu backend usa 'archivo' en lugar de 'file', puedes cambiarlo aquí:
         fieldName: 'file' 
       };
 
@@ -193,7 +209,6 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
       }
       alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
-      // 🎯 Ahora te dirá exactamente por qué rebotó el archivo
       alert(`⚠️ No se pudo subir el archivo:\n${err.message}`);
     }
   };

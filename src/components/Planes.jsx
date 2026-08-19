@@ -558,14 +558,33 @@ const handleNotificarPlan = (planId) => {
   // =========================================================
   // 📂 LOGICA FORMULARIO Y API ORIGINAL (CUSTODIADA)
   // =========================================================
+ // 🧹 Utilidad para limpiar nombres de archivos
+  const sanitizarNombreArchivo = (nombreOriginal) => {
+    return nombreOriginal
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9.\-_]/g, "")
+      .toLowerCase();
+  };
+
   const handleFileUpload = async (e, hallazgoId, index) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const originalFile = e.target.files[0];
+    if (!originalFile) return;
+
+    // 🌟 Limpiar el nombre
+    const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
+    const file = new File([originalFile], nombreLimpio, {
+      type: originalFile.type,
+      lastModified: originalFile.lastModified,
+    });
+
     setUploadingCell(`${hallazgoId}-${index}`); setUploadProgress(20);
     const formData = new FormData();
     formData.append('appName', 'controlInterno');
     formData.append('description', 'Evidencia de Plan de Acción');
     formData.append('file', file);
+    
     try {
       setUploadProgress(50);
       const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', { method: 'POST', body: formData });
