@@ -628,6 +628,8 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
           ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
           emp.requiereHistorico = false;
         }
+      } // <--- ¡ESTA ES LA LLAVE MÁGICA QUE FALTABA!
+            
       // Ley 1393 (Tope 40%) - Las vacaciones de liquidacion NO suman aqui
       const limite40 = totalDevengado * 0.40;
       if (emp.totalNoConstitutivo > limite40) {
@@ -781,7 +783,6 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       conteoExcesos, 
       conteoDesalineados,
       conteoNoAplica: 0 
-    }
+  }
   };
-}
 }
