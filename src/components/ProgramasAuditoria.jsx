@@ -1,3 +1,6 @@
+import React, { useState } from 'react';
+import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
+
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
 import { useDataFetching } from '../hooks/useDataFetching';
 import { apiService } from '../services/apiService';
