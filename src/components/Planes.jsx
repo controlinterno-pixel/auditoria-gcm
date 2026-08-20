@@ -595,7 +595,7 @@ const handleNotificarPlan = (planId) => {
       .toLowerCase();
   };
 
-  const handleFileUpload = async (e, hallazgoId, index) => {
+  const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) => {
     const originalFile = e.target.files[0];
     if (!originalFile) return;
 
@@ -618,7 +618,11 @@ const handleNotificarPlan = (planId) => {
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
       const data = await response.json();
       const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
-      handleUpdateActivityField(hallazgoId, index, 'evidenciaUrl', urlFinal);
+      
+      // Convertimos a arreglo y agregamos la nueva URL a las que ya existían
+      const arrayEvidencias = Array.isArray(evidenciasActuales) ? evidenciasActuales : (evidenciasActuales ? [evidenciasActuales] : []);
+      handleUpdateActivityField(hallazgoId, index, 'evidenciaUrl', [...arrayEvidencias, urlFinal]);
+      
       setUploadingCell(null); setUploadProgress(100);
       alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
     } catch (err) {
@@ -1337,18 +1341,44 @@ const handleNotificarPlan = (planId) => {
                                 <label className="font-bold text-gray-500 block mb-0.5">Fecha Límite</label>
                                 <input type="date" value={act.fecha} onChange={(e) => handleUpdateActivityField(h.id, index, 'fecha', e.target.value)} className="w-full border p-1.5 rounded-lg" />
                               </div>
-                              <div className="md:col-span-3 bg-slate-50 border border-slate-200 p-2 rounded-xl">
-                                <label className="font-black text-slate-700 block mb-1 text-[10px] uppercase">☁️ Evidencia / Soporte Digital</label>
-                                {uploadingCell === `${h.id}-${index}` ? (
-                                  <p className="text-[9px] font-bold text-slate-500">Subiendo...</p>
-                                ) : act.evidenciaUrl ? (
-                                  <a href={act.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-700 font-black bg-emerald-100 border p-1.5 rounded-lg inline-block">✅ Ver Soporte Subido</a>
-                                ) : (
-                                  <label className="cursor-pointer flex items-center justify-center w-full border-2 border-dashed border-slate-300 py-2 rounded-lg bg-white">
-                                    <span className="text-[10px] font-bold text-slate-500">Subir Soporte</span>
-                                    <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={(e) => handleFileUpload(e, h.id, index)} />
-                                  </label>
-                                )}
+                              <div className="md:col-span-3 bg-slate-50 border border-slate-200 p-2 rounded-xl flex flex-col justify-between shadow-inner">
+                                <label className="font-black text-slate-700 block mb-2 text-[10px] uppercase">☁️ Soportes y Evidencias Múltiples</label>
+                                
+                                <div className="flex flex-col gap-1.5 mb-2">
+                                  {(() => {
+                                    // Comprobamos si hay evidencias y las volvemos un arreglo seguro
+                                    const evidencias = Array.isArray(act.evidenciaUrl) ? act.evidenciaUrl : (act.evidenciaUrl ? [act.evidenciaUrl] : []);
+                                    
+                                    if (evidencias.length === 0 && uploadingCell !== `${h.id}-${index}`) {
+                                      return <span className="text-[9px] text-slate-400 italic mb-1">Aún no hay soportes cargados...</span>;
+                                    }
+                                    
+                                    // Listamos todos los archivos cargados
+                                    return evidencias.map((url, i) => (
+                                      <div key={i} className="flex justify-between items-center bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm">
+                                        <a href={url} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-700 font-black truncate hover:underline max-w-[80%]" title={url}>
+                                          ✅ Soporte #{i + 1}
+                                        </a>
+                                        <button type="button" onClick={() => {
+                                          const nuevas = evidencias.filter((_, idx) => idx !== i);
+                                          handleUpdateActivityField(h.id, index, 'evidenciaUrl', nuevas);
+                                        }} className="text-red-500 hover:bg-red-50 font-bold text-[10px] px-2 rounded transition-colors" title="Borrar este soporte">✕</button>
+                                      </div>
+                                    ));
+                                  })()}
+                                  
+                                  {/* Mensaje de carga */}
+                                  {uploadingCell === `${h.id}-${index}` && (
+                                    <p className="text-[9px] font-bold text-amber-600 animate-pulse bg-amber-50 p-1.5 rounded-lg border border-amber-200 text-center">⏳ Subiendo archivo al servidor...</p>
+                                  )}
+                                </div>
+
+                                {/* Botón que siempre queda visible para agregar más */}
+                                <label className="cursor-pointer flex items-center justify-center w-full border-2 border-dashed border-slate-300 py-2 rounded-lg bg-white hover:bg-slate-100 transition-all mt-auto shadow-sm">
+                                  <span className="text-[10px] font-bold text-slate-600">➕ Agregar Soporte Adicional</span>
+                                  {/* Pasamos act.evidenciaUrl al final para que la función sepa qué archivos ya existen */}
+                                  <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx, .xlsx, .zip" onChange={(e) => handleFileUpload(e, h.id, index, act.evidenciaUrl)} />
+                                </label>
                               </div>
                             </div>
                           </div>
