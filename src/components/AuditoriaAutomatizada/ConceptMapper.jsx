@@ -663,24 +663,31 @@ if (empleado.usoHistoricoAnterior) {
 
                         setDatosExcel(finalData);
 
-                        // 2. Búsqueda inteligente de la columna de conceptos (Igual que en el Excel)
-                        let colConcepto = null;
-                        const llavesExcel = Object.keys(dataPlana[0] || {});
-                        colConcepto = llavesExcel.find(k => {
-                          const kNorm = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
-                          return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(kNorm);
-                        });
-
-                        const conceptosNuevos = [...new Set(dataPlana.map(f => normalizarTexto(f[colConcepto])))].filter(Boolean);
-                        
-                        let conceptosFinales = conceptosNuevos;
-                        if (isAppending) {
-                           conceptosFinales = [...new Set([...conceptosExtraidosUI, ...conceptosNuevos])];
-                        }
+                        // 2. Búsqueda de conceptos ultra-robusta (ignora metadatos de Firebase)
+                        const conceptosNuevos = [...new Set(dataPlana.map(f => {
+                           let val = null;
+                           if (typeof f === 'object' && f !== null) {
+                             const llaves = Object.keys(f);
+                             const llaveConcepto = llaves.find(k => {
+                                const kNorm = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
+                                return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(kNorm);
+                             });
+                             if (llaveConcepto) val = f[llaveConcepto];
+                             // Fallback de seguridad extrema
+                             if (!val) val = f['NombreConcepto'] || f['Concepto'] || f['Nombre concepto'];
+                           }
+                           return normalizarTexto(val);
+                        }))].filter(Boolean);
                         
                         // 3. Actualizar la UI y Auto-Mapear
-                        setConceptosExtraidosUI(conceptosFinales);
-                        ejecutarAutoMapeoInteligente(conceptosFinales);
+                        setConceptosExtraidosUI(prev => {
+                           const conceptosFinales = isAppending 
+                               ? [...new Set([...prev, ...conceptosNuevos])]
+                               : conceptosNuevos;
+                           
+                           ejecutarAutoMapeoInteligente(conceptosFinales);
+                           return conceptosFinales;
+                        });
 
                         setHallazgos(null);
                         setResumenKpi(null);
