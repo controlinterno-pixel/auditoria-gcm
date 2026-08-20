@@ -623,7 +623,7 @@ if (empleado.usoHistoricoAnterior) {
           {listaHistoricosBD.length > 0 && (
             <div className="flex items-center gap-2 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
               <span className="text-xs font-bold text-emerald-800">🗄️ Cargar desde Nube:</span>
-              <select 
+           <select 
                 onChange={async (e) => {
                   const idSel = e.target.value;
                   if (!idSel) return;
@@ -677,7 +677,7 @@ if (empleado.usoHistoricoAnterior) {
                       alert("❌ Error cargando histórico desde la nube.");
                     } finally {
                       setIsUploading(false);
-                      e.target.value = ""; // Reinicia el selector
+                      e.target.value = ""; // Reinicia el selector para que puedas volver a abrirlo
                     }
                   }
                 }}
