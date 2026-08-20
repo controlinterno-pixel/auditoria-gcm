@@ -631,20 +631,53 @@ if (empleado.usoHistoricoAnterior) {
                   if (histSel) {
                     setIsUploading(true);
                     try {
-                      const dataCargada = await cargarNominaHistorica(histSel.periodo, histSel.empresa);
-                      if (dataCargada && dataCargada.length > 0) {
-                        setDatosExcel(dataCargada);
-                        setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
-                        const conceptosLimpios = [...new Set(dataCargada.map(f => normalizarTexto(f['NombreConcepto'] || f['Concepto'])))].filter(Boolean);
-                        setConceptosExtraidosUI(conceptosLimpios);
-                        ejecutarAutoMapeoInteligente(conceptosLimpios);
+                      const dataBruta = await cargarNominaHistorica(histSel.periodo, histSel.empresa);
+                      
+                      // 1. Desempaquetar los datos de Firebase correctamente
+                      let dataPlana = [];
+                      if (Array.isArray(dataBruta)) {
+                        dataBruta.forEach(item => {
+                          if (item?.transacciones && Array.isArray(item.transacciones)) dataPlana.push(...item.transacciones);
+                          else if (item?.registros && Array.isArray(item.registros)) dataPlana.push(...item.registros);
+                          else dataPlana.push(item);
+                        });
+                      } else if (dataBruta && typeof dataBruta === 'object') {
+                        dataPlana = dataBruta.transacciones || dataBruta.registros || dataBruta.datos || Object.values(dataBruta) || [];
+                      }
+
+                      if (dataPlana.length > 0) {
+                        setDatosExcel(prevDatos => {
+                          // 2. Si ya hay algo cargado, preguntar si desea UNIR las bases (Fam + RecreFam)
+                          if (prevDatos && prevDatos.length > 0) {
+                            const anexar = window.confirm(`Ya tienes datos cargados en pantalla.\n\n¿Deseas ANEXAR la empresa ${histSel.empresa} (${histSel.periodo}) a lo que ya está para auditar todo el mes completo?\n\n- OK: Unir datos\n- Cancelar: Reemplazar todo`);
+                            if (anexar) {
+                              setFileName(prevName => `${prevName} + ${histSel.empresa}`);
+                              return [...prevDatos, ...dataPlana];
+                            }
+                          }
+                          setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
+                          return dataPlana;
+                        });
+                        
+                        // 3. Actualizar la interfaz y auto-mapeo
+                        const conceptosLimpios = [...new Set(dataPlana.map(f => normalizarTexto(f['NombreConcepto'] || f['Concepto'])))].filter(Boolean);
+                        setConceptosExtraidosUI(prev => {
+                           const combinados = [...new Set([...prev, ...conceptosLimpios])];
+                           ejecutarAutoMapeoInteligente(combinados);
+                           return combinados;
+                        });
+
                         setHallazgos(null);
                         setResumenKpi(null);
+                      } else {
+                        alert("⚠️ El archivo se descargó pero no contiene transacciones válidas.");
                       }
                     } catch (err) {
-                      alert("Error cargando histórico desde la nube.");
+                      console.error(err);
+                      alert("❌ Error cargando histórico desde la nube.");
                     } finally {
                       setIsUploading(false);
+                      e.target.value = ""; // Reinicia el selector
                     }
                   }
                 }}
