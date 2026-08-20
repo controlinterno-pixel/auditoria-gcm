@@ -29,9 +29,9 @@ const ConceptMapper = () => {
   const [listaHistoricosBD, setListaHistoricosBD] = useState([]);
 
   useEffect(() => {
-    if (modoCarga === 'historico') {
-      obtenerListaHistoricos().then(data => setListaHistoricosBD(data));
-    }
+    useEffect(() => {
+    // Quitamos el 'if' para que siempre consulte la nube al cargar la página
+    obtenerListaHistoricos().then(data => setListaHistoricosBD(data));
   }, [modoCarga, isUploading]);
 
 const [mapping, setMapping] = useState({
