@@ -28,7 +28,6 @@ const ConceptMapper = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [listaHistoricosBD, setListaHistoricosBD] = useState([]);
 
-  useEffect(() => {
     useEffect(() => {
     // Quitamos el 'if' para que siempre consulte la nube al cargar la página
     obtenerListaHistoricos().then(data => setListaHistoricosBD(data));
