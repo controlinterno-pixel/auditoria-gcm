@@ -308,7 +308,7 @@ const handleNotificarPlan = (planId) => {
       }
       return true; // Conservamos intactos los planes de otros informes
     });
-    
+
     const diccionarioCorreos = {
       "Rodolfo González": "auditoria@termales.com.co",
       "Yehison Pineda": "controlinterno@termales.com.co",
@@ -1217,10 +1217,17 @@ const handleNotificarPlan = (planId) => {
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
                               
-                              {/* CAMPO A: ACCION CORRECTIVA */}
-                              <div className="md:col-span-2">
-                                <label className="font-bold text-gray-500 block mb-0.5">Acción Correctiva / Remedial</label>
-                                <input type="text" value={act.accion} onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} className="w-full border p-2 rounded-lg font-medium bg-slate-50 focus:bg-white text-slate-800" required />
+                              {/* CAMPO A: ACCION CORRECTIVA (EXPANDIDO) */}
+                              <div className="md:col-span-6">
+                                <label className="font-bold text-gray-500 block mb-1">Acción Correctiva / Remedial</label>
+                                <textarea 
+                                  value={act.accion} 
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} 
+                                  className="w-full border border-slate-300 p-3 rounded-lg font-medium bg-slate-50 focus:bg-white text-slate-800 resize-y shadow-sm outline-none focus:border-[#0A3B32]" 
+                                  rows="3"
+                                  placeholder="Describa la acción correctiva detalladamente..."
+                                  required 
+                                />
                               </div>
                               
                               {/* --- INICIO SECTOR MÚLTIPLE: SEDE Y CARGOS --- */}
