@@ -644,49 +644,40 @@ if (empleado.usoHistoricoAnterior) {
                       }
 
                       if (dataPlana.length > 0) {
-                        let finalData = dataPlana;
-                        let isAppending = false;
-
-                        // 1. Manejo de Unión de Empresas (Fam + RecreFam)
-                        if (datosExcel && datosExcel.length > 0) {
-                          const anexar = window.confirm(`Ya tienes datos cargados en pantalla.\n\n¿Deseas ANEXAR la empresa ${histSel.empresa} (${histSel.periodo}) a lo que ya está para auditar todo el mes completo?\n\n- OK: Unir datos\n- Cancelar: Reemplazar todo`);
-                          if (anexar) {
-                            finalData = [...datosExcel, ...dataPlana];
-                            setFileName(`${fileName} + ${histSel.empresa}`);
-                            isAppending = true;
+                        setDatosExcel(prevDatos => {
+                          let finalData = dataPlana;
+                          
+                          if (prevDatos && prevDatos.length > 0) {
+                            const anexar = window.confirm(`Ya tienes datos cargados en pantalla.\n\n¿Deseas ANEXAR la empresa ${histSel.empresa} (${histSel.periodo}) a lo que ya está para auditar todo el mes completo?\n\n- OK: Unir datos\n- Cancelar: Reemplazar todo`);
+                            if (anexar) {
+                              finalData = [...prevDatos, ...dataPlana];
+                              setFileName(prevName => `${prevName} + ${histSel.empresa}`);
+                            } else {
+                              setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
+                            }
                           } else {
                             setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
                           }
-                        } else {
-                          setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
-                        }
 
-                        setDatosExcel(finalData);
-
-                        // 2. Búsqueda de conceptos ultra-robusta (ignora metadatos de Firebase)
-                        const conceptosNuevos = [...new Set(dataPlana.map(f => {
-                           let val = null;
-                           if (typeof f === 'object' && f !== null) {
+                          // Extraemos los conceptos directamente de la tabla unida FINAL para evitar errores de memoria
+                          const conceptosUnicos = [...new Set(finalData.map(f => {
+                             if (!f || typeof f !== 'object') return null;
                              const llaves = Object.keys(f);
-                             const llaveConcepto = llaves.find(k => {
-                                const kNorm = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
-                                return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(kNorm);
+                             const k = llaves.find(key => {
+                                const n = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
+                                return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(n);
                              });
-                             if (llaveConcepto) val = f[llaveConcepto];
-                             // Fallback de seguridad extrema
-                             if (!val) val = f['NombreConcepto'] || f['Concepto'] || f['Nombre concepto'];
-                           }
-                           return normalizarTexto(val);
-                        }))].filter(Boolean);
-                        
-                        // 3. Actualizar la UI y Auto-Mapear
-                        setConceptosExtraidosUI(prev => {
-                           const conceptosFinales = isAppending 
-                               ? [...new Set([...prev, ...conceptosNuevos])]
-                               : conceptosNuevos;
-                           
-                           ejecutarAutoMapeoInteligente(conceptosFinales);
-                           return conceptosFinales;
+                             const val = k ? f[k] : (f['NombreConcepto'] || f['Concepto'] || f['Nombre concepto']);
+                             return normalizarTexto(val);
+                          }))].filter(Boolean);
+
+                          // Forzamos la actualización de las cajitas de forma síncrona
+                          setTimeout(() => {
+                             setConceptosExtraidosUI(conceptosUnicos);
+                             ejecutarAutoMapeoInteligente(conceptosUnicos);
+                          }, 100);
+
+                          return finalData;
                         });
 
                         setHallazgos(null);
