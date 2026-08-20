@@ -632,7 +632,6 @@ if (empleado.usoHistoricoAnterior) {
                     try {
                       const dataBruta = await cargarNominaHistorica(histSel.periodo, histSel.empresa);
                       
-                      // 1. Desempaquetar los datos de Firebase correctamente
                       let dataPlana = [];
                       if (Array.isArray(dataBruta)) {
                         dataBruta.forEach(item => {
@@ -645,26 +644,43 @@ if (empleado.usoHistoricoAnterior) {
                       }
 
                       if (dataPlana.length > 0) {
-                        setDatosExcel(prevDatos => {
-                          // 2. Si ya hay algo cargado, preguntar si desea UNIR las bases (Fam + RecreFam)
-                          if (prevDatos && prevDatos.length > 0) {
-                            const anexar = window.confirm(`Ya tienes datos cargados en pantalla.\n\n¿Deseas ANEXAR la empresa ${histSel.empresa} (${histSel.periodo}) a lo que ya está para auditar todo el mes completo?\n\n- OK: Unir datos\n- Cancelar: Reemplazar todo`);
-                            if (anexar) {
-                              setFileName(prevName => `${prevName} + ${histSel.empresa}`);
-                              return [...prevDatos, ...dataPlana];
-                            }
+                        let finalData = dataPlana;
+                        let isAppending = false;
+
+                        // 1. Manejo de Unión de Empresas (Fam + RecreFam)
+                        if (datosExcel && datosExcel.length > 0) {
+                          const anexar = window.confirm(`Ya tienes datos cargados en pantalla.\n\n¿Deseas ANEXAR la empresa ${histSel.empresa} (${histSel.periodo}) a lo que ya está para auditar todo el mes completo?\n\n- OK: Unir datos\n- Cancelar: Reemplazar todo`);
+                          if (anexar) {
+                            finalData = [...datosExcel, ...dataPlana];
+                            setFileName(`${fileName} + ${histSel.empresa}`);
+                            isAppending = true;
+                          } else {
+                            setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
                           }
+                        } else {
                           setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
-                          return dataPlana;
+                        }
+
+                        setDatosExcel(finalData);
+
+                        // 2. Búsqueda inteligente de la columna de conceptos (Igual que en el Excel)
+                        let colConcepto = null;
+                        const llavesExcel = Object.keys(dataPlana[0] || {});
+                        colConcepto = llavesExcel.find(k => {
+                          const kNorm = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
+                          return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(kNorm);
                         });
+
+                        const conceptosNuevos = [...new Set(dataPlana.map(f => normalizarTexto(f[colConcepto])))].filter(Boolean);
                         
-                        // 3. Actualizar la interfaz y auto-mapeo
-                        const conceptosLimpios = [...new Set(dataPlana.map(f => normalizarTexto(f['NombreConcepto'] || f['Concepto'])))].filter(Boolean);
-                        setConceptosExtraidosUI(prev => {
-                           const combinados = [...new Set([...prev, ...conceptosLimpios])];
-                           ejecutarAutoMapeoInteligente(combinados);
-                           return combinados;
-                        });
+                        let conceptosFinales = conceptosNuevos;
+                        if (isAppending) {
+                           conceptosFinales = [...new Set([...conceptosExtraidosUI, ...conceptosNuevos])];
+                        }
+                        
+                        // 3. Actualizar la UI y Auto-Mapear
+                        setConceptosExtraidosUI(conceptosFinales);
+                        ejecutarAutoMapeoInteligente(conceptosFinales);
 
                         setHallazgos(null);
                         setResumenKpi(null);
@@ -676,7 +692,7 @@ if (empleado.usoHistoricoAnterior) {
                       alert("❌ Error cargando histórico desde la nube.");
                     } finally {
                       setIsUploading(false);
-                      e.target.value = ""; // Reinicia el selector para que puedas volver a abrirlo
+                      e.target.value = ""; 
                     }
                   }
                 }}
