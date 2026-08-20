@@ -341,10 +341,6 @@ if (empleado.usoHistoricoAnterior) {
   };
 
   const handleGuardarHistorico = async () => {
-    if (!periodoHistorico) {
-      alert("⚠️ Por favor selecciona el mes (Ej: Marzo 2026) antes de guardar el histórico.");
-      return;
-    }
     if (!datosExcel || datosExcel.length === 0) {
       alert("⚠️ Primero debes cargar un archivo Excel.");
       return;
@@ -352,12 +348,79 @@ if (empleado.usoHistoricoAnterior) {
     
     setIsUploading(true);
     try {
-      const res = await guardarNominaHistorica(datosExcel, periodoHistorico);
-      alert("✅ " + res.message);
+      // 1. Objeto para agrupar las filas por mes automáticamente
+      const gruposPorMes = {};
+      
+      // Función auxiliar para buscar columnas sin importar mayúsculas/minúsculas
+      const getVal = (fila, aliasPosibles) => {
+        const llaves = Object.keys(fila);
+        for (const alias of aliasPosibles) {
+          const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
+          const llaveReal = llaves.find(k => k.toUpperCase().replace(/[\s_]/g, '') === aliasNorm);
+          if (llaveReal) return fila[llaveReal];
+        }
+        return undefined;
+      };
+
+      // 2. Agrupar los datos leyendo la columna AñoMes de cada fila
+      datosExcel.forEach(row => {
+        const anoMesRaw = getVal(row, ['AÑOMES', 'ANOMES', 'PERIODOMES', 'FECHA']);
+        const anoRaw = getVal(row, ['ANO', 'AÑO', 'YEAR']);
+        const mesRaw = getVal(row, ['MES', 'MONTH']);
+        
+        let periodoNormalizado = "";
+        
+        if (anoMesRaw) {
+           const str = anoMesRaw.toString().trim();
+           if (str.includes('/')) {
+              const [a, m] = str.replace(/\//g, '-').split('-');
+              periodoNormalizado = `${a}-${m.padStart(2, '0')}`;
+           } else if (str.includes('-')) {
+              const [a, m] = str.split('-');
+              periodoNormalizado = `${a}-${m.padStart(2, '0')}`;
+           } else if (str.length === 6) {
+              periodoNormalizado = `${str.substring(0, 4)}-${str.substring(4, 6)}`;
+           }
+        } else if (anoRaw && mesRaw) {
+           periodoNormalizado = `${anoRaw}-${mesRaw.toString().padStart(2, '0')}`;
+        }
+
+        // Si la fila no tiene mes, usamos el que el usuario haya puesto manual (Fallback)
+        const periodoFinal = periodoNormalizado || periodoHistorico;
+
+        if (periodoFinal) {
+          if (!gruposPorMes[periodoFinal]) {
+            gruposPorMes[periodoFinal] = [];
+          }
+          gruposPorMes[periodoFinal].push(row);
+        }
+      });
+
+      const periodosDetectados = Object.keys(gruposPorMes);
+      
+      if (periodosDetectados.length === 0) {
+        alert("⚠️ No se detectó la columna 'AñoMes'. Por favor selecciona el mes manualmente.");
+        setIsUploading(false);
+        return;
+      }
+
+      // 3. Subir cada mes a Firebase por separado de forma automática
+      let mensajes = [];
+      for (const periodo of periodosDetectados) {
+         await guardarNominaHistorica(gruposPorMes[periodo], periodo);
+         mensajes.push(`✅ ${periodo}: ${gruposPorMes[periodo].length} registros guardados.`);
+      }
+      
+      alert("¡Histórico segmentado y guardado exitosamente!\n\n" + mensajes.join('\n'));
+      
       setDatosExcel(null);
       setFileName("");
       setPeriodoHistorico("");
-      // La tabla se refrescará sola gracias al useEffect
+      
+      // 4. Actualizar la tabla visual
+      const data = await obtenerListaHistoricos();
+      setListaHistoricosBD(data);
+
     } catch (err) {
       alert("❌ Error guardando el histórico: " + err.message);
     } finally {
