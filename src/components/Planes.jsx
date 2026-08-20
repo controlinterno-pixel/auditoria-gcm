@@ -282,6 +282,33 @@ const handleNotificarPlan = (planId) => {
     let notificacionesRadicadas = [];
     let notificacionesRevision100 = [];
 
+// 1. Recolectar los IDs de las actividades que AÚN existen (sobrevivieron) en el formulario
+    const idsSobrevivientes = [];
+    Object.keys(matrixState).forEach(hallazgoId => {
+      const node = matrixState[hallazgoId];
+      if (node.aplica) {
+        node.actividades.forEach(act => {
+          if (!String(act.id).startsWith('new-')) {
+            idsSobrevivientes.push(Number(act.id));
+          }
+        });
+      }
+    });
+
+    // 2. Identificar los hallazgos que pertenecen al informe que estamos editando actualmente
+    const hallazgosActuales = safeHallazgos
+      .filter(h => String(h.idInforme) === String(formInformeId))
+      .map(h => h.id);
+
+    // 3. Filtrar de la lista principal las actividades que fueron "quitadas"
+    updatedPlanesList = updatedPlanesList.filter(plan => {
+      if (hallazgosActuales.includes(plan.idHallazgo)) {
+        // Si el plan pertenece a este informe, SOLO se queda si está en los sobrevivientes
+        return idsSobrevivientes.includes(plan.id);
+      }
+      return true; // Conservamos intactos los planes de otros informes
+    });
+    
     const diccionarioCorreos = {
       "Rodolfo González": "auditoria@termales.com.co",
       "Yehison Pineda": "controlinterno@termales.com.co",
