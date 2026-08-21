@@ -859,6 +859,8 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
 
   const empleadosPivoteados = {};
 
+  const empleadosPivoteados = {};
+
   transaccionesExcel.forEach(fila => {
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     if (!cedulaRaw) return;
@@ -870,7 +872,7 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
     const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
     const conceptoLimpio = normalizarTexto(conceptoRaw);
     
-    // El ERP guarda las horas en la columna 'Cantidad'
+    // El ERP guarda las horas y días en la columna 'Cantidad'
     const cantidadHoras = parsearMonto(buscarColumna(fila, ['Cantidad', 'Horas', 'Cant']));
     const valorPagado = parsearMonto(buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago']));
     const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
@@ -884,6 +886,8 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
         cargo: buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo',
         empresa: empresaRaw ? empresaRaw.toString().trim() : 'GENERAL',
         
+        diasTrabajados: 0, // <-- Solución al "NaN" en la columna Días
+
         // Contadores de Cantidad (Horas)
         cantHED: 0, cantHEN: 0, cantHEF: 0, cantRecargos: 0,
         
@@ -894,10 +898,16 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    // Clasificación de Tiempos
-    const esHED = conceptosHED.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA DIURNA');
-    const esHEN = conceptosHEN.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA NOCTURNA');
-    const esHEF = conceptosHEF.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRA DOMINICAL');
+    // Días Trabajados (Capturados del Sueldo Básico)
+    const esSalarioBase = ['SUELDO', 'BASICO', 'SALARIO'].some(kw => conceptoLimpio.includes(kw)) && !['LICENCIA', 'INCAPACIDAD', 'SUSPENSION', 'RETROACTIVO'].some(kw => conceptoLimpio.includes(kw));
+    if (esSalarioBase) {
+      emp.diasTrabajados += cantidadHoras; 
+    }
+
+    // Clasificación de Tiempos (Soporte agregado para el plural 'EXTRAS')
+    const esHED = conceptosHED.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS');
+    const esHEN = conceptosHEN.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS');
+    const esHEF = conceptosHEF.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') || conceptoLimpio.includes('EXTRA DOMINICAL');
     const esRecargo = conceptosRecargos.includes(conceptoLimpio) || (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA'));
 
     if (esHED) { emp.cantHED += cantidadHoras; emp.valorHED += valorPagado; }
@@ -948,6 +958,7 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
       periodo: emp.periodo,
       nombre: emp.nombre,
       cargo: emp.cargo,
+      diasTrabajados: emp.diasTrabajados, // <-- Pasamos el dato de días al frontend
       totalHorasExtras,
       totalRecargos: emp.cantRecargos,
       costoExtras,
