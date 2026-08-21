@@ -694,8 +694,8 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
     // Diferencias Módulo 360° (El motor solo evalúa si el usuario incluyó los conceptos en la pantalla)
     const difCaja = conceptosCaja.length > 0 ? emp.deberSerCaja - emp.aporteCajaReal : 0;
     const difSenaIcbf = conceptosSenaIcbf.length > 0 ? emp.deberSerSenaIcbf - emp.aporteSenaIcbfReal : 0;
-    const difRetefuente = conceptosRetefuente.length > 0 ? emp.retencionDeberSer - emp.retencionFuenteReal : 0;
-   
+// Apagamos la auditoría de Retefuente por conflicto quincenal vs mensual
+    const difRetefuente = 0;   
     const ibcImplicitoSalud = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
     const ibcImplicitoPension = emp.descuentoPensionReal > 0 ? Math.round(emp.descuentoPensionReal / 0.04) : 0;
     
