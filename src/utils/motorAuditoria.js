@@ -385,14 +385,15 @@ const conceptosConstitutivos = (mapeoConceptos?.salario_base || []).map(normaliz
     const emp = empleadosPivoteados[llaveUnica];
 
     // Lexicón que excluye "FAMILIA"
-    const esConstitutivoLexicon = [
+   const esConstitutivoLexicon = [
       'SUELDO', 'SALARIO', 'BASICO', 'COMISION', 'HORA EXTRA', 'RECARGO', 'DOMINICAL', 
       'FESTIVO', 'NOCTURN', 'BONIFICACION SALARIAL', 'PRIMA SALARIAL', 'INCENTIVO', 
       'DESTAJO', 'AUXILIO SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 
-      'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA'
+      'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA',
+      'INCAPACIDAD', 'INC.' // Ahora el valor pagado por incapacidad suma directamente al IBC del mes
     ].some(kw => conceptoLimpio.includes(kw));
 
-const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION', 'INCAPACIDAD', 'INC.'].some(excl => conceptoLimpio.includes(excl));
+const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENSION'].some(excl => conceptoLimpio.includes(excl));
     const esVacacion = conceptoLimpio.includes('VACACION');
     const esNoSalarialLexicon = ['BONIFICACION NO PRESTACIONAL', 'VIATICO', 'RODAMIENTO', 'SOSTENIMIENTO', 'AUXILIO NO SALARIAL'].some(kw => conceptoLimpio.includes(kw));
 
@@ -413,8 +414,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       if (['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].some(kw => conceptoLimpio.includes(kw))) {
         emp.diasTrabajados += cantidad;
       }
-   } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
-      
+      } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('VACACION')) {
       // RASTREO: Etiquetar si es Maternidad para regla especial
       if (conceptoLimpio.includes('MATERNIDAD')) {
         emp.esMaternidad = true;
