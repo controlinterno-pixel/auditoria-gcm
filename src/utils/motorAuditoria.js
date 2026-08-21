@@ -137,8 +137,9 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
     const emp = empleadosPivoteados[llaveUnica];
 
-    if (conceptosSalario.includes(conceptoLimpio)) {
-      const esSueldoEstricto = conceptoLimpio === 'SUELDO BASICO' || conceptoLimpio === 'BASICO' || conceptoLimpio === 'SUELDO' || conceptoLimpio === 'SALARIO';
+  if (conceptosSalario.includes(conceptoLimpio)) {
+      // Motor inteligente: Detecta la palabra aunque tenga códigos como "DV01-"
+      const esSueldoEstricto = ['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].some(kw => conceptoLimpio.includes(kw));
 
       if (esSueldoEstricto) {
         emp.sueldoBasico += valorTotal;
@@ -408,7 +409,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       emp.esAprendizSena = true;
     } else if ((conceptosConstitutivos.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoIBC && !esVacacion) {
       emp.totalConstitutivoIBC += valorTotal;
-      if (['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].includes(conceptoLimpio)) {
+      if (['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].some(kw => conceptoLimpio.includes(kw))) {
         emp.diasTrabajados += cantidad;
       }
    } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
@@ -418,8 +419,8 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
         emp.esMaternidad = true;
       }
 
-      if (emp.esLiquidacion && (conceptoLimpio === 'VACACIONES' || conceptoLimpio === 'VACACIONES COMPENSADAS')) {
-        emp.vacacionesLiquidacion += valorTotal; 
+if (emp.esLiquidacion && conceptoLimpio.includes('VACACION')) {
+      emp.vacacionesLiquidacion += valorTotal; 
       } else {
         emp.valorAusentismosIBC += valorTotal; 
       }

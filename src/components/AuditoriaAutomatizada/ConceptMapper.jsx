@@ -657,17 +657,16 @@ if (empleado.usoHistoricoAnterior) {
                           }
                         }
 
-                        // 2. Extraer conceptos de la tabla unida
-                        const conceptosUnicos = [...new Set(finalData.map(f => {
-                           if (!f || typeof f !== 'object') return null;
-                           const llaves = Object.keys(f);
-                           const k = llaves.find(key => {
-                              const n = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
-                              return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(n);
-                           });
-                           const val = k ? f[k] : (f['NombreConcepto'] || f['Concepto'] || f['Nombre concepto']);
-                           return normalizarTexto(val);
-                        }))].filter(Boolean);
+                        // 2. Extraer conceptos EXACTAMENTE IGUAL que en la carga manual
+                        let colConcepto = null;
+                        if (finalData.length > 0) {
+                          const llavesExcel = Object.keys(finalData[0]);
+                          colConcepto = llavesExcel.find(k => {
+                            const kNorm = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
+                            return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(kNorm);
+                          });
+                        }
+                        const conceptosUnicos = [...new Set(finalData.map(f => normalizarTexto(f[colConcepto])))].filter(Boolean);
 
                         // 3. Mandar las órdenes a React una por una
                         setDatosExcel(finalData);
