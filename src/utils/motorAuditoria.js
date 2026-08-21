@@ -859,8 +859,6 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
 
   const empleadosPivoteados = {};
 
-  const empleadosPivoteados = {};
-
   transaccionesExcel.forEach(fila => {
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     if (!cedulaRaw) return;
