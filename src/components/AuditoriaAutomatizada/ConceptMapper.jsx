@@ -943,8 +943,7 @@ if (empleado.usoHistoricoAnterior) {
                 <span>⚠️ Brecha de bases sin afectar estado normativo:</span>
                 <span className="font-mono text-sm font-bold">${Math.abs(empleadoDiagonal.salarioBase - (empleadoDiagonal.ibcImplicito || 0)).toLocaleString('es-CO')}</span>
               </div>
-
-             {/* 🤖 SECCIÓN DE RECONCILIACIÓN INFORMATIVA DE CAUSALES */}
+{/* 🤖 SECCIÓN DE RECONCILIACIÓN INFORMATIVA DE CAUSALES */}
               <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4">
                 <h4 className="text-xs font-bold text-indigo-900 uppercase mb-2">📌 Posibles Causales de la Brecha ERP vs. Motor:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -956,6 +955,15 @@ if (empleado.usoHistoricoAnterior) {
                   ))}
                 </div>
               </div>
+
+              {/* 💡 DICTAMEN FORENSE INTELIGENTE GCM */}
+              {empleadoDiagonal.notaForense && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl shadow-sm">
+                  <p className="text-sm text-blue-900 leading-relaxed font-semibold">
+                    {empleadoDiagonal.notaForense}
+                  </p>
+                </div>
+              )}
 
               {/* 💡 CONCLUSIÓN INTELIGENTE GCM */}
               {empleadoDiagonal.notaForense && (
