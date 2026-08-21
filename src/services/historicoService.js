@@ -9,7 +9,7 @@ export const guardarNominaHistorica = async (filasExcel, periodo) => {
       throw new Error("No hay datos en la nómina para guardar.");
     }
 
-    // 1. Agrupar por Empresa respetando los datos crudos originales
+    // 1. Agrupar por Empresa respetando los datos crudos originales (Sin comprimir)
     const porEmpresa = {};
     
     filasExcel.forEach(fila => {
@@ -42,11 +42,11 @@ export const guardarNominaHistorica = async (filasExcel, periodo) => {
         periodo: periodoLimpio,
         empresa: empresaLimpia,
         fechaCarga: new Date().toISOString(),
-        totalRegistros: filasEmpresa.length,
-        esChunked: true // Marca para saber que está dividida
+        totalRegistros: filasEmpresa.length, // Aquí debería marcar miles de registros
+        esChunked: true 
       }, { merge: true });
 
-      // Dividir el arreglo gigante en pedazos de 500 y guardarlos en una sub-colección "chunks"
+      // Dividir el arreglo gigante en pedazos de 500 y guardarlos
       for (let i = 0; i < filasEmpresa.length; i += CHUNK_SIZE) {
         const pedazo = filasEmpresa.slice(i, i + CHUNK_SIZE);
         const refChunk = doc(db, `nominas_historicas/${docBaseId}/chunks`, `part_${i}`);
@@ -83,10 +83,10 @@ export const cargarNominaHistorica = async (periodo, empresa = 'GENERAL') => {
           dataCompleta.push(...info.datos);
         }
       });
-      return dataCompleta; // Retorna las 5,000 transacciones intactas
+      return dataCompleta; // Retorna los miles de transacciones intactas
     }
 
-    // 2. Si no es formato Chunk, intentar leer el formato antiguo (Retro-compatibilidad)
+    // 2. Si no es formato Chunk, intentar leer el formato antiguo
     const docRef = doc(db, 'nominas_historicas', docBaseId);
     const { getDoc } = await import('firebase/firestore');
     const docSnap = await getDoc(docRef);
@@ -118,13 +118,11 @@ export const obtenerListaHistoricos = async () => {
 
 export const eliminarNominaHistorica = async (docId) => {
   try {
-    // Si queremos borrar los chunks también de Firebase
     const chunksSnapshot = await getDocs(collection(db, `nominas_historicas/${docId}/chunks`));
     const batch = writeBatch(db);
     chunksSnapshot.forEach(d => batch.delete(d.ref));
     await batch.commit();
 
-    // Luego borramos el índice principal
     await deleteDoc(doc(db, 'nominas_historicas', docId));
     return { success: true };
   } catch (error) {
