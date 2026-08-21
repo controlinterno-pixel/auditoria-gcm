@@ -793,7 +793,7 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       }
     }
 
-   hallazgos.push({
+    hallazgos.push({
       id: `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
       empresa: emp.empresa,
       cedula: emp.cedula,
@@ -817,7 +817,6 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
   }
 
   return {
-
     hallazgos,
     kpis: {
       totalEmpleados: Object.keys(empleadosPivoteados).length,
@@ -826,6 +825,6 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       conteoExcesos, 
       conteoDesalineados,
       conteoNoAplica: 0 
-  }
+    }
   };
 }
