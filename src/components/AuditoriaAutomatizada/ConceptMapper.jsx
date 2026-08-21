@@ -595,13 +595,13 @@ if (empleado.usoHistoricoAnterior) {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {systemCategories
             .filter(cat => 
               pestanaActiva === 'TRANSPORTE' 
                 ? ['salario_base', 'aux_transporte', 'vacaciones_incapacidades', 'licencias_no_remuneradas'].includes(cat.id)
                 : pestanaActiva === 'JORNADA'
-                ? [] // Oculta todas las categorías base, la jornada detecta los nombres automáticamente del Excel sin mapeo manual para evitar errores
+                ? [] // Oculta categorías; el motor de jornada lee los nombres directo del Excel
                 : ['salario_base', 'devengados_no_salariales', 'salud', 'pension', 'vacaciones_incapacidades', 'licencias_no_remuneradas', 'caja_compensacion', 'riesgos_laborales', 'sena_icbf', 'prestaciones_sociales', 'deducciones_libranzas', 'retencion_fuente'].includes(cat.id)
             )
             .map((category) => (
@@ -737,20 +737,20 @@ if (empleado.usoHistoricoAnterior) {
       </div>
       )}
 
-      {/* KPI Cards & Rankings */}
+      {/* 🏆 KPI Cards & Rankings (MODO JORNADA) */}
       {resumenKpi && tipoAuditoriaActiva === 'JORNADA' && (
         <div className="mb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div className="bg-white p-5 rounded-xl border border-pink-200 shadow-sm">
-              <p className="text-xs font-bold text-pink-600 uppercase">🚨 Infracciones (Mintrabajo)</p>
+              <p className="text-xs font-bold text-pink-600 uppercase">🚨 Infracciones (Ley 2101)</p>
               <h3 className="text-2xl font-extrabold text-pink-700">{resumenKpi.conteoInfraccionesLegales}</h3>
             </div>
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <p className="text-xs font-bold text-slate-500 uppercase">Total Horas Extras Empresa</p>
+              <p className="text-xs font-bold text-slate-500 uppercase">Total Horas Extras Cía.</p>
               <h3 className="text-2xl font-extrabold text-slate-800">{resumenKpi.totalHorasExtrasEmpresa.toFixed(1)} hrs</h3>
             </div>
             <div className="bg-white p-5 rounded-xl border border-blue-200 shadow-sm">
-              <p className="text-xs font-bold text-blue-600 uppercase">Total Recargos Empresa</p>
+              <p className="text-xs font-bold text-blue-600 uppercase">Total Recargos Cía.</p>
               <h3 className="text-2xl font-extrabold text-blue-700">{resumenKpi.totalRecargosEmpresa.toFixed(1)} hrs</h3>
             </div>
             <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm">
@@ -762,19 +762,19 @@ if (empleado.usoHistoricoAnterior) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <h4 className="text-xs font-bold text-slate-800 mb-2">🏆 Top Consumidores Diurnas</h4>
-              {resumenKpi.ranking.topHED.map((r, i) => (
+              {resumenKpi.ranking?.topHED?.map((r, i) => (
                 <div key={i} className="flex justify-between text-xs py-1 border-b border-slate-100 last:border-0"><span className="truncate w-40">{r.nombre}</span> <span className="font-bold text-slate-600">{r.cantHED.toFixed(1)} hrs</span></div>
               ))}
             </div>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <h4 className="text-xs font-bold text-slate-800 mb-2">🌙 Top Consumidores Nocturnas</h4>
-              {resumenKpi.ranking.topHEN.map((r, i) => (
+              {resumenKpi.ranking?.topHEN?.map((r, i) => (
                 <div key={i} className="flex justify-between text-xs py-1 border-b border-slate-100 last:border-0"><span className="truncate w-40">{r.nombre}</span> <span className="font-bold text-indigo-600">{r.cantHEN.toFixed(1)} hrs</span></div>
               ))}
             </div>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
               <h4 className="text-xs font-bold text-slate-800 mb-2">💰 Top Sobrecostos Recargos</h4>
-              {resumenKpi.ranking.topRecargos.map((r, i) => (
+              {resumenKpi.ranking?.topRecargos?.map((r, i) => (
                 <div key={i} className="flex justify-between text-xs py-1 border-b border-slate-100 last:border-0"><span className="truncate w-40">{r.nombre}</span> <span className="font-bold text-amber-600">${r.valorRecargos.toLocaleString('es-CO')}</span></div>
               ))}
             </div>
@@ -782,6 +782,7 @@ if (empleado.usoHistoricoAnterior) {
         </div>
       )}
 
+      {/* KPI Cards Reestructuradas (UGPP / TRANSPORTE) */}
       {resumenKpi && tipoAuditoriaActiva !== 'JORNADA' && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -806,7 +807,6 @@ if (empleado.usoHistoricoAnterior) {
           </div>
         </div>
       )}
-
       {/* Tabla de Resultados */}
       {hallazgos && (
         <div className="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
