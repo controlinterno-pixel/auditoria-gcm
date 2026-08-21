@@ -215,7 +215,9 @@ const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
       filtroTipo === 'PAGO_EXCESO' ? h.tipoHallazgo === 'PAGO_EXCESO' :
       filtroTipo === 'PAGO_INSUFICIENTE' ? h.tipoHallazgo === 'PAGO_INSUFICIENTE' :
       filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? h.tipoHallazgo === 'DESALINEACION_SUBSISTEMAS' :
-      filtroTipo === 'REQUIERE_HISTORICO' ? h.tipoHallazgo === 'REQUIERE_HISTORICO' : true;
+      filtroTipo === 'REQUIERE_HISTORICO' ? h.tipoHallazgo === 'REQUIERE_HISTORICO' :
+      filtroTipo === 'VIOLACION_JORNADA' ? h.tipoHallazgo === 'VIOLACION_JORNADA' :
+      filtroTipo === 'TIEMPO_SUPLEMENTARIO' ? h.tipoHallazgo === 'TIEMPO_SUPLEMENTARIO' : true;
 
     const term = busqueda.toLowerCase();
     const coincideBusqueda = 
@@ -826,22 +828,36 @@ if (empleado.usoHistoricoAnterior) {
               <button onClick={() => setFiltroTipo('TODOS')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'TODOS' ? 'bg-blue-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
                 Todos ({hallazgos.length})
               </button>
-              <button onClick={() => setFiltroTipo('CONFORME')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'CONFORME' ? 'bg-emerald-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
-                🟢 Conformes ({resumenKpi?.conteoConformes})
-              </button>
-              <button onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
-                🔴 Bajo Pago UGPP ({resumenKpi?.conteoBajoPago})
-              </button>
-              <button onClick={() => setFiltroTipo('PAGO_EXCESO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
-                🟠 Excesos ({resumenKpi?.conteoExcesos})
-              </button>
-            <button onClick={() => setFiltroTipo('DESALINEACION_SUBSISTEMAS')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? 'bg-purple-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
-                ⚠️ Desalineados ({resumenKpi?.conteoDesalineados || 0})
-              </button>
-              <button onClick={() => setFiltroTipo('REQUIERE_HISTORICO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'REQUIERE_HISTORICO' ? 'bg-yellow-600 font-bold text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
-                🟡 Sin Histórico ({hallazgos.filter(h => h.tipoHallazgo === 'REQUIERE_HISTORICO').length})
-              </button>
-            </div>  
+
+              {tipoAuditoriaActiva === 'JORNADA' ? (
+                <>
+                  <button onClick={() => setFiltroTipo('VIOLACION_JORNADA')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'VIOLACION_JORNADA' ? 'bg-pink-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                    🚨 Riesgo Mintrabajo ({resumenKpi?.conteoInfraccionesLegales || 0})
+                  </button>
+                  <button onClick={() => setFiltroTipo('TIEMPO_SUPLEMENTARIO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'TIEMPO_SUPLEMENTARIO' ? 'bg-blue-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                    ℹ️ Con Novedad ({hallazgos.filter(h => h.tipoHallazgo === 'TIEMPO_SUPLEMENTARIO').length})
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setFiltroTipo('CONFORME')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'CONFORME' ? 'bg-emerald-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                    🟢 Conformes ({resumenKpi?.conteoConformes || 0})
+                  </button>
+                  <button onClick={() => setFiltroTipo('PAGO_INSUFICIENTE')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_INSUFICIENTE' ? 'bg-red-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                    🔴 Bajo Pago UGPP ({resumenKpi?.conteoBajoPago || 0})
+                  </button>
+                  <button onClick={() => setFiltroTipo('PAGO_EXCESO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'PAGO_EXCESO' ? 'bg-amber-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                    🟠 Excesos ({resumenKpi?.conteoExcesos || 0})
+                  </button>
+                  <button onClick={() => setFiltroTipo('DESALINEACION_SUBSISTEMAS')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? 'bg-purple-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                    ⚠️ Desalineados ({resumenKpi?.conteoDesalineados || 0})
+                  </button>
+                  <button onClick={() => setFiltroTipo('REQUIERE_HISTORICO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'REQUIERE_HISTORICO' ? 'bg-yellow-600 font-bold text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
+                    🟡 Sin Histórico ({hallazgos.filter(h => h.tipoHallazgo === 'REQUIERE_HISTORICO').length})
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto max-h-[550px]">
