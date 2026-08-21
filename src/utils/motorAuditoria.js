@@ -777,8 +777,7 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       severidad = 'MODERADA (Descuento en Exceso al Empleado)';
       conteoExcesos++;
     }
-
-    // 💡 CONCLUSIÓN INTELIGENTE GCM: Redacción dinámica según la novedad detectada
+// 💡 CONCLUSIÓN INTELIGENTE GCM: Redacción dinámica según la novedad detectada
     let notaForense = null;
     
     if (tipoHallazgo === 'PAGO_INSUFICIENTE' || tipoHallazgo === 'PAGO_EXCESO') {
@@ -813,29 +812,12 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       severidad,
       usoHistoricoAnterior: emp.usoHistoricoAnterior,
       ibcAnteriorDetectado: emp.ibcAnteriorDetectado,
-      notaForense // <-- Pasamos el mensaje a la interfaz
-    });
-      empresa: emp.empresa,
-      cedula: emp.cedula,
-      periodo: emp.periodo,
-      nombre: emp.nombre,
-      cargo: emp.cargo, 
-      diasTrabajados: emp.diasTrabajados,
-      salarioBase: ibcLiquidacion,
-      ibcImplicito: ibcImplicitoSalud || ibcImplicitoPension,
-      ibcImplicitoPension,
-      totalDevengadoSalarial: emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC,
-      auxilioDeberSer: deberSerSalud,
-      auxilioPagado: emp.descuentoSaludReal,
-      diferenciaExacta: difSalud,
-      tipoHallazgo,
-      severidad,
-      usoHistoricoAnterior: emp.usoHistoricoAnterior,
-      ibcAnteriorDetectado: emp.ibcAnteriorDetectado
+      notaForense
     });
   }
 
   return {
+
     hallazgos,
     kpis: {
       totalEmpleados: Object.keys(empleadosPivoteados).length,
