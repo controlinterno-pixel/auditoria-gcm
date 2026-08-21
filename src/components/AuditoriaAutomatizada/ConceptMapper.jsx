@@ -622,7 +622,7 @@ if (empleado.usoHistoricoAnterior) {
           {listaHistoricosBD.length > 0 && (
             <div className="flex items-center gap-2 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
               <span className="text-xs font-bold text-emerald-800">🗄️ Cargar desde Nube:</span>
-           <select 
+          <select 
                 onChange={async (e) => {
                   const idSel = e.target.value;
                   if (!idSel) return;
@@ -644,41 +644,39 @@ if (empleado.usoHistoricoAnterior) {
                       }
 
                       if (dataPlana.length > 0) {
-                        setDatosExcel(prevDatos => {
-                          let finalData = dataPlana;
-                          
-                          if (prevDatos && prevDatos.length > 0) {
-                            const anexar = window.confirm(`Ya tienes datos cargados en pantalla.\n\n¿Deseas ANEXAR la empresa ${histSel.empresa} (${histSel.periodo}) a lo que ya está para auditar todo el mes completo?\n\n- OK: Unir datos\n- Cancelar: Reemplazar todo`);
-                            if (anexar) {
-                              finalData = [...prevDatos, ...dataPlana];
-                              setFileName(prevName => `${prevName} + ${histSel.empresa}`);
-                            } else {
-                              setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
-                            }
+                        let finalData = dataPlana;
+
+                        // 1. Manejo de Unión de Empresas de forma síncrona
+                        if (datosExcel && datosExcel.length > 0) {
+                          const anexar = window.confirm(`Ya tienes datos cargados en pantalla.\n\n¿Deseas ANEXAR la empresa ${histSel.empresa} (${histSel.periodo}) a lo que ya está para auditar todo el mes completo?\n\n- OK: Unir datos\n- Cancelar: Reemplazar todo`);
+                          if (anexar) {
+                            finalData = [...datosExcel, ...dataPlana];
+                            setFileName(`${fileName} + ${histSel.empresa}`);
                           } else {
                             setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
                           }
+                        } else {
+                          setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
+                        }
 
-                          // Extraemos los conceptos directamente de la tabla unida FINAL para evitar errores de memoria
-                          const conceptosUnicos = [...new Set(finalData.map(f => {
-                             if (!f || typeof f !== 'object') return null;
-                             const llaves = Object.keys(f);
-                             const k = llaves.find(key => {
-                                const n = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
-                                return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(n);
-                             });
-                             const val = k ? f[k] : (f['NombreConcepto'] || f['Concepto'] || f['Nombre concepto']);
-                             return normalizarTexto(val);
-                          }))].filter(Boolean);
+                        // Guardamos los datos fusionados
+                        setDatosExcel(finalData);
 
-                          // Forzamos la actualización de las cajitas de forma síncrona
-                          setTimeout(() => {
-                             setConceptosExtraidosUI(conceptosUnicos);
-                             ejecutarAutoMapeoInteligente(conceptosUnicos);
-                          }, 100);
+                        // 2. Extraemos conceptos sobre la tabla final (ya fusionada)
+                        const conceptosUnicos = [...new Set(finalData.map(f => {
+                           if (!f || typeof f !== 'object') return null;
+                           const llaves = Object.keys(f);
+                           const k = llaves.find(key => {
+                              const n = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
+                              return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(n);
+                           });
+                           const val = k ? f[k] : (f['NombreConcepto'] || f['Concepto'] || f['Nombre concepto']);
+                           return normalizarTexto(val);
+                        }))].filter(Boolean);
 
-                          return finalData;
-                        });
+                        // 3. Auto-Mapeo Inmediato
+                        setConceptosExtraidosUI(conceptosUnicos);
+                        ejecutarAutoMapeoInteligente(conceptosUnicos);
 
                         setHallazgos(null);
                         setResumenKpi(null);
@@ -696,7 +694,7 @@ if (empleado.usoHistoricoAnterior) {
                 }}
                 className="text-xs font-bold bg-white border border-emerald-300 rounded p-1.5 text-slate-800 outline-none cursor-pointer"
               >
-               <option value="">-- Seleccionar Nómina Guardada --</option>
+                <option value="">-- Seleccionar Nómina Guardada --</option>
                 {listaHistoricosBD.map(h => (
                   <option key={h.id} value={h.id}>{h.periodo} - {h.empresa} ({h.totalRegistros} reg.)</option>
                 ))}
