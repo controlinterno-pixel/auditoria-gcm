@@ -622,7 +622,8 @@ if (empleado.usoHistoricoAnterior) {
           {listaHistoricosBD.length > 0 && (
             <div className="flex items-center gap-2 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
               <span className="text-xs font-bold text-emerald-800">🗄️ Cargar desde Nube:</span>
-          <select 
+          
+             <select 
                 onChange={async (e) => {
                   const idSel = e.target.value;
                   if (!idSel) return;
@@ -645,24 +646,18 @@ if (empleado.usoHistoricoAnterior) {
 
                       if (dataPlana.length > 0) {
                         let finalData = dataPlana;
+                        let nuevoNombre = `[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`;
 
-                        // 1. Manejo de Unión de Empresas de forma síncrona
+                        // 1. Unir la tabla limpia (Sin atrapar la memoria de React)
                         if (datosExcel && datosExcel.length > 0) {
                           const anexar = window.confirm(`Ya tienes datos cargados en pantalla.\n\n¿Deseas ANEXAR la empresa ${histSel.empresa} (${histSel.periodo}) a lo que ya está para auditar todo el mes completo?\n\n- OK: Unir datos\n- Cancelar: Reemplazar todo`);
                           if (anexar) {
                             finalData = [...datosExcel, ...dataPlana];
-                            setFileName(`${fileName} + ${histSel.empresa}`);
-                          } else {
-                            setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
+                            nuevoNombre = `${fileName} + ${histSel.empresa}`;
                           }
-                        } else {
-                          setFileName(`[Histórico Nube] ${histSel.empresa} (${histSel.periodo})`);
                         }
 
-                        // Guardamos los datos fusionados
-                        setDatosExcel(finalData);
-
-                        // 2. Extraemos conceptos sobre la tabla final (ya fusionada)
+                        // 2. Extraer conceptos de la tabla unida
                         const conceptosUnicos = [...new Set(finalData.map(f => {
                            if (!f || typeof f !== 'object') return null;
                            const llaves = Object.keys(f);
@@ -674,7 +669,9 @@ if (empleado.usoHistoricoAnterior) {
                            return normalizarTexto(val);
                         }))].filter(Boolean);
 
-                        // 3. Auto-Mapeo Inmediato
+                        // 3. Mandar las órdenes a React una por una
+                        setDatosExcel(finalData);
+                        setFileName(nuevoNombre);
                         setConceptosExtraidosUI(conceptosUnicos);
                         ejecutarAutoMapeoInteligente(conceptosUnicos);
 
@@ -698,7 +695,7 @@ if (empleado.usoHistoricoAnterior) {
                 {listaHistoricosBD.map(h => (
                   <option key={h.id} value={h.id}>{h.periodo} - {h.empresa} ({h.totalRegistros} reg.)</option>
                 ))}
-              </select>
+              </select>  
               
               {/* 🟢 LETRERO VISUAL DE CONFIRMACIÓN DE CARGA */}
               {datosExcel && datosExcel.length > 0 && fileName && fileName.includes('Nube') && (
