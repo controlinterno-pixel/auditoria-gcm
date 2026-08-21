@@ -214,6 +214,23 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       conteoConformes++;
     }
 
+    // 💡 DICTAMEN FORENSE INTELIGENTE Y CERTERO - AUXILIO DE TRANSPORTE
+    let notaForense = null;
+    const topeQuincenal = limiteSalarialQuincenal; 
+    const totalDevengado = emp.totalDevengadoSalarial;
+
+    if (tipoHallazgo === 'PAGO_EXCESO') {
+      if (ingresoTotalEvaluado > topeQuincenal) {
+        notaForense = `🚨 EXCESO POR SUPERACIÓN DE TOPE LEGAL (Art. 2 Ley 15/59): El devengado salarial del empleado ($${totalDevengado.toLocaleString('es-CO')}) superó el límite legal de 2 SMLMV quincenales ($${topeQuincenal.toLocaleString('es-CO')}). El ERP le pagó $${emp.auxilioPagado.toLocaleString('es-CO')} de auxilio sin tener derecho legal. Se recomienda ajustar en la siguiente nómina.`;
+      } else {
+        notaForense = `⚠️ EXCESO EN LIQUIDACIÓN DIARIA: El empleado laboró ${diasEfectivos} días y le correspondían $${auxilioDeberSer.toLocaleString('es-CO')} de auxilio ($${Math.round(valorDiarioAuxilio).toLocaleString('es-CO')}/día). El ERP le pagó $${emp.auxilioPagado.toLocaleString('es-CO')}. Existe un sobrepago de $${diferenciaAbsoluta.toLocaleString('es-CO')}.`;
+      }
+    } else if (tipoHallazgo === 'PAGO_INSUFICIENTE') {
+      notaForense = `🔴 BAJO PAGO CRÍTICO (RIESGO UGPP): El empleado tuvo un devengado salarial ($${totalDevengado.toLocaleString('es-CO')}) inferior al tope de 2 SMLMV ($${topeQuincenal.toLocaleString('es-CO')}) con ${diasEfectivos} días laborados. Tenía derecho a $${auxilioDeberSer.toLocaleString('es-CO')} pero solo le pagaron $${emp.auxilioPagado.toLocaleString('es-CO')}. Existe un faltante de $${diferenciaExacta.toLocaleString('es-CO')}.`;
+    } else if (tipoHallazgo === 'NO_APLICA') {
+      notaForense = `ℹ️ EXCLUIDO LEGALMENTE: Empleado no aplica para Auxilio de Transporte por devengar más de 2 SMLMV ($${totalDevengado.toLocaleString('es-CO')}). El ERP no realizó pagos, cumpliendo la norma al 100%.`;
+    }
+
     hallazgos.push({
       id: `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
       empresa: emp.empresa,
@@ -229,7 +246,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       diferenciaExacta,
       diferenciaAbsoluta,
       tipoHallazgo,
-      severidad
+      severidad,
+      notaForense
     });
   }
 
