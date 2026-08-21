@@ -1006,35 +1006,49 @@ if (empleado.usoHistoricoAnterior) {
                 <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase">AUXILIO DEBER SER (LEGAL)</span>
-                    <p className="text-xl font-extrabold text-emerald-700">${empleadoDiagonal.auxilioDeberSer.toLocaleString('es-CO')}</p>
+                    <p className="text-xl font-extrabold text-emerald-700">${(empleadoDiagonal.auxilioDeberSer || 0).toLocaleString('es-CO')}</p>
                     <p className="text-[10px] text-slate-500 font-bold mt-1">Días Laborados: {empleadoDiagonal.diasTrabajados}</p>
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-blue-600 uppercase">AUXILIO PAGADO EN NÓMINA</span>
-                    <p className="text-xl font-extrabold text-blue-900">${empleadoDiagonal.auxilioPagado.toLocaleString('es-CO')}</p>
-                    <p className="text-[10px] text-slate-500 font-bold mt-1">Devengado Total: ${empleadoDiagonal.totalDevengadoSalarial.toLocaleString('es-CO')}</p>
+                    <p className="text-xl font-extrabold text-blue-900">${(empleadoDiagonal.auxilioPagado || 0).toLocaleString('es-CO')}</p>
+                    <p className="text-[10px] text-slate-500 font-bold mt-1">Devengado Total: ${(empleadoDiagonal.totalDevengadoSalarial || 0).toLocaleString('es-CO')}</p>
+                  </div>
+                </div>
+              ) : tipoAuditoriaActiva === 'JORNADA' ? (
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">TOTAL HORAS EXTRAS (LEY 2101)</span>
+                    <p className="text-xl font-extrabold text-pink-700">{(empleadoDiagonal.totalHorasExtras || 0).toFixed(1)} hrs</p>
+                    <p className="text-[10px] text-slate-500 font-bold mt-1">Sobrecosto: ${(empleadoDiagonal.costoExtras || 0).toLocaleString('es-CO')}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-blue-600 uppercase">TOTAL RECARGOS APLICADOS</span>
+                    <p className="text-xl font-extrabold text-blue-900">{(empleadoDiagonal.totalRecargos || 0).toFixed(1)} hrs</p>
+                    <p className="text-[10px] text-slate-500 font-bold mt-1">Sobrecosto: ${(empleadoDiagonal.costoRecargos || 0).toLocaleString('es-CO')}</p>
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">IBC NORMATIVO RECALCULADO</span>
-                    <p className="text-xl font-extrabold text-emerald-700">${empleadoDiagonal.salarioBase.toLocaleString('es-CO')}</p>
-                    {empleadoDiagonal.usoHistoricoAnterior && (
-                      <p className="text-[10px] text-emerald-600 font-bold mt-1">✓ Incluye Histórico de Vacaciones</p>
-                    )}
+                <>
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">IBC NORMATIVO RECALCULADO</span>
+                      <p className="text-xl font-extrabold text-emerald-700">${(empleadoDiagonal.salarioBase || 0).toLocaleString('es-CO')}</p>
+                      {empleadoDiagonal.usoHistoricoAnterior && (
+                        <p className="text-[10px] text-emerald-600 font-bold mt-1">✓ Incluye Histórico de Vacaciones</p>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-indigo-600 uppercase">IBC Implícito (Registrado ERP)</span>
+                      <p className="text-xl font-extrabold text-indigo-900">${(empleadoDiagonal.ibcImplicito || 0).toLocaleString('es-CO')}</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-indigo-600 uppercase">IBC Implícito (Registrado ERP)</span>
-                    <p className="text-xl font-extrabold text-indigo-900">${(empleadoDiagonal.ibcImplicito || 0).toLocaleString('es-CO')}</p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900 text-xs font-semibold flex justify-between items-center mt-4">
+                    <span>⚠️ Brecha de bases sin afectar estado normativo:</span>
+                    <span className="font-mono text-sm font-bold">${Math.abs((empleadoDiagonal.salarioBase || 0) - (empleadoDiagonal.ibcImplicito || 0)).toLocaleString('es-CO')}</span>
                   </div>
-                </div>
-              )}           
-
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900 text-xs font-semibold flex justify-between items-center">
-                <span>⚠️ Brecha de bases sin afectar estado normativo:</span>
-                <span className="font-mono text-sm font-bold">${Math.abs(empleadoDiagonal.salarioBase - (empleadoDiagonal.ibcImplicito || 0)).toLocaleString('es-CO')}</span>
-              </div>
+                </>
+              )}
 {/* 🤖 SECCIÓN DE RECONCILIACIÓN INFORMATIVA DE CAUSALES */}
               <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4">
                 <h4 className="text-xs font-bold text-indigo-900 uppercase mb-2">📌 Posibles Causales de la Brecha ERP vs. Motor:</h4>
