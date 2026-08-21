@@ -137,9 +137,10 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
     const emp = empleadosPivoteados[llaveUnica];
 
-  if (conceptosSalario.includes(conceptoLimpio)) {
-      // Motor inteligente: Detecta la palabra aunque tenga códigos como "DV01-"
-      const esSueldoEstricto = ['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].some(kw => conceptoLimpio.includes(kw));
+ if (conceptosSalario.includes(conceptoLimpio)) {
+      // Motor inteligente: Detecta el sueldo base pero EXCLUYE licencias e incapacidades
+      const esSueldoEstricto = ['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].some(kw => conceptoLimpio.includes(kw)) && 
+                               !['LICENCIA', 'SUSPENSION', 'INCAPACIDAD', 'VACACION'].some(kw => conceptoLimpio.includes(kw));
 
       if (esSueldoEstricto) {
         emp.sueldoBasico += valorTotal;
