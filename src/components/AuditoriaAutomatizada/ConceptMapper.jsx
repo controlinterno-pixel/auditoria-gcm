@@ -696,15 +696,22 @@ if (empleado.usoHistoricoAnterior) {
                 }}
                 className="text-xs font-bold bg-white border border-emerald-300 rounded p-1.5 text-slate-800 outline-none cursor-pointer"
               >
-                <option value="">-- Seleccionar Nómina Guardada --</option>
+               <option value="">-- Seleccionar Nómina Guardada --</option>
                 {listaHistoricosBD.map(h => (
                   <option key={h.id} value={h.id}>{h.periodo} - {h.empresa} ({h.totalRegistros} reg.)</option>
                 ))}
               </select>
+              
+              {/* 🟢 LETRERO VISUAL DE CONFIRMACIÓN DE CARGA */}
+              {datosExcel && datosExcel.length > 0 && fileName && fileName.includes('Nube') && (
+                <span className="text-xs font-extrabold text-emerald-700 bg-white px-3 py-1.5 rounded-md border-2 border-emerald-400 shadow-sm animate-pulse flex items-center gap-1 ml-2">
+                  <span>✅</span> ¡Nómina Cargada! ({datosExcel.length})
+                </span>
+              )}
             </div>
           )}
 
-          {pestanaActiva === 'TRANSPORTE' ? (
+          {pestanaActiva === 'TRANSPORTE' ? ( 
             <button 
               onClick={handleStartAudit}
               
