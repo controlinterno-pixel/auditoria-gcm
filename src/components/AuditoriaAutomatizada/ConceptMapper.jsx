@@ -908,33 +908,33 @@ if (empleado.usoHistoricoAnterior) {
                       
 {tipoAuditoriaActiva === 'TRANSPORTE' ? (
                         <>
-                          <td className="px-4 py-3 text-right font-mono text-slate-700">${h.salarioBase.toLocaleString('es-CO')}</td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${h.totalDevengadoSalarial.toLocaleString('es-CO')}</td>
-                          <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
-                          <td onClick={() => setEmpleadoDiagonal(h)} className="px-4 py-3 text-right font-mono font-bold text-blue-900 cursor-pointer hover:bg-blue-100 transition-colors">${h.auxilioPagado.toLocaleString('es-CO')} 🔍</td>
-                          <td className={`px-4 py-3 text-right font-mono font-bold ${esConforme ? 'text-emerald-600' : 'text-red-600'}`}>${h.diferenciaExacta.toLocaleString('es-CO')}</td>
+                          <td className="px-4 py-3 text-right font-mono text-slate-700">${(h.salarioBase || 0).toLocaleString('es-CO')}</td>
+                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || 0).toLocaleString('es-CO')}</td>
+                          <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${(h.auxilioDeberSer || 0).toLocaleString('es-CO')}</td>
+                          <td onClick={() => setEmpleadoDiagonal(h)} className="px-4 py-3 text-right font-mono font-bold text-blue-900 cursor-pointer hover:bg-blue-100 transition-colors">${(h.auxilioPagado || 0).toLocaleString('es-CO')} 🔍</td>
+                          <td className={`px-4 py-3 text-right font-mono font-bold ${esConforme ? 'text-emerald-600' : 'text-red-600'}`}>${(h.diferenciaExacta || 0).toLocaleString('es-CO')}</td>
                         </>
                       ) : tipoAuditoriaActiva === 'JORNADA' ? (
                         <>
-                          <td className="px-4 py-3 text-right font-mono text-pink-700 font-bold">{h.totalHorasExtras.toFixed(1)} hrs</td>
-                          <td className="px-4 py-3 text-right font-mono text-slate-700">{h.totalRecargos.toFixed(1)} hrs</td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${h.costoExtras.toLocaleString('es-CO')}</td>
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${h.costoRecargos.toLocaleString('es-CO')}</td>
-                          <td onClick={() => setEmpleadoDiagonal(h)} className="px-4 py-3 text-right font-mono font-bold text-amber-700 cursor-pointer hover:bg-amber-100 transition-colors">${h.granTotalCosto.toLocaleString('es-CO')} 🔍</td>
+                          <td className="px-4 py-3 text-right font-mono text-pink-700 font-bold">{(h.totalHorasExtras || 0).toFixed(1)} hrs</td>
+                          <td className="px-4 py-3 text-right font-mono text-slate-700">{(h.totalRecargos || 0).toFixed(1)} hrs</td>
+                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.costoExtras || 0).toLocaleString('es-CO')}</td>
+                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.costoRecargos || 0).toLocaleString('es-CO')}</td>
+                          <td onClick={() => setEmpleadoDiagonal(h)} className="px-4 py-3 text-right font-mono font-bold text-amber-700 cursor-pointer hover:bg-amber-100 transition-colors">${(h.granTotalCosto || 0).toLocaleString('es-CO')} 🔍</td>
                         </>
                       ) : (
                         <>
                           <td className="px-4 py-3 text-right font-mono text-slate-700">
-                            ${h.salarioBase.toLocaleString('es-CO')}
+                            ${(h.salarioBase || 0).toLocaleString('es-CO')}
                             {h.usoHistoricoAnterior && <span className="text-[10px] text-emerald-600 block leading-none mt-0.5">🧠 HISTÓRICO</span>}
                           </td>
                           <td onClick={() => setEmpleadoDiagonal(h)} className={`px-4 py-3 text-right font-mono font-bold cursor-pointer hover:bg-indigo-100 transition-colors ${brechaIBC ? 'text-indigo-700 bg-indigo-50 border-x border-indigo-100' : 'text-slate-600'}`}>
                             ${(h.ibcImplicito || 0).toLocaleString('es-CO')} 🔍
                           </td> 
-                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')}</td>
-                          <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${(h.auxilioDeberSer || h.deberSerSalud).toLocaleString('es-CO')}</td>
-                          <td className="px-4 py-3 text-right font-mono text-slate-800">${(h.auxilioPagado || h.descuentoSaludReal).toLocaleString('es-CO')}</td>
-                          <td className={`px-4 py-3 text-right font-mono font-bold ${esConforme ? 'text-emerald-600' : 'text-amber-600'}`}>${h.diferenciaExacta.toLocaleString('es-CO')}</td>
+                          <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">${(h.totalDevengadoSalarial || h.salarioBase || 0).toLocaleString('es-CO')}</td>
+                          <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${(h.auxilioDeberSer || h.deberSerSalud || 0).toLocaleString('es-CO')}</td>
+                          <td className="px-4 py-3 text-right font-mono text-slate-800">${(h.auxilioPagado || h.descuentoSaludReal || 0).toLocaleString('es-CO')}</td>
+                          <td className={`px-4 py-3 text-right font-mono font-bold ${esConforme ? 'text-emerald-600' : 'text-amber-600'}`}>${(h.diferenciaExacta || 0).toLocaleString('es-CO')}</td>
                         </>
                       )}
                       <td className="px-4 py-3 text-center whitespace-nowrap">
