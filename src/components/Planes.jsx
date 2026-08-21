@@ -377,23 +377,31 @@ const handleNotificarPlan = (planId) => {
       const stateNode = matrixState[hallazgoId];
       const hIndex = updatedHallazgos.findIndex(h => String(h.id) === String(hallazgoId));
 
-      if (hIndex !== -1) {
+     if (hIndex !== -1) {
         let nuevoEstado = 'Abierto';
+        let accionHistorial = `Estado automatizado a ${nuevoEstado} (Validación de Planes)`;
+        let forzarGuardadoHistorial = false;
+        
         if (!stateNode.aplica) {
           nuevoEstado = 'Cerrado';
+          accionHistorial = `❌ Hallazgo marcado como NO APLICA. Justificación: ${stateNode.justificacionNoAplica}`;
+          forzarGuardadoHistorial = true; // Para que siempre guarde la observación aunque ya estuviera cerrado
         } else {
           const actividadesDeEsteHallazgo = updatedPlanesList.filter(p => String(p.idHallazgo) === String(hallazgoId));
           if (actividadesDeEsteHallazgo.length > 0) {
             const todasAprobadas = actividadesDeEsteHallazgo.every(act => act.estadoWorkflow === 'Cerrado');
-            if (todasAprobadas) nuevoEstado = 'Cerrado';
+            if (todasAprobadas) {
+              nuevoEstado = 'Cerrado';
+              accionHistorial = `✅ Estado automatizado a Cerrado (Todas las actividades fueron aprobadas).`;
+            }
           }
         }
 
-        if (updatedHallazgos[hIndex].estado !== nuevoEstado) {
+        if (updatedHallazgos[hIndex].estado !== nuevoEstado || forzarGuardadoHistorial) {
           updatedHallazgos[hIndex] = {
             ...updatedHallazgos[hIndex],
             estado: nuevoEstado,
-            historialCambios: [...(updatedHallazgos[hIndex].historialCambios || []), { fecha: ts, accion: `Estado automatizado a ${nuevoEstado} (Validación de Planes)` }]
+            historialCambios: [...(updatedHallazgos[hIndex].historialCambios || []), { fecha: ts, accion: accionHistorial }]
           };
           hallazgosModificados = true;
         }
@@ -674,8 +682,34 @@ const handleNotificarPlan = (planId) => {
     setMatrixState(newState);
   };
 
+  const [modalNoAplica, setModalNoAplica] = useState({ activo: false, hallazgoId: null, justificacionTemporal: '' });
+
   const handleToggleAplica = (hallazgoId, value) => {
-    setMatrixState(prev => ({ ...prev, [hallazgoId]: { ...prev[hallazgoId], aplica: value } }));
+    if (value === false) {
+      // Abre la ventana sutil en lugar de cambiar directamente a falso
+      setModalNoAplica({
+        activo: true,
+        hallazgoId: hallazgoId,
+        justificacionTemporal: matrixState[hallazgoId]?.justificacionNoAplica || ''
+      });
+    } else {
+      setMatrixState(prev => ({ ...prev, [hallazgoId]: { ...prev[hallazgoId], aplica: true } }));
+    }
+  };
+
+  const confirmarNoAplica = () => {
+    if (modalNoAplica.justificacionTemporal.trim() === '') {
+      return alert("❌ Debe ingresar una justificación válida para marcar el hallazgo como No Aplica.");
+    }
+    setMatrixState(prev => ({
+      ...prev,
+      [modalNoAplica.hallazgoId]: {
+        ...prev[modalNoAplica.hallazgoId],
+        aplica: false,
+        justificacionNoAplica: modalNoAplica.justificacionTemporal
+      }
+    }));
+    setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' });
   };
 
   // 🧠 MODIFICADO: MANTIENE LA CONSISTENCIA DE HERENCIA SI AGREGAN MÁS ACTIVIDADES
@@ -1383,11 +1417,24 @@ const handleNotificarPlan = (planId) => {
                             </div>
                           </div>
                         ))}
-                        <button type="button" onClick={() => handleAddActivity(h.id)} className="bg-white border-2 border-dashed border-slate-300 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase">➕ Agregar Otra Actividad</button>
+                <button type="button" onClick={() => handleAddActivity(h.id)} className="bg-white border-2 border-dashed border-slate-300 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase">➕ Agregar Otra Actividad</button>
+                      </div>
+                    )}
+
+                    {/* Si está marcado como "No Aplica", mostramos el recuadro con la justificación */}
+                    {!node.aplica && (
+                      <div className="bg-slate-100 p-4 rounded-xl border border-slate-300 shadow-inner flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mt-2">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Motivo de rechazo (No Aplica)</span>
+                          <p className="text-xs text-slate-700 font-medium italic whitespace-pre-wrap">"{node.justificacionNoAplica}"</p>
+                        </div>
+                        <button type="button" onClick={() => handleToggleAplica(h.id, false)} className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase transition-colors shrink-0 shadow-sm flex items-center gap-1">
+                          <span>✏️</span> Editar Observación
+                        </button>
                       </div>
                     )}
                   </div>
-                );
+                );       
               })}
              {/* 👉 PÉGALO EXACTAMENTE AQUÍ REEMPLAZANDO EL ANTERIOR */}
               <div className="pt-4 border-t flex flex-col md:flex-row justify-end items-center gap-4">
@@ -2312,6 +2359,11 @@ const handleNotificarPlan = (planId) => {
           </div>
         </div>
       )}
+        {modalNoAplica?.activo && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+            {/* ... (todo el resto del código del modal que te di) ... */}
+          </div>
+        )} 
     </div>
   );
 }
