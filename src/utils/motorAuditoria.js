@@ -430,10 +430,11 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       emp.totalNoConstitutivo += valorTotal;
     } else if (licenciasNoRemuneradas.includes(conceptoLimpio) || conceptoLimpio.includes('NO REMUNERAD') || conceptoLimpio.includes('SUSPENSION')) {
       emp.tieneLicenciaNoRemunerada = true;
-    } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio === 'SALUD')) {
+  } else if (conceptosSalud.includes(conceptoLimpio) || (conceptoLimpio === 'SALUD')) {
       emp.descuentoSaludReal += Math.abs(valorTotal);
     } else if (conceptosPension.includes(conceptoLimpio) || (conceptoLimpio === 'PENSION')) {
-      if (conceptoLimpio !== 'SOLIDARIDAD') emp.descuentoPensionReal += Math.abs(valorTotal);
+      // Ignorar la solidaridad para no distorsionar el cálculo del 4% base
+      if (!conceptoLimpio.includes('SOLIDARIDAD')) emp.descuentoPensionReal += Math.abs(valorTotal);
     } else if (conceptosCaja.includes(conceptoLimpio)) {
       emp.aporteCajaReal += Math.abs(valorTotal);
     } else if (conceptosSenaIcbf.includes(conceptoLimpio)) {
