@@ -845,4 +845,141 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       conteoNoAplica: 0 
     }
   };
+  }
+  // ==========================================
+// MÓDULO 3: AUDITORÍA DE JORNADA LABORAL Y HORAS EXTRAS (LEY 2101)
+// ==========================================
+export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
+  const conceptosHED = (mapeoConceptos?.he_diurnas || []).map(normalizarTexto);
+  const conceptosHEN = (mapeoConceptos?.he_nocturnas || []).map(normalizarTexto);
+  const conceptosHEF = (mapeoConceptos?.he_festivas || []).map(normalizarTexto);
+  const conceptosRecargos = (mapeoConceptos?.recargos || []).map(normalizarTexto);
+
+  const limiteHorasExtrasQuincenal = 24; // Límite legal: 2 horas diarias / 12 semanales
+
+  const empleadosPivoteados = {};
+
+  transaccionesExcel.forEach(fila => {
+    const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
+    if (!cedulaRaw) return;
+
+    const cedula = limpiarCedula(cedulaRaw);
+    const periodo = (buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']) || '228').toString().trim();
+    const llaveUnica = `${cedula}_${periodo}`;
+    
+    const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
+    const conceptoLimpio = normalizarTexto(conceptoRaw);
+    
+    // El ERP guarda las horas en la columna 'Cantidad'
+    const cantidadHoras = parsearMonto(buscarColumna(fila, ['Cantidad', 'Horas', 'Cant']));
+    const valorPagado = parsearMonto(buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago']));
+    const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
+
+    if (!empleadosPivoteados[llaveUnica]) {
+      empleadosPivoteados[llaveUnica] = {
+        llaveUnica,
+        cedula,
+        periodo,
+        nombre: buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']) || 'Sin Nombre',
+        cargo: buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo',
+        empresa: empresaRaw ? empresaRaw.toString().trim() : 'GENERAL',
+        
+        // Contadores de Cantidad (Horas)
+        cantHED: 0, cantHEN: 0, cantHEF: 0, cantRecargos: 0,
+        
+        // Contadores de Dinero ($)
+        valorHED: 0, valorHEN: 0, valorHEF: 0, valorRecargos: 0
+      };
+    }
+
+    const emp = empleadosPivoteados[llaveUnica];
+
+    // Clasificación de Tiempos
+    const esHED = conceptosHED.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA DIURNA');
+    const esHEN = conceptosHEN.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA NOCTURNA');
+    const esHEF = conceptosHEF.includes(conceptoLimpio) || conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRA DOMINICAL');
+    const esRecargo = conceptosRecargos.includes(conceptoLimpio) || (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA'));
+
+    if (esHED) { emp.cantHED += cantidadHoras; emp.valorHED += valorPagado; }
+    else if (esHEN) { emp.cantHEN += cantidadHoras; emp.valorHEN += valorPagado; }
+    else if (esHEF) { emp.cantHEF += cantidadHoras; emp.valorHEF += valorPagado; }
+    else if (esRecargo) { emp.cantRecargos += cantidadHoras; emp.valorRecargos += valorPagado; }
+  });
+
+  const hallazgos = [];
+  let totalHorasExtrasEmpresa = 0;
+  let totalRecargosEmpresa = 0;
+  let costoTotalExtras = 0;
+  let costoTotalRecargos = 0;
+  let conteoInfraccionesLegales = 0;
+
+  for (const llave in empleadosPivoteados) {
+    const emp = empleadosPivoteados[llave];
+    const totalHorasExtras = emp.cantHED + emp.cantHEN + emp.cantHEF;
+    const costoExtras = emp.valorHED + emp.valorHEN + emp.valorHEF;
+    
+    totalHorasExtrasEmpresa += totalHorasExtras;
+    totalRecargosEmpresa += emp.cantRecargos;
+    costoTotalExtras += costoExtras;
+    costoTotalRecargos += emp.valorRecargos;
+
+    let tipoHallazgo = 'CONFORME';
+    let severidad = 'CORRECTO';
+    let notaForense = null;
+
+    // 💡 ALERTA INTELIGENTE: Auditoría Legal de Jornada (Mintrabajo)
+    if (totalHorasExtras > limiteHorasExtrasQuincenal) {
+      tipoHallazgo = 'VIOLACION_JORNADA';
+      severidad = 'CRÍTICA (Riesgo Mintrabajo)';
+      conteoInfraccionesLegales++;
+      notaForense = `🚨 INFRACCIÓN LEY 50/1990 y 2101/2021: El empleado registró ${totalHorasExtras.toFixed(1)} horas extras en la quincena, superando el tope legal de ${limiteHorasExtrasQuincenal} horas. Esto genera un riesgo inminente de sanción por parte del Ministerio de Trabajo por sobreexplotación de la jornada máxima legal.`;
+    } else if (totalHorasExtras > 0 || emp.cantRecargos > 0) {
+      tipoHallazgo = 'TIEMPO_SUPLEMENTARIO';
+      severidad = 'INFORMATIVO (Sobrecosto Operativo)';
+      notaForense = `💡 DESGLOSE OPERATIVO: El empleado laboró dentro de los márgenes legales. Acumuló ${totalHorasExtras.toFixed(1)} Horas Extras y ${emp.cantRecargos.toFixed(1)} horas de Recargos, generando un sobrecosto a la empresa de $${(costoExtras + emp.valorRecargos).toLocaleString('es-CO')}.`;
+    } else {
+      continue; // Si no tiene horas extras ni recargos, no lo mostramos en la tabla para no hacer ruido
+    }
+
+    hallazgos.push({
+      id: `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
+      empresa: emp.empresa,
+      cedula: emp.cedula,
+      periodo: emp.periodo,
+      nombre: emp.nombre,
+      cargo: emp.cargo,
+      totalHorasExtras,
+      totalRecargos: emp.cantRecargos,
+      costoExtras,
+      costoRecargos: emp.valorRecargos,
+      granTotalCosto: costoExtras + emp.valorRecargos,
+      tipoHallazgo,
+      severidad,
+      notaForense,
+      // Datos puros para el ranking
+      cantHED: emp.cantHED,
+      cantHEN: emp.cantHEN,
+      cantHEF: emp.cantHEF,
+      valorRecargos: emp.valorRecargos
+    });
+  }
+
+  // 🏆 GENERACIÓN DE RANKINGS (TOP CONSUMIDORES)
+  const empleadosArray = Object.values(empleadosPivoteados).filter(e => (e.cantHED + e.cantHEN + e.cantHEF + e.cantRecargos) > 0);
+  
+  const topHED = [...empleadosArray].sort((a, b) => b.cantHED - a.cantHED).slice(0, 3);
+  const topHEN = [...empleadosArray].sort((a, b) => b.cantHEN - a.cantHEN).slice(0, 3);
+  const topRecargos = [...empleadosArray].sort((a, b) => b.valorRecargos - a.valorRecargos).slice(0, 3);
+
+  return {
+    hallazgos,
+    kpis: {
+      conteoInfraccionesLegales,
+      totalHorasExtrasEmpresa,
+      totalRecargosEmpresa,
+      costoTotalExtras,
+      costoTotalRecargos,
+      ranking: { topHED, topHEN, topRecargos }
+    }
+  };
 }

@@ -1,6 +1,6 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
 import React, { useState, useEffect } from 'react';
-import { auditarAuxilioTransporte, auditarSeguridadSocial } from '../../utils/motorAuditoria';
+import { auditarAuxilioTransporte, auditarSeguridadSocial, auditarJornadaLaboral } from '../../utils/motorAuditoria';
 import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica, cargarNominaHistorica } from '../../services/historicoService';
 
 const normalizarTexto = (str) => {
@@ -198,6 +198,14 @@ const systemCategories = [
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleStartAuditJornada = () => {
+    if (!datosExcel || datosExcel.length === 0) return;
+    const resultadoEngine = auditarJornadaLaboral(datosExcel, mapping);
+    setTipoAuditoriaActiva('JORNADA');
+    setHallazgos(resultadoEngine.hallazgos);
+    setResumenKpi(resultadoEngine.kpis);
   };
 
 const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
@@ -556,12 +564,17 @@ if (empleado.usoHistoricoAnterior) {
               className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'TRANSPORTE' ? 'bg-blue-900 text-white border-b-4 border-blue-500' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
             >
               ⚡ Motor Auxilio Transporte
-            </button>
-            <button 
+           <button 
               onClick={() => setPestanaActiva('UGPP')}
               className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'UGPP' ? 'bg-indigo-700 text-white border-b-4 border-indigo-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
             >
               🛡️ Motor Auditoría Integral (360°)
+            </button>
+            <button 
+              onClick={() => setPestanaActiva('JORNADA')}
+              className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'JORNADA' ? 'bg-pink-700 text-white border-b-4 border-pink-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              ⏱️ Motor Jornada Laboral
             </button>
           </div>
 
@@ -587,6 +600,8 @@ if (empleado.usoHistoricoAnterior) {
             .filter(cat => 
               pestanaActiva === 'TRANSPORTE' 
                 ? ['salario_base', 'aux_transporte', 'vacaciones_incapacidades', 'licencias_no_remuneradas'].includes(cat.id)
+                : pestanaActiva === 'JORNADA'
+                ? [] // Oculta todas las categorías base, la jornada detecta los nombres automáticamente del Excel sin mapeo manual para evitar errores
                 : ['salario_base', 'devengados_no_salariales', 'salud', 'pension', 'vacaciones_incapacidades', 'licencias_no_remuneradas', 'caja_compensacion', 'riesgos_laborales', 'sena_icbf', 'prestaciones_sociales', 'deducciones_libranzas', 'retencion_fuente'].includes(cat.id)
             )
             .map((category) => (
@@ -706,19 +721,15 @@ if (empleado.usoHistoricoAnterior) {
           )}
 
           {pestanaActiva === 'TRANSPORTE' ? ( 
-            <button 
-              onClick={handleStartAudit}
-              
-              className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors w-full md:w-auto"
-            >
+            <button onClick={handleStartAudit} className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors w-full md:w-auto">
               ⚡ Ejecutar Auditoría de Transporte
             </button>
+          ) : pestanaActiva === 'JORNADA' ? (
+            <button onClick={handleStartAuditJornada} className="px-8 py-3 bg-pink-700 text-white font-bold rounded-lg shadow-md hover:bg-pink-600 transition-colors w-full md:w-auto ml-auto">
+              ⏱️ Ejecutar Auditoría de Jornada (Ley 2101)
+            </button>
           ) : (
-            <button 
-              onClick={handleStartAuditUGPP}
-              disabled={isUploading}
-              className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed ml-auto"
-            >
+            <button onClick={handleStartAuditUGPP} disabled={isUploading} className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed ml-auto">
               {isUploading ? '⏳ Consultando Histórico y Auditando...' : '🛡️ Ejecutar Auditoría Integral'}
             </button>
           )}
@@ -726,8 +737,52 @@ if (empleado.usoHistoricoAnterior) {
       </div>
       )}
 
-      {/* KPI Cards Reestructuradas */}
-      {resumenKpi && (
+      {/* KPI Cards & Rankings */}
+      {resumenKpi && tipoAuditoriaActiva === 'JORNADA' && (
+        <div className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="bg-white p-5 rounded-xl border border-pink-200 shadow-sm">
+              <p className="text-xs font-bold text-pink-600 uppercase">🚨 Infracciones (Mintrabajo)</p>
+              <h3 className="text-2xl font-extrabold text-pink-700">{resumenKpi.conteoInfraccionesLegales}</h3>
+            </div>
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <p className="text-xs font-bold text-slate-500 uppercase">Total Horas Extras Empresa</p>
+              <h3 className="text-2xl font-extrabold text-slate-800">{resumenKpi.totalHorasExtrasEmpresa.toFixed(1)} hrs</h3>
+            </div>
+            <div className="bg-white p-5 rounded-xl border border-blue-200 shadow-sm">
+              <p className="text-xs font-bold text-blue-600 uppercase">Total Recargos Empresa</p>
+              <h3 className="text-2xl font-extrabold text-blue-700">{resumenKpi.totalRecargosEmpresa.toFixed(1)} hrs</h3>
+            </div>
+            <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm">
+              <p className="text-xs font-bold text-amber-600 uppercase">Costo Total Sobretasa</p>
+              <h3 className="text-xl font-extrabold text-amber-700">${(resumenKpi.costoTotalExtras + resumenKpi.costoTotalRecargos).toLocaleString('es-CO')}</h3>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h4 className="text-xs font-bold text-slate-800 mb-2">🏆 Top Consumidores Diurnas</h4>
+              {resumenKpi.ranking.topHED.map((r, i) => (
+                <div key={i} className="flex justify-between text-xs py-1 border-b border-slate-100 last:border-0"><span className="truncate w-40">{r.nombre}</span> <span className="font-bold text-slate-600">{r.cantHED.toFixed(1)} hrs</span></div>
+              ))}
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h4 className="text-xs font-bold text-slate-800 mb-2">🌙 Top Consumidores Nocturnas</h4>
+              {resumenKpi.ranking.topHEN.map((r, i) => (
+                <div key={i} className="flex justify-between text-xs py-1 border-b border-slate-100 last:border-0"><span className="truncate w-40">{r.nombre}</span> <span className="font-bold text-indigo-600">{r.cantHEN.toFixed(1)} hrs</span></div>
+              ))}
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+              <h4 className="text-xs font-bold text-slate-800 mb-2">💰 Top Sobrecostos Recargos</h4>
+              {resumenKpi.ranking.topRecargos.map((r, i) => (
+                <div key={i} className="flex justify-between text-xs py-1 border-b border-slate-100 last:border-0"><span className="truncate w-40">{r.nombre}</span> <span className="font-bold text-amber-600">${r.valorRecargos.toLocaleString('es-CO')}</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resumenKpi && tipoAuditoriaActiva !== 'JORNADA' && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <p className="text-xs font-bold text-slate-500 uppercase">Total Auditados</p>
