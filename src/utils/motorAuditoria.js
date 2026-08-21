@@ -445,6 +445,7 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
     } else if (conceptosDeducciones.includes(conceptoLimpio)) {
       emp.totalDeduccionesLegales += Math.abs(valorTotal);
     }
+    });
     
  // 🧠 PRE-CARGA DINÁMICA Y SÍNCRONA DE HISTÓRICOS EN FIREBASE (PROMISE.ALL)
   const historicosPreCargados = {};
