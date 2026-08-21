@@ -778,12 +778,20 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       conteoExcesos++;
     }
 
-    // 💡 CONCLUSIÓN INTELIGENTE GCM: Filtro para explicar asimetrías quincenales del ERP
+    // 💡 CONCLUSIÓN INTELIGENTE GCM: Redacción dinámica según la novedad detectada
     let notaForense = null;
-    const tieneNovedadOVariable = emp.valorAusentismosIBC > 0 || (emp.totalConstitutivoIBC - emp.sueldoBasico) > 20000;
     
-    if ((tipoHallazgo === 'PAGO_INSUFICIENTE' || tipoHallazgo === 'PAGO_EXCESO') && tieneNovedadOVariable) {
-        notaForense = "💡 Dictamen Forense GCM: Esta brecha quincenal es un comportamiento operativo normal del ERP. Al existir novedades (vacaciones/licencias) o salarios variables (comisiones/recargos), el software suele distribuir el descuento de Salud y Pensión de forma asimétrica entre las quincenas. Verifique el cierre mensual contra la PILA; si cuadra a cero, omita esta alerta, no hay riesgo UGPP.";
+    if (tipoHallazgo === 'PAGO_INSUFICIENTE' || tipoHallazgo === 'PAGO_EXCESO') {
+      const tieneVacaciones = emp.valorAusentismosIBC > 0;
+      const tieneVariables = (emp.totalConstitutivoIBC - emp.sueldoBasico) > 10000;
+
+      if (tieneVacaciones && tieneVariables) {
+        notaForense = "💡 Dictamen GCM: Detectamos Vacaciones y Pagos Variables simultáneos (Comisiones/Recargos). El ERP suele distribuir el descuento de Salud/Pensión de forma asimétrica en estos escenarios. Si la suma mensual cuadra con la PILA, omita esta alerta, no hay riesgo UGPP.";
+      } else if (tieneVacaciones) {
+        notaForense = "💡 Dictamen GCM: El empleado presenta días de Vacaciones o Licencias. Esta brecha ocurre porque el ERP liquida la seguridad social quincenal de forma desigual al aplicar el histórico. Verifique el mes completo contra la PILA para confirmar.";
+      } else if (tieneVariables) {
+        notaForense = "💡 Dictamen GCM: Detectamos salarios variables (Horas Extras, Comisiones o Recargos). Es un comportamiento normal del ERP diferir o hacer promedios con los descuentos en la quincena. Si el cierre mensual coincide con la PILA oficial, no existe riesgo de evasión.";
+      }
     }
 
    hallazgos.push({
