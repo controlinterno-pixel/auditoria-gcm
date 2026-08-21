@@ -2359,11 +2359,34 @@ const handleNotificarPlan = (planId) => {
           </div>
         </div>
       )}
-        {modalNoAplica?.activo && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            {/* ... (todo el resto del código del modal que te di) ... */}
+     {/* 🛑 MODAL SUTIL PARA JUSTIFICACIÓN "NO APLICA" */}
+      {modalNoAplica?.activo && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden flex flex-col animate-in zoom-in-95">
+            <div className="bg-slate-800 p-4 flex justify-between items-center text-white shrink-0">
+              <h4 className="font-black text-sm flex items-center gap-2">
+                <span>🛑</span> Justificación de Inaplicabilidad
+              </h4>
+              <button onClick={() => setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' })} className="text-slate-300 hover:text-white font-black text-lg px-2">✕</button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-600 font-medium">
+                Por favor, detalla los argumentos técnicos, normativos o de proceso por los cuales este hallazgo <strong>no requiere</strong> un plan de acción correctivo. Esta observación quedará registrada en el historial de auditoría.
+              </p>
+              <textarea 
+                value={modalNoAplica.justificacionTemporal}
+                onChange={(e) => setModalNoAplica(prev => ({ ...prev, justificacionTemporal: e.target.value }))}
+                placeholder="Ej: El hallazgo fue subsanado en campo el día de la visita, según consta en el acta X..."
+                className="w-full border border-slate-300 rounded-xl p-4 text-xs font-medium outline-none min-h-[120px] focus:border-slate-800 bg-slate-50 focus:bg-white transition-colors resize-y shadow-sm"
+              />
+            </div>
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
+              <button type="button" onClick={() => setModalNoAplica({ activo: false, hallazgoId: null, justificacionTemporal: '' })} className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Cancelar</button>
+              <button type="button" onClick={confirmarNoAplica} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all">Guardar Observación</button>
+            </div>
           </div>
-        )} 
+        </div>
+      )}  
     </div>
   );
 }
