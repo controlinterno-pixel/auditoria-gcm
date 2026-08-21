@@ -729,13 +729,14 @@ if (empleado.usoHistoricoAnterior) {
             <button onClick={handleStartAuditJornada} className="px-8 py-3 bg-pink-700 text-white font-bold rounded-lg shadow-md hover:bg-pink-600 transition-colors w-full md:w-auto ml-auto">
               ⏱️ Ejecutar Auditoría de Jornada (Ley 2101)
             </button>
-         ) : (
+        ) : (
             <button onClick={handleStartAuditUGPP} disabled={isUploading} className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed ml-auto">
               {isUploading ? '⏳ Consultando Histórico y Auditando...' : '🛡️ Ejecutar Auditoría Integral'}
             </button>
           )}
         </div>
       </div>
+      )}
 
       {/* 🏆 KPI Cards & Rankings (MODO JORNADA) */}
       {resumenKpi && tipoAuditoriaActiva === 'JORNADA' && (
