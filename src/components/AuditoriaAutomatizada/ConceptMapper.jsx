@@ -226,6 +226,13 @@ const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
       (h.empresa && h.empresa.toLowerCase().includes(term));
 
     return coincideFiltro && coincideBusqueda;
+  }).sort((a, b) => {
+    // Si estamos en jornada, ordena del que más horas extras tiene al que menos
+    if (tipoAuditoriaActiva === 'JORNADA') {
+      if (b.totalHorasExtras !== a.totalHorasExtras) return b.totalHorasExtras - a.totalHorasExtras;
+      return b.totalRecargos - a.totalRecargos; // Si empatan, desempata por recargos
+    }
+    return 0; // Para los demás módulos, los deja en su orden normal
   }) : [];
 
   const esConceptoConstitutivoAuto = (nombreConcepto) => {
