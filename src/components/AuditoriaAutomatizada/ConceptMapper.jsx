@@ -857,12 +857,8 @@ if (empleado.usoHistoricoAnterior) {
                         </td> 
                       )}
                       
-<td 
-                        onClick={() => setEmpleadoDiagonal(h)}
-                        className="px-4 py-3 text-right font-mono font-semibold text-slate-900 cursor-pointer hover:bg-blue-100 transition-colors"
-                        title="Hacer clic para abrir Diagnóstico Forense"
-                      >
-                        ${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')} 🔍
+                      <td className="px-4 py-3 text-right font-mono font-semibold text-slate-900">
+                        ${(h.totalDevengadoSalarial || h.salarioBase).toLocaleString('es-CO')}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-blue-700 font-semibold">${h.auxilioDeberSer.toLocaleString('es-CO')}</td>
                       <td className="px-4 py-3 text-right font-mono text-slate-800">${h.auxilioPagado.toLocaleString('es-CO')}</td>
