@@ -944,6 +944,21 @@ if (empleado.usoHistoricoAnterior) {
                   </div>
                 </div>
               ) : (
+                {/* TARJETAS DE MANDO SUPERIORES DINÁMICAS */}
+              {tipoAuditoriaActiva === 'TRANSPORTE' ? (
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">AUXILIO DEBER SER (LEGAL)</span>
+                    <p className="text-xl font-extrabold text-emerald-700">${empleadoDiagonal.auxilioDeberSer.toLocaleString('es-CO')}</p>
+                    <p className="text-[10px] text-slate-500 font-bold mt-1">Días Laborados: {empleadoDiagonal.diasTrabajados}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-blue-600 uppercase">AUXILIO PAGADO EN NÓMINA</span>
+                    <p className="text-xl font-extrabold text-blue-900">${empleadoDiagonal.auxilioPagado.toLocaleString('es-CO')}</p>
+                    <p className="text-[10px] text-slate-500 font-bold mt-1">Devengado Total: ${empleadoDiagonal.totalDevengadoSalarial.toLocaleString('es-CO')}</p>
+                  </div>
+                </div>
+              ) : (
                 <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <div>
                     <span className="text-[10px] font-bold text-slate-500 uppercase">IBC NORMATIVO RECALCULADO</span>
@@ -958,6 +973,7 @@ if (empleado.usoHistoricoAnterior) {
                   </div>
                 </div>
               )}
+            
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-900 text-xs font-semibold flex justify-between items-center">
                 <span>⚠️ Brecha de bases sin afectar estado normativo:</span>
