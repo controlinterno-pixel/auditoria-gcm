@@ -286,13 +286,14 @@ const conceptosConstitutivos = (mapeoConceptos?.salario_base || []).map(normaliz
     return true;
   });
 
-  // 🔍 PRE-IDENTIFICACIÓN: Detectar qué empleados tienen liquidaciones definitivas
+ // 🔍 PRE-IDENTIFICACIÓN: Detectar liquidaciones definitivas ignorando los prefijos como "DV30-"
   const llavesLiquidacion = new Set();
   transaccionesLimpias.forEach(fila => {
     const cedula = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodo = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
     const concepto = normalizarTexto(buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']));
-    if (cedula && (concepto === 'CESANTIA' || concepto === 'PRIMA DE SERVICIO' || concepto === 'INTERESES SOBRE CESANTIA' || concepto === 'LIQUIDACION PARCIAL DE CESANTIA')) {
+    
+    if (cedula && ['CESANTIA', 'PRIMA DE SERVICIO', 'INTERESES SOBRE CESANTIA', 'LIQUIDACION PARCIAL'].some(kw => concepto.includes(kw))) {
       llavesLiquidacion.add(`${limpiarCedula(cedula)}_${periodo ? periodo.toString().trim() : '228'}`);
     }
   });
@@ -411,16 +412,18 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       emp.esAprendizSena = true;
     } else if ((conceptosConstitutivos.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoIBC && !esVacacion) {
       emp.totalConstitutivoIBC += valorTotal;
-      if (['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].some(kw => conceptoLimpio.includes(kw))) {
+      // Filtro Inteligente: Sumar a días trabajados todo lo que sea Base (Sueldo, Día Familia, Licencias) y que NO sean horas extras ni comisiones.
+      if (!['COMISION', 'BONIFICACION', 'HORA', 'EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN', 'DESTAJO', 'PRESTACIONAL'].some(kw => conceptoLimpio.includes(kw))) {
         emp.diasTrabajados += cantidad;
       }
-      } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('VACACION')) {
+   } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('VACACION')) {
+      
       // RASTREO: Etiquetar si es Maternidad para regla especial
       if (conceptoLimpio.includes('MATERNIDAD')) {
         emp.esMaternidad = true;
       }
 
-if (emp.esLiquidacion && conceptoLimpio.includes('VACACION')) {
+      if (emp.esLiquidacion && conceptoLimpio.includes('VACACION')) {
       emp.vacacionesLiquidacion += valorTotal; 
       } else {
         emp.valorAusentismosIBC += valorTotal; 
