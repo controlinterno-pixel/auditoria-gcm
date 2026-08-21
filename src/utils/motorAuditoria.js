@@ -406,8 +406,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     if (emp.esAprendizSena && (conceptoLimpio.includes('SUELDO') || conceptoLimpio.includes('SALARIO') || conceptoLimpio.includes('PRODUCTIVA'))) {
       emp.tieneProductiva = true;
     }
-
-    if (conceptoLimpio.includes('SOSTENIMIENTO')) {
+if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       emp.totalNoConstitutivo += valorTotal;
       emp.esAprendizSena = true;
     } else if ((conceptosConstitutivos.includes(conceptoLimpio) || esConstitutivoLexicon) && !esExcluidoIBC && !esVacacion) {
@@ -416,18 +415,17 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
       if (!['COMISION', 'BONIFICACION', 'HORA', 'EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN', 'DESTAJO', 'PRESTACIONAL'].some(kw => conceptoLimpio.includes(kw))) {
         emp.diasTrabajados += cantidad;
       }
-   } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('VACACION')) {
-      
-      // RASTREO: Etiquetar si es Maternidad para regla especial
-      if (conceptoLimpio.includes('MATERNIDAD')) {
-        emp.esMaternidad = true;
-      }
-
-      if (emp.esLiquidacion && conceptoLimpio.includes('VACACION')) {
-      emp.vacacionesLiquidacion += valorTotal; 
+    } else if (ausentismosIBC.includes(conceptoLimpio) || esVacacion || conceptoLimpio.includes('VACACION') || conceptoLimpio.includes('LICENCIA')) {
+      // Solo las Vacaciones y Licencias Remuneradas buscan el IBC Histórico
+      if (emp.esLiquidacion && (conceptoLimpio.includes('VACACION') || conceptoLimpio.includes('CESANTIA'))) {
+        emp.vacacionesLiquidacion += valorTotal; // Omitir de seguridad social en liquidación
       } else {
-        emp.valorAusentismosIBC += valorTotal; 
+        emp.valorAusentismosIBC += valorTotal; // Buscar en la Nube
       }
+    } else if (conceptoLimpio.includes('INCAPACIDAD') || conceptoLimpio.includes('INC.')) {
+      // Las incapacidades suman directamente su valor pagado al IBC del mes actual (Sin histórico)
+      emp.totalConstitutivoIBC += valorTotal;
+      if (conceptoLimpio.includes('MATERNIDAD')) emp.esMaternidad = true;
     } else if (conceptosNoSalariales.includes(conceptoLimpio) || esNoSalarialLexicon) {
       emp.totalNoConstitutivo += valorTotal;
     } else if (licenciasNoRemuneradas.includes(conceptoLimpio) || conceptoLimpio.includes('NO REMUNERAD') || conceptoLimpio.includes('SUSPENSION')) {
@@ -447,8 +445,7 @@ const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA DE SERVICIO', 'SUSPENS
     } else if (conceptosDeducciones.includes(conceptoLimpio)) {
       emp.totalDeduccionesLegales += Math.abs(valorTotal);
     }
-  });
-
+    
  // 🧠 PRE-CARGA DINÁMICA Y SÍNCRONA DE HISTÓRICOS EN FIREBASE (PROMISE.ALL)
   const historicosPreCargados = {};
   const periodosEmpresasNecesarios = new Set();
