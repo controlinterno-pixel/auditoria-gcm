@@ -782,13 +782,14 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
     
     if (tipoHallazgo === 'PAGO_INSUFICIENTE' || tipoHallazgo === 'PAGO_EXCESO') {
       const tieneVacaciones = emp.valorAusentismosIBC > 0;
-      const tieneVariables = (emp.totalConstitutivoIBC - emp.sueldoBasico) > 10000;
+      // Evaluamos si el devengado total supera el IBC base en más de $10.000 para detectar variables
+      const tieneVariables = (emp.totalConstitutivoIBC - (emp.diasTrabajados * 10000)) > 10000;
 
       if (tieneVacaciones && tieneVariables) {
         notaForense = "💡 Dictamen GCM: Detectamos Vacaciones y Pagos Variables simultáneos (Comisiones/Recargos). El ERP suele distribuir el descuento de Salud/Pensión de forma asimétrica en estos escenarios. Si la suma mensual cuadra con la PILA, omita esta alerta, no hay riesgo UGPP.";
       } else if (tieneVacaciones) {
         notaForense = "💡 Dictamen GCM: El empleado presenta días de Vacaciones o Licencias. Esta brecha ocurre porque el ERP liquida la seguridad social quincenal de forma desigual al aplicar el histórico. Verifique el mes completo contra la PILA para confirmar.";
-      } else if (tieneVariables) {
+      } else {
         notaForense = "💡 Dictamen GCM: Detectamos salarios variables (Horas Extras, Comisiones o Recargos). Es un comportamiento normal del ERP diferir o hacer promedios con los descuentos en la quincena. Si el cierre mensual coincide con la PILA oficial, no existe riesgo de evasión.";
       }
     }
