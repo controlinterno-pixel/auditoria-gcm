@@ -957,18 +957,9 @@ if (empleado.usoHistoricoAnterior) {
               </div>
 
               {/* 💡 DICTAMEN FORENSE INTELIGENTE GCM */}
-              {empleadoDiagonal.notaForense && (
+              {empleadoDiagonal?.notaForense && (
                 <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl shadow-sm">
                   <p className="text-sm text-blue-900 leading-relaxed font-semibold">
-                    {empleadoDiagonal.notaForense}
-                  </p>
-                </div>
-              )}
-
-              {/* 💡 CONCLUSIÓN INTELIGENTE GCM */}
-              {empleadoDiagonal.notaForense && (
-                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl shadow-sm">
-                  <p className="text-sm text-blue-800 leading-relaxed font-medium">
                     {empleadoDiagonal.notaForense}
                   </p>
                 </div>
