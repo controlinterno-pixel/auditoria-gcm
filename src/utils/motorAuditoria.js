@@ -772,14 +772,41 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
       tipoHallazgo = 'PAGO_INSUFICIENTE'; 
       severidad = 'CRÍTICA (Riesgo UGPP)';
       conteoBajoPago++;
-    } else {
+   } else {
       tipoHallazgo = 'PAGO_EXCESO'; 
       severidad = 'MODERADA (Descuento en Exceso al Empleado)';
       conteoExcesos++;
     }
 
+    // 💡 CONCLUSIÓN INTELIGENTE GCM: Filtro para explicar asimetrías quincenales del ERP
+    let notaForense = null;
+    const tieneNovedadOVariable = emp.valorAusentismosIBC > 0 || (emp.totalConstitutivoIBC - emp.sueldoBasico) > 20000;
+    
+    if ((tipoHallazgo === 'PAGO_INSUFICIENTE' || tipoHallazgo === 'PAGO_EXCESO') && tieneNovedadOVariable) {
+        notaForense = "💡 Dictamen Forense GCM: Esta brecha quincenal es un comportamiento operativo normal del ERP. Al existir novedades (vacaciones/licencias) o salarios variables (comisiones/recargos), el software suele distribuir el descuento de Salud y Pensión de forma asimétrica entre las quincenas. Verifique el cierre mensual contra la PILA; si cuadra a cero, omita esta alerta, no hay riesgo UGPP.";
+    }
+
    hallazgos.push({
       id: `${emp.llaveUnica}_${Math.random().toString(36).substring(2, 9)}`,
+      empresa: emp.empresa,
+      cedula: emp.cedula,
+      periodo: emp.periodo,
+      nombre: emp.nombre,
+      cargo: emp.cargo, 
+      diasTrabajados: emp.diasTrabajados,
+      salarioBase: ibcLiquidacion,
+      ibcImplicito: ibcImplicitoSalud || ibcImplicitoPension,
+      ibcImplicitoPension,
+      totalDevengadoSalarial: emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC,
+      auxilioDeberSer: deberSerSalud,
+      auxilioPagado: emp.descuentoSaludReal,
+      diferenciaExacta: difSalud,
+      tipoHallazgo,
+      severidad,
+      usoHistoricoAnterior: emp.usoHistoricoAnterior,
+      ibcAnteriorDetectado: emp.ibcAnteriorDetectado,
+      notaForense // <-- Pasamos el mensaje a la interfaz
+    });
       empresa: emp.empresa,
       cedula: emp.cedula,
       periodo: emp.periodo,

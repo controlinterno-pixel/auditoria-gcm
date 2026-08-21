@@ -944,7 +944,7 @@ if (empleado.usoHistoricoAnterior) {
                 <span className="font-mono text-sm font-bold">${Math.abs(empleadoDiagonal.salarioBase - (empleadoDiagonal.ibcImplicito || 0)).toLocaleString('es-CO')}</span>
               </div>
 
-              {/* 🤖 SECCIÓN DE RECONCILIACIÓN INFORMATIVA DE CAUSALES */}
+             {/* 🤖 SECCIÓN DE RECONCILIACIÓN INFORMATIVA DE CAUSALES */}
               <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-4">
                 <h4 className="text-xs font-bold text-indigo-900 uppercase mb-2">📌 Posibles Causales de la Brecha ERP vs. Motor:</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -956,6 +956,15 @@ if (empleado.usoHistoricoAnterior) {
                   ))}
                 </div>
               </div>
+
+              {/* 💡 CONCLUSIÓN INTELIGENTE GCM */}
+              {empleadoDiagonal.notaForense && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-xl shadow-sm">
+                  <p className="text-sm text-blue-800 leading-relaxed font-medium">
+                    {empleadoDiagonal.notaForense}
+                  </p>
+                </div>
+              )}
 
               <h4 className="text-xs font-bold text-slate-700 uppercase mt-4">Desglose de Transacciones (Período {empleadoDiagonal.periodo}):</h4>
               <div className="border border-slate-200 rounded-lg overflow-hidden">
