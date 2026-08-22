@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { auditarAuxilioTransporte, auditarSeguridadSocial, auditarJornadaLaboral } from '../../utils/motorAuditoria';
 import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica, cargarNominaHistorica } from '../../services/historicoService';
+import DashboardHistorico from './DashboardHistorico';
 
 const normalizarTexto = (str) => {
   if (!str) return "";
@@ -586,7 +587,13 @@ if (empleado.usoHistoricoAnterior) {
             >
               ⏱️ Motor Jornada Laboral
             </button>
-          </div>
+<button 
+              onClick={() => setPestanaActiva('HISTORICO')}
+              className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'HISTORICO' ? 'bg-cyan-700 text-white border-b-4 border-cyan-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+            >
+              📉 Análisis Histórico
+            </button>
+                      </div>  
 
           {pestanaActiva === 'UGPP' && (
             <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 text-xs font-semibold text-indigo-900">
@@ -605,7 +612,11 @@ if (empleado.usoHistoricoAnterior) {
           )}
         </div>
 
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+{pestanaActiva === 'HISTORICO' ? (
+  <DashboardHistorico />
+) : (
+  <>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {systemCategories
             .filter(cat => 
               pestanaActiva === 'TRANSPORTE' 
@@ -1144,6 +1155,8 @@ if (empleado.usoHistoricoAnterior) {
           </div>
         </div>
       )}
+  </>
+)}
     </div>
   );
 };
