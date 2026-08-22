@@ -473,7 +473,7 @@ const [verTendencias, setVerTendencias] = useState(false);
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                📈 Comportamiento y Tendencia Histórica del Tiempo Suplementario (Mes a Mes)
+                📈 {modoDashboard === 'JORNADA' ? 'Comportamiento Histórico de Tiempo Suplementario' : 'Evolución de Fuga Financiera en Subsidios de Transporte'} (Mes a Mes)
               </h3>
               <button 
                 onClick={() => setVerTendencias(!verTendencias)}
@@ -494,7 +494,7 @@ const [verTendencias, setVerTendencias] = useState(false);
                       <YAxis stroke="#475569" fontSize={11} />
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                        formatter={(value, name) => [`${Number(value).toFixed(1)} hrs`, name]}
+                        formatter={(value, name) => [modoDashboard === 'JORNADA' ? `${Number(value).toFixed(1)} hrs` : `$${Number(value).toLocaleString('es-CO')}`, name]}
                       />
                       <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                       <Line type="monotone" dataKey="ADMIN" name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
@@ -513,13 +513,27 @@ const [verTendencias, setVerTendencias] = useState(false);
                       <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center shadow-sm hover:border-blue-300 transition">
                         <span className="text-xs font-extrabold text-indigo-900 block">{t.mes}</span>
                         <div className="mt-2 space-y-1 font-mono text-[10px]">
-                          <p className="text-red-600 font-bold">Admin: {(t.ADMIN || 0).toFixed(1)} h</p>
-                          <p className="text-blue-600 font-bold">Balneario: {(t.BALNEARIO || 0).toFixed(1)} h</p>
-                          <p className="text-emerald-600 font-bold">Hotel: {(t.ECOPARQUE_HOTEL || 0).toFixed(1)} h</p>
-                          <p className="text-xs font-extrabold text-slate-800 pt-1 border-t border-slate-200">
-                            Total: {totalMesHoras.toFixed(1)} hrs
-                          </p>
-                          <p className="text-[11px] font-extrabold text-amber-700">${totalMesCosto.toLocaleString('es-CO')}</p>
+                          {modoDashboard === 'JORNADA' ? (
+                            <>
+                              <p className="text-red-600 font-bold">Admin: {(t.ADMIN || 0).toFixed(1)} h</p>
+                              <p className="text-blue-600 font-bold">Balneario: {(t.BALNEARIO || 0).toFixed(1)} h</p>
+                              <p className="text-emerald-600 font-bold">Hotel: {(t.ECOPARQUE_HOTEL || 0).toFixed(1)} h</p>
+                              <p className="text-xs font-extrabold text-slate-800 pt-1 border-t border-slate-200">
+                                Total: {totalMesHoras.toFixed(1)} hrs
+                              </p>
+                              <p className="text-[11px] font-extrabold text-amber-700">${totalMesCosto.toLocaleString('es-CO')}</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-red-600 font-bold">Admin: ${(t.costoADMIN || 0).toLocaleString('es-CO')}</p>
+                              <p className="text-blue-600 font-bold">Balneario: ${(t.costoBALNEARIO || 0).toLocaleString('es-CO')}</p>
+                              <p className="text-emerald-600 font-bold">Hotel: ${(t.costoECOPARQUE_HOTEL || 0).toLocaleString('es-CO')}</p>
+                              <p className="text-xs font-extrabold text-slate-800 pt-1 border-t border-slate-200 mt-2">
+                                Fuga Total Mensual
+                              </p>
+                              <p className="text-[11px] font-extrabold text-amber-700">${totalMesCosto.toLocaleString('es-CO')}</p>
+                            </>
+                          )}
                         </div>
                       </div>
                     );
