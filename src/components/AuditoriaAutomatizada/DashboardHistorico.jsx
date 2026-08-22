@@ -436,8 +436,31 @@ const [verTendencias, setVerTendencias] = useState(false);
     return Object.values(mapaMeses).sort((a, b) => a.mes.localeCompare(b.mes));
   };
 
-  const tendenciasDinamicas = calcularTendenciaDinamica();
+const tendenciasDinamicas = calcularTendenciaDinamica();
 
+  // 🧮 RECALCULAR TARJETAS SUPERIORES (KPIs) SEGÚN FILTROS ACTIVOS
+  const kpisFiltrados = React.useMemo(() => {
+    if (!datosHistoricos) return { totalMeses: 0, totalAlertas: 0, totalMonto: 0 };
+
+    // Fuga o costo total según los elementos visibles en la tabla filtrada
+    const totalMonto = alertasFiltradas.reduce((acc, a) => acc + (a.totalDineroVisual || 0), 0);
+    const totalAlertas = alertasFiltradas.length;
+
+    // Calcular cuántos períodos únicos están presentes en las alertas filtradas
+    const periodosUnicos = new Set();
+    alertasFiltradas.forEach(a => {
+      if (a.periodosFuga) a.periodosFuga.forEach(p => periodosUnicos.add(p));
+      if (a.mesesConNovedad) a.mesesConNovedad.forEach(p => periodosUnicos.add(p));
+    });
+
+    const totalMeses = filtroPeriodo !== 'TODOS' ? 1 : (periodosUnicos.size || datosHistoricos.totalMeses);
+
+    return {
+      totalMeses,
+      totalAlertas,
+      totalMonto
+    };
+  }, [datosHistoricos, alertasFiltradas, filtroPeriodo]);
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
@@ -478,12 +501,12 @@ const [verTendencias, setVerTendencias] = useState(false);
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
               <p className="text-xs font-bold text-slate-500 uppercase">Períodos Analizados</p>
-              <h3 className="text-3xl font-extrabold text-slate-800">{datosHistoricos.totalMeses} <span className="text-sm font-medium text-slate-400">meses/quincenas</span></h3>
+              <h3 className="text-3xl font-extrabold text-slate-800">{kpisFiltrados.totalMeses} <span className="text-sm font-medium text-slate-400">meses/quincenas</span></h3>
             </div>
             <div className="bg-white p-5 rounded-xl border border-rose-200 shadow-sm">
               <p className="text-xs font-bold text-rose-600 uppercase">Alertas Crónicas Detectadas</p>
               <h3 className="text-3xl font-extrabold text-rose-700">
-                {modoDashboard === 'JORNADA' ? datosHistoricos.alertasJornada.length : datosHistoricos.alertasTransporte.length} 
+                {kpisFiltrados.totalAlertas} 
                 <span className="text-sm font-medium text-rose-400"> empleados</span>
               </h3>
             </div>
@@ -492,7 +515,7 @@ const [verTendencias, setVerTendencias] = useState(false);
                 {modoDashboard === 'JORNADA' ? 'Costo Histórico Extras' : 'Fuga Financiera (Transporte)'}
               </p>
               <h3 className="text-3xl font-extrabold text-amber-700">
-                ${(modoDashboard === 'JORNADA' ? datosHistoricos.totalCostoExtras : datosHistoricos.totalFugaTransporte).toLocaleString('es-CO')}
+                ${kpisFiltrados.totalMonto.toLocaleString('es-CO')}
               </h3>
             </div>
           </div>
