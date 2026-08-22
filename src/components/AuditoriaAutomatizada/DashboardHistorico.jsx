@@ -278,6 +278,7 @@ const [verTendencias, setVerTendencias] = useState(false);
               }
            }
         });
+        
 
      if (tieneFuga) {
            alertasTransporte.push({
