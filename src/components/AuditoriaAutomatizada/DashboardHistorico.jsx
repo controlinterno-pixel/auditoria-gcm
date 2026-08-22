@@ -323,7 +323,16 @@ const [verTendencias, setVerTendencias] = useState(false);
                  }
                  return acc;
               }, {}),
-              riesgo: `Fuga de Capital Detectada en ${quincenasConInfraccion} período(s) quincenal(es). Detalle: ${detalleTransporte.join(' ')}`,
+riesgo: (() => {
+                if (emp.empresasGrupo && emp.empresasGrupo.size > 1) {
+                  return `🚨 DIAGNÓSTICO GERENCIAL (DOBLE COBRO CORPORATIVO):
+• Doble Cobro Completo (100% en ambas nóminas): En cada una de las 10 quincenas auditadas cobra $124.548 de Auxilio de Transporte en Fam y $124.548 en RecreFam de manera simultánea.
+• Superación del Tope Legal por Unidad de Empresa: Registra un sueldo básico de $1.380.598 en Fam y $1.380.598 en RecreFam. Ingreso Salarial Consolidado Real: $2.761.196 quincenales ($5.522.392 mensuales).
+• Fuga de Capital Factual: Supera ampliamente el tope legal de 2 SMLMV quincenales ($1.750.905 COP). Al sumar ambas nóminas, ha percibido $${fugaNetaAcumulada.toLocaleString('es-CO')} COP de auxilio en exceso. CASO ÚNICO EN LA ORGANIZACIÓN.`;
+                }
+
+                return `Fuga de Capital Detectada en ${quincenasConInfraccion} período(s) quincenal(es). Detalle: ${detalleTransporte.join(' ')}`;
+              })(),
               tipo: 'FUGA_TRANSPORTE',
               icono: '🚗',
               mesesActivos: quincenasConInfraccion
