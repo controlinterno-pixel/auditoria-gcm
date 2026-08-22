@@ -426,106 +426,141 @@ const DashboardHistorico = () => {
             )}
           </div>
 
-        {/* 🎛️ SUITE DE FILTROS MULTI-SELECCIÓN MÚLTIPLE */}
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Buscador Nombre / Cédula */}
-              <div>
-                <label className="text-xs font-bold text-slate-500 block mb-1">🔍 Buscar Empleado o Cédula:</label>
-                <input 
-                  type="text" 
-                  placeholder="Escribe un nombre o número de cédula..." 
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-medium"
-                />
-                <span className="text-[10px] text-slate-400 mt-1 block">Filtra texto en tiempo real.</span>
-              </div>
+       {/* 🎛️ SUITE DE FILTROS INTERACTIVOS CON ETIQUETAS (CHIPS) */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
+            {/* Buscador de Empleado */}
+            <div>
+              <label className="text-xs font-bold text-slate-600 block mb-1.5">🔍 Buscar por Nombre o Cédula:</label>
+              <input 
+                type="text" 
+                placeholder="Escribe un nombre o número de documento..." 
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="w-full max-w-lg px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-medium shadow-sm"
+              />
+            </div>
 
-              {/* Selección Múltiple por Proceso */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-bold text-slate-500">⚙️ Procesos (Multiselección):</label>
-                  {filtroProceso.length > 0 && (
-                    <button onClick={() => setFiltroProceso([])} className="text-[10px] font-bold text-rose-600 hover:underline">
-                      Limpiar ({filtroProceso.length})
-                    </button>
-                  )}
-                </div>
-                <select 
-                  multiple
-                  value={filtroProceso} 
-                  onChange={(e) => {
-                    const opciones = Array.from(e.target.selectedOptions, option => option.value);
-                    setFiltroProceso(opciones);
-                  }}
-                  className="w-full h-24 px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium overflow-y-auto"
-                >
-                  {datosHistoricos.procesos.map((p, i) => (
-                    <option key={i} value={p} className="p-1 hover:bg-slate-100 rounded">{p}</option>
-                  ))}
-                </select>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">Mantén presionado <b>Ctrl</b> (o Cmd) para elegir varios.</span>
+            {/* Selector de Procesos por Etiquetas */}
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <span>⚙️</span> Procesos Activos 
+                  <span className="text-[11px] font-normal text-slate-400">
+                    ({filtroProceso.length === 0 ? 'Todos mostrados' : `${filtroProceso.length} seleccionados`})
+                  </span>
+                </label>
+                {filtroProceso.length > 0 && (
+                  <button 
+                    onClick={() => setFiltroProceso([])} 
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 transition cursor-pointer"
+                  >
+                    ✕ Limpiar Selección ({filtroProceso.length})
+                  </button>
+                )}
               </div>
-
-              {/* Selección Múltiple por Cargo */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-bold text-slate-500">👔 Cargos (Multiselección):</label>
-                  {filtroCargo.length > 0 && (
-                    <button onClick={() => setFiltroCargo([])} className="text-[10px] font-bold text-rose-600 hover:underline">
-                      Limpiar ({filtroCargo.length})
+              
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-slate-50/50 rounded-lg border border-slate-200/60">
+                {datosHistoricos.procesos.map((p, i) => {
+                  const estaSeleccionado = filtroProceso.includes(p);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        if (estaSeleccionado) {
+                          setFiltroProceso(filtroProceso.filter(item => item !== p));
+                        } else {
+                          setFiltroProceso([...filtroProceso, p]);
+                        }
+                      }}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                        estaSeleccionado 
+                          ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300' 
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      {estaSeleccionado ? '✓ ' : '+ '}{p}
                     </button>
-                  )}
-                </div>
-                <select 
-                  multiple
-                  value={filtroCargo} 
-                  onChange={(e) => {
-                    const opciones = Array.from(e.target.selectedOptions, option => option.value);
-                    setFiltroCargo(opciones);
-                  }}
-                  className="w-full h-24 px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium overflow-y-auto"
-                >
-                  {datosHistoricos.cargos.map((c, i) => (
-                    <option key={i} value={c} className="p-1 hover:bg-slate-100 rounded">{c}</option>
-                  ))}
-                </select>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">Mantén presionado <b>Ctrl</b> (o Cmd) para elegir varios.</span>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selector de Cargos por Etiquetas */}
+            <div className="pt-2 border-t border-slate-100">
+              <div className="flex justify-between items-center mb-2">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <span>👔</span> Cargos Específicos
+                  <span className="text-[11px] font-normal text-slate-400">
+                    ({filtroCargo.length === 0 ? 'Todos mostrados' : `${filtroCargo.length} seleccionados`})
+                  </span>
+                </label>
+                {filtroCargo.length > 0 && (
+                  <button 
+                    onClick={() => setFiltroCargo([])} 
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 transition cursor-pointer"
+                  >
+                    ✕ Limpiar Selección ({filtroCargo.length})
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-slate-50/50 rounded-lg border border-slate-200/60">
+                {datosHistoricos.cargos.map((c, i) => {
+                  const estaSeleccionado = filtroCargo.includes(c);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        if (estaSeleccionado) {
+                          setFiltroCargo(filtroCargo.filter(item => item !== c));
+                        } else {
+                          setFiltroCargo([...filtroCargo, c]);
+                        }
+                      }}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                        estaSeleccionado 
+                          ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300' 
+                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      {estaSeleccionado ? '✓ ' : '+ '}{c}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             {/* Segmentación por Sedes */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
               <span className="text-xs font-bold text-slate-500 self-center mr-2">🏢 Unidad:</span>
               <button
                 onClick={() => setFiltroUnidad('TODOS')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  filtroUnidad === 'TODOS' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filtroUnidad === 'TODOS' ? 'bg-slate-900 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 🌐 Todas ({datosHistoricos.alertas.length})
               </button>
               <button
                 onClick={() => setFiltroUnidad('ADMIN')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  filtroUnidad === 'ADMIN' ? 'bg-red-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filtroUnidad === 'ADMIN' ? 'bg-red-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 🏢 Sede Administrativa ({datosHistoricos.alertas.filter(a => a.unidad === 'ADMIN').length})
               </button>
               <button
                 onClick={() => setFiltroUnidad('BALNEARIO')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  filtroUnidad === 'BALNEARIO' ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filtroUnidad === 'BALNEARIO' ? 'bg-blue-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 🏊 Balneario ({datosHistoricos.alertas.filter(a => a.unidad === 'BALNEARIO').length})
               </button>
               <button
                 onClick={() => setFiltroUnidad('ECOPARQUE_HOTEL')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  filtroUnidad === 'ECOPARQUE_HOTEL' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  filtroUnidad === 'ECOPARQUE_HOTEL' ? 'bg-emerald-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 🌲 Hotel & Ecoparque / RecreFam ({datosHistoricos.alertas.filter(a => a.unidad === 'ECOPARQUE_HOTEL').length})
