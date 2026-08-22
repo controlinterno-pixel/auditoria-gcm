@@ -67,6 +67,7 @@ const DashboardHistorico = () => {
   const [filtroCargo, setFiltroCargo] = useState([]);     // Array para selección múltiple
 const [verTendencias, setVerTendencias] = useState(false);
   const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA' | 'TRANSPORTE'
+  const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   // 📅 NUEVO FILTRO
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
     const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
@@ -243,6 +244,7 @@ const [verTendencias, setVerTendencias] = useState(false);
         // --- 1. EVALUACIÓN DE TRANSPORTE (Con regla de 1.7M Quincenal) ---
         let tieneFuga = false;
         let detalleTransporte = [];
+        let periodosFuga = new Set(); // 📅 RASTREAMOS EL PERIODO EXACTO DE LA FUGA
         
         Object.entries(emp.historialMeses).forEach(([quincena, data]) => {
            if (data.transportePagado > 0) {
@@ -251,21 +253,24 @@ const [verTendencias, setVerTendencias] = useState(false);
                  emp.fugaTransporteDinero += data.transportePagado;
                  emp.mesesConFugaTransporte += 1;
                  tieneFuga = true;
+                 periodosFuga.add(quincena); // 📅 Guardar el periodo
                  totalFugaTransporteCompania += data.transportePagado;
                  detalleTransporte.push(`[Q-${quincena}: Cobra Rodamiento]`);
               } else if (data.devengadoSalarial > topeQuincenal) {
                  emp.fugaTransporteDinero += data.transportePagado;
                  emp.mesesConFugaTransporte += 1;
                  tieneFuga = true;
+                 periodosFuga.add(quincena); // 📅 Guardar el periodo
                  totalFugaTransporteCompania += data.transportePagado;
                  detalleTransporte.push(`[Q-${quincena}: Devengó $${data.devengadoSalarial.toLocaleString('es-CO')}]`);
               }
            }
         });
 
-        if (tieneFuga) {
+     if (tieneFuga) {
            alertasTransporte.push({
               ...emp,
+              periodosFuga, // 📅 Lo pasamos al objeto de la alerta
               totalHorasVisual: emp.mesesConFugaTransporte,
               totalDineroVisual: emp.fugaTransporteDinero,
               riesgo: `Fuga de Capital Sostenida. Cobró subsidio sin derecho legal en ${emp.mesesConFugaTransporte} periodos quincenales. Detalle: ${detalleTransporte.join(' ')}`,
@@ -362,17 +367,24 @@ const [verTendencias, setVerTendencias] = useState(false);
   const alertasFiltradas = coleccionActiva.filter(a => {
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     
-    // Si no hay procesos seleccionados, muestra todos; de lo contrario, verifica si pertenece al grupo
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
-    
-    // Si no hay cargos seleccionados, muestra todos; de lo contrario, verifica el grupo
     const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
     
     const term = busqueda.toLowerCase().trim();
     const coincideBusqueda = term === '' ? true : 
       a.nombre.toLowerCase().includes(term) || a.cedula.includes(term);
 
-    return coincideUnidad && coincideProceso && coincideCargo && coincideBusqueda;
+    // 📅 NUEVO FILTRO POR PERÍODO
+    let coincidePeriodo = true;
+    if (filtroPeriodo !== 'TODOS') {
+      if (modoDashboard === 'JORNADA') {
+         coincidePeriodo = a.mesesConNovedad.has(filtroPeriodo);
+      } else {
+         coincidePeriodo = a.periodosFuga.has(filtroPeriodo);
+      }
+    }
+
+    return coincideUnidad && coincideProceso && coincideCargo && coincideBusqueda && coincidePeriodo;
   });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
@@ -545,16 +557,31 @@ const [verTendencias, setVerTendencias] = useState(false);
 
        {/* 🎛️ SUITE DE FILTROS INTERACTIVOS CON ETIQUETAS (CHIPS) */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
-            {/* Buscador de Empleado */}
-            <div>
-              <label className="text-xs font-bold text-slate-600 block mb-1.5">🔍 Buscar por Nombre o Cédula:</label>
-              <input 
-                type="text" 
-                placeholder="Escribe un nombre o número de documento..." 
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full max-w-lg px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-medium shadow-sm"
-              />
+            {/* Buscador de Empleado y Filtro de Período */}
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <label className="text-xs font-bold text-slate-600 block mb-1.5">🔍 Buscar por Nombre o Cédula:</label>
+                <input 
+                  type="text" 
+                  placeholder="Escribe un nombre o número de documento..." 
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="w-full max-w-lg px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-medium shadow-sm"
+                />
+              </div>
+              <div className="w-full md:w-1/3">
+                <label className="text-xs font-bold text-slate-600 block mb-1.5">📅 Filtrar por Período / Quincena:</label>
+                <select 
+                  value={filtroPeriodo}
+                  onChange={(e) => setFiltroPeriodo(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-bold text-slate-700 shadow-sm bg-slate-50"
+                >
+                  <option value="TODOS">Todos los períodos analizados</option>
+                  {datosHistoricos.tendencias.map(t => (
+                     <option key={t.mes} value={t.mes}>{t.mes}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Selector de Procesos por Etiquetas */}
