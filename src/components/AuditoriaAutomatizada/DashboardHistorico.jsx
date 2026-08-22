@@ -374,10 +374,11 @@ riesgo: (() => {
 • Fuga de Capital Factual: El ERP continuó pagando el auxilio de transporte sin aplicar la regla de exclusión, acumulando $${fugaNetaAcumulada.toLocaleString('es-CO')} COP en exceso en ${quincenasConInfraccion} quincenas.`;
                 }
 
-                if (promRodamiento > 0) {
-                  return `⚠️ INCOMPATIBILIDAD POR RODAMIENTO:
-• Conflicto Normativo: Percibe $${promRodamiento.toLocaleString('es-CO')} quincenales de Auxilio de Rodamiento. El pago de movilidad extralegal excluye legalmente el derecho al Auxilio de Transporte.
-• Fuga de Capital Factual: Se liquidaron $${fugaNetaAcumulada.toLocaleString('es-CO')} COP de auxilio de transporte en ${quincenasConInfraccion} quincenas por falta de cruce de conceptos en la nómina.`;
+               if (promRodamiento > 0) {
+                  return `⚠️ REVISIÓN DE COMPATIBILIDAD (RODAMIENTO vs. TRANSPORTE LEGAL):
+• Derecho Legal: Por devengar $${promSalarial.toLocaleString('es-CO')} quincenales (< 2 SMLMV), legalmente le corresponde el Auxilio de Transporte.
+• Beneficio Adicional: Registra cobro de Auxilio de Rodamiento por $${promRodamiento.toLocaleString('es-CO')} quincenales.
+• Validación Requerida: Si el rodamiento cubre la movilidad del empleado, el Auxilio de Transporte de Ley debía haberse excluido por sistema (ahorro potencial de $${fugaNetaAcumulada.toLocaleString('es-CO')} COP en ${quincenasConInfraccion} quincenas). Si es un beneficio extralegal independiente pactado por contrato, el pago dual es válido.`;
                 }
 
                 // 4. SUPERACIÓN ESTÁNDAR DEL TOPE LEGAL
