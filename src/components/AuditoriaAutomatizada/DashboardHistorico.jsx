@@ -373,7 +373,7 @@ const [verTendencias, setVerTendencias] = useState(false);
       a.nombre.toLowerCase().includes(term) || a.cedula.includes(term);
 
     return coincideUnidad && coincideProceso && coincideCargo && coincideBusqueda;
-  }) : [];
+  });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
   const calcularTendenciaDinamica = () => {
