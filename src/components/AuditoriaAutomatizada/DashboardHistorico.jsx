@@ -271,6 +271,7 @@ const DashboardHistorico = () => {
     }
   };
 
+  // 🧠 FILTRADO DINÁMICO MULTI-VARIABLE (Afecta Tabla y Gráficas)
   const alertasFiltradas = datosHistoricos ? datosHistoricos.alertas.filter(a => {
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     const coincideProceso = filtroProceso === 'TODOS' ? true : a.proceso === filtroProceso;
@@ -282,6 +283,41 @@ const DashboardHistorico = () => {
 
     return coincideUnidad && coincideProceso && coincideCargo && coincideBusqueda;
   }) : [];
+
+  // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
+  const calcularTendenciaDinamica = () => {
+    if (!datosHistoricos) return [];
+
+    const mapaMeses = {};
+    
+    // Inicializar los meses detectados
+    datosHistoricos.tendencias.forEach(t => {
+      mapaMeses[t.mes] = { 
+        mes: t.mes, 
+        ADMIN: 0, 
+        BALNEARIO: 0, 
+        ECOPARQUE_HOTEL: 0, 
+        costoADMIN: 0, 
+        costoBALNEARIO: 0, 
+        costoECOPARQUE_HOTEL: 0 
+      };
+    });
+
+    // Sumar solo las transacciones de los empleados que pasaron el filtro
+    alertasFiltradas.forEach(emp => {
+      emp.mesesConNovedad.forEach(mes => {
+        if (mapaMeses[mes]) {
+          const u = emp.unidad;
+          mapaMeses[mes][u] += emp.totalHorasVisual / emp.mesesConNovedad.size;
+          mapaMeses[mes][`costo${u}`] += emp.totalDineroVisual / emp.mesesConNovedad.size;
+        }
+      });
+    });
+
+    return Object.values(mapaMeses).sort((a, b) => a.mes.localeCompare(b.mes));
+  };
+
+  const tendenciasDinamicas = calcularTendenciaDinamica();
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -342,10 +378,10 @@ const DashboardHistorico = () => {
 
            {verTendencias && (
               <div className="pt-4 border-t border-slate-100 space-y-6">
-                {/* 📈 GRÁFICA INTERACTIVA COMPARATIVA POR SEDE */}
+                {/* 📈 GRÁFICA INTERACTIVA COMPARATIVA DINÁMICA */}
                 <div className="h-80 w-full bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={datosHistoricos.tendencias}>
+                    <LineChart data={tendenciasDinamicas}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                       <XAxis dataKey="mes" stroke="#475569" fontSize={11} fontWeight="bold" />
                       <YAxis stroke="#475569" fontSize={11} />
@@ -361,9 +397,9 @@ const DashboardHistorico = () => {
                   </ResponsiveContainer>
                 </div>
 
-                {/* 💳 TARJETAS DE MUESTRA MENSUAL POR SEDE */}
+                {/* 💳 TARJETAS DE MUESTRA MENSUAL RECALCULADAS EN TIEMPO REAL */}
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                  {datosHistoricos.tendencias.map((t, i) => {
+                  {tendenciasDinamicas.map((t, i) => {
                     const totalMesHoras = (t.ADMIN || 0) + (t.BALNEARIO || 0) + (t.ECOPARQUE_HOTEL || 0);
                     const totalMesCosto = (t.costoADMIN || 0) + (t.costoBALNEARIO || 0) + (t.costoECOPARQUE_HOTEL || 0);
                     return (
