@@ -146,11 +146,12 @@ const [verTendencias, setVerTendencias] = useState(false);
       let tendenciasMeses = {};
 
       todasLasTransacciones.forEach(fila => {
-        const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'Documento', 'NIT', 'CEDULA']);
+       const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'Documento', 'NIT', 'CEDULA']);
         if (!cedulaRaw) return;
         
         const cedula = cedulaRaw.toString().trim().replace(/\D/g, '');
         const mesOrigen = fila.mesOrigen;
+        const quincenaReal = (buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']) || mesOrigen).toString().trim();
         mesesDetectados.add(mesOrigen);
 
         const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
@@ -196,9 +197,9 @@ const [verTendencias, setVerTendencias] = useState(false);
 
         const emp = empleadosStats[cedula];
 
-        // 🚗 RECOLECCIÓN TRANSPORTE (Lógica Idéntica al Motor)
-        if (!emp.historialMeses[mesOrigen]) {
-          emp.historialMeses[mesOrigen] = { devengadoSalarial: 0, transportePagado: 0, rodamientoPagado: 0 };
+       // 🚗 RECOLECCIÓN TRANSPORTE (Agrupamos estrictamente por Quincena)
+        if (!emp.historialMeses[quincenaReal]) {
+          emp.historialMeses[quincenaReal] = { mesContenedor: mesOrigen, devengadoSalarial: 0, transportePagado: 0, rodamientoPagado: 0 };
         }
         
         const esTransporte = conceptoLimpio.includes('SUBSIDIO DE TRANSPORTE') || conceptoLimpio.includes('AUXILIO DE TRANSPORTE');
@@ -207,11 +208,11 @@ const [verTendencias, setVerTendencias] = useState(false);
         // Excluimos deducciones y provisiones para calcular el salario neto devengado
         const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA', 'SUSPENSION', 'VACACION', 'INCAPACIDAD', 'INC.', 'RETEFUENTE', 'LIBRANZA', 'PRESTAMO', 'FONDO', 'SINDICATO', 'PLAN EXEQUIAL', 'ALIMENTACION'].some(kw => conceptoLimpio.includes(kw));
         
-        if (valor > 0 && !esExcluidoIBC && !esTransporte && !esRodamiento) {
-           emp.historialMeses[mesOrigen].devengadoSalarial += valor;
+        if (valor > 0 && !esExcluidoIBC && !esTransporte && !esRodamiento && !conceptoLimpio.includes('VEHICULO')) {
+           emp.historialMeses[quincenaReal].devengadoSalarial += valor;
         }
-        if (esTransporte && valor > 0) emp.historialMeses[mesOrigen].transportePagado += valor;
-        if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
+        if (esTransporte && valor > 0) emp.historialMeses[quincenaReal].transportePagado += valor;
+        if (esRodamiento && valor > 0) emp.historialMeses[quincenaReal].rodamientoPagado += valor;
 
         // ⏱️ RECOLECCIÓN JORNADA
         const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
@@ -264,14 +265,14 @@ const [verTendencias, setVerTendencias] = useState(false);
                  emp.fugaTransporteDinero += data.transportePagado;
                  emp.mesesConFugaTransporte += 1;
                  tieneFuga = true;
-                 periodosFuga.add(quincena); // 📅 Guardar el periodo
+                 periodosFuga.add(data.mesContenedor); // 📅 Conecta la quincena (Ej: 228) con el filtro del mes (Ej: Mayo)
                  totalFugaTransporteCompania += data.transportePagado;
                  detalleTransporte.push(`[Q-${quincena}: Cobra Rodamiento]`);
               } else if (data.devengadoSalarial > topeQuincenal) {
                  emp.fugaTransporteDinero += data.transportePagado;
                  emp.mesesConFugaTransporte += 1;
                  tieneFuga = true;
-                 periodosFuga.add(quincena); // 📅 Guardar el periodo
+                 periodosFuga.add(data.mesContenedor); // 📅 Conecta la quincena (Ej: 228) con el filtro del mes (Ej: Mayo)
                  totalFugaTransporteCompania += data.transportePagado;
                  detalleTransporte.push(`[Q-${quincena}: Devengó $${data.devengadoSalarial.toLocaleString('es-CO')}]`);
               }
