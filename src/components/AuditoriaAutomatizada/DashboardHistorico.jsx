@@ -283,9 +283,16 @@ const [verTendencias, setVerTendencias] = useState(false);
      if (tieneFuga) {
            alertasTransporte.push({
               ...emp,
-              periodosFuga, // 📅 Lo pasamos al objeto de la alerta
+              periodosFuga,
               totalHorasVisual: emp.mesesConFugaTransporte,
               totalDineroVisual: emp.fugaTransporteDinero,
+              // Guardamos el desglose exacto por mes para filtrar importes no acumulados
+              fugaPorMes: Object.values(emp.historialMeses).reduce((acc, q) => {
+                 if (q.transportePagado > 0 && (q.rodamientoPagado > 0 || q.devengadoSalarial > 1750905)) {
+                    acc[q.mesContenedor] = (acc[q.mesContenedor] || 0) + q.transportePagado;
+                 }
+                 return acc;
+              }, {}),
               riesgo: `Fuga de Capital Sostenida. Cobró subsidio sin derecho legal en ${emp.mesesConFugaTransporte} periodos quincenales. Detalle: ${detalleTransporte.join(' ')}`,
               tipo: 'FUGA_TRANSPORTE',
               icono: '🚗',
@@ -443,7 +450,12 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
     if (!datosHistoricos) return { totalMeses: 0, totalAlertas: 0, totalMonto: 0 };
 
     // Fuga o costo total según los elementos visibles en la tabla filtrada
-    const totalMonto = alertasFiltradas.reduce((acc, a) => acc + (a.totalDineroVisual || 0), 0);
+const totalMonto = alertasFiltradas.reduce((acc, a) => {
+      if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
+        return acc + a.fugaPorMes[filtroPeriodo];
+      }
+      return acc + (a.totalDineroVisual || 0);
+    }, 0);
     const totalAlertas = alertasFiltradas.length;
 
     // Calcular cuántos períodos únicos están presentes en las alertas filtradas
@@ -714,42 +726,62 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
               </div>
             </div>
 
-{/* Segmentación por Sedes */}
-            <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-500 self-center mr-2">🏢 Unidad:</span>
-              <button
-                onClick={() => setFiltroUnidad('TODOS')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  filtroUnidad === 'TODOS' ? 'bg-slate-900 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                🌐 Todas ({coleccionActiva.length})
-              </button>
-              <button
-                onClick={() => setFiltroUnidad('ADMIN')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  filtroUnidad === 'ADMIN' ? 'bg-red-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                🏢 Sede Administrativa ({coleccionActiva.filter(a => a.unidad === 'ADMIN').length})
-              </button>
-              <button
-                onClick={() => setFiltroUnidad('BALNEARIO')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  filtroUnidad === 'BALNEARIO' ? 'bg-blue-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                🏊 Balneario ({coleccionActiva.filter(a => a.unidad === 'BALNEARIO').length})
-              </button>
-              <button
-                onClick={() => setFiltroUnidad('ECOPARQUE_HOTEL')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  filtroUnidad === 'ECOPARQUE_HOTEL' ? 'bg-emerald-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                🌲 Hotel & Ecoparque / RecreFam ({coleccionActiva.filter(a => a.unidad === 'ECOPARQUE_HOTEL').length})
-              </button>
-            </div>
+{/* Segmentación por Sedes - DINÁMICO EN TIEMPO REAL CON PERÍODO */}
+            {(() => {
+              // Colección filtrada por todo EXCEPTO por la unidad actual
+              const basePeriodo = coleccionActiva.filter(a => {
+                const term = busqueda.toLowerCase().trim();
+                const coincideBusqueda = term === '' ? true : 
+                  a.nombre.toLowerCase().includes(term) || a.cedula.includes(term);
+                
+                const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
+                const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
+                
+                let coincidePeriodo = true;
+                if (filtroPeriodo !== 'TODOS') {
+                   coincidePeriodo = modoDashboard === 'JORNADA' ? a.mesesConNovedad.has(filtroPeriodo) : a.periodosFuga.has(filtroPeriodo);
+                }
+                return coincideBusqueda && coincideProceso && coincideCargo && coincidePeriodo;
+              });
+
+              return (
+                <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
+                  <span className="text-xs font-bold text-slate-500 self-center mr-2">🏢 Unidad:</span>
+                  <button
+                    onClick={() => setFiltroUnidad('TODOS')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      filtroUnidad === 'TODOS' ? 'bg-slate-900 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    🌐 Todas ({basePeriodo.length})
+                  </button>
+                  <button
+                    onClick={() => setFiltroUnidad('ADMIN')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      filtroUnidad === 'ADMIN' ? 'bg-red-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    🏢 Sede Administrativa ({basePeriodo.filter(a => a.unidad === 'ADMIN').length})
+                  </button>
+                  <button
+                    onClick={() => setFiltroUnidad('BALNEARIO')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      filtroUnidad === 'BALNEARIO' ? 'bg-blue-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    🏊 Balneario ({basePeriodo.filter(a => a.unidad === 'BALNEARIO').length})
+                  </button>
+                  <button
+                    onClick={() => setFiltroUnidad('ECOPARQUE_HOTEL')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      filtroUnidad === 'ECOPARQUE_HOTEL' ? 'bg-emerald-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    🌲 Hotel & Ecoparque / RecreFam ({basePeriodo.filter(a => a.unidad === 'ECOPARQUE_HOTEL').length})
+                  </button>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
