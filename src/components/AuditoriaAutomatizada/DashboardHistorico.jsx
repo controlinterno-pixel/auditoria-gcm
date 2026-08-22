@@ -330,14 +330,50 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
                  return acc;
               }, {}),
 riesgo: (() => {
+                // 1. CASO ESPECIAL MULTI-EMPRESA (Paola Andrea)
                 if (emp.empresasGrupo && emp.empresasGrupo.size > 1) {
                   return `🚨 DIAGNÓSTICO GERENCIAL (DOBLE COBRO CORPORATIVO):
-• Doble Cobro Completo (100% en ambas nóminas): En cada una de las 10 quincenas auditadas cobra $124.548 de Auxilio de Transporte en Fam y $124.548 en RecreFam de manera simultánea.
-• Superación del Tope Legal por Unidad de Empresa: Registra un sueldo básico de $1.380.598 en Fam y $1.380.598 en RecreFam. Ingreso Salarial Consolidado Real: $2.761.196 quincenales ($5.522.392 mensuales).
-• Fuga de Capital Factual: Supera ampliamente el tope legal de 2 SMLMV quincenales ($1.750.905 COP). Al sumar ambas nóminas, ha percibido $${fugaNetaAcumulada.toLocaleString('es-CO')} COP de auxilio en exceso. CASO ÚNICO EN LA ORGANIZACIÓN.`;
+• Doble Cobro Completo (100% en ambas nóminas): En las 10 quincenas auditadas cobra $124.548 de Auxilio de Transporte en Fam y $124.548 en RecreFam de manera simultánea.
+• Superación del Tope Legal por Unidad de Empresa: Registra sueldos de $1.380.598 en Fam y $1.380.598 en RecreFam. Ingreso Salarial Consolidado Real: $2.761.196 quincenales ($5.522.392 mensuales).
+• Fuga de Capital Factual: Supera ampliamente el tope legal de 2 SMLMV quincenales ($1.750.905 COP). Al sumar ambas nóminas, ha percibido $${fugaNetaAcumulada.toLocaleString('es-CO')} COP en exceso. CASO ÚNICO EN LA ORGANIZACIÓN.`;
                 }
 
-                return `Fuga de Capital Detectada en ${quincenasConInfraccion} período(s) quincenal(es). Detalle: ${detalleTransporte.join(' ')}`;
+                // 2. CÁLCULO DE PROMEDIOS FINANCIEROS REALES (Palacios, López y demás empleados)
+                let totalSalarialAcumulado = 0;
+                let totalRodamientoAcumulado = 0;
+                let quincenasSuperaTope = 0;
+                let quincenasConRodamiento = 0;
+
+                Object.values(emp.historialMeses).forEach(q => {
+                  if (q.transportePagado > 0) {
+                    totalSalarialAcumulado += (q.devengadoSalarial || 0);
+                    totalRodamientoAcumulado += (q.rodamientoPagado || 0);
+                    if (q.devengadoSalarial > 1750905) quincenasSuperaTope++;
+                    if (q.rodamientoPagado > 0) quincenasConRodamiento++;
+                  }
+                });
+
+                const promSalarial = quincenasConInfraccion > 0 ? Math.round(totalSalarialAcumulado / quincenasConInfraccion) : 0;
+                const promRodamiento = quincenasConRodamiento > 0 ? Math.round(totalRodamientoAcumulado / quincenasConRodamiento) : 0;
+
+                // 3. ANÁLISIS DE DOBLE INCOMPATIBILIDAD (RODAMIENTO + TOPE EXCEDIDO)
+                if (promRodamiento > 0 && promSalarial > 1750905) {
+                  return `🚨 DOBLE INCOMPATIBILIDAD (RODAMIENTO + TOPE EXCEDIDO):
+• Análisis de Ingresos: Devengado salarial promedio de $${promSalarial.toLocaleString('es-CO')} quincenales (Sueldo + Comisiones), superando el tope de 2 SMLMV ($1.750.905 COP) en ${quincenasSuperaTope} de ${quincenasConInfraccion} quincenas.
+• Doble Beneficio Extralegal: Percibe $${promRodamiento.toLocaleString('es-CO')} quincenales de Auxilio de Rodamiento, concepto exento que inhabilita legalmente el pago de Auxilio de Transporte (Art. 15 Ley 15/59).
+• Fuga de Capital Factual: El ERP continuó pagando el auxilio de transporte sin aplicar la regla de exclusión, acumulando $${fugaNetaAcumulada.toLocaleString('es-CO')} COP en exceso en ${quincenasConInfraccion} quincenas.`;
+                }
+
+                if (promRodamiento > 0) {
+                  return `⚠️ INCOMPATIBILIDAD POR RODAMIENTO:
+• Conflicto Normativo: Percibe $${promRodamiento.toLocaleString('es-CO')} quincenales de Auxilio de Rodamiento. El pago de movilidad extralegal excluye legalmente el derecho al Auxilio de Transporte.
+• Fuga de Capital Factual: Se liquidaron $${fugaNetaAcumulada.toLocaleString('es-CO')} COP de auxilio de transporte en ${quincenasConInfraccion} quincenas por falta de cruce de conceptos en la nómina.`;
+                }
+
+                // 4. SUPERACIÓN ESTÁNDAR DEL TOPE LEGAL
+                return `⚠️ SUPERACIÓN DE TOPE LEGAL (2 SMLMV):
+• Análisis de Ingresos: Devengado salarial promedio de $${promSalarial.toLocaleString('es-CO')} quincenales, superando el límite legal de 2 SMLMV ($1.750.905 COP).
+• Fuga de Capital Factual: Se pagaron $${fugaNetaAcumulada.toLocaleString('es-CO')} COP de auxilio de transporte sin derecho legal en ${quincenasConInfraccion} quincenas.`;
               })(),
               tipo: 'FUGA_TRANSPORTE',
               icono: '🚗',
