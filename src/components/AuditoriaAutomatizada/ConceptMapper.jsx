@@ -872,8 +872,8 @@ if (empleado.usoHistoricoAnterior) {
                   <button onClick={() => setFiltroTipo('DESALINEACION_SUBSISTEMAS')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'DESALINEACION_SUBSISTEMAS' ? 'bg-purple-600 font-bold' : 'bg-slate-800 hover:bg-slate-700'}`}>
                     ⚠️ Desalineados ({resumenKpi?.conteoDesalineados || 0})
                   </button>
-                  <button onClick={() => setFiltroTipo('REQUIERE_HISTORICO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'REQUIERE_HISTORICO' ? 'bg-yellow-600 font-bold text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
-                    🟡 Sin Histórico ({hallazgos.filter(h => h.tipoHallazgo === 'REQUIERE_HISTORICO').length})
+                 <button onClick={() => setFiltroTipo('REQUIERE_HISTORICO')} className={`px-2.5 py-1 text-xs rounded transition ${filtroTipo === 'REQUIERE_HISTORICO' ? 'bg-yellow-600 font-bold text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}>
+                    {tipoAuditoriaActiva === 'TRANSPORTE' ? '🟡 Doble Contrato' : '🟡 Sin Histórico'} ({hallazgos.filter(h => h.tipoHallazgo === 'REQUIERE_HISTORICO').length})
                   </button>
                 </>
               )}
@@ -1006,7 +1006,7 @@ if (empleado.usoHistoricoAnterior) {
                         )}
                         {h.tipoHallazgo === 'REQUIERE_HISTORICO' && (
                           <span className="px-2.5 py-1 text-[10px] font-extrabold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-300">
-                            🟡 REQUIERE HISTÓRICO
+                            {tipoAuditoriaActiva === 'TRANSPORTE' ? '🟡 DOBLE CONTRATO' : '🟡 REQUIERE HISTÓRICO'}
                           </span>
                         )}
                       </td>

@@ -166,6 +166,23 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
     
+    // Validar Rodamientos Excluyentes
+    const transaccionesDelEmpleado = transaccionesLimpias.filter(t => 
+      limpiarCedula(buscarColumna(t, ['Identificacion', 'Cedula'])) === emp.cedula && 
+      (buscarColumna(t, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']) || '').toString().trim() === emp.periodo
+    );
+
+    let recibioRodamiento = false;
+    let pagoRodamiento = 0;
+    
+    transaccionesDelEmpleado.forEach(t => {
+      const conc = normalizarTexto(buscarColumna(t, ['NombreConcepto', 'Concepto', 'Descripcion']));
+      if (conc.includes('RODAMIENTO') || conc.includes('VIATICO') || conc.includes('MOVILIDAD')) {
+        recibioRodamiento = true;
+        pagoRodamiento += parsearMonto(buscarColumna(t, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago']));
+      }
+    });
+
     let diasEfectivos = emp.diasTrabajados;
     if (diasEfectivos === 0) {
       if (emp.sueldoBasico > 0) {
@@ -182,7 +199,9 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     }
 
     const ingresoTotalEvaluado = salarioBaseProyectado + emp.otrosDevengadosSalariales;
-    const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && ingresoTotalEvaluado <= limiteSalarialQuincenal;
+    
+    // Si gana Rodamiento Extralegal de forma habitual, PIERDE el auxilio de transporte por jurisprudencia de la CSJ.
+    const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && ingresoTotalEvaluado <= limiteSalarialQuincenal && !recibioRodamiento;
 
     let auxilioDeberSer = 0;
     if (tieneDerechoLegal) {
@@ -214,12 +233,22 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       conteoConformes++;
     }
 
+    // 🚩 VALIDACIÓN: Multi-Empresa o Rodamientos ocultos
+    if (emp.empresasGrupo.size > 1 && emp.auxilioPagado > 0) {
+       tipoHallazgo = 'REQUIERE_HISTORICO'; // Usamos este estatus para la "Alerta Amarilla" visual de cruce de contratos
+       severidad = 'ADVERTENCIA (Multi-Empresa)';
+    }
+
    // 💡 DICTAMEN FORENSE INTELIGENTE Y CERTERO - AUXILIO DE TRANSPORTE
     let notaForense = null;
     const topeQuincenal = limiteSalarialQuincenal; 
     const totalDevengado = emp.totalDevengadoSalarial;
 
-    if (tipoHallazgo === 'PAGO_EXCESO') {
+    if (emp.empresasGrupo.size > 1 && emp.auxilioPagado > 0) {
+       notaForense = `🟡 ALERTA DE DOBLE CONTRATO: El empleado está activo en Termales y RecreFam simultáneamente. Sumando ambos contratos recibió $${emp.auxilioPagado.toLocaleString('es-CO')} de Auxilio de Transporte. Debe auditarse que la suma de ambos salarios no supere el tope y que el auxilio no se esté pagando duplicado.`;
+    } else if (recibioRodamiento && emp.auxilioPagado > 0) {
+       notaForense = `🚨 DOBLE BENEFICIO (Rodamiento + Transporte): El empleado recibió $${pagoRodamiento.toLocaleString('es-CO')} de Auxilio de Rodamiento y $${emp.auxilioPagado.toLocaleString('es-CO')} de Transporte. Según la jurisprudencia, el pago de rodamiento excluye el pago de Auxilio de Transporte (Art. 15 Ley 15/59).`;
+    } else if (tipoHallazgo === 'PAGO_EXCESO') {
       if (ingresoTotalEvaluado > topeQuincenal) {
         notaForense = `🚨 EXCESO POR SUPERACIÓN DE TOPE LEGAL (Art. 2 Ley 15/59): El devengado salarial ($${totalDevengado.toLocaleString('es-CO')}) superó el límite legal de 2 SMLMV quincenales ($${topeQuincenal.toLocaleString('es-CO')}). Se pagaron $${emp.auxilioPagado.toLocaleString('es-CO')} de auxilio sin tener derecho legal.`;
       } else {
@@ -228,7 +257,11 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     } else if (tipoHallazgo === 'PAGO_INSUFICIENTE') {
       notaForense = `🔴 BAJO PAGO CRÍTICO (RIESGO UGPP): El empleado tuvo un devengado salarial ($${totalDevengado.toLocaleString('es-CO')}) inferior al tope de 2 SMLMV ($${topeQuincenal.toLocaleString('es-CO')}) con ${diasEfectivos} días laborados. Tenía derecho a $${auxilioDeberSer.toLocaleString('es-CO')} pero solo le pagaron $${emp.auxilioPagado.toLocaleString('es-CO')}. Existe un faltante de $${diferenciaExacta.toLocaleString('es-CO')}.`;
     } else if (tipoHallazgo === 'NO_APLICA') {
-      notaForense = `ℹ️ EXCLUIDO LEGALMENTE: Empleado no aplica para Auxilio de Transporte por devengar más de 2 SMLMV ($${totalDevengado.toLocaleString('es-CO')}). El ERP no realizó pagos, cumpliendo la norma al 100%.`;
+      if (recibioRodamiento) {
+         notaForense = `ℹ️ EXCLUIDO LEGALMENTE: Empleado no recibe Auxilio de Transporte debido al pago extralegal de Rodamiento ($${pagoRodamiento.toLocaleString('es-CO')}). Correcta aplicación de la norma.`;
+      } else {
+         notaForense = `ℹ️ EXCLUIDO LEGALMENTE: Empleado no aplica para Auxilio de Transporte por devengar más de 2 SMLMV ($${totalDevengado.toLocaleString('es-CO')}). El ERP no realizó pagos, cumpliendo la norma al 100%.`;
+      }
     }
 
     hallazgos.push({
