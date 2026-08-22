@@ -65,7 +65,6 @@ const buscarColumna = (fila, aliasPosibles) => {
 
   // 2. Vía de mapeo: Solo se ejecuta si la columna existe en el Excel pero aún no la hemos guardado
   for (const key of Object.keys(fila)) {
-    // Solo limpiamos las tildes 1 vez por nombre de columna en toda la auditoría
     if (!cacheNormalizacionLlaves[key]) {
       cacheNormalizacionLlaves[key] = normalizarTexto(key).replace(/[\s_]/g, '');
     }
@@ -74,7 +73,7 @@ const buscarColumna = (fila, aliasPosibles) => {
     for (const alias of aliasPosibles) {
       const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
       if (keyNorm === aliasNorm) {
-        cacheLlavesExactas[aliasNorm] = key; // Guardamos el nombre exacto de la llave
+        cacheLlavesExactas[aliasNorm] = key; 
         return fila[key];
       }
     }

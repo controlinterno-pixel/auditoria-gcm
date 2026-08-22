@@ -22,29 +22,38 @@ const parsearMonto = (val) => {
   return parseFloat(str) || 0;
 };
 
-// --- ⚡ CACHÉ INTELIGENTE DE LLAVES PARA EVITAR CRASH POR BIG DATA ---
-let ultimaFirmaLlaves = null;
-let cacheLlavesReales = {};
+// --- ⚡ CACHÉ ULTRA-RÁPIDO (A PRUEBA DE BIG DATA Y FIREBASE) ---
+const cacheNormalizacionLlaves = {};
+const cacheLlavesExactas = {};
 
 const buscarColumna = (fila, aliasPosibles) => {
   if (!fila || typeof fila !== 'object') return undefined;
-  const llavesExcel = Object.keys(fila);
-  const firma = llavesExcel.join('|');
 
-  // Si las columnas son las mismas que la fila anterior, reusamos la memoria (Acelera x10000)
-  if (firma !== ultimaFirmaLlaves) {
-    cacheLlavesReales = {};
-    llavesExcel.forEach(k => {
-      cacheLlavesReales[normalizarTexto(k).replace(/[\s_]/g, '')] = k;
-    });
-    ultimaFirmaLlaves = firma;
-  }
-
+  // 1. Vía ultra-rápida O(1): Buscamos directamente el nombre exacto recordado en caché
   for (const alias of aliasPosibles) {
     const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
-    const llaveReal = cacheLlavesReales[aliasNorm] || cacheLlavesReales[normalizarTexto(alias).replace(/[\s_]/g, '')];
-    if (llaveReal !== undefined) return fila[llaveReal];
+    const llaveExacta = cacheLlavesExactas[aliasNorm];
+    if (llaveExacta && fila[llaveExacta] !== undefined) {
+      return fila[llaveExacta];
+    }
   }
+
+  // 2. Vía de mapeo: Solo se ejecuta si la columna existe en el Excel pero aún no la hemos guardado
+  for (const key of Object.keys(fila)) {
+    if (!cacheNormalizacionLlaves[key]) {
+      cacheNormalizacionLlaves[key] = normalizarTexto(key).replace(/[\s_]/g, '');
+    }
+    const keyNorm = cacheNormalizacionLlaves[key];
+
+    for (const alias of aliasPosibles) {
+      const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
+      if (keyNorm === aliasNorm) {
+        cacheLlavesExactas[aliasNorm] = key; 
+        return fila[key];
+      }
+    }
+  }
+
   return undefined;
 };
 
