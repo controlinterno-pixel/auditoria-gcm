@@ -122,6 +122,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const empresaRaw = buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial', 'NIT_Empresa']);
     const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'NIT', 'Documento']);
     const periodoRaw = buscarColumna(fila, ['IDEN_Periodo', 'Periodo', 'Mes', 'Quincena']);
+    const mesVisualRaw = buscarColumna(fila, ['MesVisual', 'AñoMes', 'AnoMes']); // 👁️ Lo leemos de la tabla
     const nombreRaw = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado', 'Trabajador']);
     const cargoRaw = buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion', 'Puesto']);
     const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
@@ -134,6 +135,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const empresa = empresaRaw ? empresaRaw.toString().trim() : 'GENERAL';
     const cedula = limpiarCedula(cedulaRaw);
     const periodo = periodoRaw ? periodoRaw.toString().trim() : '228';
+    const mesVisual = mesVisualRaw ? mesVisualRaw.toString().trim() : ''; // 👁️ Lo guardamos
     
     const llaveUnica = `${cedula}_${periodo}`;    
     const conceptoLimpio = normalizarTexto(conceptoRaw);
@@ -146,6 +148,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
         empresa, 
         cedula,
         periodo,
+        mesVisual, // 👁️ Lo pasamos al estado pivote
         nombre: nombreRaw ? nombreRaw.toString().trim() : 'Sin Nombre',
         cargo: cargoRaw ? cargoRaw.toString().trim() : 'Sin Cargo',
         sueldoBasico: 0,
@@ -239,7 +242,12 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     let tipoHallazgo = 'CONFORME';
     let severidad = 'CORRECTO';
 
-    if (!tieneDerechoLegal && emp.auxilioPagado === 0) {
+    if (emp.auxilioPagado < 0 || emp.totalDevengadoSalarial < 0) {
+      // 🚩 REGLA FORENSE: Identificar valores negativos como Reintegros y evitar falsos positivos
+      tipoHallazgo = 'CONFORME';
+      severidad = 'AJUSTE NEGATIVO (REINTEGRO)';
+      conteoConformes++;
+    } else if (!tieneDerechoLegal && emp.auxilioPagado === 0) {
       tipoHallazgo = 'NO_APLICA';
       severidad = 'EXCLUIDO_POR_TOPE';
       conteoNoAplica++;
@@ -269,7 +277,9 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const topeQuincenal = limiteSalarialQuincenal; 
     const totalDevengado = emp.totalDevengadoSalarial;
 
-    if (emp.empresasGrupo.size > 1 && emp.auxilioPagado > 0) {
+    if (emp.auxilioPagado < 0 || emp.totalDevengadoSalarial < 0) {
+       notaForense = `ℹ️ AJUSTE DE NÓMINA (REINTEGRO): Se detectaron valores negativos (Salario: $${totalDevengado.toLocaleString('es-CO')} | Auxilio: $${emp.auxilioPagado.toLocaleString('es-CO')}). Corresponde a un descuento o reintegro por cruce de novedades (ej. Vacaciones/Incapacidades) o días no laborados liquidados en periodos anteriores.`;
+    } else if (emp.empresasGrupo.size > 1 && emp.auxilioPagado > 0) {
        notaForense = `🟡 ALERTA DE DOBLE CONTRATO: El empleado está activo en Termales y RecreFam simultáneamente. Sumando ambos contratos recibió $${emp.auxilioPagado.toLocaleString('es-CO')} de Auxilio de Transporte. Debe auditarse que la suma de ambos salarios no supere el tope y que el auxilio no se esté pagando duplicado.`;
     } else if (recibioRodamiento && emp.auxilioPagado > 0) {
        notaForense = `🚨 DOBLE BENEFICIO (Rodamiento + Transporte): El empleado recibió $${pagoRodamiento.toLocaleString('es-CO')} de Auxilio de Rodamiento y $${emp.auxilioPagado.toLocaleString('es-CO')} de Transporte. Según la jurisprudencia, el pago de rodamiento excluye el pago de Auxilio de Transporte (Art. 15 Ley 15/59).`;
@@ -294,6 +304,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       empresa: emp.empresa,
       cedula: emp.cedula,
       periodo: emp.periodo,
+      mesVisual: emp.mesVisual, // 👁️ Lo pasamos al hallazgo final
       nombre: emp.nombre,
       cargo: emp.cargo,
       diasTrabajados: diasEfectivos,

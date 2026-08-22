@@ -234,8 +234,9 @@ const systemCategories = [
           dataPlana = dataBruta.transacciones || dataBruta.registros || dataBruta.datos || Object.values(dataBruta) || [];
         }
 
-        // ❌ ELIMINAMOS la línea que sobreescribía la quincena por el mes.
-        // Al dejar la quincena nativa (Ej: 228, 229), el motor evalúa los topes de Transporte correctamente.
+        // 🛡️ MODO QUINCENAL ESTRICTO: NO sobrescribimos la quincena.
+        // Solo añadimos un 'MesVisual' para mostrarlo bonito en la tabla.
+        dataPlana.forEach(t => t.MesVisual = base.periodo);
         todasLasTransacciones.push(...dataPlana);
       }
       
@@ -1012,7 +1013,10 @@ if (empleado.usoHistoricoAnterior) {
                         </span>
                       </td>
                       <td className="px-4 py-3 font-mono font-bold text-slate-800">{h.cedula}</td>
-                      <td className="px-4 py-3 text-center font-bold text-slate-600 bg-slate-50">{h.periodo}</td>
+                      <td className="px-4 py-3 text-center font-bold text-slate-600 bg-slate-50">
+                        {h.periodo}
+                        {h.mesVisual && <span className="block text-[10px] text-blue-600 font-extrabold mt-0.5">{h.mesVisual}</span>}
+                      </td>
                       <td className="px-4 py-3 font-medium whitespace-nowrap text-slate-900">{h.nombre}</td>
                       <td className="px-4 py-3 text-[10px] text-slate-500 uppercase">{h.cargo || 'Sin Cargo'}</td>
                       <td className="px-4 py-3 text-center font-semibold">
