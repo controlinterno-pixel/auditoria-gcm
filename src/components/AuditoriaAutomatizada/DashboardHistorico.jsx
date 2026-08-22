@@ -330,12 +330,22 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
                  return acc;
               }, {}),
 riesgo: (() => {
-                // 1. CASO ESPECIAL MULTI-EMPRESA (Paola Andrea)
+                // 1. CÁLCULO DINÁMICO REAL DE MULTI-EMPRESA
                 if (emp.empresasGrupo && emp.empresasGrupo.size > 1) {
+                  let empresasLista = Array.from(emp.empresasGrupo).join(' y ');
+                  let totalAuxilioRecibido = fugaNetaAcumulada;
+                  let sueldoPromedioEmpresa = 0;
+
+                  Object.values(emp.historialMeses).forEach(q => {
+                    if (q.transportePagado > 0 && q.devengadoSalarial > 0) {
+                      sueldoPromedioEmpresa = q.devengadoSalarial;
+                    }
+                  });
+
                   return `🚨 DIAGNÓSTICO GERENCIAL (DOBLE COBRO CORPORATIVO):
-• Doble Cobro Completo (100% en ambas nóminas): En las 10 quincenas auditadas cobra $124.548 de Auxilio de Transporte en Fam y $124.548 en RecreFam de manera simultánea.
-• Superación del Tope Legal por Unidad de Empresa: Registra sueldos de $1.380.598 en Fam y $1.380.598 en RecreFam. Ingreso Salarial Consolidado Real: $2.761.196 quincenales ($5.522.392 mensuales).
-• Fuga de Capital Factual: Supera ampliamente el tope legal de 2 SMLMV quincenales ($1.750.905 COP). Al sumar ambas nóminas, ha percibido $${fugaNetaAcumulada.toLocaleString('es-CO')} COP en exceso. CASO ÚNICO EN LA ORGANIZACIÓN.`;
+• Doble Cobro en Nóminas Paralelas: Registra cobro simultáneo de Auxilio de Transporte en las razones sociales ${empresasLista}.
+• Análisis Salarial por Empresa: Registra un sueldo básico quincenal promedio de $${sueldoPromedioEmpresa.toLocaleString('es-CO')} por unidad de empresa.
+• Impacto Financiero Factual: Percibió $${totalAuxilioRecibido.toLocaleString('es-CO')} COP de auxilio en exceso acumulado en ${quincenasConInfraccion} quincena(s) auditada(s).`;
                 }
 
                 // 2. CÁLCULO DE PROMEDIOS FINANCIEROS REALES (Palacios, López y demás empleados)
