@@ -29,7 +29,7 @@ const cacheLlavesExactas = {};
 const buscarColumna = (fila, aliasPosibles) => {
   if (!fila || typeof fila !== 'object') return undefined;
 
-  // 1. Vía ultra-rápida O(1): Buscamos directamente el nombre exacto recordado en caché
+  // 1. Vía ultra-rápida O(1)
   for (const alias of aliasPosibles) {
     const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
     const llaveExacta = cacheLlavesExactas[aliasNorm];
@@ -38,16 +38,14 @@ const buscarColumna = (fila, aliasPosibles) => {
     }
   }
 
-  // 2. Vía de mapeo: Solo se ejecuta si la columna existe en el Excel pero aún no la hemos guardado
-  for (const key of Object.keys(fila)) {
-    if (!cacheNormalizacionLlaves[key]) {
-      cacheNormalizacionLlaves[key] = normalizarTexto(key).replace(/[\s_]/g, '');
-    }
-    const keyNorm = cacheNormalizacionLlaves[key];
-
-    for (const alias of aliasPosibles) {
-      const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
-      if (keyNorm === aliasNorm) {
+  // 2. Vía de mapeo: Priorizamos el orden estricto de los alias solicitados
+  for (const alias of aliasPosibles) {
+    const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
+    for (const key of Object.keys(fila)) {
+      if (!cacheNormalizacionLlaves[key]) {
+        cacheNormalizacionLlaves[key] = normalizarTexto(key).replace(/[\s_]/g, '');
+      }
+      if (cacheNormalizacionLlaves[key] === aliasNorm) {
         cacheLlavesExactas[aliasNorm] = key; 
         return fila[key];
       }
@@ -150,7 +148,8 @@ const DashboardHistorico = () => {
         const valor = parsearMonto(buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago', 'Devengado']));
         const nombre = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado']) || 'Sin Nombre';
         const cargo = buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo';
-        const proceso = buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'Grupo']) || 'GENERAL';
+// 👁️ Ponemos 'Grupo' y 'NombreCcosto' de primeros para mostrar los nombres de los macro-procesos
+        const proceso = buscarColumna(fila, ['Grupo', 'NombreCcosto', 'CentroCosto']) || 'GENERAL';
         const unidad = clasificarUnidad(fila);
 
         procesosUnicos.add(proceso);
