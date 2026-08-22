@@ -253,50 +253,80 @@ const [verTendencias, setVerTendencias] = useState(false);
       let totalFugaTransporteCompania = 0;
 
       Object.values(empleadosStats).forEach(emp => {
-        // --- 1. EVALUACIÓN DE TRANSPORTE (Con regla de 1.7M Quincenal) ---
+        // --- 1. EVALUACIÓN DE TRANSPORTE 360° (PROPORCIONAL, TELETRABAJO Y REINTEGROS) ---
         let tieneFuga = false;
         let detalleTransporte = [];
-        let periodosFuga = new Set(); // 📅 RASTREAMOS EL PERIODO EXACTO DE LA FUGA
-        
+        let periodosFuga = new Set();
+        let fugaNetaAcumulada = 0;
+        let quincenasConInfraccion = 0;
+
         Object.entries(emp.historialMeses).forEach(([quincena, data]) => {
-           if (data.transportePagado > 0) {
-              const topeQuincenal = 1750905;
-              if (data.rodamientoPagado > 0) {
-                 emp.fugaTransporteDinero += data.transportePagado;
-                 emp.mesesConFugaTransporte += 1;
+           const transporte = data.transportePagado || 0;
+           const rodamiento = data.rodamientoPagado || 0;
+           const devengado = data.devengadoSalarial || 0;
+           const diasEfectivos = data.diasTrabajados > 0 ? Math.min(data.diasTrabajados, 15) : 15;
+           
+           // Tope Salarial Proporcional a Días (2 SMLMV = $1.750.905 / 15d = $116.727 COP diarios)
+           const topeProporcional = Math.round((1750905 / 15) * diasEfectivos);
+
+           // Gestión de Reintegros / Descuentos Negativos en Nómina
+           if (transporte < 0 || devengado < 0) {
+              fugaNetaAcumulada += transporte;
+              detalleTransporte.push(`[Q-${quincena}: Reintegro de Auxilio $${Math.abs(transporte).toLocaleString('es-CO')}]`);
+              return;
+           }
+
+           if (transporte > 0) {
+              let causalFuga = null;
+
+              if (rodamiento > 0) {
+                 causalFuga = `Doble Beneficio (Rodamiento $${rodamiento.toLocaleString('es-CO')})`;
+              } else if (data.esTeletrabajo) {
+                 causalFuga = `Incompatibilidad Teletrabajo / Conectividad`;
+              } else if (devengado > topeProporcional) {
+                 causalFuga = `Devengó $${devengado.toLocaleString('es-CO')} (Excede tope de ${diasEfectivos}d: $${topeProporcional.toLocaleString('es-CO')})`;
+              }
+
+              if (causalFuga) {
+                 fugaNetaAcumulada += transporte;
+                 quincenasConInfraccion += 1;
                  tieneFuga = true;
-                 periodosFuga.add(data.mesContenedor); // 📅 Conecta la quincena (Ej: 228) con el filtro del mes (Ej: Mayo)
-                 totalFugaTransporteCompania += data.transportePagado;
-                 detalleTransporte.push(`[Q-${quincena}: Cobra Rodamiento]`);
-              } else if (data.devengadoSalarial > topeQuincenal) {
-                 emp.fugaTransporteDinero += data.transportePagado;
-                 emp.mesesConFugaTransporte += 1;
-                 tieneFuga = true;
-                 periodosFuga.add(data.mesContenedor); // 📅 Conecta la quincena (Ej: 228) con el filtro del mes (Ej: Mayo)
-                 totalFugaTransporteCompania += data.transportePagado;
-                 detalleTransporte.push(`[Q-${quincena}: Devengó $${data.devengadoSalarial.toLocaleString('es-CO')}]`);
+                 periodosFuga.add(data.mesContenedor);
+                 detalleTransporte.push(`[Q-${quincena}: ${causalFuga}]`);
               }
            }
         });
-        
 
-     if (tieneFuga) {
+        // Alerta Corporativa Especial: Doble Contrato / Multi-Empresa
+        if (emp.empresasGrupo && emp.empresasGrupo.size > 1) {
+           tieneFuga = true;
+           detalleTransporte.push(`[ALERTA CORPORATIVA: Cobro simultáneo en ${Array.from(emp.empresasGrupo).join(' + ')}]`);
+        }
+
+        if (tieneFuga && fugaNetaAcumulada > 0) {
+           emp.fugaTransporteDinero = fugaNetaAcumulada;
+           emp.mesesConFugaTransporte = quincenasConInfraccion;
+           totalFugaTransporteCompania += fugaNetaAcumulada;
+
            alertasTransporte.push({
               ...emp,
               periodosFuga,
-              totalHorasVisual: emp.mesesConFugaTransporte,
-              totalDineroVisual: emp.fugaTransporteDinero,
-              // Guardamos el desglose exacto por mes para filtrar importes no acumulados
+              totalHorasVisual: quincenasConInfraccion,
+              totalDineroVisual: fugaNetaAcumulada,
               fugaPorMes: Object.values(emp.historialMeses).reduce((acc, q) => {
-                 if (q.transportePagado > 0 && (q.rodamientoPagado > 0 || q.devengadoSalarial > 1750905)) {
-                    acc[q.mesContenedor] = (acc[q.mesContenedor] || 0) + q.transportePagado;
+                 if (q.transportePagado > 0) {
+                    const dEfectivos = q.diasTrabajados > 0 ? Math.min(q.diasTrabajados, 15) : 15;
+                    const tProporcional = Math.round((1750905 / 15) * dEfectivos);
+                    if (q.rodamientoPagado > 0 || q.esTeletrabajo || q.devengadoSalarial > tProporcional) {
+                       acc[q.mesContenedor] = (acc[q.mesContenedor] || 0) + q.transportePagado;
+                    }
                  }
                  return acc;
               }, {}),
-              riesgo: `Fuga de Capital Sostenida. Cobró subsidio sin derecho legal en ${emp.mesesConFugaTransporte} periodos quincenales. Detalle: ${detalleTransporte.join(' ')}`,
+              riesgo: `Fuga de Capital Detectada en ${quincenasConInfraccion} período(s) quincenal(es). Detalle: ${detalleTransporte.join(' ')}`,
               tipo: 'FUGA_TRANSPORTE',
               icono: '🚗',
-              mesesActivos: emp.mesesConFugaTransporte
+              mesesActivos: quincenasConInfraccion
            });
         }
 
