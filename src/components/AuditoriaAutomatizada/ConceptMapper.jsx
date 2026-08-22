@@ -749,12 +749,14 @@ if (empleado.usoHistoricoAnterior) {
             <button onClick={handleStartAuditJornada} className="px-8 py-3 bg-pink-700 text-white font-bold rounded-lg shadow-md hover:bg-pink-600 transition-colors w-full md:w-auto ml-auto">
               ⏱️ Ejecutar Auditoría de Jornada (Ley 2101)
             </button>
-        ) : (
+       ) : (
             <button onClick={handleStartAuditUGPP} disabled={isUploading} className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed ml-auto">
               {isUploading ? '⏳ Consultando Histórico y Auditando...' : '🛡️ Ejecutar Auditoría Integral'}
             </button>
           )}
         </div>
+      </>
+      )}
       </div>
       )}
 
@@ -1144,7 +1146,7 @@ if (empleado.usoHistoricoAnterior) {
               </div>
             </div>
 
-            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
+           <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
               <button 
                 onClick={() => setEmpleadoDiagonal(null)}
                 className="px-5 py-2 bg-slate-800 text-white font-bold text-xs rounded-lg hover:bg-slate-700 transition"
@@ -1155,8 +1157,6 @@ if (empleado.usoHistoricoAnterior) {
           </div>
         </div>
       )}
-  </>
-)}
     </div>
   );
 };
