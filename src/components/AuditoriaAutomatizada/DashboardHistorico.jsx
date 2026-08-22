@@ -41,8 +41,8 @@ const DashboardHistorico = () => {
   // --- FILTROS AVANZADOS Y TENDENCIAS ---
   const [busqueda, setBusqueda] = useState('');
   const [filtroUnidad, setFiltroUnidad] = useState('TODOS');
-  const [filtroProceso, setFiltroProceso] = useState('TODOS');
-  const [filtroCargo, setFiltroCargo] = useState('TODOS');
+  const [filtroProceso, setFiltroProceso] = useState([]); // Array para selección múltiple
+  const [filtroCargo, setFiltroCargo] = useState([]);     // Array para selección múltiple
   const [verTendencias, setVerTendencias] = useState(false);
 
   const clasificarUnidad = (fila) => {
@@ -271,11 +271,15 @@ const DashboardHistorico = () => {
     }
   };
 
-  // 🧠 FILTRADO DINÁMICO MULTI-VARIABLE (Afecta Tabla y Gráficas)
+// 🧠 FILTRADO DINÁMICO MULTI-SELECCIÓN (Afecta Tabla y Gráficas)
   const alertasFiltradas = datosHistoricos ? datosHistoricos.alertas.filter(a => {
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
-    const coincideProceso = filtroProceso === 'TODOS' ? true : a.proceso === filtroProceso;
-    const coincideCargo = filtroCargo === 'TODOS' ? true : a.cargo === filtroCargo;
+    
+    // Si no hay procesos seleccionados, muestra todos; de lo contrario, verifica si pertenece al grupo
+    const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
+    
+    // Si no hay cargos seleccionados, muestra todos; de lo contrario, verifica el grupo
+    const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
     
     const term = busqueda.toLowerCase().trim();
     const coincideBusqueda = term === '' ? true : 
@@ -422,11 +426,11 @@ const DashboardHistorico = () => {
             )}
           </div>
 
-          {/* 🎛️ SUITE DE FILTROS AVANZADOS MULTI-VARIABLE */}
+        {/* 🎛️ SUITE DE FILTROS MULTI-SELECCIÓN MÚLTIPLE */}
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div className="flex flex-wrap gap-4 items-center">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Buscador Nombre / Cédula */}
-              <div className="flex-1 min-w-[240px]">
+              <div>
                 <label className="text-xs font-bold text-slate-500 block mb-1">🔍 Buscar Empleado o Cédula:</label>
                 <input 
                   type="text" 
@@ -435,36 +439,59 @@ const DashboardHistorico = () => {
                   onChange={(e) => setBusqueda(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-medium"
                 />
+                <span className="text-[10px] text-slate-400 mt-1 block">Filtra texto en tiempo real.</span>
               </div>
 
-              {/* Filtro por Proceso */}
-              <div className="w-64">
-                <label className="text-xs font-bold text-slate-500 block mb-1">⚙️ Proceso / Centro de Costo:</label>
+              {/* Selección Múltiple por Proceso */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-slate-500">⚙️ Procesos (Multiselección):</label>
+                  {filtroProceso.length > 0 && (
+                    <button onClick={() => setFiltroProceso([])} className="text-[10px] font-bold text-rose-600 hover:underline">
+                      Limpiar ({filtroProceso.length})
+                    </button>
+                  )}
+                </div>
                 <select 
+                  multiple
                   value={filtroProceso} 
-                  onChange={(e) => setFiltroProceso(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium"
+                  onChange={(e) => {
+                    const opciones = Array.from(e.target.selectedOptions, option => option.value);
+                    setFiltroProceso(opciones);
+                  }}
+                  className="w-full h-24 px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium overflow-y-auto"
                 >
-                  <option value="TODOS">-- Todos los Procesos --</option>
                   {datosHistoricos.procesos.map((p, i) => (
-                    <option key={i} value={p}>{p}</option>
+                    <option key={i} value={p} className="p-1 hover:bg-slate-100 rounded">{p}</option>
                   ))}
                 </select>
+                <span className="text-[10px] text-slate-400 mt-0.5 block">Mantén presionado <b>Ctrl</b> (o Cmd) para elegir varios.</span>
               </div>
 
-              {/* Filtro por Cargo */}
-              <div className="w-64">
-                <label className="text-xs font-bold text-slate-500 block mb-1">👔 Cargo Específico:</label>
+              {/* Selección Múltiple por Cargo */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-slate-500">👔 Cargos (Multiselección):</label>
+                  {filtroCargo.length > 0 && (
+                    <button onClick={() => setFiltroCargo([])} className="text-[10px] font-bold text-rose-600 hover:underline">
+                      Limpiar ({filtroCargo.length})
+                    </button>
+                  )}
+                </div>
                 <select 
+                  multiple
                   value={filtroCargo} 
-                  onChange={(e) => setFiltroCargo(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium"
+                  onChange={(e) => {
+                    const opciones = Array.from(e.target.selectedOptions, option => option.value);
+                    setFiltroCargo(opciones);
+                  }}
+                  className="w-full h-24 px-2 py-1 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium overflow-y-auto"
                 >
-                  <option value="TODOS">-- Todos los Cargos --</option>
                   {datosHistoricos.cargos.map((c, i) => (
-                    <option key={i} value={c}>{c}</option>
+                    <option key={i} value={c} className="p-1 hover:bg-slate-100 rounded">{c}</option>
                   ))}
                 </select>
+                <span className="text-[10px] text-slate-400 mt-0.5 block">Mantén presionado <b>Ctrl</b> (o Cmd) para elegir varios.</span>
               </div>
             </div>
 
