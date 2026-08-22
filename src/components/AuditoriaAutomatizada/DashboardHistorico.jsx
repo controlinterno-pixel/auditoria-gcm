@@ -79,6 +79,7 @@ const DashboardHistorico = () => {
 const [verTendencias, setVerTendencias] = useState(false);
   const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA' | 'TRANSPORTE'
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   // 📅 NUEVO FILTRO
+  const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
     const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
@@ -901,9 +902,20 @@ const totalMonto = alertasFiltradas.reduce((acc, a) => {
                     alertasFiltradas.map((alerta, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 transition-colors">
                         <td className="p-4 text-center text-2xl" title={alerta.tipo}>{alerta.icono}</td>
-                        <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
-                          {alerta.nombre}
-                          <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{alerta.cedula}</span>
+                       <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setEmpleadoModal(alerta)}
+                              className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition-all border border-blue-200 cursor-pointer text-xs font-bold flex items-center gap-1 shadow-sm"
+                              title="Ver Desglose Forense Quincenal"
+                            >
+                              🔍
+                            </button>
+                            <div>
+                              <span>{alerta.nombre}</span>
+                              <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{alerta.cedula}</span>
+                            </div>
+                          </div>
                         </td>
                         <td className="p-4 text-xs text-slate-600 uppercase">{alerta.cargo}</td>
                         <td className="p-4 text-center font-bold text-indigo-600">
@@ -929,6 +941,118 @@ const totalMonto = alertasFiltradas.reduce((acc, a) => {
               </table>
             </div>
           </div>
+        {/* 🔍 MODAL DE DIAGNÓSTICO FORENSE DE AUXILIO DE TRANSPORTE Y RODAMIENTO */}
+      {empleadoModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-y-auto relative text-slate-800">
+            
+            {/* Header del Modal */}
+            <div className="bg-slate-900 text-white p-6 sticky top-0 z-10 flex justify-between items-start border-b border-slate-800">
+              <div>
+                <h3 className="text-lg font-extrabold flex items-center gap-2">
+                  <span>🔍</span> Diagnóstico Forense de Transporte y Rodamiento
+                </h3>
+                <p className="text-xs text-slate-400 mt-1 font-mono">
+                  {empleadoModal.nombre} — Cédula: {empleadoModal.cedula} | Cargo: {empleadoModal.cargo}
+                </p>
+              </div>
+              <button 
+                onClick={() => setEmpleadoModal(null)}
+                className="text-slate-400 hover:text-white bg-slate-800 hover:bg-rose-600 rounded-lg text-lg w-8 h-8 flex items-center justify-center transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Tarjetas KPI de Resumen */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
+                  <p className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider">Períodos Evaluados con Fuga</p>
+                  <h4 className="text-2xl font-black text-emerald-800 mt-1">{empleadoModal.mesesActivos} quincena(s)</h4>
+                  <p className="text-xs text-emerald-600 mt-0.5">Rastreado en la base histórica de nómina</p>
+                </div>
+
+                <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl">
+                  <p className="text-[10px] font-extrabold text-rose-700 uppercase tracking-wider">Auxilio Pagado Indebidamente</p>
+                  <h4 className="text-2xl font-black text-rose-800 mt-1">${empleadoModal.totalDineroVisual.toLocaleString('es-CO')}</h4>
+                  <p className="text-xs text-rose-600 mt-0.5">Suma total de auxilio de transporte girado sin derecho legal</p>
+                </div>
+              </div>
+
+              {/* Dictamen del Motor */}
+              <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-xl">
+                <p className="text-xs font-extrabold text-amber-800 uppercase mb-1 flex items-center gap-1">
+                  📌 Dictamen Financiero Ejecutado por el Motor:
+                </p>
+                <p className="text-xs text-slate-700 font-medium whitespace-pre-line leading-relaxed">
+                  {empleadoModal.riesgo}
+                </p>
+              </div>
+
+              {/* Tabla de Desglose Quincenal con Datos Reales */}
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 uppercase mb-3 flex items-center gap-1.5">
+                  📊 Desglose de Transacciones Quincenales:
+                </h4>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs text-left">
+                    <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
+                      <tr>
+                        <th className="p-3">Quincena</th>
+                        <th className="p-3 text-right">Devengado Salarial</th>
+                        <th className="p-3 text-right">Aux. Rodamiento</th>
+                        <th className="p-3 text-right">Aux. Transporte Pagado</th>
+                        <th className="p-3 text-center">Estado Incompatibilidad</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono">
+                      {Object.entries(empleadoModal.historialMeses || {})
+                        .filter(([_, q]) => q.transportePagado > 0 || q.rodamientoPagado > 0)
+                        .map(([qKey, qData], i) => {
+                          const excedeTope = qData.devengadoSalarial > 1750905;
+                          const tieneRodamiento = qData.rodamientoPagado > 0;
+                          
+                          return (
+                            <tr key={i} className="hover:bg-slate-50">
+                              <td className="p-3 font-bold text-slate-800">Q-{qKey}</td>
+                              <td className="p-3 text-right font-medium">${(qData.devengadoSalarial || 0).toLocaleString('es-CO')}</td>
+                              <td className="p-3 text-right font-bold text-blue-600">${(qData.rodamientoPagado || 0).toLocaleString('es-CO')}</td>
+                              <td className="p-3 text-right font-extrabold text-rose-600">${(qData.transportePagado || 0).toLocaleString('es-CO')}</td>
+                              <td className="p-3 text-center">
+                                {tieneRodamiento && excedeTope ? (
+                                  <span className="px-2 py-0.5 bg-purple-100 text-purple-700 font-sans font-bold rounded-full text-[10px]">🚨 Rodamiento + Tope</span>
+                                ) : tieneRodamiento ? (
+                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 font-sans font-bold rounded-full text-[10px]">⚠️ Incompatibilidad Rodamiento</span>
+                                ) : excedeTope ? (
+                                  <span className="px-2 py-0.5 bg-rose-100 text-rose-700 font-sans font-bold rounded-full text-[10px]">⚠️ Excede 2 SMLMV</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-slate-100 text-slate-600 font-sans font-medium rounded-full text-[10px]">Cumple Norma</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setEmpleadoModal(null)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
+              >
+                Cerrar Diagnóstico
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
         </div>
       )}
     </div>
