@@ -259,12 +259,13 @@ const systemCategories = [
       // 🚀 3. Ejecutar el motor de auditoría con las reglas marcadas dinámicamente
       const resultadoEngine = auditarAuxilioTransporte(todasLasTransacciones, mapeoSincrono, 2026);
       
-      // ✅ Pasamos la data a React de forma segura
-      setDatosExcel(todasLasTransacciones); 
+      // 🛡️ MODO OPTIMIZADO PARA BIG DATA: 
+      // No guardamos las 50.000 transacciones en el estado de React (setDatosExcel) 
+      // para evitar que el navegador se congele. Solo guardamos el resultado auditado.
       setTipoAuditoriaActiva('TRANSPORTE');
       setHallazgos(resultadoEngine.hallazgos);
       setResumenKpi(resultadoEngine.kpis);
-      setFileName(`[Macro-Auditoría en Nube] ${listaHistoricosBD.length} bases históricas analizadas simultáneamente`);
+      setFileName(`[Macro-Auditoría en Nube] ${listaHistoricosBD.length} bases históricas procesadas.`);
     } catch (error) {
       console.error(error);
       alert("❌ Error al procesar la data histórica masiva. Asegúrate de tener bases válidas en la Nube.");
