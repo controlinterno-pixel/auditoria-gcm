@@ -47,12 +47,28 @@ const parsearMonto = (val) => {
   return isNaN(num) ? 0 : num;
 };
 
+// --- ⚡ CACHÉ INTELIGENTE DE LLAVES PARA EVITAR CRASH POR BIG DATA ---
+let ultimaFirmaLlaves = null;
+let cacheLlavesReales = {};
+
 const buscarColumna = (fila, aliasPosibles) => {
+  if (!fila || typeof fila !== 'object') return undefined;
   const llavesExcel = Object.keys(fila);
+  const firma = llavesExcel.join('|');
+
+  // Si las columnas son las mismas que la fila anterior, reusamos la memoria (Acelera x10000)
+  if (firma !== ultimaFirmaLlaves) {
+    cacheLlavesReales = {};
+    llavesExcel.forEach(k => {
+      cacheLlavesReales[normalizarTexto(k).replace(/[\s_]/g, '')] = k;
+    });
+    ultimaFirmaLlaves = firma;
+  }
+
   for (const alias of aliasPosibles) {
-    const aliasNorm = normalizarTexto(alias).replace(/[\s_]/g, '');
-    const llaveReal = llavesExcel.find(k => normalizarTexto(k).replace(/[\s_]/g, '') === aliasNorm);
-    if (llaveReal) return fila[llaveReal];
+    const aliasNorm = alias.toUpperCase().replace(/[\s_]/g, '');
+    const llaveReal = cacheLlavesReales[aliasNorm] || cacheLlavesReales[normalizarTexto(alias).replace(/[\s_]/g, '')];
+    if (llaveReal !== undefined) return fila[llaveReal];
   }
   return undefined;
 };
