@@ -132,8 +132,16 @@ const DashboardHistorico = () => {
         procesosUnicos.add(proceso);
         cargosUnicos.add(cargo);
 
-        if (!tendenciasMeses[mesOrigen]) {
-          tendenciasMeses[mesOrigen] = { mes: mesOrigen, extras: 0, recargos: 0, costo: 0 };
+       if (!tendenciasMeses[mesOrigen]) {
+          tendenciasMeses[mesOrigen] = { 
+            mes: mesOrigen, 
+            ADMIN: 0, 
+            BALNEARIO: 0, 
+            ECOPARQUE_HOTEL: 0, 
+            costoADMIN: 0, 
+            costoBALNEARIO: 0, 
+            costoECOPARQUE_HOTEL: 0 
+          };
         }
 
         if (!empleadosStats[cedula]) {
@@ -157,19 +165,28 @@ const DashboardHistorico = () => {
         const esRecargo = (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA')) || 
                           conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL');
 
-        if (esExtra) {
-          emp.totalHorasExtras += cantidad;
-          emp.totalValorExtras += valor;
+        if (esExtra || esRecargo) {
+          if (esExtra) {
+            emp.totalHorasExtras += cantidad;
+            emp.totalValorExtras += valor;
+            totalCostoExtrasCompania += valor;
+          } else {
+            emp.totalHorasRecargos += cantidad;
+            emp.totalValorRecargos += valor;
+          }
           emp.mesesConNovedad.add(mesOrigen);
-          totalCostoExtrasCompania += valor;
-          tendenciasMeses[mesOrigen].extras += cantidad;
-          tendenciasMeses[mesOrigen].costo += valor;
-        } else if (esRecargo) {
-          emp.totalHorasRecargos += cantidad;
-          emp.totalValorRecargos += valor;
-          emp.mesesConNovedad.add(mesOrigen);
-          tendenciasMeses[mesOrigen].recargos += cantidad;
-          tendenciasMeses[mesOrigen].costo += valor;
+
+          // Acumular tendencia por sede
+          if (unidad === 'ADMIN') {
+            tendenciasMeses[mesOrigen].ADMIN += cantidad;
+            tendenciasMeses[mesOrigen].costoADMIN += valor;
+          } else if (unidad === 'BALNEARIO') {
+            tendenciasMeses[mesOrigen].BALNEARIO += cantidad;
+            tendenciasMeses[mesOrigen].costoBALNEARIO += valor;
+          } else if (unidad === 'ECOPARQUE_HOTEL') {
+            tendenciasMeses[mesOrigen].ECOPARQUE_HOTEL += cantidad;
+            tendenciasMeses[mesOrigen].costoECOPARQUE_HOTEL += valor;
+          }
         }
       });
 
@@ -325,23 +342,21 @@ const DashboardHistorico = () => {
 
            {verTendencias && (
               <div className="pt-4 border-t border-slate-100 space-y-6">
-                {/* 📈 GRÁFICA INTERACTIVA RECHARTS */}
-                <div className="h-72 w-full bg-slate-50 p-4 rounded-xl border border-slate-200">
+                {/* 📈 GRÁFICA INTERACTIVA COMPARATIVA POR SEDE */}
+                <div className="h-80 w-full bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={datosHistoricos.tendencias}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="mes" stroke="#64748b" fontSize={11} fontWeight="bold" />
-                      <YAxis stroke="#64748b" fontSize={11} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                      <XAxis dataKey="mes" stroke="#475569" fontSize={11} fontWeight="bold" />
+                      <YAxis stroke="#475569" fontSize={11} />
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
-                        formatter={(value, name) => [
-                          name === 'costo' ? `$${Number(value).toLocaleString('es-CO')}` : `${Number(value).toFixed(1)} hrs`,
-                          name === 'extras' ? 'Horas Extras' : name === 'recargos' ? 'Recargos' : 'Costo Total'
-                        ]}
+                        formatter={(value, name) => [`${Number(value).toFixed(1)} hrs`, name]}
                       />
                       <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                      <Line type="monotone" dataKey="extras" name="Horas Extras" stroke="#ec4899" strokeWidth={3} dot={{ r: 5 }} />
-                      <Line type="monotone" dataKey="recargos" name="Recargos" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="ADMIN" name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="BALNEARIO" name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
+                      <Line type="monotone" dataKey="ECOPARQUE_HOTEL" name="🌲 Hotel & Ecoparque" stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
