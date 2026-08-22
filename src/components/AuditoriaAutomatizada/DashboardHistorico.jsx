@@ -222,6 +222,7 @@ const DashboardHistorico = () => {
       });
 
     } catch (error) {
+    } catch (error) {
       console.error(error);
       alert("❌ Error al procesar la data histórica.");
     } finally {
@@ -233,12 +234,6 @@ const DashboardHistorico = () => {
     if (filtroUnidad === 'TODOS') return true;
     return a.unidad === filtroUnidad;
   }) : [];
-      console.error(error);
-      alert("❌ Error al procesar la data histórica.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
