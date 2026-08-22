@@ -36,6 +36,32 @@ const DashboardHistorico = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [datosHistoricos, setDatosHistoricos] = useState(null);
   const [listaBases, setListaBases] = useState([]);
+  const [filtroUnidad, setFiltroUnidad] = useState('TODOS');
+
+  const clasificarUnidad = (fila) => {
+    const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
+    const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
+    const grupo = normalizarTexto(buscarColumna(fila, ['Grupo']) || '');
+    const cargo = normalizarTexto(buscarColumna(fila, ['Cargo', 'DesCargo']) || '');
+
+    const palabrasAdmin = ['ADMINISTRA', 'FINANCIER', 'TALENTO', 'HUMANA', 'CONTAB', 'TESORER', 'CONTROL INTERNO', 'TICS', 'MERCADEO', 'COMPRAS', 'FAMILY OFFICE', 'SISTEMAS', 'GERENCIA', 'DIRECTOR'];
+    const excepOperativas = ['AUDITORIA NOCTURNA', 'RECEPCION', 'SPA', 'MESERO', 'CAMARERA', 'STEWAR', 'COCINA', 'MANTENIMIENTO', 'SALVAVIDAS'];
+
+    if ((palabrasAdmin.some(p => ccosto.includes(p)) || palabrasAdmin.some(p => grupo.includes(p))) && !excepOperativas.some(ex => cargo.includes(ex))) {
+      return 'ADMIN';
+    }
+
+    if (
+      empresa.includes('RECREFAM') || 
+      ccosto.includes('HOTEL') || ccosto.includes('ALOJAMIENTO') || grupo.includes('ALOJAMIENTO') || 
+      ccosto.includes('SPA') || ccosto.includes('CASCADA') || ccosto.includes('MONTAÑA') || ccosto.includes('DEL RIO') ||
+      ccosto.includes('JAIBANA') || ccosto.includes('PINDANA') || ccosto.includes('RUTA ECOLOGICA') || ccosto.includes('RECREACION')
+    ) {
+      return 'ECOPARQUE_HOTEL';
+    }
+
+    return 'BALNEARIO';
+  };
 
   useEffect(() => {
     obtenerListaHistoricos().then(data => setListaBases(data));
@@ -90,10 +116,11 @@ const DashboardHistorico = () => {
         const valor = parsearMonto(buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago', 'Devengado']));
         const nombre = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado']) || 'Sin Nombre';
         const cargo = buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo';
+        const unidad = clasificarUnidad(fila);
 
         if (!empleadosStats[cedula]) {
           empleadosStats[cedula] = {
-            cedula, nombre, cargo,
+            cedula, nombre, cargo, unidad,
             totalHorasExtras: 0,
             totalValorExtras: 0,
             totalHorasRecargos: 0,
@@ -202,6 +229,17 @@ const DashboardHistorico = () => {
     }
   };
 
+  const alertasFiltradas = datosHistoricos ? datosHistoricos.alertas.filter(a => {
+    if (filtroUnidad === 'TODOS') return true;
+    return a.unidad === filtroUnidad;
+  }) : [];
+      console.error(error);
+      alert("❌ Error al procesar la data histórica.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
@@ -245,10 +283,47 @@ const DashboardHistorico = () => {
             </div>
           </div>
 
+          {/* 🔘 BOTONERA DE SEGMENTACIÓN POR UNIDAD */}
+          <div className="flex flex-wrap gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+            <span className="text-xs font-bold text-slate-500 self-center px-2">🏢 Filtrar Unidad:</span>
+            <button
+              onClick={() => setFiltroUnidad('TODOS')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                filtroUnidad === 'TODOS' ? 'bg-slate-900 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              🌐 Todas ({datosHistoricos.alertas.length})
+            </button>
+            <button
+              onClick={() => setFiltroUnidad('ADMIN')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                filtroUnidad === 'ADMIN' ? 'bg-red-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              🏢 Sede Administrativa ({datosHistoricos.alertas.filter(a => a.unidad === 'ADMIN').length})
+            </button>
+            <button
+              onClick={() => setFiltroUnidad('BALNEARIO')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                filtroUnidad === 'BALNEARIO' ? 'bg-blue-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              🏊 Balneario ({datosHistoricos.alertas.filter(a => a.unidad === 'BALNEARIO').length})
+            </button>
+            <button
+              onClick={() => setFiltroUnidad('ECOPARQUE_HOTEL')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                filtroUnidad === 'ECOPARQUE_HOTEL' ? 'bg-emerald-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              🌲 Hotel & Ecoparque / RecreFam ({datosHistoricos.alertas.filter(a => a.unidad === 'ECOPARQUE_HOTEL').length})
+            </button>
+          </div>
+
           <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
             <div className="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                <span>⚠️</span> Ranking de Riesgo Histórico y Tendencias
+                <span>⚠️</span> Ranking de Riesgo Histórico — <span className="text-blue-700 font-extrabold">{filtroUnidad}</span>
               </h3>
             </div>
             <div className="p-0 overflow-x-auto">
@@ -264,10 +339,10 @@ const DashboardHistorico = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {datosHistoricos.alertas.length === 0 ? (
-                    <tr><td colSpan="6" className="p-8 text-center text-slate-500 italic">No se detectaron comportamientos anómalos en el histórico.</td></tr>
+                  {alertasFiltradas.length === 0 ? (
+                    <tr><td colSpan="6" className="p-8 text-center text-slate-500 italic">No se detectaron comportamientos anómalos en esta unidad.</td></tr>
                   ) : (
-                    datosHistoricos.alertas.map((alerta, idx) => (
+                    alertasFiltradas.map((alerta, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 transition-colors">
                         <td className="p-4 text-center text-2xl" title={alerta.tipo}>{alerta.icono}</td>
                         <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
