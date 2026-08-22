@@ -54,15 +54,15 @@ const DashboardHistorico = () => {
           dataPlana = dataBruta.transacciones || dataBruta.registros || Object.values(dataBruta) || [];
         }
 
-        // Marcar el periodo en cada transacción para saber de qué mes viene
         dataPlana.forEach(t => t.mesOrigen = base.periodo);
         todasLasTransacciones.push(...dataPlana);
       }
 
-      // Procesamiento Forense
+      // Procesamiento Forense 360
       const empleadosStats = {};
       const mesesDetectados = new Set();
       let totalCostoExtrasCompania = 0;
+      let totalCostoRecargosCompania = 0;
 
       todasLasTransacciones.forEach(fila => {
         const cedulaRaw = fila['Identificacion'] || fila['Cedula'] || fila['Documento'] || fila['CEDULA'];
@@ -85,73 +85,127 @@ const DashboardHistorico = () => {
             cedula, nombre, cargo,
             totalHorasExtras: 0,
             totalValorExtras: 0,
-            mesesConExtras: new Set(),
-            historialMeses: {} // Para ver la curva mes a mes
+            totalHorasRecargos: 0,
+            totalValorRecargos: 0,
+            mesesConNovedad: new Set()
           };
         }
 
         const emp = empleadosStats[cedula];
-        if (!emp.historialMeses[mesOrigen]) emp.historialMeses[mesOrigen] = 0;
 
-        // Detectar si es Hora Extra (Diurna, Nocturna, Festiva)
+        // Detección Estricta: Extras vs Recargos
         const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
                         conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS') ||
-                        conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRA DOMINICAL');
+                        conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') ||
+                        conceptoLimpio.includes('EXTRA DOMINICAL');
+        
+        const esRecargo = (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA')) || 
+                          conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL');
 
         if (esExtra) {
           emp.totalHorasExtras += cantidad;
           emp.totalValorExtras += valor;
-          emp.historialMeses[mesOrigen] += cantidad;
-          emp.mesesConExtras.add(mesOrigen);
+          emp.mesesConNovedad.add(mesOrigen);
           totalCostoExtrasCompania += valor;
+        } else if (esRecargo) {
+          emp.totalHorasRecargos += cantidad;
+          emp.totalValorRecargos += valor;
+          emp.mesesConNovedad.add(mesOrigen);
+          totalCostoRecargosCompania += valor;
         }
       });
 
-      // Generar Alertas Inteligentes
+      // 🔥 MOTOR DE INFERENCIA DE ALERTAS INTELIGENTES
       const alertasForences = [];
-      const mesesArray = Array.from(mesesDetectados).sort();
 
       Object.values(empleadosStats).forEach(emp => {
-        if (emp.totalHorasExtras === 0) return;
+        const totalTiempo = emp.totalHorasExtras + emp.totalHorasRecargos;
+        const totalDinero = emp.totalValorExtras + emp.totalValorRecargos;
+        if (totalTiempo === 0) return;
 
-        const mesesActivos = emp.mesesConExtras.size;
-        const promedioMensual = emp.totalHorasExtras / mesesActivos;
-
+        const mesesActivos = emp.mesesConNovedad.size;
         let riesgo = null;
         let tipo = null;
         let icono = null;
+        let color = null;
 
-        // Regla 1: Burnout / Sobrecarga Crónica (Más de 40 horas extras repetidas en 3+ meses)
-        if (mesesActivos >= 3 && emp.totalHorasExtras > 50) {
-          riesgo = `Sobrecarga crónica: ${emp.totalHorasExtras.toFixed(1)} hrs en ${mesesActivos} meses. Promedio: ${promedioMensual.toFixed(1)} hrs/mes. Riesgo alto de fatiga laboral (Burnout) o posible asignación a dedo.`;
+        const cargoLimpio = normalizarTexto(emp.cargo);
+
+        // 🧠 Lexicón Exacto Termales: Cargos corporativos puros que NO deben cobrar recargos
+        const palabrasClaveAdmin = [
+          'CONTABLE', 'CONTABILIDAD', 'FINANCIER', 'TESORERIA', 'CARTERA',
+          'TALENTO', 'GERENT', 'DIRECTOR', 'MEJORA', 'SISTEMAS', 'TICS', 
+          'DESARROLLADOR', 'COMERCIAL', 'CONTACT CENTER', 'COMPRAS', 
+          'MERCADEO', 'COMUNICACIONES', 'PLANEACION', 'FAMILY', 
+          'ADMINISTRATIV', 'COSTOS', 'AUDITOR'
+        ];
+
+        // 🛡️ Excepciones: Cargos operativos que tienen palabras similares
+        const excepcionesOperativas = [
+          'AUDITORIA NOCTURNA', 'OPERACIONES', 'RECEPCION', 'SPA', 'SERVICIO AL CLIENTE'
+        ];
+
+        // 1. Filtrar Administrativos Puros
+        const esAdminPuro = palabrasClaveAdmin.some(kw => cargoLimpio.includes(kw)) && !excepcionesOperativas.some(ex => cargoLimpio.includes(ex));
+        
+        // 2. Filtrar Coordinadores y Líderes que son de Oficina (Excluyendo a Mantenimiento, Alimentos, etc.)
+        const esLiderAdmin = (cargoLimpio.includes('COORDINADOR') || cargoLimpio.includes('LIDER')) && !excepcionesOperativas.some(ex => cargoLimpio.includes(ex)) && !['MANTENIMIENTO', 'ALIMENTOS', 'AMBIENTAL', 'EXPERIENCIA', 'INFRAESTRUCTURA'].some(kw => cargoLimpio.includes(kw));
+
+        const esPerfilRiesgoAdmin = esAdminPuro || esLiderAdmin;
+
+        // 🚨 REGLA 1: Fraude Administrativo (El más grave)
+        if (esPerfilRiesgoAdmin && totalTiempo > 5) {
+          riesgo = `Alerta de Cargo Corporativo: Empleado administrativo (${emp.cargo}) acumuló ${totalTiempo.toFixed(1)} hrs operativas. Requiere revisión estricta de autorización de horas extras en roles de oficina / soporte.`;
+          tipo = 'FRAUDE_CARGO';
+          icono = '🚨';
+          color = 'bg-red-100 text-red-800 border-red-300';
+        }
+        // 🔥 REGLA 2: Burnout Legal (Exceso crónico de horas extras)
+        else if (emp.totalHorasExtras > 50 && mesesActivos >= 3) {
+          riesgo = `Sobrecarga crónica: ${emp.totalHorasExtras.toFixed(1)} hrs extras puras en ${mesesActivos} meses. Riesgo legal de fatiga laboral (Mintrabajo) o asignación a dedo por la jefatura.`;
           tipo = 'BURNOUT';
           icono = '🔥';
+          color = 'bg-orange-100 text-orange-800 border-orange-300';
         } 
-        // Regla 2: Carrusel (Horas exactas o muy similares en múltiples meses consecutivos)
-        else if (mesesActivos >= 2 && emp.totalHorasExtras > 20) {
-          riesgo = `Comportamiento recurrente: Registra horas extras en ${mesesActivos} meses distintos. Requiere validación de que no sea un "bono salarial" disfrazado de tiempo extra.`;
-          tipo = 'RECURRENCIA';
+        // 💰 REGLA 3: Favoritismo Financiero (Ganar mucha plata en variables)
+        else if (totalDinero > 1500000) {
+          riesgo = `Alerta Financiera / Favoritismo: Ha cobrado $${totalDinero.toLocaleString('es-CO')} solo en recargos y extras. Revisar equidad en la rotación del equipo.`;
+          tipo = 'FAVORITISMO';
+          icono = '💰';
+          color = 'bg-amber-100 text-amber-800 border-amber-300';
+        }
+        // 🦇 REGLA 4: Vampirismo (Abuso de Recargos Nocturnos/Dominicales sin rotar)
+        else if (emp.totalHorasRecargos > 150) {
+          riesgo = `Riesgo SST (Falta de Rotación): Acumuló ${emp.totalHorasRecargos.toFixed(1)} hrs de turnos pesados (Nocturnos/Dominicales). Se recomienda auditar si le están dando el descanso compensatorio de ley.`;
+          tipo = 'VAMPIRISMO';
+          icono = '🦇';
+          color = 'bg-purple-100 text-purple-800 border-purple-300';
+        } 
+        // 🔄 REGLA 5: Carrusel Recurrente
+        else if (emp.totalHorasExtras >= 15 && mesesActivos >= 2) {
+          riesgo = `Comportamiento recurrente: Cobra un volumen sospechoso constante. Validar que no sea un "bono salarial" oculto como tiempo extra para evadir aportes a seguridad social.`;
+          tipo = 'CARRUSEL';
           icono = '🔄';
+          color = 'bg-blue-100 text-blue-800 border-blue-300';
         }
 
         if (riesgo) {
-          alertasForences.push({
-            ...emp,
-            riesgo,
-            tipo,
-            icono,
-            mesesArray
-          });
+          alertasForences.push({ ...emp, riesgo, tipo, icono, color, totalTiempo, totalDinero });
         }
       });
 
-      // Ordenar por severidad (Burnout primero)
-      alertasForences.sort((a, b) => b.totalHorasExtras - a.totalHorasExtras);
+      // Ordenar por nivel de riesgo (Plata > Fraude > Burnout)
+      alertasForences.sort((a, b) => {
+        if (a.tipo === 'FRAUDE_CARGO') return -1;
+        if (b.tipo === 'FRAUDE_CARGO') return 1;
+        return b.totalDinero - a.totalDinero;
+      });
 
       setDatosHistoricos({
         totalAnalizados: Object.keys(empleadosStats).length,
         totalMeses: mesesDetectados.size,
         totalCostoExtras: totalCostoExtrasCompania,
+        totalCostoRecargos: totalCostoRecargosCompania,
         alertas: alertasForences
       });
 
@@ -166,62 +220,66 @@ const DashboardHistorico = () => {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-10 text-8xl">🕵️‍♂️</div>
+        <div className="absolute top-0 right-0 p-8 opacity-10 text-8xl">🤖</div>
         <h2 className="text-2xl font-extrabold mb-2 flex items-center gap-2">
-          <span>📉</span> Dashboard Histórico Anti-Fraude (BETA)
+          <span>📉</span> Inteligencia de Datos: Histórico Anti-Fraude
         </h2>
-        <p className="text-slate-400 mb-6 text-sm max-w-2xl">
-          Este módulo cruza todas las nóminas guardadas en la Nube (Firebase) para detectar patrones sospechosos a largo plazo, riesgo de "burnout" (fatiga) por horas extras crónicas y favoritismos ("carrusel").
+        <p className="text-slate-400 mb-6 text-sm max-w-3xl">
+          El Motor GCM cruza todas las nóminas de la base de datos (Enero a Mayo) para detectar anomalías operativas severas: cargos de oficina cobrando turnos de noche, vampirismo operativo, carrusel de horas y favoritismos financieros en la asignación de turnos.
         </p>
 
         <div className="flex items-center gap-4 bg-slate-800 p-4 rounded-lg border border-slate-700 w-fit">
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase">Bases en la Nube</p>
-            <p className="text-xl font-bold text-cyan-400">{listaBases.length} Períodos</p>
+            <p className="text-xs font-bold text-slate-400 uppercase">Base de Conocimiento</p>
+            <p className="text-xl font-bold text-cyan-400">{listaBases.length} Meses / Quincenas</p>
           </div>
           <button 
             onClick={ejecutarAnalisisForense}
             disabled={isAnalyzing || listaBases.length === 0}
             className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
           >
-            {isAnalyzing ? '⏳ Procesando Big Data...' : '🚀 Ejecutar Escáner Histórico'}
+            {isAnalyzing ? '⏳ Procesando Algoritmos...' : '🚀 Ejecutar Escáner Histórico'}
           </button>
         </div>
       </div>
 
       {datosHistoricos && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <p className="text-xs font-bold text-slate-500 uppercase">Períodos Analizados</p>
-              <h3 className="text-3xl font-extrabold text-slate-800">{datosHistoricos.totalMeses} <span className="text-sm font-medium text-slate-400">meses</span></h3>
+              <p className="text-xs font-bold text-slate-500 uppercase">Empleados Scaneados</p>
+              <h3 className="text-3xl font-extrabold text-slate-800">{datosHistoricos.totalAnalizados} <span className="text-sm font-medium text-slate-400">empleados</span></h3>
             </div>
-            <div className="bg-white p-5 rounded-xl border border-rose-200 shadow-sm">
-              <p className="text-xs font-bold text-rose-600 uppercase">Alertas Tempranas Detectadas</p>
-              <h3 className="text-3xl font-extrabold text-rose-700">{datosHistoricos.alertas.length} <span className="text-sm font-medium text-rose-400">empleados</span></h3>
+            <div className="bg-white p-5 rounded-xl border border-red-200 shadow-sm bg-red-50/50">
+              <p className="text-xs font-bold text-red-600 uppercase">Anomalías Detectadas</p>
+              <h3 className="text-3xl font-extrabold text-red-700">{datosHistoricos.alertas.length} <span className="text-sm font-medium text-red-400">casos críticos</span></h3>
             </div>
-            <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm">
-              <p className="text-xs font-bold text-amber-600 uppercase">Costo Histórico Extras (Bases analizadas)</p>
-              <h3 className="text-3xl font-extrabold text-amber-700">${datosHistoricos.totalCostoExtras.toLocaleString('es-CO')}</h3>
+            <div className="bg-white p-5 rounded-xl border border-pink-200 shadow-sm">
+              <p className="text-xs font-bold text-pink-600 uppercase">Costo Histórico Extras</p>
+              <h3 className="text-2xl font-extrabold text-pink-700">${datosHistoricos.totalCostoExtras.toLocaleString('es-CO')}</h3>
+            </div>
+            <div className="bg-white p-5 rounded-xl border border-indigo-200 shadow-sm">
+              <p className="text-xs font-bold text-indigo-600 uppercase">Costo Histórico Recargos</p>
+              <h3 className="text-2xl font-extrabold text-indigo-700">${datosHistoricos.totalCostoRecargos.toLocaleString('es-CO')}</h3>
             </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-            <div className="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                <span>⚠️</span> Ranking de Riesgo Histórico y Tendencias
+            <div className="bg-slate-800 p-4 border-b border-slate-700 flex justify-between items-center">
+              <h3 className="font-bold text-white flex items-center gap-2">
+                <span>⚠️</span> Ranking de Alertas de Control Interno (Enero - Mayo)
               </h3>
             </div>
             <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-xs border-b border-slate-200">
+                <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs border-b border-slate-200">
                   <tr>
-                    <th className="p-4">Alerta</th>
-                    <th className="p-4">Empleado</th>
-                    <th className="p-4">Cargo</th>
-                    <th className="p-4 text-center">Meses c/Extras</th>
-                    <th className="p-4 text-right">Total Hrs Extras (Histórico)</th>
-                    <th className="p-4">Diagnóstico del Motor</th>
+                    <th className="p-4 text-center">Tipo</th>
+                    <th className="p-4">Empleado / Cargo</th>
+                    <th className="p-4 text-center">Meses</th>
+                    <th className="p-4 text-right bg-slate-50">Horas Acumuladas</th>
+                    <th className="p-4 text-right bg-slate-50">Dinero Cobrado</th>
+                    <th className="p-4 w-1/3">Diagnóstico Forense</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -230,20 +288,28 @@ const DashboardHistorico = () => {
                   ) : (
                     datosHistoricos.alertas.map((alerta, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-4 text-center text-2xl" title={alerta.tipo}>{alerta.icono}</td>
+                        <td className="p-4 text-center">
+                          <span className={`px-2 py-1 text-xs font-extrabold rounded border ${alerta.color} whitespace-nowrap`}>
+                            {alerta.icono} {alerta.tipo.replace('_', ' ')}
+                          </span>
+                        </td>
                         <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
                           {alerta.nombre}
-                          <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{alerta.cedula}</span>
+                          <span className="block text-[10px] text-slate-500 uppercase mt-0.5">{alerta.cargo}</span>
+                          <span className="block text-[10px] text-slate-400 font-mono">{alerta.cedula}</span>
                         </td>
-                        <td className="p-4 text-xs text-slate-600 uppercase">{alerta.cargo}</td>
                         <td className="p-4 text-center font-bold text-indigo-600">
-                          {alerta.mesesConExtras.size} / {datosHistoricos.totalMeses}
+                          {alerta.mesesConNovedad.size} / {datosHistoricos.totalMeses}
                         </td>
                         <td className="p-4 text-right">
-                          <span className="font-extrabold text-rose-600 text-lg">{alerta.totalHorasExtras.toFixed(1)}</span> hrs
-                          <span className="block text-[10px] text-slate-500 font-bold mt-0.5">${alerta.totalValorExtras.toLocaleString('es-CO')}</span>
+                          <div className="text-[11px] font-bold text-pink-600">Ext: {alerta.totalHorasExtras.toFixed(1)} h</div>
+                          <div className="text-[11px] font-bold text-indigo-600">Rec: {alerta.totalHorasRecargos.toFixed(1)} h</div>
+                          <div className="text-sm font-extrabold text-slate-800 mt-1">{alerta.totalTiempo.toFixed(1)} hrs</div>
                         </td>
-                        <td className="p-4 text-xs text-slate-700 font-medium max-w-md leading-relaxed">
+                        <td className="p-4 text-right font-mono font-bold text-amber-700">
+                          ${alerta.totalDinero.toLocaleString('es-CO')}
+                        </td>
+                        <td className="p-4 text-xs text-slate-700 font-medium leading-relaxed">
                           {alerta.riesgo}
                         </td>
                       </tr>
