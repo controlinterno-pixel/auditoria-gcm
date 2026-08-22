@@ -1011,8 +1011,8 @@ if (empleado.usoHistoricoAnterior) {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden">
             <div className="bg-slate-900 text-white p-6 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-bold">🔍 Diagnóstico Forense de IBC (Informativo)</h3>
+             <div>
+                <h3 className="text-lg font-bold">🔍 Diagnóstico Forense de {tipoAuditoriaActiva === 'JORNADA' ? 'Jornada Laboral' : 'IBC'} (Informativo)</h3>
                 <p className="text-xs text-slate-400">{empleadoDiagonal.nombre} — Cédula: {empleadoDiagonal.cedula} | Período: {empleadoDiagonal.periodo}</p>
               </div>
               <button 
@@ -1098,7 +1098,7 @@ if (empleado.usoHistoricoAnterior) {
                 <table className="w-full text-xs text-left">
                   <thead className="bg-slate-100 text-slate-700 uppercase font-bold">
                     <tr>
-                      <th className="p-2.5">Estado IBC</th>
+                      <th className="p-2.5">{tipoAuditoriaActiva === 'JORNADA' ? 'TIPO DE TIEMPO' : 'ESTADO IBC'}</th>
                       <th className="p-2.5">Concepto Nómina</th>
                       <th className="p-2.5 text-right">Valor</th>
                     </tr>
