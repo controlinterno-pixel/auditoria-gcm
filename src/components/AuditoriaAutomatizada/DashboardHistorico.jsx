@@ -372,7 +372,10 @@ const [verTendencias, setVerTendencias] = useState(false);
     
     const term = busqueda.toLowerCase().trim();
     const coincideBusqueda = term === '' ? true : 
-      a.nombre.toLowerCase().includes(term) || a.cedula.includes(term);
+      a.nombre.toLowerCase().includes(term) || 
+      a.cedula.includes(term) ||
+      (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+      (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
 
     // 📅 NUEVO FILTRO POR PERÍODO
     let coincidePeriodo = true;
