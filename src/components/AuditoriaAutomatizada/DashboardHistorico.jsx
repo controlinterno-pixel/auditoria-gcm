@@ -361,18 +361,26 @@ const DashboardHistorico = () => {
                   </ResponsiveContainer>
                 </div>
 
-                {/* 💳 TARJETAS DE MUESTRA MENSUAL */}
+                {/* 💳 TARJETAS DE MUESTRA MENSUAL POR SEDE */}
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                  {datosHistoricos.tendencias.map((t, i) => (
-                    <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center shadow-sm hover:border-blue-300 transition">
-                      <span className="text-xs font-extrabold text-indigo-900 block">{t.mes}</span>
-                      <div className="mt-2 space-y-1 font-mono">
-                        <p className="text-[11px] text-pink-600 font-bold">Ext: {t.extras.toFixed(1)} hrs</p>
-                        <p className="text-[11px] text-blue-600 font-bold">Rec: {t.recargos.toFixed(1)} hrs</p>
-                        <p className="text-xs font-extrabold text-amber-700 pt-1 border-t border-slate-200">${t.costo.toLocaleString('es-CO')}</p>
+                  {datosHistoricos.tendencias.map((t, i) => {
+                    const totalMesHoras = (t.ADMIN || 0) + (t.BALNEARIO || 0) + (t.ECOPARQUE_HOTEL || 0);
+                    const totalMesCosto = (t.costoADMIN || 0) + (t.costoBALNEARIO || 0) + (t.costoECOPARQUE_HOTEL || 0);
+                    return (
+                      <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center shadow-sm hover:border-blue-300 transition">
+                        <span className="text-xs font-extrabold text-indigo-900 block">{t.mes}</span>
+                        <div className="mt-2 space-y-1 font-mono text-[10px]">
+                          <p className="text-red-600 font-bold">Admin: {(t.ADMIN || 0).toFixed(1)} h</p>
+                          <p className="text-blue-600 font-bold">Balneario: {(t.BALNEARIO || 0).toFixed(1)} h</p>
+                          <p className="text-emerald-600 font-bold">Hotel: {(t.ECOPARQUE_HOTEL || 0).toFixed(1)} h</p>
+                          <p className="text-xs font-extrabold text-slate-800 pt-1 border-t border-slate-200">
+                            Total: {totalMesHoras.toFixed(1)} hrs
+                          </p>
+                          <p className="text-[11px] font-extrabold text-amber-700">${totalMesCosto.toLocaleString('es-CO')}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
