@@ -935,18 +935,40 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
     let severidad = 'CORRECTO';
     let notaForense = null;
 
-    // 💡 ALERTA INTELIGENTE: Auditoría Legal de Jornada (Mintrabajo)
-    if (totalHorasExtras > limiteHorasExtrasQuincenal) {
-      tipoHallazgo = 'VIOLACION_JORNADA';
-      severidad = 'CRÍTICA (Riesgo Mintrabajo)';
+    // 🧮 AUDITORÍA MATEMÁTICA Y LEGAL (FACTORES CST Y LEY 2101)
+    if (totalHorasExtras >= 16) {
+      tipoHallazgo = 'VIOLACION_JORNADA'; // ALARMA ROJA: RIESGO DE SANCIÓN MINTRABAJO
+      severidad = 'CRÍTICA (Riesgo Sancionatorio Mintrabajo)';
       conteoInfraccionesLegales++;
-      notaForense = `🚨 INFRACCIÓN LEY 50/1990 y 2101/2021: El empleado registró ${totalHorasExtras.toFixed(1)} horas extras en la quincena, superando el tope legal de ${limiteHorasExtrasQuincenal} horas. Esto genera un riesgo inminente de sanción por parte del Ministerio de Trabajo por sobreexplotación de la jornada máxima legal.`;
+      notaForense = `🚨 RIESGO LEGAL MINTRABAJO (Ley 2101): El empleado registró ${totalHorasExtras.toFixed(1)} horas extras en la quincena. Superar el tope de 12-16 horas levanta un riesgo inminente por sobreexplotación de la jornada máxima legal.`;
+    
     } else if (totalHorasExtras > 0 || emp.cantRecargos > 0) {
-      tipoHallazgo = 'TIEMPO_SUPLEMENTARIO';
-      severidad = 'INFORMATIVO (Sobrecosto Operativo)';
-      notaForense = `💡 DESGLOSE OPERATIVO: El empleado laboró dentro de los márgenes legales. Acumuló ${totalHorasExtras.toFixed(1)} Horas Extras y ${emp.cantRecargos.toFixed(1)} horas de Recargos, generando un sobrecosto a la empresa de $${(costoExtras + emp.valorRecargos).toLocaleString('es-CO')}.`;
+      
+      // 🕵️‍♂️ Lógica de Auditoría Matemática de Recargos
+      const promedioPagoPorHoraExtra = totalHorasExtras > 0 ? costoExtras / totalHorasExtras : 0;
+      const promedioPagoPorRecargo = emp.cantRecargos > 0 ? emp.valorRecargos / emp.cantRecargos : 0;
+
+      // Validación estricta Art 168 CST: Un recargo nocturno mínimo vale aprox $1,895, y una HED vale $6,770.
+      // Si se sale de los rangos lógicos matemáticos, el ERP liquidó mal el factor.
+      const errorCalculoEvidente = 
+         (totalHorasExtras > 0 && (promedioPagoPorHoraExtra < 5000 || promedioPagoPorHoraExtra > 50000)) ||
+         (emp.cantRecargos > 0 && (promedioPagoPorRecargo < 1500 || promedioPagoPorRecargo > 30000));
+
+      if (errorCalculoEvidente) {
+        tipoHallazgo = 'PAGO_INSUFICIENTE'; // ALARMA ROJA UGPP/FINANCIERA
+        severidad = 'CRÍTICA (Error de Cálculo ERP)';
+        notaForense = `🔴 ERROR DE CÁLCULO DETECTADO: Desproporción matemática en liquidación. El promedio pagado por hora suplementaria fue de $${Math.max(promedioPagoPorHoraExtra, promedioPagoPorRecargo).toLocaleString('es-CO')} la hora. Revisar de inmediato la configuración de los factores en el ERP (Art. 168 CST).`;
+      } else if (totalHorasExtras >= 8 && totalHorasExtras < 16) {
+        tipoHallazgo = 'PAGO_EXCESO'; // ALARMA NARANJA: EXCESO OPERATIVO
+        severidad = 'MODERADA (Exceso Operativo)';
+        notaForense = `🟠 ALERTA OPERATIVA: El empleado acumuló ${totalHorasExtras.toFixed(1)} horas extras. Volumen legal pero financieramente ineficiente.`;
+      } else {
+        tipoHallazgo = 'TIEMPO_SUPLEMENTARIO'; // ALARMA AZUL: INFORMATIVA
+        severidad = 'INFORMATIVO (Sobrecosto Operativo)';
+        notaForense = `💡 DESGLOSE OPERATIVO: Parámetros normales. Acumuló ${totalHorasExtras.toFixed(1)} Horas Extras y ${emp.cantRecargos.toFixed(1)} horas de Recargos. Cálculo aparente normal por el ERP. Sobrecosto: $${(costoExtras + emp.valorRecargos).toLocaleString('es-CO')}.`;
+      }
     } else {
-      continue; // Si no tiene horas extras ni recargos, no lo mostramos en la tabla para no hacer ruido
+      continue; // Oculta a los que no hicieron ni un minuto extra o recargo
     }
 
     hallazgos.push({
