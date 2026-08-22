@@ -132,7 +132,10 @@ const [verTendencias, setVerTendencias] = useState(false);
           dataPlana = dataBruta.transacciones || dataBruta.registros || Object.values(dataBruta) || [];
         }
 
-        dataPlana.forEach(t => t.mesOrigen = base.periodo);
+        dataPlana.forEach(t => {
+          t.mesOrigen = base.periodo;
+          t.empresaOrigen = base.empresa; // 👈 Inyección clave de empresa de origen
+        });
         todasLasTransacciones.push(...dataPlana);
       }
 
@@ -180,19 +183,22 @@ const [verTendencias, setVerTendencias] = useState(false);
           };
         }
 
+const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial']) || 'GENERAL';
         if (!empleadosStats[cedula]) {
           empleadosStats[cedula] = {
             cedula, nombre, cargo, proceso, unidad,
+            empresasGrupo: new Set([empresaFila]),
             totalHorasExtras: 0,
             totalValorExtras: 0,
             totalHorasRecargos: 0,
             totalValorRecargos: 0,
             mesesConNovedad: new Set(),
-            // 🚗 NUEVOS CAMPOS TRANSPORTE
             historialMeses: {},
             fugaTransporteDinero: 0,
             mesesConFugaTransporte: 0
           };
+        } else {
+          empleadosStats[cedula].empresasGrupo.add(empresaFila);
         }
 
         const emp = empleadosStats[cedula];
