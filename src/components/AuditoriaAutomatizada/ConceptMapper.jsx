@@ -234,8 +234,8 @@ const systemCategories = [
           dataPlana = dataBruta.transacciones || dataBruta.registros || dataBruta.datos || Object.values(dataBruta) || [];
         }
 
-        // 🛡️ Asegurar que el periodo pase a la transacción plana
-        dataPlana.forEach(t => t.IDEN_Periodo = base.periodo);
+        // ❌ ELIMINAMOS la línea que sobreescribía la quincena por el mes.
+        // Al dejar la quincena nativa (Ej: 228, 229), el motor evalúa los topes de Transporte correctamente.
         todasLasTransacciones.push(...dataPlana);
       }
       
@@ -259,9 +259,9 @@ const systemCategories = [
       // 🚀 3. Ejecutar el motor de auditoría con las reglas marcadas dinámicamente
       const resultadoEngine = auditarAuxilioTransporte(todasLasTransacciones, mapeoSincrono, 2026);
       
-      // 🛡️ MODO OPTIMIZADO PARA BIG DATA: 
-      // No guardamos las 50.000 transacciones en el estado de React (setDatosExcel) 
-      // para evitar que el navegador se congele. Solo guardamos el resultado auditado.
+      // ✅ RESTAURAMOS setDatosExcel. Gracias a la Caché Inteligente, esto ya no tumba el navegador.
+      // Así garantizamos que el Modal tenga información para mostrar los desgloses.
+      setDatosExcel(todasLasTransacciones); 
       setTipoAuditoriaActiva('TRANSPORTE');
       setHallazgos(resultadoEngine.hallazgos);
       setResumenKpi(resultadoEngine.kpis);
