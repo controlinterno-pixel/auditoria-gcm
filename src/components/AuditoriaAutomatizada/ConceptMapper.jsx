@@ -209,7 +209,7 @@ const systemCategories = [
     setResumenKpi(resultadoEngine.kpis);
   };
 
-  // 🚀 MACRO-ESCÁNER HISTÓRICO DE TRANSPORTE
+ // 🚀 MACRO-ESCÁNER HISTÓRICO DE TRANSPORTE
   const handleStartAuditTransporteGlobal = async () => {
     if (listaHistoricosBD.length === 0) {
       alert("⚠️ No hay bases históricas en la nube para analizar.");
@@ -230,18 +230,27 @@ const systemCategories = [
         } else if (dataBruta && typeof dataBruta === 'object') {
           dataPlana = dataBruta.transacciones || dataBruta.registros || dataBruta.datos || Object.values(dataBruta) || [];
         }
+
+        // 🛡️ Asegurar que el periodo pase a la transacción plana
+        dataPlana.forEach(t => t.IDEN_Periodo = base.periodo);
         todasLasTransacciones.push(...dataPlana);
       }
       
+      if (todasLasTransacciones.length === 0) {
+        throw new Error("No se encontraron transacciones válidas en la nube.");
+      }
+
       const resultadoEngine = auditarAuxilioTransporte(todasLasTransacciones, mapping, 2026);
-      setDatosExcel(todasLasTransacciones); // Actualizamos la memoria para que funcione el modal de desglose
+      
+      // ✅ Pasamos la data a React de forma segura
+      setDatosExcel(todasLasTransacciones); 
       setTipoAuditoriaActiva('TRANSPORTE');
       setHallazgos(resultadoEngine.hallazgos);
       setResumenKpi(resultadoEngine.kpis);
-      setFileName(`[Macro-Auditoría] ${listaHistoricosBD.length} bases históricas analizadas simultáneamente`);
+      setFileName(`[Macro-Auditoría en Nube] ${listaHistoricosBD.length} bases históricas analizadas simultáneamente`);
     } catch (error) {
       console.error(error);
-      alert("❌ Error al procesar la data histórica masiva.");
+      alert("❌ Error al procesar la data histórica masiva. Asegúrate de tener bases válidas en la Nube.");
     } finally {
       setIsUploading(false);
     }
