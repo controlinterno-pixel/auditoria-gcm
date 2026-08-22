@@ -90,7 +90,7 @@ const systemCategories = [
     const autoDeducciones = conceptos.filter(c => ['LIBRANZA', 'PRESTAMO', 'FONDO DE EMPLEADOS', 'DESCUENTO', 'EMBARGO', 'PLAN EXEQUIAL', 'SINDICATO'].some(kw => c.includes(kw)));
     const autoRetefuente = conceptos.filter(c => c.includes('RETENCION') || c.includes('FUENTE') || c.includes('RETEFUENTE'));
  
-    setMapping({
+   const nuevoMapeo = {
       salario_base: autoSalario,
       aux_transporte: autoAuxilio,
       vacaciones_incapacidades: autoVacacionesIncap,
@@ -104,8 +104,11 @@ const systemCategories = [
       prestaciones_sociales: autoPrestaciones,
       deducciones_libranzas: autoDeducciones,
       retencion_fuente: autoRetefuente
-    });
     };
+
+    setMapping(nuevoMapeo);
+    return nuevoMapeo; // 🔥 Retornamos el objeto para que el Macro-Escáner lo use instantáneamente
+  };
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
@@ -209,7 +212,7 @@ const systemCategories = [
     setResumenKpi(resultadoEngine.kpis);
   };
 
- // 🚀 MACRO-ESCÁNER HISTÓRICO DE TRANSPORTE
+// 🚀 MACRO-ESCÁNER HISTÓRICO DE TRANSPORTE
   const handleStartAuditTransporteGlobal = async () => {
     if (listaHistoricosBD.length === 0) {
       alert("⚠️ No hay bases históricas en la nube para analizar.");
@@ -240,7 +243,21 @@ const systemCategories = [
         throw new Error("No se encontraron transacciones válidas en la nube.");
       }
 
-      const resultadoEngine = auditarAuxilioTransporte(todasLasTransacciones, mapping, 2026);
+      // 🧠 1. Extraer los conceptos únicos de todo el Big Data
+      let colConcepto = null;
+      const llavesExcel = Object.keys(todasLasTransacciones[0] || {});
+      colConcepto = llavesExcel.find(k => {
+        const kNorm = k.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[\s_]/g, '');
+        return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(kNorm);
+      });
+      const conceptosLimpios = [...new Set(todasLasTransacciones.map(f => normalizarTexto(f[colConcepto])))].filter(Boolean);
+
+      // 🧠 2. Autoseleccionar los "checks" en la pantalla de forma sincrónica
+      setConceptosExtraidosUI(conceptosLimpios);
+      const mapeoSincrono = ejecutarAutoMapeoInteligente(conceptosLimpios);
+
+      // 🚀 3. Ejecutar el motor de auditoría con las reglas marcadas dinámicamente
+      const resultadoEngine = auditarAuxilioTransporte(todasLasTransacciones, mapeoSincrono, 2026);
       
       // ✅ Pasamos la data a React de forma segura
       setDatosExcel(todasLasTransacciones); 
