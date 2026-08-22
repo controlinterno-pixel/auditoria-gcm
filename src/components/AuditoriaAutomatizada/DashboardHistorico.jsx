@@ -21,7 +21,18 @@ const parsearMonto = (val) => {
   }
   return parseFloat(str) || 0;
 };
-
+// ✅ NUEVA FUNCIÓN PARA TRADUCIR MESES A FORMATO GERENCIAL
+const formatearMes = (per) => {
+  if (!per) return "Desconocido";
+  const str = per.toString();
+  const nombresMeses = { '01':'Enero', '02':'Febrero', '03':'Marzo', '04':'Abril', '05':'Mayo', '06':'Junio', '07':'Julio', '08':'Agosto', '09':'Septiembre', '10':'Octubre', '11':'Noviembre', '12':'Diciembre' };
+  
+  if (str.includes('-')) {
+    const [ano, mes] = str.split('-');
+    if (nombresMeses[mes]) return `${nombresMeses[mes]} ${ano}`;
+  }
+  return str; // Si es una quincena (Ej. "228"), la deja intacta
+};
 // --- ⚡ CACHÉ ULTRA-RÁPIDO (A PRUEBA DE BIG DATA Y FIREBASE) ---
 const cacheNormalizacionLlaves = {};
 const cacheLlavesExactas = {};
@@ -505,10 +516,11 @@ const [verTendencias, setVerTendencias] = useState(false);
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={tendenciasDinamicas}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                      <XAxis dataKey="mes" stroke="#475569" fontSize={11} fontWeight="bold" />
+                      <XAxis dataKey="mes" tickFormatter={formatearMes} stroke="#475569" fontSize={11} fontWeight="bold" />
                       <YAxis stroke="#475569" fontSize={11} />
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                        labelFormatter={(label) => formatearMes(label)}
                         formatter={(value, name) => [modoDashboard === 'JORNADA' ? `${Number(value).toFixed(1)} hrs` : `$${Number(value).toLocaleString('es-CO')}`, name]}
                       />
                       <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
@@ -526,7 +538,7 @@ const [verTendencias, setVerTendencias] = useState(false);
                     const totalMesCosto = (t.costoADMIN || 0) + (t.costoBALNEARIO || 0) + (t.costoECOPARQUE_HOTEL || 0);
                     return (
                       <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center shadow-sm hover:border-blue-300 transition">
-                        <span className="text-xs font-extrabold text-indigo-900 block">{t.mes}</span>
+<span className="text-xs font-extrabold text-indigo-900 block uppercase">{formatearMes(t.mes)}</span>
                         <div className="mt-2 space-y-1 font-mono text-[10px]">
                           {modoDashboard === 'JORNADA' ? (
                             <>
@@ -581,7 +593,7 @@ const [verTendencias, setVerTendencias] = useState(false);
                 >
                   <option value="TODOS">Todos los períodos analizados</option>
                   {datosHistoricos.tendencias.map(t => (
-                     <option key={t.mes} value={t.mes}>{t.mes}</option>
+                     <option key={t.mes} value={t.mes}>{formatearMes(t.mes)}</option>
                   ))}
                 </select>
               </div>
