@@ -948,8 +948,6 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
       const promedioPagoPorHoraExtra = totalHorasExtras > 0 ? costoExtras / totalHorasExtras : 0;
       const promedioPagoPorRecargo = emp.cantRecargos > 0 ? emp.valorRecargos / emp.cantRecargos : 0;
 
-      // Validación estricta Art 168 CST: Un recargo nocturno mínimo vale aprox $1,895, y una HED vale $6,770.
-      // Si se sale de los rangos lógicos matemáticos, el ERP liquidó mal el factor.
       const errorCalculoEvidente = 
          (totalHorasExtras > 0 && (promedioPagoPorHoraExtra < 5000 || promedioPagoPorHoraExtra > 50000)) ||
          (emp.cantRecargos > 0 && (promedioPagoPorRecargo < 1500 || promedioPagoPorRecargo > 30000));
