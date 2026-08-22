@@ -201,12 +201,50 @@ const systemCategories = [
     }
   };
 
-  const handleStartAuditJornada = () => {
+ const handleStartAuditJornada = () => {
     if (!datosExcel || datosExcel.length === 0) return;
     const resultadoEngine = auditarJornadaLaboral(datosExcel, mapping);
     setTipoAuditoriaActiva('JORNADA');
     setHallazgos(resultadoEngine.hallazgos);
     setResumenKpi(resultadoEngine.kpis);
+  };
+
+  // 🚀 MACRO-ESCÁNER HISTÓRICO DE TRANSPORTE
+  const handleStartAuditTransporteGlobal = async () => {
+    if (listaHistoricosBD.length === 0) {
+      alert("⚠️ No hay bases históricas en la nube para analizar.");
+      return;
+    }
+    setIsUploading(true);
+    try {
+      let todasLasTransacciones = [];
+      for (const base of listaHistoricosBD) {
+        const dataBruta = await cargarNominaHistorica(base.periodo, base.empresa);
+        let dataPlana = [];
+        if (Array.isArray(dataBruta)) {
+          dataBruta.forEach(item => {
+            if (item?.transacciones && Array.isArray(item.transacciones)) dataPlana.push(...item.transacciones);
+            else if (item?.registros && Array.isArray(item.registros)) dataPlana.push(...item.registros);
+            else dataPlana.push(item);
+          });
+        } else if (dataBruta && typeof dataBruta === 'object') {
+          dataPlana = dataBruta.transacciones || dataBruta.registros || dataBruta.datos || Object.values(dataBruta) || [];
+        }
+        todasLasTransacciones.push(...dataPlana);
+      }
+      
+      const resultadoEngine = auditarAuxilioTransporte(todasLasTransacciones, mapping, 2026);
+      setDatosExcel(todasLasTransacciones); // Actualizamos la memoria para que funcione el modal de desglose
+      setTipoAuditoriaActiva('TRANSPORTE');
+      setHallazgos(resultadoEngine.hallazgos);
+      setResumenKpi(resultadoEngine.kpis);
+      setFileName(`[Macro-Auditoría] ${listaHistoricosBD.length} bases históricas analizadas simultáneamente`);
+    } catch (error) {
+      console.error(error);
+      alert("❌ Error al procesar la data histórica masiva.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
 const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
@@ -742,9 +780,21 @@ if (empleado.usoHistoricoAnterior) {
           )}
 
           {pestanaActiva === 'TRANSPORTE' ? ( 
-            <button onClick={handleStartAudit} className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors w-full md:w-auto">
-              ⚡ Ejecutar Auditoría de Transporte
-            </button>
+            <div className="flex flex-wrap gap-3 w-full md:w-auto ml-auto justify-end">
+              <button 
+                onClick={handleStartAuditTransporteGlobal} 
+                disabled={isUploading || listaHistoricosBD.length === 0} 
+                className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold rounded-lg shadow-md hover:from-cyan-500 hover:to-blue-500 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {isUploading ? '⏳ Escaneando Big Data...' : '🚀 Escanear Todo el Histórico en Nube'}
+              </button>
+              <button 
+                onClick={handleStartAudit} 
+                className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors"
+              >
+                ⚡ Ejecutar Auditoría Mes Actual
+              </button>
+            </div>
           ) : pestanaActiva === 'JORNADA' ? (
             <button onClick={handleStartAuditJornada} className="px-8 py-3 bg-pink-700 text-white font-bold rounded-lg shadow-md hover:bg-pink-600 transition-colors w-full md:w-auto ml-auto">
               ⏱️ Ejecutar Auditoría de Jornada (Ley 2101)
