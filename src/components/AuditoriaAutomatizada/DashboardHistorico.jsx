@@ -36,7 +36,13 @@ const DashboardHistorico = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [datosHistoricos, setDatosHistoricos] = useState(null);
   const [listaBases, setListaBases] = useState([]);
+
+  // --- FILTROS AVANZADOS Y TENDENCIAS ---
+  const [busqueda, setBusqueda] = useState('');
   const [filtroUnidad, setFiltroUnidad] = useState('TODOS');
+  const [filtroProceso, setFiltroProceso] = useState('TODOS');
+  const [filtroCargo, setFiltroCargo] = useState('TODOS');
+  const [verTendencias, setVerTendencias] = useState(false);
 
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
@@ -96,12 +102,15 @@ const DashboardHistorico = () => {
       }
 
       // Procesamiento Forense 360
-      const empleadosStats = {};
+     const empleadosStats = {};
       const mesesDetectados = new Set();
+      const procesosUnicos = new Set();
+      const cargosUnicos = new Set();
+      
       let totalCostoExtrasCompania = 0;
-      let totalCostoRecargosCompania = 0;
+      let tendenciasMeses = {};
 
-     todasLasTransacciones.forEach(fila => {
+      todasLasTransacciones.forEach(fila => {
         const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'Documento', 'NIT', 'CEDULA']);
         if (!cedulaRaw) return;
         
@@ -116,11 +125,19 @@ const DashboardHistorico = () => {
         const valor = parsearMonto(buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago', 'Devengado']));
         const nombre = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado']) || 'Sin Nombre';
         const cargo = buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo';
+        const proceso = buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'Grupo']) || 'GENERAL';
         const unidad = clasificarUnidad(fila);
+
+        procesosUnicos.add(proceso);
+        cargosUnicos.add(cargo);
+
+        if (!tendenciasMeses[mesOrigen]) {
+          tendenciasMeses[mesOrigen] = { mes: mesOrigen, extras: 0, recargos: 0, costo: 0 };
+        }
 
         if (!empleadosStats[cedula]) {
           empleadosStats[cedula] = {
-            cedula, nombre, cargo, unidad,
+            cedula, nombre, cargo, proceso, unidad,
             totalHorasExtras: 0,
             totalValorExtras: 0,
             totalHorasRecargos: 0,
@@ -144,10 +161,14 @@ const DashboardHistorico = () => {
           emp.totalValorExtras += valor;
           emp.mesesConNovedad.add(mesOrigen);
           totalCostoExtrasCompania += valor;
+          tendenciasMeses[mesOrigen].extras += cantidad;
+          tendenciasMeses[mesOrigen].costo += valor;
         } else if (esRecargo) {
           emp.totalHorasRecargos += cantidad;
           emp.totalValorRecargos += valor;
           emp.mesesConNovedad.add(mesOrigen);
+          tendenciasMeses[mesOrigen].recargos += cantidad;
+          tendenciasMeses[mesOrigen].costo += valor;
         }
       });
 
@@ -218,7 +239,10 @@ const DashboardHistorico = () => {
         totalAnalizados: Object.keys(empleadosStats).length,
         totalMeses: mesesDetectados.size,
         totalCostoExtras: totalCostoExtrasCompania,
-        alertas: alertasForences
+        alertas: alertasForences,
+        procesos: Array.from(procesosUnicos).sort(),
+        cargos: Array.from(cargosUnicos).sort(),
+        tendencias: Object.values(tendenciasMeses).sort((a, b) => a.mes.localeCompare(b.mes))
       });
 
     } catch (error) {
@@ -230,8 +254,15 @@ const DashboardHistorico = () => {
   };
 
   const alertasFiltradas = datosHistoricos ? datosHistoricos.alertas.filter(a => {
-    if (filtroUnidad === 'TODOS') return true;
-    return a.unidad === filtroUnidad;
+    const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
+    const coincideProceso = filtroProceso === 'TODOS' ? true : a.proceso === filtroProceso;
+    const coincideCargo = filtroCargo === 'TODOS' ? true : a.cargo === filtroCargo;
+    
+    const term = busqueda.toLowerCase().trim();
+    const coincideBusqueda = term === '' ? true : 
+      a.nombre.toLowerCase().includes(term) || a.cedula.includes(term);
+
+    return coincideUnidad && coincideProceso && coincideCargo && coincideBusqueda;
   }) : [];
 
   return (
@@ -277,41 +308,118 @@ const DashboardHistorico = () => {
             </div>
           </div>
 
-          {/* 🔘 BOTONERA DE SEGMENTACIÓN POR UNIDAD */}
-          <div className="flex flex-wrap gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-bold text-slate-500 self-center px-2">🏢 Filtrar Unidad:</span>
-            <button
-              onClick={() => setFiltroUnidad('TODOS')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                filtroUnidad === 'TODOS' ? 'bg-slate-900 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              🌐 Todas ({datosHistoricos.alertas.length})
-            </button>
-            <button
-              onClick={() => setFiltroUnidad('ADMIN')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                filtroUnidad === 'ADMIN' ? 'bg-red-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              🏢 Sede Administrativa ({datosHistoricos.alertas.filter(a => a.unidad === 'ADMIN').length})
-            </button>
-            <button
-              onClick={() => setFiltroUnidad('BALNEARIO')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                filtroUnidad === 'BALNEARIO' ? 'bg-blue-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              🏊 Balneario ({datosHistoricos.alertas.filter(a => a.unidad === 'BALNEARIO').length})
-            </button>
-            <button
-              onClick={() => setFiltroUnidad('ECOPARQUE_HOTEL')}
-              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                filtroUnidad === 'ECOPARQUE_HOTEL' ? 'bg-emerald-700 text-white shadow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              🌲 Hotel & Ecoparque / RecreFam ({datosHistoricos.alertas.filter(a => a.unidad === 'ECOPARQUE_HOTEL').length})
-            </button>
+          {/* 📊 MÓDULO DE TENDENCIAS MENSUALES */}
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                📈 Comportamiento y Tendencia Histórica del Tiempo Suplementario (Mes a Mes)
+              </h3>
+              <button 
+                onClick={() => setVerTendencias(!verTendencias)}
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded border border-blue-200"
+              >
+                {verTendencias ? '🙈 Ocultar Gráfica' : '👁️ Ver Detalle de Evolución'}
+              </button>
+            </div>
+
+            {verTendencias && (
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2 border-t border-slate-100">
+                {datosHistoricos.tendencias.map((t, i) => (
+                  <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                    <span className="text-xs font-extrabold text-indigo-900 block">{t.mes}</span>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-[11px] text-pink-600 font-bold">Extras: {t.extras.toFixed(1)} hrs</p>
+                      <p className="text-[11px] text-blue-600 font-bold">Recargos: {t.recargos.toFixed(1)} hrs</p>
+                      <p className="text-xs font-extrabold text-amber-700 pt-1 border-t border-slate-200">${t.costo.toLocaleString('es-CO')}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 🎛️ SUITE DE FILTROS AVANZADOS MULTI-VARIABLE */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              {/* Buscador Nombre / Cédula */}
+              <div className="flex-1 min-w-[240px]">
+                <label className="text-xs font-bold text-slate-500 block mb-1">🔍 Buscar Empleado o Cédula:</label>
+                <input 
+                  type="text" 
+                  placeholder="Escribe un nombre o número de cédula..." 
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-medium"
+                />
+              </div>
+
+              {/* Filtro por Proceso */}
+              <div className="w-64">
+                <label className="text-xs font-bold text-slate-500 block mb-1">⚙️ Proceso / Centro de Costo:</label>
+                <select 
+                  value={filtroProceso} 
+                  onChange={(e) => setFiltroProceso(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium"
+                >
+                  <option value="TODOS">-- Todos los Procesos --</option>
+                  {datosHistoricos.procesos.map((p, i) => (
+                    <option key={i} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filtro por Cargo */}
+              <div className="w-64">
+                <label className="text-xs font-bold text-slate-500 block mb-1">👔 Cargo Específico:</label>
+                <select 
+                  value={filtroCargo} 
+                  onChange={(e) => setFiltroCargo(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 bg-white font-medium"
+                >
+                  <option value="TODOS">-- Todos los Cargos --</option>
+                  {datosHistoricos.cargos.map((c, i) => (
+                    <option key={i} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Segmentación por Sedes */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold text-slate-500 self-center mr-2">🏢 Unidad:</span>
+              <button
+                onClick={() => setFiltroUnidad('TODOS')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  filtroUnidad === 'TODOS' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                🌐 Todas ({datosHistoricos.alertas.length})
+              </button>
+              <button
+                onClick={() => setFiltroUnidad('ADMIN')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  filtroUnidad === 'ADMIN' ? 'bg-red-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                🏢 Sede Administrativa ({datosHistoricos.alertas.filter(a => a.unidad === 'ADMIN').length})
+              </button>
+              <button
+                onClick={() => setFiltroUnidad('BALNEARIO')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  filtroUnidad === 'BALNEARIO' ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                🏊 Balneario ({datosHistoricos.alertas.filter(a => a.unidad === 'BALNEARIO').length})
+              </button>
+              <button
+                onClick={() => setFiltroUnidad('ECOPARQUE_HOTEL')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  filtroUnidad === 'ECOPARQUE_HOTEL' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                🌲 Hotel & Ecoparque / RecreFam ({datosHistoricos.alertas.filter(a => a.unidad === 'ECOPARQUE_HOTEL').length})
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
@@ -326,7 +434,7 @@ const DashboardHistorico = () => {
                   <tr>
                     <th className="p-4">Alerta</th>
                     <th className="p-4">Empleado</th>
-                    <th className="p-4">Cargo</th>
+                    <th className="p-4">Cargo / Proceso</th>
                     <th className="p-4 text-center">Meses c/Extras</th>
                     <th className="p-4 text-right">Total Hrs Extras (Histórico)</th>
                     <th className="p-4">Diagnóstico del Motor</th>
