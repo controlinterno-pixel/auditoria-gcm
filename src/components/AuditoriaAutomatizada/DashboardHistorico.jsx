@@ -222,7 +222,6 @@ const DashboardHistorico = () => {
       });
 
     } catch (error) {
-    } catch (error) {
       console.error(error);
       alert("❌ Error al procesar la data histórica.");
     } finally {
