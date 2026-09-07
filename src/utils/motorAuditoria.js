@@ -135,7 +135,9 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const periodo = periodoRaw ? periodoRaw.toString().trim() : '228';
     const mesVisual = mesVisualRaw ? mesVisualRaw.toString().trim() : ''; // 👁️ Lo guardamos
     
-    const llaveUnica = `${cedula}_${periodo}`;    
+    // Agrupación Mensual: Usamos el Mes (ej. 2026/05) en lugar de la quincena (228)
+    const periodoAgrupacion = mesVisual || periodo;
+    const llaveUnica = `${cedula}_${periodoAgrupacion}`;   
     const conceptoLimpio = normalizarTexto(conceptoRaw);
     const valorTotal = parsearMonto(valorRaw);
     const cantidadDias = parsearMonto(cantidadRaw);
@@ -218,23 +220,26 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     let diasEfectivos = emp.diasTrabajados;
     if (diasEfectivos === 0) {
       if (emp.sueldoBasico > 0) {
-        diasEfectivos = 15; 
+        diasEfectivos = 30; 
       } else {
         diasEfectivos = 0;  
       }
     }
-    diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
+    // Tope mensual de 30 días
+    diasEfectivos = Math.max(0, Math.min(diasEfectivos, 30));
     
     let salarioBaseProyectado = 0;
     if (diasEfectivos > 0) {
-      salarioBaseProyectado = (emp.sueldoBasico / diasEfectivos) * 15;
+      // Proyectamos a 30 días para evaluación mensual
+      salarioBaseProyectado = (emp.sueldoBasico / diasEfectivos) * 30;
     }
 
-// Aplicación Directriz Ministerio de Justicia: El tiempo suplementario NO suma para perder el auxilio
-    const ingresoTotalEvaluado = salarioBaseProyectado + emp.comisionesYVariables;    
-    // Si gana Rodamiento Extralegal de forma habitual, PIERDE el auxilio de transporte por jurisprudencia de la CSJ.
-    const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && ingresoTotalEvaluado <= limiteSalarialQuincenal && !recibioRodamiento;
-
+    // Aplicación Directriz Ministerio de Justicia
+    const ingresoTotalEvaluado = salarioBaseProyectado + emp.comisionesYVariables;
+    
+    // Tope Legal Mensual (2 SMMLV)
+    const topeLegalMensual = smlmv * 2;
+    const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && ingresoTotalEvaluado <= topeLegalMensual && !recibioRodamiento;
     let auxilioDeberSer = 0;
     if (tieneDerechoLegal) {
       auxilioDeberSer = Math.round(valorDiarioAuxilio * diasEfectivos);
@@ -278,7 +283,6 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 
    // 💡 DICTAMEN FORENSE INTELIGENTE Y CERTERO - AUXILIO DE TRANSPORTE
     let notaForense = null;
-    const topeQuincenal = limiteSalarialQuincenal; 
     const totalDevengado = emp.totalDevengadoSalarial;
 
    if (emp.auxilioPagado < 0 || emp.totalDevengadoSalarial < 0) {
