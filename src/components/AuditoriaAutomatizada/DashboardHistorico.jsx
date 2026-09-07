@@ -509,7 +509,7 @@ riesgo: (() => {
 
     const mapaMeses = {};
     
-    // Inicializar los meses detectados
+   // Inicializar los meses detectados
     datosHistoricos.tendencias.forEach(t => {
       mapaMeses[t.mes] = { 
         mes: t.mes, 
@@ -518,19 +518,41 @@ riesgo: (() => {
         ECOPARQUE_HOTEL: 0, 
         costoADMIN: 0, 
         costoBALNEARIO: 0, 
-        costoECOPARQUE_HOTEL: 0 
+        costoECOPARQUE_HOTEL: 0,
+        devengadoTotal: 0 // <-- Nueva variable para la gráfica
       };
     });
 
-    // Sumar solo las transacciones de los empleados que pasaron el filtro
+   // Sumar solo las transacciones de los empleados que pasaron el filtro
     alertasFiltradas.forEach(emp => {
-      emp.mesesConNovedad.forEach(mes => {
-        if (mapaMeses[mes]) {
-          const u = emp.unidad;
-          mapaMeses[mes][u] += emp.totalHorasVisual / emp.mesesConNovedad.size;
-          mapaMeses[mes][`costo${u}`] += emp.totalDineroVisual / emp.mesesConNovedad.size;
+      if (modoDashboard === 'JORNADA') {
+        // Lógica original para Jornada
+        emp.mesesConNovedad.forEach(mes => {
+          if (mapaMeses[mes]) {
+            const u = emp.unidad;
+            mapaMeses[mes][u] += emp.totalHorasVisual / emp.mesesConNovedad.size;
+            mapaMeses[mes][`costo${u}`] += emp.totalDineroVisual / emp.mesesConNovedad.size;
+          }
+        });
+      } else {
+        // Lógica para Fuga de Transporte
+        if (emp.fugaPorMes) {
+          Object.entries(emp.fugaPorMes).forEach(([mes, valorFuga]) => {
+            if (mapaMeses[mes] && valorFuga > 0) {
+              const u = emp.unidad;
+              mapaMeses[mes][`costo${u}`] += valorFuga;
+            }
+          });
         }
-      });
+        // Extraer Devengado Real Mensual del empleado filtrado
+        if (emp.historialMeses) {
+          Object.entries(emp.historialMeses).forEach(([mes, data]) => {
+            if (mapaMeses[mes]) {
+               mapaMeses[mes].devengadoTotal += (data.devengadoSalarial || 0);
+            }
+          });
+        }
+      }
     });
 
     return Object.values(mapaMeses).sort((a, b) => a.mes.localeCompare(b.mes));
@@ -647,16 +669,30 @@ const totalMonto = alertasFiltradas.reduce((acc, a) => {
                     <LineChart data={tendenciasDinamicas}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                       <XAxis dataKey="mes" tickFormatter={formatearMes} stroke="#475569" fontSize={11} fontWeight="bold" />
-                      <YAxis stroke="#475569" fontSize={11} />
+                      
+                      {/* Eje Y Principal (Izquierda) para Fugas y Horas */}
+                      <YAxis yAxisId="left" stroke="#475569" fontSize={11} />
+                      
+                      {/* Eje Y Secundario (Derecha) solo para Devengado (escala de millones) */}
+                      {modoDashboard === 'TRANSPORTE' && (
+                        <YAxis yAxisId="right" orientation="right" stroke="#8b5cf6" fontSize={11} tickFormatter={(val) => `$${(val / 1000000).toFixed(1)}M`} />
+                      )}
+
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                         labelFormatter={(label) => formatearMes(label)}
                         formatter={(value, name) => [modoDashboard === 'JORNADA' ? `${Number(value).toFixed(1)} hrs` : `$${Number(value).toLocaleString('es-CO')}`, name]}
                       />
                       <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                      <Line type="monotone" dataKey="ADMIN" name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
-                      <Line type="monotone" dataKey="BALNEARIO" name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
-                      <Line type="monotone" dataKey="ECOPARQUE_HOTEL" name="🌲 Hotel & Ecoparque" stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
+                      
+                      <Line yAxisId="left" type="monotone" dataKey={modoDashboard === 'JORNADA' ? 'ADMIN' : 'costoADMIN'} name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
+                      <Line yAxisId="left" type="monotone" dataKey={modoDashboard === 'JORNADA' ? 'BALNEARIO' : 'costoBALNEARIO'} name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
+                      <Line yAxisId="left" type="monotone" dataKey={modoDashboard === 'JORNADA' ? 'ECOPARQUE_HOTEL' : 'costoECOPARQUE_HOTEL'} name="🌲 Hotel & Ecoparque" stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
+                      
+                      {/* NUEVA LÍNEA: Devengado Salarial */}
+                      {modoDashboard === 'TRANSPORTE' && (
+                        <Line yAxisId="right" type="monotone" dataKey="devengadoTotal" name="💰 Devengado Salarial" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 5 }} />
+                      )}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
