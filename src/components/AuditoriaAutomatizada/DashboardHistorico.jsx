@@ -204,23 +204,37 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
 
         const emp = empleadosStats[cedula];
 
-       // 🚗 RECOLECCIÓN TRANSPORTE (Agrupamos por MES para evaluación integral)
-        // Usamos mesOrigen en lugar de quincenaReal para sumar el mes completo
+       // 🚗 RECOLECCIÓN TRANSPORTE (Agrupamos por MES y por EMPRESA para doble contrato)
         if (!emp.historialMeses[mesOrigen]) {
-          emp.historialMeses[mesOrigen] = { mesContenedor: mesOrigen, devengadoSalarial: 0, transportePagado: 0, rodamientoPagado: 0 };
+          emp.historialMeses[mesOrigen] = { 
+            mesContenedor: mesOrigen, devengadoSalarial: 0, transportePagado: 0, rodamientoPagado: 0,
+            porEmpresa: {} // <-- NUEVO OBJETO PARA DESGLOSE
+          };
+        }
+
+        // Clasificar la empresa de esta transacción
+        let normEmpresa = 'OTRAS';
+        const eUpper = (empresaFila || '').toUpperCase();
+        if (eUpper.includes('RECREFAM')) normEmpresa = 'RECREFAM';
+        else if (eUpper.includes('FAM') || eUpper.includes('TERMALES')) normEmpresa = 'FAM';
+
+        if (!emp.historialMeses[mesOrigen].porEmpresa[normEmpresa]) {
+            emp.historialMeses[mesOrigen].porEmpresa[normEmpresa] = { devengado: 0, transporte: 0 };
         }
         
         const esTransporte = conceptoLimpio.includes('SUBSIDIO DE TRANSPORTE') || conceptoLimpio.includes('AUXILIO DE TRANSPORTE');
         const esRodamiento = conceptoLimpio.includes('RODAMIENTO') || conceptoLimpio.includes('VIATICO');
-        
-        // Excluimos deducciones, provisiones Y TIEMPO SUPLEMENTARIO (horas extras/recargos)
         const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA', 'SUSPENSION', 'VACACION', 'INCAPACIDAD', 'INC.', 'RETEFUENTE', 'LIBRANZA', 'PRESTAMO', 'FONDO', 'SINDICATO', 'PLAN EXEQUIAL', 'ALIMENTACION'].some(kw => conceptoLimpio.includes(kw));
         const esTiempoSuplementario = ['EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN'].some(kw => conceptoLimpio.includes(kw));
         
         if (valor > 0 && !esExcluidoIBC && !esTiempoSuplementario && !esTransporte && !esRodamiento && !conceptoLimpio.includes('VEHICULO')) {
            emp.historialMeses[mesOrigen].devengadoSalarial += valor;
+           emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].devengado += valor; // Desglose
         }
-        if (esTransporte && valor > 0) emp.historialMeses[mesOrigen].transportePagado += valor;
+        if (esTransporte && valor > 0) {
+           emp.historialMeses[mesOrigen].transportePagado += valor;
+           emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].transporte += valor; // Desglose
+        }
         if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
 
         // ⏱️ RECOLECCIÓN JORNADA
@@ -509,24 +523,18 @@ riesgo: (() => {
 
     const mapaMeses = {};
     
-   // Inicializar los meses detectados
     datosHistoricos.tendencias.forEach(t => {
       mapaMeses[t.mes] = { 
         mes: t.mes, 
-        ADMIN: 0, 
-        BALNEARIO: 0, 
-        ECOPARQUE_HOTEL: 0, 
-        costoADMIN: 0, 
-        costoBALNEARIO: 0, 
-        costoECOPARQUE_HOTEL: 0,
-        devengadoTotal: 0 // <-- Nueva variable para la gráfica
+        ADMIN: 0, BALNEARIO: 0, ECOPARQUE_HOTEL: 0, 
+        costoADMIN: 0, costoBALNEARIO: 0, costoECOPARQUE_HOTEL: 0,
+        devengadoFAM: 0, devengadoRECREFAM: 0, 
+        fugaFAM: 0, fugaRECREFAM: 0 
       };
     });
 
-   // Sumar solo las transacciones de los empleados que pasaron el filtro
     alertasFiltradas.forEach(emp => {
       if (modoDashboard === 'JORNADA') {
-        // Lógica original para Jornada
         emp.mesesConNovedad.forEach(mes => {
           if (mapaMeses[mes]) {
             const u = emp.unidad;
@@ -535,20 +543,20 @@ riesgo: (() => {
           }
         });
       } else {
-        // Lógica para Fuga de Transporte
-        if (emp.fugaPorMes) {
-          Object.entries(emp.fugaPorMes).forEach(([mes, valorFuga]) => {
-            if (mapaMeses[mes] && valorFuga > 0) {
-              const u = emp.unidad;
-              mapaMeses[mes][`costo${u}`] += valorFuga;
-            }
-          });
-        }
-        // Extraer Devengado Real Mensual del empleado filtrado
         if (emp.historialMeses) {
           Object.entries(emp.historialMeses).forEach(([mes, data]) => {
             if (mapaMeses[mes]) {
-               mapaMeses[mes].devengadoTotal += (data.devengadoSalarial || 0);
+               // 1. Asignar Devengado Exacto por Empresa
+               if (data.porEmpresa) {
+                  mapaMeses[mes].devengadoFAM += (data.porEmpresa['FAM']?.devengado || 0);
+                  mapaMeses[mes].devengadoRECREFAM += (data.porEmpresa['RECREFAM']?.devengado || 0);
+               }
+
+               // 2. Asignar Fuga Exacta por Empresa (Solo si hubo fuga real este mes)
+               if (emp.fugaPorMes && emp.fugaPorMes[mes] > 0 && data.porEmpresa) {
+                  mapaMeses[mes].fugaFAM += (data.porEmpresa['FAM']?.transporte || 0);
+                  mapaMeses[mes].fugaRECREFAM += (data.porEmpresa['RECREFAM']?.transporte || 0);
+               }
             }
           });
         }
@@ -685,13 +693,19 @@ const totalMonto = alertasFiltradas.reduce((acc, a) => {
                       />
                       <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                       
-                      <Line yAxisId="left" type="monotone" dataKey={modoDashboard === 'JORNADA' ? 'ADMIN' : 'costoADMIN'} name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
-                      <Line yAxisId="left" type="monotone" dataKey={modoDashboard === 'JORNADA' ? 'BALNEARIO' : 'costoBALNEARIO'} name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
-                      <Line yAxisId="left" type="monotone" dataKey={modoDashboard === 'JORNADA' ? 'ECOPARQUE_HOTEL' : 'costoECOPARQUE_HOTEL'} name="🌲 Hotel & Ecoparque" stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
-                      
-                      {/* NUEVA LÍNEA: Devengado Salarial */}
-                      {modoDashboard === 'TRANSPORTE' && (
-                        <Line yAxisId="right" type="monotone" dataKey="devengadoTotal" name="💰 Devengado Salarial" stroke="#8b5cf6" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 5 }} />
+{modoDashboard === 'JORNADA' ? (
+                        <>
+                          <Line yAxisId="left" type="monotone" dataKey="ADMIN" name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
+                          <Line yAxisId="left" type="monotone" dataKey="BALNEARIO" name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
+                          <Line yAxisId="left" type="monotone" dataKey="ECOPARQUE_HOTEL" name="🌲 Hotel & Ecoparque" stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
+                        </>
+                      ) : (
+                        <>
+                          <Line yAxisId="left" type="monotone" dataKey="fugaFAM" name="🚗 Fuga Termales (Fam)" stroke="#ef4444" strokeWidth={3} dot={{ r: 5 }} />
+                          <Line yAxisId="left" type="monotone" dataKey="fugaRECREFAM" name="🚗 Fuga RecreFam" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5 }} />
+                          <Line yAxisId="right" type="monotone" dataKey="devengadoFAM" name="💰 Devengado Termales (Fam)" stroke="#f87171" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3 }} />
+                          <Line yAxisId="right" type="monotone" dataKey="devengadoRECREFAM" name="💰 Devengado RecreFam" stroke="#60a5fa" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3 }} />
+                        </>
                       )}
                     </LineChart>
                   </ResponsiveContainer>
@@ -718,13 +732,14 @@ const totalMonto = alertasFiltradas.reduce((acc, a) => {
                             </>
                           ) : (
                             <>
-                              <p className="text-red-600 font-bold">Admin: ${(t.costoADMIN || 0).toLocaleString('es-CO')}</p>
-                              <p className="text-blue-600 font-bold">Balneario: ${(t.costoBALNEARIO || 0).toLocaleString('es-CO')}</p>
-                              <p className="text-emerald-600 font-bold">Hotel: ${(t.costoECOPARQUE_HOTEL || 0).toLocaleString('es-CO')}</p>
+                              <p className="text-red-600 font-bold">Fuga Fam: ${(t.fugaFAM || 0).toLocaleString('es-CO')}</p>
+                              <p className="text-blue-600 font-bold">Fuga Rec: ${(t.fugaRECREFAM || 0).toLocaleString('es-CO')}</p>
+                              <p className="text-[9px] text-slate-500 mt-1">Dev. Fam: ${(t.devengadoFAM || 0).toLocaleString('es-CO')}</p>
+                              <p className="text-[9px] text-slate-500">Dev. Rec: ${(t.devengadoRECREFAM || 0).toLocaleString('es-CO')}</p>
                               <p className="text-xs font-extrabold text-slate-800 pt-1 border-t border-slate-200 mt-2">
                                 Fuga Total Mensual
                               </p>
-                              <p className="text-[11px] font-extrabold text-amber-700">${totalMesCosto.toLocaleString('es-CO')}</p>
+                              <p className="text-[11px] font-extrabold text-amber-700">${((t.fugaFAM || 0) + (t.fugaRECREFAM || 0)).toLocaleString('es-CO')}</p>
                             </>
                           )}
                         </div>
