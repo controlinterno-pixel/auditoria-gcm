@@ -294,7 +294,7 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     } else if (tipoHallazgo === 'PAGO_EXCESO') {
       if (ingresoTotalEvaluado > topeLegalMensual) {
         notaForense = `🚨 EXCESO POR SUPERACIÓN DE TOPE LEGAL MENSUAL: La base evaluada (Sueldo + Comisiones) fue de $${ingresoTotalEvaluado.toLocaleString('es-CO')}, superando el tope mensual de $${topeLegalMensual.toLocaleString('es-CO')}. Se excluyeron legalmente $${emp.tiempoSuplementario.toLocaleString('es-CO')} de tiempo suplementario. Se pagó auxilio sin derecho legal.`;
-      } else {
+      } else { 
         notaForense = `⚠️ EXCESO EN LIQUIDACIÓN DIARIA: El empleado laboró ${diasEfectivos} días y le correspondían $${auxilioDeberSer.toLocaleString('es-CO')}. El ERP le pagó $${emp.auxilioPagado.toLocaleString('es-CO')}, generando un sobrepago de $${diferenciaAbsoluta.toLocaleString('es-CO')}.`;
       }
     } else if (tipoHallazgo === 'PAGO_INSUFICIENTE') {

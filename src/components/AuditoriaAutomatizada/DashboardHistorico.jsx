@@ -204,22 +204,24 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
 
         const emp = empleadosStats[cedula];
 
-       // 🚗 RECOLECCIÓN TRANSPORTE (Agrupamos estrictamente por Quincena)
-        if (!emp.historialMeses[quincenaReal]) {
-          emp.historialMeses[quincenaReal] = { mesContenedor: mesOrigen, devengadoSalarial: 0, transportePagado: 0, rodamientoPagado: 0 };
+       // 🚗 RECOLECCIÓN TRANSPORTE (Agrupamos por MES para evaluación integral)
+        // Usamos mesOrigen en lugar de quincenaReal para sumar el mes completo
+        if (!emp.historialMeses[mesOrigen]) {
+          emp.historialMeses[mesOrigen] = { mesContenedor: mesOrigen, devengadoSalarial: 0, transportePagado: 0, rodamientoPagado: 0 };
         }
         
         const esTransporte = conceptoLimpio.includes('SUBSIDIO DE TRANSPORTE') || conceptoLimpio.includes('AUXILIO DE TRANSPORTE');
         const esRodamiento = conceptoLimpio.includes('RODAMIENTO') || conceptoLimpio.includes('VIATICO');
         
-        // Excluimos deducciones y provisiones para calcular el salario neto devengado
+        // Excluimos deducciones, provisiones Y TIEMPO SUPLEMENTARIO (horas extras/recargos)
         const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA', 'SUSPENSION', 'VACACION', 'INCAPACIDAD', 'INC.', 'RETEFUENTE', 'LIBRANZA', 'PRESTAMO', 'FONDO', 'SINDICATO', 'PLAN EXEQUIAL', 'ALIMENTACION'].some(kw => conceptoLimpio.includes(kw));
+        const esTiempoSuplementario = ['EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN'].some(kw => conceptoLimpio.includes(kw));
         
-        if (valor > 0 && !esExcluidoIBC && !esTransporte && !esRodamiento && !conceptoLimpio.includes('VEHICULO')) {
-           emp.historialMeses[quincenaReal].devengadoSalarial += valor;
+        if (valor > 0 && !esExcluidoIBC && !esTiempoSuplementario && !esTransporte && !esRodamiento && !conceptoLimpio.includes('VEHICULO')) {
+           emp.historialMeses[mesOrigen].devengadoSalarial += valor;
         }
-        if (esTransporte && valor > 0) emp.historialMeses[quincenaReal].transportePagado += valor;
-        if (esRodamiento && valor > 0) emp.historialMeses[quincenaReal].rodamientoPagado += valor;
+        if (esTransporte && valor > 0) emp.historialMeses[mesOrigen].transportePagado += valor;
+        if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
 
         // ⏱️ RECOLECCIÓN JORNADA
         const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
@@ -267,19 +269,18 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
         let fugaNetaAcumulada = 0;
         let quincenasConInfraccion = 0;
 
-        Object.entries(emp.historialMeses).forEach(([quincena, data]) => {
+        Object.entries(emp.historialMeses).forEach(([mesAgrupado, data]) => {
            const transporte = data.transportePagado || 0;
            const rodamiento = data.rodamientoPagado || 0;
            const devengado = data.devengadoSalarial || 0;
-           const diasEfectivos = data.diasTrabajados > 0 ? Math.min(data.diasTrabajados, 15) : 15;
            
-           // Tope Salarial Proporcional a Días (2 SMLMV = $1.750.905 / 15d = $116.727 COP diarios)
-           const topeProporcional = Math.round((1750905 / 15) * diasEfectivos);
+           // Tope Legal Mensual 2026 (2 SMLMV = $3.501.810 COP)
+           const topeMensual = 3501810;
 
            // Gestión de Reintegros / Descuentos Negativos en Nómina
            if (transporte < 0 || devengado < 0) {
               fugaNetaAcumulada += transporte;
-              detalleTransporte.push(`[Q-${quincena}: Reintegro de Auxilio $${Math.abs(transporte).toLocaleString('es-CO')}]`);
+              detalleTransporte.push(`[Mes ${mesAgrupado}: Reintegro de Auxilio $${Math.abs(transporte).toLocaleString('es-CO')}]`);
               return;
            }
 
@@ -290,16 +291,16 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
                  causalFuga = `Doble Beneficio (Rodamiento $${rodamiento.toLocaleString('es-CO')})`;
               } else if (data.esTeletrabajo) {
                  causalFuga = `Incompatibilidad Teletrabajo / Conectividad`;
-              } else if (devengado > topeProporcional) {
-                 causalFuga = `Devengó $${devengado.toLocaleString('es-CO')} (Excede tope de ${diasEfectivos}d: $${topeProporcional.toLocaleString('es-CO')})`;
+              } else if (devengado > topeMensual) {
+                 causalFuga = `Base evaluada $${devengado.toLocaleString('es-CO')} excede tope mensual de $${topeMensual.toLocaleString('es-CO')} (Extras excluidas)`;
               }
 
               if (causalFuga) {
                  fugaNetaAcumulada += transporte;
-                 quincenasConInfraccion += 1;
+                 quincenasConInfraccion += 1; // Aunque la variable se llame quincenas, ahora suma meses
                  tieneFuga = true;
                  periodosFuga.add(data.mesContenedor);
-                 detalleTransporte.push(`[Q-${quincena}: ${causalFuga}]`);
+                 detalleTransporte.push(`[Mes ${mesAgrupado}: ${causalFuga}]`);
               }
            }
         });
@@ -320,11 +321,10 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
               periodosFuga,
               totalHorasVisual: quincenasConInfraccion,
               totalDineroVisual: fugaNetaAcumulada,
-              fugaPorMes: Object.values(emp.historialMeses).reduce((acc, q) => {
+             fugaPorMes: Object.values(emp.historialMeses).reduce((acc, q) => {
                  if (q.transportePagado > 0) {
-                    const dEfectivos = q.diasTrabajados > 0 ? Math.min(q.diasTrabajados, 15) : 15;
-                    const tProporcional = Math.round((1750905 / 15) * dEfectivos);
-                    if (q.rodamientoPagado > 0 || q.esTeletrabajo || q.devengadoSalarial > tProporcional) {
+                    const topeMensual = 3501810; // 2 SMLMV 2026
+                    if (q.rodamientoPagado > 0 || q.esTeletrabajo || q.devengadoSalarial > topeMensual) {
                        acc[q.mesContenedor] = (acc[q.mesContenedor] || 0) + q.transportePagado;
                     }
                  }
@@ -1010,12 +1010,12 @@ const totalMonto = alertasFiltradas.reduce((acc, a) => {
                       {Object.entries(empleadoModal.historialMeses || {})
                         .filter(([_, q]) => q.transportePagado > 0 || q.rodamientoPagado > 0)
                         .map(([qKey, qData], i) => {
-                          const excedeTope = qData.devengadoSalarial > 1750905;
+                          const excedeTope = qData.devengadoSalarial > 3501810; // Tope mensual 2026
                           const tieneRodamiento = qData.rodamientoPagado > 0;
                           
                           return (
                             <tr key={i} className="hover:bg-slate-50">
-                              <td className="p-3 font-bold text-slate-800">Q-{qKey}</td>
+                              <td className="p-3 font-bold text-slate-800">Mes {qKey}</td>
                               <td className="p-3 text-right font-medium">${(qData.devengadoSalarial || 0).toLocaleString('es-CO')}</td>
                               <td className="p-3 text-right font-bold text-blue-600">${(qData.rodamientoPagado || 0).toLocaleString('es-CO')}</td>
                               <td className="p-3 text-right font-extrabold text-rose-600">${(qData.transportePagado || 0).toLocaleString('es-CO')}</td>
