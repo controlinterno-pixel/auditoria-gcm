@@ -1201,20 +1201,24 @@ if (empleado.usoHistoricoAnterior) {
                   <tbody className="divide-y divide-slate-100 font-mono">
                     {obtenerDesgloseEmpleado(empleadoDiagonal).map((item, idx) => {
                       const esVacacion = item.concepto.includes('VACACION') || item.concepto.includes('INCAPACIDAD');
-                      const tagStyle = esVacacion 
-                        ? 'text-indigo-700 bg-indigo-100' 
-                        : item.incluidoEnIBC 
-                          ? 'text-emerald-700 bg-emerald-100' 
-                          : 'text-red-700 bg-red-100';
-                          
-                      const tagText = esVacacion 
-                        ? '🧠 TRATAMIENTO HISTÓRICO' 
-                        : item.incluidoEnIBC 
-                          ? '✔ INCLUIDO' 
-                          : '✘ OMITIDO';
+                      const esTiempoSuplementario = ['EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN'].some(kw => item.concepto.includes(kw));
+                      
+                      let tagStyle = item.incluidoEnIBC ? 'text-emerald-700 bg-emerald-100' : 'text-red-700 bg-red-100';
+                      let tagText = item.incluidoEnIBC ? '✔ INCLUIDO' : '✘ OMITIDO';
+                      let rowStyle = item.incluidoEnIBC ? 'bg-emerald-50/40' : 'bg-red-50/40';
+
+                      if (tipoAuditoriaActiva === 'TRANSPORTE' && esTiempoSuplementario && item.incluidoEnIBC) {
+                          tagStyle = 'text-amber-700 bg-amber-100 border border-amber-300';
+                          tagText = '⚖️ EXCLUIDO (Tope Legal)';
+                          rowStyle = 'bg-amber-50/30';
+                      } else if (esVacacion) {
+                          tagStyle = 'text-indigo-700 bg-indigo-100';
+                          tagText = '🧠 TRATAMIENTO HISTÓRICO';
+                          rowStyle = 'bg-indigo-50/30';
+                      }
 
                       return (
-                        <tr key={idx} className={esVacacion ? 'bg-indigo-50/30' : item.incluidoEnIBC ? 'bg-emerald-50/40' : 'bg-red-50/40'}>
+                        <tr key={idx} className={rowStyle}>
                           <td className="p-2.5 font-sans font-bold">
                             <span className={`${tagStyle} px-2 py-0.5 rounded text-[10px]`}>{tagText}</span>
                           </td>

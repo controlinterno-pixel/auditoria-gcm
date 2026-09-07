@@ -281,25 +281,25 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const topeQuincenal = limiteSalarialQuincenal; 
     const totalDevengado = emp.totalDevengadoSalarial;
 
-    if (emp.auxilioPagado < 0 || emp.totalDevengadoSalarial < 0) {
-       notaForense = `ℹ️ AJUSTE DE NÓMINA (REINTEGRO): Se detectaron valores negativos (Salario: $${totalDevengado.toLocaleString('es-CO')} | Auxilio: $${emp.auxilioPagado.toLocaleString('es-CO')}). Corresponde a un descuento o reintegro por cruce de novedades (ej. Vacaciones/Incapacidades) o días no laborados liquidados en periodos anteriores.`;
+   if (emp.auxilioPagado < 0 || emp.totalDevengadoSalarial < 0) {
+       notaForense = `ℹ️ AJUSTE DE NÓMINA (REINTEGRO): Se detectaron valores negativos. Corresponde a un descuento o reintegro por cruce de novedades.`;
     } else if (emp.empresasGrupo.size > 1 && emp.auxilioPagado > 0) {
-       notaForense = `🟡 ALERTA DE DOBLE CONTRATO: El empleado está activo en Termales y RecreFam simultáneamente. Sumando ambos contratos recibió $${emp.auxilioPagado.toLocaleString('es-CO')} de Auxilio de Transporte. Debe auditarse que la suma de ambos salarios no supere el tope y que el auxilio no se esté pagando duplicado.`;
+       notaForense = `🟡 ALERTA DE DOBLE CONTRATO: El empleado está activo en Termales y RecreFam simultáneamente. Sumando ambos contratos recibió $${emp.auxilioPagado.toLocaleString('es-CO')} de Auxilio de Transporte.`;
     } else if (recibioRodamiento && emp.auxilioPagado > 0) {
-       notaForense = `🚨 DOBLE BENEFICIO (Rodamiento + Transporte): El empleado recibió $${pagoRodamiento.toLocaleString('es-CO')} de Auxilio de Rodamiento y $${emp.auxilioPagado.toLocaleString('es-CO')} de Transporte. Según la jurisprudencia, el pago de rodamiento excluye el pago de Auxilio de Transporte (Art. 15 Ley 15/59).`;
+       notaForense = `🚨 DOBLE BENEFICIO (Rodamiento + Transporte): El empleado recibió $${pagoRodamiento.toLocaleString('es-CO')} de Auxilio de Rodamiento y $${emp.auxilioPagado.toLocaleString('es-CO')} de Transporte. Incompatible según Art. 15 Ley 15/59.`;
     } else if (tipoHallazgo === 'PAGO_EXCESO') {
       if (ingresoTotalEvaluado > topeQuincenal) {
-        notaForense = `🚨 EXCESO POR SUPERACIÓN DE TOPE LEGAL (Art. 2 Ley 15/59): El devengado salarial ($${totalDevengado.toLocaleString('es-CO')}) superó el límite legal de 2 SMLMV quincenales ($${topeQuincenal.toLocaleString('es-CO')}). Se pagaron $${emp.auxilioPagado.toLocaleString('es-CO')} de auxilio sin tener derecho legal.`;
+        notaForense = `🚨 EXCESO POR SUPERACIÓN DE TOPE LEGAL: La base evaluada (Sueldo + Comisiones) fue de $${ingresoTotalEvaluado.toLocaleString('es-CO')}, superando el tope de $${topeQuincenal.toLocaleString('es-CO')}. Se excluyeron legalmente $${emp.tiempoSuplementario.toLocaleString('es-CO')} de horas extras/recargos. Se pagó auxilio sin derecho legal.`;
       } else {
-        notaForense = `⚠️ EXCESO EN LIQUIDACIÓN DIARIA: El empleado laboró ${diasEfectivos} días y le correspondían $${auxilioDeberSer.toLocaleString('es-CO')} de auxilio ($${Math.round(valorDiarioAuxilio).toLocaleString('es-CO')}/día). El ERP le pagó $${emp.auxilioPagado.toLocaleString('es-CO')}, generando un sobrepago de $${diferenciaAbsoluta.toLocaleString('es-CO')}.`;
+        notaForense = `⚠️ EXCESO EN LIQUIDACIÓN DIARIA: El empleado laboró ${diasEfectivos} días y le correspondían $${auxilioDeberSer.toLocaleString('es-CO')}. El ERP le pagó $${emp.auxilioPagado.toLocaleString('es-CO')}, generando un sobrepago de $${diferenciaAbsoluta.toLocaleString('es-CO')}.`;
       }
     } else if (tipoHallazgo === 'PAGO_INSUFICIENTE') {
-      notaForense = `🔴 BAJO PAGO CRÍTICO (RIESGO UGPP): El empleado tuvo un devengado salarial ($${totalDevengado.toLocaleString('es-CO')}) inferior al tope de 2 SMLMV ($${topeQuincenal.toLocaleString('es-CO')}) con ${diasEfectivos} días laborados. Tenía derecho a $${auxilioDeberSer.toLocaleString('es-CO')} pero solo le pagaron $${emp.auxilioPagado.toLocaleString('es-CO')}. Existe un faltante de $${diferenciaExacta.toLocaleString('es-CO')}.`;
+      notaForense = `🔴 BAJO PAGO CRÍTICO: La base evaluada ($${ingresoTotalEvaluado.toLocaleString('es-CO')}) es inferior al tope de 2 SMLMV. Tenía derecho a $${auxilioDeberSer.toLocaleString('es-CO')} pero solo le pagaron $${emp.auxilioPagado.toLocaleString('es-CO')}.`;
     } else if (tipoHallazgo === 'NO_APLICA') {
       if (recibioRodamiento) {
-         notaForense = `ℹ️ EXCLUIDO LEGALMENTE: Empleado no recibe Auxilio de Transporte debido al pago extralegal de Rodamiento ($${pagoRodamiento.toLocaleString('es-CO')}). Correcta aplicación de la norma.`;
+         notaForense = `ℹ️ EXCLUIDO LEGALMENTE: Empleado no recibe Auxilio de Transporte debido al pago extralegal de Rodamiento.`;
       } else {
-         notaForense = `ℹ️ EXCLUIDO LEGALMENTE: Empleado no aplica para Auxilio de Transporte por devengar más de 2 SMLMV ($${totalDevengado.toLocaleString('es-CO')}). El ERP no realizó pagos, cumpliendo la norma al 100%.`;
+         notaForense = `ℹ️ EXCLUIDO LEGALMENTE: La base evaluada fue $${ingresoTotalEvaluado.toLocaleString('es-CO')} (Supera 2 SMMLV). Se excluyeron a favor del empleado $${emp.tiempoSuplementario.toLocaleString('es-CO')} de tiempo suplementario, pero aún así supera el tope. Correcta aplicación de la norma.`;
       }
     }
 
@@ -308,11 +308,14 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       empresa: emp.empresa,
       cedula: emp.cedula,
       periodo: emp.periodo,
-      mesVisual: emp.mesVisual, // 👁️ Lo pasamos al hallazgo final
+      mesVisual: emp.mesVisual,
       nombre: emp.nombre,
       cargo: emp.cargo,
       diasTrabajados: diasEfectivos,
       salarioBase: emp.sueldoBasico,
+      comisionesYVariables: emp.comisionesYVariables,
+      tiempoSuplementario: emp.tiempoSuplementario,
+      ingresoTotalEvaluado,
       totalDevengadoSalarial: emp.totalDevengadoSalarial,
       auxilioDeberSer,
       auxilioPagado: emp.auxilioPagado,
