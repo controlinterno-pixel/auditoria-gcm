@@ -150,7 +150,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
         nombre: nombreRaw ? nombreRaw.toString().trim() : 'Sin Nombre',
         cargo: cargoRaw ? cargoRaw.toString().trim() : 'Sin Cargo',
         sueldoBasico: 0,
-        otrosDevengadosSalariales: 0,
+        comisionesYVariables: 0,
+        tiempoSuplementario: 0, // Horas extras, dominicales y festivos (NO suman para el tope)
         totalDevengadoSalarial: 0,
         auxilioPagado: 0,
         diasTrabajados: 0,
@@ -167,12 +168,17 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       // Motor inteligente: Detecta el sueldo base pero EXCLUYE licencias e incapacidades
       const esSueldoEstricto = ['SUELDO BASICO', 'BASICO', 'SUELDO', 'SALARIO'].some(kw => conceptoLimpio.includes(kw)) && 
                                !['LICENCIA', 'SUSPENSION', 'INCAPACIDAD', 'VACACION'].some(kw => conceptoLimpio.includes(kw));
+      
+      // Identificamos el trabajo suplementario para sacarlo del cálculo del tope
+      const esTiempoSuplementario = ['EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN'].some(kw => conceptoLimpio.includes(kw));
 
       if (esSueldoEstricto) {
         emp.sueldoBasico += valorTotal;
         emp.diasTrabajados += cantidadDias; 
+      } else if (esTiempoSuplementario) {
+        emp.tiempoSuplementario += valorTotal; // Excluido del tope de 2 SMMLV
       } else {
-        emp.otrosDevengadosSalariales += valorTotal;
+        emp.comisionesYVariables += valorTotal; // Comisiones y destajos sí entran a la bolsa de variables
       }
       emp.totalDevengadoSalarial += valorTotal;
     }
@@ -224,8 +230,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
       salarioBaseProyectado = (emp.sueldoBasico / diasEfectivos) * 15;
     }
 
-    const ingresoTotalEvaluado = salarioBaseProyectado + emp.otrosDevengadosSalariales;
-    
+// Aplicación Directriz Ministerio de Justicia: El tiempo suplementario NO suma para perder el auxilio
+    const ingresoTotalEvaluado = salarioBaseProyectado + emp.comisionesYVariables;    
     // Si gana Rodamiento Extralegal de forma habitual, PIERDE el auxilio de transporte por jurisprudencia de la CSJ.
     const tieneDerechoLegal = emp.totalDevengadoSalarial > 0 && ingresoTotalEvaluado <= limiteSalarialQuincenal && !recibioRodamiento;
 
