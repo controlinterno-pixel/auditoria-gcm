@@ -292,8 +292,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     } else if (recibioRodamiento && emp.auxilioPagado > 0) {
        notaForense = `🚨 DOBLE BENEFICIO (Rodamiento + Transporte): El empleado recibió $${pagoRodamiento.toLocaleString('es-CO')} de Auxilio de Rodamiento y $${emp.auxilioPagado.toLocaleString('es-CO')} de Transporte. Incompatible según Art. 15 Ley 15/59.`;
     } else if (tipoHallazgo === 'PAGO_EXCESO') {
-      if (ingresoTotalEvaluado > topeQuincenal) {
-        notaForense = `🚨 EXCESO POR SUPERACIÓN DE TOPE LEGAL: La base evaluada (Sueldo + Comisiones) fue de $${ingresoTotalEvaluado.toLocaleString('es-CO')}, superando el tope de $${topeQuincenal.toLocaleString('es-CO')}. Se excluyeron legalmente $${emp.tiempoSuplementario.toLocaleString('es-CO')} de horas extras/recargos. Se pagó auxilio sin derecho legal.`;
+      if (ingresoTotalEvaluado > topeLegalMensual) {
+        notaForense = `🚨 EXCESO POR SUPERACIÓN DE TOPE LEGAL MENSUAL: La base evaluada (Sueldo + Comisiones) fue de $${ingresoTotalEvaluado.toLocaleString('es-CO')}, superando el tope mensual de $${topeLegalMensual.toLocaleString('es-CO')}. Se excluyeron legalmente $${emp.tiempoSuplementario.toLocaleString('es-CO')} de tiempo suplementario. Se pagó auxilio sin derecho legal.`;
       } else {
         notaForense = `⚠️ EXCESO EN LIQUIDACIÓN DIARIA: El empleado laboró ${diasEfectivos} días y le correspondían $${auxilioDeberSer.toLocaleString('es-CO')}. El ERP le pagó $${emp.auxilioPagado.toLocaleString('es-CO')}, generando un sobrepago de $${diferenciaAbsoluta.toLocaleString('es-CO')}.`;
       }
