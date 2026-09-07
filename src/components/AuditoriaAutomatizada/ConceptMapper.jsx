@@ -69,9 +69,10 @@ const systemCategories = [
   
   // ⚡ AUTO-MAPEO AMPLIADO CON LEXICÓN DE NÓMINA COLOMBIANA
   const ejecutarAutoMapeoInteligente = (conceptos) => {
-    const autoSalario = conceptos.filter(c => {
+   const autoSalario = conceptos.filter(c => {
       if (['NO REMUNERAD', 'SUSPENSION', 'VACACIONES', 'CESANTIA', 'PRIMA'].some(kw => c.includes(kw))) return false;
-      return ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL', 'BONIFICACION SALARIAL', 'AUXILIO SALARIAL', 'PRIMA SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA', 'INCENTIVO', 'DESTAJO'].some(kw => c.includes(kw));
+      // Añadimos explícitamente DOMINICAL, FESTIVO y NOCTURN al diccionario de autoselección
+      return ['SUELDO', 'BASICO', 'SALARIO', 'HORA', 'EXTRA', 'RECARGO', 'COMISION', 'BONIFICACION PRESTACIONAL', 'BONIFICACION SALARIAL', 'AUXILIO SALARIAL', 'PRIMA SALARIAL', 'AJUSTE SALARIAL', 'DIFERENCIA SALARIAL', 'COMPENSACION SALARIAL', 'DIA DE LA FAMILIA', 'LICENCIA REMUNERADA', 'INCENTIVO', 'DESTAJO', 'DOMINICAL', 'FESTIVO', 'NOCTURN'].some(kw => c.includes(kw));
     });
 
     const autoAuxilio = conceptos.filter(c => c.includes('TRANSPORTE'));
