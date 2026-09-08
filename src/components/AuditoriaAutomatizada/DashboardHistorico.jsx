@@ -81,9 +81,10 @@ const [verTendencias, setVerTendencias] = useState(false);
  const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA' | 'TRANSPORTE'
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   // 📅 NUEVO FILTRO
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     // 🚨 NUEVO FILTRO DE ALERTA
-  const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); // 💡 NUEVO MODO DE GRÁFICA
+const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); // 💡 NUEVO MODO DE GRÁFICA
   const [limiteTop, setLimiteTop] = useState(5);                 // 🏆 NUEVO LÍMITE PARA GRÁFICAS DE EMPLEADOS
-  const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA
+  const [metricaGrafica, setMetricaGrafica] = useState('HORAS'); // 📊 NUEVO MODO DE MÉTRICA (Horas vs Dinero)
+  const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA 
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
     const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
@@ -767,6 +768,18 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 📈 {modoDashboard === 'JORNADA' ? 'Comportamiento Histórico de Tiempo Suplementario' : 'Evolución de Fuga Financiera en Subsidios de Transporte'} (Mes a Mes)
               </h3>
               <div className="flex items-center gap-3">
+                {/* 📏 SELECTOR DE MÉTRICA (Horas vs Dinero) */}
+                {modoDashboard === 'JORNADA' && alertasFiltradas.length > 0 && (
+                  <select
+                    value={metricaGrafica}
+                    onChange={(e) => setMetricaGrafica(e.target.value)}
+                    className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 rounded px-2 py-1 shadow-sm outline-none cursor-pointer animate-in fade-in"
+                  >
+                    <option value="HORAS">⏱️ Ver en Horas</option>
+                    <option value="DINERO">💰 Ver en Dinero</option>
+                  </select>
+                )}
+
                 {/* 🏆 SELECTOR DE TOP EMPLEADOS (Aparece si está agrupado por empleado) */}
                 {modoDashboard === 'JORNADA' && agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length > 0 && (
                   <select
@@ -811,8 +824,13 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                       <XAxis dataKey="mes" tickFormatter={formatearMes} stroke="#475569" fontSize={11} fontWeight="bold" />
                       
-                      {/* Eje Y Principal (Izquierda) para Fugas y Horas */}
-                      <YAxis yAxisId="left" stroke="#475569" fontSize={11} />
+                      {/* Eje Y Principal (Izquierda) adaptativo para Fugas, Horas o Dinero */}
+                      <YAxis 
+                        yAxisId="left" 
+                        stroke="#475569" 
+                        fontSize={11} 
+                        tickFormatter={(val) => (modoDashboard === 'JORNADA' && metricaGrafica === 'DINERO') ? `$${(val / 1000000).toFixed(1)}M` : val}
+                      />
                       
                       {/* Eje Y Secundario (Derecha) solo para Devengado (escala de millones) */}
                       {modoDashboard === 'TRANSPORTE' && (
@@ -837,20 +855,28 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               const empleadoTieneConcepto = alertasFiltradas.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
                               if (!empleadoTieneConcepto) return null;
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef'];
-                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={conceptoName} name={`🔹 ${conceptoName}`} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
+                              
+                              const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
+                              const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
+                              
+                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                             })
                           ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
                             // 💡 2. Si el usuario activó "Ver por Empleado", aplicamos el filtro Top N
                             (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop)).map((emp, idx) => {
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
-                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={emp.nombre} name={`👤 ${emp.nombre}`} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
+                              
+                              const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
+                              const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 👤 ${emp.nombre}` : `👤 ${emp.nombre}`;
+
+                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                             })
                           ) : (
                             // 💡 3. Modo estándar (Líneas = Sedes)
                             <>
-                              <Line yAxisId="left" type="monotone" dataKey="ADMIN" name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
-                              <Line yAxisId="left" type="monotone" dataKey="BALNEARIO" name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
-                              <Line yAxisId="left" type="monotone" dataKey="ECOPARQUE_HOTEL" name="🌲 Hotel & Ecoparque" stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
+                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoADMIN" : "ADMIN"} name={metricaGrafica === 'DINERO' ? "Costo 🏢 Admin" : "🏢 Sede Administrativa"} stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
+                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoBALNEARIO" : "BALNEARIO"} name={metricaGrafica === 'DINERO' ? "Costo 🏊 Balneario" : "🏊 Balneario Santa Rosa"} stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
+                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoECOPARQUE_HOTEL" : "ECOPARQUE_HOTEL"} name={metricaGrafica === 'DINERO' ? "Costo 🌲 Hotel" : "🌲 Hotel & Ecoparque"} stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
                             </>
                           )}
                         </>
