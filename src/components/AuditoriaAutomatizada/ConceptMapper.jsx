@@ -179,14 +179,21 @@ const systemCategories = [
 
   const handleStartAudit = () => {
     if (!datosExcel || datosExcel.length === 0) return;
-    const anoDetectado = datosExcel.length > 0 && datosExcel[0]['Ano'] 
-      ? parseInt(datosExcel[0]['Ano']) 
-      : new Date().getFullYear();
+    setIsUploading(true);
+    setTimeout(() => {
+      try {
+        const anoDetectado = datosExcel.length > 0 && datosExcel[0]['Ano'] 
+          ? parseInt(datosExcel[0]['Ano']) 
+          : new Date().getFullYear();
 
-    const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, anoDetectado);
-    setTipoAuditoriaActiva('TRANSPORTE');
-    setHallazgos(resultadoEngine.hallazgos);
-    setResumenKpi(resultadoEngine.kpis);
+        const resultadoEngine = auditarAuxilioTransporte(datosExcel, mapping, anoDetectado);
+        setTipoAuditoriaActiva('TRANSPORTE');
+        setHallazgos(resultadoEngine.hallazgos);
+        setResumenKpi(resultadoEngine.kpis);
+      } finally {
+        setIsUploading(false);
+      }
+    }, 50);
   };
 
   const handleStartAuditUGPP = async () => {
@@ -207,10 +214,17 @@ const systemCategories = [
 
  const handleStartAuditJornada = () => {
     if (!datosExcel || datosExcel.length === 0) return;
-    const resultadoEngine = auditarJornadaLaboral(datosExcel, mapping);
-    setTipoAuditoriaActiva('JORNADA');
-    setHallazgos(resultadoEngine.hallazgos);
-    setResumenKpi(resultadoEngine.kpis);
+    setIsUploading(true);
+    setTimeout(() => {
+      try {
+        const resultadoEngine = auditarJornadaLaboral(datosExcel, mapping);
+        setTipoAuditoriaActiva('JORNADA');
+        setHallazgos(resultadoEngine.hallazgos);
+        setResumenKpi(resultadoEngine.kpis);
+      } finally {
+        setIsUploading(false);
+      }
+    }, 50);
   };
 
 // 🚀 MACRO-ESCÁNER HISTÓRICO DE TRANSPORTE
@@ -815,22 +829,31 @@ if (empleado.usoHistoricoAnterior) {
                 disabled={isUploading || listaHistoricosBD.length === 0} 
                 className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold rounded-lg shadow-md hover:from-cyan-500 hover:to-blue-500 transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                {isUploading ? '⏳ Escaneando Big Data...' : '🚀 Escanear Todo el Histórico en Nube'}
+                {isUploading ? <><span className="animate-spin text-xl">⚙️</span> Procesando Big Data...</> : '🚀 Escanear Todo el Histórico en Nube'}
               </button>
               <button 
                 onClick={handleStartAudit} 
-                className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-colors"
+                disabled={isUploading}
+                className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg shadow-md hover:bg-blue-800 transition-all disabled:opacity-50 flex items-center gap-2"
               >
-                ⚡ Ejecutar Auditoría Mes Actual
+                {isUploading ? <><span className="animate-spin text-xl">⚙️</span> Procesando Motor...</> : '⚡ Ejecutar Auditoría Mes Actual'}
               </button>
             </div>
           ) : pestanaActiva === 'JORNADA' ? (
-            <button onClick={handleStartAuditJornada} className="px-8 py-3 bg-pink-700 text-white font-bold rounded-lg shadow-md hover:bg-pink-600 transition-colors w-full md:w-auto ml-auto">
-              ⏱️ Ejecutar Auditoría de Jornada (Ley 2101)
+            <button 
+              onClick={handleStartAuditJornada} 
+              disabled={isUploading}
+              className="px-8 py-3 bg-pink-700 text-white font-bold rounded-lg shadow-md hover:bg-pink-600 transition-all disabled:opacity-50 w-full md:w-auto ml-auto flex items-center gap-2 justify-center"
+            >
+              {isUploading ? <><span className="animate-spin text-xl">⚙️</span> Analizando Tiempos...</> : '⏱️ Ejecutar Auditoría de Jornada (Ley 2101)'}
             </button>
        ) : (
-            <button onClick={handleStartAuditUGPP} disabled={isUploading} className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-colors w-full md:w-auto disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed ml-auto">
-              {isUploading ? '⏳ Consultando Histórico y Auditando...' : '🛡️ Ejecutar Auditoría Integral'}
+            <button 
+              onClick={handleStartAuditUGPP} 
+              disabled={isUploading} 
+              className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed w-full md:w-auto ml-auto flex items-center gap-2 justify-center"
+            >
+              {isUploading ? <><span className="animate-spin text-xl">⚙️</span> Auditando Subsistemas...</> : '🛡️ Ejecutar Auditoría Integral'}
             </button>
           )}
         </div>

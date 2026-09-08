@@ -76,6 +76,7 @@ const DashboardHistorico = () => {
   const [filtroUnidad, setFiltroUnidad] = useState('TODOS');
   const [filtroProceso, setFiltroProceso] = useState([]); // Array para selección múltiple
   const [filtroCargo, setFiltroCargo] = useState([]);     // Array para selección múltiple
+  const [filtroConceptoJornada, setFiltroConceptoJornada] = useState([]); // 💡 NUEVO FILTRO DE CONCEPTOS
 const [verTendencias, setVerTendencias] = useState(false);
   const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA' | 'TRANSPORTE'
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   // 📅 NUEVO FILTRO
@@ -145,6 +146,7 @@ const [verTendencias, setVerTendencias] = useState(false);
       const mesesDetectados = new Set();
       const procesosUnicos = new Set();
       const cargosUnicos = new Set();
+      const conceptosJornadaUnicos = new Set(); // 💡 Colección de conceptos únicos
       
       let totalCostoExtrasCompania = 0;
       let tendenciasMeses = {};
@@ -188,13 +190,14 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
         if (!empleadosStats[cedula]) {
           empleadosStats[cedula] = {
             cedula, nombre, cargo, proceso, unidad,
-            empresasGrupo: new Set([empresaFila]),
+           empresasGrupo: new Set([empresaFila]),
             totalHorasExtras: 0,
             totalValorExtras: 0,
             totalHorasRecargos: 0,
             totalValorRecargos: 0,
             mesesConNovedad: new Set(),
             historialMeses: {},
+            desgloseConceptosJornada: {}, // 💡 Desglose para el filtro dinámico
             fugaTransporteDinero: 0,
             mesesConFugaTransporte: 0
           };
@@ -247,14 +250,21 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
                           conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL');
 
         if (esExtra || esRecargo) {
+          conceptosJornadaUnicos.add(conceptoLimpio); // Guardar concepto único
+          if (!emp.desgloseConceptosJornada[conceptoLimpio]) {
+             emp.desgloseConceptosJornada[conceptoLimpio] = { horas: 0, valor: 0 };
+          }
+          emp.desgloseConceptosJornada[conceptoLimpio].horas += cantidad;
+          emp.desgloseConceptosJornada[conceptoLimpio].valor += valor;
+
           if (esExtra) {
             emp.totalHorasExtras += cantidad;
             emp.totalValorExtras += valor;
-            totalCostoExtrasCompania += valor;
           } else {
             emp.totalHorasRecargos += cantidad;
             emp.totalValorRecargos += valor;
           }
+          totalCostoExtrasCompania += valor; // Suma el total general para la compañía siempre
           emp.mesesConNovedad.add(mesOrigen);
 
           // Acumular tendencia por sede
@@ -408,8 +418,8 @@ riesgo: (() => {
         }
 
         // --- 2. EVALUACIÓN DE JORNADA ---
-        const totalHoras = emp.totalHorasExtras > 0 ? emp.totalHorasExtras : emp.totalHorasRecargos;
-        const totalDinero = emp.totalValorExtras > 0 ? emp.totalValorExtras : emp.totalValorRecargos;
+        const totalHoras = emp.totalHorasExtras + emp.totalHorasRecargos;
+        const totalDinero = emp.totalValorExtras + emp.totalValorRecargos;
         
         if (totalHoras > 0 || totalDinero > 0) {
             const mesesActivos = emp.mesesConNovedad.size;
@@ -475,9 +485,10 @@ riesgo: (() => {
         totalCostoExtras: totalCostoExtrasCompania,
         totalFugaTransporte: totalFugaTransporteCompania, // 🚗
         alertasJornada, // ⏱️
-        alertasTransporte, // 🚗
+       alertasTransporte, // 🚗
         procesos: Array.from(procesosUnicos).sort(),
         cargos: Array.from(cargosUnicos).sort(),
+        conceptosJornada: Array.from(conceptosJornadaUnicos).sort(), // 💡 Lista de conceptos para la UI
         tendencias: Object.values(tendenciasMeses).sort((a, b) => a.mes.localeCompare(b.mes))
       });
 
@@ -491,7 +502,31 @@ riesgo: (() => {
 
 // 🧠 FILTRADO DINÁMICO MULTI-SELECCIÓN (Afecta Tabla y Gráficas)
   const coleccionActiva = datosHistoricos ? (modoDashboard === 'JORNADA' ? datosHistoricos.alertasJornada : datosHistoricos.alertasTransporte) : [];
-  const alertasFiltradas = coleccionActiva.filter(a => {
+  
+  // 💡 Mapeo previo para recalcular totales si hay un filtro de concepto activo
+  const coleccionRecalculada = coleccionActiva.map(a => {
+    if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0) {
+      let nuevasHoras = 0;
+      let nuevoDinero = 0;
+      if (a.desgloseConceptosJornada) {
+        filtroConceptoJornada.forEach(c => {
+          if (a.desgloseConceptosJornada[c]) {
+            nuevasHoras += a.desgloseConceptosJornada[c].horas;
+            nuevoDinero += a.desgloseConceptosJornada[c].valor;
+          }
+        });
+      }
+      return { ...a, totalHorasVisual: nuevasHoras, totalDineroVisual: nuevoDinero };
+    }
+    return a;
+  });
+
+  const alertasFiltradas = coleccionRecalculada.filter(a => {
+    // Si estamos en Jornada y filtramos por conceptos, ocultamos a los que no tengan ese concepto
+    if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0 && a.totalHorasVisual === 0 && a.totalDineroVisual === 0) {
+      return false;
+    }
+
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
@@ -568,18 +603,26 @@ riesgo: (() => {
 
 const tendenciasDinamicas = calcularTendenciaDinamica();
 
-  // 🧮 RECALCULAR TARJETAS SUPERIORES (KPIs) SEGÚN FILTROS ACTIVOS
+ // 🧮 RECALCULAR TARJETAS SUPERIORES (KPIs) SEGÚN FILTROS ACTIVOS
   const kpisFiltrados = React.useMemo(() => {
     if (!datosHistoricos) return { totalMeses: 0, totalAlertas: 0, totalMonto: 0 };
 
-    // Fuga o costo total según los elementos visibles en la tabla filtrada
-const totalMonto = alertasFiltradas.reduce((acc, a) => {
-      if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
-        return acc + a.fugaPorMes[filtroPeriodo];
-      }
-      return acc + (a.totalDineroVisual || 0);
-    }, 0);
-    const totalAlertas = alertasFiltradas.length;
+    let totalMonto = 0;
+    
+   // Si no hay filtros aplicados, mostramos el Gran Total de la compañía (Coincidiendo con el Excel)
+    if (modoDashboard === 'JORNADA' && busqueda === '' && filtroUnidad === 'TODOS' && filtroProceso.length === 0 && filtroCargo.length === 0 && filtroPeriodo === 'TODOS' && filtroConceptoJornada.length === 0) {
+      totalMonto = datosHistoricos.totalCostoExtras;
+    } else {
+      // Si hay filtros, sumamos solo lo que está visible en pantalla
+      totalMonto = alertasFiltradas.reduce((acc, a) => {
+        if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
+          return acc + a.fugaPorMes[filtroPeriodo];
+        }
+        return acc + (a.totalDineroVisual || 0);
+      }, 0);
+    }
+    
+    const totalAlertas = alertasFiltradas.length; 
 
     // Calcular cuántos períodos únicos están presentes en las alertas filtradas
     const periodosUnicos = new Set();
@@ -865,12 +908,59 @@ const totalMonto = alertasFiltradas.reduce((acc, a) => {
                     >
                       {estaSeleccionado ? '✓ ' : '+ '}{c}
                     </button>
-                  );
+                );
                 })}
               </div>
             </div>
 
-{/* Segmentación por Sedes - DINÁMICO EN TIEMPO REAL CON PERÍODO */}
+            {/* 💡 Selector de Conceptos de Nómina (SOLO PARA JORNADA) */}
+            {modoDashboard === 'JORNADA' && datosHistoricos.conceptosJornada && (
+              <div className="pt-2 border-t border-slate-100">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <span>📑</span> Conceptos de Tiempo Suplementario
+                    <span className="text-[11px] font-normal text-slate-400">
+                      ({filtroConceptoJornada.length === 0 ? 'Todos mostrados' : `${filtroConceptoJornada.length} seleccionados`})
+                    </span>
+                  </label>
+                  {filtroConceptoJornada.length > 0 && (
+                    <button 
+                      onClick={() => setFiltroConceptoJornada([])} 
+                      className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 transition cursor-pointer"
+                    >
+                      ✕ Limpiar Selección ({filtroConceptoJornada.length})
+                    </button>
+                  )}
+                </div>
+                
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1 bg-slate-50/50 rounded-lg border border-slate-200/60">
+                  {datosHistoricos.conceptosJornada.map((c, i) => {
+                    const estaSeleccionado = filtroConceptoJornada.includes(c);
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          if (estaSeleccionado) {
+                            setFiltroConceptoJornada(filtroConceptoJornada.filter(item => item !== c));
+                          } else {
+                            setFiltroConceptoJornada([...filtroConceptoJornada, c]);
+                          }
+                        }}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+                          estaSeleccionado 
+                            ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-300' 
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                        }`}
+                      >
+                        {estaSeleccionado ? '✓ ' : '+ '}{c}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+{/* Segmentación por Sedes - DINÁMICO EN TIEMPO REAL CON PERÍODO */}  
             {(() => {
               // Colección filtrada por todo EXCEPTO por la unidad actual
               const basePeriodo = coleccionActiva.filter(a => {
