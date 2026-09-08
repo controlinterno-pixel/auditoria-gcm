@@ -570,6 +570,9 @@ riesgo: (() => {
   const calcularTendenciaDinamica = () => {
     if (!datosHistoricos) return [];
 
+    // Detectar si el usuario está buscando un empleado específico
+    const hayBusquedaEspecifica = busqueda.trim() !== '' && alertasFiltradas.length <= 3; // Menor a 3 por si hay homónimos
+
     const mapaMeses = {};
     
     datosHistoricos.tendencias.forEach(t => {
@@ -584,13 +587,24 @@ riesgo: (() => {
 
     alertasFiltradas.forEach(emp => {
       if (modoDashboard === 'JORNADA') {
-        // En Jornada: Pintamos los datos reales del mes (no promedios)
         emp.mesesConNovedad.forEach(mes => {
           if (mapaMeses[mes] && emp.desgloseJornadaPorMes && emp.desgloseJornadaPorMes[mes]) {
             const u = emp.unidad;
             const dataMes = emp.desgloseJornadaPorMes[mes];
             
-            // Si hay un filtro de concepto activo, sumamos solo las horas/dinero de ese concepto en este mes específico
+            // 💡 Si hay un empleado filtrado, creamos llaves por cada concepto dentro de ese mes
+            if (hayBusquedaEspecifica) {
+                Object.entries(dataMes.conceptos).forEach(([nombreConcepto, metricas]) => {
+                   if (!mapaMeses[mes][nombreConcepto]) {
+                       mapaMeses[mes][nombreConcepto] = 0;
+                       mapaMeses[mes][`costo_${nombreConcepto}`] = 0;
+                   }
+                   mapaMeses[mes][nombreConcepto] += metricas.horas;
+                   mapaMeses[mes][`costo_${nombreConcepto}`] += metricas.valor;
+                });
+            }
+
+            // Mantenemos la lógica de Sedes y Filtro de Concepto Global
             if (filtroConceptoJornada.length > 0) {
                let horasFiltro = 0;
                let valorFiltro = 0;
@@ -603,7 +617,6 @@ riesgo: (() => {
                mapaMeses[mes][u] += horasFiltro;
                mapaMeses[mes][`costo${u}`] += valorFiltro;
             } else {
-               // Si no hay filtro, sumamos el total real de ese mes
                mapaMeses[mes][u] += dataMes.horas;
                mapaMeses[mes][`costo${u}`] += dataMes.valor;
             }
@@ -774,9 +787,29 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       
 {modoDashboard === 'JORNADA' ? (
                         <>
-                          <Line yAxisId="left" type="monotone" dataKey="ADMIN" name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
-                          <Line yAxisId="left" type="monotone" dataKey="BALNEARIO" name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
-                          <Line yAxisId="left" type="monotone" dataKey="ECOPARQUE_HOTEL" name="🌲 Hotel & Ecoparque" stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
+                          {/* 💡 Si el usuario buscó a un empleado específico, pintamos líneas por cada concepto */}
+                          {busqueda.trim() !== '' && alertasFiltradas.length <= 3 ? (
+                            datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
+                              // Solo pintamos los conceptos que el empleado realmente tuvo para no saturar la gráfica
+                              const empleadoTieneConcepto = alertasFiltradas.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
+                              if (!empleadoTieneConcepto) return null;
+                              
+                              // Asignamos colores vivos dinámicamente basados en el index del concepto
+                              const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef'];
+                              const colorLinea = colores[idx % colores.length];
+                              
+                              return (
+                                <Line key={idx} yAxisId="left" type="monotone" dataKey={conceptoName} name={`🔹 ${conceptoName}`} stroke={colorLinea} strokeWidth={3} dot={{ r: 4 }} />
+                              );
+                            })
+                          ) : (
+                            // Si NO hay búsqueda específica, mostramos la gráfica general por Sedes
+                            <>
+                              <Line yAxisId="left" type="monotone" dataKey="ADMIN" name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
+                              <Line yAxisId="left" type="monotone" dataKey="BALNEARIO" name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
+                              <Line yAxisId="left" type="monotone" dataKey="ECOPARQUE_HOTEL" name="🌲 Hotel & Ecoparque" stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
+                            </>
+                          )}
                         </>
                       ) : (
                         <>
