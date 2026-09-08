@@ -197,6 +197,7 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
             totalValorRecargos: 0,
             mesesConNovedad: new Set(),
             historialMeses: {},
+            desgloseJornadaPorMes: {}, // 💡 Desglose REAL por cada mes (para la gráfica)
             desgloseConceptosJornada: {}, // 💡 Desglose para el filtro dinámico
             fugaTransporteDinero: 0,
             mesesConFugaTransporte: 0
@@ -256,6 +257,19 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
           }
           emp.desgloseConceptosJornada[conceptoLimpio].horas += cantidad;
           emp.desgloseConceptosJornada[conceptoLimpio].valor += valor;
+
+          // 💡 GUARDADO MENSUAL REAL PARA LA GRÁFICA DE TENDENCIAS
+          if (!emp.desgloseJornadaPorMes[mesOrigen]) {
+            emp.desgloseJornadaPorMes[mesOrigen] = { horas: 0, valor: 0, conceptos: {} };
+          }
+          emp.desgloseJornadaPorMes[mesOrigen].horas += cantidad;
+          emp.desgloseJornadaPorMes[mesOrigen].valor += valor;
+          
+          if (!emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio]) {
+             emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio] = { horas: 0, valor: 0 };
+          }
+          emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio].horas += cantidad;
+          emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio].valor += valor;
 
           if (esExtra) {
             emp.totalHorasExtras += cantidad;
@@ -570,11 +584,29 @@ riesgo: (() => {
 
     alertasFiltradas.forEach(emp => {
       if (modoDashboard === 'JORNADA') {
+        // En Jornada: Pintamos los datos reales del mes (no promedios)
         emp.mesesConNovedad.forEach(mes => {
-          if (mapaMeses[mes]) {
+          if (mapaMeses[mes] && emp.desgloseJornadaPorMes && emp.desgloseJornadaPorMes[mes]) {
             const u = emp.unidad;
-            mapaMeses[mes][u] += emp.totalHorasVisual / emp.mesesConNovedad.size;
-            mapaMeses[mes][`costo${u}`] += emp.totalDineroVisual / emp.mesesConNovedad.size;
+            const dataMes = emp.desgloseJornadaPorMes[mes];
+            
+            // Si hay un filtro de concepto activo, sumamos solo las horas/dinero de ese concepto en este mes específico
+            if (filtroConceptoJornada.length > 0) {
+               let horasFiltro = 0;
+               let valorFiltro = 0;
+               filtroConceptoJornada.forEach(c => {
+                 if (dataMes.conceptos[c]) {
+                   horasFiltro += dataMes.conceptos[c].horas;
+                   valorFiltro += dataMes.conceptos[c].valor;
+                 }
+               });
+               mapaMeses[mes][u] += horasFiltro;
+               mapaMeses[mes][`costo${u}`] += valorFiltro;
+            } else {
+               // Si no hay filtro, sumamos el total real de ese mes
+               mapaMeses[mes][u] += dataMes.horas;
+               mapaMeses[mes][`costo${u}`] += dataMes.valor;
+            }
           }
         });
       } else {
@@ -729,10 +761,14 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                         <YAxis yAxisId="right" orientation="right" stroke="#8b5cf6" fontSize={11} tickFormatter={(val) => `$${(val / 1000000).toFixed(1)}M`} />
                       )}
 
-                      <Tooltip 
+                     <Tooltip 
                         contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                         labelFormatter={(label) => formatearMes(label)}
-                        formatter={(value, name) => [modoDashboard === 'JORNADA' ? `${Number(value).toFixed(1)} hrs` : `$${Number(value).toLocaleString('es-CO')}`, name]}
+                        formatter={(value, name) => {
+                          if (modoDashboard === 'TRANSPORTE') return [`$${Number(value).toLocaleString('es-CO')}`, name];
+                          // Si es Jornada y la línea es de "Sede" normal (horas), pone hrs. Si es la oculta de "costo", pone $.
+                          return [name.includes('Costo') ? `$${Number(value).toLocaleString('es-CO')}` : `${Number(value).toFixed(1)} hrs`, name];
+                        }}
                       />
                       <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                       
