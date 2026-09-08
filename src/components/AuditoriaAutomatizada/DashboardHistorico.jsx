@@ -82,6 +82,7 @@ const [verTendencias, setVerTendencias] = useState(false);
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   // 📅 NUEVO FILTRO
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     // 🚨 NUEVO FILTRO DE ALERTA
   const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); // 💡 NUEVO MODO DE GRÁFICA
+  const [limiteTop, setLimiteTop] = useState(5);                 // 🏆 NUEVO LÍMITE PARA GRÁFICAS DE EMPLEADOS
   const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
@@ -766,6 +767,21 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 📈 {modoDashboard === 'JORNADA' ? 'Comportamiento Histórico de Tiempo Suplementario' : 'Evolución de Fuga Financiera en Subsidios de Transporte'} (Mes a Mes)
               </h3>
               <div className="flex items-center gap-3">
+                {/* 🏆 SELECTOR DE TOP EMPLEADOS (Aparece si está agrupado por empleado) */}
+                {modoDashboard === 'JORNADA' && agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length > 0 && (
+                  <select
+                    value={limiteTop}
+                    onChange={(e) => setLimiteTop(e.target.value === 'TODOS' ? 'TODOS' : Number(e.target.value))}
+                    className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-300 rounded px-2 py-1 shadow-sm outline-none cursor-pointer animate-in fade-in"
+                  >
+                    <option value={3}>🏆 Top 3 Empleados</option>
+                    <option value={5}>🏆 Top 5 Empleados</option>
+                    <option value={7}>🏆 Top 7 Empleados</option>
+                    <option value={10}>🏆 Top 10 Empleados</option>
+                    <option value="TODOS">👥 Mostrar Todos ({alertasFiltradas.length})</option>
+                  </select>
+                )}
+
                 {/* 💡 SELECTOR DE AGRUPACIÓN (Aparece si hay <= 40 empleados filtrados para no saturar) */}
                 {modoDashboard === 'JORNADA' && busqueda.trim() === '' && alertasFiltradas.length > 0 && alertasFiltradas.length <= 40 && (
                   <select 
@@ -824,10 +840,10 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               return <Line key={idx} yAxisId="left" type="monotone" dataKey={conceptoName} name={`🔹 ${conceptoName}`} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                             })
                           ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
-                            // 💡 2. Si el usuario activó "Ver por Empleado" (Líneas = Empleados)
-                            alertasFiltradas.map((emp, idx) => {
+                            // 💡 2. Si el usuario activó "Ver por Empleado", aplicamos el filtro Top N
+                            (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop)).map((emp, idx) => {
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
-                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={emp.nombre} name={`👤 ${emp.nombre}`} stroke={colores[idx % colores.length]} strokeWidth={2} dot={{ r: 4 }} />;
+                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={emp.nombre} name={`👤 ${emp.nombre}`} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                             })
                           ) : (
                             // 💡 3. Modo estándar (Líneas = Sedes)
