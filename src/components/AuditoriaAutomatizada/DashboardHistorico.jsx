@@ -81,7 +81,8 @@ const [verTendencias, setVerTendencias] = useState(false);
  const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA' | 'TRANSPORTE'
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   // 📅 NUEVO FILTRO
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     // 🚨 NUEVO FILTRO DE ALERTA
-  const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA 
+  const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); // 💡 NUEVO MODO DE GRÁFICA
+  const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
     const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
@@ -589,14 +590,29 @@ riesgo: (() => {
       };
     });
 
-    alertasFiltradas.forEach(emp => {
+   alertasFiltradas.forEach(emp => {
       if (modoDashboard === 'JORNADA') {
         emp.mesesConNovedad.forEach(mes => {
           if (mapaMeses[mes] && emp.desgloseJornadaPorMes && emp.desgloseJornadaPorMes[mes]) {
             const u = emp.unidad;
             const dataMes = emp.desgloseJornadaPorMes[mes];
             
-            // 💡 Si hay un empleado filtrado, creamos llaves por cada concepto dentro de ese mes
+            // 1. Calcular las horas y dinero a sumar (con o sin filtro de concepto activado)
+            let horasFiltro = 0;
+            let valorFiltro = 0;
+            if (filtroConceptoJornada.length > 0) {
+               filtroConceptoJornada.forEach(c => {
+                 if (dataMes.conceptos[c]) {
+                   horasFiltro += dataMes.conceptos[c].horas;
+                   valorFiltro += dataMes.conceptos[c].valor;
+                 }
+               });
+            } else {
+               horasFiltro = dataMes.horas;
+               valorFiltro = dataMes.valor;
+            }
+
+            // 2. Si hay un solo empleado buscado, graficar por CONCEPTOS
             if (hayBusquedaEspecifica) {
                 Object.entries(dataMes.conceptos).forEach(([nombreConcepto, metricas]) => {
                    if (!mapaMeses[mes][nombreConcepto]) {
@@ -606,24 +622,20 @@ riesgo: (() => {
                    mapaMeses[mes][nombreConcepto] += metricas.horas;
                    mapaMeses[mes][`costo_${nombreConcepto}`] += metricas.valor;
                 });
+            } 
+            // 3. 💡 NUEVO: Si el usuario quiere ver EMPLEADOS individuales
+            else if (agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40) {
+                if (!mapaMeses[mes][emp.nombre]) {
+                    mapaMeses[mes][emp.nombre] = 0;
+                    mapaMeses[mes][`costo_${emp.nombre}`] = 0;
+                }
+                mapaMeses[mes][emp.nombre] += horasFiltro;
+                mapaMeses[mes][`costo_${emp.nombre}`] += valorFiltro;
             }
 
-            // Mantenemos la lógica de Sedes y Filtro de Concepto Global
-            if (filtroConceptoJornada.length > 0) {
-               let horasFiltro = 0;
-               let valorFiltro = 0;
-               filtroConceptoJornada.forEach(c => {
-                 if (dataMes.conceptos[c]) {
-                   horasFiltro += dataMes.conceptos[c].horas;
-                   valorFiltro += dataMes.conceptos[c].valor;
-                 }
-               });
-               mapaMeses[mes][u] += horasFiltro;
-               mapaMeses[mes][`costo${u}`] += valorFiltro;
-            } else {
-               mapaMeses[mes][u] += dataMes.horas;
-               mapaMeses[mes][`costo${u}`] += dataMes.valor;
-            }
+            // 4. Siempre sumamos las SEDES (porque las tarjetas resumen de abajo las necesitan)
+            mapaMeses[mes][u] += horasFiltro;
+            mapaMeses[mes][`costo${u}`] += valorFiltro;
           }
         });
       } else {
@@ -753,12 +765,25 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
                 📈 {modoDashboard === 'JORNADA' ? 'Comportamiento Histórico de Tiempo Suplementario' : 'Evolución de Fuga Financiera en Subsidios de Transporte'} (Mes a Mes)
               </h3>
-              <button 
-                onClick={() => setVerTendencias(!verTendencias)}
-                className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded border border-blue-200"
-              >
-                {verTendencias ? '🙈 Ocultar Gráfica' : '👁️ Ver Detalle de Evolución'}
-              </button>
+              <div className="flex items-center gap-3">
+                {/* 💡 SELECTOR DE AGRUPACIÓN (Aparece si hay <= 40 empleados filtrados para no saturar) */}
+                {modoDashboard === 'JORNADA' && busqueda.trim() === '' && alertasFiltradas.length > 0 && alertasFiltradas.length <= 40 && (
+                  <select 
+                    value={agrupacionGrafica}
+                    onChange={(e) => setAgrupacionGrafica(e.target.value)}
+                    className="text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded px-2 py-1 shadow-sm outline-none cursor-pointer"
+                  >
+                    <option value="SEDES">🏢 Agrupar líneas por Sedes</option>
+                    <option value="EMPLEADOS">👤 Ver línea por Empleado</option>
+                  </select>
+                )}
+                <button 
+                  onClick={() => setVerTendencias(!verTendencias)}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded border border-blue-200"
+                >
+                  {verTendencias ? '🙈 Ocultar Gráfica' : '👁️ Ver Detalle de Evolución'}
+                </button>
+              </div>
             </div>
 
            {verTendencias && (
@@ -783,7 +808,6 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                         labelFormatter={(label) => formatearMes(label)}
                         formatter={(value, name) => {
                           if (modoDashboard === 'TRANSPORTE') return [`$${Number(value).toLocaleString('es-CO')}`, name];
-                          // Si es Jornada y la línea es de "Sede" normal (horas), pone hrs. Si es la oculta de "costo", pone $.
                           return [name.includes('Costo') ? `$${Number(value).toLocaleString('es-CO')}` : `${Number(value).toFixed(1)} hrs`, name];
                         }}
                       />
@@ -791,23 +815,22 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       
 {modoDashboard === 'JORNADA' ? (
                         <>
-                          {/* 💡 Si el usuario buscó a un empleado específico, pintamos líneas por cada concepto */}
+                          {/* 💡 1. Si el usuario buscó a un empleado específico (Líneas = Conceptos) */}
                           {busqueda.trim() !== '' && alertasFiltradas.length <= 3 ? (
                             datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
-                              // Solo pintamos los conceptos que el empleado realmente tuvo para no saturar la gráfica
                               const empleadoTieneConcepto = alertasFiltradas.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
                               if (!empleadoTieneConcepto) return null;
-                              
-                              // Asignamos colores vivos dinámicamente basados en el index del concepto
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef'];
-                              const colorLinea = colores[idx % colores.length];
-                              
-                              return (
-                                <Line key={idx} yAxisId="left" type="monotone" dataKey={conceptoName} name={`🔹 ${conceptoName}`} stroke={colorLinea} strokeWidth={3} dot={{ r: 4 }} />
-                              );
+                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={conceptoName} name={`🔹 ${conceptoName}`} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
+                            })
+                          ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
+                            // 💡 2. Si el usuario activó "Ver por Empleado" (Líneas = Empleados)
+                            alertasFiltradas.map((emp, idx) => {
+                              const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={emp.nombre} name={`👤 ${emp.nombre}`} stroke={colores[idx % colores.length]} strokeWidth={2} dot={{ r: 4 }} />;
                             })
                           ) : (
-                            // Si NO hay búsqueda específica, mostramos la gráfica general por Sedes
+                            // 💡 3. Modo estándar (Líneas = Sedes)
                             <>
                               <Line yAxisId="left" type="monotone" dataKey="ADMIN" name="🏢 Sede Administrativa" stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
                               <Line yAxisId="left" type="monotone" dataKey="BALNEARIO" name="🏊 Balneario Santa Rosa" stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
