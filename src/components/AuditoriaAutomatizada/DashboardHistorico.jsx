@@ -78,9 +78,10 @@ const DashboardHistorico = () => {
   const [filtroCargo, setFiltroCargo] = useState([]);     // Array para selección múltiple
   const [filtroConceptoJornada, setFiltroConceptoJornada] = useState([]); // 💡 NUEVO FILTRO DE CONCEPTOS
 const [verTendencias, setVerTendencias] = useState(false);
-  const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA' | 'TRANSPORTE'
+ const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA' | 'TRANSPORTE'
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   // 📅 NUEVO FILTRO
-  const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA
+  const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     // 🚨 NUEVO FILTRO DE ALERTA
+  const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA 
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
     const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
@@ -553,7 +554,7 @@ riesgo: (() => {
       (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
       (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
 
-    // 📅 NUEVO FILTRO POR PERÍODO
+ // 📅 NUEVO FILTRO POR PERÍODO
     let coincidePeriodo = true;
     if (filtroPeriodo !== 'TODOS') {
       if (modoDashboard === 'JORNADA') {
@@ -563,8 +564,11 @@ riesgo: (() => {
       }
     }
 
-    return coincideUnidad && coincideProceso && coincideCargo && coincideBusqueda && coincidePeriodo;
-  });
+    // 🚨 NUEVO FILTRO POR TIPO DE ALERTA
+    const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
+
+    return coincideUnidad && coincideProceso && coincideCargo && coincideBusqueda && coincidePeriodo && coincideAlerta;
+  });   
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
   const calcularTendenciaDinamica = () => {
@@ -1088,10 +1092,28 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
           </div>
 
           <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-            <div className="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center">
+            <div className="bg-slate-100 p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <span>⚠️</span> Ranking de Riesgo Histórico — <span className="text-blue-700 font-extrabold">{filtroUnidad}</span>
               </h3>
+              
+              {/* SELECTOR DE TIPO DE ALERTA (SOLO EN JORNADA) */}
+              {modoDashboard === 'JORNADA' && (
+                <div className="flex items-center gap-2 text-xs font-bold bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm">
+                  <span className="text-slate-500">Filtrar Diagnóstico:</span>
+                  <select 
+                    value={filtroAlerta} 
+                    onChange={(e) => setFiltroAlerta(e.target.value)}
+                    className="bg-transparent border-none outline-none text-slate-800 cursor-pointer font-extrabold"
+                  >
+                    <option value="TODOS">🌐 Todas las Alertas</option>
+                    <option value="FAVORITISMO">💰 Financiera / Favoritismo</option>
+                    <option value="BURNOUT">🔥 Riesgo Burnout</option>
+                    <option value="CARGO_CORPORATIVO">🚨 Cargo Corporativo</option>
+                    <option value="RECURRENCIA">🔄 Recurrencia</option>
+                  </select>
+                </div>
+              )}
             </div>
             <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm text-left">
