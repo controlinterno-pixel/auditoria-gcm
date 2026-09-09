@@ -584,8 +584,10 @@ riesgo: (() => {
   const calcularTendenciaDinamica = () => {
     if (!datosHistoricos) return [];
 
-    // Detectar si el usuario quiere ver los conceptos desglosados (por búsqueda directa o por chulear a UN solo empleado)
-    const hayBusquedaEspecifica = (busqueda.trim() !== '' && alertasFiltradas.length <= 3) || empleadosSeleccionados.length === 1;
+    // 💡 NUEVA LÓGICA MÁS ROBUSTA:
+    // Solo mostramos la vista desglosada por "Conceptos" si hay EXACTAMENTE un empleado filtrado en la vista actual, 
+    // independientemente de si llegamos a él por la barra de búsqueda o por los chulitos.
+    const hayBusquedaEspecifica = (busqueda.trim() !== '' && alertasFiltradas.length === 1) || empleadosSeleccionados.length === 1;
     const hayChulitos = empleadosSeleccionados.length > 0;
 
     const mapaMeses = {};
