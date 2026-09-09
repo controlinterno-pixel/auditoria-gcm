@@ -551,11 +551,17 @@ riesgo: (() => {
     const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
     
     const term = busqueda.toLowerCase().trim();
-    const coincideBusqueda = term === '' ? true : 
-      a.nombre.toLowerCase().includes(term) || 
-      a.cedula.includes(term) ||
-      (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
-      (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
+    
+    // 💡 Permite separar nombres o cédulas por comas para buscar a varias personas a la vez
+    const terminosBusqueda = term.split(',').map(t => t.trim()).filter(t => t !== '');
+    
+    const coincideBusqueda = terminosBusqueda.length === 0 ? true : 
+      terminosBusqueda.some(tBusqueda => 
+        a.nombre.toLowerCase().includes(tBusqueda) || 
+        a.cedula.includes(tBusqueda) ||
+        (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(tBusqueda))) ||
+        (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(tBusqueda)))
+      );
 
  // 📅 NUEVO FILTRO POR PERÍODO
     let coincidePeriodo = true;
