@@ -584,12 +584,7 @@ riesgo: (() => {
   const calcularTendenciaDinamica = () => {
     if (!datosHistoricos) return [];
 
-    // 💡 NUEVA LÓGICA MÁS ROBUSTA:
-    // Solo mostramos la vista desglosada por "Conceptos" si hay EXACTAMENTE un empleado filtrado en la vista actual, 
-    // independientemente de si llegamos a él por la barra de búsqueda o por los chulitos.
-    const hayBusquedaEspecifica = (busqueda.trim() !== '' && alertasFiltradas.length === 1) || empleadosSeleccionados.length === 1;
     const hayChulitos = empleadosSeleccionados.length > 0;
-
     const mapaMeses = {};
     
     datosHistoricos.tendencias.forEach(t => {
@@ -602,7 +597,6 @@ riesgo: (() => {
       };
     });
 
-   // Si hay empleados seleccionados con chulito, graficamos SOLO a ellos. Si no, graficamos a todos los filtrados.
    const baseGrafica = hayChulitos ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula)) : alertasFiltradas;
 
    baseGrafica.forEach(emp => {
@@ -612,9 +606,9 @@ riesgo: (() => {
             const u = emp.unidad;
             const dataMes = emp.desgloseJornadaPorMes[mes];
             
-            // 1. Calcular las horas y dinero a sumar (con o sin filtro de concepto activado)
             let horasFiltro = 0;
             let valorFiltro = 0;
+            
             if (filtroConceptoJornada.length > 0) {
                filtroConceptoJornada.forEach(c => {
                  if (dataMes.conceptos[c]) {
@@ -627,8 +621,8 @@ riesgo: (() => {
                valorFiltro = dataMes.valor;
             }
 
-            // 2. Si hay un solo empleado buscado, graficar por CONCEPTOS
-            if (hayBusquedaEspecifica) {
+            // A. Modo CONCEPTOS (Dibuja líneas por cada tipo de recargo/extra)
+            if (agrupacionGrafica === 'CONCEPTOS') {
                 Object.entries(dataMes.conceptos).forEach(([nombreConcepto, metricas]) => {
                    if (!mapaMeses[mes][nombreConcepto]) {
                        mapaMeses[mes][nombreConcepto] = 0;
@@ -638,8 +632,8 @@ riesgo: (() => {
                    mapaMeses[mes][`costo_${nombreConcepto}`] += metricas.valor;
                 });
             } 
-            // 3. 💡 NUEVO: Si el usuario quiere ver EMPLEADOS individuales
-            else if (agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40) {
+            // B. Modo EMPLEADOS (Dibuja líneas por cada empleado individual)
+            else if (agrupacionGrafica === 'EMPLEADOS') {
                 if (!mapaMeses[mes][emp.nombre]) {
                     mapaMeses[mes][emp.nombre] = 0;
                     mapaMeses[mes][`costo_${emp.nombre}`] = 0;
@@ -808,15 +802,16 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                   </select>
                 )}
 
-                {/* 💡 SELECTOR DE AGRUPACIÓN (Aparece si hay <= 40 empleados filtrados para no saturar) */}
-                {modoDashboard === 'JORNADA' && busqueda.trim() === '' && alertasFiltradas.length > 0 && alertasFiltradas.length <= 40 && (
+               {/* 💡 SELECTOR MANUAL DE AGRUPACIÓN GRÁFICA */}
+                {modoDashboard === 'JORNADA' && alertasFiltradas.length > 0 && (
                   <select 
                     value={agrupacionGrafica}
                     onChange={(e) => setAgrupacionGrafica(e.target.value)}
                     className="text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded px-2 py-1 shadow-sm outline-none cursor-pointer"
                   >
                     <option value="SEDES">🏢 Agrupar líneas por Sedes</option>
-                    <option value="EMPLEADOS">👤 Ver línea por Empleado</option>
+                    {alertasFiltradas.length <= 40 && <option value="EMPLEADOS">👤 Ver línea por Empleado</option>}
+                    <option value="CONCEPTOS">📑 Ver línea por Conceptos</option>
                   </select>
                 )}
                 <button 
@@ -862,16 +857,18 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       
 {modoDashboard === 'JORNADA' ? (
                         <>
-                          {/* 💡 1. Si el usuario buscó a un empleado específico (Líneas = Conceptos) */}
-                          {busqueda.trim() !== '' && alertasFiltradas.length <= 3 ? (
+                          {/* 💡 1. Modo CONCEPTOS */}
+                          {agrupacionGrafica === 'CONCEPTOS' ? (
                             datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
-                              const empleadoTieneConcepto = alertasFiltradas.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
-                              if (!empleadoTieneConcepto) return null;
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef'];
-                              
                               const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
                               const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
                               
+                              if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
+                              
+                              const laBaseGraficaLoTiene = baseGrafica.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
+                              if (!laBaseGraficaLoTiene) return null;
+
                               return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                             })
                           ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
