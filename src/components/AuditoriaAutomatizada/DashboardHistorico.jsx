@@ -85,6 +85,7 @@ const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); // 💡 NUE
   const [limiteTop, setLimiteTop] = useState(5);                 // 🏆 NUEVO LÍMITE PARA GRÁFICAS DE EMPLEADOS
   const [metricaGrafica, setMetricaGrafica] = useState('HORAS'); // 📊 NUEVO MODO DE MÉTRICA (Horas vs Dinero)
   const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA 
+  const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); // ☑️ ESTADO PARA LOS CHULITOS
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
     const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
@@ -583,8 +584,9 @@ riesgo: (() => {
   const calcularTendenciaDinamica = () => {
     if (!datosHistoricos) return [];
 
-    // Detectar si el usuario está buscando un empleado específico
-    const hayBusquedaEspecifica = busqueda.trim() !== '' && alertasFiltradas.length <= 3; // Menor a 3 por si hay homónimos
+    // Detectar si el usuario buscó manualmente o seleccionó empleados con chulito
+    const hayBusquedaEspecifica = busqueda.trim() !== '' && alertasFiltradas.length <= 3;
+    const hayChulitos = empleadosSeleccionados.length > 0;
 
     const mapaMeses = {};
     
@@ -598,7 +600,10 @@ riesgo: (() => {
       };
     });
 
-   alertasFiltradas.forEach(emp => {
+   // Si hay empleados seleccionados con chulito, graficamos SOLO a ellos. Si no, graficamos a todos los filtrados.
+   const baseGrafica = hayChulitos ? alertasFiltradas.filter(a => empleadosSeleccionados.includes(a.cedula)) : alertasFiltradas;
+
+   baseGrafica.forEach(emp => {
       if (modoDashboard === 'JORNADA') {
         emp.mesesConNovedad.forEach(mes => {
           if (mapaMeses[mes] && emp.desgloseJornadaPorMes && emp.desgloseJornadaPorMes[mes]) {
@@ -1186,10 +1191,67 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 </div>
               )}
             </div>
+            {/* 👥 ZONA DE CHIPS DE EMPLEADOS SELECCIONADOS */}
+            {empleadosSeleccionados.length > 0 && (
+              <div className="bg-indigo-50 border-y border-indigo-200 p-3 flex flex-wrap gap-2 items-center">
+                 <span className="text-xs font-black text-indigo-800 flex items-center gap-1">
+                   ☑️ Analizando Específicos ({empleadosSeleccionados.length}):
+                 </span>
+                 {empleadosSeleccionados.map(ced => {
+                    const empInfo = coleccionActiva.find(a => a.cedula === ced);
+                    return (
+                      <span key={ced} className="px-2.5 py-1 bg-indigo-600 text-white text-[11px] font-bold rounded-full flex items-center gap-1.5 shadow-sm">
+                        {empInfo ? empInfo.nombre : ced}
+                        <button 
+                          onClick={() => setEmpleadosSeleccionados(empleadosSeleccionados.filter(c => c !== ced))} 
+                          className="hover:text-rose-300 font-black cursor-pointer"
+                        >✕</button>
+                      </span>
+                    )
+                 })}
+                 <button 
+                   onClick={() => setEmpleadosSeleccionados([])} 
+                   className="text-[11px] text-rose-600 font-bold ml-auto hover:underline cursor-pointer bg-white px-2 py-1 rounded border border-rose-200"
+                 >
+                   Limpiar Selección
+                 </button>
+              </div>
+            )}
+
+            {/* 👥 ZONA DE CHIPS DE EMPLEADOS SELECCIONADOS */}
+            {empleadosSeleccionados.length > 0 && (
+              <div className="bg-indigo-50 border-y border-indigo-200 p-3 flex flex-wrap gap-2 items-center">
+                 <span className="text-xs font-black text-indigo-800 flex items-center gap-1">
+                   ☑️ Analizando Específicos ({empleadosSeleccionados.length}):
+                 </span>
+                 {empleadosSeleccionados.map(ced => {
+                    const empInfo = coleccionActiva.find(a => a.cedula === ced);
+                    return (
+                      <span key={ced} className="px-2.5 py-1 bg-indigo-600 text-white text-[11px] font-bold rounded-full flex items-center gap-1.5 shadow-sm">
+                        {empInfo ? empInfo.nombre : ced}
+                        <button 
+                          onClick={() => setEmpleadosSeleccionados(empleadosSeleccionados.filter(c => c !== ced))} 
+                          className="hover:text-rose-300 font-black cursor-pointer"
+                        >✕</button>
+                      </span>
+                    )
+                 })}
+                 <button 
+                   onClick={() => setEmpleadosSeleccionados([])} 
+                   className="text-[11px] text-rose-600 font-bold ml-auto hover:underline cursor-pointer bg-white px-2 py-1 rounded border border-rose-200"
+                 >
+                   Limpiar Selección
+                 </button>
+              </div>
+            )}
+
             <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-xs border-b border-slate-200">
                   <tr>
+                    <th className="p-4 text-center" title="Seleccionar para Graficar">
+                       <button onClick={() => setEmpleadosSeleccionados([])} className="text-[10px] text-blue-600 underline cursor-pointer">Vaciar</button>
+                    </th>
                     <th className="p-4">Alerta</th>
                     <th className="p-4">Empleado</th>
                     <th className="p-4">Cargo / Proceso</th>
@@ -1200,10 +1262,23 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {alertasFiltradas.length === 0 ? (
-                    <tr><td colSpan="6" className="p-8 text-center text-slate-500 italic">No se detectaron comportamientos anómalos.</td></tr>
+                    <tr><td colSpan="7" className="p-8 text-center text-slate-500 italic">No se detectaron comportamientos anómalos.</td></tr>
                   ) : (
-                    alertasFiltradas.map((alerta, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                    alertasFiltradas.map((alerta, idx) => {
+                      const isChecked = empleadosSeleccionados.includes(alerta.cedula);
+                      return (
+                      <tr key={idx} className={`transition-colors ${isChecked ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
+                        <td className="p-4 text-center">
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) setEmpleadosSeleccionados([...empleadosSeleccionados, alerta.cedula]);
+                              else setEmpleadosSeleccionados(empleadosSeleccionados.filter(c => c !== alerta.cedula));
+                            }}
+                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </td>
                         <td className="p-4 text-center text-2xl" title={alerta.tipo}>{alerta.icono}</td>
                        <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
                           <div className="flex items-center gap-2">
@@ -1238,13 +1313,17 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                           {alerta.riesgo}
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </div>
-        {/* 🔍 MODAL DE DIAGNÓSTICO FORENSE MULTI-USO */}
+        </div>
+      )}
+
+      {/* 🔍 MODAL DE DIAGNÓSTICO FORENSE MULTI-USO */}
       {empleadoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-y-auto relative text-slate-800">
@@ -1404,8 +1483,6 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
             </div>
 
           </div>
-        </div>
-      )}
         </div>
       )}
     </div>
