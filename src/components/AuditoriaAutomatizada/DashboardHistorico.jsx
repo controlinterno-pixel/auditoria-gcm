@@ -597,7 +597,9 @@ riesgo: (() => {
       };
     });
 
-   const baseGrafica = hayChulitos ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula)) : alertasFiltradas;
+   // 💡 CORRECCIÓN: Usamos `alertasFiltradas` como base, porque ya contiene la lógica de 
+   // mantener a los seleccionados mediante checkboxes, INCLUSO si se aplican otros filtros.
+   const baseGrafica = alertasFiltradas;
 
    baseGrafica.forEach(emp => {
       if (modoDashboard === 'JORNADA') {
@@ -867,15 +869,12 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               // Si el usuario aplicó un filtro de concepto amarillo, ocultar los demás
                               if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
                               
-                              // 💡 CORRECCIÓN: Para saber si dibujamos la línea, buscamos en la base TOTAL (datosHistoricos.alertasJornada), 
-                              // pero filtrando solo a los empleados que están en el carrito (empleadosSeleccionados).
-                              // Así, los chips amarillos no "borran" a la persona de la gráfica.
-                              const empleadosReales = empleadosSeleccionados.length > 0 
-                                  ? datosHistoricos.alertasJornada.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
-                                  : alertasFiltradas; // Si no hay carrito, usamos lo que esté en pantalla
-                                  
-                              const algunoLoTiene = empleadosReales.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
-                              if (!algunoLoTiene) return null;
+                              // Buscamos si ALGÚN empleado en la base gráfica actual (que ya considera
+                              // búsquedas y checkboxes) tiene horas/dinero en este concepto.
+                              // Si nadie lo tiene (o si el filtro amarillo excluyó a quien lo tenía), no dibujamos la línea.
+                              const algunoLoTiene = baseGrafica.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
+                              
+                              if (!algunoLoTiene && filtroConceptoJornada.length === 0) return null;
 
                               return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                             })
