@@ -864,10 +864,18 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
                               const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
                               
+                              // Si el usuario aplicó un filtro de concepto amarillo, ocultar los demás
                               if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
                               
-                              const laBaseGraficaLoTiene = baseGrafica.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
-                              if (!laBaseGraficaLoTiene) return null;
+                              // 💡 CORRECCIÓN: Para saber si dibujamos la línea, buscamos en la base TOTAL (datosHistoricos.alertasJornada), 
+                              // pero filtrando solo a los empleados que están en el carrito (empleadosSeleccionados).
+                              // Así, los chips amarillos no "borran" a la persona de la gráfica.
+                              const empleadosReales = empleadosSeleccionados.length > 0 
+                                  ? datosHistoricos.alertasJornada.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
+                                  : alertasFiltradas; // Si no hay carrito, usamos lo que esté en pantalla
+                                  
+                              const algunoLoTiene = empleadosReales.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
+                              if (!algunoLoTiene) return null;
 
                               return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                             })
