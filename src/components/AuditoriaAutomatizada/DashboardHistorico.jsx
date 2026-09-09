@@ -872,7 +872,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               // Buscamos si ALGÚN empleado en la base gráfica actual (que ya considera
                               // búsquedas y checkboxes) tiene horas/dinero en este concepto.
                               // Si nadie lo tiene (o si el filtro amarillo excluyó a quien lo tenía), no dibujamos la línea.
-                              const algunoLoTiene = baseGrafica.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
+                              const algunoLoTiene = alertasFiltradas.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
                               
                               if (!algunoLoTiene && filtroConceptoJornada.length === 0) return null;
 
