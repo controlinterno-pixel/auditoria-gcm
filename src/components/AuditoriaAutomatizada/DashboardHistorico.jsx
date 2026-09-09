@@ -74,18 +74,18 @@ const DashboardHistorico = () => {
   // --- FILTROS AVANZADOS Y TENDENCIAS ---
   const [busqueda, setBusqueda] = useState('');
   const [filtroUnidad, setFiltroUnidad] = useState('TODOS');
-  const [filtroProceso, setFiltroProceso] = useState([]); // Array para selección múltiple
-  const [filtroCargo, setFiltroCargo] = useState([]);     // Array para selección múltiple
-  const [filtroConceptoJornada, setFiltroConceptoJornada] = useState([]); // 💡 NUEVO FILTRO DE CONCEPTOS
-const [verTendencias, setVerTendencias] = useState(false);
- const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA' | 'TRANSPORTE'
-  const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   // 📅 NUEVO FILTRO
-  const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     // 🚨 NUEVO FILTRO DE ALERTA
-const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); // 💡 NUEVO MODO DE GRÁFICA
-  const [limiteTop, setLimiteTop] = useState(5);                 // 🏆 NUEVO LÍMITE PARA GRÁFICAS DE EMPLEADOS
-  const [metricaGrafica, setMetricaGrafica] = useState('HORAS'); // 📊 NUEVO MODO DE MÉTRICA (Horas vs Dinero)
-  const [empleadoModal, setEmpleadoModal] = useState(null);      // 🔍 LUPITA 
-  const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); // ☑️ ESTADO PARA LOS CHULITOS
+  const [filtroProceso, setFiltroProceso] = useState([]); 
+  const [filtroCargo, setFiltroCargo] = useState([]);     
+  const [filtroConceptoJornada, setFiltroConceptoJornada] = useState([]); 
+  const [verTendencias, setVerTendencias] = useState(false);
+  const [modoDashboard, setModoDashboard] = useState('JORNADA'); 
+  const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   
+  const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     
+  const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); 
+  const [limiteTop, setLimiteTop] = useState(5);                 
+  const [metricaGrafica, setMetricaGrafica] = useState('HORAS'); 
+  const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); 
+  const [empleadoModal, setEmpleadoModal] = useState(null);
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
     const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
@@ -540,31 +540,32 @@ riesgo: (() => {
     return a;
   });
 
-  const alertasFiltradas = coleccionRecalculada.filter(a => {
-    // Si estamos en Jornada y filtramos por conceptos, ocultamos a los que no tengan ese concepto
+ const alertasFiltradas = coleccionRecalculada.filter(a => {
     if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0 && a.totalHorasVisual === 0 && a.totalDineroVisual === 0) {
       return false;
     }
 
+    const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
+    const term = busqueda.toLowerCase().trim();
+    const coincideBusqueda = term === '' ? true : 
+      a.nombre.toLowerCase().includes(term) || 
+      a.cedula.includes(term) ||
+      (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+      (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
+
+    let pasaFiltroPrincipal = true;
+    if (empleadosSeleccionados.length > 0 && term === '') {
+        pasaFiltroPrincipal = estaSeleccionado;
+    } else if (empleadosSeleccionados.length > 0 && term !== '') {
+        pasaFiltroPrincipal = estaSeleccionado || coincideBusqueda;
+    } else if (empleadosSeleccionados.length === 0 && term !== '') {
+        pasaFiltroPrincipal = coincideBusqueda;
+    }
+
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
-    
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
     const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
     
-    const term = busqueda.toLowerCase().trim();
-    
-    // 💡 Permite separar nombres o cédulas por comas para buscar a varias personas a la vez
-    const terminosBusqueda = term.split(',').map(t => t.trim()).filter(t => t !== '');
-    
-    const coincideBusqueda = terminosBusqueda.length === 0 ? true : 
-      terminosBusqueda.some(tBusqueda => 
-        a.nombre.toLowerCase().includes(tBusqueda) || 
-        a.cedula.includes(tBusqueda) ||
-        (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(tBusqueda))) ||
-        (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(tBusqueda)))
-      );
-
- // 📅 NUEVO FILTRO POR PERÍODO
     let coincidePeriodo = true;
     if (filtroPeriodo !== 'TODOS') {
       if (modoDashboard === 'JORNADA') {
@@ -574,11 +575,10 @@ riesgo: (() => {
       }
     }
 
-    // 🚨 NUEVO FILTRO POR TIPO DE ALERTA
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    return coincideUnidad && coincideProceso && coincideCargo && coincideBusqueda && coincidePeriodo && coincideAlerta;
-  });   
+    return pasaFiltroPrincipal && coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+  });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
   const calcularTendenciaDinamica = () => {
@@ -684,7 +684,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
     let totalMonto = 0;
     
    // Si no hay filtros aplicados, mostramos el Gran Total de la compañía (Coincidiendo con el Excel)
-    if (modoDashboard === 'JORNADA' && busqueda === '' && filtroUnidad === 'TODOS' && filtroProceso.length === 0 && filtroCargo.length === 0 && filtroPeriodo === 'TODOS' && filtroConceptoJornada.length === 0) {
+    if (modoDashboard === 'JORNADA' && busqueda === '' && filtroUnidad === 'TODOS' && filtroProceso.length === 0 && filtroCargo.length === 0 && filtroPeriodo === 'TODOS' && filtroConceptoJornada.length === 0 && empleadosSeleccionados.length === 0) {
       totalMonto = datosHistoricos.totalCostoExtras;
     } else {
       // Si hay filtros, sumamos solo lo que está visible en pantalla
@@ -873,8 +873,8 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                             })
                           ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
-                            // 💡 2. Si el usuario activó "Ver por Empleado", aplicamos el filtro Top N
-                            (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop)).map((emp, idx) => {
+                            // 💡 2. Si hay chulos marcados, mostramos TODOS los chulos. Si no, aplicamos el Top N.
+                            (empleadosSeleccionados.length > 0 ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula)) : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop))).map((emp, idx) => {
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
                               
                               const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
@@ -971,6 +971,37 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 </select>
               </div>
             </div>
+
+            {/* 👥 EMPLEADOS SELECCIONADOS (CARRITO DE COMPARACIÓN) */}
+            {empleadosSeleccionados.length > 0 && (
+              <div className="pt-2 border-t border-slate-100 bg-indigo-50/40 p-3 rounded-lg border-indigo-100">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-bold text-indigo-800 flex items-center gap-1.5">
+                    <span>👥</span> Empleados en Comparación
+                    <span className="text-[11px] font-normal text-indigo-500">
+                      ({empleadosSeleccionados.length} seleccionados)
+                    </span>
+                  </label>
+                  <button 
+                    onClick={() => setEmpleadosSeleccionados([])} 
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 px-2 py-0.5 rounded border border-rose-200 transition cursor-pointer"
+                  >
+                    ✕ Limpiar Todos
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {empleadosSeleccionados.map((emp, i) => (
+                    <div key={i} className="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-md flex items-center gap-2 animate-in slide-in-from-left-2">
+                      <span>👤 {emp.nombre.split(' ').slice(0, 2).join(' ')}</span>
+                      <button 
+                        onClick={() => setEmpleadosSeleccionados(empleadosSeleccionados.filter(e => e.cedula !== emp.cedula))}
+                        className="hover:text-rose-300 font-black text-sm"
+                      >×</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Selector de Procesos por Etiquetas */}
             <div className="pt-2 border-t border-slate-100">
@@ -1211,7 +1242,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                     <tr><td colSpan="7" className="p-8 text-center text-slate-500 italic">No se detectaron comportamientos anómalos.</td></tr>
                   ) : (
                     alertasFiltradas.map((alerta, idx) => {
-                      const isChecked = empleadosSeleccionados.includes(alerta.cedula);
+                      const isChecked = empleadosSeleccionados.some(e => e.cedula === alerta.cedula);
                       return (
                       <tr key={idx} className={`transition-colors ${isChecked ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
                         <td className="p-4 text-center">
@@ -1219,8 +1250,11 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             type="checkbox" 
                             checked={isChecked}
                             onChange={(e) => {
-                              if (e.target.checked) setEmpleadosSeleccionados([...empleadosSeleccionados, alerta.cedula]);
-                              else setEmpleadosSeleccionados(empleadosSeleccionados.filter(c => c !== alerta.cedula));
+                              if (e.target.checked) {
+                                setEmpleadosSeleccionados([...empleadosSeleccionados, { cedula: alerta.cedula, nombre: alerta.nombre }]);
+                              } else {
+                                setEmpleadosSeleccionados(empleadosSeleccionados.filter(emp => emp.cedula !== alerta.cedula));
+                              }
                             }}
                             className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                           />
