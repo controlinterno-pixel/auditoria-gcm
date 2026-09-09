@@ -1,7 +1,7 @@
 // Ruta: src/components/AuditoriaAutomatizada/DashboardHistorico.jsx
 import React, { useState, useEffect } from 'react';
 import { obtenerListaHistoricos, cargarNominaHistorica } from '../../services/historicoService';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const normalizarTexto = (str) => {
   if (!str) return "";
@@ -859,27 +859,56 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       
 {modoDashboard === 'JORNADA' ? (
                         <>
-                          {/* 💡 1. Modo CONCEPTOS */}
+                         {/* 💡 1. Modo CONCEPTOS CRUZADOS CON EMPLEADOS */}
                           {agrupacionGrafica === 'CONCEPTOS' ? (
-                            datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
-                              const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
-                              const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
-                              const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
+                            (() => {
+                              // Si hay chulitos seleccionados, cruzamos Empleado + Concepto
+                              if (empleadosSeleccionados.length > 0) {
+                                let lineasConceptosMultiples = [];
+                                let colorIdx = 0;
+                                const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                                
+                                const empleadosAAnalizar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
+                                
+                                empleadosAAnalizar.forEach(emp => {
+                                  datosHistoricos.conceptosJornada.forEach(conceptoName => {
+                                    // Filtrar por concepto amarillo si hay alguno marcado
+                                    if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return;
+                                    
+                                    // Solo dibujar si este empleado particular tiene este concepto
+                                    if (!emp.desgloseConceptosJornada || !emp.desgloseConceptosJornada[conceptoName]) return;
+                                    
+                                    // Almacenamos el dato bajo el key general del nombre del empleado, 
+                                    // pero usamos el Tooltip/Legend para mostrar el cruce (Concepto + Empleado)
+                                    const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
+                                    const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo ${conceptoName} 👤 ${emp.nombre.split(' ')[0]}` : `🔹 ${conceptoName} 👤 ${emp.nombre.split(' ')[0]}`;
+                                    
+                                    lineasConceptosMultiples.push(
+                                      <Line key={`${emp.cedula}-${conceptoName}`} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[colorIdx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />
+                                    );
+                                    colorIdx++;
+                                  });
+                                });
+                                return lineasConceptosMultiples;
+                              } 
                               
-                              // 🔗 INTERACTIVIDAD: Si el usuario aplicó un filtro de concepto amarillo abajo, 
-                              // ocultamos automáticamente los demás de la gráfica.
-                              if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
-                              
-                              // Buscamos si hay transacciones válidas para este concepto en el filtrado actual
-                              let tieneValoresMes = false;
-                              tendenciasDinamicas.forEach(mesData => {
-                                if (mesData[conceptoName] > 0 || mesData[`costo_${conceptoName}`] > 0) tieneValoresMes = true;
+                              // Si NO hay chulitos, agrupa todos los empleados por concepto general
+                              return datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
+                                const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                                const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
+                                const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
+                                
+                                if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
+                                
+                                let tieneValoresMes = false;
+                                tendenciasDinamicas.forEach(mesData => {
+                                  if (mesData[conceptoName] > 0 || mesData[`costo_${conceptoName}`] > 0) tieneValoresMes = true;
+                                });
+                                if (!tieneValoresMes) return null;
+
+                                return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />;
                               });
-
-                              if (!tieneValoresMes) return null;
-
-                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />;
-                            })
+                            })()
                           ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
                             // 💡 2. Si hay chulos marcados, mostramos TODOS los chulos. Si no, aplicamos el Top N.
                             (empleadosSeleccionados.length > 0 ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula)) : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop))).map((emp, idx) => {
@@ -918,7 +947,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                     const totalMesCosto = (t.costoADMIN || 0) + (t.costoBALNEARIO || 0) + (t.costoECOPARQUE_HOTEL || 0);
                     return (
                       <div key={i} className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-center shadow-sm hover:border-blue-300 transition">
-<span className="text-xs font-extrabold text-indigo-900 block uppercase">{formatearMes(t.mes)}</span>
+                        <span className="text-xs font-extrabold text-indigo-900 block uppercase">{formatearMes(t.mes)}</span>
                         <div className="mt-2 space-y-1 font-mono text-[10px]">
                           {modoDashboard === 'JORNADA' ? (
                             <>
@@ -947,6 +976,162 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                     );
                   })}
                 </div>
+
+                {/* 📊 GRÁFICAS APILADAS DE COMPOSICIÓN INDIVIDUAL (SÓLO EN MODO JORNADA) */}
+                {modoDashboard === 'JORNADA' && (
+                  <div className="grid grid-cols-1 gap-6 pt-6 border-t border-slate-200">
+                    {/* 1. HORAS DE EXTRAS Y RECARGOS POR TRABAJADOR */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase mb-1">1. Horas de extras y recargos por trabajador</h4>
+                      <p className="text-[11px] text-slate-500 mb-3">Comparación de las horas registradas por concepto acumulado.</p>
+                      
+                      <div className="h-72 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={dataGraficasApiladas}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                            <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
+                            <YAxis stroke="#475569" fontSize={11} unit=" hrs" />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', color: '#0f172a', fontSize: '11px' }}
+                              formatter={(value, name) => [`${Number(value).toFixed(1)} hrs`, name.replace('hrs_', '')]}
+                              labelFormatter={(label) => `👤 Trabajador: ${label}`}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                            
+                            {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
+                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef'];
+                              if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return null;
+                              return (
+                                <Bar 
+                                  key={concepto} 
+                                  dataKey={`hrs_${concepto}`} 
+                                  name={concepto} 
+                                  stackId="horas" 
+                                  fill={colores[idx % colores.length]} 
+                                />
+                              );
+                            })}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* 2. VALOR PAGADO POR EXTRAS Y RECARGOS */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase mb-1">2. Valor pagado por extras y recargos</h4>
+                      <p className="text-[11px] text-slate-500 mb-3">Valor acumulado registrado en nómina por concepto.</p>
+                      
+                      <div className="h-72 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={dataGraficasApiladas}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                            <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
+                            <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `$${(val / 1000000).toFixed(1)}M`} />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', color: '#0f172a', fontSize: '11px' }}
+                              formatter={(value, name) => [`$${Number(value).toLocaleString('es-CO')} COP`, name.replace('val_', '')]}
+                              labelFormatter={(label) => `👤 Trabajador: ${label}`}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+
+                            {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
+                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef'];
+                              if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return null;
+                              return (
+                                <Bar 
+                                  key={concepto} 
+                                  dataKey={`val_${concepto}`} 
+                                  name={concepto} 
+                                  stackId="valor" 
+                                  fill={colores[idx % colores.length]} 
+                                />
+                              );
+                            })}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+                {/* 📊 GRÁFICAS APILADAS DE COMPOSICIÓN INDIVIDUAL (SÓLO EN MODO JORNADA) */}
+                {modoDashboard === 'JORNADA' && (
+                  <div className="grid grid-cols-1 gap-6 pt-6 border-t border-slate-200">
+                    {/* 1. HORAS DE EXTRAS Y RECARGOS POR TRABAJADOR */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase mb-1">1. Horas de extras y recargos por trabajador</h4>
+                      <p className="text-[11px] text-slate-500 mb-3">Comparación de las horas registradas por concepto acumulado.</p>
+                      
+                      <div className="h-72 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={dataGraficasApiladas}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                            <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
+                            <YAxis stroke="#475569" fontSize={11} unit=" hrs" />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', color: '#0f172a', fontSize: '11px' }}
+                              formatter={(value, name) => [`${Number(value).toFixed(1)} hrs`, name.replace('hrs_', '')]}
+                              labelFormatter={(label) => `👤 Trabajador: ${label}`}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                            
+                            {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
+                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef'];
+                              if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return null;
+                              return (
+                                <Bar 
+                                  key={concepto} 
+                                  dataKey={`hrs_${concepto}`} 
+                                  name={concepto} 
+                                  stackId="horas" 
+                                  fill={colores[idx % colores.length]} 
+                                />
+                              );
+                            })}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* 2. VALOR PAGADO POR EXTRAS Y RECARGOS */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <h4 className="text-xs font-extrabold text-slate-800 uppercase mb-1">2. Valor pagado por extras y recargos</h4>
+                      <p className="text-[11px] text-slate-500 mb-3">Valor acumulado registrado en nómina por concepto.</p>
+                      
+                      <div className="h-72 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={dataGraficasApiladas}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                            <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
+                            <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `$${(val / 1000000).toFixed(1)}M`} />
+                            <Tooltip 
+                              contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', color: '#0f172a', fontSize: '11px' }}
+                              formatter={(value, name) => [`$${Number(value).toLocaleString('es-CO')} COP`, name.replace('val_', '')]}
+                              labelFormatter={(label) => `👤 Trabajador: ${label}`}
+                            />
+                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+
+                            {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
+                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef'];
+                              if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return null;
+                              return (
+                                <Bar 
+                                  key={concepto} 
+                                  dataKey={`val_${concepto}`} 
+                                  name={concepto} 
+                                  stackId="valor" 
+                                  fill={colores[idx % colores.length]} 
+                                />
+                              );
+                            })}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
