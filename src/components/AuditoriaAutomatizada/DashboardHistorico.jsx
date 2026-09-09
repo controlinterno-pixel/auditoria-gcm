@@ -623,17 +623,23 @@ riesgo: (() => {
                valorFiltro = dataMes.valor;
             }
 
-            // A. Modo CONCEPTOS (Dibuja líneas por cada tipo de recargo/extra)
+           // A. Modo CONCEPTOS (Dibuja líneas por cada tipo de recargo/extra y por empleado)
             if (agrupacionGrafica === 'CONCEPTOS') {
                 Object.entries(dataMes.conceptos).forEach(([nombreConcepto, metricas]) => {
+                   // Llave global del concepto
                    if (!mapaMeses[mes][nombreConcepto]) {
                        mapaMeses[mes][nombreConcepto] = 0;
                        mapaMeses[mes][`costo_${nombreConcepto}`] = 0;
                    }
                    mapaMeses[mes][nombreConcepto] += metricas.horas;
                    mapaMeses[mes][`costo_${nombreConcepto}`] += metricas.valor;
+
+                   // Llave individual cruzada por empleado
+                   const llaveCruzada = `${nombreConcepto}_${emp.cedula}`;
+                   mapaMeses[mes][llaveCruzada] = (mapaMeses[mes][llaveCruzada] || 0) + metricas.horas;
+                   mapaMeses[mes][`costo_${llaveCruzada}`] = (mapaMeses[mes][`costo_${llaveCruzada}`] || 0) + metricas.valor;
                 });
-            } 
+            }
             // B. Modo EMPLEADOS (Dibuja líneas por cada empleado individual)
             else if (agrupacionGrafica === 'EMPLEADOS') {
                 if (!mapaMeses[mes][emp.nombre]) {
@@ -909,11 +915,12 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                     
                                     // Almacenamos el dato bajo el key general del nombre del empleado, 
                                     // pero usamos el Tooltip/Legend para mostrar el cruce (Concepto + Empleado)
-                                    const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
+                                   const llaveCruzada = `${conceptoName}_${emp.cedula}`;
+                                    const keyData = metricaGrafica === 'DINERO' ? `costo_${llaveCruzada}` : llaveCruzada;
                                     const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo ${conceptoName} 👤 ${emp.nombre.split(' ')[0]}` : `🔹 ${conceptoName} 👤 ${emp.nombre.split(' ')[0]}`;
                                     
                                     lineasConceptosMultiples.push(
-                                      <Line key={`${emp.cedula}-${conceptoName}`} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[colorIdx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />
+                                      <Line key={`${emp.cedula}-${conceptoName}`} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[colorIdx % colores.length]} strokeWidth={3} dot={{ r: 5 }} connectNulls={true} />
                                     );
                                     colorIdx++;
                                   });
