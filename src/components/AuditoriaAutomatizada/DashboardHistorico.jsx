@@ -603,7 +603,7 @@ riesgo: (() => {
     });
 
    // Si hay empleados seleccionados con chulito, graficamos SOLO a ellos. Si no, graficamos a todos los filtrados.
-   const baseGrafica = hayChulitos ? alertasFiltradas.filter(a => empleadosSeleccionados.includes(a.cedula)) : alertasFiltradas;
+   const baseGrafica = hayChulitos ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula)) : alertasFiltradas;
 
    baseGrafica.forEach(emp => {
       if (modoDashboard === 'JORNADA') {
