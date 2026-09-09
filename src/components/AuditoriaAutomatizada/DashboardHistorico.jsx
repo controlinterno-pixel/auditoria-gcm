@@ -584,8 +584,8 @@ riesgo: (() => {
   const calcularTendenciaDinamica = () => {
     if (!datosHistoricos) return [];
 
-    // Detectar si el usuario buscó manualmente o seleccionó empleados con chulito
-    const hayBusquedaEspecifica = busqueda.trim() !== '' && alertasFiltradas.length <= 3;
+    // Detectar si el usuario quiere ver los conceptos desglosados (por búsqueda directa o por chulear a UN solo empleado)
+    const hayBusquedaEspecifica = (busqueda.trim() !== '' && alertasFiltradas.length <= 3) || empleadosSeleccionados.length === 1;
     const hayChulitos = empleadosSeleccionados.length > 0;
 
     const mapaMeses = {};
