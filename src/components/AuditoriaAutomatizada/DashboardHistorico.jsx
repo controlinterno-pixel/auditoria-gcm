@@ -1191,61 +1191,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 </div>
               )}
             </div>
-            {/* 👥 ZONA DE CHIPS DE EMPLEADOS SELECCIONADOS */}
-            {empleadosSeleccionados.length > 0 && (
-              <div className="bg-indigo-50 border-y border-indigo-200 p-3 flex flex-wrap gap-2 items-center">
-                 <span className="text-xs font-black text-indigo-800 flex items-center gap-1">
-                   ☑️ Analizando Específicos ({empleadosSeleccionados.length}):
-                 </span>
-                 {empleadosSeleccionados.map(ced => {
-                    const empInfo = coleccionActiva.find(a => a.cedula === ced);
-                    return (
-                      <span key={ced} className="px-2.5 py-1 bg-indigo-600 text-white text-[11px] font-bold rounded-full flex items-center gap-1.5 shadow-sm">
-                        {empInfo ? empInfo.nombre : ced}
-                        <button 
-                          onClick={() => setEmpleadosSeleccionados(empleadosSeleccionados.filter(c => c !== ced))} 
-                          className="hover:text-rose-300 font-black cursor-pointer"
-                        >✕</button>
-                      </span>
-                    )
-                 })}
-                 <button 
-                   onClick={() => setEmpleadosSeleccionados([])} 
-                   className="text-[11px] text-rose-600 font-bold ml-auto hover:underline cursor-pointer bg-white px-2 py-1 rounded border border-rose-200"
-                 >
-                   Limpiar Selección
-                 </button>
-              </div>
-            )}
-
-            {/* 👥 ZONA DE CHIPS DE EMPLEADOS SELECCIONADOS */}
-            {empleadosSeleccionados.length > 0 && (
-              <div className="bg-indigo-50 border-y border-indigo-200 p-3 flex flex-wrap gap-2 items-center">
-                 <span className="text-xs font-black text-indigo-800 flex items-center gap-1">
-                   ☑️ Analizando Específicos ({empleadosSeleccionados.length}):
-                 </span>
-                 {empleadosSeleccionados.map(ced => {
-                    const empInfo = coleccionActiva.find(a => a.cedula === ced);
-                    return (
-                      <span key={ced} className="px-2.5 py-1 bg-indigo-600 text-white text-[11px] font-bold rounded-full flex items-center gap-1.5 shadow-sm">
-                        {empInfo ? empInfo.nombre : ced}
-                        <button 
-                          onClick={() => setEmpleadosSeleccionados(empleadosSeleccionados.filter(c => c !== ced))} 
-                          className="hover:text-rose-300 font-black cursor-pointer"
-                        >✕</button>
-                      </span>
-                    )
-                 })}
-                 <button 
-                   onClick={() => setEmpleadosSeleccionados([])} 
-                   className="text-[11px] text-rose-600 font-bold ml-auto hover:underline cursor-pointer bg-white px-2 py-1 rounded border border-rose-200"
-                 >
-                   Limpiar Selección
-                 </button>
-              </div>
-            )}
-
-            <div className="p-0 overflow-x-auto">
+           <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-xs border-b border-slate-200">
                   <tr>
