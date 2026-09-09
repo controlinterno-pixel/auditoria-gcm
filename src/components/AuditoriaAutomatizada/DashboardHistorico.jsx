@@ -862,21 +862,23 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                           {/* 💡 1. Modo CONCEPTOS */}
                           {agrupacionGrafica === 'CONCEPTOS' ? (
                             datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
-                              const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef'];
+                              const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
                               const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
                               const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
                               
-                              // Si el usuario aplicó un filtro de concepto amarillo, ocultar los demás
+                              // 🔗 INTERACTIVIDAD: Si el usuario aplicó un filtro de concepto amarillo abajo, 
+                              // ocultamos automáticamente los demás de la gráfica.
                               if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
                               
-                              // Buscamos si ALGÚN empleado en la base gráfica actual (que ya considera
-                              // búsquedas y checkboxes) tiene horas/dinero en este concepto.
-                              // Si nadie lo tiene (o si el filtro amarillo excluyó a quien lo tenía), no dibujamos la línea.
-                              const algunoLoTiene = alertasFiltradas.some(e => e.desgloseConceptosJornada && e.desgloseConceptosJornada[conceptoName]);
-                              
-                              if (!algunoLoTiene && filtroConceptoJornada.length === 0) return null;
+                              // Buscamos si hay transacciones válidas para este concepto en el filtrado actual
+                              let tieneValoresMes = false;
+                              tendenciasDinamicas.forEach(mesData => {
+                                if (mesData[conceptoName] > 0 || mesData[`costo_${conceptoName}`] > 0) tieneValoresMes = true;
+                              });
 
-                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
+                              if (!tieneValoresMes) return null;
+
+                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />;
                             })
                           ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
                             // 💡 2. Si hay chulos marcados, mostramos TODOS los chulos. Si no, aplicamos el Top N.
