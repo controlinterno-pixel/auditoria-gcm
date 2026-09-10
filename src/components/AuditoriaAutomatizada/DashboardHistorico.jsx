@@ -545,15 +545,19 @@ riesgo: (() => {
   });
 
  const alertasFiltradas = coleccionRecalculada.filter(a => {
+    // 1. Si no tiene datos para el concepto seleccionado, lo ocultamos.
     if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0 && a.totalHorasVisual === 0 && a.totalDineroVisual === 0) {
       return false;
     }
 
-    // 1. ¿Está explícitamente guardado en el carrito de comparación (chulito)?
+    // 2. Comprobación del Carrito de Comparación
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
 
-    // 2. ¿Cumple con el resto de los filtros aplicados?
+    // 3. Evaluamos si el usuario tiene ALGÚN filtro de grupo activo (Búsqueda, Unidad, Proceso o Cargo)
     const term = busqueda.toLowerCase().trim();
+    const hayFiltrosActivos = term !== '' || filtroUnidad !== 'TODOS' || filtroProceso.length > 0 || filtroCargo.length > 0 || filtroPeriodo !== 'TODOS' || filtroAlerta !== 'TODOS';
+
+    // 4. Lógica de cumplimiento de filtros
     const coincideBusqueda = term === '' ? true : 
       a.nombre.toLowerCase().includes(term) || 
       a.cedula.includes(term) ||
@@ -566,20 +570,20 @@ riesgo: (() => {
     
     let coincidePeriodo = true;
     if (filtroPeriodo !== 'TODOS') {
-      if (modoDashboard === 'JORNADA') {
-         coincidePeriodo = a.mesesConNovedad.has(filtroPeriodo);
-      } else {
-         coincidePeriodo = a.periodosFuga.has(filtroPeriodo);
-      }
+      coincidePeriodo = modoDashboard === 'JORNADA' ? a.mesesConNovedad.has(filtroPeriodo) : a.periodosFuga.has(filtroPeriodo);
     }
-
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    const pasaFiltrosDeGrupo = coincideBusqueda && coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+    const cumpleFiltrosBase = coincideBusqueda && coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
 
-    // 💡 SOLUCIÓN: Si el empleado tiene chulito, NUNCA desaparece de la tabla.
-    // Si no tiene chulito, aparece solo si cumple con los filtros activos.
-    return estaSeleccionado || pasaFiltrosDeGrupo;
+    // 💡 LÓGICA MAESTRA:
+    // Si NO hay filtros extra aplicados, mostramos a TODOS (incluyendo a los seleccionados).
+    // Si SÍ hay filtros aplicados, mostramos a los que cumplan los filtros O a los que estén seleccionados en el carrito.
+    if (!hayFiltrosActivos) {
+        return true;
+    } else {
+        return estaSeleccionado || cumpleFiltrosBase;
+    }
   });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
