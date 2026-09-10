@@ -1478,6 +1478,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             onChange={(e) => {
                               if (e.target.checked) {
                                 setEmpleadosSeleccionados([...empleadosSeleccionados, { cedula: alerta.cedula, nombre: alerta.nombre }]);
+                                setBusqueda(''); // 💡 MAGIA: Limpia la barra de búsqueda automáticamente al chulear
                               } else {
                                 setEmpleadosSeleccionados(empleadosSeleccionados.filter(emp => emp.cedula !== alerta.cedula));
                               }
