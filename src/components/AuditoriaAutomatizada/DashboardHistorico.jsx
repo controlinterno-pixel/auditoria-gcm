@@ -166,7 +166,11 @@ const DashboardHistorico = () => {
         mesesDetectados.add(mesOrigen);
 
         const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
-        const conceptoLimpio = normalizarTexto(conceptoRaw);
+        let conceptoLimpio = normalizarTexto(conceptoRaw);
+        
+        // 🧹 ESTANDARIZACIÓN FORENSE (Agrupa variaciones tipográficas de la nómina)
+        if (conceptoLimpio.includes('DV06')) conceptoLimpio = 'DV06-HORA RECARGO DOMINICAL Y FESTIVO';
+        if (conceptoLimpio.includes('DV07')) conceptoLimpio = 'DV07-HORA RECARGO NOCTURNO FESTIVOS O DOM.';
         
         const cantidad = parsearMonto(buscarColumna(fila, ['Cantidad', 'Horas', 'Cant', 'Minutos']));
         const valor = parsearMonto(buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago', 'Devengado']));
@@ -883,6 +887,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       )}
 
                      <Tooltip 
+                        itemSorter={(item) => -item.value}
                         contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                         labelFormatter={(label) => formatearMes(label)}
                         formatter={(value, name) => {
@@ -1028,6 +1033,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
                             <YAxis stroke="#475569" fontSize={11} unit=" hrs" />
                             <Tooltip 
+                              itemSorter={(item) => -item.value}
                               contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', color: '#0f172a', fontSize: '11px' }}
                               formatter={(value, name) => [`${Number(value).toFixed(1)} hrs`, name.replace('hrs_', '')]}
                               labelFormatter={(label) => `👤 Trabajador: ${label}`}
@@ -1064,6 +1070,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
                             <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `$${(val / 1000000).toFixed(1)}M`} />
                             <Tooltip 
+                              itemSorter={(item) => -item.value}
                               contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #cbd5e1', color: '#0f172a', fontSize: '11px' }}
                               formatter={(value, name) => [`$${Number(value).toLocaleString('es-CO')} COP`, name.replace('val_', '')]}
                               labelFormatter={(label) => `👤 Trabajador: ${label}`}
