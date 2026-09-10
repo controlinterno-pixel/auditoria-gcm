@@ -549,22 +549,16 @@ riesgo: (() => {
       return false;
     }
 
+    // 1. ¿Está explícitamente guardado en el carrito de comparación (chulito)?
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
+
+    // 2. ¿Cumple con el resto de los filtros aplicados?
     const term = busqueda.toLowerCase().trim();
     const coincideBusqueda = term === '' ? true : 
       a.nombre.toLowerCase().includes(term) || 
       a.cedula.includes(term) ||
       (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
       (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
-
-    let pasaFiltroPrincipal = true;
-    if (empleadosSeleccionados.length > 0 && term === '') {
-        pasaFiltroPrincipal = estaSeleccionado;
-    } else if (empleadosSeleccionados.length > 0 && term !== '') {
-        pasaFiltroPrincipal = estaSeleccionado || coincideBusqueda;
-    } else if (empleadosSeleccionados.length === 0 && term !== '') {
-        pasaFiltroPrincipal = coincideBusqueda;
-    }
 
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
@@ -581,7 +575,11 @@ riesgo: (() => {
 
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    return pasaFiltroPrincipal && coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+    const pasaFiltrosDeGrupo = coincideBusqueda && coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+
+    // 💡 SOLUCIÓN: Si el empleado tiene chulito, NUNCA desaparece de la tabla.
+    // Si no tiene chulito, aparece solo si cumple con los filtros activos.
+    return estaSeleccionado || pasaFiltrosDeGrupo;
   });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
