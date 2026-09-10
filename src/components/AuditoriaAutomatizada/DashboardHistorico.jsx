@@ -1093,8 +1093,75 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
             )}
           </div>
 
+          {/* 📋 NUEVO: CUADRO RESUMEN PARA PRIORIZACIÓN DE AUDITORÍA */}
+          {modoDashboard === 'JORNADA' && dataGraficasApiladas.length > 0 && (
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mt-6">
+              <h3 className="text-lg font-extrabold text-slate-800 mb-2">Resumen para priorización de auditoría</h3>
+              <p className="text-sm text-slate-500 mb-4 border-b border-slate-100 pb-4">
+                Consolidado de horas y valores totales pagados a los trabajadores en pantalla. Haz clic en la fila de un trabajador para ver su diagnóstico detallado.
+              </p>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-slate-600 font-bold border-b-2 border-slate-200">
+                    <tr>
+                      <th className="py-3 px-4">Trabajador</th>
+                      <th className="py-3 px-4 text-right">Horas recargo / extras</th>
+                      <th className="py-3 px-4 text-right">Valor total</th>
+                      <th className="py-3 px-4 text-center">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {dataGraficasApiladas
+                      .map(empData => {
+                        // Extraer el empleado completo de la colección para sumas y para la Lupa
+                        const empOriginal = alertasFiltradas.find(a => a.cedula === empData.cedula);
+                        const totalHoras = empOriginal ? empOriginal.totalHorasVisual : 0;
+                        const totalValor = empOriginal ? empOriginal.totalDineroVisual : 0;
+                        return { ...empOriginal, totalHoras, totalValor };
+                      })
+                      .sort((a, b) => b.totalValor - a.totalValor) // Ordenar de mayor a menor valor
+                      .map((emp, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => setEmpleadoModal(emp)}>
+                          <td className="py-4 px-4 font-bold text-slate-800 flex items-center gap-2">
+                            <span className="text-slate-400 group-hover:text-blue-500 transition-colors">👤</span> 
+                            {emp.nombre}
+                          </td>
+                          <td className="py-4 px-4 text-right text-slate-600">{emp.totalHoras.toFixed(2)}</td>
+                          <td className="py-4 px-4 text-right font-extrabold text-slate-800">${emp.totalValor.toLocaleString('es-CO')}</td>
+                          <td className="py-4 px-4 text-center">
+                            <button className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-blue-200">
+                              Ver Detalle 🔍
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    }
+                    {/* Fila de Totales Generales del Cuadro */}
+                    <tr className="bg-slate-50 border-t-2 border-slate-200 font-black">
+                      <td className="py-4 px-4 text-slate-800 uppercase tracking-wider">Total Acumulado</td>
+                      <td className="py-4 px-4 text-right text-rose-600 text-base">
+                        {dataGraficasApiladas.reduce((acc, empData) => {
+                          const emp = alertasFiltradas.find(a => a.cedula === empData.cedula);
+                          return acc + (emp ? emp.totalHorasVisual : 0);
+                        }, 0).toFixed(2)}
+                      </td>
+                      <td className="py-4 px-4 text-right text-rose-600 text-base">
+                        ${dataGraficasApiladas.reduce((acc, empData) => {
+                          const emp = alertasFiltradas.find(a => a.cedula === empData.cedula);
+                          return acc + (emp ? emp.totalDineroVisual : 0);
+                        }, 0).toLocaleString('es-CO')}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
        {/* 🎛️ SUITE DE FILTROS INTERACTIVOS CON ETIQUETAS (CHIPS) */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
+          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5 mt-6">
             {/* Buscador de Empleado y Filtro de Período */}
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
