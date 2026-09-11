@@ -6,6 +6,8 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   const [activeTab, setActiveTab] = useState('perfil');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [modoOscuro, setModoOscuro] = useState(false);
+  const [notificacionesActivas, setNotificacionesActivas] = useState(true);
   
   // Estados editables
   const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -353,7 +355,7 @@ const handleUpdateProfile = async () => {
               </button>
             </div>
 
-            {/* Tarjeta: Preferencias */}
+{/* Tarjeta: Preferencias */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <div className="flex items-center gap-2 mb-6">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">⚙️</div>
@@ -372,9 +374,12 @@ const handleUpdateProfile = async () => {
                       <p className="text-[9px] text-slate-500">Tema oscuro para la interfaz</p>
                     </div>
                   </div>
-                  {/* Toggle Switch */}
-                  <div className="w-9 h-5 bg-slate-200 rounded-full relative cursor-pointer shadow-inner">
-                    <div className="w-4 h-4 bg-white rounded-full absolute top-0.5 left-0.5 shadow-sm"></div>
+                  {/* Toggle Switch Interactivo: Modo Oscuro */}
+                  <div 
+                    onClick={() => setModoOscuro(!modoOscuro)}
+                    className={`w-10 h-5 flex items-center bg-slate-300 rounded-full p-1 cursor-pointer transition-colors duration-300 ${modoOscuro ? 'bg-blue-600' : 'bg-slate-300'}`}
+                  >
+                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${modoOscuro ? 'translate-x-4' : ''}`}></div>
                   </div>
                 </div>
 
@@ -396,9 +401,12 @@ const handleUpdateProfile = async () => {
                       <p className="text-[9px] text-slate-500">Alertas al correo electrónico</p>
                     </div>
                   </div>
-                  {/* Toggle Switch ON */}
-                  <div className="w-9 h-5 bg-blue-600 rounded-full relative cursor-pointer shadow-inner transition-colors">
-                    <div className="w-4 h-4 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></div>
+                  {/* Toggle Switch Interactivo: Notificaciones */}
+                   <div 
+                    onClick={() => setNotificacionesActivas(!notificacionesActivas)}
+                    className={`w-10 h-5 flex items-center bg-slate-300 rounded-full p-1 cursor-pointer transition-colors duration-300 ${notificacionesActivas ? 'bg-blue-600' : 'bg-slate-300'}`}
+                  >
+                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${notificacionesActivas ? 'translate-x-4' : ''}`}></div>
                   </div>
                 </div>
               </div>
