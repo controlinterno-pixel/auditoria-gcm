@@ -1380,8 +1380,9 @@ if (showWelcome) {
   );
 }
   return (
-
-<div className="flex h-screen bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">    {isPresentationMode && (
+    <div className="flex h-screen bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
+      {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
+      {isPresentationMode && (
         <button 
           onClick={() => setIsPresentationMode(false)} 
           className="fixed bottom-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all hover:scale-105 flex items-center space-x-2 border-2 border-slate-700 animate-in slide-in-from-bottom-10"
@@ -1969,7 +1970,8 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                 
 <ModalIA aiModal={aiModal} setAiModal={setAiModal} />
       <ModalDetalleGrafico chartDetail={chartDetail} setChartDetail={setChartDetail} />      
-{notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
+      {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
+    </div>
     </div>
   );
 }
