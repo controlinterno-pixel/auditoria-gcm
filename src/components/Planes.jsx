@@ -1194,9 +1194,24 @@ const handleNotificarPlan = (planId) => {
       {/* 🚀 VISTA 2: FORMULARIO MATRICIAL ORIGINAL COMPLETO (PRESERVADO Y RE-POTENCIADO) */}
       {vistaActiva === 'nuevo' && (
         <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6 animate-in slide-in-from-right-8 duration-500">
-          <div className="border-b pb-3 flex justify-between items-center">
-            <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">➕ Formular Acciones por Informe Emitido</h3>
-            {formInformeId && <button onClick={() => handleInformeChange('')} className="text-[10px] text-red-500 font-bold uppercase hover:underline">✖️ Limpiar Matriz</button>}
+          <div className="border-b pb-3 flex justify-between items-center sticky top-16 bg-white z-30 pt-2 shadow-xs">
+            <div>
+              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">➕ Formular Acciones por Informe Emitido</h3>
+              <p className="text-[10px] text-slate-400 font-bold">Puedes guardar avances parciales en cualquier momento</p>
+            </div>
+            {formInformeId && (
+              <div className="flex items-center gap-3">
+                <button 
+                  type="submit" 
+                  form="matrix-master-form"
+                  className="bg-[#004d40] hover:bg-[#003d33] text-white px-4 py-2 rounded-xl font-black uppercase tracking-wider text-[10px] shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>💾</span>
+                  <span>Guardar Avance Rápido</span>
+                </button>
+                <button type="button" onClick={() => handleInformeChange('')} className="text-[10px] text-red-500 font-bold uppercase hover:underline">✖️ Limpiar Matriz</button>
+              </div>
+            )}
           </div>
 
           <div className="w-full">
@@ -1208,8 +1223,8 @@ const handleNotificarPlan = (planId) => {
           </div>
 
           {formInformeId && (
-            <form onSubmit={handleMasterMatrixSubmit} className="space-y-6">
-              {safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
+<form id="matrix-master-form" onSubmit={handleMasterMatrixSubmit} className="space-y-6">
+{safeHallazgos.filter(h => String(h.idInforme) === String(formInformeId)).map((h) => {
                 const node = matrixState[h.id] || { aplica: true, actividades: [] };
                 return (
                   <div key={`matrix-card-${h.id}`} className={`border rounded-2xl p-5 shadow-sm space-y-4 transition-all ${node.aplica ? 'border-blue-200 bg-slate-50/50' : 'border-slate-200 bg-slate-100 opacity-60'}`}>
@@ -1244,14 +1259,25 @@ const handleNotificarPlan = (planId) => {
                       <div className="space-y-4">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => (
                           <div key={`act-row-${index}`} className="bg-white border rounded-xl p-4 shadow-sm space-y-3 relative">
-                            <div className="flex justify-between items-center border-b pb-2">
+                            <div className="flex justify-between items-center border-b pb-2 bg-slate-50/80 -mx-4 -mt-4 p-3 rounded-t-xl mb-3">
                               <div className="flex items-center space-x-3">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actividad #{index + 1}</span>
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Actividad #{index + 1}</span>
                                 <span className={`px-2 py-0.5 rounded-md font-mono font-black text-[10px] tracking-widest border ${String(act.id).startsWith('new-') ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-300 shadow-inner'}`}>
                                   PLA-{String(act.id).startsWith('new-') ? 'NUEVO' : String(act.id).slice(-4)}
                                 </span>
                               </div>
-                              {node.actividades.length > 1 && <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 hover:bg-red-50 font-bold text-[10px] uppercase px-2 py-1 rounded transition-colors">🗑️ Quitar</button>}
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  type="submit" 
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-lg transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                                  title="Guarda los cambios de esta actividad de inmediato"
+                                >
+                                  <span>💾</span> Guardar
+                                </button>
+                                {node.actividades.length > 1 && (
+                                  <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 hover:bg-red-50 font-bold text-[10px] uppercase px-2 py-1 rounded transition-colors">🗑️ Quitar</button>
+                                )}
+                              </div>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
                               
