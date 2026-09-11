@@ -1467,30 +1467,50 @@ if (showWelcome) {
           </div>
         </div>
 
-        {/* 4. HALLAZGOS Y PLANES */}
+        {/* 4. HALLAZGOS E INFORMES */}
         <div className="flex flex-col">
           <button 
             onClick={() => { 
               setMenuAbierto(menuAbierto === 'hallazgos' ? null : 'hallazgos');
               if (menuAbierto !== 'hallazgos') { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }
             }} 
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'resultados_tab' || activeTab === 'planes_tab') ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40' : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'}`}>
+            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'resultados_tab' || (activeTab === 'planes_tab' && subTabPlanes === 'incidentes')) ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40' : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'}`}>
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-              <span className="font-bold">Hallazgos & Planes</span>
+              <span className="font-bold">Hallazgos e Informes</span>
             </div>
-            <div className="flex items-center gap-2">
-              {pendingPlansCount > 0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{pendingPlansCount}</span>}
-              <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'hallazgos' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </div>
+            <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'hallazgos' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </button>
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'hallazgos' ? 'max-h-60 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
               <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-blue-500 -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>
               <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('incidentes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-blue-500 -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>
               {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-blue-500 -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Informes Emitidos</button>}
+            </div>
+          </div>
+        </div>
+
+        {/* 5. PLANES DE ACCIÓN */}
+        <div className="flex flex-col">
+          <button 
+            onClick={() => { 
+              setMenuAbierto(menuAbierto === 'planes' ? null : 'planes');
+              if (menuAbierto !== 'planes') { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }
+            }} 
+            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'planes_tab' && subTabPlanes === 'planes') ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40' : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'}`}>
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span className="font-bold">Planes de Acción</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {pendingPlansCount > 0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{pendingPlansCount}</span>}
+              <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'planes' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </div>
+          </button>
+          <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'planes' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
+            <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
               <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg flex justify-between ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-blue-500 -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>
-                Planes de Acción {pendingPlansCount > 0 && <span className="text-rose-400">({pendingPlansCount})</span>}
+                Seguimiento de Planes {pendingPlansCount > 0 && <span className="text-rose-400">({pendingPlansCount})</span>}
               </button>
             </div>
           </div>
