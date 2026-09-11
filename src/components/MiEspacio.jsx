@@ -183,7 +183,7 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
   return (
     <div className="space-y-6 text-left">
       
-      {/* 1️⃣ BANNER CON BOTONES DE ACCIÓN (CON FONDO DE MONTAÑAS) */}
+{/* 1️⃣ BANNER CON BOTONES DE ACCIÓN (CON FONDO DE MONTAÑAS) */}
       <div 
         className="relative p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 overflow-hidden border border-slate-700/50"
       >
@@ -195,28 +195,28 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
           }}
         />
         
-        {/* Capas Superpuestas (Overlays) para legibilidad */}
-        <div className="absolute inset-0 z-10 bg-[#0a1122]/70 mix-blend-multiply" />
-        <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#0a1122] via-[#0a1122]/80 to-transparent" />
+        {/* ✨ NUEVO: Capas ajustadas para que la imagen RESALTE */}
+        <div className="absolute inset-0 z-10 bg-[#0a1122]/10" /> {/* Tinte casi invisible */}
+        <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#0a1122] via-[#0a1122]/60 to-transparent w-full md:w-[80%]" />
 
         <div className="space-y-1 relative z-20">
-          <h2 className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">
+          <h2 className="text-2xl sm:text-3xl font-black text-white drop-shadow-lg">
             ¡Buen día, <span className="text-emerald-400 capitalize drop-shadow-md">{usuarioNombre}</span>!
           </h2>
-          <p className="text-xs text-slate-200 font-bold drop-shadow">
+          <p className="text-xs text-slate-200 font-bold drop-shadow-md max-w-xl">
             Consola de Gobierno, Gestión de Riesgos y Cumplimiento Normativo • Termales Santa Rosa
           </p>
         </div>
         <div className="flex flex-wrap gap-3 relative z-20">
           <button 
             onClick={() => { if(setActiveTab) setActiveTab('resultados_tab'); if(setSubTabResultados) setSubTabResultados('informes'); if(scrollToForm) scrollToForm(); }} 
-            className="bg-slate-900/60 hover:bg-slate-800 backdrop-blur-sm text-blue-400 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-blue-500/50 transition-all shadow-lg"
+            className="bg-slate-900/60 hover:bg-slate-800 backdrop-blur-md text-blue-400 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-blue-500/50 transition-all shadow-xl"
           >
             FILTRAR INFORMES
           </button>
           <button 
             onClick={() => { if(setActiveTab) setActiveTab('planes_tab'); if(setSubTabPlanes) setSubTabPlanes('planes'); }} 
-            className="bg-indigo-900/80 hover:bg-indigo-800 backdrop-blur-sm text-purple-200 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-purple-400/50 transition-all shadow-lg"
+            className="bg-indigo-900/70 hover:bg-indigo-800 backdrop-blur-md text-purple-200 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-purple-400/50 transition-all shadow-xl"
           >
             GESTIONAR PLANES
           </button>
