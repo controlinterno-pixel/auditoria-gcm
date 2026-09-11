@@ -6,21 +6,24 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   const [activeTab, setActiveTab] = useState('perfil');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  // Leemos la memoria del navegador para recordar cómo dejaste los botones
-  const [modoOscuro, setModoOscuro] = useState(localStorage.getItem('modoOscuro') === 'true');
+  // Leemos el tema de la memoria del navegador
+  const [tema, setTema] = useState(localStorage.getItem('temaApp') || 'claro');
   const [notificacionesActivas, setNotificacionesActivas] = useState(localStorage.getItem('notificacionesActivas') !== 'false');
 
-  // Acciones reales al hacer clic
-  const handleToggleModoOscuro = () => {
-    const newState = !modoOscuro;
-    setModoOscuro(newState);
-    localStorage.setItem('modoOscuro', newState);
+  // Acción al seleccionar un tema
+  const handleCambiarTema = (nuevoTema) => {
+    setTema(nuevoTema);
+    localStorage.setItem('temaApp', nuevoTema);
     
-    if (newState) {
+    document.documentElement.classList.remove('dark', 'warm'); // Limpiamos
+    
+    if (nuevoTema === 'oscuro') {
       document.documentElement.classList.add('dark');
-      showNotification('Modo oscuro activado globalmente.', 'success');
+      showNotification('Modo oscuro activado.', 'success');
+    } else if (nuevoTema === 'calido') {
+      document.documentElement.classList.add('warm');
+      showNotification('Modo lectura (Cálido) activado.', 'success');
     } else {
-      document.documentElement.classList.remove('dark');
       showNotification('Modo claro activado.', 'success');
     }
   };
@@ -389,20 +392,34 @@ const handleUpdateProfile = async () => {
               </div>
 
 <div className="space-y-5">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-slate-400">🌙</span>
+                    <span className="text-slate-400">🎨</span>
                     <div>
-                      <p className="text-xs font-bold text-slate-800">Modo oscuro</p>
-                      <p className="text-[9px] text-slate-500">Tema oscuro para la interfaz</p>
+                      <p className="text-xs font-bold text-slate-800">Tema Visual</p>
+                      <p className="text-[9px] text-slate-500">Elige la apariencia de la plataforma</p>
                     </div>
                   </div>
-                  {/* Toggle Switch FUNCIONAL: Modo Oscuro */}
-                  <div 
-                    onClick={handleToggleModoOscuro}
-                    className={`w-10 h-5 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${modoOscuro ? 'bg-blue-600' : 'bg-slate-300'}`}
-                  >
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${modoOscuro ? 'translate-x-4' : ''}`}></div>
+                  {/* 🔘 SELECTOR DE 3 OPCIONES */}
+                  <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-inner">
+                    <button 
+                      onClick={() => handleCambiarTema('claro')} 
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${tema === 'claro' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      ☀️ Claro
+                    </button>
+                    <button 
+                      onClick={() => handleCambiarTema('calido')} 
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${tema === 'calido' ? 'bg-[#FCFBF8] text-[#8C6B4A] shadow-sm border border-[#E8DECF]' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      ☕ Cálido
+                    </button>
+                    <button 
+                      onClick={() => handleCambiarTema('oscuro')} 
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${tema === 'oscuro' ? 'bg-[#070f1e] text-blue-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      🌙 Oscuro
+                    </button>
                   </div>
                 </div>
 
