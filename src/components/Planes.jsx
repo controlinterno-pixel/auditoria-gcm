@@ -77,40 +77,51 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     e.preventDefault();
     if (!busquedaRapida.trim()) return;
 
+    const textoBuscado = busquedaRapida.trim().toUpperCase();
     const digitosBuscados = busquedaRapida.replace(/\D/g, '');
-    
-    // Si el usuario escribió letras puras sin números (ej. "hola"), abortamos la búsqueda con error.
-    if (!digitosBuscados) {
-      alert(`❌ Búsqueda inválida. Por favor ingrese el número del plan (Ej: 004 o PLA-004).`);
+    const numBuscado = digitosBuscados ? parseInt(digitosBuscados, 10) : null;
+
+    // 1. INTENTAR BUSCAR POR INFORME (Ej: "INF-2026-004" o simplemente "004")
+    const informeEncontrado = informesAuditoria.find(inf => {
+      if (inf.ref && inf.ref.toUpperCase().includes(textoBuscado)) return true;
+      if (numBuscado !== null && inf.ref) {
+        const numInf = parseInt(inf.ref.split('-').pop(), 10); // Extrae el '004' del 'INF-2026-004'
+        if (numInf === numBuscado) return true;
+      }
+      return false;
+    });
+
+    if (informeEncontrado) {
+      setEditPlan(null); // Limpiamos cualquier plan individual
+      setVistaActiva('nuevo');
+      handleInformeChange(String(informeEncontrado.id)); // Carga la matriz completa del informe
+      scrollToForm();
+      setBusquedaRapida('');
       return;
     }
 
-    const numBuscado = parseInt(digitosBuscados, 10);
+    // 2. SI NO ES UN INFORME, BUSCAR POR PLAN INDIVIDUAL (Ej: "PLA-1234")
+    if (numBuscado !== null) {
+      const planEncontrado = safePlanes.find(p => {
+        const strId = p.id.toString();
+        if (strId.endsWith(digitosBuscados)) return true;
+        if (strId.length >= 4) {
+           const ultimasCifras = parseInt(strId.slice(-4), 10);
+           if (ultimasCifras === numBuscado) return true;
+        }
+        return p.id === numBuscado;
+      });
 
-    const planEncontrado = safePlanes.find(p => {
-      const strId = p.id.toString();
-      
-      // Intentamos igualar el final de la cadena de texto directamente (ej. "4" o "004")
-      if (strId.endsWith(digitosBuscados)) return true;
-      
-      // Intentamos igualar numéricamente las últimas 4 cifras (útil para saltarse los ceros iniciales)
-      if (strId.length >= 4) {
-         const ultimasCifras = parseInt(strId.slice(-4), 10);
-         if (ultimasCifras === numBuscado) return true;
+      if (planEncontrado) {
+        setEditPlan(planEncontrado); // Dispara el useEffect para cargar la matriz
+        setVistaActiva('nuevo');
+        scrollToForm();
+        setBusquedaRapida('');
+        return;
       }
-      
-      // Coincidencia exacta (para planes antiguos)
-      return p.id === numBuscado;
-    });
-
-    if (planEncontrado) {
-      setEditPlan(planEncontrado);
-      setVistaActiva('nuevo');
-      scrollToForm();
-      setBusquedaRapida(''); 
-    } else {
-      alert(`❌ No se encontró ningún plan de acción con el ID: ${busquedaRapida}`);
     }
+
+    alert(`❌ No se encontró ningún Informe (INF) ni Plan de Acción (PLA) con el código: ${busquedaRapida}`);
   };
   // 🧭 PESTAÑAS DE CONTROL SUPERIOR
   const [vistaActiva, setVistaActiva] = useState('dashboard');
