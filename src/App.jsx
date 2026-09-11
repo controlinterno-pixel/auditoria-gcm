@@ -1467,25 +1467,28 @@ if (showWelcome) {
           </div>
         </div>
 
-        {/* 4. HALLAZGOS E INFORMES */}
+        {/* 4. INFORMES Y HALLAZGOS */}
         <div className="flex flex-col">
           <button 
             onClick={() => { 
               setMenuAbierto(menuAbierto === 'hallazgos' ? null : 'hallazgos');
-              if (menuAbierto !== 'hallazgos') { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }
+              if (menuAbierto !== 'hallazgos') { 
+                setActiveTab('resultados_tab'); 
+                setSubTabResultados(isAdmin ? 'informes' : 'hallazgos'); 
+              }
             }} 
             className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'resultados_tab' || (activeTab === 'planes_tab' && subTabPlanes === 'incidentes')) ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40' : 'hover:bg-slate-800/60 text-slate-400 hover:text-slate-200'}`}>
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-              <span className="font-bold">Hallazgos e Informes</span>
+              <span className="font-bold">Informes y Hallazgos</span>
             </div>
             <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'hallazgos' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
           </button>
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'hallazgos' ? 'max-h-60 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
+              {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-blue-500 -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Informes Emitidos</button>}
               <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-blue-500 -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>
               <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('incidentes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-blue-500 -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>
-              {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-blue-500 -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Informes Emitidos</button>}
             </div>
           </div>
         </div>
