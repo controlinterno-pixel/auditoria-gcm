@@ -6,8 +6,31 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   const [activeTab, setActiveTab] = useState('perfil');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [modoOscuro, setModoOscuro] = useState(false);
-  const [notificacionesActivas, setNotificacionesActivas] = useState(true);
+  // Leemos la memoria del navegador para recordar cómo dejaste los botones
+  const [modoOscuro, setModoOscuro] = useState(localStorage.getItem('modoOscuro') === 'true');
+  const [notificacionesActivas, setNotificacionesActivas] = useState(localStorage.getItem('notificacionesActivas') !== 'false');
+
+  // Acciones reales al hacer clic
+  const handleToggleModoOscuro = () => {
+    const newState = !modoOscuro;
+    setModoOscuro(newState);
+    localStorage.setItem('modoOscuro', newState);
+    
+    if (newState) {
+      document.documentElement.classList.add('dark');
+      showNotification('Modo oscuro activado globalmente.', 'success');
+    } else {
+      document.documentElement.classList.remove('dark');
+      showNotification('Modo claro activado.', 'success');
+    }
+  };
+
+  const handleToggleNotificaciones = () => {
+    const newState = !notificacionesActivas;
+    setNotificacionesActivas(newState);
+    localStorage.setItem('notificacionesActivas', newState);
+    showNotification(newState ? 'Notificaciones por correo activadas.' : 'Notificaciones silenciadas.', 'success');
+  };
   
   // Estados editables
   const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -365,7 +388,7 @@ const handleUpdateProfile = async () => {
                 </div>
               </div>
 
-              <div className="space-y-5">
+<div className="space-y-5">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <span className="text-slate-400">🌙</span>
@@ -374,10 +397,10 @@ const handleUpdateProfile = async () => {
                       <p className="text-[9px] text-slate-500">Tema oscuro para la interfaz</p>
                     </div>
                   </div>
-                  {/* Toggle Switch Interactivo: Modo Oscuro */}
+                  {/* Toggle Switch FUNCIONAL: Modo Oscuro */}
                   <div 
-                    onClick={() => setModoOscuro(!modoOscuro)}
-                    className={`w-10 h-5 flex items-center bg-slate-300 rounded-full p-1 cursor-pointer transition-colors duration-300 ${modoOscuro ? 'bg-blue-600' : 'bg-slate-300'}`}
+                    onClick={handleToggleModoOscuro}
+                    className={`w-10 h-5 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${modoOscuro ? 'bg-blue-600' : 'bg-slate-300'}`}
                   >
                     <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${modoOscuro ? 'translate-x-4' : ''}`}></div>
                   </div>
@@ -401,10 +424,10 @@ const handleUpdateProfile = async () => {
                       <p className="text-[9px] text-slate-500">Alertas al correo electrónico</p>
                     </div>
                   </div>
-                  {/* Toggle Switch Interactivo: Notificaciones */}
+                  {/* Toggle Switch FUNCIONAL: Notificaciones */}
                    <div 
-                    onClick={() => setNotificacionesActivas(!notificacionesActivas)}
-                    className={`w-10 h-5 flex items-center bg-slate-300 rounded-full p-1 cursor-pointer transition-colors duration-300 ${notificacionesActivas ? 'bg-blue-600' : 'bg-slate-300'}`}
+                    onClick={handleToggleNotificaciones}
+                    className={`w-10 h-5 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-300 ${notificacionesActivas ? 'bg-blue-600' : 'bg-slate-300'}`}
                   >
                     <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-300 ${notificacionesActivas ? 'translate-x-4' : ''}`}></div>
                   </div>
