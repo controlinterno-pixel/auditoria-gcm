@@ -66,7 +66,7 @@ export default function App() {
 
   // 🎨 LECTURA GLOBAL DEL TEMA EN TODA LA APP
   useEffect(() => {
-    const tema = localStorage.getItem('temaApp') || 'claro';
+const tema = localStorage.getItem('temaApp') || 'calido';
     document.documentElement.classList.remove('dark', 'warm');
     if (tema === 'oscuro') document.documentElement.classList.add('dark');
     if (tema === 'calido') document.documentElement.classList.add('warm');

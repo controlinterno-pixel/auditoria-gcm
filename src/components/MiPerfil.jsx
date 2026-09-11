@@ -7,7 +7,7 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   // Leemos el tema de la memoria del navegador
-  const [tema, setTema] = useState(localStorage.getItem('temaApp') || 'claro');
+const [tema, setTema] = useState(localStorage.getItem('temaApp') || 'calido');
   const [notificacionesActivas, setNotificacionesActivas] = useState(localStorage.getItem('notificacionesActivas') !== 'false');
 
   // Acción al seleccionar un tema
