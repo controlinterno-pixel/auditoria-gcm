@@ -30,6 +30,7 @@ import ResetPassword from './components/ResetPassword';
 import { FilterInput, StepIndicatorHUD, HeaderFiltros } from './components/UIComponents';
 import Navbar from './components/Navbar';
 import { enviarCorreoGmail } from './services/gmailService';
+import MiPerfil from './components/MiPerfil';
 import { consultarCopilotoIA } from './services/gemini';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
@@ -1931,6 +1932,15 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                 handleImportExcelRiesgos={handleImportExcelRiesgos}
                 exportToJSON={exportToJSON}
                 handleImportJSON={handleImportJSON}
+              />
+            )}
+
+            {/* 👤 MI PERFIL (NUEVA PANTALLA DE USUARIO) */}
+            {activeTab === 'mi_perfil' && (
+              <MiPerfil 
+                user={user}
+                isAdmin={isAdmin}
+                showNotification={showNotification}
               />
             )}
           </div>
