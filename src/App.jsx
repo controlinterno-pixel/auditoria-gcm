@@ -63,6 +63,15 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('tablero');
   const [menuAbierto, setMenuAbierto] = useState('inicio');
+  
+  // 🌙 LECTURA GLOBAL DEL MODO OSCURO
+  useEffect(() => {
+    if (localStorage.getItem('modoOscuro') === 'true') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [activeTab]); // Se verifica cada vez que cambias de pestaña
   // 🔌 Hook para gestionar peticiones a la base de datos
   // 🔌 ESTADOS PARA NAVEGACIÓN ANIDADA DE PROCESOS (WORKFLOW)
   const [subTabPlanificar, setSubTabPlanificar] = useState('plan_anual');
@@ -1372,9 +1381,8 @@ if (showWelcome) {
   );
 }
   return (
-    <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      
-      {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
+<div className="flex h-screen bg-slate-50 dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
+    {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
       {isPresentationMode && (
         <button 
           onClick={() => setIsPresentationMode(false)} 
@@ -1621,7 +1629,7 @@ if (showWelcome) {
 {/*  Tracks de gobernanza guiada del Workflow en la cabecera */}
         {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}
         
-        <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 scroll-smooth relative`}>
+<main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
           <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
           {/* 🏠 FASE 0: MI ESPACIO DE TRABAJO (Bandeja Ejecutiva + Expediente Único + Dashboard) */}
             {activeTab === 'tablero' && (
