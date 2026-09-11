@@ -8,8 +8,7 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   const [isSaving, setIsSaving] = useState(false);
   // Leemos el tema de la memoria del navegador
 const [tema, setTema] = useState(localStorage.getItem('temaApp') || 'calido');
-  const [notificacionesActivas, setNotificacionesActivas] = useState(localStorage.getItem('notificacionesActivas') !== 'false');
-
+const [notificacionesActivas, setNotificacionesActivas] = useState(true);
   // Acción al seleccionar un tema
   const handleCambiarTema = (nuevoTema) => {
     setTema(nuevoTema);
@@ -492,7 +491,7 @@ const handleUpdateProfile = async () => {
           {/* ➡️ COLUMNA DERECHA (Organización y Permisos) */}
           <div className="lg:col-span-4 space-y-6">
             
-            {/* Tarjeta: Mi Organización */}
+{/* Tarjeta: Mi Organización */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
@@ -505,7 +504,9 @@ const handleUpdateProfile = async () => {
               </div>
 
               <div className="flex items-center gap-4 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                <div className="w-12 h-12 bg-white rounded-full border border-slate-200 flex items-center justify-center text-2xl shadow-sm">♨️</div>
+                <div className="w-12 h-12 bg-white rounded-full border border-slate-200 flex items-center justify-center shadow-sm overflow-hidden p-1 shrink-0">
+                  <img src="/logo_termales.png" alt="Termales Santa Rosa" className="w-full h-full object-contain" />
+                </div>
                 <div>
                   <p className="text-xs font-black text-slate-800">Termales de Santa Rosa</p>
                   <p className="text-[10px] text-slate-500 font-medium">Sistema de Gestión Integral</p>
@@ -514,16 +515,11 @@ const handleUpdateProfile = async () => {
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2 border-b border-slate-50">
-                  <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5"><span className="text-slate-400">📄</span> NIT</span>
-                  <span className="text-[11px] font-bold text-slate-800">900.123.456-7</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-slate-50">
                   <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5"><span className="text-slate-400">📍</span> Sede</span>
                   <span className="text-[11px] font-bold text-slate-800">Santa Rosa, Risaralda</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-slate-50">
                   <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5"><span className="text-slate-400">💼</span> Cargo</span>
-                  {/* 💡 Aquí también se refleja tu nuevo cargo */}
                   <span className="text-[11px] font-bold text-slate-800 text-right">{cargo}</span>
                 </div>
               </div>
@@ -564,32 +560,52 @@ const handleUpdateProfile = async () => {
               </div>
             </div>
 
-            {/* Tarjeta: Estadísticas rápidas */}
+{/* Tarjeta: Estadísticas rápidas (100% Reales) */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">📊</div>
                 <div>
                   <h3 className="text-sm font-black text-slate-800">Estadísticas de Actividad</h3>
-                  <p className="text-[10px] text-slate-500">Tu participación en el sistema</p>
+                  <p className="text-[10px] text-slate-500">Tu participación calculada en tiempo real</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-xl flex items-center gap-3">
                   <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-sm">📋</div>
-                  <div><p className="text-lg font-black text-slate-800">12</p><p className="text-[8px] font-bold text-slate-500 uppercase">Programas</p></div>
+                  <div>
+                    <p className="text-lg font-black text-slate-800">{safeProgramas?.length || 0}</p>
+                    <p className="text-[8px] font-bold text-slate-500 uppercase">Programas</p>
+                  </div>
                 </div>
                 <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl flex items-center gap-3">
                   <div className="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center text-sm">✅</div>
-                  <div><p className="text-lg font-black text-slate-800">8</p><p className="text-[8px] font-bold text-slate-500 uppercase">Informes</p></div>
+                  <div>
+                    <p className="text-lg font-black text-slate-800">{informesAuditoria?.length || 0}</p>
+                    <p className="text-[8px] font-bold text-slate-500 uppercase">Informes</p>
+                  </div>
                 </div>
                 <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl flex items-center gap-3">
                   <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center text-sm">⏱️</div>
-                  <div><p className="text-lg font-black text-slate-800">45</p><p className="text-[8px] font-bold text-slate-500 uppercase">Días activo</p></div>
+                  <div>
+                    <p className="text-lg font-black text-slate-800">
+                      {user?.metadata?.creationTime 
+                        ? Math.max(1, Math.floor((new Date() - new Date(user.metadata.creationTime)) / (1000 * 60 * 60 * 24)))
+                        : 1}
+                    </p>
+                    <p className="text-[8px] font-bold text-slate-500 uppercase">Días Registrado</p>
+                  </div>
                 </div>
                 <div className="p-3 bg-purple-50/50 border border-purple-100 rounded-xl flex items-center gap-3">
                   <div className="w-8 h-8 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center text-sm">⭐</div>
-                  <div><p className="text-lg font-black text-slate-800">98%</p><p className="text-[8px] font-bold text-slate-500 uppercase">Cumplimiento</p></div>
+                  <div>
+                    <p className="text-lg font-black text-purple-700">
+                      {safePlanes?.length > 0 
+                        ? Math.round(safePlanes.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / safePlanes.length) + '%'
+                        : '0%'}
+                    </p>
+                    <p className="text-[8px] font-bold text-slate-500 uppercase">Cumplimiento</p>
+                  </div>
                 </div>
               </div>
             </div>

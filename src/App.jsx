@@ -827,7 +827,6 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
   }), [safeCronograma, selectedAnios]);
 
 const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
-
   const handleRiesgoSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);
