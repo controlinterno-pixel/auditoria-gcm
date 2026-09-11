@@ -77,28 +77,37 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     e.preventDefault();
     if (!busquedaRapida.trim()) return;
 
-    // Extraemos solo los dígitos limpios
     const digitosBuscados = busquedaRapida.replace(/\D/g, '');
-    if (!digitosBuscados) return;
+    
+    // Si el usuario escribió letras puras sin números (ej. "hola"), abortamos la búsqueda con error.
+    if (!digitosBuscados) {
+      alert(`❌ Búsqueda inválida. Por favor ingrese el número del plan (Ej: 004 o PLA-004).`);
+      return;
+    }
 
     const numBuscado = parseInt(digitosBuscados, 10);
 
-    // Búsqueda inteligente: tolera ceros a la izquierda (004, 04, 4) e IDs de timestamp
     const planEncontrado = safePlanes.find(p => {
       const strId = p.id.toString();
-      const ultimos4Num = parseInt(strId.slice(-4), 10);
-      return (
-        p.id === numBuscado ||
-        strId.endsWith(digitosBuscados) ||
-        ultimos4Num === numBuscado
-      );
+      
+      // Intentamos igualar el final de la cadena de texto directamente (ej. "4" o "004")
+      if (strId.endsWith(digitosBuscados)) return true;
+      
+      // Intentamos igualar numéricamente las últimas 4 cifras (útil para saltarse los ceros iniciales)
+      if (strId.length >= 4) {
+         const ultimasCifras = parseInt(strId.slice(-4), 10);
+         if (ultimasCifras === numBuscado) return true;
+      }
+      
+      // Coincidencia exacta (para planes antiguos)
+      return p.id === numBuscado;
     });
 
     if (planEncontrado) {
       setEditPlan(planEncontrado);
       setVistaActiva('nuevo');
       scrollToForm();
-      setBusquedaRapida('');
+      setBusquedaRapida(''); 
     } else {
       alert(`❌ No se encontró ningún plan de acción con el ID: ${busquedaRapida}`);
     }
