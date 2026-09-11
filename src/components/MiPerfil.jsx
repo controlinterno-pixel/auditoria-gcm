@@ -10,25 +10,35 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   // Estados editables
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
+  
+  // 💡 NUEVO: Estado para el Cargo (lo guardamos en memoria local para no afectar Firebase Auth)
+  const [cargo, setCargo] = useState(localStorage.getItem('userCargo') || (isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso'));
 
   const inicial = displayName 
     ? displayName.charAt(0).toUpperCase() 
     : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
 
-  const rolText = isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso';
-
   const handleUpdateProfile = async () => {
     setIsSaving(true);
     try {
+      // 1. Guardamos Nombre y Foto en Firebase
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           displayName: displayName.trim(),
           photoURL: photoURL.trim()
         });
+
+        // 2. Actualizamos el objeto local para que no haya que recargar
+        if (user) {
+          user.displayName = displayName.trim();
+          user.photoURL = photoURL.trim();
+        }
+
+        // 3. Guardamos el Cargo en la memoria del navegador
+        localStorage.setItem('userCargo', cargo.trim());
+
         showNotification('Perfil actualizado con éxito.', 'success');
         setIsEditing(false);
-        // Recarga suave para que el menú lateral actualice el avatar
-        setTimeout(() => window.location.reload(), 1500);
       }
     } catch (error) {
       console.error(error);
@@ -71,14 +81,15 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
           <h2 className="text-3xl font-black tracking-tight drop-shadow-md">
             Hola, <span className="text-blue-400">{displayName || 'Usuario'}</span>
           </h2>
-          <p className="text-sm text-slate-300 font-semibold uppercase tracking-widest">{rolText}</p>
+          {/* 💡 Aquí mostramos el cargo dinámico */}
+          <p className="text-sm text-slate-300 font-semibold uppercase tracking-widest">{cargo}</p>
           <p className="text-xs text-slate-400 max-w-lg leading-relaxed pt-1">
             Comprometido con la mejora continua, la transparencia y la gestión integral de riesgos.
           </p>
           
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-5 pt-3">
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
-              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z" /></svg>
               {user?.email}
             </span>
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
@@ -165,6 +176,19 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
                   </div>
                 </div>
 
+                {/* 💡 INPUT PARA EL CARGO */}
+                <div className="flex items-start gap-3">
+                  <span className="text-slate-400 mt-0.5">💼</span>
+                  <div className="flex-1">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Cargo / Rol</p>
+                    {isEditing ? (
+                      <input type="text" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Ej. Gerente de Auditoría" className="w-full mt-1 px-2 py-1 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-none" />
+                    ) : (
+                      <p className="text-xs font-bold text-slate-800 mt-0.5">{cargo}</p>
+                    )}
+                  </div>
+                </div>
+
                 {isEditing && (
                   <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
                     <span className="text-blue-400 mt-0.5">🖼️</span>
@@ -180,14 +204,6 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
                   <div>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Correo electrónico</p>
                     <p className="text-xs font-bold text-slate-800 mt-0.5">{user?.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <span className="text-slate-400 mt-0.5">💼</span>
-                  <div>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Rol en el sistema</p>
-                    <p className="text-xs font-bold text-slate-800 mt-0.5">{rolText}</p>
                   </div>
                 </div>
 
@@ -339,7 +355,8 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-slate-50">
                   <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5"><span className="text-slate-400">💼</span> Cargo</span>
-                  <span className="text-[11px] font-bold text-slate-800">{rolText}</span>
+                  {/* 💡 Aquí también se refleja tu nuevo cargo */}
+                  <span className="text-[11px] font-bold text-slate-800 text-right">{cargo}</span>
                 </div>
               </div>
             </div>
