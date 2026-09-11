@@ -1556,23 +1556,52 @@ if (showWelcome) {
 
       </nav>
 
-      {/* PERFIL DE USUARIO AL FONDO */}
+      {/* 👤 PERFIL DE USUARIO AL FONDO */}
       <div className="p-4 border-t border-slate-800/80 bg-[#040914] shrink-0">
         <div className="bg-slate-800/40 border border-slate-800 rounded-xl p-3 flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-lg shadow-inner shrink-0">
-              {user?.email ? user.email.charAt(0).toUpperCase() : 'C'}
+          
+          {/* Info del usuario (Clickable) */}
+          <div 
+            className="flex items-center gap-3 cursor-pointer group"
+            onClick={() => setActiveTab('mi_perfil')}
+            title="Ir a mi perfil"
+          >
+            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-lg shadow-inner shrink-0 overflow-hidden ring-2 ring-transparent group-hover:ring-blue-500 transition-all">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="Perfil" className="w-full h-full object-cover" />
+              ) : (
+                user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U')
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
-              <h4 className="text-xs font-bold text-white truncate">{user?.email?.split('@')[0] || 'Usuario'}</h4>
-              <p className="text-[9px] font-semibold text-blue-400 uppercase tracking-widest mt-0.5">{isAdmin ? 'Auditor Líder' : 'Gestor de Proceso'}</p>
+              <h4 className="text-xs font-bold text-white truncate group-hover:text-blue-400 transition-colors">
+                {user?.displayName || user?.email?.split('@')[0] || 'Usuario'}
+              </h4>
+              <p className="text-[9px] font-semibold text-blue-400 uppercase tracking-widest mt-0.5">
+                {isAdmin ? 'Auditor Líder' : 'Gestor de Proceso'}
+              </p>
             </div>
           </div>
+
           <div className="h-[1px] w-full bg-slate-800/80" />
-          <button onClick={handleLogout} className="flex items-center justify-between text-[11px] font-bold text-slate-400 hover:text-rose-400 transition-colors px-2 py-1 w-full">
-            <span>Cerrar Sesión</span>
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-          </button>
+          
+          {/* Botonera de cuenta */}
+          <div className="flex flex-col gap-1">
+            <button 
+              onClick={() => setActiveTab('mi_perfil')} 
+              className="flex items-center justify-between text-[11px] font-bold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors px-2 py-1.5 rounded-lg w-full"
+            >
+              <span>⚙️ Configurar Perfil</span>
+            </button>
+            <button 
+              onClick={handleLogout} 
+              className="flex items-center justify-between text-[11px] font-bold text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors px-2 py-1.5 rounded-lg w-full"
+            >
+              <span>Cerrar Sesión</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
