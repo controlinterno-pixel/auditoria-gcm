@@ -195,18 +195,22 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
           }}
         />
         
-        {/* ✨ NUEVO: Capas ajustadas para que la imagen RESALTE */}
-        <div className="absolute inset-0 z-10 bg-[#0a1122]/10" /> {/* Tinte casi invisible */}
-        <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#0a1122] via-[#0a1122]/60 to-transparent w-full md:w-[80%]" />
+        {/* Capas Superpuestas (Overlays) para legibilidad */}
+        <div className="absolute inset-0 z-10 bg-[#0a1122]/10" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#0a1122] via-[#0a1122]/70 to-transparent w-full md:w-[85%]" />
 
         <div className="space-y-1 relative z-20">
           <h2 className="text-2xl sm:text-3xl font-black text-white drop-shadow-lg">
             ¡Buen día, <span className="text-emerald-400 capitalize drop-shadow-md">{usuarioNombre}</span>!
           </h2>
-          <p className="text-xs text-slate-200 font-bold drop-shadow-md max-w-xl">
+          <p className="text-[13px] text-slate-100 font-medium drop-shadow-md max-w-2xl mt-1 leading-relaxed">
+            Bienvenido a GCM Auditor. Aquí tienes una visión general del estado de auditoría, riesgos y planes de acción de toda la organización.
+          </p>
+          <p className="text-[10px] text-emerald-400/80 font-bold drop-shadow-sm uppercase tracking-widest pt-2">
             Consola de Gobierno, Gestión de Riesgos y Cumplimiento Normativo • Termales Santa Rosa
           </p>
         </div>
+        
         <div className="flex flex-wrap gap-3 relative z-20">
           <button 
             onClick={() => { if(setActiveTab) setActiveTab('resultados_tab'); if(setSubTabResultados) setSubTabResultados('informes'); if(scrollToForm) scrollToForm(); }} 
