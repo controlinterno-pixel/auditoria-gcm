@@ -1642,18 +1642,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
 {/* 1️⃣ FASE DE PLANIFICACIÓN */}
  {activeTab === 'plan_anual_tab' && (
       <div className="space-y-6">
-        <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
-          {/* Ocultamos el botón del cronograma si no es Admin */}
-          {isAdmin && (
-            <button onClick={() => setSubTabPlanificar('plan_anual')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'plan_anual' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🗓️ Cronograma Anual</button>
-          )}
-          {/* NUEVO BOTÓN PARA EL DASHBOARD DE PROGRAMAS */}
-          <button onClick={() => setSubTabPlanificar('programas')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'programas' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📋 Programas de Auditoría</button>
-          
-          <button onClick={() => setSubTabPlanificar('riesgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'riesgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚠️ Matriz de Riesgos</button>
-          <button onClick={() => setSubTabPlanificar('apetito')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanificar === 'apetito' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>⚖️ Apetito de Riesgo</button>
-        </div>
-
+        
         {/* Protegemos el renderizado del componente PlanAnual */}
         {isAdmin && subTabPlanificar === 'plan_anual' && (
           <PlanAnual
@@ -1743,12 +1732,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
             {/* 3️⃣ FASE DE RESULTADOS & BRECHAS */}
             {activeTab === 'resultados_tab' && (
               <div className="space-y-6">
-                <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
-                  <button onClick={() => setSubTabResultados('hallazgos')} className={`px-4 py-2 rounded-xl transition-all ${subTabResultados === 'hallazgos' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📄 Hallazgos Registrados</button>
-                  {isAdmin && (
-                    <button onClick={() => setSubTabResultados('informes')} className={`px-4 py-2 rounded-xl transition-all ${subTabResultados === 'informes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📁 Informes Emitidos</button>
-                  )}
-                </div>
+                
                 {subTabResultados === 'hallazgos' && (
                   <Hallazgos 
                     isAdmin={isAdmin} 
@@ -1788,10 +1772,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
             {/* 4️⃣ FASE DE PLANES DE ACCIÓN */}
             {activeTab === 'planes_tab' && (
               <div className="space-y-6">
-                <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
-                  <button onClick={() => setSubTabPlanes('planes')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanes === 'planes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>✅ Seguimiento de Planes</button>
-                  <button onClick={() => setSubTabPlanes('incidentes')} className={`px-4 py-2 rounded-xl transition-all ${subTabPlanes === 'incidentes' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>🚨 Eventos de Pérdida</button>
-                </div>
+                
                 {subTabPlanes === 'planes' && (
                   <Planes 
                     ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin}
@@ -1844,15 +1825,7 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
            {/* 5️⃣ FASE DE GOBERNANZA, COMITÉS Y CIERRE */}
             {isAdmin && activeTab === 'gobernanza_tab' && (
               <div className="space-y-6">
-                <div className="flex flex-wrap border-b border-slate-200 bg-white p-2 rounded-2xl gap-2 shadow-sm text-xs font-bold">
-                  <button onClick={() => setSubTabGobernanza('comites')} className={`px-4 py-2 rounded-xl transition-all ${subTabGobernanza === 'comites' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>👥 Sesiones de Comité</button>
-                  {isAdmin && (
-                    <button onClick={() => setSubTabGobernanza('trazabilidad')} className={`px-4 py-2 rounded-xl transition-all ${subTabGobernanza === 'trazabilidad' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>📜 Bitácora de Trazabilidad</button>
-                  )}
-<button onClick={() => setSubTabGobernanza('auditoria_auto')} className={`px-4 py-2 rounded-xl transition-all ${subTabGobernanza === 'auditoria_auto' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>
-                    ⚡ Auditoría Automatizada
-                  </button>
-                </div>
+                
                 {subTabGobernanza === 'comites' && (
                   <Comites 
                     isAdmin={isAdmin} editComite={editComite} setEditComite={setEditComite} handleComiteSubmit={handleComiteSubmit}
