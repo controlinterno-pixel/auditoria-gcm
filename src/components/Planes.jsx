@@ -77,17 +77,28 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     e.preventDefault();
     if (!busquedaRapida.trim()) return;
 
-    // Extraemos solo los números por si el usuario escribe "PLA-1234" o solo "1234"
-    const idBuscado = busquedaRapida.replace(/\D/g, '');
-    
-    // Buscamos el plan que termine en esos números
-    const planEncontrado = safePlanes.find(p => p.id.toString().endsWith(idBuscado));
+    // Extraemos solo los dígitos limpios
+    const digitosBuscados = busquedaRapida.replace(/\D/g, '');
+    if (!digitosBuscados) return;
+
+    const numBuscado = parseInt(digitosBuscados, 10);
+
+    // Búsqueda inteligente: tolera ceros a la izquierda (004, 04, 4) e IDs de timestamp
+    const planEncontrado = safePlanes.find(p => {
+      const strId = p.id.toString();
+      const ultimos4Num = parseInt(strId.slice(-4), 10);
+      return (
+        p.id === numBuscado ||
+        strId.endsWith(digitosBuscados) ||
+        ultimos4Num === numBuscado
+      );
+    });
 
     if (planEncontrado) {
       setEditPlan(planEncontrado);
       setVistaActiva('nuevo');
       scrollToForm();
-      setBusquedaRapida(''); // Limpiamos la barra tras encontrarlo
+      setBusquedaRapida('');
     } else {
       alert(`❌ No se encontró ningún plan de acción con el ID: ${busquedaRapida}`);
     }
