@@ -105,17 +105,6 @@ const [cargo, setCargo] = useState(localStorage.getItem('userCargo') || (isAdmin
     reader.readAsDataURL(file);
   };
 
-const handleUpdateProfile = async () => {
-    setIsSaving(true);
-    try {
-      if (auth.currentUser) {
-        const isBase64 = photoURL.startsWith('data:image');
-
-        await updateProfile(auth.currentUser, {
-          displayName: displayName.trim(),
-          // 🔥 Evitamos enviar la imagen gigante a Firebase, solo actualizamos el nombre
-          photoURL: isBase64 ? auth.currentUser.photoURL : photoURL.trim() 
-        });
 const handleResetPassword = async () => {
     if (!user?.email) return;
     try {
@@ -126,7 +115,18 @@ const handleResetPassword = async () => {
       showNotification('Error al enviar el correo de restablecimiento.', 'error');
     }
   };
-        // 💾 Guardamos la imagen y el cargo en la memoria local
+
+  const handleUpdateProfile = async () => {
+    setIsSaving(true);
+    try {
+      if (auth.currentUser) {
+        const isBase64 = photoURL.startsWith('data:image');
+
+        await updateProfile(auth.currentUser, {
+          displayName: displayName.trim(),
+          photoURL: isBase64 ? auth.currentUser.photoURL : photoURL.trim() 
+        });
+
         if (isBase64) {
           localStorage.setItem('userAvatar', photoURL);
         } else if (photoURL === '') {
@@ -135,7 +135,6 @@ const handleResetPassword = async () => {
         localStorage.setItem('userCargo', cargo.trim());
         localStorage.setItem('userTelefono', telefono.trim());
 
-        // Actualizamos el objeto local
         if (user) {
           user.displayName = displayName.trim();
           user.photoURL = photoURL;
@@ -151,7 +150,6 @@ const handleResetPassword = async () => {
       setIsSaving(false);
     }
   };
-
   return (
     <div className="animate-in fade-in duration-500 max-w-[1400px] mx-auto space-y-6 pb-12 font-sans">
       
