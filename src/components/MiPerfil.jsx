@@ -216,25 +216,12 @@ const handleResetPassword = async () => {
 
       {/* 🗂️ 2. MENÚ DE PESTAÑAS */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 px-4 mt-8">
-        {[
-          { id: 'perfil', label: 'Mi Perfil', icon: '👤' },
-          { id: 'configuracion', label: 'Configuración', icon: '⚙️' },
-          { id: 'notificaciones', label: 'Notificaciones', icon: '🔔' },
-          { id: 'seguridad', label: 'Seguridad', icon: '🛡️' },
-          { id: 'actividad', label: 'Actividad', icon: '📊' }
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-3 text-xs font-bold transition-all flex items-center gap-2 border-b-2 ${
-              activeTab === tab.id 
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-lg' 
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'
-            }`}
-          >
-            <span>{tab.icon}</span> {tab.label}
-          </button>
-        ))}
+        <button
+          onClick={() => setActiveTab('perfil')}
+          className="px-4 py-3 text-xs font-bold transition-all flex items-center gap-2 border-b-2 border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-lg"
+        >
+          <span>👤</span> Mi Perfil
+        </button>
       </div>
 
       {/* 🧱 3. GRID PRINCIPAL (3 COLUMNAS) */}
