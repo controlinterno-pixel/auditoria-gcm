@@ -11,8 +11,32 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   // 💡 NUEVO: Leemos la foto de la memoria local primero
   const [photoURL, setPhotoURL] = useState(localStorage.getItem('userAvatar') || user?.photoURL || '');
-  const [cargo, setCargo] = useState(localStorage.getItem('userCargo') || (isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso'));
+const [cargo, setCargo] = useState(localStorage.getItem('userCargo') || (isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso'));
+  const [telefono, setTelefono] = useState(localStorage.getItem('userTelefono') || '+57 300 123 4567');
+  const [ubicacion, setUbicacion] = useState(localStorage.getItem('userUbicacion') || 'Obteniendo ubicación...');
 
+  // 🌍 Autodetectar ubicación real basada en IP
+  React.useEffect(() => {
+    const fetchLocation = async () => {
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        if (data.city && data.country_name) {
+          const loc = `${data.city}, ${data.country_name}`;
+          setUbicacion(loc);
+          localStorage.setItem('userUbicacion', loc);
+        }
+      } catch (error) {
+        setUbicacion('Santa Rosa de Cabal, COL'); // Fallback por si falla el internet
+      }
+    };
+    
+    if (!localStorage.getItem('userUbicacion')) {
+      fetchLocation();
+    } else {
+      setUbicacion(localStorage.getItem('userUbicacion'));
+    }
+  }, []);
  const inicial = displayName 
     ? displayName.charAt(0).toUpperCase() 
     : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
@@ -73,6 +97,7 @@ const handleUpdateProfile = async () => {
           localStorage.removeItem('userAvatar');
         }
         localStorage.setItem('userCargo', cargo.trim());
+        localStorage.setItem('userTelefono', telefono.trim());
 
         // Actualizamos el objeto local
         if (user) {
@@ -137,11 +162,11 @@ const handleUpdateProfile = async () => {
             </span>
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
               <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-              +57 300 123 4567
+              {telefono}
             </span>
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
               <svg className="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              Santa Rosa de Cabal, COL
+              {ubicacion}
             </span>
           </div>
         </div>
@@ -274,6 +299,25 @@ const handleUpdateProfile = async () => {
                     </div>
                   </div>
                 )}
+
+                {/* 📱 TELÉFONO (Editable) */}
+                <div className="flex items-start gap-3">
+                  <span className="text-slate-400 mt-0.5">📱</span>
+                  <div className="flex-1">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Teléfono de Contacto</p>
+                    {isEditing ? (
+                      <input 
+                        type="text" 
+                        value={telefono} 
+                        onChange={(e) => setTelefono(e.target.value)} 
+                        placeholder="Ej. +57 300 123 4567" 
+                        className="w-full mt-1 px-2 py-1 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-none" 
+                      />
+                    ) : (
+                      <p className="text-xs font-bold text-slate-800 mt-0.5">{telefono}</p>
+                    )}
+                  </div>
+                </div>
 
                 <div className="flex items-start gap-3">
                   <span className="text-slate-400 mt-0.5">✉️</span>
