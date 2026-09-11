@@ -1379,8 +1379,9 @@ if (showWelcome) {
     />
   );
 }
-  return (
+return (
     <div className="flex h-screen bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
+      {isPresentationMode && (
       {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
       {isPresentationMode && (
         <button 
@@ -1971,7 +1972,6 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
 <ModalIA aiModal={aiModal} setAiModal={setAiModal} />
       <ModalDetalleGrafico chartDetail={chartDetail} setChartDetail={setChartDetail} />      
       {notification && (<div className={`fixed bottom-4 right-4 px-6 py-4 rounded-xl shadow-2xl font-bold text-sm z-50 animate-in slide-in-from-bottom-5 ${notification.type === 'error' ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'}`}>{notification.message}</div>)}
-    </div>
     </div>
   );
 }
