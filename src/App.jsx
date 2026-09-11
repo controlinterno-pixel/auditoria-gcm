@@ -1947,6 +1947,9 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                 user={user}
                 isAdmin={isAdmin}
                 showNotification={showNotification}
+                safeProgramas={safeProgramas}
+                informesAuditoria={informesAuditoria}
+                safePlanes={safePlanes}
               />
             )}
           </div>

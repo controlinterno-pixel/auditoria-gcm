@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '../services/firebase';
 
-export default function MiPerfil({ user, isAdmin, showNotification }) {
-  const [activeTab, setActiveTab] = useState('perfil');
+export default function MiPerfil({ user, isAdmin, showNotification, safeProgramas = [], informesAuditoria = [], safePlanes = [] }) {
+const [activeTab, setActiveTab] = useState('perfil');
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   // Leemos el tema de la memoria del navegador
