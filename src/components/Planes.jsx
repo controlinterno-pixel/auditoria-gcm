@@ -83,6 +83,8 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   // Calculamos las coincidencias en tiempo real
   const informesMatch = textoBuscado.length > 0 ? informesAuditoria.filter(inf => {
     if (inf.ref && inf.ref.toUpperCase().includes(textoBuscado)) return true;
+    if (inf.proceso && inf.proceso.toUpperCase().includes(textoBuscado)) return true; // 👈 Busca por proceso
+    if (inf.titulo && inf.titulo.toUpperCase().includes(textoBuscado)) return true;
     if (numBuscado !== null && inf.ref) {
       const numInf = parseInt(inf.ref.split('-').pop(), 10);
       if (numInf === numBuscado) return true;
@@ -91,6 +93,9 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   }) : [];
 
   const planesMatch = textoBuscado.length > 0 ? safePlanes.filter(p => {
+    const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
+    const procesoPlan = hallazgoAsociado.proceso || '';
+
     const strId = p.id.toString();
     if (digitosBuscados && strId.endsWith(digitosBuscados)) return true;
     if (numBuscado !== null && strId.length >= 4) {
@@ -99,6 +104,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     }
     if (numBuscado !== null && p.id === numBuscado) return true;
     if (p.accion && p.accion.toUpperCase().includes(textoBuscado)) return true;
+    if (procesoPlan.toUpperCase().includes(textoBuscado)) return true; // 👈 Busca por proceso asociado
     return false;
   }).slice(0, 10) : []; // Mostramos máximo 10 planes para no saturar
 
@@ -797,13 +803,13 @@ const handleNotificarPlan = (planId) => {
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           
-         {/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA CON DROPDOWN */}
+{/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA CON DROPDOWN */}
           <div className="relative flex items-center mr-2 group">
             <form onSubmit={buscarPlanPorId} className="relative w-full">
               <span className="absolute left-3 top-2.5 text-[10px] text-slate-400">🔍</span>
               <input
                 type="text"
-                placeholder="Ej: 004, fraude..."
+                placeholder="Ej: 004, servicio..."
                 value={busquedaRapida}
                 onChange={(e) => {
                   setBusquedaRapida(e.target.value);
@@ -827,7 +833,10 @@ const handleNotificarPlan = (planId) => {
                         <button type="button" key={`s-inf-${inf.id}`} onClick={() => seleccionarInforme(inf)} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2">
                           <span className="text-xl shrink-0">📂</span>
                           <div className="truncate w-full">
-                            <p className="text-[11px] font-black text-slate-800">{inf.ref}</p>
+                            <p className="text-[11px] font-black text-slate-800">
+                              {inf.ref} 
+                              <span className="text-[8px] bg-slate-100 text-slate-500 ml-2 px-1.5 py-0.5 rounded font-sans uppercase tracking-wider">{inf.proceso}</span>
+                            </p>
                             <p className="text-[9px] text-slate-500 truncate" title={inf.titulo}>{inf.titulo}</p>
                           </div>
                         </button>
@@ -840,15 +849,21 @@ const handleNotificarPlan = (planId) => {
                   <div>
                     <h4 className="text-[9px] font-black text-blue-800 uppercase tracking-widest bg-blue-50 py-1.5 px-3">Planes Encontrados</h4>
                     <div className="p-1">
-                      {planesMatch.map(p => (
-                        <button type="button" key={`s-plan-${p.id}`} onClick={() => seleccionarPlan(p)} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2">
-                          <span className="text-xl shrink-0">📋</span>
-                          <div className="truncate w-full">
-                            <p className="text-[11px] font-black text-slate-800 font-mono">PLA-{p.id.toString().slice(-4)}</p>
-                            <p className="text-[9px] text-slate-500 truncate" title={p.accion}>{p.accion}</p>
-                          </div>
-                        </button>
-                      ))}
+                      {planesMatch.map(p => {
+                        const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
+                        return (
+                          <button type="button" key={`s-plan-${p.id}`} onClick={() => seleccionarPlan(p)} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2">
+                            <span className="text-xl shrink-0">📋</span>
+                            <div className="truncate w-full">
+                              <p className="text-[11px] font-black text-slate-800 font-mono">
+                                PLA-{p.id.toString().slice(-4)} 
+                                <span className="text-[8px] bg-slate-100 text-slate-500 ml-2 px-1.5 py-0.5 rounded font-sans uppercase tracking-wider">{hallazgoAsociado.proceso || 'General'}</span>
+                              </p>
+                              <p className="text-[9px] text-slate-500 truncate" title={p.accion}>{p.accion}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
