@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../services/firebase';
 
 export default function MiPerfil({ user, isAdmin, showNotification, safeProgramas = [], informesAuditoria = [], safePlanes = [] }) {
@@ -116,7 +116,16 @@ const handleUpdateProfile = async () => {
           // 🔥 Evitamos enviar la imagen gigante a Firebase, solo actualizamos el nombre
           photoURL: isBase64 ? auth.currentUser.photoURL : photoURL.trim() 
         });
-
+const handleResetPassword = async () => {
+    if (!user?.email) return;
+    try {
+      await sendPasswordResetEmail(auth, user.email);
+      showNotification(`Se envió un enlace de restablecimiento a ${user.email}`, 'success');
+    } catch (error) {
+      console.error(error);
+      showNotification('Error al enviar el correo de restablecimiento.', 'error');
+    }
+  };
         // 💾 Guardamos la imagen y el cargo en la memoria local
         if (isBase64) {
           localStorage.setItem('userAvatar', photoURL);
@@ -364,8 +373,11 @@ const handleUpdateProfile = async () => {
               </div>
             </div>
 
-            {/* Tarjeta: Contraseña */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex justify-between items-center group cursor-pointer hover:border-blue-300 transition-colors">
+            {/* Tarjeta: Contraseña (Conectada con Firebase) */}
+            <div 
+              onClick={handleResetPassword}
+              className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex justify-between items-center group cursor-pointer hover:border-blue-300 transition-colors"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 text-lg">🔒</div>
                 <div>
@@ -375,7 +387,10 @@ const handleUpdateProfile = async () => {
                   </p>
                 </div>
               </div>
-              <button className="text-[10px] font-bold text-blue-600 bg-white border border-blue-200 px-3 py-1.5 rounded-full group-hover:bg-blue-50 transition-colors">
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleResetPassword(); }} 
+                className="text-[10px] font-bold text-blue-600 bg-white border border-blue-200 px-3 py-1.5 rounded-full group-hover:bg-blue-50 transition-colors"
+              >
                 Cambiar
               </button>
             </div>
