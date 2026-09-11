@@ -9,9 +9,8 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   
   // Estados editables
   const [displayName, setDisplayName] = useState(user?.displayName || '');
-  const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
-  
-  // 💡 NUEVO: Estado para el Cargo (lo guardamos en memoria local para no afectar Firebase Auth)
+  // 💡 NUEVO: Leemos la foto de la memoria local primero
+  const [photoURL, setPhotoURL] = useState(localStorage.getItem('userAvatar') || user?.photoURL || '');
   const [cargo, setCargo] = useState(localStorage.getItem('userCargo') || (isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso'));
 
   const inicial = displayName 
@@ -52,14 +51,25 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
     reader.readAsDataURL(file);
   };
 
-  const handleUpdateProfile = async () => {
+const handleUpdateProfile = async () => {
     setIsSaving(true);
     try {
       if (auth.currentUser) {
+        const isBase64 = photoURL.startsWith('data:image');
+
         await updateProfile(auth.currentUser, {
           displayName: displayName.trim(),
-          photoURL: photoURL 
+          // 🔥 Evitamos enviar la imagen gigante a Firebase, solo actualizamos el nombre
+          photoURL: isBase64 ? auth.currentUser.photoURL : photoURL.trim() 
         });
+
+        // 💾 Guardamos la imagen y el cargo en la memoria local
+        if (isBase64) {
+          localStorage.setItem('userAvatar', photoURL);
+        } else if (photoURL === '') {
+          localStorage.removeItem('userAvatar');
+        }
+        localStorage.setItem('userCargo', cargo.trim());
 
         // Actualizamos el objeto local
         if (user) {
@@ -67,14 +77,12 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
           user.photoURL = photoURL;
         }
 
-        localStorage.setItem('userCargo', cargo.trim());
-
         showNotification('Perfil actualizado con éxito.', 'success');
         setIsEditing(false);
       }
     } catch (error) {
       console.error(error);
-      showNotification('Error al actualizar el perfil. La imagen podría ser muy grande.', 'error');
+      showNotification('Error al actualizar el perfil.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -208,13 +216,31 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
                   </div>
                 </div>
 
-                {/* 💡 INPUT PARA EL CARGO */}
+                {/* 🔒 ROL EN EL SISTEMA (Fijo, no editable) */}
+                <div className="flex items-start gap-3">
+                  <span className="text-slate-400 mt-0.5">🛡️</span>
+                  <div className="flex-1">
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Rol en el sistema</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5 flex items-center gap-2">
+                      {rolText} 
+                      <span className="text-[9px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">Verificado</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* ✏️ CARGO EN LA ORGANIZACIÓN (Editable) */}
                 <div className="flex items-start gap-3">
                   <span className="text-slate-400 mt-0.5">💼</span>
                   <div className="flex-1">
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Cargo / Rol</p>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Cargo en la Organización</p>
                     {isEditing ? (
-                      <input type="text" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Ej. Gerente de Auditoría" className="w-full mt-1 px-2 py-1 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-none" />
+                      <input 
+                        type="text" 
+                        value={cargo} 
+                        onChange={(e) => setCargo(e.target.value)} 
+                        placeholder="Ej. Gerente de Auditoría" 
+                        className="w-full mt-1 px-2 py-1 text-xs border border-slate-300 rounded focus:border-blue-500 focus:outline-none" 
+                      />
                     ) : (
                       <p className="text-xs font-bold text-slate-800 mt-0.5">{cargo}</p>
                     )}

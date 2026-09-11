@@ -1568,8 +1568,8 @@ if (showWelcome) {
             title="Ir a mi perfil"
           >
             <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-lg shadow-inner shrink-0 overflow-hidden ring-2 ring-transparent group-hover:ring-blue-500 transition-all">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="Perfil" className="w-full h-full object-cover" />
+              {(localStorage.getItem('userAvatar') || user?.photoURL) ? (
+                <img src={localStorage.getItem('userAvatar') || user?.photoURL} alt="Perfil" className="w-full h-full object-cover" />
               ) : (
                 user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U')
               )}
