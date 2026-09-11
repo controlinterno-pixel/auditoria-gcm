@@ -73,55 +73,57 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     }
   };
 
+ // 🔍 NUEVO SISTEMA DE BÚSQUEDA RÁPIDA CON AUTOCOMPLETADO
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+
+  const textoBuscado = busquedaRapida.trim().toUpperCase();
+  const digitosBuscados = busquedaRapida.replace(/\D/g, '');
+  const numBuscado = digitosBuscados ? parseInt(digitosBuscados, 10) : null;
+
+  // Calculamos las coincidencias en tiempo real
+  const informesMatch = textoBuscado.length > 0 ? informesAuditoria.filter(inf => {
+    if (inf.ref && inf.ref.toUpperCase().includes(textoBuscado)) return true;
+    if (numBuscado !== null && inf.ref) {
+      const numInf = parseInt(inf.ref.split('-').pop(), 10);
+      if (numInf === numBuscado) return true;
+    }
+    return false;
+  }) : [];
+
+  const planesMatch = textoBuscado.length > 0 ? safePlanes.filter(p => {
+    const strId = p.id.toString();
+    if (digitosBuscados && strId.endsWith(digitosBuscados)) return true;
+    if (numBuscado !== null && strId.length >= 4) {
+       const ultimasCifras = parseInt(strId.slice(-4), 10);
+       if (ultimasCifras === numBuscado) return true;
+    }
+    if (numBuscado !== null && p.id === numBuscado) return true;
+    if (p.accion && p.accion.toUpperCase().includes(textoBuscado)) return true;
+    return false;
+  }).slice(0, 10) : []; // Mostramos máximo 10 planes para no saturar
+
+  const seleccionarInforme = (informe) => {
+    setEditPlan(null);
+    setVistaActiva('nuevo');
+    handleInformeChange(String(informe.id));
+    scrollToForm();
+    setBusquedaRapida('');
+    setShowSearchDropdown(false);
+  };
+
+  const seleccionarPlan = (plan) => {
+    setEditPlan(plan);
+    setVistaActiva('nuevo');
+    scrollToForm();
+    setBusquedaRapida('');
+    setShowSearchDropdown(false);
+  };
+  
   const buscarPlanPorId = (e) => {
     e.preventDefault();
-    if (!busquedaRapida.trim()) return;
-
-    const textoBuscado = busquedaRapida.trim().toUpperCase();
-    const digitosBuscados = busquedaRapida.replace(/\D/g, '');
-    const numBuscado = digitosBuscados ? parseInt(digitosBuscados, 10) : null;
-
-    // 1. INTENTAR BUSCAR POR INFORME (Ej: "INF-2026-004" o simplemente "004")
-    const informeEncontrado = informesAuditoria.find(inf => {
-      if (inf.ref && inf.ref.toUpperCase().includes(textoBuscado)) return true;
-      if (numBuscado !== null && inf.ref) {
-        const numInf = parseInt(inf.ref.split('-').pop(), 10); // Extrae el '004' del 'INF-2026-004'
-        if (numInf === numBuscado) return true;
-      }
-      return false;
-    });
-
-    if (informeEncontrado) {
-      setEditPlan(null); // Limpiamos cualquier plan individual
-      setVistaActiva('nuevo');
-      handleInformeChange(String(informeEncontrado.id)); // Carga la matriz completa del informe
-      scrollToForm();
-      setBusquedaRapida('');
-      return;
-    }
-
-    // 2. SI NO ES UN INFORME, BUSCAR POR PLAN INDIVIDUAL (Ej: "PLA-1234")
-    if (numBuscado !== null) {
-      const planEncontrado = safePlanes.find(p => {
-        const strId = p.id.toString();
-        if (strId.endsWith(digitosBuscados)) return true;
-        if (strId.length >= 4) {
-           const ultimasCifras = parseInt(strId.slice(-4), 10);
-           if (ultimasCifras === numBuscado) return true;
-        }
-        return p.id === numBuscado;
-      });
-
-      if (planEncontrado) {
-        setEditPlan(planEncontrado); // Dispara el useEffect para cargar la matriz
-        setVistaActiva('nuevo');
-        scrollToForm();
-        setBusquedaRapida('');
-        return;
-      }
-    }
-
-    alert(`❌ No se encontró ningún Informe (INF) ni Plan de Acción (PLA) con el código: ${busquedaRapida}`);
+    if (informesMatch.length > 0) seleccionarInforme(informesMatch[0]);
+    else if (planesMatch.length > 0) seleccionarPlan(planesMatch[0]);
+    else alert(`❌ No se encontraron coincidencias para: ${busquedaRapida}`);
   };
   // 🧭 PESTAÑAS DE CONTROL SUPERIOR
   const [vistaActiva, setVistaActiva] = useState('dashboard');
@@ -795,26 +797,65 @@ const handleNotificarPlan = (planId) => {
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           
-         {/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA */}
-<form onSubmit={buscarPlanPorId} className="relative flex items-center mr-2 group">
-  <span className="absolute left-3 text-[10px] text-slate-400">🔍</span>
-  <input
-    type="text"
-    placeholder="Ej: 4493 + Enter ↵"
-    value={busquedaRapida}
-    onChange={(e) => setBusquedaRapida(e.target.value)}
-    className="pl-8 pr-12 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-black text-slate-700 w-40 focus:w-52 transition-all outline-none focus:border-[#0A3B32] focus:bg-white shadow-sm"
-  />
-  {/* El botón aparece cuando hay texto o al hacer hover */}
-  <button 
-    type="submit" 
-    className={`absolute right-1.5 p-1.5 bg-[#0A3B32] text-white rounded-lg text-[9px] font-black tracking-wider transition-opacity ${busquedaRapida.length > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-    title="Buscar y saltar al plan"
-  >
-    IR ➔
-  </button>
-</form>
-{/* 👉 AQUÍ TERMINA LA BARRA DE BÚSQUEDA RÁPIDA */}
+         {/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA CON DROPDOWN */}
+          <div className="relative flex items-center mr-2 group">
+            <form onSubmit={buscarPlanPorId} className="relative w-full">
+              <span className="absolute left-3 top-2.5 text-[10px] text-slate-400">🔍</span>
+              <input
+                type="text"
+                placeholder="Ej: 004, fraude..."
+                value={busquedaRapida}
+                onChange={(e) => {
+                  setBusquedaRapida(e.target.value);
+                  setShowSearchDropdown(true);
+                }}
+                onFocus={() => setShowSearchDropdown(true)}
+                onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
+                className="pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-black text-slate-700 w-40 focus:w-64 transition-all outline-none focus:border-[#0A3B32] focus:bg-white shadow-sm"
+              />
+            </form>
+
+            {/* LISTA DESPLEGABLE DE COINCIDENCIAS (AUTOCOMPLETADO) */}
+            {showSearchDropdown && busquedaRapida.length > 0 && (informesMatch.length > 0 || planesMatch.length > 0) && (
+              <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-2xl z-[100] overflow-hidden max-h-96 overflow-y-auto flex flex-col animate-in fade-in slide-in-from-top-2">
+                
+                {informesMatch.length > 0 && (
+                  <div className="border-b border-slate-100">
+                    <h4 className="text-[9px] font-black text-[#0A3B32] uppercase tracking-widest bg-[#f0fdf4] py-1.5 px-3">Informes Encontrados</h4>
+                    <div className="p-1">
+                      {informesMatch.map(inf => (
+                        <button type="button" key={`s-inf-${inf.id}`} onClick={() => seleccionarInforme(inf)} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2">
+                          <span className="text-xl shrink-0">📂</span>
+                          <div className="truncate w-full">
+                            <p className="text-[11px] font-black text-slate-800">{inf.ref}</p>
+                            <p className="text-[9px] text-slate-500 truncate" title={inf.titulo}>{inf.titulo}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {planesMatch.length > 0 && (
+                  <div>
+                    <h4 className="text-[9px] font-black text-blue-800 uppercase tracking-widest bg-blue-50 py-1.5 px-3">Planes Encontrados</h4>
+                    <div className="p-1">
+                      {planesMatch.map(p => (
+                        <button type="button" key={`s-plan-${p.id}`} onClick={() => seleccionarPlan(p)} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2">
+                          <span className="text-xl shrink-0">📋</span>
+                          <div className="truncate w-full">
+                            <p className="text-[11px] font-black text-slate-800 font-mono">PLA-{p.id.toString().slice(-4)}</p>
+                            <p className="text-[9px] text-slate-500 truncate" title={p.accion}>{p.accion}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* 👉 AQUÍ TERMINA LA BARRA DE BÚSQUEDA RÁPIDA */}
 
           <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Resumen Visual</button>
           <button onClick={() => setVistaActiva('historial')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📜 Historial Matriz</button>
