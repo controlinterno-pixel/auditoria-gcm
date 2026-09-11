@@ -1381,7 +1381,6 @@ if (showWelcome) {
 }
 return (
     <div className="flex h-screen bg-slate-50 warm:bg-[#f5f3ef] dark:bg-[#040914] font-sans overflow-hidden transition-colors duration-500">
-      {isPresentationMode && (
       {/* BOTÓN FLOTANTE: SALIR DE MODO PRESENTACIÓN */}
       {isPresentationMode && (
         <button 
