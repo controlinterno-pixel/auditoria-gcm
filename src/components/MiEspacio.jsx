@@ -183,22 +183,40 @@ const [pestanaActiva, setPestanaActiva] = useState('resumen');
   return (
     <div className="space-y-6 text-left">
       
-      {/* 1️⃣ BANNER CON BOTONES DE ACCIÓN */}
-      <div className="bg-[#0a1122] border border-blue-500/20 p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
-        <div className="space-y-1 relative z-10">
-          <h2 className="text-2xl sm:text-3xl font-black text-white">¡Buen día, <span className="text-emerald-400 capitalize">{usuarioNombre}</span>!</h2>
-          <p className="text-xs text-slate-400 font-bold">Consola de Gobierno, Gestión de Riesgos y Cumplimiento Normativo • Termales Santa Rosa</p>
+      {/* 1️⃣ BANNER CON BOTONES DE ACCIÓN (CON FONDO DE MONTAÑAS) */}
+      <div 
+        className="relative p-6 sm:p-8 rounded-3xl shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 overflow-hidden border border-slate-700/50"
+      >
+        {/* Capa de Imagen de Fondo */}
+        <div 
+          className="absolute inset-0 z-0 bg-cover bg-center"
+          style={{ 
+            backgroundImage: "url('/montanas.png')",
+          }}
+        />
+        
+        {/* Capas Superpuestas (Overlays) para legibilidad */}
+        <div className="absolute inset-0 z-10 bg-[#0a1122]/70 mix-blend-multiply" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-r from-[#0a1122] via-[#0a1122]/80 to-transparent" />
+
+        <div className="space-y-1 relative z-20">
+          <h2 className="text-2xl sm:text-3xl font-black text-white drop-shadow-md">
+            ¡Buen día, <span className="text-emerald-400 capitalize drop-shadow-md">{usuarioNombre}</span>!
+          </h2>
+          <p className="text-xs text-slate-200 font-bold drop-shadow">
+            Consola de Gobierno, Gestión de Riesgos y Cumplimiento Normativo • Termales Santa Rosa
+          </p>
         </div>
-        <div className="flex flex-wrap gap-3 relative z-10">
+        <div className="flex flex-wrap gap-3 relative z-20">
           <button 
             onClick={() => { if(setActiveTab) setActiveTab('resultados_tab'); if(setSubTabResultados) setSubTabResultados('informes'); if(scrollToForm) scrollToForm(); }} 
-            className="bg-[#1e293b]/80 hover:bg-[#334155] text-blue-400 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-blue-500/30 transition-all shadow-md"
+            className="bg-slate-900/60 hover:bg-slate-800 backdrop-blur-sm text-blue-400 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-blue-500/50 transition-all shadow-lg"
           >
             FILTRAR INFORMES
           </button>
           <button 
             onClick={() => { if(setActiveTab) setActiveTab('planes_tab'); if(setSubTabPlanes) setSubTabPlanes('planes'); }} 
-            className="bg-[#1e1b4b]/80 hover:bg-[#312e81] text-purple-400 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-purple-500/30 transition-all shadow-md"
+            className="bg-indigo-900/80 hover:bg-indigo-800 backdrop-blur-sm text-purple-200 font-black py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider border border-purple-400/50 transition-all shadow-lg"
           >
             GESTIONAR PLANES
           </button>
