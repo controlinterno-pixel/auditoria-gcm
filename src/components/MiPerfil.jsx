@@ -13,9 +13,12 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
   const [photoURL, setPhotoURL] = useState(localStorage.getItem('userAvatar') || user?.photoURL || '');
   const [cargo, setCargo] = useState(localStorage.getItem('userCargo') || (isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso'));
 
-  const inicial = displayName 
+ const inicial = displayName 
     ? displayName.charAt(0).toUpperCase() 
     : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
+
+  // 🛡️ ROL FIJO DEL SISTEMA
+  const rolText = isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso';
 
 // 🧠 MOTOR DE AUTO-RECORTE INTELIGENTE
   const handleImageUpload = (e) => {
