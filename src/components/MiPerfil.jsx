@@ -18,23 +18,55 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
     ? displayName.charAt(0).toUpperCase() 
     : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
 
+// 🧠 MOTOR DE AUTO-RECORTE INTELIGENTE
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showNotification('Por favor, selecciona un archivo de imagen válido.', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 300; 
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        const scale = Math.max(size / img.width, size / img.height);
+        const x = (size - img.width * scale) / 2;
+        const y = (size - img.height * scale) / 2;
+
+        ctx.drawImage(img, 0, 0, img.width, img.height, x, y, img.width * scale, img.height * scale);
+
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+        setPhotoURL(compressedBase64); // Guardamos la foto recortada
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleUpdateProfile = async () => {
     setIsSaving(true);
     try {
-      // 1. Guardamos Nombre y Foto en Firebase
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, {
           displayName: displayName.trim(),
-          photoURL: photoURL.trim()
+          photoURL: photoURL 
         });
 
-        // 2. Actualizamos el objeto local para que no haya que recargar
+        // Actualizamos el objeto local
         if (user) {
           user.displayName = displayName.trim();
-          user.photoURL = photoURL.trim();
+          user.photoURL = photoURL;
         }
 
-        // 3. Guardamos el Cargo en la memoria del navegador
         localStorage.setItem('userCargo', cargo.trim());
 
         showNotification('Perfil actualizado con éxito.', 'success');
@@ -42,7 +74,7 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
       }
     } catch (error) {
       console.error(error);
-      showNotification('Error al actualizar el perfil.', 'error');
+      showNotification('Error al actualizar el perfil. La imagen podría ser muy grande.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -189,12 +221,27 @@ export default function MiPerfil({ user, isAdmin, showNotification }) {
                   </div>
                 </div>
 
+                {/* 💡 CARGA DE IMAGEN MEJORADA */}
                 {isEditing && (
-                  <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                    <span className="text-blue-400 mt-0.5">🖼️</span>
-                    <div className="flex-1">
-                      <p className="text-[10px] text-blue-800 font-bold uppercase tracking-wider">URL de Fotografía</p>
-                      <input type="url" value={photoURL} onChange={(e) => setPhotoURL(e.target.value)} placeholder="https://..." className="w-full mt-1 px-2 py-1 text-xs border border-blue-200 rounded focus:border-blue-500 focus:outline-none" />
+                  <div className="flex items-start gap-3 p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                    <span className="text-blue-400 mt-1.5">📷</span>
+                    <div className="flex-1 space-y-2">
+                      <div>
+                        <p className="text-[10px] text-blue-800 font-bold uppercase tracking-wider">Fotografía de Perfil</p>
+                        <p className="text-[9px] text-slate-500 mt-0.5">Sube una foto desde tu equipo. El sistema la centrará automáticamente.</p>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        <label className="cursor-pointer bg-white border border-blue-300 text-blue-600 text-[10px] font-bold py-1.5 px-3 rounded-lg shadow-sm hover:bg-blue-50 transition-colors">
+                          Explorar Archivos...
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={handleImageUpload} 
+                          />
+                        </label>
+                      </div>
                     </div>
                   </div>
                 )}
