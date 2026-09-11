@@ -547,7 +547,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
 
-              {/* 🛡️ HARD CONTROL: VINCULACIÓN OBLIGATORIA AL PROGRAMA */}
+             {/* 🛡️ HARD CONTROL: VINCULACIÓN OBLIGATORIA AL PROGRAMA */}
               <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2">
                 <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📋 Vincular Programa de Auditoría (Pre-requisito)</label>
                 <select
@@ -564,8 +564,10 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                   className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer"
                 >
                   <option value="">-- Seleccione un Programa Aprobado --</option>
-                  {safeProgramas.filter(p => p.estado === 'Aprobado').map(p => (
-                    <option key={p.id} value={p.id}>{p.entidad} - {p.proceso} ({p.vigencia})</option>
+                  {safeProgramas.filter(p => p.estado === 'Aprobado').map((p, idx) => (
+                    <option key={p.id} value={p.id}>
+                      [{p.ref || `PRG-2026-${String(idx + 1).padStart(3, '0')}`}] {p.proceso} — {p.subproceso || 'General'} ({p.vigencia || '2026'})
+                    </option>
                   ))}
                 </select>
                 <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">Al seleccionar el programa, el sistema autocompletará el área y proceso auditado.</p>

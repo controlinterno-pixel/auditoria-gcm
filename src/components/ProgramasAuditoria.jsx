@@ -175,10 +175,9 @@ export default function ProgramasAuditoria({
     setMatrizPruebas(matrizPruebas.filter(fila => fila.id !== id));
   };
 
-  const handleGuardarPrograma = async () => {
+const handleGuardarPrograma = async () => {
     const ts = new Date().toLocaleString();
     
-    // Validación básica
     if(!proceso || !objetivo) {
       alert("⚠️ Faltan campos obligatorios en el Paso 1 (Proceso y Objetivo General).");
       setStep(1);
@@ -187,8 +186,10 @@ export default function ProgramasAuditoria({
 
     let updatedList;
     if (editPrograma) {
+      const refFinal = editPrograma.ref || `PRG-2026-${String(safeProgramas.findIndex(p => p.id === editPrograma.id) + 1).padStart(3, '0')}`;
       const mod = {
         ...editPrograma,
+        ref: refFinal,
         entidad, vigencia, proceso, subproceso, elaboradoPor, revisadoPor, aprobadoPor,
         objetivo, objetivosEspecificos, alcance, cronogramaTexto, archivoAdjuntoUrl, 
         matrizPruebas, estado: estadoPrograma,
@@ -196,8 +197,15 @@ export default function ProgramasAuditoria({
       };
       updatedList = safeProgramas.map(p => p.id === editPrograma.id ? mod : p);
     } else {
+      const maxNum = safeProgramas.reduce((max, p, i) => {
+        const num = parseInt(p.ref?.split('-')?.[2] || (i + 1), 10);
+        return num > max ? num : max;
+      }, 0);
+      const nuevoRef = `PRG-2026-${String(maxNum + 1).padStart(3, '0')}`;
+
       const nuevo = {
         id: Date.now(),
+        ref: nuevoRef,
         entidad, vigencia, proceso, subproceso, elaboradoPor, revisadoPor, aprobadoPor,
         objetivo, objetivosEspecificos, alcance, cronogramaTexto, archivoAdjuntoUrl, 
         matrizPruebas, estado: estadoPrograma,
@@ -210,7 +218,7 @@ export default function ProgramasAuditoria({
 
     setProgramas(updatedList);
     await saveToCloud({ programas: updatedList });
-    alert(`✅ Programa guardado con éxito en estado: ${estadoPrograma}`);
+    alert(`✅ Programa guardado con éxito con consecutivo ${editPrograma?.ref || updatedList[updatedList.length - 1].ref}`);
     setVistaActiva('kanban');
   };
 
@@ -455,7 +463,12 @@ export default function ProgramasAuditoria({
                       <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors">
                         <td className="p-4 font-bold text-slate-800 flex items-center gap-2">
                           <span className="text-blue-500 text-lg bg-blue-50 p-1.5 rounded-lg">📄</span>
-                          {p.proceso ? `Auditoría al Proceso de ${p.proceso}` : 'Programa sin título'}
+                          <div>
+                            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 font-mono font-black rounded text-[9px] mr-2">
+                              {p.ref || `PRG-2026-${String(safeProgramas.findIndex(x => x.id === p.id) + 1).padStart(3, '0')}`}
+                            </span>
+                            {p.proceso ? `Auditoría al Proceso de ${p.proceso}` : 'Programa sin título'}
+                          </div>
                         </td>
                         <td className="p-4 text-slate-500">{p.proceso || '-'} <br/> <span className="text-[9px] font-bold text-slate-400">{p.subproceso}</span></td>
                         <td className="p-4 font-medium">{p.elaboradoPor?.split('@')[0] || 'Auditor Líder'}</td>
