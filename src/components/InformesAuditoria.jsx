@@ -227,22 +227,63 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
-      {/* 📋 CABECERA PRINCIPAL */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800">Informes Emitidos</h2>
-          <p className="text-xs text-slate-500 font-bold mt-1">Centro de gestión y consulta de informes de auditoría</p>
+      {/* 📋 CABECERA PRINCIPAL CON BANNER DE IMAGEN ESTILO PREMIUM */}
+      <div 
+        className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center p-6 gap-6 sticky top-0 z-40"
+      >
+        {/* IMAGEN DE FONDO CON OVERLAY */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center z-0"
+          style={{ backgroundImage: "url('/Informes.png')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070f1e] via-[#070f1e]/90 to-transparent z-10" />
+
+        {/* CONTENIDO IZQUIERDA */}
+        <div className="relative z-20 w-full md:w-3/5 flex flex-col gap-6">
+          
+          {/* Bloque 1: Título y descripción */}
+          <div className="flex items-start gap-4">
+            {/* Ícono Circular Campana */}
+            <div className="w-12 h-12 rounded-full border-[3px] border-blue-500/80 bg-blue-900/40 flex items-center justify-center shrink-0 mt-0.5 shadow-[0_0_15px_rgba(0,102,255,0.3)] backdrop-blur-sm">
+              <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </div>
+            
+            <div className="pt-1">
+              <h2 className="text-3xl font-black text-white drop-shadow-md tracking-tight">
+                Informes y Hallazgos
+              </h2>
+              <p className="text-[13px] text-slate-300 font-medium mt-1.5 leading-relaxed max-w-md">
+                Convierte la información en decisiones de alto impacto.
+              </p>
+            </div>
+          </div>
+
+          {/* Bloque 2: Frase destacada */}
+          <div className="ml-[64px]">
+            <h3 className="text-lg md:text-xl font-bold text-white drop-shadow-md leading-tight">
+              Los hallazgos de hoy, <br className="hidden md:block" /> construyen un mejor mañana.
+            </h3>
+            <div className="h-1.5 w-14 bg-blue-500 mt-3 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Resumen Visual</button>
-          <button onClick={() => setVistaActiva('historial')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📜 Historial Completo</button>
+
+        {/* BOTONERA DERECHA */}
+        <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+          <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
+          <button onClick={() => setVistaActiva('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
+          
           {isAdmin && (
-            <button onClick={handleCrearNuevoInforme} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md ${vistaActiva === 'nuevo' ? 'bg-[#0A3B32] text-white ring-4 ring-emerald-500/20' : 'bg-[#0A3B32] text-white hover:bg-[#062620]'}`}>
+            <button onClick={handleCrearNuevoInforme} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}>
               <span className="mr-2">➕</span> Nuevo Informe
             </button>
           )}
+
           {vistaActiva === 'historial' && typeof exportToExcel === 'function' && (
-             <button type="button" onClick={() => exportToExcel(safeInformes, 'Historico_Informes_Auditoria')} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2.5 rounded-xl text-[11px] uppercase tracking-widest shadow-md transition-colors flex items-center"><span className="mr-2">📥</span> Exportar</button>
+             <button type="button" onClick={() => exportToExcel(safeInformes, 'Historico_Informes_Auditoria')} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-emerald-600/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-600/40 shadow-sm flex items-center backdrop-blur-sm">
+               <span className="mr-2">📥</span> Exportar
+             </button>
           )}
         </div>
       </div>
