@@ -111,51 +111,140 @@ export default function Configuracion({
                     </div>
                   </div>
 
-                  {/* 🎛️ PANEL DE PERMISOS GRANULARES (Solo si NO es admin general) */}
+{/* 🎛️ PANEL DE PERMISOS GRANULARES (Solo si NO es admin general) */}
                   {u.rol !== 'admin' && (
-                    <div className="pt-3 border-t border-slate-200">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Módulos Permitidos (Solo lectura/edición según su rol de Gestor)</p>
-                      <div className="flex flex-wrap gap-2">
+                    <div className="pt-4 border-t border-slate-200 mt-2">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Accesos Modulares y Submódulos (Lectura/Edición)</p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {[
-                          { id: 'inicio', label: 'Tablero / Inicio' },
-                          { id: 'auditorias', label: 'Auditorías (Planificación)' },
-                          { id: 'riesgos', label: 'Riesgos y Apetito' },
-                          { id: 'hallazgos', label: 'Informes y Hallazgos' },
-                          { id: 'planes', label: 'Planes de Acción' },
-                          { id: 'gobernanza', label: 'Gobernanza e IA' }
+                          { 
+                            id: 'inicio', 
+                            label: 'Inicio', 
+                            subs: [
+                              { id: 'sub_mi_espacio', label: 'Mi Espacio GRC' },
+                              { id: 'sub_dashboard', label: 'GRC Dashboard' }
+                            ]
+                          },
+                          { 
+                            id: 'auditorias', 
+                            label: 'Auditorías', 
+                            subs: [
+                              { id: 'sub_cronograma', label: 'Cronograma Anual' },
+                              { id: 'sub_programas', label: 'Programas de Auditoría' },
+                              { id: 'sub_campo', label: 'Trabajo de Campo' }
+                            ]
+                          },
+                          { 
+                            id: 'riesgos', 
+                            label: 'Riesgos', 
+                            subs: [
+                              { id: 'sub_matriz_riesgos', label: 'Matriz de Riesgos' },
+                              { id: 'sub_apetito', label: 'Apetito de Riesgo' }
+                            ]
+                          },
+                          { 
+                            id: 'hallazgos', 
+                            label: 'Informes y Hallazgos', 
+                            subs: [
+                              { id: 'sub_informes', label: 'Informes Emitidos' },
+                              { id: 'sub_hallazgos', label: 'Hallazgos Registrados' },
+                              { id: 'sub_incidentes', label: 'Eventos de Pérdida' }
+                            ]
+                          },
+                          { 
+                            id: 'planes', 
+                            label: 'Planes de Acción', 
+                            subs: [
+                              { id: 'sub_seguimiento_planes', label: 'Seguimiento de Planes' }
+                            ]
+                          },
+                          { 
+                            id: 'gobernanza', 
+                            label: 'Gobernanza & IA', 
+                            subs: [
+                              { id: 'sub_comites', label: 'Sesiones de Comité' },
+                              { id: 'sub_trazabilidad', label: 'Bitácora Trazabilidad' },
+                              { id: 'sub_auditoria_auto', label: 'Auditoría Automatizada' }
+                            ]
+                          }
                         ].map(modulo => {
-                          const userPermisos = u.permisos || ['inicio', 'hallazgos', 'planes']; // Defaults
-                          const tienePermiso = userPermisos.includes(modulo.id);
+                          const userPermisos = u.permisos || ['inicio', 'sub_mi_espacio', 'hallazgos', 'sub_hallazgos', 'planes', 'sub_seguimiento_planes'];
+                          const moduloActivo = userPermisos.includes(modulo.id);
 
                           return (
-                            <label key={modulo.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-colors ${tienePermiso ? 'bg-[#f0fdf4] border-emerald-200 text-[#0A3B32]' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
-                              <input 
-                                type="checkbox" 
-                                checked={tienePermiso}
-                                onChange={async (e) => {
-                                  const isChecked = e.target.checked;
-                                  let nuevosPermisos = [...userPermisos];
-                                  
-                                  if (isChecked) {
-                                    nuevosPermisos.push(modulo.id);
-                                  } else {
-                                    nuevosPermisos = nuevosPermisos.filter(p => p !== modulo.id);
-                                  }
+                            <div key={modulo.id} className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+                              {/* Checkbox Principal (Módulo) */}
+                              <label className={`flex items-center gap-2 text-[11px] font-black cursor-pointer mb-2 pb-2 border-b border-slate-100 ${moduloActivo ? 'text-[#0A3B32]' : 'text-slate-500'}`}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={moduloActivo}
+                                  onChange={async (e) => {
+                                    const isChecked = e.target.checked;
+                                    let nuevosPermisos = [...userPermisos];
+                                    
+                                    if (isChecked) {
+                                      nuevosPermisos.push(modulo.id);
+                                      // Al activar el padre, sugerimos activar sus hijos
+                                      modulo.subs.forEach(s => {
+                                        if(!nuevosPermisos.includes(s.id)) nuevosPermisos.push(s.id);
+                                      });
+                                    } else {
+                                      nuevosPermisos = nuevosPermisos.filter(p => p !== modulo.id);
+                                      // Al desactivar el padre, desactivamos todos sus hijos
+                                      modulo.subs.forEach(s => {
+                                        nuevosPermisos = nuevosPermisos.filter(p => p !== s.id);
+                                      });
+                                    }
 
-                                  // Guardamos en Firebase inmediatamente
-                                  try {
-                                    const userRef = doc(db, 'usuarios', u.id);
-                                    await updateDoc(userRef, { permisos: nuevosPermisos });
-                                    setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
-                                  } catch (error) {
-                                    console.error("Error actualizando permiso:", error);
-                                    alert("❌ No se pudo guardar el permiso en la base de datos.");
-                                  }
-                                }}
-                                className="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500"
-                              />
-                              {modulo.label}
-                            </label>
+                                    try {
+                                      const userRef = doc(db, 'usuarios', u.id);
+                                      await updateDoc(userRef, { permisos: nuevosPermisos });
+                                      setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
+                                    } catch (error) {
+                                      console.error("Error actualizando permiso:", error);
+                                      alert("❌ No se pudo guardar el permiso en la base de datos.");
+                                    }
+                                  }}
+                                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
+                                />
+                                {modulo.label}
+                              </label>
+
+                              {/* Checkboxes Hijos (Submódulos) */}
+                              <div className="flex flex-col gap-1.5 pl-6">
+                                {modulo.subs.map(sub => {
+                                  const subActivo = userPermisos.includes(sub.id);
+                                  return (
+                                    <label key={sub.id} className={`flex items-center gap-2 text-[10px] font-bold cursor-pointer transition-colors ${subActivo ? 'text-emerald-700' : 'text-slate-400 hover:text-slate-600'}`}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={subActivo}
+                                        disabled={!moduloActivo} // Si el padre está apagado, no puedes prender el hijo
+                                        onChange={async (e) => {
+                                          const isChecked = e.target.checked;
+                                          let nuevosPermisos = [...userPermisos];
+                                          
+                                          if (isChecked) nuevosPermisos.push(sub.id);
+                                          else nuevosPermisos = nuevosPermisos.filter(p => p !== sub.id);
+
+                                          try {
+                                            const userRef = doc(db, 'usuarios', u.id);
+                                            await updateDoc(userRef, { permisos: nuevosPermisos });
+                                            setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
+                                          } catch (error) {
+                                            console.error("Error actualizando permiso:", error);
+                                            alert("❌ No se pudo guardar el permiso en la base de datos.");
+                                          }
+                                        }}
+                                        className="w-3 h-3 text-emerald-500 rounded focus:ring-emerald-400 disabled:opacity-50 cursor-pointer"
+                                      />
+                                      {sub.label}
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
