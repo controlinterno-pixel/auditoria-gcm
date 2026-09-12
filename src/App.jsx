@@ -1390,8 +1390,7 @@ return (
         </button>
       )}
 
-{/* SIDEBAR CON NAV DE PROCESOS WORKFLOW (VERSIÓN PREMIUM ACORDEÓN) */}
-    <div 
+<div 
       className={`w-[260px] text-[#a3c2e0] flex flex-col shadow-2xl z-20 border-r border-slate-800/50 ${isPresentationMode ? 'hidden' : 'flex'} relative`}
       style={{
         background: 'linear-gradient(180deg, #041428 0%, #010613 100%)'
@@ -1412,8 +1411,8 @@ return (
         </div>
       </div>
 
-{/* MENÚ ACORDEÓN CON FUNCIÓN TOGGLE (OCULTAR/MOSTRAR) */}
-      <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto custom-scrollbar">
+     {/* MENÚ ACORDEÓN CON FUNCIÓN TOGGLE (OCULTAR/MOSTRAR) */}
+      <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto custom-scrollbar relative z-10">
 
         {/* 1. INICIO */}
         <div className="flex flex-col">
@@ -1431,8 +1430,8 @@ return (
           </button>
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'inicio' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => setActiveTab('tablero')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'tablero' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Mi Espacio GRC</button>
-              <button onClick={() => setActiveTab('dashboard_riesgos')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'dashboard_riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>GRC Dashboard</button>
+              <button onClick={() => setActiveTab('tablero')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'tablero' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Mi Espacio GRC</button>
+              <button onClick={() => setActiveTab('dashboard_riesgos')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'dashboard_riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>GRC Dashboard</button>
             </div>
           </div>
         </div>
@@ -1453,9 +1452,9 @@ return (
           </button>
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'auditorias' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('plan_anual'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'plan_anual' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Cronograma Anual</button>
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('programas'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'programas' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Programas de Auditoría</button>
-              {isAdmin && <button onClick={() => setActiveTab('evaluaciones')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'evaluaciones' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Trabajo de Campo</button>}
+              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('plan_anual'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'plan_anual' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Cronograma Anual</button>
+              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('programas'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'programas' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Programas de Auditoría</button>
+              {isAdmin && <button onClick={() => setActiveTab('evaluaciones')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'evaluaciones' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Trabajo de Campo</button>}
             </div>
           </div>
         </div>
@@ -1476,8 +1475,8 @@ return (
           </button>
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'riesgos' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('riesgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Matriz de Riesgos</button>
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('apetito'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'apetito' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Apetito de Riesgo</button>
+              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('riesgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Matriz de Riesgos</button>
+              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('apetito'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'apetito' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Apetito de Riesgo</button>
             </div>
           </div>
         </div>
@@ -1501,9 +1500,9 @@ return (
           </button>
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'hallazgos' ? 'max-h-60 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Informes Emitidos</button>}
-              <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>
-              <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('incidentes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>
+              {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Informes Emitidos</button>}
+              <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>
+              <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('incidentes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>
             </div>
           </div>
         </div>
@@ -1521,13 +1520,13 @@ return (
               <span className="font-bold">Planes de Acción</span>
             </div>
             <div className="flex items-center gap-2">
-              {pendingPlansCount > 0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">{pendingPlansCount}</span>}
+              {pendingPlansCount > 0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-md">{pendingPlansCount}</span>}
               <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'planes' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </div>
           </button>
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'planes' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg flex justify-between ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>
+              <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg flex justify-between ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>
                 Seguimiento de Planes {pendingPlansCount > 0 && <span className="text-rose-400">({pendingPlansCount})</span>}
               </button>
             </div>
@@ -1551,9 +1550,9 @@ return (
             </button>
             <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'gobernanza' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
               <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('comites'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Sesiones de Comité</button>
-                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('trazabilidad'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Bitácora Trazabilidad</button>
-                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('auditoria_auto'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/30'}`}>Auditoría Automatizada</button>
+                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('comites'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Sesiones de Comité</button>
+                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('trazabilidad'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Bitácora Trazabilidad</button>
+                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('auditoria_auto'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Auditoría Automatizada</button>
               </div>
             </div>
           </div>
@@ -1572,8 +1571,15 @@ return (
       </nav>
 
       {/* 👤 PERFIL DE USUARIO AL FONDO */}
-      <div className="p-4 border-t border-slate-800/80 bg-[#040914] shrink-0">
-        <div className="bg-slate-800/40 border border-slate-800 rounded-xl p-3 flex flex-col gap-3">
+      <div 
+        className="p-4 shrink-0 z-10"
+        style={{
+          background: 'linear-gradient(180deg, rgba(4, 25, 55, 0.8) 0%, rgba(1, 6, 19, 0.9) 100%)',
+          boxShadow: '0 -10px 25px rgba(0, 102, 255, 0.1)',
+          borderTop: '1px solid rgba(0, 102, 255, 0.2)'
+        }}
+      >
+        <div className="bg-slate-800/40 border border-[#0066ff1a] rounded-xl p-3 flex flex-col gap-3">
           
           {/* Info del usuario (Clickable) */}
           <div 
@@ -1581,7 +1587,7 @@ return (
             onClick={() => setActiveTab('mi_perfil')}
             title="Ir a mi perfil"
           >
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-lg shadow-inner shrink-0 overflow-hidden ring-2 ring-transparent group-hover:ring-blue-500 transition-all">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0055ff] to-[#00aaff] flex items-center justify-center text-white font-black text-lg shadow-[0_0_15px_rgba(0,102,255,0.4)] shrink-0 overflow-hidden ring-2 ring-transparent group-hover:ring-[#0055ff] transition-all">
               {(localStorage.getItem('userAvatar') || user?.photoURL) ? (
                 <img src={localStorage.getItem('userAvatar') || user?.photoURL} alt="Perfil" className="w-full h-full object-cover" />
               ) : (
@@ -1589,10 +1595,10 @@ return (
               )}
             </div>
             <div className="flex-1 overflow-hidden">
-              <h4 className="text-xs font-bold text-white truncate group-hover:text-blue-400 transition-colors">
+              <h4 className="text-xs font-bold text-white truncate group-hover:text-[#a3c2e0] transition-colors drop-shadow-sm">
                 {user?.displayName || user?.email?.split('@')[0] || 'Usuario'}
               </h4>
-              <p className="text-[9px] font-semibold text-blue-400 uppercase tracking-widest mt-0.5">
+              <p className="text-[9px] font-semibold text-[#00aaff] uppercase tracking-widest mt-0.5">
                 {isAdmin ? 'Auditor Líder' : 'Gestor de Proceso'}
               </p>
             </div>
@@ -1604,13 +1610,13 @@ return (
           <div className="flex flex-col gap-1">
             <button 
               onClick={() => setActiveTab('mi_perfil')} 
-              className="flex items-center justify-between text-[11px] font-bold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors px-2 py-1.5 rounded-lg w-full"
+              className="flex items-center justify-between text-[11px] font-bold text-[#a3c2e0] hover:text-white hover:bg-slate-800/60 transition-colors px-2 py-1.5 rounded-lg w-full"
             >
               <span>⚙️ Configurar Perfil</span>
             </button>
             <button 
               onClick={handleLogout} 
-              className="flex items-center justify-between text-[11px] font-bold text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors px-2 py-1.5 rounded-lg w-full"
+              className="flex items-center justify-between text-[11px] font-bold text-[#a3c2e0] hover:text-rose-400 hover:bg-rose-950/30 transition-colors px-2 py-1.5 rounded-lg w-full"
             >
               <span>Cerrar Sesión</span>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -1619,7 +1625,7 @@ return (
 
         </div>
       </div>
-    </div>
+    </div>  
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
 <Navbar 
