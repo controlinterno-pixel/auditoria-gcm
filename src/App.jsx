@@ -136,6 +136,7 @@ const [editComite, setEditComite] = useState(null);
   const [evaluaciones, setEvaluaciones] = useState([]);
   const [cronograma, setCronograma] = useState([]);
   const [monitoreo, setMonitoreo] = useState([]);
+  const [perfilUsuario, setPerfilUsuario] = useState(null); // 👈 LO MOVIMOS AQUÍ ARRIBA
 
   // =====================================================================
   // 🛡️ MOTOR DE SEGURIDAD A NIVEL DE FILA (RLS) - "Solo ver lo mío"
@@ -263,8 +264,6 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     setSelectedMeses(prev => prev.includes(mes) ? prev.filter(m => m !== mes) : [...prev, mes]);
   };
 // 🛡️ Estado y validación robusta de perfil/rol de usuario
-  const [perfilUsuario, setPerfilUsuario] = useState(null);
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
