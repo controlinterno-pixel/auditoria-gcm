@@ -12,6 +12,10 @@ export default function Configuracion({
 }) {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // 🔍 NUEVOS ESTADOS: Buscador y Acordeón
+  const [busquedaUsuario, setBusquedaUsuario] = useState('');
+  const [usuarioExpandido, setUsuarioExpandido] = useState(null);
 
   // Cargar lista de usuarios desde Firestore
   const cargarUsuarios = async () => {
@@ -47,6 +51,14 @@ export default function Configuracion({
     }
   };
 
+  // 🧮 LÓGICA DEL BUSCADOR
+  const usuariosFiltrados = usuarios.filter(u => {
+    const termino = busquedaUsuario.toLowerCase();
+    const nombre = (u.nombre || '').toLowerCase();
+    const email = (u.email || '').toLowerCase();
+    return nombre.includes(termino) || email.includes(termino);
+  });
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="border-b pb-4">
@@ -54,19 +66,35 @@ export default function Configuracion({
         <p className="text-xs text-slate-500 font-bold mt-1">Gestión avanzada de la base de datos, copias de seguridad y usuarios.</p>
       </div>
 
-{/* 👥 NUEVA SECCIÓN: GESTIÓN DE USUARIOS Y ROLES (GRANULAR) */}
+      {/* 👥 NUEVA SECCIÓN: GESTIÓN DE USUARIOS Y ROLES (GRANULAR + ACORDEÓN) */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-        <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-4">
+        
+        {/* CABECERA Y BUSCADOR */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-slate-100 pb-4 gap-4">
           <div>
             <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm mb-1">👥 Gestión de Usuarios y Accesos Modulares</h3>
             <p className="text-xs text-slate-500">Asigna roles o define permisos específicos por módulo para cada colaborador de Termales Santa Rosa.</p>
           </div>
-          <button 
-            onClick={cargarUsuarios}
-            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
-          >
-            🔄 Refrescar Usuarios
-          </button>
+          
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative w-full md:w-64">
+              <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+              <input 
+                type="text" 
+                placeholder="Buscar nombre o correo..." 
+                value={busquedaUsuario}
+                onChange={(e) => setBusquedaUsuario(e.target.value)}
+                className="pl-8 pr-3 py-2 w-full bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[#0A3B32] shadow-sm transition-all focus:bg-white"
+              />
+            </div>
+            <button 
+              onClick={cargarUsuarios}
+              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl transition-all shadow-sm shrink-0"
+              title="Refrescar base de datos"
+            >
+              🔄
+            </button>
+          </div>
         </div>
 
         {loading ? (
@@ -75,15 +103,26 @@ export default function Configuracion({
             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Sincronizando Usuarios...</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {usuarios.length === 0 ? (
-              <p className="p-4 text-center text-slate-400 italic text-xs font-bold border border-slate-200 border-dashed rounded-xl">No hay usuarios registrados aún.</p>
+          <div className="space-y-3">
+            {usuariosFiltrados.length === 0 ? (
+              <p className="p-8 text-center text-slate-400 italic text-xs font-bold border border-slate-200 border-dashed rounded-xl bg-slate-50">
+                No se encontraron usuarios que coincidan con la búsqueda.
+              </p>
             ) : (
-              usuarios.map((u) => (
-                <div key={u.id} className="border border-slate-200 rounded-2xl p-4 bg-slate-50 hover:bg-white hover:shadow-md transition-all">
-                  <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-4">
+              usuariosFiltrados.map((u) => {
+                const isExpanded = usuarioExpandido === u.id;
+                
+                return (
+                <div key={u.id} className={`border rounded-2xl bg-slate-50 hover:bg-white transition-all duration-300 ${isExpanded ? 'border-[#0A3B32] shadow-md ring-1 ring-[#0A3B32]/10' : 'border-slate-200 hover:shadow-md'}`}>
+                  
+                  {/* 🔽 ENCABEZADO DEL ACORDEÓN (SIEMPRE VISIBLE) */}
+                  <div 
+                    onClick={() => setUsuarioExpandido(isExpanded ? null : u.id)}
+                    className="p-4 flex flex-col md:flex-row justify-between md:items-center gap-4 cursor-pointer group"
+                    title={isExpanded ? "Ocultar detalles" : "Clic para ver configuración del usuario"}
+                  >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-black text-lg shrink-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg shrink-0 transition-colors ${isExpanded ? 'bg-[#0A3B32] text-white shadow-sm' : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'}`}>
                         {u.nombre ? u.nombre.charAt(0).toUpperCase() : u.email.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -92,7 +131,7 @@ export default function Configuracion({
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-3 w-full md:w-auto">
+                    <div className="flex items-center gap-3 w-full md:w-auto" onClick={(e) => e.stopPropagation()}>
                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${
                         u.rol === 'admin' ? 'bg-purple-100 text-purple-700 border-purple-200' :
                         u.rol === 'auditor' ? 'bg-blue-100 text-blue-700 border-blue-200' :
@@ -100,7 +139,7 @@ export default function Configuracion({
                       }`}>
                         Rol: {u.rol || 'lider'}
                       </span>
-                     <select
+                      <select
                         value={u.rol || 'lider'}
                         onChange={(e) => handleCambiarRol(u.id, e.target.value)}
                         className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-bold focus:ring-2 focus:ring-[#0A3B32] outline-none shadow-sm cursor-pointer"
@@ -109,220 +148,231 @@ export default function Configuracion({
                         <option value="auditor">Auditor (Ver Todo)</option>
                         <option value="admin">Administrador (Total)</option>
                       </select>
-                    </div>
-                  </div>
-
-                  {/* 🔗 NUEVO: ASIGNACIÓN DE PROCESO Y NOMBRE PARA RLS (ROW-LEVEL SECURITY) */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-4">
-                    <div className="flex justify-between items-center mb-2 border-b border-slate-100 pb-2">
-                      <p className="text-[9px] font-black text-[#0A3B32] uppercase tracking-widest">🛡️ Seguridad a Nivel de Fila (Filtro Automático Inteligente)</p>
-                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200" title="Los cambios se guardan al instante en la base de datos">
-                        ☁️ Autoguardado Activo
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Nombre (Dueño Tarea)</label>
-                        <input 
-                          type="text" 
-                          value={u.nombreResponsable || ''} 
-                          placeholder="Ej: Oscar Restrepo"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, nombreResponsable: val } : usr));
-                          }}
-                          onBlur={async (e) => {
-                            const val = e.target.value;
-                            try {
-                              await updateDoc(doc(db, 'usuarios', u.id), { nombreResponsable: val });
-                            } catch (err) {}
-                          }}
-                          className="w-full text-[11px] p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-medium shadow-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Macroproceso / Área</label>
-                        <select 
-                          value={u.procesoAsignado || ''} 
-                          onChange={async (e) => {
-                            const val = e.target.value;
-                            setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, procesoAsignado: val, subprocesoAsignado: '' } : usr));
-                            try {
-                              await updateDoc(doc(db, 'usuarios', u.id), { procesoAsignado: val, subprocesoAsignado: '' });
-                            } catch (err) {}
-                          }}
-                          className="w-full text-[11px] p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 bg-white cursor-pointer shadow-sm"
-                        >
-                          <option value="">-- Acceso Global / Sin área --</option>
-                          {Object.keys(MAPA_PROCESOS || {}).sort().map(p => (
-                            <option key={p} value={p}>{p}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Subproceso (Nivel Quirúrgico)</label>
-                        <select 
-                          value={u.subprocesoAsignado || ''} 
-                          disabled={!u.procesoAsignado}
-                          onChange={async (e) => {
-                            const val = e.target.value;
-                            setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, subprocesoAsignado: val } : usr));
-                            try {
-                              await updateDoc(doc(db, 'usuarios', u.id), { subprocesoAsignado: val });
-                            } catch (err) {}
-                          }}
-                          className="w-full text-[11px] p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-50 truncate"
-                        >
-                          <option value="">-- Ver todo el Macroproceso --</option>
-                          {((MAPA_PROCESOS || {})[u.procesoAsignado] || []).sort().map(sp => (
-                            <option key={sp} value={sp}>{sp}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 🎛️ PANEL DE PERMISOS GRANULARES (Solo si NO es admin general) */}
-                  {u.rol !== 'admin' && (
-                    <div className="pt-4 border-t border-slate-200 mt-2">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Accesos Modulares y Submódulos (Lectura/Edición)</p>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {[
-                          { 
-                            id: 'inicio', 
-                            label: 'Inicio', 
-                            subs: [
-                              { id: 'sub_mi_espacio', label: 'Mi Espacio GRC' },
-                              { id: 'sub_dashboard', label: 'GRC Dashboard' }
-                            ]
-                          },
-                          { 
-                            id: 'auditorias', 
-                            label: 'Auditorías', 
-                            subs: [
-                              { id: 'sub_cronograma', label: 'Cronograma Anual' },
-                              { id: 'sub_programas', label: 'Programas de Auditoría' },
-                              { id: 'sub_campo', label: 'Trabajo de Campo' }
-                            ]
-                          },
-                          { 
-                            id: 'riesgos', 
-                            label: 'Riesgos', 
-                            subs: [
-                              { id: 'sub_matriz_riesgos', label: 'Matriz de Riesgos' },
-                              { id: 'sub_apetito', label: 'Apetito de Riesgo' }
-                            ]
-                          },
-                          { 
-                            id: 'hallazgos', 
-                            label: 'Informes y Hallazgos', 
-                            subs: [
-                              { id: 'sub_informes', label: 'Informes Emitidos' },
-                              { id: 'sub_hallazgos', label: 'Hallazgos Registrados' },
-                              { id: 'sub_incidentes', label: 'Eventos de Pérdida' }
-                            ]
-                          },
-                          { 
-                            id: 'planes', 
-                            label: 'Planes de Acción', 
-                            subs: [
-                              { id: 'sub_seguimiento_planes', label: 'Seguimiento de Planes' }
-                            ]
-                          },
-                          { 
-                            id: 'gobernanza', 
-                            label: 'Gobernanza & IA', 
-                            subs: [
-                              { id: 'sub_comites', label: 'Sesiones de Comité' },
-                              { id: 'sub_trazabilidad', label: 'Bitácora Trazabilidad' },
-                              { id: 'sub_auditoria_auto', label: 'Auditoría Automatizada' }
-                            ]
-                          }
-                        ].map(modulo => {
-                          const userPermisos = u.permisos || ['inicio', 'sub_mi_espacio', 'hallazgos', 'sub_hallazgos', 'planes', 'sub_seguimiento_planes'];
-                          const moduloActivo = userPermisos.includes(modulo.id);
-
-                          return (
-                            <div key={modulo.id} className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
-                              {/* Checkbox Principal (Módulo) */}
-                              <label className={`flex items-center gap-2 text-[11px] font-black cursor-pointer mb-2 pb-2 border-b border-slate-100 ${moduloActivo ? 'text-[#0A3B32]' : 'text-slate-500'}`}>
-                                <input 
-                                  type="checkbox" 
-                                  checked={moduloActivo}
-                                  onChange={async (e) => {
-                                    const isChecked = e.target.checked;
-                                    let nuevosPermisos = [...userPermisos];
-                                    
-                                    if (isChecked) {
-                                      nuevosPermisos.push(modulo.id);
-                                      // Al activar el padre, sugerimos activar sus hijos
-                                      modulo.subs.forEach(s => {
-                                        if(!nuevosPermisos.includes(s.id)) nuevosPermisos.push(s.id);
-                                      });
-                                    } else {
-                                      nuevosPermisos = nuevosPermisos.filter(p => p !== modulo.id);
-                                      // Al desactivar el padre, desactivamos todos sus hijos
-                                      modulo.subs.forEach(s => {
-                                        nuevosPermisos = nuevosPermisos.filter(p => p !== s.id);
-                                      });
-                                    }
-
-                                    try {
-                                      const userRef = doc(db, 'usuarios', u.id);
-                                      await updateDoc(userRef, { permisos: nuevosPermisos });
-                                      setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
-                                    } catch (error) {
-                                      console.error("Error actualizando permiso:", error);
-                                      alert("❌ No se pudo guardar el permiso en la base de datos.");
-                                    }
-                                  }}
-                                  className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer"
-                                />
-                                {modulo.label}
-                              </label>
-
-                              {/* Checkboxes Hijos (Submódulos) */}
-                              <div className="flex flex-col gap-1.5 pl-6">
-                                {modulo.subs.map(sub => {
-                                  const subActivo = userPermisos.includes(sub.id);
-                                  return (
-                                    <label key={sub.id} className={`flex items-center gap-2 text-[10px] font-bold cursor-pointer transition-colors ${subActivo ? 'text-emerald-700' : 'text-slate-400 hover:text-slate-600'}`}>
-                                      <input 
-                                        type="checkbox" 
-                                        checked={subActivo}
-                                        disabled={!moduloActivo} // Si el padre está apagado, no puedes prender el hijo
-                                        onChange={async (e) => {
-                                          const isChecked = e.target.checked;
-                                          let nuevosPermisos = [...userPermisos];
-                                          
-                                          if (isChecked) nuevosPermisos.push(sub.id);
-                                          else nuevosPermisos = nuevosPermisos.filter(p => p !== sub.id);
-
-                                          try {
-                                            const userRef = doc(db, 'usuarios', u.id);
-                                            await updateDoc(userRef, { permisos: nuevosPermisos });
-                                            setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
-                                          } catch (error) {
-                                            console.error("Error actualizando permiso:", error);
-                                            alert("❌ No se pudo guardar el permiso en la base de datos.");
-                                          }
-                                        }}
-                                        className="w-3 h-3 text-emerald-500 rounded focus:ring-emerald-400 disabled:opacity-50 cursor-pointer"
-                                      />
-                                      {sub.label}
-                                    </label>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
+                      {/* Icono de Flecha */}
+                      <div className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${isExpanded ? 'bg-slate-100 text-slate-600' : 'text-slate-400 group-hover:bg-slate-100'}`}>
+                        <svg className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* 👁️ CUERPO DEL ACORDEÓN (CONFIGURACIÓN DETALLADA) */}
+                  {isExpanded && (
+                    <div className="p-4 sm:p-5 border-t border-slate-100 bg-white rounded-b-2xl animate-in slide-in-from-top-2 duration-300 space-y-5">
+                      
+                      {/* 🔗 RLS (ROW-LEVEL SECURITY) OPTIMIZADO CON ONBLUR */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-inner">
+                        <div className="flex flex-wrap justify-between items-center mb-3 border-b border-slate-200 pb-3 gap-2">
+                          <p className="text-[9px] font-black text-[#0A3B32] uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="text-sm">🛡️</span> Seguridad a Nivel de Fila (Filtro Inteligente)
+                          </p>
+                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Autoguardado Activo
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Nombre (Dueño Tarea)</label>
+                            <input 
+                              type="text" 
+                              value={u.nombreResponsable || ''} 
+                              placeholder="Ej: Oscar Restrepo"
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, nombreResponsable: val } : usr));
+                              }}
+                              onBlur={async (e) => {
+                                const val = e.target.value;
+                                try {
+                                  await updateDoc(doc(db, 'usuarios', u.id), { nombreResponsable: val });
+                                } catch (err) {}
+                              }}
+                              className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Macroproceso / Área</label>
+                            <select 
+                              value={u.procesoAsignado || ''} 
+                              onChange={async (e) => {
+                                const val = e.target.value;
+                                setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, procesoAsignado: val, subprocesoAsignado: '' } : usr));
+                                try {
+                                  await updateDoc(doc(db, 'usuarios', u.id), { procesoAsignado: val, subprocesoAsignado: '' });
+                                } catch (err) {}
+                              }}
+                              className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 bg-white cursor-pointer shadow-sm"
+                            >
+                              <option value="">-- Acceso Global / Sin área --</option>
+                              {Object.keys(MAPA_PROCESOS || {}).sort().map(p => (
+                                <option key={p} value={p}>{p}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-500 block mb-1">Subproceso (Nivel Quirúrgico)</label>
+                            <select 
+                              value={u.subprocesoAsignado || ''} 
+                              disabled={!u.procesoAsignado}
+                              onChange={async (e) => {
+                                const val = e.target.value;
+                                setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, subprocesoAsignado: val } : usr));
+                                try {
+                                  await updateDoc(doc(db, 'usuarios', u.id), { subprocesoAsignado: val });
+                                } catch (err) {}
+                              }}
+                              className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 truncate bg-white"
+                            >
+                              <option value="">-- Ver todo el Macroproceso --</option>
+                              {((MAPA_PROCESOS || {})[u.procesoAsignado] || []).sort().map(sp => (
+                                <option key={sp} value={sp}>{sp}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 🎛️ PANEL DE PERMISOS GRANULARES (Solo si NO es admin general) */}
+                      {u.rol !== 'admin' && (
+                        <div className="pt-2">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Accesos Modulares y Submódulos (Lectura/Edición)</p>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {[
+                              { 
+                                id: 'inicio', 
+                                label: 'Inicio', 
+                                subs: [
+                                  { id: 'sub_mi_espacio', label: 'Mi Espacio GRC' },
+                                  { id: 'sub_dashboard', label: 'GRC Dashboard' }
+                                ]
+                              },
+                              { 
+                                id: 'auditorias', 
+                                label: 'Auditorías', 
+                                subs: [
+                                  { id: 'sub_cronograma', label: 'Cronograma Anual' },
+                                  { id: 'sub_programas', label: 'Programas de Auditoría' },
+                                  { id: 'sub_campo', label: 'Trabajo de Campo' }
+                                ]
+                              },
+                              { 
+                                id: 'riesgos', 
+                                label: 'Riesgos', 
+                                subs: [
+                                  { id: 'sub_matriz_riesgos', label: 'Matriz de Riesgos' },
+                                  { id: 'sub_apetito', label: 'Apetito de Riesgo' }
+                                ]
+                              },
+                              { 
+                                id: 'hallazgos', 
+                                label: 'Informes y Hallazgos', 
+                                subs: [
+                                  { id: 'sub_informes', label: 'Informes Emitidos' },
+                                  { id: 'sub_hallazgos', label: 'Hallazgos Registrados' },
+                                  { id: 'sub_incidentes', label: 'Eventos de Pérdida' }
+                                ]
+                              },
+                              { 
+                                id: 'planes', 
+                                label: 'Planes de Acción', 
+                                subs: [
+                                  { id: 'sub_seguimiento_planes', label: 'Seguimiento de Planes' }
+                                ]
+                              },
+                              { 
+                                id: 'gobernanza', 
+                                label: 'Gobernanza & IA', 
+                                subs: [
+                                  { id: 'sub_comites', label: 'Sesiones de Comité' },
+                                  { id: 'sub_trazabilidad', label: 'Bitácora Trazabilidad' },
+                                  { id: 'sub_auditoria_auto', label: 'Auditoría Automatizada' }
+                                ]
+                              }
+                            ].map(modulo => {
+                              const userPermisos = u.permisos || ['inicio', 'sub_mi_espacio', 'hallazgos', 'sub_hallazgos', 'planes', 'sub_seguimiento_planes'];
+                              const moduloActivo = userPermisos.includes(modulo.id);
+
+                              return (
+                                <div key={modulo.id} className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm hover:border-[#0A3B32]/30 transition-colors">
+                                  {/* Checkbox Principal (Módulo) */}
+                                  <label className={`flex items-center gap-2 text-[11px] font-black cursor-pointer mb-2 pb-2 border-b border-slate-100 ${moduloActivo ? 'text-[#0A3B32]' : 'text-slate-500'}`}>
+                                    <input 
+                                      type="checkbox" 
+                                      checked={moduloActivo}
+                                      onChange={async (e) => {
+                                        const isChecked = e.target.checked;
+                                        let nuevosPermisos = [...userPermisos];
+                                        
+                                        if (isChecked) {
+                                          nuevosPermisos.push(modulo.id);
+                                          modulo.subs.forEach(s => {
+                                            if(!nuevosPermisos.includes(s.id)) nuevosPermisos.push(s.id);
+                                          });
+                                        } else {
+                                          nuevosPermisos = nuevosPermisos.filter(p => p !== modulo.id);
+                                          modulo.subs.forEach(s => {
+                                            nuevosPermisos = nuevosPermisos.filter(p => p !== s.id);
+                                          });
+                                        }
+
+                                        try {
+                                          const userRef = doc(db, 'usuarios', u.id);
+                                          await updateDoc(userRef, { permisos: nuevosPermisos });
+                                          setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
+                                        } catch (error) {
+                                          console.error("Error actualizando permiso:", error);
+                                        }
+                                      }}
+                                      className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 cursor-pointer border-slate-300"
+                                    />
+                                    {modulo.label}
+                                  </label>
+
+                                  {/* Checkboxes Hijos (Submódulos) */}
+                                  <div className="flex flex-col gap-1.5 pl-6 mt-2">
+                                    {modulo.subs.map(sub => {
+                                      const subActivo = userPermisos.includes(sub.id);
+                                      return (
+                                        <label key={sub.id} className={`flex items-center gap-2 text-[10px] font-bold cursor-pointer transition-colors ${subActivo ? 'text-emerald-700' : 'text-slate-400 hover:text-slate-600'}`}>
+                                          <input 
+                                            type="checkbox" 
+                                            checked={subActivo}
+                                            disabled={!moduloActivo}
+                                            onChange={async (e) => {
+                                              const isChecked = e.target.checked;
+                                              let nuevosPermisos = [...userPermisos];
+                                              
+                                              if (isChecked) nuevosPermisos.push(sub.id);
+                                              else nuevosPermisos = nuevosPermisos.filter(p => p !== sub.id);
+
+                                              try {
+                                                const userRef = doc(db, 'usuarios', u.id);
+                                                await updateDoc(userRef, { permisos: nuevosPermisos });
+                                                setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
+                                              } catch (error) {
+                                                console.error("Error actualizando permiso:", error);
+                                              }
+                                            }}
+                                            className="w-3.5 h-3.5 text-emerald-500 rounded focus:ring-emerald-400 disabled:opacity-50 cursor-pointer border-slate-300"
+                                          />
+                                          {sub.label}
+                                        </label>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                     </div>
                   )}
                 </div>
-              ))
+              )})
             )}
           </div>
         )}
