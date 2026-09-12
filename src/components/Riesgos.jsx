@@ -1769,7 +1769,7 @@ const renderMatriz = () => {
       />
 {/* 📋 CABECERA PRINCIPAL CON BANNER DE IMAGEN ESTILO PREMIUM */}
       <div 
-        className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center p-6 gap-6 sticky top-0 z-40"
+        className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center p-6 gap-6 mb-6 z-20"
       >
         {/* IMAGEN DE FONDO CON OVERLAY */}
         <div 
