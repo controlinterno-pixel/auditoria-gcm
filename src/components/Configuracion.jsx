@@ -121,25 +121,28 @@ export default function Configuracion({
                     className="p-4 flex flex-col md:flex-row justify-between md:items-center gap-4 cursor-pointer group"
                     title={isExpanded ? "Ocultar detalles" : "Clic para ver configuración del usuario"}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg shrink-0 transition-colors ${isExpanded ? 'bg-[#0A3B32] text-white shadow-sm' : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'}`}>
                         {u.nombre ? u.nombre.charAt(0).toUpperCase() : u.email.charAt(0).toUpperCase()}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-black text-slate-800 text-sm leading-tight">{u.nombre || 'Colaborador GRC'}</h4>
                         <p className="text-[10px] text-slate-500 font-mono mt-0.5">{u.email}</p>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-3 w-full md:w-auto" onClick={(e) => e.stopPropagation()}>
-                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${
+                    <div className="flex items-center justify-end gap-3 w-full md:w-auto">
+                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border hidden md:inline-block ${
                         u.rol === 'admin' ? 'bg-purple-100 text-purple-700 border-purple-200' :
                         u.rol === 'auditor' ? 'bg-blue-100 text-blue-700 border-blue-200' :
                         'bg-slate-100 text-slate-600 border-slate-200'
                       }`}>
                         Rol: {u.rol || 'lider'}
                       </span>
+                      
+                      {/* Evitamos que al cambiar el rol se abra/cierre el acordeón */}
                       <select
+                        onClick={(e) => e.stopPropagation()}
                         value={u.rol || 'lider'}
                         onChange={(e) => handleCambiarRol(u.id, e.target.value)}
                         className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-bold focus:ring-2 focus:ring-[#0A3B32] outline-none shadow-sm cursor-pointer"
@@ -150,7 +153,7 @@ export default function Configuracion({
                       </select>
                       
                       {/* Icono de Flecha */}
-                      <div className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${isExpanded ? 'bg-slate-100 text-slate-600' : 'text-slate-400 group-hover:bg-slate-100'}`}>
+                      <div className={`w-8 h-8 flex items-center justify-center rounded-full transition-all shrink-0 ${isExpanded ? 'bg-slate-200 text-slate-600' : 'text-slate-400 group-hover:bg-slate-200'}`}>
                         <svg className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
                       </div>
                     </div>
