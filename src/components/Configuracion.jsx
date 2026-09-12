@@ -53,69 +53,117 @@ export default function Configuracion({
         <p className="text-xs text-slate-500 font-bold mt-1">Gestión avanzada de la base de datos, copias de seguridad y usuarios.</p>
       </div>
 
-      {/* 👥 NUEVA SECCIÓN: GESTIÓN DE USUARIOS Y ROLES */}
+{/* 👥 NUEVA SECCIÓN: GESTIÓN DE USUARIOS Y ROLES (GRANULAR) */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-4">
           <div>
-            <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm mb-1">👥 Gestión de Usuarios y Roles RBAC</h3>
-            <p className="text-xs text-slate-500">Asigna y modifica permisos a los colaboradores de Termales Santa Rosa.</p>
+            <h3 className="font-black text-slate-800 uppercase tracking-widest text-sm mb-1">👥 Gestión de Usuarios y Accesos Modulares</h3>
+            <p className="text-xs text-slate-500">Asigna roles o define permisos específicos por módulo para cada colaborador de Termales Santa Rosa.</p>
           </div>
           <button 
             onClick={cargarUsuarios}
-            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl transition-all"
+            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
           >
             🔄 Refrescar Usuarios
           </button>
         </div>
 
         {loading ? (
-          <p className="text-xs text-slate-400 py-4">Cargando usuarios de Firestore...</p>
+          <div className="flex flex-col items-center justify-center py-8 opacity-60">
+            <span className="text-3xl animate-bounce mb-2">⏳</span>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Sincronizando Usuarios...</p>
+          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-600">
-              <thead className="bg-slate-50 uppercase text-[10px] font-black text-slate-400 border-b border-slate-200">
-                <tr>
-                  <th className="p-3">Nombre / Colaborador</th>
-                  <th className="p-3">Correo Corporativo</th>
-                  <th className="p-3">Rol Actual</th>
-                  <th className="p-3 text-right">Cambiar Rol</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                {usuarios.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="p-4 text-center text-slate-400 italic">No hay usuarios registrados aún.</td>
-                  </tr>
-                ) : (
-                  usuarios.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-50/50">
-                      <td className="p-3 font-bold text-slate-800">{u.nombre || 'Colaborador'}</td>
-                      <td className="p-3 font-mono">{u.email}</td>
-                      <td className="p-3">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                          u.rol === 'admin' ? 'bg-purple-100 text-purple-700' :
-                          u.rol === 'auditor' ? 'bg-blue-100 text-blue-700' :
-                          'bg-slate-100 text-slate-700'
-                        }`}>
-                          {u.rol || 'lider'}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right">
-                        <select
-                          value={u.rol || 'lider'}
-                          onChange={(e) => handleCambiarRol(u.id, e.target.value)}
-                          className="bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-xl p-2 font-bold focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="lider">Líder de Proceso</option>
-                          <option value="auditor">Auditor Interno</option>
-                          <option value="admin">Administrador (Admin)</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {usuarios.length === 0 ? (
+              <p className="p-4 text-center text-slate-400 italic text-xs font-bold border border-slate-200 border-dashed rounded-xl">No hay usuarios registrados aún.</p>
+            ) : (
+              usuarios.map((u) => (
+                <div key={u.id} className="border border-slate-200 rounded-2xl p-4 bg-slate-50 hover:bg-white hover:shadow-md transition-all">
+                  <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-black text-lg shrink-0">
+                        {u.nombre ? u.nombre.charAt(0).toUpperCase() : u.email.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <h4 className="font-black text-slate-800 text-sm leading-tight">{u.nombre || 'Colaborador GRC'}</h4>
+                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">{u.email}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                      <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${
+                        u.rol === 'admin' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                        u.rol === 'auditor' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                        'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}>
+                        Rol: {u.rol || 'lider'}
+                      </span>
+                      <select
+                        value={u.rol || 'lider'}
+                        onChange={(e) => handleCambiarRol(u.id, e.target.value)}
+                        className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-bold focus:ring-2 focus:ring-[#0A3B32] outline-none shadow-sm cursor-pointer"
+                      >
+                        <option value="lider">Líder (Personalizado)</option>
+                        <option value="auditor">Auditor (Ver Todo)</option>
+                        <option value="admin">Administrador (Total)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* 🎛️ PANEL DE PERMISOS GRANULARES (Solo si NO es admin general) */}
+                  {u.rol !== 'admin' && (
+                    <div className="pt-3 border-t border-slate-200">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Módulos Permitidos (Solo lectura/edición según su rol de Gestor)</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { id: 'inicio', label: 'Tablero / Inicio' },
+                          { id: 'auditorias', label: 'Auditorías (Planificación)' },
+                          { id: 'riesgos', label: 'Riesgos y Apetito' },
+                          { id: 'hallazgos', label: 'Informes y Hallazgos' },
+                          { id: 'planes', label: 'Planes de Acción' },
+                          { id: 'gobernanza', label: 'Gobernanza e IA' }
+                        ].map(modulo => {
+                          const userPermisos = u.permisos || ['inicio', 'hallazgos', 'planes']; // Defaults
+                          const tienePermiso = userPermisos.includes(modulo.id);
+
+                          return (
+                            <label key={modulo.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-colors ${tienePermiso ? 'bg-[#f0fdf4] border-emerald-200 text-[#0A3B32]' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
+                              <input 
+                                type="checkbox" 
+                                checked={tienePermiso}
+                                onChange={async (e) => {
+                                  const isChecked = e.target.checked;
+                                  let nuevosPermisos = [...userPermisos];
+                                  
+                                  if (isChecked) {
+                                    nuevosPermisos.push(modulo.id);
+                                  } else {
+                                    nuevosPermisos = nuevosPermisos.filter(p => p !== modulo.id);
+                                  }
+
+                                  // Guardamos en Firebase inmediatamente
+                                  try {
+                                    const userRef = doc(db, 'usuarios', u.id);
+                                    await updateDoc(userRef, { permisos: nuevosPermisos });
+                                    setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, permisos: nuevosPermisos } : usr));
+                                  } catch (error) {
+                                    console.error("Error actualizando permiso:", error);
+                                    alert("❌ No se pudo guardar el permiso en la base de datos.");
+                                  }
+                                }}
+                                className="w-3.5 h-3.5 text-emerald-600 rounded focus:ring-emerald-500"
+                              />
+                              {modulo.label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
