@@ -69,8 +69,33 @@ export default function MiEspacio({
   activeTab, setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm,
   selectedProceso, setSelectedProceso
 }) {
-  const usuarioNombre = user?.email?.split('@')[0] || 'Controlinterno';
-const [pestanaActiva, setPestanaActiva] = useState('resumen');
+  // Lógica inteligente para mostrar el nombre ("Primer Nombre + Primer Apellido")
+  const getNombreFormateado = () => {
+    // 1. Si el usuario ya configuró su nombre en "Mi Perfil" (displayName), lo usamos
+    if (user?.displayName) {
+      const partes = user.displayName.split(' ');
+      // Devuelve la primera y segunda palabra (ej. "Yehison Pineda")
+      if (partes.length >= 2) return `${partes[0]} ${partes[1]}`;
+      return partes[0];
+    }
+    
+    // 2. Si no tiene nombre configurado, limpiamos la parte antes del @ del correo
+    const emailPrefix = user?.email?.split('@')[0] || 'Controlinterno';
+    
+    // Si el prefijo tiene un punto (ej. yehison.pineda), lo usamos como separador de nombre y apellido
+    if (emailPrefix.includes('.')) {
+      const partesEmail = emailPrefix.split('.');
+      const nombreLimpio = partesEmail[0].charAt(0).toUpperCase() + partesEmail[0].slice(1);
+      const apellidoLimpio = partesEmail[1].charAt(0).toUpperCase() + partesEmail[1].slice(1);
+      return `${nombreLimpio} ${apellidoLimpio}`;
+    }
+    
+    // Si no tiene punto, capitalizamos la palabra completa
+    return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+  };
+
+  const usuarioNombre = getNombreFormateado();
+  const [pestanaActiva, setPestanaActiva] = useState('resumen');
   
   // Listas seguras contra valores nulos
   const programasList = Array.isArray(safeProgramas) ? safeProgramas : [];
