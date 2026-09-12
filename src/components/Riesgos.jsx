@@ -1767,30 +1767,64 @@ const renderMatriz = () => {
         aiModal={dictamenIA ? { titulo: dictamenIA.titulo, contenido: dictamenIA.dictamen } : null} 
         setAiModal={setDictamenIA} 
       />
-      {/* CABECERA */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800">Matriz de Riesgos</h2>
-          <p className="text-xs text-slate-500 font-bold mt-1">Gestión corporativa integral de riesgos y controles (ISO 31000 - Termales de Santa Rosa de Cabal.)</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Dashboard</button>
-          <button onClick={() => setVistaActiva('matriz')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'matriz' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📋 Ver Matriz</button>
+{/* 📋 CABECERA PRINCIPAL CON BANNER DE IMAGEN ESTILO PREMIUM */}
+      <div 
+        className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center p-6 gap-6 sticky top-0 z-40"
+      >
+        {/* IMAGEN DE FONDO CON OVERLAY */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center z-0"
+          style={{ backgroundImage: "url('/matriz_riesgos.png')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070f1e] via-[#070f1e]/90 to-transparent z-10" />
+
+        {/* CONTENIDO IZQUIERDA */}
+        <div className="relative z-20 w-full md:w-3/5 flex flex-col gap-6">
           
-          {/* 👇 BOTÓN DE EXCEL 👇 */}
-          <button onClick={exportarAExcel} className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 shadow-sm flex items-center">
+          {/* Bloque 1: Título y descripción */}
+          <div className="flex items-start gap-4">
+            {/* Ícono Circular */}
+            <div className="w-12 h-12 rounded-full border-[3px] border-blue-500/80 bg-blue-900/40 flex items-center justify-center shrink-0 mt-0.5 shadow-[0_0_15px_rgba(0,102,255,0.3)] backdrop-blur-sm">
+              <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            
+            <div className="pt-1">
+              <h2 className="text-3xl font-black text-white drop-shadow-md tracking-tight">
+                Riesgos
+              </h2>
+              <p className="text-[13px] text-slate-300 font-medium mt-1.5 leading-relaxed max-w-md">
+                Identifica, prioriza y mitiga lo que puede afectar tus objetivos.
+              </p>
+            </div>
+          </div>
+
+          {/* Bloque 2: Frase destacada */}
+          <div className="ml-[64px]">
+            <h3 className="text-lg md:text-xl font-bold text-white drop-shadow-md leading-tight">
+              Anticiparse siempre será <br className="hidden md:block" /> una ventaja.
+            </h3>
+            <div className="h-1.5 w-14 bg-blue-500 mt-3 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
+          </div>
+        </div>
+        
+        {/* BOTONERA DERECHA */}
+        <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+          <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Dashboard</button>
+          <button onClick={() => setVistaActiva('matriz')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'matriz' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📋 Ver Matriz</button>
+          
+          <button onClick={exportarAExcel} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-emerald-600/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-600/40 shadow-sm flex items-center backdrop-blur-sm">
             <span className="mr-2">📥</span> Descargar Excel
           </button>
 
-          {/* 👇 NUEVO BOTÓN: ANÁLISIS GLOBAL IA 👇 */}
-          <button onClick={solicitarAnalisisGlobalIA} className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 shadow-sm flex items-center">
+          <button onClick={solicitarAnalisisGlobalIA} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all bg-purple-600/20 text-purple-400 border border-purple-500/50 hover:bg-purple-600/40 shadow-sm flex items-center backdrop-blur-sm">
             <span className="mr-2">✨</span> Informe Global IA
           </button>
 
-       {/* 🔓 Habilitado para que cualquier usuario cree riesgos */}
-<button onClick={handleNuevoRiesgo} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md bg-[#0A3B32] text-white hover:bg-[#062620]">
-  <span className="mr-2">➕</span> Nuevo Riesgo
-</button>
+          <button onClick={handleNuevoRiesgo} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg bg-[#0A3B32] text-white hover:bg-[#062620] border border-emerald-900">
+            <span className="mr-2">➕</span> Nuevo Riesgo
+          </button>
         </div>
       </div>
 
