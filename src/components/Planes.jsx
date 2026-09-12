@@ -806,17 +806,35 @@ const handleNotificarPlan = (planId) => {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#070f1e] via-[#070f1e]/90 to-transparent z-10" />
 
-        {/* CONTENIDO IZQUIERDA */}
-        <div className="relative z-20 w-full md:w-3/5">
-          <h2 className="text-3xl font-black text-white flex items-center gap-3 drop-shadow-md">
-            ¡Buen día, Controlinterno!
-          </h2>
-          <p className="text-sm text-slate-300 font-bold mt-2 leading-relaxed">
-            Bienvenido a GCM Auditor. Aquí tienes una visión general del estado de auditoría, riesgos y planes de acción de toda la organización.
-          </p>
-          <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mt-4 flex items-center gap-2">
-            CONSOLA DE GOBIERNO, GESTIÓN DE RIESGOS Y CUMPLIMIENTO NORMATIVO - TERMALES SANTA ROSA
-          </p>
+       {/* CONTENIDO IZQUIERDA */}
+        <div className="relative z-20 w-full md:w-3/5 flex flex-col gap-6">
+          
+          {/* Bloque 1: Título y descripción */}
+          <div className="flex items-start gap-4">
+            {/* Ícono Circular */}
+            <div className="w-12 h-12 rounded-full border-[3px] border-blue-500/80 bg-blue-900/40 flex items-center justify-center shrink-0 mt-0.5 shadow-[0_0_15px_rgba(0,102,255,0.3)] backdrop-blur-sm">
+              <svg className="w-6 h-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            
+            <div className="pt-1">
+              <h2 className="text-3xl font-black text-white drop-shadow-md tracking-tight">
+                Planes de Acción
+              </h2>
+              <p className="text-[13px] text-slate-300 font-medium mt-1.5 leading-relaxed max-w-md">
+                Transforma los hallazgos en acciones concretas y da seguimiento a su cumplimiento.
+              </p>
+            </div>
+          </div>
+
+          {/* Bloque 2: Frase destacada */}
+          <div className="ml-[64px]">
+            <h3 className="text-lg md:text-xl font-bold text-white drop-shadow-md leading-tight">
+              La ejecución también es <br className="hidden md:block" /> un resultado.
+            </h3>
+            <div className="h-1.5 w-14 bg-blue-500 mt-3 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"></div>
+          </div>
         </div>
         
         {/* BOTONERA DERECHA */}
