@@ -114,7 +114,12 @@ export default function Configuracion({
 
                   {/* 🔗 NUEVO: ASIGNACIÓN DE PROCESO Y NOMBRE PARA RLS (ROW-LEVEL SECURITY) */}
                   <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-4">
-                    <p className="text-[9px] font-black text-[#0A3B32] uppercase tracking-widest mb-2 border-b border-slate-100 pb-2">🛡️ Seguridad a Nivel de Fila (Filtro Automático Inteligente)</p>
+                    <div className="flex justify-between items-center mb-2 border-b border-slate-100 pb-2">
+                      <p className="text-[9px] font-black text-[#0A3B32] uppercase tracking-widest">🛡️ Seguridad a Nivel de Fila (Filtro Automático Inteligente)</p>
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200" title="Los cambios se guardan al instante en la base de datos">
+                        ☁️ Autoguardado Activo
+                      </span>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 block mb-1">Nombre (Dueño Tarea)</label>
@@ -122,9 +127,12 @@ export default function Configuracion({
                           type="text" 
                           value={u.nombreResponsable || ''} 
                           placeholder="Ej: Oscar Restrepo"
-                          onChange={async (e) => {
+                          onChange={(e) => {
                             const val = e.target.value;
                             setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, nombreResponsable: val } : usr));
+                          }}
+                          onBlur={async (e) => {
+                            const val = e.target.value;
                             try {
                               await updateDoc(doc(db, 'usuarios', u.id), { nombreResponsable: val });
                             } catch (err) {}
@@ -138,7 +146,6 @@ export default function Configuracion({
                           value={u.procesoAsignado || ''} 
                           onChange={async (e) => {
                             const val = e.target.value;
-                            // Al cambiar macroproceso, limpiamos el subproceso para evitar inconsistencias
                             setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, procesoAsignado: val, subprocesoAsignado: '' } : usr));
                             try {
                               await updateDoc(doc(db, 'usuarios', u.id), { procesoAsignado: val, subprocesoAsignado: '' });
