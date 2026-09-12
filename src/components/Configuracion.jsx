@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 export default function Configuracion({
   isAdmin,
@@ -99,7 +100,7 @@ export default function Configuracion({
                       }`}>
                         Rol: {u.rol || 'lider'}
                       </span>
-                      <select
+                     <select
                         value={u.rol || 'lider'}
                         onChange={(e) => handleCambiarRol(u.id, e.target.value)}
                         className="bg-white border border-slate-300 text-slate-700 text-xs rounded-lg px-3 py-1.5 font-bold focus:ring-2 focus:ring-[#0A3B32] outline-none shadow-sm cursor-pointer"
@@ -111,7 +112,70 @@ export default function Configuracion({
                     </div>
                   </div>
 
-{/* 🎛️ PANEL DE PERMISOS GRANULARES (Solo si NO es admin general) */}
+                  {/* 🔗 NUEVO: ASIGNACIÓN DE PROCESO Y NOMBRE PARA RLS (ROW-LEVEL SECURITY) */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-4">
+                    <p className="text-[9px] font-black text-[#0A3B32] uppercase tracking-widest mb-2 border-b border-slate-100 pb-2">🛡️ Seguridad a Nivel de Fila (Filtro Automático Inteligente)</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Nombre (Dueño Tarea)</label>
+                        <input 
+                          type="text" 
+                          value={u.nombreResponsable || ''} 
+                          placeholder="Ej: Oscar Restrepo"
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, nombreResponsable: val } : usr));
+                            try {
+                              await updateDoc(doc(db, 'usuarios', u.id), { nombreResponsable: val });
+                            } catch (err) {}
+                          }}
+                          className="w-full text-[11px] p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-medium shadow-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Macroproceso / Área</label>
+                        <select 
+                          value={u.procesoAsignado || ''} 
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            // Al cambiar macroproceso, limpiamos el subproceso para evitar inconsistencias
+                            setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, procesoAsignado: val, subprocesoAsignado: '' } : usr));
+                            try {
+                              await updateDoc(doc(db, 'usuarios', u.id), { procesoAsignado: val, subprocesoAsignado: '' });
+                            } catch (err) {}
+                          }}
+                          className="w-full text-[11px] p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 bg-white cursor-pointer shadow-sm"
+                        >
+                          <option value="">-- Acceso Global / Sin área --</option>
+                          {Object.keys(MAPA_PROCESOS || {}).sort().map(p => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-500 block mb-1">Subproceso (Nivel Quirúrgico)</label>
+                        <select 
+                          value={u.subprocesoAsignado || ''} 
+                          disabled={!u.procesoAsignado}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, subprocesoAsignado: val } : usr));
+                            try {
+                              await updateDoc(doc(db, 'usuarios', u.id), { subprocesoAsignado: val });
+                            } catch (err) {}
+                          }}
+                          className="w-full text-[11px] p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-50 truncate"
+                        >
+                          <option value="">-- Ver todo el Macroproceso --</option>
+                          {((MAPA_PROCESOS || {})[u.procesoAsignado] || []).sort().map(sp => (
+                            <option key={sp} value={sp}>{sp}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 🎛️ PANEL DE PERMISOS GRANULARES (Solo si NO es admin general) */}
                   {u.rol !== 'admin' && (
                     <div className="pt-4 border-t border-slate-200 mt-2">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Accesos Modulares y Submódulos (Lectura/Edición)</p>

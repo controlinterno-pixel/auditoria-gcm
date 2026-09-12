@@ -137,11 +137,50 @@ const [editComite, setEditComite] = useState(null);
   const [cronograma, setCronograma] = useState([]);
   const [monitoreo, setMonitoreo] = useState([]);
 
-  const safeRiesgos = Array.isArray(riesgos) ? riesgos : [];
-  const safeHallazgos = Array.isArray(hallazgos) ? hallazgos : [];
-  const safePlanes = Array.isArray(planes) ? planes : [];
+  // =====================================================================
+  // 🛡️ MOTOR DE SEGURIDAD A NIVEL DE FILA (RLS) - "Solo ver lo mío"
+  // =====================================================================
+  
+  // 1. Verificamos si el usuario es Admin o tiene permisos de auditor (Ven TODO)
+  const isSuperUser = isAdmin || perfilUsuario?.rol === 'auditor';
+
+  // 2. Variables seguras para evitar errores .map()
+  const rawRiesgos = Array.isArray(riesgos) ? riesgos : [];
+  const rawHallazgos = Array.isArray(hallazgos) ? hallazgos : [];
+  const rawPlanes = Array.isArray(planes) ? planes : [];
+  const rawEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
+  const rawInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
+
+  // 3. Aplicamos el filtro si NO es super usuario
+  const applyRowLevelSecurity = (list, keyProceso, keyResp, keyCorreoResp) => {
+    if (isSuperUser) return list; // El Auditor/Admin ve la base de datos completa
+    
+    return list.filter(item => {
+      // Regla 1: Coincide el correo electrónico asignado (Para planes de acción)
+      if (keyCorreoResp && item[keyCorreoResp]?.toLowerCase() === user?.email?.toLowerCase()) return true;
+      
+      // Regla 2: Coincide el nombre del responsable configurado en el perfil
+      if (keyResp && perfilUsuario?.nombreResponsable && item[keyResp]?.toLowerCase().includes(perfilUsuario.nombreResponsable.toLowerCase())) return true;
+      
+      // Regla 3: Coincide el Proceso Dueño configurado en el perfil
+      if (keyProceso && perfilUsuario?.procesoAsignado && item[keyProceso] === perfilUsuario.procesoAsignado) return true;
+
+      // Si no cumple ninguna, se le oculta el registro
+      return false;
+    });
+  };
+
+  // 4. GENERAMOS LAS LISTAS FINALES (Pasamos las llaves: 'proceso', 'responsable', 'correo', 'subproceso')
+  const safePlanes = applyRowLevelSecurity(rawPlanes, 'proceso', 'responsable', 'correoResponsable', 'subproceso');
+  const safeHallazgos = applyRowLevelSecurity(rawHallazgos, 'proceso', 'responsable', null, 'subproceso');
+  const safeRiesgos = applyRowLevelSecurity(rawRiesgos, 'proceso', 'responsable', null, 'subproceso');
+  const safeEvaluaciones = applyRowLevelSecurity(rawEvaluaciones, 'proceso', null, null, 'subproceso');
+  
+  // Los informes de auditoría generalmente aplican por Macroproceso, pero si tienen subproceso, también se filtra
+  const informesGlobalesFiltrados = applyRowLevelSecurity(rawInformes, 'macroproceso', null, null, 'subproceso');
+
+  // Excepciones (Módulos que no requieren filtro RLS)
   const safeIncidentes = Array.isArray(incidentes) ? incidentes : [];
-  const safeEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
   const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
   const safeComites = Array.isArray(comites) ? comites : [];
