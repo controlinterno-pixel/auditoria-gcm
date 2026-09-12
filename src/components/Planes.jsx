@@ -795,15 +795,34 @@ const handleNotificarPlan = (planId) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
-     {/* 📋 CABECERA PRINCIPAL ESTILO ERP */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-0 z-40">
-        <div>
-          <h2 className="text-2xl font-black text-slate-800">Planes de Acción</h2>
-          <p className="text-xs text-slate-500 font-bold mt-1">Gestión, seguimiento y cierre de planes derivados de hallazgos</p>
+{/* 📋 CABECERA PRINCIPAL CON BANNER DE IMAGEN ESTILO PREMIUM */}
+      <div 
+        className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center p-6 gap-6 sticky top-0 z-40"
+      >
+        {/* IMAGEN DE FONDO CON OVERLAY */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center z-0"
+          style={{ backgroundImage: "url('/plan_de_accion.png')" }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070f1e] via-[#070f1e]/90 to-transparent z-10" />
+
+        {/* CONTENIDO IZQUIERDA */}
+        <div className="relative z-20 w-full md:w-3/5">
+          <h2 className="text-3xl font-black text-white flex items-center gap-3 drop-shadow-md">
+            ¡Buen día, Controlinterno!
+          </h2>
+          <p className="text-sm text-slate-300 font-bold mt-2 leading-relaxed">
+            Bienvenido a GCM Auditor. Aquí tienes una visión general del estado de auditoría, riesgos y planes de acción de toda la organización.
+          </p>
+          <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mt-4 flex items-center gap-2">
+            CONSOLA DE GOBIERNO, GESTIÓN DE RIESGOS Y CUMPLIMIENTO NORMATIVO - TERMALES SANTA ROSA
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+        
+        {/* BOTONERA DERECHA */}
+        <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
           
-{/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA CON DROPDOWN */}
+          {/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA CON DROPDOWN */}
           <div className="relative flex items-center mr-2 group">
             <form onSubmit={buscarPlanPorId} className="relative w-full">
               <span className="absolute left-3 top-2.5 text-[10px] text-slate-400">🔍</span>
@@ -817,7 +836,7 @@ const handleNotificarPlan = (planId) => {
                 }}
                 onFocus={() => setShowSearchDropdown(true)}
                 onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-                className="pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] font-black text-slate-700 w-40 focus:w-64 transition-all outline-none focus:border-[#0A3B32] focus:bg-white shadow-sm"
+                className="pl-8 pr-4 py-2.5 bg-slate-900/60 border border-slate-700 rounded-xl text-[11px] font-black text-white placeholder-slate-400 w-40 focus:w-64 transition-all outline-none focus:border-blue-500 focus:bg-slate-900/90 shadow-inner backdrop-blur-sm"
               />
             </form>
 
@@ -872,13 +891,15 @@ const handleNotificarPlan = (planId) => {
           </div>
           {/* 👉 AQUÍ TERMINA LA BARRA DE BÚSQUEDA RÁPIDA */}
 
-          <button onClick={() => setVistaActiva('dashboard')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'dashboard' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📊 Resumen Visual</button>
-          <button onClick={() => setVistaActiva('historial')} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${vistaActiva === 'historial' ? 'bg-slate-100 text-slate-800 border-2 border-slate-200' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>📜 Historial Matriz</button>
-          {isAdmin && (
-            <button onClick={() => { setEditPlan(null); setVistaActiva('nuevo'); }} className="px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-md bg-[#0A3B32] text-white hover:bg-[#062620]">
+          <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
+          <button onClick={() => setVistaActiva('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Matriz</button>
+          
+          {/* Oculto temporalmente el botón "Nuevo Plan" ya que la creación es automática por Hallazgo */}
+          {/* isAdmin && (
+            <button onClick={() => { setEditPlan(null); setVistaActiva('nuevo'); }} className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg bg-emerald-600 text-white hover:bg-emerald-500 border border-emerald-500">
               <span className="mr-2">➕</span> Nuevo Plan
             </button>
-          )}
+          ) */}
         </div>
       </div>
 
