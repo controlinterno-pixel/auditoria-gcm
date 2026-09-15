@@ -1395,15 +1395,18 @@ const handleNotificarPlan = (planId) => {
                     {node.aplica && (
                       <div className="space-y-4">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => (
-                          <div key={`act-row-${index}`} className="bg-white border rounded-xl p-4 shadow-sm space-y-3 relative">
+                          <div 
+                            key={`act-row-${index}`} 
+                            className="bg-white border-2 border-[#0A3B32]/5 rounded-2xl p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] space-y-4 relative transition-all duration-500 hover:border-[#0A3B32]/15 hover:shadow-[0_8px_30px_-4px_rgba(10,59,50,0.08)]"
+                          >
                             {/* CABECERA SUTIL DE LA ACTIVIDAD */}
-                            <div className="flex justify-between items-center border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white -mx-4 -mt-4 px-5 py-3 rounded-t-xl mb-4">
+                            <div className="flex justify-between items-center border-b border-slate-100/80 bg-gradient-to-r from-slate-50/80 to-white -mx-5 -mt-5 px-6 py-3.5 rounded-t-2xl mb-4">
                               <div className="flex items-center space-x-3">
                                 <div className="flex items-center gap-1.5 text-[11px] font-black text-[#0A3B32] uppercase tracking-widest">
                                   <span className="text-sm">📝</span>
                                   <span>Actividad #{index + 1}</span>
                                 </div>
-                                <span className={`px-2.5 py-0.5 rounded-md font-mono font-bold text-[10px] tracking-widest border shadow-sm ${String(act.id).startsWith('new-') ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`}>
+                                <span className={`px-2.5 py-0.5 rounded-md font-mono font-bold text-[10px] tracking-widest border shadow-sm transition-colors ${String(act.id).startsWith('new-') ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`}>
                                   PLA-{String(act.id).startsWith('new-') ? 'NUEVO' : String(act.id).slice(-4)}
                                 </span>
                               </div>
@@ -1416,7 +1419,9 @@ const handleNotificarPlan = (planId) => {
                                   <span>💾</span> Guardar
                                 </button>
                                 {node.actividades.length > 1 && (
-                                  <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 hover:text-red-700 hover:bg-red-50 font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors">🗑️ Quitar</button>
+                                  <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-400 hover:text-red-600 hover:bg-red-50 font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors">
+                                    🗑️ Quitar
+                                  </button>
                                 )}
                               </div>
                             </div>
