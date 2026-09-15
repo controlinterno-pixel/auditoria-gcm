@@ -1389,23 +1389,27 @@ const handleNotificarPlan = (planId) => {
                       <div className="space-y-4">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => (
                           <div key={`act-row-${index}`} className="bg-white border rounded-xl p-4 shadow-sm space-y-3 relative">
-                            <div className="flex justify-between items-center border-b pb-2 bg-slate-50/80 -mx-4 -mt-4 p-3 rounded-t-xl mb-3">
+                            {/* CABECERA SUTIL DE LA ACTIVIDAD */}
+                            <div className="flex justify-between items-center border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white -mx-4 -mt-4 px-5 py-3 rounded-t-xl mb-4">
                               <div className="flex items-center space-x-3">
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Actividad #{index + 1}</span>
-                                <span className={`px-2 py-0.5 rounded-md font-mono font-black text-[10px] tracking-widest border ${String(act.id).startsWith('new-') ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-300 shadow-inner'}`}>
+                                <div className="flex items-center gap-1.5 text-[11px] font-black text-[#0A3B32] uppercase tracking-widest">
+                                  <span className="text-sm">📝</span>
+                                  <span>Actividad #{index + 1}</span>
+                                </div>
+                                <span className={`px-2.5 py-0.5 rounded-md font-mono font-bold text-[10px] tracking-widest border shadow-sm ${String(act.id).startsWith('new-') ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-slate-500 border-slate-200'}`}>
                                   PLA-{String(act.id).startsWith('new-') ? 'NUEVO' : String(act.id).slice(-4)}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <button 
                                   type="submit" 
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-lg transition-all shadow-xs flex items-center gap-1 cursor-pointer"
+                                  className="bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                                   title="Guarda los cambios de esta actividad de inmediato"
                                 >
                                   <span>💾</span> Guardar
                                 </button>
                                 {node.actividades.length > 1 && (
-                                  <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 hover:bg-red-50 font-bold text-[10px] uppercase px-2 py-1 rounded transition-colors">🗑️ Quitar</button>
+                                  <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-500 hover:text-red-700 hover:bg-red-50 font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors">🗑️ Quitar</button>
                                 )}
                               </div>
                             </div>
