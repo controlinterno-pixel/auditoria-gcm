@@ -1400,7 +1400,7 @@ const handleNotificarPlan = (planId) => {
                             className="bg-white border-2 border-[#0A3B32]/5 rounded-2xl p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] space-y-4 relative transition-all duration-500 hover:border-[#0A3B32]/15 hover:shadow-[0_8px_30px_-4px_rgba(10,59,50,0.08)]"
                           >
                             {/* CABECERA SUTIL DE LA ACTIVIDAD */}
-                            <div className="flex justify-between items-center border-b border-slate-100/80 bg-gradient-to-r from-slate-50/80 to-white -mx-5 -mt-5 px-6 py-3.5 rounded-t-2xl mb-4">
+                            <div className="flex justify-between items-center border-b-[2px] border-slate-800/10 shadow-[0_4px_10px_-5px_rgba(15,23,42,0.05)] bg-gradient-to-r from-slate-50/80 to-white -mx-5 -mt-5 px-6 py-3.5 rounded-t-2xl mb-4">
                               <div className="flex items-center space-x-3">
                                 <div className="flex items-center gap-1.5 text-[11px] font-black text-[#0A3B32] uppercase tracking-widest">
                                   <span className="text-sm">📝</span>
