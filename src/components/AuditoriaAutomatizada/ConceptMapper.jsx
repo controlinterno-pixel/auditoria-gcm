@@ -425,15 +425,37 @@ if (empleado.usoHistoricoAnterior) {
     return causales;
   };
 
+  // Estado para la selección múltiple
+  const [seleccionadosHistorico, setSeleccionadosHistorico] = useState([]);
+
   const handleEliminarHistorico = async (id, periodo, empresa) => {
     if (window.confirm(`⚠️ ¿Estás seguro de eliminar permanentemente la base histórica de ${empresa} (${periodo})?\n\nEsta acción no se puede deshacer.`)) {
       try {
         await eliminarNominaHistorica(id);
         const data = await obtenerListaHistoricos();
         setListaHistoricosBD(data);
+        setSeleccionadosHistorico(prev => prev.filter(item => item !== id));
         alert(`🗑️ Registro de ${empresa} eliminado con éxito.`);
       } catch (error) {
         alert("❌ Error al eliminar: " + error.message);
+      }
+    }
+  };
+
+  const handleEliminarMultiplesHistoricos = async () => {
+    if (seleccionadosHistorico.length === 0) return;
+    if (window.confirm(`⚠️ ¿Estás seguro de eliminar permanentemente ${seleccionadosHistorico.length} bases históricas en lote?\n\nEsta acción no se puede deshacer.`)) {
+      setIsUploading(true); 
+      try {
+        await Promise.all(seleccionadosHistorico.map(id => eliminarNominaHistorica(id)));
+        const data = await obtenerListaHistoricos();
+        setListaHistoricosBD(data);
+        setSeleccionadosHistorico([]);
+        alert(`🗑️ ${seleccionadosHistorico.length} registros eliminados con éxito.`);
+      } catch (error) {
+        alert("❌ Error al eliminar registros: " + error.message);
+      } finally {
+        setIsUploading(false);
       }
     }
   };
@@ -586,20 +608,41 @@ if (empleado.usoHistoricoAnterior) {
             </button>
           </div>
 
-          {/* 📋 NUEVA TABLA VISUAL DE HISTÓRICOS GUARDADOS */}
+        {/* 📋 NUEVA TABLA VISUAL DE HISTÓRICOS GUARDADOS */}
           <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
             <div className="bg-slate-800 p-4 flex justify-between items-center">
               <h3 className="text-white font-bold text-sm flex items-center gap-2">
                 <span>🗄️</span> Bases Históricas Disponibles en la Nube
               </h3>
-              <span className="bg-slate-700 text-cyan-300 text-xs px-2 py-1 rounded font-mono">
-                {listaHistoricosBD.length} Registros
-              </span>
+              <div className="flex items-center gap-3">
+                {seleccionadosHistorico.length > 0 && (
+                  <button 
+                    onClick={handleEliminarMultiplesHistoricos}
+                    className="bg-red-500 hover:bg-red-600 text-white text-[10px] font-bold px-3 py-1.5 rounded flex items-center gap-1 transition-all shadow-sm"
+                  >
+                    <span>🗑️</span> Eliminar Seleccionados ({seleccionadosHistorico.length})
+                  </button>
+                )}
+                <span className="bg-slate-700 text-cyan-300 text-xs px-2 py-1 rounded font-mono">
+                  {listaHistoricosBD.length} Registros
+                </span>
+              </div>
             </div>
-            <div className="p-0 overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
+            <div className="p-0 overflow-x-auto max-h-96">
+              <table className="w-full text-xs text-left relative">
+                <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200 sticky top-0 shadow-sm z-10">
                   <tr>
+                    <th className="p-3 text-center w-12">
+                      <input 
+                        type="checkbox" 
+                        checked={listaHistoricosBD.length > 0 && seleccionadosHistorico.length === listaHistoricosBD.length}
+                        onChange={(e) => {
+                          if (e.target.checked) setSeleccionadosHistorico(listaHistoricosBD.map(h => h.id));
+                          else setSeleccionadosHistorico([]);
+                        }}
+                        className="w-4 h-4 text-emerald-600 rounded cursor-pointer border-slate-300 focus:ring-emerald-500"
+                      />
+                    </th>
                     <th className="p-3">Período</th>
                     <th className="p-3">Empresa</th>
                     <th className="p-3">Total Transacciones</th>
@@ -609,25 +652,39 @@ if (empleado.usoHistoricoAnterior) {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {listaHistoricosBD.length === 0 ? (
-                    <tr><td colSpan="5" className="p-4 text-center text-slate-400 italic">No hay nóminas guardadas en la base de datos.</td></tr>
+                    <tr><td colSpan="6" className="p-4 text-center text-slate-400 italic">No hay nóminas guardadas en la base de datos.</td></tr>
                   ) : (
-                    listaHistoricosBD.map((hist) => (
-                      <tr key={hist.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-bold text-emerald-700">{hist.periodo}</td>
-                        <td className="p-3 font-semibold text-slate-800">{hist.empresa}</td>
-                        <td className="p-3 font-mono text-slate-600">{hist.totalRegistros}</td>
-                        <td className="p-3 text-slate-500">{new Date(hist.fechaCarga).toLocaleString('es-CO')}</td>
-                        <td className="p-3 text-center">
-                          <button
-                            onClick={() => handleEliminarHistorico(hist.id, hist.periodo, hist.empresa)}
-                            className="px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded font-bold transition-colors text-[10px]"
-                            title="Eliminar registro"
-                          >
-                            🗑️ Eliminar
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    listaHistoricosBD.map((hist) => {
+                      const isSelected = seleccionadosHistorico.includes(hist.id);
+                      return (
+                        <tr key={hist.id} className={`transition-colors ${isSelected ? 'bg-emerald-50/50' : 'hover:bg-slate-50'}`}>
+                          <td className="p-3 text-center">
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) setSeleccionadosHistorico([...seleccionadosHistorico, hist.id]);
+                                else setSeleccionadosHistorico(seleccionadosHistorico.filter(id => id !== hist.id));
+                              }}
+                              className="w-4 h-4 text-emerald-600 rounded cursor-pointer border-slate-300 focus:ring-emerald-500"
+                            />
+                          </td>
+                          <td className="p-3 font-bold text-emerald-700">{hist.periodo}</td>
+                          <td className="p-3 font-semibold text-slate-800">{hist.empresa}</td>
+                          <td className="p-3 font-mono text-slate-600">{hist.totalRegistros}</td>
+                          <td className="p-3 text-slate-500">{new Date(hist.fechaCarga).toLocaleString('es-CO')}</td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => handleEliminarHistorico(hist.id, hist.periodo, hist.empresa)}
+                              className="px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded font-bold transition-colors text-[10px]"
+                              title="Eliminar registro"
+                            >
+                              🗑️ Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>
