@@ -1,19 +1,21 @@
-import admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
-// 1. Inicialización segura del Admin SDK (Soporta Base64)
-if (!admin.apps.length) {
+// 1. Inicialización segura compatible con Node.js ESM en Vercel
+if (!getApps().length) {
   let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 
-  // Si la clave viene codificada en Base64, la convierte a texto plano RSA
+  // Decodifica si la clave viene en Base64
   if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
     privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
   }
 
-  // Normaliza saltos de línea
+  // Normaliza saltos de línea por seguridad
   privateKey = privateKey.replace(/\\n/g, '\n');
 
-  admin.initializeApp({
-    credential: admin.credential.cert({
+  initializeApp({
+    credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: privateKey,
@@ -21,10 +23,11 @@ if (!admin.apps.length) {
   });
 }
 
-const db = admin.firestore();
+const db = getFirestore();
+const auth = getAuth();
 
 export default async function handler(req, res) {
-  // CORS (Lista blanca)
+  // Configuración CORS
   const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
   const origin = req.headers.origin;
   
@@ -48,15 +51,15 @@ export default async function handler(req, res) {
   const token = authHeader.split('Bearer ')[1];
 
   try {
-    // 2. VERIFICACIÓN CRIPTOGRÁFICA: Comprueba que el usuario existe y está logueado
-    const decodedToken = await admin.auth().verifyIdToken(token);
+    // Validar token del usuario
+    const decodedToken = await auth.verifyIdToken(token);
     
-    // 3. Validación extra: Solo correos de la empresa
+    // Validar dominio corporativo
     if (!decodedToken.email || !decodedToken.email.endsWith('@termales.com.co')) {
       return res.status(403).json({ error: 'Prohibido. Dominio no autorizado.' });
     }
 
-    // 4. ESCRITURA VIP: El servidor guarda en la base de datos saltándose la restricción del navegador
+    // Escritura en Firestore como Admin
     const { partialData } = req.body;
     await db.collection('workspace_compartido').doc('base_de_datos_grc').set(partialData, { merge: true });
     
