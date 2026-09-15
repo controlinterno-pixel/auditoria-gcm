@@ -797,14 +797,14 @@ const handleNotificarPlan = (planId) => {
       
 {/* 📋 CABECERA PRINCIPAL CON BANNER DE IMAGEN ESTILO PREMIUM */}
       <div 
-        className="relative overflow-hidden rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center p-6 gap-6 mb-6"
+        className="relative rounded-2xl shadow-lg border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center p-6 gap-6 mb-6 z-[60]"
       >
         {/* IMAGEN DE FONDO CON OVERLAY */}
         <div 
-          className="absolute inset-0 bg-cover bg-center z-0"
+          className="absolute inset-0 bg-cover bg-center z-0 rounded-2xl overflow-hidden"
           style={{ backgroundImage: "url('/plan_de_accion.png')" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#070f1e] via-[#070f1e]/90 to-transparent z-10" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#070f1e] via-[#070f1e]/90 to-transparent z-10 rounded-2xl overflow-hidden" />
 
        {/* CONTENIDO IZQUIERDA */}
         <div className="relative z-20 w-full md:w-3/5 flex flex-col gap-6">
