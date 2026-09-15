@@ -1344,9 +1344,16 @@ const handleNotificarPlan = (planId) => {
       {/* 🚀 VISTA 2: FORMULARIO MATRICIAL ORIGINAL COMPLETO (PRESERVADO Y RE-POTENCIADO) */}
       {vistaActiva === 'nuevo' && (
         <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6 animate-in fade-in duration-500 relative">
-                   <div className="w-full">
-            <label className="font-black text-gray-700 block mb-1.5 text-xs">1. Seleccione el Informe Emitido Evaluado</label>
-            <select value={formInformeId} onChange={(e) => handleInformeChange(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm">
+          <div className="w-full">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="font-black text-gray-700 text-xs">1. Seleccione el Informe Emitido Evaluado</label>
+              {formInformeId && (
+                <button type="button" onClick={() => handleInformeChange('')} className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase transition-colors px-2 py-0.5 border border-red-200 rounded-md bg-red-50 cursor-pointer">
+                  ✖️ Limpiar Matriz
+                </button>
+              )}
+            </div>
+            <select value={formInformeId} onChange={(e) => handleInformeChange(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm cursor-pointer">
               <option value="">-- Seleccione el Informe de Auditoría Radicado --</option>
               {informesAuditoria.map((inf) => <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo} — ({inf.proceso})</option>)}
             </select>
