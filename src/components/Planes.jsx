@@ -840,22 +840,30 @@ const handleNotificarPlan = (planId) => {
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
           
-          {/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA CON DROPDOWN */}
+{/* 👉 AQUÍ EMPIEZA LA BARRA DE BÚSQUEDA RÁPIDA CON DROPDOWN Y BOTÓN IR */}
           <div className="relative flex items-center mr-2 group">
-            <form onSubmit={buscarPlanPorId} className="relative w-full">
-              <span className="absolute left-3 top-2.5 text-[10px] text-slate-400">🔍</span>
-              <input
-                type="text"
-                placeholder="Ej: 004, servicio..."
-                value={busquedaRapida}
-                onChange={(e) => {
-                  setBusquedaRapida(e.target.value);
-                  setShowSearchDropdown(true);
-                }}
-                onFocus={() => setShowSearchDropdown(true)}
-                onBlur={() => setTimeout(() => setShowSearchDropdown(false), 200)}
-                className="pl-8 pr-4 py-2.5 bg-slate-900/60 border border-slate-700 rounded-xl text-[11px] font-black text-white placeholder-slate-400 w-40 focus:w-64 transition-all outline-none focus:border-blue-500 focus:bg-slate-900/90 shadow-inner backdrop-blur-sm"
-              />
+            <form onSubmit={buscarPlanPorId} className="relative flex items-center w-full">
+              <div className="relative">
+                <span className="absolute left-3 top-2.5 text-[10px] text-slate-400">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Ej: 004, servicio..."
+                  value={busquedaRapida}
+                  onChange={(e) => {
+                    setBusquedaRapida(e.target.value);
+                    setShowSearchDropdown(true);
+                  }}
+                  onFocus={() => setShowSearchDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowSearchDropdown(false), 250)}
+                  className="pl-8 pr-4 py-2.5 bg-slate-900/60 border border-slate-700 border-r-0 rounded-l-xl text-[11px] font-black text-white placeholder-slate-400 w-40 focus:w-56 transition-all outline-none focus:border-blue-500 focus:bg-slate-900/90 shadow-inner backdrop-blur-sm"
+                />
+              </div>
+              <button 
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-500 text-white font-black text-[11px] px-4 py-2.5 rounded-r-xl border border-blue-600 shadow-md transition-colors"
+              >
+                Ir
+              </button>
             </form>
 
             {/* LISTA DESPLEGABLE DE COINCIDENCIAS (AUTOCOMPLETADO) */}
@@ -867,7 +875,15 @@ const handleNotificarPlan = (planId) => {
                     <h4 className="text-[9px] font-black text-[#0A3B32] uppercase tracking-widest bg-[#f0fdf4] py-1.5 px-3">Informes Encontrados</h4>
                     <div className="p-1">
                       {informesMatch.map(inf => (
-                        <button type="button" key={`s-inf-${inf.id}`} onClick={() => seleccionarInforme(inf)} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2">
+                        <button 
+                          type="button" 
+                          key={`s-inf-${inf.id}`} 
+                          onClick={() => {
+                            setBusquedaRapida(inf.ref); // Solo rellena el input
+                            setShowSearchDropdown(false); // Cierra la lista
+                          }} 
+                          className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2"
+                        >
                           <span className="text-xl shrink-0">📂</span>
                           <div className="truncate w-full">
                             <p className="text-[11px] font-black text-slate-800">
@@ -889,7 +905,15 @@ const handleNotificarPlan = (planId) => {
                       {planesMatch.map(p => {
                         const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
                         return (
-                          <button type="button" key={`s-plan-${p.id}`} onClick={() => seleccionarPlan(p)} className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2">
+                          <button 
+                            type="button" 
+                            key={`s-plan-${p.id}`} 
+                            onClick={() => {
+                              setBusquedaRapida(`PLA-${p.id.toString().slice(-4)}`); // Solo rellena el input
+                              setShowSearchDropdown(false); // Cierra la lista
+                            }} 
+                            className="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg transition-colors flex items-start gap-2"
+                          >
                             <span className="text-xl shrink-0">📋</span>
                             <div className="truncate w-full">
                               <p className="text-[11px] font-black text-slate-800 font-mono">
