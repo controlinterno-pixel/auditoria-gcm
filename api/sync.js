@@ -1,6 +1,6 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 
 // Inicialización segura
 if (!getApps().length) {
@@ -26,7 +26,7 @@ if (!getApps().length) {
 const db = getFirestore();
 const auth = getAuth();
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // CORS Setup
   const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
   const origin = req.headers.origin;
@@ -44,6 +44,8 @@ export default async function handler(req, res) {
     }
 
     const token = authHeader.split('Bearer ')[1];
+    
+    // Aquí es donde ocurría el error, ahora funcionará:
     const decodedToken = await auth.verifyIdToken(token);
 
     if (!decodedToken.email || !decodedToken.email.endsWith('@termales.com.co')) {
@@ -58,4 +60,4 @@ export default async function handler(req, res) {
     console.error('❌ Error en /api/sync:', error);
     return res.status(500).json({ error: 'Error interno del servidor.', details: error.message });
   }
-}
+};
