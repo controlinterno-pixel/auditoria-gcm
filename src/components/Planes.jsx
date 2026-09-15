@@ -1320,30 +1320,7 @@ const handleNotificarPlan = (planId) => {
       {/* 🚀 VISTA 2: FORMULARIO MATRICIAL ORIGINAL COMPLETO (PRESERVADO Y RE-POTENCIADO) */}
       {vistaActiva === 'nuevo' && (
         <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6 animate-in fade-in duration-500 relative">
-          {/* BARRA DE ACCIÓN STICKY (SE QUEDA FIJA AL BAJAR) */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center sticky -top-8 md:-top-12 z-[60] bg-white/95 backdrop-blur-md -mx-6 -mt-6 px-6 py-5 border-b border-slate-200 shadow-sm transition-all gap-4 rounded-t-3xl">
-            <div>
-              <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">➕ Formular Acciones por Informe Emitido</h3>
-              <p className="text-[10px] text-slate-500 font-bold mt-0.5">Puedes guardar avances parciales en cualquier momento</p>
-            </div>
-            {formInformeId && (
-              <div className="flex items-center gap-3">
-                <button 
-                  type="submit" 
-                  form="matrix-master-form"
-                  className="bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl font-black uppercase tracking-wider text-[10px] shadow-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105"
-                >
-                  <span>💾</span>
-                  <span>Guardar Avance Rápido</span>
-                </button>
-                <button type="button" onClick={() => handleInformeChange('')} className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase hover:underline cursor-pointer transition-colors px-2 py-1">
-                  ✖️ Limpiar Matriz
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="w-full">
+                   <div className="w-full">
             <label className="font-black text-gray-700 block mb-1.5 text-xs">1. Seleccione el Informe Emitido Evaluado</label>
             <select value={formInformeId} onChange={(e) => handleInformeChange(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm">
               <option value="">-- Seleccione el Informe de Auditoría Radicado --</option>
