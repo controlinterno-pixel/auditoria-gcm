@@ -1319,9 +1319,9 @@ const handleNotificarPlan = (planId) => {
 
       {/* 🚀 VISTA 2: FORMULARIO MATRICIAL ORIGINAL COMPLETO (PRESERVADO Y RE-POTENCIADO) */}
       {vistaActiva === 'nuevo' && (
-        <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6 animate-in slide-in-from-right-8 duration-500">
-        {/* BARRA DE ACCIÓN STICKY (SE QUEDA FIJA AL BAJAR) */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center sticky top-0 z-50 bg-white/95 backdrop-blur-md -mx-6 px-6 py-4 border-b border-slate-200 shadow-sm transition-all gap-4 rounded-t-3xl">
+        <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6 animate-in fade-in duration-500 relative">
+          {/* BARRA DE ACCIÓN STICKY (SE QUEDA FIJA AL BAJAR) */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center sticky -top-8 md:-top-12 z-[60] bg-white/95 backdrop-blur-md -mx-6 -mt-6 px-6 py-5 border-b border-slate-200 shadow-sm transition-all gap-4 rounded-t-3xl">
             <div>
               <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">➕ Formular Acciones por Informe Emitido</h3>
               <p className="text-[10px] text-slate-500 font-bold mt-0.5">Puedes guardar avances parciales en cualquier momento</p>
