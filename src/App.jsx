@@ -7,6 +7,7 @@ import {
   formatSafeDate, getItemAnio, getItemMesText, calcularMatriz5x5, applyFilters 
 } from './utils/helpers';
 import InformesAuditoria from './components/InformesAuditoria';
+import * as XLSX from 'xlsx';
 import Configuracion from './components/Configuracion';
 import Incidentes from './components/Incidentes';
 import Hallazgos from './components/Hallazgos';
@@ -36,10 +37,8 @@ import {
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
   defaultPlanes, defaultIncidentes, defaultEvaluaciones, defaultMonitoreo 
 } from './constants/defaultData';
-// =====================================================================
-// 🤖 CONEXIÓN SEGURA A GEMINI PRO IA
-// =====================================================================
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+
+
 // =====================================================================
 // 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
 // =====================================================================
@@ -91,7 +90,7 @@ const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-  const [xlsxLoaded, setXlsxLoaded] = useState(false);
+const [xlsxLoaded] = useState(true);
   const [isThinking, setIsThinking] = useState(false);
   const [aiModal, setAiModal] = useState(null);
   const [chartDetail, setChartDetail] = useState(null);
@@ -270,12 +269,22 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
       if (currentUser) {
         const emailLimpio = (currentUser.email || '').trim().toLowerCase();
 
-        // 🚨 1. Hardcode / Bypass de emergencia para el correo principal de Control Interno
-        if (emailLimpio === 'controlinterno@termales.com.co') {
-          console.log("🛡️ Superadmin identificado por correo corporativo.");
-          setPerfilUsuario({ email: currentUser.email, rol: 'admin' });
-          setIsAdmin(true);
-          return;
+       // 🔍 Consulta estricta del perfil y rol desde la base de datos Firestore
+        try {
+          const docRef = doc(db, 'usuarios', currentUser.uid);
+          const docSnap = await getDoc(docRef);
+          
+          if (docSnap.exists()) {
+            const datosPerfil = docSnap.data();
+            setPerfilUsuario(datosPerfil);
+            setIsAdmin(datosPerfil.rol === 'admin'); 
+          } else {
+            setPerfilUsuario(null);
+            setIsAdmin(false);
+          }
+        } catch (error) {
+          console.error("Error obteniendo perfil en Firestore:", error);
+          setIsAdmin(false);
         }
 
         // 🔍 2. Validación secundaria en Firestore si no es el correo principal
@@ -348,21 +357,34 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
       unsubscribe();
     };
   }, [user]);
-  useEffect(() => {
-    if (window.XLSX) { setXlsxLoaded(true); return; }
-    const script = document.createElement('script');
-    script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-    script.async = true;
-    script.onload = () => setXlsxLoaded(true);
-    document.head.appendChild(script);
-  }, []);
+  
 
 const handleLogout = async () => { 
     await signOut(auth); 
     setShowWelcome(true); // 🛡️ Asegura que al dar clic al botón se active la pantalla de nuevo
   };
 const saveToCloud = async (partialData) => { 
-    await setDoc(doc(db, 'workspace_compartido', 'base_de_datos_grc'), partialData, { merge: true }); 
+    try {
+      // 1. Obtenemos el token de seguridad del usuario autenticado
+      const token = await auth.currentUser?.getIdToken();
+      
+      // 2. Enviamos la petición al Servidor (Backend) en lugar de a Firebase
+      const response = await fetch('/api/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // 🔒 Credencial de seguridad
+        },
+        body: JSON.stringify({ partialData })
+      });
+
+      if (!response.ok) {
+        throw new Error('El servidor rechazó la sincronización de datos.');
+      }
+    } catch (error) {
+      console.error('❌ Error de sincronización segura:', error);
+      showNotification('Error guardando en el servidor GRC.', 'error');
+    }
   };
 
   const handleDeleteItem = async (listType, id) => {
@@ -745,51 +767,31 @@ const handleImportExcelRiesgos = (e) => {
       return;
     }
 
-    if (!GEMINI_API_KEY) {
-      showNotification("La clave de API de Gemini no se ha cargado correctamente.", "error");
-      return;
-    }
-
     setIsThinking(true);
-    showNotification("Gemini Pro está analizando el escenario...", "success");
+    showNotification("Procesando consulta con el Motor GRC Serverless...", "success");
 
     try {
       let prompt = "";
       if (tipoTarget === 'control') {
-        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto del control, sin comillas ni saludos.`;
+        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 palabras). Solo responde con el texto del control, sin comillas ni saludos.`;
       } else if (tipoTarget === 'plan') {
-        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 words). Solo responde con el texto de la acción, sin comillas ni saludos.`;
+        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 palabras). Solo responde con el texto de la acción, sin comillas ni saludos.`;
       } else if (tipoTarget === 'hallazgo') {
         prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
       }
 
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-       method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2 }
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      let sugerencia = data.candidates[0].content.parts[0].text.trim();
+      const sugerencia = await consultarCopilotoIA(prompt, { tipoTarget, textoBase });
 
       if (inputDestino) {
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-        nativeInputValueSetter.call(inputDestino, sugerencia);
+        nativeInputValueSetter.call(inputDestino, typeof sugerencia === 'string' ? sugerencia : JSON.stringify(sugerencia));
         inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
         inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
-        showNotification("¡Gemini ha insertado una sugerencia ejecutiva de alto nivel!");
+        showNotification("¡Sugerencia ejecutiva insertada con éxito!");
       }
     } catch (error) {
-      console.error("Error conectando a Gemini:", error);
-      showNotification("Error conectando con la IA de Google. Verifica los ajustes.", "error");
+      console.error("Error conectando al Asistente IA:", error);
+      showNotification("Error conectando con el servidor de auditoría.", "error");
     } finally {
       setIsThinking(false);
     }
@@ -797,38 +799,25 @@ const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/m
 
   const analizarEvidenciaIA = async (evidenciaUrl, contextoItem, tipoItem) => {
     setIsThinking(true);
-    showNotification("🤖 Extrayendo documento y enviando a Gemini...", "success");
-
-    if (!GEMINI_API_KEY) {
-      showNotification("⚠️ La clave de API de Gemini no se ha cargado correctamente.", "error");
-      setIsThinking(false);
-      return;
-    }
+    showNotification("🤖 Enviando documento al Asistente Serverless...", "success");
 
     try {
       const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
       Se acaba de adjuntar un archivo de evidencia (Foto o PDF o Enlace) para el siguiente ${tipoItem}: "${contextoItem}".
       Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
 
-const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }]
-          })
+      const analisis = await consultarCopilotoIA(prompt, { evidenciaUrl, contextoItem, tipoItem });
+      setAiModal({ 
+        titulo: `📋 Checklist IA de Auditoría`, 
+        contenido: typeof analisis === 'string' ? analisis : JSON.stringify(analisis), 
+        url: evidenciaUrl 
       });
 
-      const data = await response.json();
-      if (data.error) throw new Error(data.error.message);
-      
-      const analisis = data.candidates[0].content.parts[0].text.trim();
-      setAiModal({ titulo: `📋 Checklist IA (Gemini)`, contenido: analisis, url: evidenciaUrl });
-
     } catch (error) {
-        console.error(error);
-        showNotification("Error conectando con la IA de Google.", "error");
+      console.error(error);
+      showNotification("Error al procesar la evidencia en el servidor.", "error");
     } finally {
-        setIsThinking(false);
+      setIsThinking(false);
     }
   };
 

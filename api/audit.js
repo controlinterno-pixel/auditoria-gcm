@@ -1,65 +1,57 @@
-import { AuditEngine } from '../src/grc-engine/core/AuditEngine.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default async function handler(req, res) {
-  // 1. Configuración de cabeceras CORS
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  // 1. Lista Blanca de Orígenes Permitidos (CORS restringido)
+  const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173', 'http://localhost:3000'];
+  const origin = req.headers.origin;
 
-  // Responder de inmediato a las peticiones Preflight (OPTIONS)
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    // Si la petición viene de un dominio no autorizado, rechaza la conexión
+    res.setHeader('Access-Control-Allow-Origin', 'https://auditoria-gcm.vercel.app');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Manejo de peticiones preflight (CORS)
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // Validar método HTTP
+  // Solo permitimos método POST
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Método no permitido. Usa POST.' });
+    return res.status(405).json({ error: 'Método no permitido. Solo se acepta POST.' });
+  }
+
+  // 2. Clave leída estrictamente desde las variables de entorno privadas de Vercel
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    console.error('❌ [Serverless Error]: No se encontró GEMINI_API_KEY en las variables del servidor.');
+    return res.status(500).json({ error: 'Error de configuración del servidor de IA.' });
   }
 
   try {
-    // 2. Parseo seguro del cuerpo de la petición
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
-    const { prompt, datosContexto, sessionId, conversationId } = body;
+    const { prompt, datosContexto } = req.body;
 
-    // Validación de entrada principal
-    if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
-      return res.status(400).json({ error: "El parámetro 'prompt' es requerido y debe ser una cadena válida." });
+    if (!prompt) {
+      return res.status(400).json({ error: 'El campo "prompt" es obligatorio.' });
     }
 
-    // 🔍 Log de depuración para inspección en los logs de Vercel
-    console.log("📥 Petición recibida en /api/audit:");
-    console.log(" - Prompt:", prompt);
-    console.log(" - Session ID:", sessionId || "N/A");
-    console.log(" - Datos Contexto recibidos:", datosContexto ? JSON.stringify(datosContexto).substring(0, 150) + "..." : "VACÍO / UNDEFINED");
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    // 3. Instanciar e invocar el Orquestador principal
-    const engine = new AuditEngine();
-
-    // Transmite los datos de contexto hacia el pipeline del engine
-    const executionContext = await engine.execute(prompt, sessionId, conversationId, { 
-      datosContexto: datosContexto || {} 
-    });
-
-    // 4. Retornar la respuesta estructurada al frontend
-    return res.status(200).json({
-      status: "success",
-      respuesta: executionContext.llm?.parsedResponse || executionContext.llm?.rawResponse || executionContext,
-      telemetry: executionContext.telemetry || {},
-      classification: executionContext.classification || {},
-      validation: executionContext.validation || {}
-    });
-
-  } catch (error) {
-    console.error("❌ Error en Vercel Serverless Function (/api/audit):", error);
+    // Armamos el prompt final uniendo la instrucción del usuario y los datos de GRC
+    const promptCompleto = `${prompt}\n\nContexto de datos cargado:\n${JSON.stringify(datosContexto || {})}`;
     
-    return res.status(500).json({ 
-      status: "error", 
-      message: error.message || "Error procesando el pipeline de auditoría.",
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    const result = await model.generateContent(promptCompleto);
+    const response = await result.response;
+    const text = response.text();
+
+    return res.status(200).json({ respuesta: text });
+  } catch (error) {
+    console.error('❌ [Serverless Error /api/audit]:', error.message);
+    return res.status(500).json({ error: 'Error interno procesando la consulta de auditoría.' });
   }
 }
