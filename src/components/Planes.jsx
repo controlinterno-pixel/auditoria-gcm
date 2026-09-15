@@ -1395,9 +1395,10 @@ const handleNotificarPlan = (planId) => {
                     {node.aplica && (
                       <div className="space-y-4">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => (
-                          {/* TARJETA DE ACTIVIDAD CON LÍNEA ACENTO AZUL OSCURO Y SOMBRA SUTIL */}
-                          <div key={`act-row-${index}`} className="bg-white border border-slate-200 border-l-[6px] border-l-[#0f172a] rounded-2xl p-5 pl-6 shadow-[0_8px_25px_-5px_rgba(15,23,42,0.08)] space-y-4 relative transition-all duration-500 hover:shadow-[0_12px_35px_-5px_rgba(15,23,42,0.12)]">
-                            
+                          <div 
+                            key={`act-row-${index}`} 
+                            className="bg-white border border-slate-200 border-l-[6px] border-l-[#0f172a] rounded-2xl p-5 pl-6 shadow-[0_8px_25px_-5px_rgba(15,23,42,0.08)] space-y-4 relative transition-all duration-500 hover:shadow-[0_12px_35px_-5px_rgba(15,23,42,0.12)]"
+                          >
                             {/* CABECERA SUTIL DE LA ACTIVIDAD */}
                             <div className="flex justify-between items-center border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white -ml-6 -mr-5 -mt-5 px-6 py-3.5 rounded-tr-2xl rounded-tl-md mb-4">
                               <div className="flex items-center space-x-3">
