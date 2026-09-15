@@ -268,8 +268,8 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
       setUser(currentUser);
       if (currentUser) {
         const emailLimpio = (currentUser.email || '').trim().toLowerCase();
+        const esSuperAdmin = emailLimpio === 'controlinterno@termales.com.co';
 
-       // 🔍 Consulta estricta del perfil y rol desde la base de datos Firestore
         try {
           const docRef = doc(db, 'usuarios', currentUser.uid);
           const docSnap = await getDoc(docRef);
@@ -277,37 +277,22 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
           if (docSnap.exists()) {
             const datosPerfil = docSnap.data();
             setPerfilUsuario(datosPerfil);
-            setIsAdmin(datosPerfil.rol === 'admin'); 
+            // El rol se define por la BD o por ser el SuperAdmin
+            setIsAdmin(datosPerfil.rol === 'admin' || esSuperAdmin); 
           } else {
             setPerfilUsuario(null);
-            setIsAdmin(false);
+            // Failsafe: Si no hay doc, garantizamos la entrada al dueño
+            setIsAdmin(esSuperAdmin);
           }
         } catch (error) {
           console.error("Error obteniendo perfil en Firestore:", error);
-          setIsAdmin(false);
-        }
-
-        // 🔍 2. Validación secundaria en Firestore si no es el correo principal
-        try {
-          const docRef = doc(db, 'usuarios', currentUser.uid);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            const datosPerfil = docSnap.data();
-            setPerfilUsuario(datosPerfil);
-            setIsAdmin(datosPerfil.rol === 'admin'); 
-          } else {
-            setPerfilUsuario(null);
-            setIsAdmin(false);
-          }
-        } catch (error) {
-          console.error("Error obteniendo perfil en Firestore:", error);
-          setIsAdmin(false);
+          // Si Firebase bloquea la lectura, dejamos pasar al SuperAdmin visualmente
+          setIsAdmin(esSuperAdmin);
         }
       } else {
         setPerfilUsuario(null);
         setIsAdmin(false);
-        setShowWelcome(true); // 🛡️ Reinicia la bienvenida al cerrar sesión
+        setShowWelcome(true);
       }
     });
     return () => unsubscribe();
