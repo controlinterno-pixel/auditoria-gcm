@@ -2,15 +2,16 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
-// --- INICIALIZACIÓN COMPATIBLE CON ESM ---
+// Inicialización segura
 if (!getApps().length) {
   let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
 
-  // Decodifica Base64
+  // Decodifica la clave en Base64
   if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
     privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
   }
 
+  // Normaliza saltos de línea
   privateKey = privateKey.replace(/\\n/g, '\n');
 
   initializeApp({
@@ -18,7 +19,7 @@ if (!getApps().length) {
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       privateKey: privateKey,
-    })
+    }),
   });
 }
 
@@ -26,7 +27,7 @@ const db = getFirestore();
 const auth = getAuth();
 
 export default async function handler(req, res) {
-  // Configuración de CORS
+  // CORS Setup
   const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
   const origin = req.headers.origin;
   res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : 'https://auditoria-gcm.vercel.app');
