@@ -1,14 +1,22 @@
-// api/sync.js
 import admin from 'firebase-admin';
 
-// 1. Inicialización segura del Admin SDK (Patrón Singleton para Vercel)
+// 1. Inicialización segura del Admin SDK (Soporta Base64)
 if (!admin.apps.length) {
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+
+  // Si la clave viene codificada en Base64, la convierte a texto plano RSA
+  if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+    privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
+  }
+
+  // Normaliza saltos de línea
+  privateKey = privateKey.replace(/\\n/g, '\n');
+
   admin.initializeApp({
     credential: admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      // Truco vital: Vercel a veces escapa los saltos de línea, esto lo corrige
-      privateKey: process.env.FIREBASE_PRIVATE_KEY ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n') : undefined,
+      privateKey: privateKey,
     }),
   });
 }
