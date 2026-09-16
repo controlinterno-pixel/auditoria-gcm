@@ -550,20 +550,20 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
       return false;
     }
 
-    // 1. Las personas chuleadas NUNCA se ocultan (se suman a la vista general)
+    // 1. Las personas en tu Bandeja SIEMPRE se muestran
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
     if (estaSeleccionado) return true;
 
-    // 2. Evaluamos si la persona coincide con el texto del buscador
+    // 2. Al buscar, SOLO mostramos los resultados de búsqueda (para que chulees fácilmente)
     const term = busqueda.toLowerCase().trim();
-    const coincideBusqueda = term !== '' && (
-      a.nombre.toLowerCase().includes(term) || 
-      a.cedula.includes(term) ||
-      (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
-      (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)))
-    );
+    if (term !== '') {
+      return a.nombre.toLowerCase().includes(term) || 
+             a.cedula.includes(term) ||
+             (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+             (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
+    }
 
-    // 3. Filtros regulares por Proceso / Cargo / Unidad / Período
+    // 3. Si no hay búsqueda, aplicamos tus filtros normales (Mantenimiento, etc.)
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
     const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
@@ -574,14 +574,7 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
     }
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    const cumpleFiltrosBase = coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
-
-    // 💡 MAGIA INTERACTIVA: Muestra a la persona si pertenece al Proceso seleccionado O si la estás buscando
-    if (term !== '') {
-        return coincideBusqueda || cumpleFiltrosBase;
-    }
-
-    return cumpleFiltrosBase;
+    return coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
   });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
@@ -723,11 +716,20 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
   const dataGraficasApiladas = React.useMemo(() => {
     if (!alertasFiltradas || alertasFiltradas.length === 0) return [];
 
-    const limite = empleadosSeleccionados.length > 0 && agrupacionGrafica === 'SELECCIONADOS'
-      ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
-      : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop));
+    let baseParaMostrar = [];
 
-    return limite.map(emp => {
+    if (agrupacionGrafica === 'SELECCIONADOS' && empleadosSeleccionados.length > 0) {
+      baseParaMostrar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
+    } else {
+      const topN = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
+      // 💡 Hacemos que los seleccionados ignoren el filtro del "Top" para que siempre aparezcan
+      const faltantes = alertasFiltradas.filter(a => 
+         empleadosSeleccionados.some(e => e.cedula === a.cedula) && !topN.some(t => t.cedula === a.cedula)
+      );
+      baseParaMostrar = [...topN, ...faltantes];
+    }
+
+    return baseParaMostrar.map(emp => {
       const resumen = {
         nombre: emp.nombre.split(' ').slice(0, 2).join(' '),
         nombreCompleto: emp.nombre,
@@ -996,17 +998,22 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               });
                             })()
                          ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
-                            (agrupacionGrafica === 'SELECCIONADOS'
-                              ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
-                              : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop))
-                            ).map((emp, idx) => {
-                              const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
-                              
-                              const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
-                              const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 👤 ${emp.nombre}` : `👤 ${emp.nombre}`;
-
-                              return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
-                            })
+                            (() => {
+                              let baseLineas = [];
+                              if (agrupacionGrafica === 'SELECCIONADOS') {
+                                baseLineas = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
+                              } else {
+                                const topN = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
+                                const faltantes = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula) && !topN.some(t => t.cedula === a.cedula));
+                                baseLineas = [...topN, ...faltantes];
+                              }
+                              return baseLineas.map((emp, idx) => {
+                                const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                                const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
+                                const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 👤 ${emp.nombre}` : `👤 ${emp.nombre}`;
+                                return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
+                              });
+                            })()
                           ) : (
                             // 💡 3. Modo estándar (Líneas = Sedes)
                             <>
