@@ -723,15 +723,11 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
 
     let baseParaMostrar = [];
 
-    if (agrupacionGrafica === 'SELECCIONADOS' && empleadosSeleccionados.length > 0) {
+    // 💡 AÍSLA A LOS SELECCIONADOS EN BARRAS Y TABLA SIN IMPORTAR OTROS FILTROS
+    if (empleadosSeleccionados.length > 0) {
       baseParaMostrar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
     } else {
-      const topN = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
-      // 💡 Hacemos que los seleccionados ignoren el filtro del "Top" para que siempre aparezcan
-      const faltantes = alertasFiltradas.filter(a => 
-         empleadosSeleccionados.some(e => e.cedula === a.cedula) && !topN.some(t => t.cedula === a.cedula)
-      );
-      baseParaMostrar = [...topN, ...faltantes];
+      baseParaMostrar = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
     }
 
     return baseParaMostrar.map(emp => {
@@ -1005,11 +1001,10 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                          ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
                             (() => {
                               let baseLineas = [];
-                              // 💡 MAGIA: Si el usuario chuleó a alguien, la gráfica aísla SÓLO a esas personas automáticamente.
+                              // 💡 AÍSLA A LOS SELECCIONADOS EN LA GRÁFICA DE LÍNEAS
                               if (empleadosSeleccionados.length > 0) {
                                 baseLineas = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
                               } else {
-                                // Si no hay nadie chuleado, muestra el Top 5 normal.
                                 baseLineas = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
                               }
                               return baseLineas.map((emp, idx) => {
