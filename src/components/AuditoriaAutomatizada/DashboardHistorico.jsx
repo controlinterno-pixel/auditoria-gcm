@@ -723,12 +723,12 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
 
     let baseParaMostrar = [];
 
-    // 💡 AÍSLA A LOS SELECCIONADOS EN BARRAS Y TABLA SIN IMPORTAR OTROS FILTROS
-    if (empleadosSeleccionados.length > 0) {
-      baseParaMostrar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
-    } else {
-      baseParaMostrar = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
-    }
+    // 💡 MUESTRA A TODOS EN LA TABLA PARA QUE PUEDAS SELECCIONARLOS LIBREMENTE
+    const topN = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
+    const faltantes = alertasFiltradas.filter(a => 
+       empleadosSeleccionados.some(e => e.cedula === a.cedula) && !topN.some(t => t.cedula === a.cedula)
+    );
+    baseParaMostrar = [...topN, ...faltantes];
 
     return baseParaMostrar.map(emp => {
       const resumen = {
@@ -1081,8 +1081,8 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       <p className="text-[11px] text-slate-500 mb-3">Comparación de las horas registradas por concepto acumulado.</p>
                       
                       <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={dataGraficasApiladas}>
+                       <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(d => empleadosSeleccionados.some(e => e.cedula === d.cedula)) : dataGraficasApiladas}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                             <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
                             <YAxis stroke="#475569" fontSize={11} unit=" hrs" />
