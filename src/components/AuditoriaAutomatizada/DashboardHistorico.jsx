@@ -955,10 +955,10 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                 return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />;
                               });
                             })()
-                          ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
+                         ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
                             (agrupacionGrafica === 'SELECCIONADOS'
                               ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
-                              : (empleadosSeleccionados.length > 0 && filtroSeleccionadosMode === 'SOLO_SELECCIONADOS' ? alertasFiltradas : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop)))
+                              : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop))
                             ).map((emp, idx) => {
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
                               
@@ -1203,29 +1203,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
               </div>
             </div>
 
-           <td className="p-4 text-center">
-                          <input 
-                            type="checkbox" 
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setEmpleadosSeleccionados([...empleadosSeleccionados, { cedula: alerta.cedula, nombre: alerta.nombre }]);
-                                setBusqueda('');
-                                setFiltroSeleccionadosMode('SOLO_SELECCIONADOS');
-                                setAgrupacionGrafica('SELECCIONADOS');
-                              } else {
-                                const resto = empleadosSeleccionados.filter(emp => emp.cedula !== alerta.cedula);
-                                setEmpleadosSeleccionados(resto);
-                                if (resto.length === 0) {
-                                  setFiltroSeleccionadosMode('TODOS');
-                                  setAgrupacionGrafica('SEDES');
-                                }
-                              }
-                            }}
-                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                          />
-                        </td>
-            {/* Selector de Procesos por Etiquetas */}
+                       {/* Selector de Procesos por Etiquetas */}
             <div className="pt-2 border-t border-slate-100">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
