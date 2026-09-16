@@ -51,11 +51,11 @@ export default function Configuracion({
     }
   };
 
-  // 🧮 LÓGICA DEL BUSCADOR
+ // 🧮 LÓGICA DEL BUSCADOR (Soporta nombreResponsable/nombre y correo/email)
   const usuariosFiltrados = usuarios.filter(u => {
     const termino = busquedaUsuario.toLowerCase();
-    const nombre = (u.nombre || '').toLowerCase();
-    const email = (u.email || '').toLowerCase();
+    const nombre = (u.nombreResponsable || u.nombre || '').toLowerCase();
+    const email = (u.correo || u.email || '').toLowerCase();
     return nombre.includes(termino) || email.includes(termino);
   });
 
@@ -122,14 +122,14 @@ export default function Configuracion({
                     title={isExpanded ? "Ocultar detalles" : "Clic para ver configuración del usuario"}
                   >
                     <div className="flex items-center gap-3 w-full md:w-auto">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg shrink-0 transition-colors ${isExpanded ? 'bg-[#0A3B32] text-white shadow-sm' : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'}`}>
-                        {u.nombre ? u.nombre.charAt(0).toUpperCase() : u.email.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-black text-slate-800 text-sm leading-tight">{u.nombre || 'Colaborador GRC'}</h4>
-                        <p className="text-[10px] text-slate-500 font-mono mt-0.5">{u.email}</p>
-                      </div>
-                    </div>
+    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg shrink-0 transition-colors ${isExpanded ? 'bg-[#0A3B32] text-white shadow-sm' : 'bg-slate-200 text-slate-600 group-hover:bg-slate-300'}`}>
+      {((u.nombreResponsable || u.nombre || u.correo || u.email || 'U')).charAt(0).toUpperCase()}
+    </div>
+    <div className="flex-1">
+      <h4 className="font-black text-slate-800 text-sm leading-tight">{u.nombreResponsable || u.nombre || 'Colaborador GRC'}</h4>
+      <p className="text-[10px] text-slate-500 font-mono mt-0.5">{u.correo || u.email}</p>
+    </div>
+  </div>
                     
                     <div className="flex items-center justify-end gap-3 w-full md:w-auto">
                       <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border hidden md:inline-block ${
