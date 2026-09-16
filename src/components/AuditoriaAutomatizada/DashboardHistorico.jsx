@@ -869,6 +869,48 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
               </div>
             </div>
 
+           {/* 👥 PANEL INTERACTIVO DE COMPARACIÓN DIRECTA (JUNTO A LA GRÁFICA) */}
+           {empleadosSeleccionados.length > 0 && (
+              <div className="my-3 bg-indigo-50/90 border border-indigo-200 p-3 rounded-xl shadow-sm space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
+                    <span>👥</span> Personas en Comparación Directa ({empleadosSeleccionados.length}):
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setEmpleadosSeleccionados([]);
+                      setAgrupacionGrafica('SEDES');
+                    }}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 px-2.5 py-0.5 rounded border border-rose-200 transition cursor-pointer"
+                  >
+                    ✕ Vaciar Todos
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {empleadosSeleccionados.map((emp) => (
+                    <div 
+                      key={emp.cedula} 
+                      className="flex items-center gap-2 bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-md animate-in fade-in"
+                    >
+                      <span>👤 {emp.nombre.split(' ').slice(0, 2).join(' ')}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const resto = empleadosSeleccionados.filter(e => e.cedula !== emp.cedula);
+                          setEmpleadosSeleccionados(resto);
+                          if (resto.length === 0) setAgrupacionGrafica('SEDES');
+                        }}
+                        className="text-indigo-200 hover:text-white font-black text-sm cursor-pointer border-l border-indigo-400 pl-1.5"
+                        title="Desmarcar y quitar de la gráfica"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
            {verTendencias && (
               <div className="pt-4 border-t border-slate-100 space-y-6">
                 {/* 📈 GRÁFICA INTERACTIVA COMPARATIVA DINÁMICA */}
@@ -1451,7 +1493,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             checked={isChecked}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setEmpleadosSeleccionados([...empleadosSeleccionados, { cedula: alerta.cedula, nombre: alerta.nombre }]);
+                                setEmpleadosSeleccionados(prev => [...prev, { cedula: alerta.cedula, nombre: alerta.nombre }]);
                                 setAgrupacionGrafica('SELECCIONADOS');
                               } else {
                                 const resto = empleadosSeleccionados.filter(emp => emp.cedula !== alerta.cedula);
