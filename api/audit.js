@@ -65,8 +65,7 @@ export default async function handler(req, res) {
       try {
         const genAI = new GoogleGenerativeAI(apiKeys[i]);
         // Mantenemos el modelo gemini-1.5-flash por ser el más rápido y estable para este SDK
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }); 
-        
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });        
         const result = await model.generateContent(promptCompleto);
         text = await result.response.text();
         
