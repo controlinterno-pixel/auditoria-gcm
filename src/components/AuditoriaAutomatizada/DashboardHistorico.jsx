@@ -1005,12 +1005,12 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                          ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
                             (() => {
                               let baseLineas = [];
-                              if (agrupacionGrafica === 'SELECCIONADOS') {
+                              // 💡 MAGIA: Si el usuario chuleó a alguien, la gráfica aísla SÓLO a esas personas automáticamente.
+                              if (empleadosSeleccionados.length > 0) {
                                 baseLineas = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
                               } else {
-                                const topN = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
-                                const faltantes = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula) && !topN.some(t => t.cedula === a.cedula));
-                                baseLineas = [...topN, ...faltantes];
+                                // Si no hay nadie chuleado, muestra el Top 5 normal.
+                                baseLineas = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
                               }
                               return baseLineas.map((emp, idx) => {
                                 const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
