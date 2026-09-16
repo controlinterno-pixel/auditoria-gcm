@@ -2,16 +2,11 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
-// Inicialización segura
 if (!getApps().length) {
   let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-
-  // Decodifica la clave en Base64
   if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
     privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
   }
-
-  // Normaliza saltos de línea
   privateKey = privateKey.replace(/\\n/g, '\n');
 
   initializeApp({
@@ -27,7 +22,6 @@ const db = getFirestore();
 const auth = getAuth();
 
 export default async function handler(req, res) {
-  // CORS Setup
   const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
   const origin = req.headers.origin;
   res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : 'https://auditoria-gcm.vercel.app');
@@ -48,6 +42,13 @@ export default async function handler(req, res) {
 
     if (!decodedToken.email || !decodedToken.email.endsWith('@termales.com.co')) {
       return res.status(403).json({ error: 'Dominio no autorizado.' });
+    }
+
+    // 🔒 NUEVO: Validación estricta de Rol en Base de Datos (Cierra Hallazgo #6)
+    const userDoc = await db.collection('usuarios').doc(decodedToken.uid).get();
+    
+    if (!userDoc.exists || userDoc.data().rol !== 'admin') {
+      return res.status(403).json({ error: 'Permisos insuficientes. Solo administradores pueden modificar la estructura GRC.' });
     }
 
     const { partialData } = req.body;

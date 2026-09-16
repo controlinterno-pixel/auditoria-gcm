@@ -1,16 +1,15 @@
-/**
- * @file gemini.js
- * @description Cliente para conectar la interfaz de React con el Motor GRC Serverless (/api/audit)
- */
+import { auth } from './firebase'; // Importamos auth
 
 export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
   try {
-    console.log("🚀 Enviando consulta al Motor GRC (/api/audit)...");
+    // 1. Obtener el token del usuario activo
+    const token = await auth.currentUser?.getIdToken();
 
     const response = await fetch('/api/audit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // 🔒 Candado puesto
       },
       body: JSON.stringify({
         prompt: preguntaUsuario,
@@ -20,7 +19,7 @@ export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || `Error HTTP ${response.status}`);
+      throw new Error(errorData.error || `Error HTTP ${response.status}`);
     }
 
     const result = await response.json();
