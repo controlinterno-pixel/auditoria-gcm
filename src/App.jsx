@@ -267,10 +267,20 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // 🔑 Verificación inmediata por correo maestro (SuperAdmin Fallback)
-        const esCorreoAdminMaestro = currentUser.email?.toLowerCase() === 'controlinterno@termales.com.co';
-
+        // 🔒 Sincronización automática de Cookie HttpOnly de servidor
         try {
+          const idToken = await currentUser.getIdToken();
+          await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ idToken })
+          });
+        } catch (err) {
+          console.error("Error renovando cookie de servidor:", err);
+        }
+
+       try {
           const docRef = doc(db, 'usuarios', currentUser.uid);
           const docSnap = await getDoc(docRef);
           
@@ -278,23 +288,22 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
             const datosPerfil = docSnap.data();
             setPerfilUsuario({
               ...datosPerfil,
-              nombreResponsable: datosPerfil.nombreResponsable || datosPerfil.nombre || 'Yehison Pineda',
+              nombreResponsable: datosPerfil.nombreResponsable || datosPerfil.nombre || 'Usuario GRC',
               correo: datosPerfil.correo || datosPerfil.email || currentUser.email
             });
-            // Es Admin si en Firestore dice 'admin' O si es el correo maestro
-            setIsAdmin(datosPerfil.rol === 'admin' || esCorreoAdminMaestro);
+            // 🔒 El rol proviene 100% del documento oficial del usuario
+            setIsAdmin(datosPerfil.rol === 'admin');
           } else {
-            // Si el documento no existe aún en Firestore
             setPerfilUsuario({
               correo: currentUser.email,
-              nombreResponsable: 'Yehison Pineda',
-              rol: esCorreoAdminMaestro ? 'admin' : 'lider'
+              nombreResponsable: 'Usuario GRC',
+              rol: 'lider'
             });
-            setIsAdmin(esCorreoAdminMaestro);
+            setIsAdmin(false);
           }
         } catch (error) {
           console.error("Error obteniendo perfil en Firestore:", error);
-          setIsAdmin(esCorreoAdminMaestro);
+          setIsAdmin(false);
         }
       } else {
         setPerfilUsuario(null);

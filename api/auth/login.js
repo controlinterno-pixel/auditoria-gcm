@@ -1,39 +1,70 @@
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { serialize } from 'cookie';
+import { getFirestore } from 'firebase-admin/firestore';
+import { parse, serialize } from 'cookie';
 
 if (!getApps().length) {
+  let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
+  if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+    privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
+  }
+  privateKey = privateKey.replace(/\\n/g, '\n');
+
   initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+      privateKey: privateKey,
     }),
   });
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' });
+  const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
+  const origin = req.headers.origin;
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : 'https://auditoria-gcm.vercel.app');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Solo POST.' });
 
   try {
     const { idToken } = req.body;
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // Validez de 5 días
+    if (!idToken) return res.status(400).json({ error: 'Falta idToken' });
 
-    // Genera cookie de sesión cifrada en servidor
-    const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 días
+    const auth = getAuth();
+    
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+    const decoded = await auth.verifySessionCookie(sessionCookie);
 
-    // Configura la cookie impenetrable para JS del navegador
+    const db = getFirestore();
+    const userDoc = await db.collection('usuarios').doc(decoded.uid).get();
+    const userData = userDoc.exists ? userDoc.data() : {};
+
+    const isProd = process.env.NODE_ENV === 'production' || (origin && origin.includes('vercel.app'));
+
     const cookieSerialized = serialize('grc_session', sessionCookie, {
       maxAge: expiresIn / 1000,
-      httpOnly: true, // 🔒 Inaccesible desde document.cookie o XSS
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      httpOnly: true, // 🔒 Inaccesible para JS del cliente
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'lax',
       path: '/',
     });
 
     res.setHeader('Set-Cookie', cookieSerialized);
-    return res.status(200).json({ success: true, message: 'Sesión iniciada en servidor' });
+    return res.status(200).json({
+      success: true,
+      user: {
+        email: decoded.email,
+        uid: decoded.uid,
+        rol: userData.rol || (decoded.email === 'controlinterno@termales.com.co' ? 'admin' : 'lider'),
+        nombreResponsable: userData.nombreResponsable || userData.nombre || 'Usuario GRC'
+      }
+    });
   } catch (error) {
-    return res.status(401).json({ error: 'Autenticación fallida en servidor' });
+    return res.status(401).json({ error: 'Fallo al iniciar sesión en servidor: ' + error.message });
   }
 }
