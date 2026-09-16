@@ -33,7 +33,7 @@ export const enviarCorreoGmail = async (emailParams, userEmail, showNotification
           return;
         }
 
-        const accessToken = tokenResponse.access_token; // Corregido: 'close' era un bug lógico
+        const accessToken = tokenResponse.access_token; 
 
         // 🆔 DICCIONARIO PARA TRADUCIR EL CORREO AL NOMBRE REAL DEL AUDITOR
         const mapaNombresAudtores = {
@@ -49,7 +49,7 @@ export const enviarCorreoGmail = async (emailParams, userEmail, showNotification
         // Estructura Sobria y Elegante (Con sanitización aplicada)
         const mensajeMime = [
           `To: ${sanitizeHTML(emailParams.destinatarios)}`,
-          `Subject: [GCM Auditor] ${sanitizeHTML(emailParams.ref_consecutivo)} - ${sanitizeHTML(emailParams.proceso_auditado)}`,
+          `Subject: [GCM Auditor] ${sanitizeHTML(emailParams.ref_consecutivo)} -${sanitizeHTML(emailParams.proceso_auditado)}`,
           'MIME-Version: 1.0',
           'Content-Type: text/html; charset=utf-8',
           '',

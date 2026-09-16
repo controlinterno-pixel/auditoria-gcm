@@ -36,33 +36,27 @@ const [notificacionesActivas, setNotificacionesActivas] = useState(true);
   
   // Estados editables
   const [displayName, setDisplayName] = useState(user?.displayName || '');
-  // 💡 NUEVO: Leemos la foto de la memoria local primero
-  const [photoURL, setPhotoURL] = useState(localStorage.getItem('userAvatar') || user?.photoURL || '');
-const [cargo, setCargo] = useState(localStorage.getItem('userCargo') || (isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso'));
-  const [telefono, setTelefono] = useState(localStorage.getItem('userTelefono') || '+57 300 123 4567');
-  const [ubicacion, setUbicacion] = useState(localStorage.getItem('userUbicacion') || 'Obteniendo ubicación...');
+  const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
+  const [cargo, setCargo] = useState(isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso');
+  const [telefono, setTelefono] = useState('+57 300 123 4567');
+  const [ubicacion, setUbicacion] = useState('Obteniendo ubicación...');
 
   // 🌍 Autodetectar ubicación real basada en IP
   React.useEffect(() => {
+    let isMounted = true;
     const fetchLocation = async () => {
       try {
         const res = await fetch('https://ipapi.co/json/');
         const data = await res.json();
-        if (data.city && data.country_name) {
-          const loc = `${data.city}, ${data.country_name}`;
-          setUbicacion(loc);
-          localStorage.setItem('userUbicacion', loc);
+        if (data.city && data.country_name && isMounted) {
+          setUbicacion(`${data.city}, ${data.country_name}`);
         }
       } catch (error) {
-        setUbicacion('Santa Rosa de Cabal, COL'); // Fallback por si falla el internet
+        if (isMounted) setUbicacion('Santa Rosa de Cabal, COL'); // Fallback por si falla el internet
       }
     };
-    
-    if (!localStorage.getItem('userUbicacion')) {
-      fetchLocation();
-    } else {
-      setUbicacion(localStorage.getItem('userUbicacion'));
-    }
+    fetchLocation();
+    return () => { isMounted = false; };
   }, []);
  const inicial = displayName 
     ? displayName.charAt(0).toUpperCase() 
@@ -127,13 +121,9 @@ const handleResetPassword = async () => {
           photoURL: isBase64 ? auth.currentUser.photoURL : photoURL.trim() 
         });
 
-        if (isBase64) {
-          localStorage.setItem('userAvatar', photoURL);
-        } else if (photoURL === '') {
-          localStorage.removeItem('userAvatar');
-        }
-        localStorage.setItem('userCargo', cargo.trim());
-        localStorage.setItem('userTelefono', telefono.trim());
+        // 🔒 Cumplimiento de Auditoría (Hallazgo #11): 
+        // Datos como Cargo, Teléfono y Ubicación ya NO se guardan en localStorage.
+        // En un entorno de producción, estos datos deben guardarse en la colección 'usuarios' de Firestore.
 
         if (user) {
           user.displayName = displayName.trim();
