@@ -352,8 +352,10 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   
 
 const handleLogout = async () => { 
-    await signOut(auth); 
-    setShowWelcome(true); // 🛡️ Asegura que al dar clic al botón se active la pantalla de nuevo
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    setUser(null);
+    setIsAdmin(false);
+    setShowWelcome(true); 
   };
 const saveToCloud = async (partialData) => { 
     try {
@@ -378,16 +380,13 @@ const saveToCloud = async (partialData) => {
       };
       traverseAndSanitize(sanitizedData);
 
-      // 1. Obtenemos el token de seguridad del usuario autenticado
-      const token = await auth.currentUser?.getIdToken();
-      
-      // 2. Enviamos la petición al Servidor (Backend) en lugar de a Firebase
+      // 1. Petición limpia con Cookie HttpOnly gestionada por el navegador
       const response = await fetch('/api/sync', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` // 🔒 Credencial de seguridad
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // 🔒 Envía cookie de servidor
         body: JSON.stringify({ partialData: sanitizedData })
       });
 

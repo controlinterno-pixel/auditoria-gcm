@@ -1,16 +1,11 @@
-import { auth } from './firebase'; // Importamos auth
-
 export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
   try {
-    // 1. Obtener el token del usuario activo
-    const token = await auth.currentUser?.getIdToken();
-
     const response = await fetch('/api/audit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // 🔒 Candado puesto
       },
+      credentials: 'include', // 🔒 Envía automáticamente la cookie HttpOnly
       body: JSON.stringify({
         prompt: preguntaUsuario,
         datosContexto: contextoDatos,

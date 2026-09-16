@@ -32,13 +32,15 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido.' });
 
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Falta token de autenticación.' });
+    const { parse } = await import('cookie');
+    const cookies = parse(req.headers.cookie || '');
+    const sessionCookie = cookies.grc_session;
+
+    if (!sessionCookie) {
+      return res.status(401).json({ error: 'Falta sesión HttpOnly de servidor.' });
     }
 
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
+    const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
 
     if (!decodedToken.email || !decodedToken.email.endsWith('@termales.com.co')) {
       return res.status(403).json({ error: 'Dominio no autorizado.' });
