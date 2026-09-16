@@ -550,22 +550,17 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
       return false;
     }
 
-    // 1. Si la persona ya tiene chulito, NUNCA se oculta
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
-    if (estaSeleccionado) return true;
 
-    // 2. Si escribes en el buscador, busca a CUALQUIER persona de la empresa (sin importar su proceso)
     const term = busqueda.toLowerCase().trim();
-    if (term !== '') {
-      return (
-        a.nombre.toLowerCase().includes(term) || 
-        a.cedula.includes(term) ||
-        (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
-        (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)))
-      );
-    }
+    const hayFiltrosActivos = term !== '' || filtroUnidad !== 'TODOS' || filtroProceso.length > 0 || filtroCargo.length > 0 || filtroPeriodo !== 'TODOS' || filtroAlerta !== 'TODOS';
 
-    // 3. Si no hay texto en el buscador, filtra por las etiquetas de proceso/cargo/unidad seleccionadas
+    const coincideBusqueda = term === '' ? true : 
+      a.nombre.toLowerCase().includes(term) || 
+      a.cedula.includes(term) ||
+      (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+      (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
+
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
     const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
@@ -576,8 +571,14 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
     }
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    return coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
-  });
+    const cumpleFiltrosBase = coincideBusqueda && coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+
+    if (!hayFiltrosActivos) {
+        return true;
+    } else {
+        return estaSeleccionado || cumpleFiltrosBase;
+    }
+});
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
   const calcularTendenciaDinamica = () => {
@@ -718,7 +719,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
   const dataGraficasApiladas = React.useMemo(() => {
     if (!alertasFiltradas || alertasFiltradas.length === 0) return [];
 
-    const limite = empleadosSeleccionados.length > 0 
+    const limite = empleadosSeleccionados.length > 0 && agrupacionGrafica === 'SELECCIONADOS'
       ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
       : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop));
 
@@ -740,8 +741,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
 
       return resumen;
     });
-  }, [alertasFiltradas, empleadosSeleccionados, limiteTop, filtroConceptoJornada]);
-
+  }, [alertasFiltradas, empleadosSeleccionados, limiteTop, filtroConceptoJornada, agrupacionGrafica]);
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
