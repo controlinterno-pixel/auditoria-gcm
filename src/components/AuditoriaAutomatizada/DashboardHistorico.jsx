@@ -1481,25 +1481,6 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       const isChecked = empleadosSeleccionados.some(e => e.cedula === alerta.cedula);
                       return (
                       <tr key={idx} className={`transition-colors ${isChecked ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
-                        <td className="p-4 text-center">
-                          <input 
-                            type="checkbox" 
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setEmpleadosSeleccionados(prev => [...prev, { cedula: alerta.cedula, nombre: alerta.nombre }]);
-                                setAgrupacionGrafica('SELECCIONADOS');
-                              } else {
-                                const resto = empleadosSeleccionados.filter(emp => emp.cedula !== alerta.cedula);
-                                setEmpleadosSeleccionados(resto);
-                                if (resto.length === 0) {
-                                  setAgrupacionGrafica('SEDES');
-                                }
-                              }
-                            }}
-                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                          />
-                        </td>
                         <td className="p-4 text-center text-2xl" title={alerta.tipo}>{alerta.icono}</td>
                        <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
                           <div className="flex items-center gap-2">
