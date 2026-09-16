@@ -550,17 +550,22 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
       return false;
     }
 
+    // 1. Las personas chuleadas NUNCA se ocultan (se suman al análisis)
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
+    if (estaSeleccionado) return true;
 
+    // 2. Si escribes en el buscador, busca a cualquier persona de la empresa (sin importar su proceso)
     const term = busqueda.toLowerCase().trim();
-    const hayFiltrosActivos = term !== '' || filtroUnidad !== 'TODOS' || filtroProceso.length > 0 || filtroCargo.length > 0 || filtroPeriodo !== 'TODOS' || filtroAlerta !== 'TODOS';
+    if (term !== '') {
+      return (
+        a.nombre.toLowerCase().includes(term) || 
+        a.cedula.includes(term) ||
+        (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+        (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)))
+      );
+    }
 
-    const coincideBusqueda = term === '' ? true : 
-      a.nombre.toLowerCase().includes(term) || 
-      a.cedula.includes(term) ||
-      (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
-      (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
-
+    // 3. Filtros regulares por Proceso / Cargo / Unidad / Período
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
     const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
@@ -571,14 +576,8 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
     }
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    const cumpleFiltrosBase = coincideBusqueda && coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
-
-    if (!hayFiltrosActivos) {
-        return true;
-    } else {
-        return estaSeleccionado || cumpleFiltrosBase;
-    }
-});
+    return coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+  });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
   const calcularTendenciaDinamica = () => {
@@ -861,6 +860,47 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                   {verTendencias ? '🙈 Ocultar Gráfica' : '👁️ Ver Detalle de Evolución'}
                 </button>
               </div>
+            </div>
+
+           {/* 👥 PANEL INTERACTIVO DE COMPARACIÓN DIRECTA (JUNTO A LA GRÁFICA) */}
+           {empleadosSeleccionados.length > 0 && (
+              <div className="my-3 bg-indigo-50/90 border border-indigo-200 p-3 rounded-xl shadow-sm space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
+                    <span>👥</span> Personas en Comparación Directa ({empleadosSeleccionados.length}):
+                  </span>
+                  <button 
+                    onClick={() => {
+                      setEmpleadosSeleccionados([]);
+                      setAgrupacionGrafica('SEDES');
+                    }}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 px-2.5 py-0.5 rounded border border-rose-200 transition cursor-pointer"
+                  >
+                    ✕ Vaciar Todos
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {empleadosSeleccionados.map((emp) => (
+                    <div 
+                      key={emp.cedula} 
+                      className="flex items-center gap-2 bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-md animate-in fade-in"
+                    >
+                      <span>👤 {emp.nombre.split(' ').slice(0, 2).join(' ')}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const resto = empleadosSeleccionados.filter(e => e.cedula !== emp.cedula);
+                          setEmpleadosSeleccionados(resto);
+                          if (resto.length === 0) setAgrupacionGrafica('SEDES');
+                        }}
+                        className="text-indigo-200 hover:text-white font-black text-sm cursor-pointer border-l border-indigo-400 pl-1.5"
+                        title="Desmarcar y quitar de la gráfica"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
             </div>
 
            {/* 👥 PANEL INTERACTIVO DE COMPARACIÓN DIRECTA (JUNTO A LA GRÁFICA) */}
