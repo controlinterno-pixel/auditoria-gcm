@@ -687,23 +687,22 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
   const kpisFiltrados = React.useMemo(() => {
     if (!datosHistoricos) return { totalMeses: 0, totalAlertas: 0, totalMonto: 0 };
 
-    let totalMonto = 0;
-    
-    if (modoDashboard === 'JORNADA' && busqueda === '' && filtroUnidad === 'TODOS' && filtroProceso.length === 0 && filtroCargo.length === 0 && filtroPeriodo === 'TODOS' && filtroConceptoJornada.length === 0 && empleadosSeleccionados.length === 0) {
-      totalMonto = datosHistoricos.totalCostoExtras;
-    } else {
-      totalMonto = alertasFiltradas.reduce((acc, a) => {
-        if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
-          return acc + a.fugaPorMes[filtroPeriodo];
-        }
-        return acc + (a.totalDineroVisual || 0);
-      }, 0);
-    }
-    
-    const totalAlertas = alertasFiltradas.length; 
+    // 💡 Determina el universo a evaluar: si hay seleccionados en la bandeja, toma solo esos
+    const universoAfectado = empleadosSeleccionados.length > 0 
+      ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
+      : alertasFiltradas;
+
+    let totalMonto = universoAfectado.reduce((acc, a) => {
+      if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
+        return acc + a.fugaPorMes[filtroPeriodo];
+      }
+      return acc + (a.totalDineroVisual || 0);
+    }, 0);
+
+    const totalAlertas = universoAfectado.length; 
 
     const periodosUnicos = new Set();
-    alertasFiltradas.forEach(a => {
+    universoAfectado.forEach(a => {
       if (a.periodosFuga) a.periodosFuga.forEach(p => periodosUnicos.add(p));
       if (a.mesesConNovedad) a.mesesConNovedad.forEach(p => periodosUnicos.add(p));
     });
@@ -715,7 +714,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
       totalAlertas,
       totalMonto
     };
-  }, [datosHistoricos, alertasFiltradas, filtroPeriodo]);
+  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados]);
 
  // 📊 CÁLCULO DE DATA PARA BARRAS APILADAS POR TRABAJADOR
   const dataGraficasApiladas = React.useMemo(() => {
