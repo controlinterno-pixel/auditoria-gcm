@@ -550,19 +550,22 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
       return false;
     }
 
+    // 1. Si la persona ya tiene chulito, NUNCA se oculta
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
+    if (estaSeleccionado) return true;
 
-    // 3. Evaluamos si el usuario tiene ALGÚN filtro de grupo activo (Búsqueda, Unidad, Proceso o Cargo)
+    // 2. Si escribes en el buscador, busca a CUALQUIER persona de la empresa (sin importar su proceso)
     const term = busqueda.toLowerCase().trim();
-    const hayFiltrosActivos = term !== '' || filtroUnidad !== 'TODOS' || filtroProceso.length > 0 || filtroCargo.length > 0 || filtroPeriodo !== 'TODOS' || filtroAlerta !== 'TODOS';
+    if (term !== '') {
+      return (
+        a.nombre.toLowerCase().includes(term) || 
+        a.cedula.includes(term) ||
+        (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+        (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)))
+      );
+    }
 
-    // 4. Lógica de cumplimiento de filtros
-    const coincideBusqueda = term === '' ? true : 
-      a.nombre.toLowerCase().includes(term) || 
-      a.cedula.includes(term) ||
-      (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
-      (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
-
+    // 3. Si no hay texto en el buscador, filtra por las etiquetas de proceso/cargo/unidad seleccionadas
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
     const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
@@ -573,16 +576,7 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
     }
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    const cumpleFiltrosBase = coincideBusqueda && coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
-
-    // 💡 LÓGICA MAESTRA:
-    // Si NO hay filtros extra aplicados, mostramos a TODOS (incluyendo a los seleccionados).
-    // Si SÍ hay filtros aplicados, mostramos a los que cumplan los filtros O a los que estén seleccionados en el carrito.
-    if (!hayFiltrosActivos) {
-        return true;
-    } else {
-        return estaSeleccionado || cumpleFiltrosBase;
-    }
+    return coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
   });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
