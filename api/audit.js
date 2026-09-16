@@ -42,50 +42,48 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Dominio no autorizado para usar la IA.' });
     }
 
-    // 🔑 1. LEER EL ARREGLO DE LLAVES DESDE VERCEL
     const keysString = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY;
     if (!keysString) {
-      return res.status(500).json({ error: 'Falta configurar las llaves de IA en el servidor.' });
+      return res.status(500).json({ error: 'Falta configurar GEMINI_API_KEYS en el servidor.' });
     }
 
-    // Convertimos la cadena "llave1,llave2,llave3" en un arreglo real de Javascript
     const apiKeys = keysString.split(',').map(k => k.trim()).filter(Boolean);
-
     const { prompt, datosContexto } = req.body;
     if (!prompt) return res.status(400).json({ error: 'El prompt es obligatorio.' });
 
     const promptCompleto = `${prompt}\n\nContexto de datos:\n${JSON.stringify(datosContexto || {})}`;
     
+    // 🎯 MODELOS EXACTOS EXTRAÍDOS DE TU CONSOLA
+    const modelosDisponibles = ['gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-flash'];
+
     let text = null;
     let lastError = null;
 
-    // 🔄 2. CARRUSEL DE LLAVES (FALLBACK)
-    // El sistema intentará con la Llave 1, si falla, va a la Llave 2, etc.
-    for (let i = 0; i < apiKeys.length; i++) {
-      try {
-        const genAI = new GoogleGenerativeAI(apiKeys[i]);
-        // Mantenemos el modelo gemini-1.5-flash por ser el más rápido y estable para este SDK
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });        
-        const result = await model.generateContent(promptCompleto);
-        text = await result.response.text();
-        
-        // Si funcionó, rompemos el ciclo y no gastamos las demás llaves
-        break; 
-      } catch (error) {
-        console.warn(`⚠️ Llave de IA #${i + 1} falló. Intentando con la siguiente... Error:`, error.message);
-        lastError = error;
+    // Recorremos llaves y modelos en cascada
+    for (const key of apiKeys) {
+      const genAI = new GoogleGenerativeAI(key);
+      
+      for (const modelName of modelosDisponibles) {
+        try {
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(promptCompleto);
+          text = await result.response.text();
+          if (text) break; 
+        } catch (error) {
+          lastError = error;
+        }
       }
+      if (text) break;
     }
 
-    // 3. Evaluar si todas las llaves fracasaron
     if (!text) {
-      console.error('❌ Todas las llaves de IA agotadas o fallidas. Último error:', lastError?.message);
-      return res.status(500).json({ error: `Servicio saturado tras probar las ${apiKeys.length} llaves de respaldo. Intenta de nuevo en unos minutos.` });
+      return res.status(500).json({ 
+        error: `Servicio saturado. Detalle técnico: ${lastError?.message || 'Sin respuesta'}` 
+      });
     }
 
     return res.status(200).json({ respuesta: text });
   } catch (error) {
-    console.error('❌ Error general IA:', error.message);
-    return res.status(500).json({ error: `Fallo del motor: ${error.message}` });
+    return res.status(500).json({ error: `Fallo general: ${error.message}` });
   }
 }
