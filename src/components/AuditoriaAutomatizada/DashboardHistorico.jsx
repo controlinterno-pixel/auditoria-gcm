@@ -986,11 +986,12 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                          ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
                             (() => {
                               let baseLineas = [];
-                              // 💡 AÍSLA A LOS SELECCIONADOS EN LA GRÁFICA DE LÍNEAS
-                              if (empleadosSeleccionados.length > 0) {
+                              // 💡 Respeta el menú: Solo aísla si eliges "Comparar Seleccionados"
+                              if (agrupacionGrafica === 'SELECCIONADOS') {
                                 baseLineas = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
                               } else {
-                                baseLineas = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
+                                // Si es "Ver línea por Empleado", muestra a todos los de la tabla
+                                baseLineas = alertasFiltradas;
                               }
                               return baseLineas.map((emp, idx) => {
                                 const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
@@ -1067,7 +1068,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       
                       <div className="h-72 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(d => empleadosSeleccionados.some(e => e.cedula === d.cedula)) : dataGraficasApiladas}>
+                          <BarChart data={dataGraficasApiladas}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                             <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
                             <YAxis stroke="#475569" fontSize={11} unit=" hrs" />
@@ -1357,8 +1358,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
               // Colección filtrada por todo EXCEPTO por la unidad actual
               const basePeriodo = coleccionActiva.filter(a => {
                 const term = busqueda.toLowerCase().trim();
-                const coincideBusqueda = term === '' ? true : 
-                  a.nombre.toLowerCase().includes(term) || a.cedula.includes(term);
+                const coincideBusqueda = term !== '' && (a.nombre.toLowerCase().includes(term) || a.cedula.includes(term));
                 
                 const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
                 const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
@@ -1367,7 +1367,10 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 if (filtroPeriodo !== 'TODOS') {
                    coincidePeriodo = modoDashboard === 'JORNADA' ? a.mesesConNovedad.has(filtroPeriodo) : a.periodosFuga.has(filtroPeriodo);
                 }
-                return coincideBusqueda && coincideProceso && coincideCargo && coincidePeriodo;
+                
+                const cumpleFiltrosBase = coincideProceso && coincideCargo && coincidePeriodo;
+                if (term !== '') return coincideBusqueda || cumpleFiltrosBase;
+                return cumpleFiltrosBase;
               });
 
               return (
