@@ -906,9 +906,8 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                     </div>
                   ))}
                 </div>
-            </div>
-
-          
+              </div>
+            )}
 
            {verTendencias && (
               <div className="pt-4 border-t border-slate-100 space-y-6">
