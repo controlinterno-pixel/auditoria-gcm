@@ -554,16 +554,7 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
     if (estaSeleccionado) return true;
 
-    // 2. Al buscar, SOLO mostramos los resultados de búsqueda (para que chulees fácilmente)
-    const term = busqueda.toLowerCase().trim();
-    if (term !== '') {
-      return a.nombre.toLowerCase().includes(term) || 
-             a.cedula.includes(term) ||
-             (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
-             (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
-    }
-
-    // 3. Si no hay búsqueda, aplicamos tus filtros normales (Mantenimiento, etc.)
+    // 2. Evaluamos los filtros normales (Mantenimiento, etc.)
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
     const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
     const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
@@ -574,7 +565,21 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
     }
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    return coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+    const cumpleFiltrosBase = coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+
+    // 3. Evaluamos la búsqueda
+    const term = busqueda.toLowerCase().trim();
+    if (term !== '') {
+      const coincideBusqueda = a.nombre.toLowerCase().includes(term) || 
+                               a.cedula.includes(term) ||
+                               (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+                               (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
+      
+      // MAGIA: Muestra a la persona si pertenece a Mantenimiento (filtro base) O si la estás buscando (Nicolas)
+      return cumpleFiltrosBase || coincideBusqueda;
+    }
+
+    return cumpleFiltrosBase;
   });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
