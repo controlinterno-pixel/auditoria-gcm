@@ -852,14 +852,21 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                   </select>
                 )}
 
-               {/* 💡 SELECTOR MANUAL DE AGRUPACIÓN GRÁFICA */}
+              {/* 💡 SELECTOR MANUAL DE AGRUPACIÓN GRÁFICA (CON DESPLEGABLE DE SELECCIONADOS) */}
                 {modoDashboard === 'JORNADA' && alertasFiltradas.length > 0 && (
                   <select 
                     value={agrupacionGrafica}
                     onChange={(e) => setAgrupacionGrafica(e.target.value)}
-                    className="text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded px-2 py-1 shadow-sm outline-none cursor-pointer"
+                    className={`text-xs font-bold rounded px-2 py-1 shadow-sm outline-none cursor-pointer transition-all ${
+                      agrupacionGrafica === 'SELECCIONADOS'
+                        ? 'bg-indigo-600 text-white border border-indigo-700 ring-2 ring-indigo-300'
+                        : 'bg-white text-slate-700 border border-slate-300'
+                    }`}
                   >
                     <option value="SEDES">🏢 Agrupar líneas por Sedes</option>
+                    {empleadosSeleccionados.length > 0 && (
+                      <option value="SELECCIONADOS">👥 Comparar Seleccionados ({empleadosSeleccionados.length})</option>
+                    )}
                     {alertasFiltradas.length <= 40 && <option value="EMPLEADOS">👤 Ver línea por Empleado</option>}
                     <option value="CONCEPTOS">📑 Ver línea por Conceptos</option>
                   </select>
@@ -959,8 +966,11 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                 return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />;
                               });
                             })()
-                          ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
-                            (empleadosSeleccionados.length > 0 && filtroSeleccionadosMode === 'SOLO_SELECCIONADOS' ? alertasFiltradas : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop))).map((emp, idx) => {
+                          ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
+                            (agrupacionGrafica === 'SELECCIONADOS'
+                              ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
+                              : (empleadosSeleccionados.length > 0 && filtroSeleccionadosMode === 'SOLO_SELECCIONADOS' ? alertasFiltradas : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop)))
+                            ).map((emp, idx) => {
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
                               
                               const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
@@ -1536,10 +1546,14 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                 setEmpleadosSeleccionados([...empleadosSeleccionados, { cedula: alerta.cedula, nombre: alerta.nombre }]);
                                 setBusqueda('');
                                 setFiltroSeleccionadosMode('SOLO_SELECCIONADOS');
+                                setAgrupacionGrafica('SELECCIONADOS');
                               } else {
                                 const resto = empleadosSeleccionados.filter(emp => emp.cedula !== alerta.cedula);
                                 setEmpleadosSeleccionados(resto);
-                                if (resto.length === 0) setFiltroSeleccionadosMode('TODOS');
+                                if (resto.length === 0) {
+                                  setFiltroSeleccionadosMode('TODOS');
+                                  setAgrupacionGrafica('SEDES');
+                                }
                               }
                             }}
                             className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
