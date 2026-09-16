@@ -550,20 +550,18 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
       return false;
     }
 
-    // 1. Las personas chuleadas NUNCA se ocultan (se suman al análisis)
+    // 1. Las personas chuleadas NUNCA se ocultan (se suman a la vista general)
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
     if (estaSeleccionado) return true;
 
-    // 2. Si escribes en el buscador, busca a cualquier persona de la empresa (sin importar su proceso)
+    // 2. Evaluamos si la persona coincide con el texto del buscador
     const term = busqueda.toLowerCase().trim();
-    if (term !== '') {
-      return (
-        a.nombre.toLowerCase().includes(term) || 
-        a.cedula.includes(term) ||
-        (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
-        (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)))
-      );
-    }
+    const coincideBusqueda = term !== '' && (
+      a.nombre.toLowerCase().includes(term) || 
+      a.cedula.includes(term) ||
+      (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+      (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)))
+    );
 
     // 3. Filtros regulares por Proceso / Cargo / Unidad / Período
     const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
@@ -576,7 +574,14 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
     }
     const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
 
-    return coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+    const cumpleFiltrosBase = coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+
+    // 💡 MAGIA INTERACTIVA: Muestra a la persona si pertenece al Proceso seleccionado O si la estás buscando
+    if (term !== '') {
+        return coincideBusqueda || cumpleFiltrosBase;
+    }
+
+    return cumpleFiltrosBase;
   });
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
@@ -903,47 +908,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 </div>
             </div>
 
-           {/* 👥 PANEL INTERACTIVO DE COMPARACIÓN DIRECTA (JUNTO A LA GRÁFICA) */}
-           {empleadosSeleccionados.length > 0 && (
-              <div className="my-3 bg-indigo-50/90 border border-indigo-200 p-3 rounded-xl shadow-sm space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
-                    <span>👥</span> Personas en Comparación Directa ({empleadosSeleccionados.length}):
-                  </span>
-                  <button 
-                    onClick={() => {
-                      setEmpleadosSeleccionados([]);
-                      setAgrupacionGrafica('SEDES');
-                    }}
-                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 px-2.5 py-0.5 rounded border border-rose-200 transition cursor-pointer"
-                  >
-                    ✕ Vaciar Todos
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {empleadosSeleccionados.map((emp) => (
-                    <div 
-                      key={emp.cedula} 
-                      className="flex items-center gap-2 bg-indigo-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow-md animate-in fade-in"
-                    >
-                      <span>👤 {emp.nombre.split(' ').slice(0, 2).join(' ')}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const resto = empleadosSeleccionados.filter(e => e.cedula !== emp.cedula);
-                          setEmpleadosSeleccionados(resto);
-                          if (resto.length === 0) setAgrupacionGrafica('SEDES');
-                        }}
-                        className="text-indigo-200 hover:text-white font-black text-sm cursor-pointer border-l border-indigo-400 pl-1.5"
-                        title="Desmarcar y quitar de la gráfica"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          
 
            {verTendencias && (
               <div className="pt-4 border-t border-slate-100 space-y-6">
@@ -1279,7 +1244,54 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
               </div>
             </div>
 
-                       {/* Selector de Procesos por Etiquetas */}
+            {/* 🛒 BANDEJA DE EMPLEADOS SELECCIONADOS PARA COMPARAR */}
+            {empleadosSeleccionados.length > 0 && (
+              <div className="bg-indigo-50/80 border border-indigo-200 p-4 rounded-xl shadow-inner mt-2">
+                <div className="flex justify-between items-center mb-3">
+                  <label className="text-sm font-black text-indigo-900 flex items-center gap-2">
+                    <span>👥</span> Lista de Comparación Activa
+                    <span className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full">
+                      {empleadosSeleccionados.length} listos para graficar
+                    </span>
+                  </label>
+                  <button 
+                    onClick={() => {
+                      setEmpleadosSeleccionados([]);
+                      setAgrupacionGrafica('SEDES');
+                    }}
+                    className="text-xs font-bold text-rose-600 hover:text-rose-800 bg-rose-100 hover:bg-rose-200 px-3 py-1 rounded-lg border border-rose-200 transition cursor-pointer"
+                  >
+                    ✕ Vaciar Lista
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {empleadosSeleccionados.map((emp) => (
+                    <div 
+                      key={emp.cedula} 
+                      className="flex items-center gap-2 bg-white border border-indigo-300 text-indigo-900 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm animate-in fade-in"
+                    >
+                      <span>👤 {emp.nombre.split(' ').slice(0, 2).join(' ')}</span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                          const resto = empleadosSeleccionados.filter((e) => e.cedula !== emp.cedula);
+                          setEmpleadosSeleccionados(resto);
+                          if (resto.length === 0) {
+                            setAgrupacionGrafica('SEDES');
+                          }
+                        }}
+                        className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded px-1.5 font-black text-sm cursor-pointer transition-colors"
+                        title="Desmarcar y quitar del análisis"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Selector de Procesos por Etiquetas */}
             <div className="pt-2 border-t border-slate-100">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
@@ -1521,6 +1533,20 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       const isChecked = empleadosSeleccionados.some(e => e.cedula === alerta.cedula);
                       return (
                       <tr key={idx} className={`transition-colors ${isChecked ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
+                        <td className="p-4 text-center">
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEmpleadosSeleccionados(prev => [...prev, { cedula: alerta.cedula, nombre: alerta.nombre }]);
+                              } else {
+                                setEmpleadosSeleccionados(prev => prev.filter(emp => emp.cedula !== alerta.cedula));
+                              }
+                            }}
+                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </td>
                         <td className="p-4 text-center text-2xl" title={alerta.tipo}>{alerta.icono}</td>
                        <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
                           <div className="flex items-center gap-2">
