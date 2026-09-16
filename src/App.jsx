@@ -267,9 +267,6 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        const emailLimpio = (currentUser.email || '').trim().toLowerCase();
-        const esSuperAdmin = emailLimpio === 'controlinterno@termales.com.co';
-
         try {
           const docRef = doc(db, 'usuarios', currentUser.uid);
           const docSnap = await getDoc(docRef);
@@ -277,17 +274,14 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
           if (docSnap.exists()) {
             const datosPerfil = docSnap.data();
             setPerfilUsuario(datosPerfil);
-            // El rol se define por la BD o por ser el SuperAdmin
-            setIsAdmin(datosPerfil.rol === 'admin' || esSuperAdmin); 
+            setIsAdmin(datosPerfil.rol === 'admin'); // 🔒 Ahora SOLO Firestore dicta quién es admin
           } else {
             setPerfilUsuario(null);
-            // Failsafe: Si no hay doc, garantizamos la entrada al dueño
-            setIsAdmin(esSuperAdmin);
+            setIsAdmin(false);
           }
         } catch (error) {
           console.error("Error obteniendo perfil en Firestore:", error);
-          // Si Firebase bloquea la lectura, dejamos pasar al SuperAdmin visualmente
-          setIsAdmin(esSuperAdmin);
+          setIsAdmin(false);
         }
       } else {
         setPerfilUsuario(null);
@@ -350,6 +344,27 @@ const handleLogout = async () => {
   };
 const saveToCloud = async (partialData) => { 
     try {
+      // 🛡️ INTERCEPTOR: Sanitizar URLs maliciosas (Hallazgo #8) antes de enviar a BD
+      const sanitizedData = JSON.parse(JSON.stringify(partialData)); // Copia profunda
+      
+      const traverseAndSanitize = (obj) => {
+        for (let key in obj) {
+          if (typeof obj[key] === 'string' && key.toLowerCase().includes('url') && obj[key].trim() !== '') {
+            try {
+              const parsed = new URL(obj[key]);
+              if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+                obj[key] = ''; // Borra enlace malicioso (ej. javascript:alert(1))
+              }
+            } catch (e) {
+              obj[key] = ''; // Borra si ni siquiera es una URL válida
+            }
+          } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+            traverseAndSanitize(obj[key]);
+          }
+        }
+      };
+      traverseAndSanitize(sanitizedData);
+
       // 1. Obtenemos el token de seguridad del usuario autenticado
       const token = await auth.currentUser?.getIdToken();
       
@@ -360,7 +375,7 @@ const saveToCloud = async (partialData) => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` // 🔒 Credencial de seguridad
         },
-        body: JSON.stringify({ partialData })
+        body: JSON.stringify({ partialData: sanitizedData })
       });
 
       if (!response.ok) {
@@ -731,7 +746,7 @@ const handleImportExcelRiesgos = (e) => {
     }
   };
 
-  const sugerirConIA = async (tipoTarget) => {
+ const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
 
@@ -747,7 +762,10 @@ const handleImportExcelRiesgos = (e) => {
       inputDestino = document.querySelector('input[name="titulo"]');
     }
 
-    if (!textoBase || textoBase.trim() === '' || textoBase.includes('-- Seleccione --')) {
+    // 🔒 Sanitizar texto base para evitar inyección de código
+    textoBase = textoBase.replace(/[<>{}[\]\\]/g, '').trim();
+
+    if (!textoBase || textoBase === '' || textoBase.includes('-- Seleccione --')) {
       showNotification("Escribe una descripción o selecciona un hallazgo primero para que la IA lo analice.", "error");
       return;
     }
@@ -758,18 +776,18 @@ const handleImportExcelRiesgos = (e) => {
     try {
       let prompt = "";
       if (tipoTarget === 'control') {
-        prompt = `Actúa como un experto en auditoría GRC y ciberseguridad (ISO 31000). El siguiente es un evento de riesgo en una empresa: "${textoBase}". Redacta la descripción de un CONTROL CLAVE mitigante o preventivo, de forma muy ejecutiva, técnica y directa (máximo 20 palabras). Solo responde con el texto del control, sin comillas ni saludos.`;
+        prompt = `Analiza el evento: "${textoBase}". Redacta un CONTROL CLAVE mitigante (máx 20 palabras).`;
       } else if (tipoTarget === 'plan') {
-        prompt = `Actúa como un gerente de auditoría interno corporativo. Se ha detectado el siguiente hallazgo o desviación: "${textoBase}". Redacta una ACCIÓN DE CHOQUE o plan correctivo, de forma muy ejecutiva, técnica y directa (máximo 20 palabras). Solo responde con el texto de la acción, sin comillas ni saludos.`;
+        prompt = `Hallazgo detectado: "${textoBase}". Redacta una ACCIÓN DE CHOQUE correctiva (máx 20 palabras).`;
       } else if (tipoTarget === 'hallazgo') {
-        prompt = `Actúa como un Auditor Senior de Control Interno. Estás auditando el siguiente proceso: "${textoBase}". Redacta la descripción de un HALLAZGO O DESVIACIÓN grave y realista (máximo 20 palabras) que se podría encontrar en este proceso. Sé muy ejecutivo, técnico y directo. Solo responde con el texto del hallazgo, sin comillas ni saludos.`;
+        prompt = `Proceso auditado: "${textoBase}". Redacta un HALLAZGO grave y realista (máx 20 palabras).`;
       }
 
-      const sugerencia = await consultarCopilotoIA(prompt, { tipoTarget, textoBase });
+      const sugerencia = await consultarCopilotoIA(prompt, { tipoTarget });
 
       if (inputDestino) {
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-        nativeInputValueSetter.call(inputDestino, typeof sugerencia === 'string' ? sugerencia : JSON.stringify(sugerencia));
+        nativeInputValueSetter.call(inputDestino, typeof sugerencia === 'string' ? sugerencia.replace(/(^"|"$)/g, '') : JSON.stringify(sugerencia));
         inputDestino.dispatchEvent(new Event('input', { bubbles: true }));
         inputDestino.dispatchEvent(new Event('change', { bubbles: true }));
         showNotification("¡Sugerencia ejecutiva insertada con éxito!");
@@ -1600,8 +1618,8 @@ return (
             title="Ir a mi perfil"
           >
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0055ff] to-[#00aaff] flex items-center justify-center text-white font-black text-lg shadow-[0_0_15px_rgba(0,102,255,0.4)] shrink-0 overflow-hidden ring-2 ring-transparent group-hover:ring-[#0055ff] transition-all">
-              {(localStorage.getItem('userAvatar') || user?.photoURL) ? (
-                <img src={localStorage.getItem('userAvatar') || user?.photoURL} alt="Perfil" className="w-full h-full object-cover" />
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt="Perfil" className="w-full h-full object-cover" />
               ) : (
                 user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U')
               )}
