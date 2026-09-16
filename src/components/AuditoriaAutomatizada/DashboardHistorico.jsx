@@ -82,8 +82,8 @@ const DashboardHistorico = () => {
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     
   const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); 
-  const [limiteTop, setLimiteTop] = useState(5);                 
-  const [metricaGrafica, setMetricaGrafica] = useState('HORAS'); 
+  const [limiteTop, setLimiteTop] = useState('TODOS');                 
+  const [metricaGrafica, setMetricaGrafica] = useState('HORAS');
   const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); 
   const [empleadoModal, setEmpleadoModal] = useState(null);
 
@@ -815,7 +815,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 📈 {modoDashboard === 'JORNADA' ? 'Comportamiento Histórico de Tiempo Suplementario' : 'Evolución de Fuga Financiera en Subsidios de Transporte'} (Mes a Mes)
               </h3>
               <div className="flex items-center gap-3">
-                {/* 📏 SELECTOR DE MÉTRICA (Horas vs Dinero) */}
+{/* 📏 SELECTOR DE MÉTRICA (Horas vs Dinero) */}
                 {modoDashboard === 'JORNADA' && alertasFiltradas.length > 0 && (
                   <select
                     value={metricaGrafica}
@@ -824,21 +824,6 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                   >
                     <option value="HORAS">⏱️ Ver en Horas</option>
                     <option value="DINERO">💰 Ver en Dinero</option>
-                  </select>
-                )}
-
-                {/* 🏆 SELECTOR DE TOP EMPLEADOS (Aparece si está agrupado por empleado) */}
-                {modoDashboard === 'JORNADA' && agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length > 0 && (
-                  <select
-                    value={limiteTop}
-                    onChange={(e) => setLimiteTop(e.target.value === 'TODOS' ? 'TODOS' : Number(e.target.value))}
-                    className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-300 rounded px-2 py-1 shadow-sm outline-none cursor-pointer animate-in fade-in"
-                  >
-                    <option value={3}>🏆 Top 3 Empleados</option>
-                    <option value={5}>🏆 Top 5 Empleados</option>
-                    <option value={7}>🏆 Top 7 Empleados</option>
-                    <option value={10}>🏆 Top 10 Empleados</option>
-                    <option value="TODOS">👥 Mostrar Todos ({alertasFiltradas.length})</option>
                   </select>
                 )}
 
