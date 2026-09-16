@@ -86,6 +86,9 @@ const DashboardHistorico = () => {
   const [metricaGrafica, setMetricaGrafica] = useState('HORAS'); 
   const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); 
   const [empleadoModal, setEmpleadoModal] = useState(null);
+
+  // 👁️ NUEVO MODO DE FILTRADO PARA PERSONAS SELECCIONADAS (CHULITOS)
+  const [filtroSeleccionadosMode, setFiltroSeleccionadosMode] = useState('TODOS'); // 'TODOS' | 'SOLO_SELECCIONADOS' | 'OCULTAR_SELECCIONADOS'
   const clasificarUnidad = (fila) => {
     const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
     const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
@@ -543,15 +546,22 @@ riesgo: (() => {
     }
     return a;
   });
-
- const alertasFiltradas = coleccionRecalculada.filter(a => {
-    // 1. Si no tiene datos para el concepto seleccionado, lo ocultamos.
+const alertasFiltradas = coleccionRecalculada.filter(a => {
     if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0 && a.totalHorasVisual === 0 && a.totalDineroVisual === 0) {
       return false;
     }
 
-    // 2. Comprobación del Carrito de Comparación
     const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
+
+    // 👁️ NUEVA REGLA: MODO EXCLUSIVO DE CHULITOS SELECCIONADOS
+    if (empleadosSeleccionados.length > 0) {
+      if (filtroSeleccionadosMode === 'SOLO_SELECCIONADOS') {
+        return estaSeleccionado;
+      }
+      if (filtroSeleccionadosMode === 'OCULTAR_SELECCIONADOS') {
+        if (estaSeleccionado) return false;
+      }
+    }
 
     // 3. Evaluamos si el usuario tiene ALGÚN filtro de grupo activo (Búsqueda, Unidad, Proceso o Cargo)
     const term = busqueda.toLowerCase().trim();
@@ -693,11 +703,9 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
 
     let totalMonto = 0;
     
-   // Si no hay filtros aplicados, mostramos el Gran Total de la compañía (Coincidiendo con el Excel)
-    if (modoDashboard === 'JORNADA' && busqueda === '' && filtroUnidad === 'TODOS' && filtroProceso.length === 0 && filtroCargo.length === 0 && filtroPeriodo === 'TODOS' && filtroConceptoJornada.length === 0 && empleadosSeleccionados.length === 0) {
+    if (modoDashboard === 'JORNADA' && busqueda === '' && filtroUnidad === 'TODOS' && filtroProceso.length === 0 && filtroCargo.length === 0 && filtroPeriodo === 'TODOS' && filtroConceptoJornada.length === 0 && empleadosSeleccionados.length === 0 && filtroSeleccionadosMode === 'TODOS') {
       totalMonto = datosHistoricos.totalCostoExtras;
     } else {
-      // Si hay filtros, sumamos solo lo que está visible en pantalla
       totalMonto = alertasFiltradas.reduce((acc, a) => {
         if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
           return acc + a.fugaPorMes[filtroPeriodo];
@@ -708,7 +716,6 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
     
     const totalAlertas = alertasFiltradas.length; 
 
-    // Calcular cuántos períodos únicos están presentes en las alertas filtradas
     const periodosUnicos = new Set();
     alertasFiltradas.forEach(a => {
       if (a.periodosFuga) a.periodosFuga.forEach(p => periodosUnicos.add(p));
@@ -722,14 +729,14 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
       totalAlertas,
       totalMonto
     };
-  }, [datosHistoricos, alertasFiltradas, filtroPeriodo]);
+  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, filtroSeleccionadosMode]);
 
-  // 📊 CÁLCULO DE DATA PARA BARRAS APILADAS POR TRABAJADOR
+ // 📊 CÁLCULO DE DATA PARA BARRAS APILADAS POR TRABAJADOR
   const dataGraficasApiladas = React.useMemo(() => {
     if (!alertasFiltradas || alertasFiltradas.length === 0) return [];
 
-    const limite = empleadosSeleccionados.length > 0 
-      ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
+    const limite = empleadosSeleccionados.length > 0 && filtroSeleccionadosMode === 'SOLO_SELECCIONADOS'
+      ? alertasFiltradas
       : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop));
 
     return limite.map(emp => {
@@ -750,7 +757,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
 
       return resumen;
     });
-  }, [alertasFiltradas, empleadosSeleccionados, limiteTop, filtroConceptoJornada]);
+  }, [alertasFiltradas, empleadosSeleccionados, limiteTop, filtroConceptoJornada, filtroSeleccionadosMode]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -953,8 +960,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               });
                             })()
                           ) : agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40 ? (
-                            // 💡 2. Si hay chulos marcados, mostramos TODOS los chulos. Si no, aplicamos el Top N.
-                            (empleadosSeleccionados.length > 0 ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula)) : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop))).map((emp, idx) => {
+                            (empleadosSeleccionados.length > 0 && filtroSeleccionadosMode === 'SOLO_SELECCIONADOS' ? alertasFiltradas : (limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop))).map((emp, idx) => {
                               const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
                               
                               const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
@@ -1198,30 +1204,80 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
               </div>
             </div>
 
-            {/* 👥 EMPLEADOS SELECCIONADOS (CARRITO DE COMPARACIÓN) */}
+            {/* 👥 EMPLEADOS SELECCIONADOS (CARRITO DE COMPARACIÓN Y FILTRO) */}
             {empleadosSeleccionados.length > 0 && (
-              <div className="pt-2 border-t border-slate-100 bg-indigo-50/40 p-3 rounded-lg border-indigo-100">
-                <div className="flex justify-between items-center mb-2">
-                  <label className="text-xs font-bold text-indigo-800 flex items-center gap-1.5">
-                    <span>👥</span> Empleados en Comparación
-                    <span className="text-[11px] font-normal text-indigo-500">
-                      ({empleadosSeleccionados.length} seleccionados)
+              <div className="pt-2 border-t border-slate-100 bg-indigo-50/60 p-3.5 rounded-xl border border-indigo-200 shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <label className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
+                    <span>👥</span> Empleados Seleccionados con Chulito
+                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full border border-indigo-200">
+                      {empleadosSeleccionados.length} seleccionados
                     </span>
                   </label>
                   <button 
-                    onClick={() => setEmpleadosSeleccionados([])} 
-                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 px-2 py-0.5 rounded border border-rose-200 transition cursor-pointer"
+                    onClick={() => {
+                      setEmpleadosSeleccionados([]);
+                      setFiltroSeleccionadosMode('TODOS');
+                    }} 
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-800 bg-rose-100 hover:bg-rose-200 px-2.5 py-1 rounded-lg border border-rose-200 transition cursor-pointer"
                   >
-                    ✕ Limpiar Todos
+                    ✕ Vaciar Selección
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
+
+                {/* 🎛️ NAVEGADOR DE MODO DE FILTRADO DEDICADO A CHULITOS */}
+                <div className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-lg border border-indigo-200">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">
+                    Filtro Visual en Todo el Dashboard:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFiltroSeleccionadosMode('SOLO_SELECCIONADOS')}
+                    className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      filtroSeleccionadosMode === 'SOLO_SELECCIONADOS'
+                        ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-300'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>👁️</span> Ver SOLO Seleccionados ({empleadosSeleccionados.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFiltroSeleccionadosMode('TODOS')}
+                    className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      filtroSeleccionadosMode === 'TODOS'
+                        ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>🌐</span> Ver Todos + Seleccionados
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFiltroSeleccionadosMode('OCULTAR_SELECCIONADOS')}
+                    className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                      filtroSeleccionadosMode === 'OCULTAR_SELECCIONADOS'
+                        ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-300'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>🚫</span> Ocultar Seleccionados
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
                   {empleadosSeleccionados.map((emp, i) => (
                     <div key={i} className="px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-md flex items-center gap-2 animate-in slide-in-from-left-2">
                       <span>👤 {emp.nombre.split(' ').slice(0, 2).join(' ')}</span>
                       <button 
-                        onClick={() => setEmpleadosSeleccionados(empleadosSeleccionados.filter(e => e.cedula !== emp.cedula))}
-                        className="hover:text-rose-300 font-black text-sm"
+                        onClick={() => {
+                          const resto = empleadosSeleccionados.filter(e => e.cedula !== emp.cedula);
+                          setEmpleadosSeleccionados(resto);
+                          if (resto.length === 0) setFiltroSeleccionadosMode('TODOS');
+                        }}
+                        className="hover:text-rose-300 font-black text-sm cursor-pointer"
                       >×</button>
                     </div>
                   ))}
@@ -1478,9 +1534,12 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             onChange={(e) => {
                               if (e.target.checked) {
                                 setEmpleadosSeleccionados([...empleadosSeleccionados, { cedula: alerta.cedula, nombre: alerta.nombre }]);
-                                setBusqueda(''); // 💡 MAGIA: Limpia la barra de búsqueda automáticamente al chulear
+                                setBusqueda('');
+                                setFiltroSeleccionadosMode('SOLO_SELECCIONADOS');
                               } else {
-                                setEmpleadosSeleccionados(empleadosSeleccionados.filter(emp => emp.cedula !== alerta.cedula));
+                                const resto = empleadosSeleccionados.filter(emp => emp.cedula !== alerta.cedula);
+                                setEmpleadosSeleccionados(resto);
+                                if (resto.length === 0) setFiltroSeleccionadosMode('TODOS');
                               }
                             }}
                             className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
