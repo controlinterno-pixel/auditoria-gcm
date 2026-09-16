@@ -986,11 +986,10 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                          ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
                             (() => {
                               let baseLineas = [];
-                              // 💡 Respeta el menú: Solo aísla si eliges "Comparar Seleccionados"
-                              if (agrupacionGrafica === 'SELECCIONADOS') {
+                              // 💡 MAGIA: Si tienes chulitos marcados, aísla SOLO a esos en la gráfica.
+                              if (empleadosSeleccionados.length > 0) {
                                 baseLineas = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
                               } else {
-                                // Si es "Ver línea por Empleado", muestra a todos los de la tabla
                                 baseLineas = alertasFiltradas;
                               }
                               return baseLineas.map((emp, idx) => {
@@ -1068,7 +1067,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       
                       <div className="h-72 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={dataGraficasApiladas}>
+                          <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(d => empleadosSeleccionados.some(e => e.cedula === d.cedula)) : dataGraficasApiladas}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                             <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
                             <YAxis stroke="#475569" fontSize={11} unit=" hrs" />
