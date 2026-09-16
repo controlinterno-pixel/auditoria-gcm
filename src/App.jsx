@@ -267,21 +267,34 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // 🔑 Verificación inmediata por correo maestro (SuperAdmin Fallback)
+        const esCorreoAdminMaestro = currentUser.email?.toLowerCase() === 'controlinterno@termales.com.co';
+
         try {
           const docRef = doc(db, 'usuarios', currentUser.uid);
           const docSnap = await getDoc(docRef);
           
           if (docSnap.exists()) {
             const datosPerfil = docSnap.data();
-            setPerfilUsuario(datosPerfil);
-            setIsAdmin(datosPerfil.rol === 'admin'); // 🔒 Ahora SOLO Firestore dicta quién es admin
+            setPerfilUsuario({
+              ...datosPerfil,
+              nombreResponsable: datosPerfil.nombreResponsable || datosPerfil.nombre || 'Yehison Pineda',
+              correo: datosPerfil.correo || datosPerfil.email || currentUser.email
+            });
+            // Es Admin si en Firestore dice 'admin' O si es el correo maestro
+            setIsAdmin(datosPerfil.rol === 'admin' || esCorreoAdminMaestro);
           } else {
-            setPerfilUsuario(null);
-            setIsAdmin(false);
+            // Si el documento no existe aún en Firestore
+            setPerfilUsuario({
+              correo: currentUser.email,
+              nombreResponsable: 'Yehison Pineda',
+              rol: esCorreoAdminMaestro ? 'admin' : 'lider'
+            });
+            setIsAdmin(esCorreoAdminMaestro);
           }
         } catch (error) {
           console.error("Error obteniendo perfil en Firestore:", error);
-          setIsAdmin(false);
+          setIsAdmin(esCorreoAdminMaestro);
         }
       } else {
         setPerfilUsuario(null);
