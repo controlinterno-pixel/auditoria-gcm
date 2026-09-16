@@ -1147,18 +1147,21 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
             )}
           </div>
 
-          {/* 📋 NUEVO: CUADRO RESUMEN PARA PRIORIZACIÓN DE AUDITORÍA */}
+         {/* 📋 NUEVO: CUADRO RESUMEN PARA PRIORIZACIÓN DE AUDITORÍA */}
           {modoDashboard === 'JORNADA' && dataGraficasApiladas.length > 0 && (
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mt-6">
               <h3 className="text-lg font-extrabold text-slate-800 mb-2">Resumen para priorización de auditoría</h3>
               <p className="text-sm text-slate-500 mb-4 border-b border-slate-100 pb-4">
-                Consolidado de horas y valores totales pagados a los trabajadores en pantalla. Haz clic en la fila de un trabajador para ver su diagnóstico detallado.
+                Consolidado de horas y valores totales. Marca la casilla para enviar a la persona a la Bandeja de Comparación superior.
               </p>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="text-slate-600 font-bold border-b-2 border-slate-200">
                     <tr>
+                      <th className="py-3 px-4 text-center">
+                        <button onClick={() => setEmpleadosSeleccionados([])} className="text-[10px] text-blue-600 underline cursor-pointer">Vaciar</button>
+                      </th>
                       <th className="py-3 px-4">Trabajador</th>
                       <th className="py-3 px-4 text-right">Horas recargo / extras</th>
                       <th className="py-3 px-4 text-right">Valor total</th>
@@ -1168,31 +1171,48 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                   <tbody className="divide-y divide-slate-100 font-medium">
                     {dataGraficasApiladas
                       .map(empData => {
-                        // Extraer el empleado completo de la colección para sumas y para la Lupa
                         const empOriginal = alertasFiltradas.find(a => a.cedula === empData.cedula);
                         const totalHoras = empOriginal ? empOriginal.totalHorasVisual : 0;
                         const totalValor = empOriginal ? empOriginal.totalDineroVisual : 0;
                         return { ...empOriginal, totalHoras, totalValor };
                       })
-                      .sort((a, b) => b.totalValor - a.totalValor) // Ordenar de mayor a menor valor
-                      .map((emp, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => setEmpleadoModal(emp)}>
-                          <td className="py-4 px-4 font-bold text-slate-800 flex items-center gap-2">
+                      .sort((a, b) => b.totalValor - a.totalValor) 
+                      .map((emp, idx) => {
+                        const isChecked = empleadosSeleccionados.some(e => e.cedula === emp.cedula);
+                        return (
+                        <tr key={idx} className={`transition-colors group cursor-pointer ${isChecked ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
+                          <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setEmpleadosSeleccionados(prev => [...prev, { cedula: emp.cedula, nombre: emp.nombre }]);
+                                } else {
+                                  setEmpleadosSeleccionados(prev => prev.filter(e => e.cedula !== emp.cedula));
+                                }
+                              }}
+                              className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-4 px-4 font-bold text-slate-800 flex items-center gap-2" onClick={() => setEmpleadoModal(emp)}>
                             <span className="text-slate-400 group-hover:text-blue-500 transition-colors">👤</span> 
                             {emp.nombre}
                           </td>
-                          <td className="py-4 px-4 text-right text-slate-600">{emp.totalHoras.toFixed(2)}</td>
-                          <td className="py-4 px-4 text-right font-extrabold text-slate-800">${emp.totalValor.toLocaleString('es-CO')}</td>
+                          <td className="py-4 px-4 text-right text-slate-600" onClick={() => setEmpleadoModal(emp)}>{emp.totalHoras.toFixed(2)}</td>
+                          <td className="py-4 px-4 text-right font-extrabold text-slate-800" onClick={() => setEmpleadoModal(emp)}>${emp.totalValor.toLocaleString('es-CO')}</td>
                           <td className="py-4 px-4 text-center">
-                            <button className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-blue-200">
+                            <button onClick={() => setEmpleadoModal(emp)} className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-blue-200">
                               Ver Detalle 🔍
                             </button>
                           </td>
                         </tr>
-                      ))
+                        );
+                      })
                     }
                     {/* Fila de Totales Generales del Cuadro */}
                     <tr className="bg-slate-50 border-t-2 border-slate-200 font-black">
+                      <td></td>
                       <td className="py-4 px-4 text-slate-800 uppercase tracking-wider">Total Acumulado</td>
                       <td className="py-4 px-4 text-right text-rose-600 text-base">
                         {dataGraficasApiladas.reduce((acc, empData) => {
