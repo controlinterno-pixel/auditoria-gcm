@@ -1142,15 +1142,60 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5 mt-6">
             {/* Buscador de Empleado, Menú Desplegable de Selección y Filtro de Período */}
             <div className="flex flex-col md:flex-row gap-4">
-              <div className="w-full md:w-1/3">
+              <div className="w-full md:w-1/3 relative group">
                 <label className="text-xs font-bold text-slate-600 block mb-1.5">🔍 Buscar Empleado:</label>
                 <input 
                   type="text" 
                   placeholder="Nombre o Cédula..." 
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 font-medium shadow-sm"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 font-medium shadow-sm"
                 />
+                
+                {/* 🎯 Dropdown de Autocompletado */}
+                {busqueda.trim().length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden hidden group-focus-within:block hover:block">
+                    {alertasFiltradas.filter(emp => emp.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()) || emp.cedula.includes(busqueda.trim())).length === 0 ? (
+                      <p className="text-[10px] text-slate-400 p-3 text-center italic">No hay coincidencias.</p>
+                    ) : (
+                      <div className="p-1">
+                        {alertasFiltradas
+                          .filter(emp => emp.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()) || emp.cedula.includes(busqueda.trim()))
+                          .slice(0, 15) // Limitamos a 15 resultados para no saturar
+                          .map(emp => {
+                            const isSelected = empleadosSeleccionados.some(e => e.cedula === emp.cedula);
+                            return (
+                              <button
+                                key={emp.cedula}
+                                type="button"
+                                onClick={() => {
+                                  if (!isSelected) {
+                                    setEmpleadosSeleccionados(prev => {
+                                      const nuevos = [...prev, { cedula: emp.cedula, nombre: emp.nombre }];
+                                      setAgrupacionGrafica('SELECCIONADOS');
+                                      return nuevos;
+                                    });
+                                  }
+                                  setBusqueda(''); // Limpiamos el buscador después de seleccionar
+                                }}
+                                className="w-full text-left p-2 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-between group/btn border border-transparent hover:border-indigo-100"
+                              >
+                                <div>
+                                  <p className="text-[11px] font-bold text-slate-700">{emp.nombre}</p>
+                                  <p className="text-[9px] text-slate-500 font-mono">{emp.cedula}</p>
+                                </div>
+                                {isSelected ? (
+                                  <span className="text-[10px] text-emerald-600 font-bold px-2 py-0.5 bg-emerald-50 rounded-md">Añadido</span>
+                                ) : (
+                                  <span className="text-[10px] text-indigo-600 font-bold px-2 py-0.5 bg-indigo-50 rounded-md opacity-0 group-hover/btn:opacity-100 transition-opacity">Añadir +</span>
+                                )}
+                              </button>
+                            );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="w-full md:w-1/3 relative">
