@@ -114,11 +114,11 @@ const handleResetPassword = async () => {
     setIsSaving(true);
     try {
       if (auth.currentUser) {
-        const isBase64 = photoURL.startsWith('data:image');
-
+        // 💡 MAGIA: Ahora SÍ enviamos la imagen a la nube de Firebase.
+        // Gracias a tu auto-recorte a 300x300, el tamaño es perfecto para que Firebase lo acepte.
         await updateProfile(auth.currentUser, {
           displayName: displayName.trim(),
-          photoURL: isBase64 ? auth.currentUser.photoURL : photoURL.trim() 
+          photoURL: photoURL // <-- GUARDADO REAL EN LA CUENTA DE GOOGLE/FIREBASE
         });
 
         // 🔒 Cumplimiento de Auditoría (Hallazgo #11): 
@@ -135,7 +135,7 @@ const handleResetPassword = async () => {
       }
     } catch (error) {
       console.error(error);
-      showNotification('Error al actualizar el perfil.', 'error');
+      showNotification('Error al actualizar el perfil. La imagen podría ser muy pesada.', 'error');
     } finally {
       setIsSaving(false);
     }
