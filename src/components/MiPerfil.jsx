@@ -38,6 +38,7 @@ const [notificacionesActivas, setNotificacionesActivas] = useState(true);
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
   const [cargo, setCargo] = useState(isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false); // ☁️ Control de subida
   const [telefono, setTelefono] = useState('+57 300 123 4567');
   const [ubicacion, setUbicacion] = useState('Obteniendo ubicación...');
 
@@ -65,38 +66,49 @@ const [notificacionesActivas, setNotificacionesActivas] = useState(true);
   // 🛡️ ROL FIJO DEL SISTEMA
   const rolText = isAdmin ? 'Auditor Líder Senior' : 'Gestor de Proceso';
 
-// 🧠 MOTOR DE AUTO-RECORTE INTELIGENTE
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+// ☁️ MOTOR DE SUBIDA DE IMAGEN AL SERVIDOR DE TERMALES
+  const handleImageUpload = async (e) => {
+    const originalFile = e.target.files[0];
+    if (!originalFile) return;
 
-    if (!file.type.startsWith('image/')) {
+    if (!originalFile.type.startsWith('image/')) {
       showNotification('Por favor, selecciona un archivo de imagen válido.', 'error');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const size = 300; 
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
+    setIsUploadingPhoto(true);
 
-        const scale = Math.max(size / img.width, size / img.height);
-        const x = (size - img.width * scale) / 2;
-        const y = (size - img.height * scale) / 2;
-
-        ctx.drawImage(img, 0, 0, img.width, img.height, x, y, img.width * scale, img.height * scale);
-
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-        setPhotoURL(compressedBase64); // Guardamos la foto recortada
-      };
-      img.src = event.target.result;
+    const sanitizarNombreArchivo = (nombreOriginal) => {
+      return nombreOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9.\-_]/g, "").toLowerCase();
     };
-    reader.readAsDataURL(file);
+
+    const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
+    const fileToUpload = new File([originalFile], nombreLimpio, { type: originalFile.type });
+
+    const formData = new FormData();
+    formData.append('appName', 'controlInterno');
+    formData.append('description', 'Foto de Perfil GCM');
+    formData.append('file', fileToUpload);
+
+    try {
+      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', { 
+        method: 'POST', 
+        body: formData 
+      });
+      
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+      
+      const data = await response.json();
+      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+      
+      setPhotoURL(urlFinal); // Guardamos la URL pública (enlace real)
+      showNotification('Imagen subida temporalmente. Clic en Guardar para aplicar.', 'info');
+    } catch (err) {
+      console.error(err);
+      showNotification('Error al conectar con el servidor de archivos.', 'error');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   };
 
 const handleResetPassword = async () => {
@@ -110,15 +122,14 @@ const handleResetPassword = async () => {
     }
   };
 
-  const handleUpdateProfile = async () => {
+ const handleUpdateProfile = async () => {
     setIsSaving(true);
     try {
       if (auth.currentUser) {
-        // 💡 MAGIA: Ahora SÍ enviamos la imagen a la nube de Firebase.
-        // Gracias a tu auto-recorte a 300x300, el tamaño es perfecto para que Firebase lo acepte.
+        // 💡 Enviamos directamente la URL (enlace) al Firebase Auth
         await updateProfile(auth.currentUser, {
           displayName: displayName.trim(),
-          photoURL: photoURL // <-- GUARDADO REAL EN LA CUENTA DE GOOGLE/FIREBASE
+          photoURL: photoURL.trim() 
         });
 
         // 🔒 Cumplimiento de Auditoría (Hallazgo #11): 
@@ -127,15 +138,15 @@ const handleResetPassword = async () => {
 
         if (user) {
           user.displayName = displayName.trim();
-          user.photoURL = photoURL;
+          user.photoURL = photoURL.trim();
         }
 
-        showNotification('Perfil actualizado con éxito.', 'success');
+        showNotification('Perfil actualizado con éxito en la nube.', 'success');
         setIsEditing(false);
       }
     } catch (error) {
       console.error(error);
-      showNotification('Error al actualizar el perfil. La imagen podría ser muy pesada.', 'error');
+      showNotification('Error al actualizar el perfil.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -297,12 +308,13 @@ const handleResetPassword = async () => {
                       </div>
                       
                       <div className="flex items-center gap-3">
-                        <label className="cursor-pointer bg-white border border-blue-300 text-blue-600 text-[10px] font-bold py-1.5 px-3 rounded-lg shadow-sm hover:bg-blue-50 transition-colors">
-                          Explorar Archivos...
+                        <label className={`cursor-pointer bg-white border border-blue-300 text-blue-600 text-[10px] font-bold py-1.5 px-3 rounded-lg shadow-sm transition-colors ${isUploadingPhoto ? 'opacity-50 cursor-wait' : 'hover:bg-blue-50'}`}>
+                          {isUploadingPhoto ? '⏳ Subiendo imagen...' : 'Explorar Archivos...'}
                           <input 
                             type="file" 
                             accept="image/*" 
                             className="hidden" 
+                            disabled={isUploadingPhoto}
                             onChange={handleImageUpload} 
                           />
                         </label>
