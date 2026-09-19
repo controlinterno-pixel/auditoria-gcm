@@ -1100,7 +1100,23 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               formatter={(value, name) => [`${Number(value).toFixed(1)} hrs`, name.replace('hrs_', '')]}
                               labelFormatter={(label) => `👤 Trabajador: ${label}`}
                             />
-                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                            <Legend 
+                              wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                              onClick={(e) => {
+                                if (e && e.dataKey) {
+                                  setLineasOcultas(prev => ({ ...prev, [e.dataKey]: !prev[e.dataKey] }));
+                                }
+                              }}
+                              formatter={(value, entry) => (
+                                <span style={{ 
+                                  color: lineasOcultas[entry.dataKey] ? '#cbd5e1' : entry.color, 
+                                  textDecoration: lineasOcultas[entry.dataKey] ? 'line-through' : 'none',
+                                  transition: 'all 0.3s ease'
+                                }}>
+                                  {value}
+                                </span>
+                              )}
+                            />
                             
                             {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
                               const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef'];
@@ -1112,6 +1128,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                   name={concepto} 
                                   stackId="horas" 
                                   fill={colores[idx % colores.length]} 
+                                  hide={lineasOcultas[`hrs_${concepto}`]}
                                 />
                               );
                             })}
@@ -1137,7 +1154,23 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               formatter={(value, name) => [`$${Number(value).toLocaleString('es-CO')} COP`, name.replace('val_', '')]}
                               labelFormatter={(label) => `👤 Trabajador: ${label}`}
                             />
-                            <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                            <Legend 
+                              wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                              onClick={(e) => {
+                                if (e && e.dataKey) {
+                                  setLineasOcultas(prev => ({ ...prev, [e.dataKey]: !prev[e.dataKey] }));
+                                }
+                              }}
+                              formatter={(value, entry) => (
+                                <span style={{ 
+                                  color: lineasOcultas[entry.dataKey] ? '#cbd5e1' : entry.color, 
+                                  textDecoration: lineasOcultas[entry.dataKey] ? 'line-through' : 'none',
+                                  transition: 'all 0.3s ease'
+                                }}>
+                                  {value}
+                                </span>
+                              )}
+                            />
 
                             {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
                               const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef'];
@@ -1148,7 +1181,8 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                   dataKey={`val_${concepto}`} 
                                   name={concepto} 
                                   stackId="valor" 
-                                  fill={colores[idx % colores.length]} 
+                                  fill={colores[idx % colores.length]}
+                                  hide={lineasOcultas[`val_${concepto}`]} 
                                 />
                               );
                             })}
