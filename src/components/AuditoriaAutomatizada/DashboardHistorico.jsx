@@ -1119,7 +1119,8 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             />
                             
                             {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
-                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef'];
+                              // 💡 Paleta ampliada de 15 colores para que ningún concepto se repita
+                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1', '#eab308', '#84cc16', '#ec4899', '#0ea5e9', '#a855f7'];
                               if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return null;
                               return (
                                 <Bar 
@@ -1173,7 +1174,8 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             />
 
                             {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
-                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef'];
+                              // 💡 Paleta ampliada de 15 colores para que ningún concepto se repita
+                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1', '#eab308', '#84cc16', '#ec4899', '#0ea5e9', '#a855f7'];
                               if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return null;
                               return (
                                 <Bar 
