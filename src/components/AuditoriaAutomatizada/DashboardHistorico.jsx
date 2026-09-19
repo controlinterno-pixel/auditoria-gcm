@@ -644,8 +644,8 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
                    mapaMeses[mes][`costo_${llaveCruzada}`] = (mapaMeses[mes][`costo_${llaveCruzada}`] || 0) + metricas.valor;
                 });
             }
-            // B. Modo EMPLEADOS (Dibuja líneas por cada empleado individual)
-            else if (agrupacionGrafica === 'EMPLEADOS') {
+            // B. Modo EMPLEADOS o SELECCIONADOS (Dibuja líneas por cada empleado individual)
+            else if (agrupacionGrafica === 'EMPLEADOS' || agrupacionGrafica === 'SELECCIONADOS') {
                 if (!mapaMeses[mes][emp.nombre]) {
                     mapaMeses[mes][emp.nombre] = 0;
                     mapaMeses[mes][`costo_${emp.nombre}`] = 0;
@@ -984,7 +984,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                 return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />;
                               });
                             })()
-                         ) : (agrupacionGrafica === 'SELECCIONADOS' || agrupacionGrafica === 'EMPLEADOS') && alertasFiltradas.length <= 40 ? (
+                         ) : agrupacionGrafica === 'SELECCIONADOS' || (agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40) ? (
                             (() => {
                               let baseLineas = [];
                               // 💡 MAGIA: Si tienes chulitos marcados, aísla SOLO a esos en la gráfica.
