@@ -599,9 +599,11 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
       };
     });
 
-   // 💡 CORRECCIÓN: Usamos `alertasFiltradas` como base, porque ya contiene la lógica de 
-   // mantener a los seleccionados mediante checkboxes, INCLUSO si se aplican otros filtros.
-   const baseGrafica = alertasFiltradas;
+   // 💡 MAGIA: Si hay empleados seleccionados (con chulito), obligamos a que las gráficas
+   // de líneas y los cuadros mensuales calculen EXCLUSIVAMENTE la data de esas personas.
+   const baseGrafica = empleadosSeleccionados.length > 0
+     ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
+     : alertasFiltradas;
 
    baseGrafica.forEach(emp => {
       if (modoDashboard === 'JORNADA') {
