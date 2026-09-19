@@ -987,7 +987,6 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                          ) : agrupacionGrafica === 'SELECCIONADOS' || (agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40) ? (
                             (() => {
                               let baseLineas = [];
-                              // 💡 MAGIA: Si tienes chulitos marcados, aísla SOLO a esos en la gráfica.
                               if (empleadosSeleccionados.length > 0) {
                                 baseLineas = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
                               } else {
@@ -995,9 +994,10 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               }
                               return baseLineas.map((emp, idx) => {
                                 const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                                // 💡 CLAVE: Aseguramos que la llave coincide exactamente con lo que guardamos en mapaMeses
                                 const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
                                 const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 👤 ${emp.nombre}` : `👤 ${emp.nombre}`;
-                                return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
+                                return <Line key={emp.cedula} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
                               });
                             })()
                           ) : (
