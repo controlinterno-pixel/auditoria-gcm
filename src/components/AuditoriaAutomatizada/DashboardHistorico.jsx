@@ -86,6 +86,7 @@ const DashboardHistorico = () => {
   const [metricaGrafica, setMetricaGrafica] = useState('HORAS');
   const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); 
   const [empleadoModal, setEmpleadoModal] = useState(null);
+  const [lineasOcultas, setLineasOcultas] = useState({}); // 💡 Estado para ocultar/mostrar líneas con click
 
 
   const clasificarUnidad = (fila) => {
@@ -929,14 +930,31 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                           return [name.includes('Costo') ? `$${Number(value).toLocaleString('es-CO')}` : `${Number(value).toFixed(1)} hrs`, name];
                         }}
                       />
-                      <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+
+                          {/* 💡 MAGIA: Leyenda interactiva (clic para tachar y ocultar líneas) */}
+                      <Legend 
+                        wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                        onClick={(e) => {
+                          if (e && e.dataKey) {
+                            setLineasOcultas(prev => ({ ...prev, [e.dataKey]: !prev[e.dataKey] }));
+                          }
+                        }}
+                        formatter={(value, entry) => (
+                          <span style={{ 
+                            color: lineasOcultas[entry.dataKey] ? '#cbd5e1' : entry.color, 
+                            textDecoration: lineasOcultas[entry.dataKey] ? 'line-through' : 'none',
+                            transition: 'all 0.3s ease'
+                          }}>
+                            {value}
+                          </span>
+                        )}
+                      />
                       
 {modoDashboard === 'JORNADA' ? (
                         <>
                          {/* 💡 1. Modo CONCEPTOS CRUZADOS CON EMPLEADOS */}
                           {agrupacionGrafica === 'CONCEPTOS' ? (
                             (() => {
-                              // Si hay chulitos seleccionados, cruzamos Empleado + Concepto
                               if (empleadosSeleccionados.length > 0) {
                                 let lineasConceptosMultiples = [];
                                 let colorIdx = 0;
@@ -946,20 +964,15 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                 
                                 empleadosAAnalizar.forEach(emp => {
                                   datosHistoricos.conceptosJornada.forEach(conceptoName => {
-                                    // Filtrar por concepto amarillo si hay alguno marcado
                                     if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return;
-                                    
-                                    // Solo dibujar si este empleado particular tiene este concepto
                                     if (!emp.desgloseConceptosJornada || !emp.desgloseConceptosJornada[conceptoName]) return;
                                     
-                                    // Almacenamos el dato bajo el key general del nombre del empleado, 
-                                    // pero usamos el Tooltip/Legend para mostrar el cruce (Concepto + Empleado)
-                                   const llaveCruzada = `${conceptoName}_${emp.cedula}`;
+                                    const llaveCruzada = `${conceptoName}_${emp.cedula}`;
                                     const keyData = metricaGrafica === 'DINERO' ? `costo_${llaveCruzada}` : llaveCruzada;
                                     const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo ${conceptoName} 👤 ${emp.nombre.split(' ')[0]}` : `🔹 ${conceptoName} 👤 ${emp.nombre.split(' ')[0]}`;
                                     
                                     lineasConceptosMultiples.push(
-                                      <Line key={`${emp.cedula}-${conceptoName}`} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[colorIdx % colores.length]} strokeWidth={3} dot={{ r: 5 }} connectNulls={true} />
+                                      <Line key={`${emp.cedula}-${conceptoName}`} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[colorIdx % colores.length]} strokeWidth={3} dot={{ r: 5 }} connectNulls={true} hide={lineasOcultas[keyData]} />
                                     );
                                     colorIdx++;
                                   });
@@ -967,7 +980,6 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                 return lineasConceptosMultiples;
                               } 
                               
-                              // Si NO hay chulitos, agrupa todos los empleados por concepto general
                               return datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
                                 const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
                                 const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
@@ -981,7 +993,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                                 });
                                 if (!tieneValoresMes) return null;
 
-                                return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} />;
+                                return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas[keyData]} />;
                               });
                             })()
                          ) : agrupacionGrafica === 'SELECCIONADOS' || (agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40) ? (
@@ -994,27 +1006,25 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               }
                               return baseLineas.map((emp, idx) => {
                                 const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
-                                // 💡 CLAVE: Aseguramos que la llave coincide exactamente con lo que guardamos en mapaMeses
                                 const keyData = metricaGrafica === 'DINERO' ? `costo_${emp.nombre}` : emp.nombre;
                                 const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 👤 ${emp.nombre}` : `👤 ${emp.nombre}`;
-                                return <Line key={emp.cedula} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} />;
+                                return <Line key={emp.cedula} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 4 }} hide={lineasOcultas[keyData]} />;
                               });
                             })()
                           ) : (
-                            // 💡 3. Modo estándar (Líneas = Sedes)
                             <>
-                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoADMIN" : "ADMIN"} name={metricaGrafica === 'DINERO' ? "Costo 🏢 Admin" : "🏢 Sede Administrativa"} stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} />
-                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoBALNEARIO" : "BALNEARIO"} name={metricaGrafica === 'DINERO' ? "Costo 🏊 Balneario" : "🏊 Balneario Santa Rosa"} stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} />
-                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoECOPARQUE_HOTEL" : "ECOPARQUE_HOTEL"} name={metricaGrafica === 'DINERO' ? "Costo 🌲 Hotel" : "🌲 Hotel & Ecoparque"} stroke="#059669" strokeWidth={3} dot={{ r: 5 }} />
+                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoADMIN" : "ADMIN"} name={metricaGrafica === 'DINERO' ? "Costo 🏢 Admin" : "🏢 Sede Administrativa"} stroke="#dc2626" strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas[metricaGrafica === 'DINERO' ? "costoADMIN" : "ADMIN"]} />
+                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoBALNEARIO" : "BALNEARIO"} name={metricaGrafica === 'DINERO' ? "Costo 🏊 Balneario" : "🏊 Balneario Santa Rosa"} stroke="#2563eb" strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas[metricaGrafica === 'DINERO' ? "costoBALNEARIO" : "BALNEARIO"]} />
+                              <Line yAxisId="left" type="monotone" dataKey={metricaGrafica === 'DINERO' ? "costoECOPARQUE_HOTEL" : "ECOPARQUE_HOTEL"} name={metricaGrafica === 'DINERO' ? "Costo 🌲 Hotel" : "🌲 Hotel & Ecoparque"} stroke="#059669" strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas[metricaGrafica === 'DINERO' ? "costoECOPARQUE_HOTEL" : "ECOPARQUE_HOTEL"]} />
                             </>
                           )}
                         </>
                       ) : (
                         <>
-                          <Line yAxisId="left" type="monotone" dataKey="fugaFAM" name="🚗 Fuga Termales (Fam)" stroke="#ef4444" strokeWidth={3} dot={{ r: 5 }} />
-                          <Line yAxisId="left" type="monotone" dataKey="fugaRECREFAM" name="🚗 Fuga RecreFam" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5 }} />
-                          <Line yAxisId="right" type="monotone" dataKey="devengadoFAM" name="💰 Devengado Termales (Fam)" stroke="#f87171" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3 }} />
-                          <Line yAxisId="right" type="monotone" dataKey="devengadoRECREFAM" name="💰 Devengado RecreFam" stroke="#60a5fa" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3 }} />
+                          <Line yAxisId="left" type="monotone" dataKey="fugaFAM" name="🚗 Fuga Termales (Fam)" stroke="#ef4444" strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas["fugaFAM"]} />
+                          <Line yAxisId="left" type="monotone" dataKey="fugaRECREFAM" name="🚗 Fuga RecreFam" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas["fugaRECREFAM"]} />
+                          <Line yAxisId="right" type="monotone" dataKey="devengadoFAM" name="💰 Devengado Termales (Fam)" stroke="#f87171" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3 }} hide={lineasOcultas["devengadoFAM"]} />
+                          <Line yAxisId="right" type="monotone" dataKey="devengadoRECREFAM" name="💰 Devengado RecreFam" stroke="#60a5fa" strokeWidth={3} strokeDasharray="5 5" dot={{ r: 3 }} hide={lineasOcultas["devengadoRECREFAM"]} />
                         </>
                       )}
                     </LineChart>
