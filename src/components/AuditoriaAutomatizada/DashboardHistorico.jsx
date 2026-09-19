@@ -690,10 +690,22 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
   const kpisFiltrados = React.useMemo(() => {
     if (!datosHistoricos) return { totalMeses: 0, totalAlertas: 0, totalMonto: 0 };
 
-    // 💡 Determina el universo a evaluar: si hay seleccionados en la bandeja, toma solo esos
-    const universoAfectado = empleadosSeleccionados.length > 0 
+    // 1. Determina el universo base: seleccionados o todos los filtrados
+    let universoAfectado = empleadosSeleccionados.length > 0 
       ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
       : alertasFiltradas;
+
+    // 2. 💡 MAGIA INTERACTIVA: Restar del KPI a las personas que estén ocultas/tachadas en la gráfica
+    universoAfectado = universoAfectado.filter(a => {
+      if (agrupacionGrafica === 'EMPLEADOS' || agrupacionGrafica === 'SELECCIONADOS') {
+        // Si la línea de este empleado fue apagada con clic en la leyenda, lo sacamos de la suma
+        if (lineasOcultas[a.nombre] || lineasOcultas[`costo_${a.nombre}`]) return false;
+      }
+      if (agrupacionGrafica === 'SEDES') {
+        if (lineasOcultas[a.unidad] || lineasOcultas[`costo${a.unidad}`]) return false;
+      }
+      return true;
+    });
 
     let totalMonto = universoAfectado.reduce((acc, a) => {
       if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
@@ -717,7 +729,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
       totalAlertas,
       totalMonto
     };
-  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados]);
+  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados, lineasOcultas, agrupacionGrafica]);
 
  // 📊 CÁLCULO DE DATA PARA BARRAS APILADAS POR TRABAJADOR
   const dataGraficasApiladas = React.useMemo(() => {
