@@ -253,16 +253,23 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
         }
         if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
 
-        // ⏱️ RECOLECCIÓN JORNADA
+        // ⏱️ RECOLECCIÓN JORNADA (Alineado 100% con Criterios de Auditoría)
+        const codigosAuditoria = ['DV05', 'DV06', 'DV07', 'DV08', 'DV09', 'DV10', 'DV11', 'DV19', 'DV22'];
+        
+        // 1. Busca por código exacto (Máxima precisión para evitar descuadres)
+        const tieneCodigoDV = codigosAuditoria.some(codigo => conceptoLimpio.includes(codigo));
+
+        // 2. Mantiene la búsqueda por texto por si algún mes el ERP exportó el nombre sin el código DV
         const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
                         conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS') ||
                         conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') ||
                         conceptoLimpio.includes('EXTRA DOMINICAL');
         
         const esRecargo = (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA')) || 
-                          conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL');
+                          conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL') ||
+                          conceptoLimpio.includes('FESTIVO COMPENSADO') || conceptoLimpio.includes('FESTIVO NO COMPENSADO');
 
-        if (esExtra || esRecargo) {
+        if (tieneCodigoDV || esExtra || esRecargo) {
           conceptosJornadaUnicos.add(conceptoLimpio); // Guardar concepto único
           if (!emp.desgloseConceptosJornada[conceptoLimpio]) {
              emp.desgloseConceptosJornada[conceptoLimpio] = { horas: 0, valor: 0 };
