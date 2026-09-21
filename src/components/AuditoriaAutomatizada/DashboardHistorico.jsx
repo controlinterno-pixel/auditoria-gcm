@@ -1252,16 +1252,21 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{emp.cedula}</span>
                           </td>
                           <td className="py-4 px-4 align-middle">
-                            {/* 💡 CUADRÍCULA ELEGANTE DE DESGLOSE DE CONCEPTOS */}
+                            {/* 💡 CUADRÍCULA ELEGANTE DE DESGLOSE DE CONCEPTOS (HORAS Y DINERO) */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 min-w-[320px]">
                               {Object.entries(emp.desgloseConceptosJornada || {})
                                 .sort((a, b) => b[1].horas - a[1].horas)
                                 .map(([concepto, metricas], i) => (
-                                  <div key={i} className="flex justify-between items-center bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg shadow-sm text-[9px] hover:border-indigo-300 transition-colors" title={`Costo: $${metricas.valor.toLocaleString('es-CO')}`}>
-                                    <span className="font-bold text-slate-600 truncate mr-3 max-w-[140px]">
-                                      {concepto}
-                                    </span>
-                                    <span className="font-black text-indigo-700 shrink-0 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                  <div key={i} className="flex justify-between items-center bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg shadow-sm hover:border-indigo-300 transition-colors">
+                                    <div className="flex flex-col overflow-hidden mr-2">
+                                      <span className="font-bold text-slate-600 text-[9px] truncate" title={concepto}>
+                                        {concepto}
+                                      </span>
+                                      <span className="font-extrabold text-emerald-600 text-[9px] mt-0.5">
+                                        ${metricas.valor.toLocaleString('es-CO')}
+                                      </span>
+                                    </div>
+                                    <span className="font-black text-indigo-700 shrink-0 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 text-[9px]">
                                       {metricas.horas.toFixed(1)}h
                                     </span>
                                   </div>
