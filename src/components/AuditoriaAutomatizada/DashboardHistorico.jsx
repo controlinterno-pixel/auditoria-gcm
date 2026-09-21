@@ -1214,8 +1214,9 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                         <button onClick={() => { setEmpleadosSeleccionados([]); setAgrupacionGrafica('SEDES'); }} className="text-[10px] font-black text-rose-600 hover:text-rose-800 bg-rose-100 px-2 py-1 rounded cursor-pointer transition-colors" title="Desmarcar a todos y cerrar tabla">✕ Vaciar</button>
                       </th>
                       <th className="py-3 px-4">Trabajador (Cédula)</th>
-                      <th className="py-3 px-4 text-right">Horas Acumuladas</th>
-                      <th className="py-3 px-4 text-right">Valor Total Pagado</th>
+                      <th className="py-3 px-4">Desglose por Concepto (Horas)</th>
+                      <th className="py-3 px-4 text-right">Total Horas</th>
+                      <th className="py-3 px-4 text-right">Total Pagado</th>
                       <th className="py-3 px-4 text-center">Acción</th>
                     </tr>
                   </thead>
@@ -1231,8 +1232,8 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                       .sort((a, b) => b.totalValor - a.totalValor)
                       .map((emp, idx) => {
                         return (
-                        <tr key={idx} className="transition-colors group hover:bg-slate-50 bg-indigo-50/20">
-                          <td className="py-4 px-4 text-center">
+                        <tr key={idx} className="transition-colors group hover:bg-slate-50 bg-indigo-50/10">
+                          <td className="py-4 px-4 text-center align-middle">
                             <input 
                               type="checkbox" 
                               checked={true}
@@ -1246,20 +1247,38 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                               className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                             />
                           </td>
-                          <td className="py-4 px-4 font-bold text-slate-800">
+                          <td className="py-4 px-4 font-bold text-slate-800 align-middle">
                             {emp.nombre}
                             <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{emp.cedula}</span>
                           </td>
-                          <td className="py-4 px-4 text-right text-slate-600 font-mono">
+                          <td className="py-4 px-4 align-middle">
+                            {/* 💡 CUADRÍCULA ELEGANTE DE DESGLOSE DE CONCEPTOS */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 min-w-[320px]">
+                              {Object.entries(emp.desgloseConceptosJornada || {})
+                                .sort((a, b) => b[1].horas - a[1].horas)
+                                .map(([concepto, metricas], i) => (
+                                  <div key={i} className="flex justify-between items-center bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg shadow-sm text-[9px] hover:border-indigo-300 transition-colors" title={`Costo: $${metricas.valor.toLocaleString('es-CO')}`}>
+                                    <span className="font-bold text-slate-600 truncate mr-3 max-w-[140px]">
+                                      {concepto}
+                                    </span>
+                                    <span className="font-black text-indigo-700 shrink-0 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                                      {metricas.horas.toFixed(1)}h
+                                    </span>
+                                  </div>
+                                ))
+                              }
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-right text-slate-700 font-mono font-black text-sm align-middle">
                             {emp.totalHoras.toFixed(1)} hrs
                           </td>
-                          <td className="py-4 px-4 text-right font-extrabold text-slate-800 font-mono">
+                          <td className="py-4 px-4 text-right font-extrabold text-slate-900 font-mono text-sm align-middle">
                             ${emp.totalValor.toLocaleString('es-CO')}
                           </td>
-                          <td className="py-4 px-4 text-center">
+                          <td className="py-4 px-4 text-center align-middle">
                             <button 
                               onClick={() => setEmpleadoModal(emp)} 
-                              className="text-[10px] font-bold text-blue-600 bg-white hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-blue-200 uppercase tracking-widest shadow-sm"
+                              className="text-[10px] font-bold text-blue-600 bg-white hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-blue-200 uppercase tracking-widest shadow-sm whitespace-nowrap"
                             >
                               Ver Detalle 🔍
                             </button>
@@ -1270,7 +1289,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                     }
                     {/* Fila de Totales Generales del Cuadro */}
                     <tr className="bg-slate-50 border-t-2 border-slate-200 font-black">
-                      <td colSpan="2" className="py-4 px-4 text-slate-800 uppercase tracking-wider text-right text-[10px]">Gran Total de Seleccionados:</td>
+                      <td colSpan="3" className="py-4 px-4 text-slate-800 uppercase tracking-wider text-right text-[10px]">Gran Total de Seleccionados:</td>
                       <td className="py-4 px-4 text-right text-rose-600 text-sm font-mono">
                         {dataGraficasApiladas
                           .filter(empData => empleadosSeleccionados.some(e => e.cedula === empData.cedula))
