@@ -1198,12 +1198,12 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
             )}
           </div>
 
-         {/* 📋 NUEVO: CUADRO RESUMEN PARA PRIORIZACIÓN DE AUDITORÍA */}
-          {modoDashboard === 'JORNADA' && dataGraficasApiladas.length > 0 && (
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mt-6">
-              <h3 className="text-lg font-extrabold text-slate-800 mb-2">Resumen para priorización de auditoría</h3>
+        {/* 📋 NUEVO: CUADRO RESUMEN PARA PRIORIZACIÓN DE AUDITORÍA */}
+          {modoDashboard === 'JORNADA' && empleadosSeleccionados.length > 0 && dataGraficasApiladas.length > 0 && (
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mt-6 animate-in fade-in slide-in-from-top-4">
+              <h3 className="text-lg font-extrabold text-slate-800 mb-2">Resumen de Colaboradores Seleccionados ({empleadosSeleccionados.length})</h3>
               <p className="text-sm text-slate-500 mb-4 border-b border-slate-100 pb-4">
-                Consolidado de horas y valores totales. Marca la casilla para enviar a la persona a la Bandeja de Comparación superior.
+                Consolidado exacto de las horas y valores totales de las personas que estás comparando.
               </p>
               
               <div className="overflow-x-auto">
@@ -1211,7 +1211,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                   <thead className="text-slate-600 font-bold border-b-2 border-slate-200 bg-slate-50 uppercase text-[10px] tracking-wider">
                     <tr>
                       <th className="py-3 px-4 text-center w-10">
-                        <button onClick={() => setEmpleadosSeleccionados([])} className="text-[10px] text-blue-600 hover:text-blue-800 cursor-pointer transition-colors" title="Vaciar todos los chulitos">✕ Vaciar</button>
+                        <button onClick={() => { setEmpleadosSeleccionados([]); setAgrupacionGrafica('SEDES'); }} className="text-[10px] font-black text-rose-600 hover:text-rose-800 bg-rose-100 px-2 py-1 rounded cursor-pointer transition-colors" title="Desmarcar a todos y cerrar tabla">✕ Vaciar</button>
                       </th>
                       <th className="py-3 px-4">Trabajador (Cédula)</th>
                       <th className="py-3 px-4 text-right">Horas Acumuladas</th>
@@ -1221,36 +1221,27 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
                     {dataGraficasApiladas
+                      .filter(empData => empleadosSeleccionados.some(e => e.cedula === empData.cedula))
                       .map(empData => {
-                        // Buscamos al empleado original para sacar el total general de horas y dinero
                         const empOriginal = alertasFiltradas.find(a => a.cedula === empData.cedula);
                         const totalHoras = empOriginal ? empOriginal.totalHorasVisual : 0;
                         const totalValor = empOriginal ? empOriginal.totalDineroVisual : 0;
                         return { ...empOriginal, totalHoras, totalValor };
                       })
-                      .sort((a, b) => b.totalValor - a.totalValor) // Ordenamos de mayor a menor costo
+                      .sort((a, b) => b.totalValor - a.totalValor)
                       .map((emp, idx) => {
-                        const isChecked = empleadosSeleccionados.some(e => e.cedula === emp.cedula);
                         return (
-                        <tr key={idx} className={`transition-colors group hover:bg-slate-50 ${isChecked ? 'bg-indigo-50/50' : ''}`}>
+                        <tr key={idx} className="transition-colors group hover:bg-slate-50 bg-indigo-50/20">
                           <td className="py-4 px-4 text-center">
                             <input 
                               type="checkbox" 
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setEmpleadosSeleccionados(prev => {
-                                    const nuevos = [...prev, { cedula: emp.cedula, nombre: emp.nombre }];
-                                    setAgrupacionGrafica('SELECCIONADOS');
-                                    return nuevos;
-                                  });
-                                } else {
-                                  setEmpleadosSeleccionados(prev => {
-                                    const resto = prev.filter(x => x.cedula !== emp.cedula);
-                                    if(resto.length === 0) setAgrupacionGrafica('SEDES');
-                                    return resto;
-                                  });
-                                }
+                              checked={true}
+                              onChange={() => {
+                                setEmpleadosSeleccionados(prev => {
+                                  const resto = prev.filter(x => x.cedula !== emp.cedula);
+                                  if(resto.length === 0) setAgrupacionGrafica('SEDES');
+                                  return resto;
+                                });
                               }}
                               className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                             />
@@ -1268,7 +1259,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                           <td className="py-4 px-4 text-center">
                             <button 
                               onClick={() => setEmpleadoModal(emp)} 
-                              className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-blue-200 uppercase tracking-widest shadow-sm"
+                              className="text-[10px] font-bold text-blue-600 bg-white hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors border border-blue-200 uppercase tracking-widest shadow-sm"
                             >
                               Ver Detalle 🔍
                             </button>
@@ -1279,18 +1270,22 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                     }
                     {/* Fila de Totales Generales del Cuadro */}
                     <tr className="bg-slate-50 border-t-2 border-slate-200 font-black">
-                      <td colSpan="2" className="py-4 px-4 text-slate-800 uppercase tracking-wider text-right text-[10px]">Gran Total de la Tabla:</td>
+                      <td colSpan="2" className="py-4 px-4 text-slate-800 uppercase tracking-wider text-right text-[10px]">Gran Total de Seleccionados:</td>
                       <td className="py-4 px-4 text-right text-rose-600 text-sm font-mono">
-                        {dataGraficasApiladas.reduce((acc, empData) => {
-                          const emp = alertasFiltradas.find(a => a.cedula === empData.cedula);
-                          return acc + (emp ? emp.totalHorasVisual : 0);
-                        }, 0).toFixed(1)} hrs
+                        {dataGraficasApiladas
+                          .filter(empData => empleadosSeleccionados.some(e => e.cedula === empData.cedula))
+                          .reduce((acc, empData) => {
+                            const emp = alertasFiltradas.find(a => a.cedula === empData.cedula);
+                            return acc + (emp ? emp.totalHorasVisual : 0);
+                          }, 0).toFixed(1)} hrs
                       </td>
                       <td className="py-4 px-4 text-right text-rose-600 text-sm font-mono">
-                        ${dataGraficasApiladas.reduce((acc, empData) => {
-                          const emp = alertasFiltradas.find(a => a.cedula === empData.cedula);
-                          return acc + (emp ? emp.totalDineroVisual : 0);
-                        }, 0).toLocaleString('es-CO')}
+                        ${dataGraficasApiladas
+                          .filter(empData => empleadosSeleccionados.some(e => e.cedula === empData.cedula))
+                          .reduce((acc, empData) => {
+                            const emp = alertasFiltradas.find(a => a.cedula === empData.cedula);
+                            return acc + (emp ? emp.totalDineroVisual : 0);
+                          }, 0).toLocaleString('es-CO')}
                       </td>
                       <td></td>
                     </tr>
