@@ -647,11 +647,15 @@ riesgo: (() => {
       setEmpleadoModal(null); // Cierra el modal
   };
 // 🧠 FILTRADO DINÁMICO MULTI-SELECCIÓN (Afecta Tabla y Gráficas)
-  const coleccionActiva = datosHistoricos ? (modoDashboard === 'JORNADA' ? datosHistoricos.alertasJornada : datosHistoricos.alertasTransporte) : [];
+  const coleccionActiva = React.useMemo(() => {
+    if (!datosHistoricos) return [];
+    return modoDashboard === 'JORNADA' ? datosHistoricos.alertasJornada : datosHistoricos.alertasTransporte;
+  }, [datosHistoricos, modoDashboard]);
   
   // 💡 Mapeo previo para recalcular totales si hay un filtro de concepto activo
-  const coleccionRecalculada = coleccionActiva.map(a => {
-    if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0) {
+  const coleccionRecalculada = React.useMemo(() => {
+    if (modoDashboard !== 'JORNADA' || filtroConceptoJornada.length === 0) return coleccionActiva;
+    return coleccionActiva.map(a => {
       let nuevasHoras = 0;
       let nuevoDinero = 0;
       if (a.desgloseConceptosJornada) {
@@ -663,53 +667,48 @@ riesgo: (() => {
         });
       }
       return { ...a, totalHorasVisual: nuevasHoras, totalDineroVisual: nuevoDinero };
-    }
-    return a;
-  });
-const alertasFiltradas = coleccionRecalculada.filter(a => {
-    if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0 && a.totalHorasVisual === 0 && a.totalDineroVisual === 0) {
-      return false;
-    }
+    });
+  }, [coleccionActiva, modoDashboard, filtroConceptoJornada]);
 
-    // 1. Las personas en tu Bandeja SIEMPRE se muestran
-    const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
-    if (estaSeleccionado) return true;
-
-    // 2. Evaluamos los filtros normales (Mantenimiento, etc.)
-    const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
-    const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
-    const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
-    
-    let coincidePeriodo = true;
-    if (filtroPeriodo !== 'TODOS') {
-      coincidePeriodo = modoDashboard === 'JORNADA' ? a.mesesConNovedad.has(filtroPeriodo) : a.periodosFuga.has(filtroPeriodo);
-    }
-    const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
-
-    const cumpleFiltrosBase = coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
-
-    // 3. Evaluamos la búsqueda
+  const alertasFiltradas = React.useMemo(() => {
     const term = busqueda.toLowerCase().trim();
-    if (term !== '') {
-      const coincideBusqueda = a.nombre.toLowerCase().includes(term) || 
-                               a.cedula.includes(term) ||
-                               (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
-                               (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
-      
-      // MAGIA: Muestra a la persona si pertenece a Mantenimiento (filtro base) O si la estás buscando (Nicolas)
-      return cumpleFiltrosBase || coincideBusqueda;
-    }
+    return coleccionRecalculada.filter(a => {
+      if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0 && a.totalHorasVisual === 0 && a.totalDineroVisual === 0) return false;
 
-    return cumpleFiltrosBase;
-  });
+      // 1. Las personas en tu Bandeja SIEMPRE se muestran
+      const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
+      if (estaSeleccionado) return true;
+
+      // 2. Evaluamos los filtros normales (Mantenimiento, etc.)
+      const coincideUnidad = filtroUnidad === 'TODOS' ? true : a.unidad === filtroUnidad;
+      const coincideProceso = filtroProceso.length === 0 ? true : filtroProceso.includes(a.proceso);
+      const coincideCargo = filtroCargo.length === 0 ? true : filtroCargo.includes(a.cargo);
+      
+      let coincidePeriodo = true;
+      if (filtroPeriodo !== 'TODOS') {
+        coincidePeriodo = modoDashboard === 'JORNADA' ? a.mesesConNovedad.has(filtroPeriodo) : a.periodosFuga.has(filtroPeriodo);
+      }
+      const coincideAlerta = filtroAlerta === 'TODOS' ? true : a.tipo === filtroAlerta;
+
+      const cumpleFiltrosBase = coincideUnidad && coincideProceso && coincideCargo && coincidePeriodo && coincideAlerta;
+
+      // 3. Evaluamos la búsqueda
+      if (term !== '') {
+        const coincideBusqueda = a.nombre.toLowerCase().includes(term) || 
+                                 a.cedula.includes(term) ||
+                                 (a.periodosFuga && Array.from(a.periodosFuga).some(p => p.toString().toLowerCase().includes(term))) ||
+                                 (a.mesesConNovedad && Array.from(a.mesesConNovedad).some(p => p.toString().toLowerCase().includes(term)));
+        return cumpleFiltrosBase || coincideBusqueda;
+      }
+      return cumpleFiltrosBase;
+    });
+  }, [coleccionRecalculada, busqueda, empleadosSeleccionados, filtroUnidad, filtroProceso, filtroCargo, filtroPeriodo, filtroAlerta, modoDashboard, filtroConceptoJornada]);
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
-  const calcularTendenciaDinamica = () => {
+  const tendenciasDinamicas = React.useMemo(() => {
     if (!datosHistoricos) return [];
 
-    const hayChulitos = empleadosSeleccionados.length > 0;
     const mapaMeses = {};
-    
     datosHistoricos.tendencias.forEach(t => {
       mapaMeses[t.mes] = { 
         mes: t.mes, 
@@ -748,10 +747,8 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
                valorFiltro = dataMes.valor;
             }
 
-           // A. Modo CONCEPTOS (Dibuja líneas por cada tipo de recargo/extra y por empleado)
             if (agrupacionGrafica === 'CONCEPTOS') {
                 Object.entries(dataMes.conceptos).forEach(([nombreConcepto, metricas]) => {
-                   // Llave global del concepto
                    if (!mapaMeses[mes][nombreConcepto]) {
                        mapaMeses[mes][nombreConcepto] = 0;
                        mapaMeses[mes][`costo_${nombreConcepto}`] = 0;
@@ -759,13 +756,11 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
                    mapaMeses[mes][nombreConcepto] += metricas.horas;
                    mapaMeses[mes][`costo_${nombreConcepto}`] += metricas.valor;
 
-                   // Llave individual cruzada por empleado
                    const llaveCruzada = `${nombreConcepto}_${emp.cedula}`;
                    mapaMeses[mes][llaveCruzada] = (mapaMeses[mes][llaveCruzada] || 0) + metricas.horas;
                    mapaMeses[mes][`costo_${llaveCruzada}`] = (mapaMeses[mes][`costo_${llaveCruzada}`] || 0) + metricas.valor;
                 });
             }
-            // B. Modo EMPLEADOS o SELECCIONADOS (Dibuja líneas por cada empleado individual)
             else if (agrupacionGrafica === 'EMPLEADOS' || agrupacionGrafica === 'SELECCIONADOS') {
                 if (!mapaMeses[mes][emp.nombre]) {
                     mapaMeses[mes][emp.nombre] = 0;
@@ -775,7 +770,6 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
                 mapaMeses[mes][`costo_${emp.nombre}`] += valorFiltro;
             }
 
-            // 4. Siempre sumamos las SEDES (porque las tarjetas resumen de abajo las necesitan)
             mapaMeses[mes][u] += horasFiltro;
             mapaMeses[mes][`costo${u}`] += valorFiltro;
           }
@@ -784,13 +778,10 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
         if (emp.historialMeses) {
           Object.entries(emp.historialMeses).forEach(([mes, data]) => {
             if (mapaMeses[mes]) {
-               // 1. Asignar Devengado Exacto por Empresa
                if (data.porEmpresa) {
                   mapaMeses[mes].devengadoFAM += (data.porEmpresa['FAM']?.devengado || 0);
                   mapaMeses[mes].devengadoRECREFAM += (data.porEmpresa['RECREFAM']?.devengado || 0);
                }
-
-               // 2. Asignar Fuga Exacta por Empresa (Solo si hubo fuga real este mes)
                if (emp.fugaPorMes && emp.fugaPorMes[mes] > 0 && data.porEmpresa) {
                   mapaMeses[mes].fugaFAM += (data.porEmpresa['FAM']?.transporte || 0);
                   mapaMeses[mes].fugaRECREFAM += (data.porEmpresa['RECREFAM']?.transporte || 0);
@@ -802,20 +793,16 @@ const alertasFiltradas = coleccionRecalculada.filter(a => {
     });
 
     return Object.values(mapaMeses).sort((a, b) => a.mes.localeCompare(b.mes));
-  };
-
-const tendenciasDinamicas = calcularTendenciaDinamica();
+  }, [datosHistoricos, alertasFiltradas, empleadosSeleccionados, modoDashboard, filtroConceptoJornada, agrupacionGrafica]);
 
  // 🧮 RECALCULAR TARJETAS SUPERIORES (KPIs) SEGÚN FILTROS ACTIVOS
   const kpisFiltrados = React.useMemo(() => {
     if (!datosHistoricos) return { totalMeses: 0, totalAlertas: 0, totalMonto: 0 };
 
-    // 1. Determina el universo base: seleccionados o todos los filtrados
     let universoAfectado = empleadosSeleccionados.length > 0 
       ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
       : alertasFiltradas;
 
-    // 2. 💡 MAGIA INTERACTIVA: Restar del KPI a las líneas ocultas/tachadas
     universoAfectado = universoAfectado.filter(a => {
       if (agrupacionGrafica === 'EMPLEADOS' || agrupacionGrafica === 'SELECCIONADOS') {
         if (lineasOcultas[a.nombre] || lineasOcultas[`costo_${a.nombre}`]) return false;
@@ -828,8 +815,9 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
 
     let totalMonto = 0;
     
-    // 🕵️‍♂️ LÓGICA FORENSE: ¿Estamos en la vista global pura sin ningún filtro?
+    // 💡 ANTI-BUG: Agregamos busqueda === '' para que el recuadro obedezca a los nombres escritos
     const vistaGlobalPura = empleadosSeleccionados.length === 0 && 
+                            busqueda === '' && 
                             filtroPeriodo === 'TODOS' && 
                             filtroUnidad === 'TODOS' && 
                             filtroProceso.length === 0 && 
@@ -839,10 +827,8 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                             Object.values(lineasOcultas).every(v => !v);
 
     if (vistaGlobalPura) {
-      // Tomamos el 100% de la nómina de la empresa (coincidiendo exacto con el Excel)
       totalMonto = modoDashboard === 'JORNADA' ? datosHistoricos.totalCostoExtras : datosHistoricos.totalFugaTransporte;
     } else {
-      // Sumamos estrictamente lo que se está viendo en pantalla según los filtros/chulitos
       totalMonto = universoAfectado.reduce((acc, a) => {
         if (agrupacionGrafica === 'CONCEPTOS' && a.desgloseConceptosJornada) {
           let sumaVisible = 0;
@@ -876,20 +862,19 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
       totalAlertas,
       totalMonto
     };
-  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados, lineasOcultas, agrupacionGrafica, filtroConceptoJornada, filtroUnidad, filtroProceso, filtroCargo, filtroAlerta, modoDashboard]);
-
+  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados, lineasOcultas, agrupacionGrafica, filtroConceptoJornada, filtroUnidad, filtroProceso, filtroCargo, filtroAlerta, modoDashboard, busqueda]);
  // 📊 CÁLCULO DE DATA PARA BARRAS APILADAS POR TRABAJADOR
   const dataGraficasApiladas = React.useMemo(() => {
     if (!alertasFiltradas || alertasFiltradas.length === 0) return [];
 
     let baseParaMostrar = [];
 
-    // 💡 MUESTRA A TODOS EN LA TABLA PARA QUE PUEDAS SELECCIONARLOS LIBREMENTE
-    const topN = limiteTop === 'TODOS' ? alertasFiltradas : alertasFiltradas.slice(0, limiteTop);
-    const faltantes = alertasFiltradas.filter(a => 
-       empleadosSeleccionados.some(e => e.cedula === a.cedula) && !topN.some(t => t.cedula === a.cedula)
-    );
-    baseParaMostrar = [...topN, ...faltantes];
+    // 🛡️ ANTI-CONGELAMIENTO: Si no hay nadie seleccionado, graficamos máximo 20 para no explotar la RAM del navegador. La tabla inferior mostrará a todos de igual forma.
+    if (empleadosSeleccionados.length > 0) {
+      baseParaMostrar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
+    } else {
+      baseParaMostrar = alertasFiltradas.slice(0, 20); 
+    }
 
     return baseParaMostrar.map(emp => {
       const resumen = {
@@ -909,7 +894,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
 
       return resumen;
     });
-  }, [alertasFiltradas, empleadosSeleccionados, limiteTop, filtroConceptoJornada, agrupacionGrafica]);
+  }, [alertasFiltradas, empleadosSeleccionados, filtroConceptoJornada]);
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
