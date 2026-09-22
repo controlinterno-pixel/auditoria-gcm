@@ -589,17 +589,29 @@ riesgo: (() => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-        // 3. Limpiar y mapear los datos exactamente como los necesita el Dashboard
-        const dataLimpia = jsonData.map((row, index) => ({
-          id: `${sheetName}-${index}`,
-          Empresa: row['Empresa'] || sheetName, 
-          Empleado: row['Empleado'] || row['Nombre'] || 'Desconocido',
-          Fecha: row['Fecha'] || '',
-          Horario: row['Horario'] || row['Turno'] || 'Sin Registro',
-          HT: row['HT'] || row['Horas'] || 0,
-          Total_Recargos_Dia: parseFloat(row['Total_Recargos_Dia']) || parseFloat(row['Total_Recargos']) || 0,
-        })).filter(row => row.Empleado !== 'Desconocido' && row.Total_Recargos_Dia > 0); 
-        // Filtramos para ignorar filas vacías o días sin recargos y aligerar la memoria
+        // 🧠 LECTURA INTELIGENTE DE FECHAS (Tolera "Fecha "", ISO Dates y mayúsculas)
+        const dataLimpia = jsonData.map((row, index) => {
+          const empresaVal = buscarColumna(row, ['Empresa', 'EMPRESA', 'Compania']) || sheetName;
+          const empleadoVal = buscarColumna(row, ['Empleado', 'EMPLEADO', 'Nombre', 'Nombres']) || 'Desconocido';
+          
+          let fechaVal = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
+          
+          if (fechaVal instanceof Date) {
+            fechaVal = fechaVal.toISOString().split('T')[0];
+          } else if (typeof fechaVal === 'string' && fechaVal.includes('T')) {
+            fechaVal = fechaVal.split('T')[0];
+          }
+
+          return {
+            id: `${sheetName}-${index}`,
+            Empresa: String(empresaVal).trim(), 
+            Empleado: String(empleadoVal).trim(),
+            Fecha: String(fechaVal).trim() || 'Sin Fecha',
+            Horario: buscarColumna(row, ['Horario', 'HORARIO', 'Turno']) || 'Sin Registro',
+            HT: buscarColumna(row, ['HT', 'Horas', 'HT_Horas']) || '00:00',
+            Total_Recargos_Dia: parsearMonto(buscarColumna(row, ['Total_Recargos_Dia', 'Total_Recargos', 'TOTAL_RECARGOS'])),
+          };
+        }).filter(row => row.Empleado !== 'Desconocido' && row.Total_Recargos_Dia > 0); 
 
         todasLasMarcaciones = [...todasLasMarcaciones, ...dataLimpia];
       });
@@ -2074,7 +2086,7 @@ riesgo: (() => {
                                             <td className="p-3 text-center">
                                                 <button 
                                                     onClick={() => setEmpleadosSeleccionados([{ cedula: '', nombre: row.Empleado }])}
-                                                    className="px-3 py-1.5 bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-600 hover:text-white rounded-lg font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider"
+                                                    className="px-3 py-1.5 bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-600 hover:text-white rounded-lg font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider cursor-pointer"
                                                 >
                                                     Ver Gráfica Diaria 📉
                                                 </button>
