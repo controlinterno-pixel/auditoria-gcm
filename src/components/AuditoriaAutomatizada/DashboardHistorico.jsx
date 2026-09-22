@@ -702,10 +702,9 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
       ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
       : alertasFiltradas;
 
-    // 2. 💡 MAGIA INTERACTIVA: Restar del KPI a las personas que estén ocultas/tachadas en la gráfica
+    // 2. 💡 MAGIA INTERACTIVA: Restar del KPI a las líneas ocultas/tachadas
     universoAfectado = universoAfectado.filter(a => {
       if (agrupacionGrafica === 'EMPLEADOS' || agrupacionGrafica === 'SELECCIONADOS') {
-        // Si la línea de este empleado fue apagada con clic en la leyenda, lo sacamos de la suma
         if (lineasOcultas[a.nombre] || lineasOcultas[`costo_${a.nombre}`]) return false;
       }
       if (agrupacionGrafica === 'SEDES') {
@@ -714,12 +713,40 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
       return true;
     });
 
-    let totalMonto = universoAfectado.reduce((acc, a) => {
-      if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
-        return acc + a.fugaPorMes[filtroPeriodo];
-      }
-      return acc + (a.totalDineroVisual || 0);
-    }, 0);
+    let totalMonto = 0;
+    
+    // 🕵️‍♂️ LÓGICA FORENSE: ¿Estamos en la vista global pura sin ningún filtro?
+    const vistaGlobalPura = empleadosSeleccionados.length === 0 && 
+                            filtroPeriodo === 'TODOS' && 
+                            filtroUnidad === 'TODOS' && 
+                            filtroProceso.length === 0 && 
+                            filtroCargo.length === 0 && 
+                            filtroConceptoJornada.length === 0 && 
+                            filtroAlerta === 'TODOS' && 
+                            Object.values(lineasOcultas).every(v => !v);
+
+    if (vistaGlobalPura) {
+      // Tomamos el 100% de la nómina de la empresa (coincidiendo exacto con el Excel)
+      totalMonto = modoDashboard === 'JORNADA' ? datosHistoricos.totalCostoExtras : datosHistoricos.totalFugaTransporte;
+    } else {
+      // Sumamos estrictamente lo que se está viendo en pantalla según los filtros/chulitos
+      totalMonto = universoAfectado.reduce((acc, a) => {
+        if (agrupacionGrafica === 'CONCEPTOS' && a.desgloseConceptosJornada) {
+          let sumaVisible = 0;
+          Object.entries(a.desgloseConceptosJornada).forEach(([concepto, metricas]) => {
+            if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return;
+            if (lineasOcultas[concepto] || lineasOcultas[`costo_${concepto}`]) return;
+            sumaVisible += metricas.valor;
+          });
+          return acc + sumaVisible;
+        }
+
+        if (filtroPeriodo !== 'TODOS' && a.fugaPorMes && a.fugaPorMes[filtroPeriodo]) {
+          return acc + a.fugaPorMes[filtroPeriodo];
+        }
+        return acc + (a.totalDineroVisual || 0);
+      }, 0);
+    }
 
     const totalAlertas = universoAfectado.length; 
 
@@ -736,7 +763,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
       totalAlertas,
       totalMonto
     };
-  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados, lineasOcultas, agrupacionGrafica]);
+  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados, lineasOcultas, agrupacionGrafica, filtroConceptoJornada, filtroUnidad, filtroProceso, filtroCargo, filtroAlerta, modoDashboard]);
 
  // 📊 CÁLCULO DE DATA PARA BARRAS APILADAS POR TRABAJADOR
   const dataGraficasApiladas = React.useMemo(() => {
