@@ -212,8 +212,7 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
             desgloseJornadaPorMes: {}, // 💡 Desglose REAL por cada mes (para la gráfica)
             desgloseConceptosJornada: {}, // 💡 Desglose para el filtro dinámico
             fugaTransporteDinero: 0,
-            mesesConFugaTransporte: 0,
-            auditoriaLey2466: {} // 💡 NUEVO: Memoria para recalcular la fórmula de recargos
+            mesesConFugaTransporte: 0
           };
         } else {
           empleadosStats[cedula].empresasGrupo.add(empresaFila);
@@ -253,18 +252,6 @@ const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compa
            emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].transporte += valor; // Desglose
         }
         if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
-
-        // ⚖️ RECOLECCIÓN PARA AUDITORÍA LEY 2466 DE 2025
-        if (!emp.auditoriaLey2466[mesOrigen]) emp.auditoriaLey2466[mesOrigen] = { sueldoMes: 0, horasDV: 0, pagadoDV: 0 };
-        
-        if (conceptoLimpio.includes('SUELDO BASICO') || conceptoLimpio.includes('SALARIO BASICO')) {
-            emp.auditoriaLey2466[mesOrigen].sueldoMes += valor;
-        }
-        // Auditamos DV06 (Dominical) y DV22 (Festivo no compensado)
-        if (conceptoLimpio.includes('DV22') || conceptoLimpio.includes('DV06')) {
-            emp.auditoriaLey2466[mesOrigen].horasDV += cantidad;
-            emp.auditoriaLey2466[mesOrigen].pagadoDV += valor;
-        }
 
         // ⏱️ RECOLECCIÓN JORNADA (Alineado 100% con Criterios de Auditoría)
         const codigosAuditoria = ['DV05', 'DV06', 'DV07', 'DV08', 'DV09', 'DV10', 'DV11', 'DV19', 'DV22'];
@@ -463,69 +450,34 @@ riesgo: (() => {
            });
         }
 
-        // --- 2. EVALUACIÓN DE JORNADA Y LEY 2466 DE 2025 ---
+// --- 2. EVALUACIÓN DE JORNADA ---
         const totalHoras = emp.totalHorasExtras + emp.totalHorasRecargos;
         const totalDinero = emp.totalValorExtras + emp.totalValorRecargos;
         
-        // Ejecutamos el motor si el empleado tiene recargos o si al menos tiene datos para la auditoría de ley
-        if (totalHoras > 0 || totalDinero > 0 || Object.keys(emp.auditoriaLey2466).length > 0) {
+        if (totalHoras > 0 || totalDinero > 0) {
             const mesesActivos = emp.mesesConNovedad.size;
+            const promedioMensual = totalHoras / (mesesActivos || 1);
             const cargoLimpio = normalizarTexto(emp.cargo);
 
-            // ⚖️ ANÁLISIS FORENSE LEY 2466
-            let huboInfraccionLey = false;
-            let mesesInfraccionLey = 0;
-            let diferenciaAcumuladaLey = 0;
-            let detallesLey = [];
-            let totalHorasInfraccion = 0;
-
-            Object.entries(emp.auditoriaLey2466).forEach(([mesStr, datos]) => {
-                if (datos.horasDV > 0 && datos.sueldoMes > 0) {
-                    let year = 2026; let month = 6;
-                    const match = mesStr.match(/(\d{4})[-/]?(\d{2})/);
-                    if (match) { year = parseInt(match[1]); month = parseInt(match[2]); }
-
-                    // Progresividad de la Ley 2466
-                    let factorLegal = 1.75; let divisorLegal = 240; 
-                    
-                    if (year > 2027 || (year === 2027 && month >= 7)) { 
-                        factorLegal = 2.00; divisorLegal = 210; // 100% Recargo
-                    } else if (year > 2026 || (year === 2026 && month >= 7)) { 
-                        factorLegal = 1.90; divisorLegal = 210; // 90% Recargo
-                    } else if (year > 2025 || (year === 2025 && month >= 7)) {
-                        factorLegal = 1.80; divisorLegal = 220; // 80% Recargo
-                    }
-
-                    // Fórmula oficial: (Sueldo Básico * Factor) / Divisor * Horas
-                    const pagoEsperado = (datos.sueldoMes * factorLegal / divisorLegal) * datos.horasDV;
-                    
-                    // Margen de error de $500 por redondeos del ERP
-                    if (datos.pagadoDV < pagoEsperado - 500) { 
-                        huboInfraccionLey = true;
-                        mesesInfraccionLey++;
-                        totalHorasInfraccion += datos.horasDV;
-                        diferenciaAcumuladaLey += (pagoEsperado - datos.pagadoDV);
-                        detallesLey.push(`[Mes ${mesStr}] Pagado: $${datos.pagadoDV.toLocaleString('es-CO')} vs Fórmula Legal: $${Math.round(pagoEsperado).toLocaleString('es-CO')} (Factor ${factorLegal})`);
-                    }
-                }
-            });
-
-            const palabrasClaveAdmin = ['CONTABLE', 'CONTABILIDAD', 'FINANCIER', 'TESORERIA', 'CARTERA', 'TALENTO', 'GERENT', 'DIRECTOR', 'MEJORA', 'SISTEMAS', 'TICS', 'DESARROLLADOR', 'COMERCIAL', 'CONTACT CENTER', 'COMPRAS', 'MERCADEO', 'COMUNICACIONES', 'PLANEACION', 'FAMILY', 'ADMINISTRATIV', 'COSTOS', 'AUDITOR'];
+            const palabrasClaveAdmin = [
+              'CONTABLE', 'CONTABILIDAD', 'FINANCIER', 'TESORERIA', 'CARTERA',
+              'TALENTO', 'GERENT', 'DIRECTOR', 'MEJORA', 'SISTEMAS', 'TICS', 
+              'DESARROLLADOR', 'COMERCIAL', 'CONTACT CENTER', 'COMPRAS', 
+              'MERCADEO', 'COMUNICACIONES', 'PLANEACION', 'FAMILY', 
+              'ADMINISTRATIV', 'COSTOS', 'AUDITOR'
+            ];
             const excepcionesOperativas = ['AUDITORIA NOCTURNA', 'OPERACIONES', 'RECEPCION', 'SPA', 'SERVICIO AL CLIENTE'];
 
             const esAdminPuro = palabrasClaveAdmin.some(kw => cargoLimpio.includes(kw)) && !excepcionesOperativas.some(ex => cargoLimpio.includes(ex));
-            const esLiderAdmin = (cargoLimpio.includes('COORDINADOR') || cargoLimpio.includes('LIDER')) && !excepcionesOperativas.some(ex => cargoLimpio.includes(ex)) && !['MANTENIMIENTO', 'ALIMENTOS', 'AMBIENTAL', 'EXPERIENCIA', 'INFRAESTRUCTURA'].some(kw => cargoLimpio.includes(kw));
+            const esLiderAdmin = (cargoLimpio.includes('COORDINADOR') || cargoLimpio.includes('LIDER')) && 
+                                 !excepcionesOperativas.some(ex => cargoLimpio.includes(ex)) && 
+                                 !['MANTENIMIENTO', 'ALIMENTOS', 'AMBIENTAL', 'EXPERIENCIA', 'INFRAESTRUCTURA'].some(kw => cargoLimpio.includes(kw));
 
             let riesgo = null;
             let tipo = null;
             let icono = null;
 
-            // Priorizamos la alerta legal por encima de las operativas
-            if (huboInfraccionLey) {
-              riesgo = `⚖️ HALLAZGO LEY 2466 DE 2025 (ART. 179 CST):\n• El ERP aplicó una fórmula de liquidación dominical/festiva inferior a la progresión exigida por la ley.\n• ${detallesLey.join('\n• ')}\n• Pasivo laboral estimado a favor del trabajador: $${Math.round(diferenciaAcumuladaLey).toLocaleString('es-CO')}.`;
-              tipo = 'LEY_2466';
-              icono = '⚖️';
-            } else if ((esAdminPuro || esLiderAdmin) && totalHoras > 5) {
+            if ((esAdminPuro || esLiderAdmin) && totalHoras > 5) {
               riesgo = `Alerta de Cargo Corporativo: Empleado administrativo (${emp.cargo}) acumuló ${totalHoras.toFixed(1)} hrs operativas. Requiere revisión estricta de autorización.`;
               tipo = 'CARGO_CORPORATIVO';
               icono = '🚨';
@@ -546,12 +498,12 @@ riesgo: (() => {
             if (riesgo) {
               alertasJornada.push({
                 ...emp,
-                totalHorasVisual: tipo === 'LEY_2466' ? totalHorasInfraccion : totalHoras,
-                totalDineroVisual: tipo === 'LEY_2466' ? diferenciaAcumuladaLey : totalDinero,
+                totalHorasVisual: totalHoras,
+                totalDineroVisual: totalDinero,
                 riesgo,
                 tipo,
                 icono,
-                mesesActivos: tipo === 'LEY_2466' ? mesesInfraccionLey : mesesActivos
+                mesesActivos
               });
             }
         }
@@ -1807,7 +1759,6 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                     className="bg-transparent border-none outline-none text-slate-800 cursor-pointer font-extrabold"
                   >
                     <option value="TODOS">🌐 Todas las Alertas</option>
-                    <option value="LEY_2466">⚖️ Hallazgo Ley 2466</option>
                     <option value="FAVORITISMO">💰 Financiera / Favoritismo</option>
                     <option value="BURNOUT">🔥 Riesgo Burnout</option>
                     <option value="CARGO_CORPORATIVO">🚨 Cargo Corporativo</option>
