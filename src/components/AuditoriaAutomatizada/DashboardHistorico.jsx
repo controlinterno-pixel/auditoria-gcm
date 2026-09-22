@@ -589,33 +589,44 @@ riesgo: (() => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-        // 🧠 LECTURA INTELIGENTE DE FECHAS (Tolera "Fecha "", ISO Dates y mayúsculas)
+        // 🧠 FORMATEADOR UNIFICADO DE FECHAS (SERIALES EXCEL, TEXTOS O DATES)
         const dataLimpia = jsonData.map((row, index) => {
           const empresaVal = buscarColumna(row, ['Empresa', 'EMPRESA', 'Compania']) || sheetName;
           const empleadoVal = buscarColumna(row, ['Empleado', 'EMPLEADO', 'Nombre', 'Nombres']) || 'Desconocido';
           
-          // Extraer fecha limpia tolerando "Fecha ""
-          let fechaVal = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
-          
-          // 🧠 CONVERSIÓN INTELIGENTE DE FECHA (Convierte números seriales de Excel como 46222 a YYYY-MM-DD)
-          if (typeof fechaVal === 'number' && fechaVal > 30000) {
-            // Conversión de número serial de Excel a Fecha real
-            const fechaObj = new Date((fechaVal - 25569) * 86400 * 1000);
+          let fechaRaw = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
+          let fechaFormateada = '';
+
+          // A. Si es número serial de Excel (ej. 46222 o 46229)
+          if (typeof fechaRaw === 'number' && fechaRaw > 30000) {
+            const fechaObj = new Date((fechaRaw - 25569) * 86400 * 1000);
             const ano = fechaObj.getUTCFullYear();
             const mes = String(fechaObj.getUTCMonth() + 1).padStart(2, '0');
             const dia = String(fechaObj.getUTCDate()).padStart(2, '0');
-            fechaVal = `${ano}-${mes}-${dia}`;
-          } else if (fechaVal instanceof Date) {
-            fechaVal = fechaVal.toISOString().split('T')[0];
-          } else if (typeof fechaVal === 'string' && fechaVal.includes('T')) {
-            fechaVal = fechaVal.split('T')[0];
+            fechaFormateada = `${ano}-${mes}-${dia}`;
+          } 
+          // B. Si viene en formato texto largo "Lunes - 31/08/2026"
+          else if (typeof fechaRaw === 'string' && fechaRaw.includes('/')) {
+            const parteFecha = fechaRaw.includes('-') ? fechaRaw.split('-')[1].trim() : fechaRaw.trim();
+            const [d, m, a] = parteFecha.split('/');
+            if (d && m && a) {
+              fechaFormateada = `${a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            } else {
+              fechaFormateada = fechaRaw;
+            }
+          } 
+          // C. Si es objeto Date o cadena ISO
+          else if (fechaRaw instanceof Date) {
+            fechaFormateada = fechaRaw.toISOString().split('T')[0];
+          } else {
+            fechaFormateada = String(fechaRaw).split('T')[0].trim();
           }
 
           return {
             id: `${sheetName}-${index}`,
             Empresa: String(empresaVal).trim(), 
             Empleado: String(empleadoVal).trim(),
-            Fecha: String(fechaVal).trim() || 'Sin Fecha',
+            Fecha: fechaFormateada || 'Sin Fecha',
             Horario: buscarColumna(row, ['Horario', 'HORARIO', 'Turno']) || 'Sin Registro',
             HT: buscarColumna(row, ['HT', 'Horas', 'HT_Horas']) || '00:00',
             Total_Recargos_Dia: parsearMonto(buscarColumna(row, ['Total_Recargos_Dia', 'Total_Recargos', 'TOTAL_RECARGOS'])),
