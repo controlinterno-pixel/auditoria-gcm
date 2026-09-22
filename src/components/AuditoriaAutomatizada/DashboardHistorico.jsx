@@ -594,9 +594,18 @@ riesgo: (() => {
           const empresaVal = buscarColumna(row, ['Empresa', 'EMPRESA', 'Compania']) || sheetName;
           const empleadoVal = buscarColumna(row, ['Empleado', 'EMPLEADO', 'Nombre', 'Nombres']) || 'Desconocido';
           
+          // Extraer fecha limpia tolerando "Fecha ""
           let fechaVal = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
           
-          if (fechaVal instanceof Date) {
+          // 🧠 CONVERSIÓN INTELIGENTE DE FECHA (Convierte números seriales de Excel como 46222 a YYYY-MM-DD)
+          if (typeof fechaVal === 'number' && fechaVal > 30000) {
+            // Conversión de número serial de Excel a Fecha real
+            const fechaObj = new Date((fechaVal - 25569) * 86400 * 1000);
+            const ano = fechaObj.getUTCFullYear();
+            const mes = String(fechaObj.getUTCMonth() + 1).padStart(2, '0');
+            const dia = String(fechaObj.getUTCDate()).padStart(2, '0');
+            fechaVal = `${ano}-${mes}-${dia}`;
+          } else if (fechaVal instanceof Date) {
             fechaVal = fechaVal.toISOString().split('T')[0];
           } else if (typeof fechaVal === 'string' && fechaVal.includes('T')) {
             fechaVal = fechaVal.split('T')[0];
