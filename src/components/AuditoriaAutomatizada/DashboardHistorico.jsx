@@ -892,9 +892,28 @@ riesgo: (() => {
         });
       }
 
-      return resumen;
+     return resumen;
     });
-  }, [alertasFiltradas, empleadosSeleccionados, filtroConceptoJornada]);
+  }, [alertasFiltradas, empleadosSeleccionados, limiteTop, filtroConceptoJornada, agrupacionGrafica]);
+  
+  // 🧠 LÓGICA DE VELOCIDAD: Agrupar marcaciones por empleado para no colapsar la pantalla
+  const resumenMarcaciones = React.useMemo(() => {
+    if (!datosMarcaciones) return [];
+    const agrupado = {};
+
+    datosMarcaciones.forEach(row => {
+        if (filtroEmpresaMarcaciones !== 'TODAS' && row.Empresa !== filtroEmpresaMarcaciones) return;
+        
+        if (!agrupado[row.Empleado]) {
+            agrupado[row.Empleado] = { Empresa: row.Empresa, Empleado: row.Empleado, dias: 0, Total_Recargos_Dia: 0 };
+        }
+        agrupado[row.Empleado].dias += 1;
+        agrupado[row.Empleado].Total_Recargos_Dia += (row.Total_Recargos_Dia || 0);
+    });
+
+    return Object.values(agrupado).sort((a, b) => b.Total_Recargos_Dia - a.Total_Recargos_Dia);
+  }, [datosMarcaciones, filtroEmpresaMarcaciones]);
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
@@ -2025,51 +2044,93 @@ riesgo: (() => {
                     </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h4 className="font-bold text-slate-800 mb-4">Comportamiento Diario (Marcaciones vs Recargos)</h4>
-                    <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={datosMarcaciones.filter(d => empleadosSeleccionados.length === 0 || d.Empleado.includes(empleadosSeleccionados[0].nombre.split(' ')[0]))}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="Fecha" fontSize={11} />
-                                <YAxis yAxisId="left" />
-                                <Tooltip formatter={(val) => `$${val.toLocaleString('es-CO')}`} />
-                                <Legend />
-                                <Bar yAxisId="left" dataKey="Total_Recargos_Dia" fill="#a855f7" name="Costo Generado ($)" />
-                            </ComposedChart>
-                        </ResponsiveContainer>
+{/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (IGUAL QUE NÓMINA) */}
+                {empleadosSeleccionados.length === 0 ? (
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
+                        <div className="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-slate-800">📊 Resumen General por Colaborador</h3>
+                                <p className="text-xs text-slate-500 mt-0.5">La base tiene <strong>{datosMarcaciones.length.toLocaleString('es-CO')}</strong> registros. Se agruparon en <strong>{resumenMarcaciones.length}</strong> empleados para optimizar la velocidad.</p>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto max-h-[500px]">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-xs sticky top-0 shadow-sm z-10">
+                                    <tr>
+                                        <th className="p-3">Empresa</th>
+                                        <th className="p-3">Empleado</th>
+                                        <th className="p-3 text-center">Total Días Registrados</th>
+                                        <th className="p-3 text-right">Costo Recargos Total</th>
+                                        <th className="p-3 text-center">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {resumenMarcaciones.map((row, idx) => (
+                                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                            <td className="p-3 text-xs font-bold text-slate-500">{row.Empresa}</td>
+                                            <td className="p-3 font-bold text-slate-800">{row.Empleado}</td>
+                                            <td className="p-3 text-center font-bold text-indigo-600">{row.dias} días auditados</td>
+                                            <td className="p-3 text-right font-extrabold text-amber-600">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
+                                            <td className="p-3 text-center">
+                                                <button 
+                                                    onClick={() => setEmpleadosSeleccionados([{ cedula: '', nombre: row.Empleado }])}
+                                                    className="px-3 py-1.5 bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-600 hover:text-white rounded-lg font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider"
+                                                >
+                                                    Ver Gráfica Diaria 📉
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <h4 className="font-bold text-slate-800 mb-4 flex justify-between items-center">
+                                <span>📉 Evolución Diaria de: <span className="text-purple-700">{empleadosSeleccionados[0].nombre}</span></span>
+                            </h4>
+                            <div className="h-72 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <ComposedChart data={datosMarcaciones.filter(d => d.Empleado.includes(empleadosSeleccionados[0].nombre.split(' ')[0]))}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                        <XAxis dataKey="Fecha" fontSize={11} stroke="#64748b" />
+                                        <YAxis yAxisId="left" stroke="#64748b" fontSize={11} tickFormatter={(val) => `$${(val/1000)}k`} />
+                                        <Tooltip formatter={(val) => `$${val.toLocaleString('es-CO')}`} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                        <Legend />
+                                        <Bar yAxisId="left" dataKey="Total_Recargos_Dia" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Costo Diario Generado ($)" />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
 
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs">
-                            <tr>
-                                <th className="p-3">Empresa</th>
-                                <th className="p-3">Empleado</th>
-                                <th className="p-3">Fecha</th>
-                                <th className="p-3">Horario Real Biométrico</th>
-                                <th className="p-3 text-center">Horas Trabs (HT)</th>
-                                <th className="p-3 text-right">Recargos Día ($)</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {datosMarcaciones
-                                .filter(d => filtroEmpresaMarcaciones === 'TODAS' || d.Empresa === filtroEmpresaMarcaciones)
-                                .filter(d => empleadosSeleccionados.length === 0 || d.Empleado.includes(empleadosSeleccionados[0].nombre.split(' ')[0]))
-                                .map((row) => (
-                                <tr key={row.id} className="hover:bg-slate-50">
-                                    <td className="p-3 text-xs font-bold text-slate-500">{row.Empresa}</td>
-                                    <td className="p-3 font-bold text-slate-800">{row.Empleado}</td>
-                                    <td className="p-3">{row.Fecha}</td>
-                                    <td className="p-3 font-mono text-purple-700 bg-purple-50 rounded px-2">{row.Horario}</td>
-                                    <td className="p-3 text-center font-bold">{row.HT}</td>
-                                    <td className="p-3 text-right font-extrabold text-amber-600">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs sticky top-0 shadow-sm">
+                                    <tr>
+                                        <th className="p-3">Fecha del Turno</th>
+                                        <th className="p-3">Horario Real Biométrico</th>
+                                        <th className="p-3 text-center">Horas Trabs (HT)</th>
+                                        <th className="p-3 text-right">Recargos Día ($)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {datosMarcaciones
+                                        .filter(d => d.Empleado.includes(empleadosSeleccionados[0].nombre.split(' ')[0]))
+                                        .map((row) => (
+                                        <tr key={row.id} className="hover:bg-purple-50 transition-colors">
+                                            <td className="p-3 whitespace-nowrap font-medium text-slate-700">{row.Fecha}</td>
+                                            <td className="p-3 font-mono text-purple-700 font-bold bg-white rounded px-2">{row.Horario}</td>
+                                            <td className="p-3 text-center font-bold text-slate-600">{row.HT}</td>
+                                            <td className="p-3 text-right font-extrabold text-amber-600">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
              </>
           )}
         </div>
