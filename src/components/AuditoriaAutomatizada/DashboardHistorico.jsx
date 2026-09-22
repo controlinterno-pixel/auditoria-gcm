@@ -1,8 +1,8 @@
 // Ruta: src/components/AuditoriaAutomatizada/DashboardHistorico.jsx
 import React, { useState, useEffect } from 'react';
-import { obtenerListaHistoricos, cargarNominaHistorica } from '../../services/historicoService';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-
+import { obtenerListaHistoricos, cargarNominaHistorica, guardarMarcacionesEnLaNube, cargarMarcacionesDeLaNube, obtenerListaMarcaciones, eliminarMarcacionesHistoricas } from '../../services/historicoService';
+import * as XLSX from 'xlsx';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
 const normalizarTexto = (str) => {
   if (!str) return "";
   return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
@@ -78,7 +78,10 @@ const DashboardHistorico = () => {
   const [filtroCargo, setFiltroCargo] = useState([]);     
   const [filtroConceptoJornada, setFiltroConceptoJornada] = useState([]); 
   const [verTendencias, setVerTendencias] = useState(false);
-  const [modoDashboard, setModoDashboard] = useState('JORNADA'); 
+const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA', 'TRANSPORTE', 'MARCACIONES'
+const [datosMarcaciones, setDatosMarcaciones] = useState(null);
+const [isCargandoMarcaciones, setIsCargandoMarcaciones] = useState(false);
+const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS');
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     
   const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); 
@@ -114,9 +117,45 @@ const DashboardHistorico = () => {
     return 'BALNEARIO';
   };
 
+  const [listaMarcacionesBD, setListaMarcacionesBD] = useState([]);
+
   useEffect(() => {
+    // 1. Cargar bases de Nómina
     obtenerListaHistoricos().then(data => setListaBases(data));
+
+    // 2. Cargar histórico de Marcaciones Biométricas desde la NUBE (Firebase)
+    cargarMarcacionesDeLaNube().then(dataNube => {
+       if (dataNube && dataNube.length > 0) {
+           setDatosMarcaciones(dataNube);
+       }
+    });
+
+    // 3. Obtener listado de archivos de marcaciones subidos
+    obtenerListaMarcaciones().then(data => setListaMarcacionesBD(data));
   }, []);
+
+  // Función para eliminar archivo de marcaciones de la nube
+  const handleEliminarMarcaciones = async (id) => {
+    if (window.confirm("⚠️ ¿Estás seguro de eliminar este lote de marcaciones de la nube?\n\nEsta acción no se puede deshacer y afectará las gráficas.")) {
+      setIsCargandoMarcaciones(true);
+      try {
+        await eliminarMarcacionesHistoricas(id);
+        
+        // Refrescar las listas
+        const nuevaLista = await obtenerListaMarcaciones();
+        setListaMarcacionesBD(nuevaLista);
+        
+        const dataNube = await cargarMarcacionesDeLaNube();
+        setDatosMarcaciones(dataNube.length > 0 ? dataNube : null);
+        
+        alert("🗑️ Archivo biométrico eliminado de la Nube con éxito.");
+      } catch (error) {
+        alert("❌ Error: " + error.message);
+      } finally {
+        setIsCargandoMarcaciones(false);
+      }
+    }
+  };
 
   const ejecutarAnalisisForense = async () => {
     if (listaBases.length === 0) {
@@ -532,7 +571,81 @@ riesgo: (() => {
       setIsAnalyzing(false);
     }
   };
+// 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
+  const handleCargarMarcaciones = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsCargandoMarcaciones(true);
 
+    try {
+      // 1. Leer el archivo físico
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      let todasLasMarcaciones = [];
+
+      // 2. Recorrer todas las hojas del Excel (Ej: "FAM SAS", "RECREFAM SAS")
+      workbook.SheetNames.forEach(sheetName => {
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+        // 3. Limpiar y mapear los datos exactamente como los necesita el Dashboard
+        const dataLimpia = jsonData.map((row, index) => ({
+          id: `${sheetName}-${index}`,
+          Empresa: row['Empresa'] || sheetName, 
+          Empleado: row['Empleado'] || row['Nombre'] || 'Desconocido',
+          Fecha: row['Fecha'] || '',
+          Horario: row['Horario'] || row['Turno'] || 'Sin Registro',
+          HT: row['HT'] || row['Horas'] || 0,
+          Total_Recargos_Dia: parseFloat(row['Total_Recargos_Dia']) || parseFloat(row['Total_Recargos']) || 0,
+        })).filter(row => row.Empleado !== 'Desconocido' && row.Total_Recargos_Dia > 0); 
+        // Filtramos para ignorar filas vacías o días sin recargos y aligerar la memoria
+
+        todasLasMarcaciones = [...todasLasMarcaciones, ...dataLimpia];
+      });
+
+      // 🛡️ ESCUDO ANTI-DUPLICADOS
+      if (datosMarcaciones && datosMarcaciones.length > 0) {
+         // Busca si hay al menos un registro en el Excel nuevo que coincida exactamente en Empleado y Fecha con la nube
+         const posibleDuplicado = todasLasMarcaciones.find(nuevo => 
+            datosMarcaciones.some(viejo => viejo.Empleado === nuevo.Empleado && viejo.Fecha === nuevo.Fecha)
+         );
+
+         if (posibleDuplicado) {
+            const confirmar = window.confirm(`⚠️ ALERTA DE DUPLICIDAD:\n\nEl sistema detectó que ya existen marcaciones en la Nube para el mes que intentas subir (Ej: ${posibleDuplicado.Empleado} el ${posibleDuplicado.Fecha}).\n\nSi continúas, duplicarás los costos y horas de este período en tus gráficas.\n\n¿Estás completamente seguro de querer subir y guardar este archivo?`);
+            
+            if (!confirmar) {
+               setIsCargandoMarcaciones(false);
+               e.target.value = null; // Resetea el botón de subir
+               return; // Aborta la operación sin guardar nada
+            }
+         }
+      }
+
+      // 4. GUARDAR EN LA NUBE (FIREBASE)
+      await guardarMarcacionesEnLaNube(todasLasMarcaciones);
+
+      // 5. Unir la data nueva con la vieja para que la gráfica se actualice de inmediato sin recargar la página
+      const dataCombinada = datosMarcaciones ? [...datosMarcaciones, ...todasLasMarcaciones] : todasLasMarcaciones;
+      setDatosMarcaciones(dataCombinada);
+      
+      alert(`✅ Se procesaron y guardaron ${todasLasMarcaciones.length} turnos exitosamente en la Nube.`);
+
+    } catch (error) {
+      console.error("Error leyendo Excel:", error);
+      alert("❌ Hubo un error procesando el archivo Excel. Verifica que no esté corrupto.");
+    } finally {
+      setIsCargandoMarcaciones(false);
+      e.target.value = null; // Resetea el input
+    }
+  };
+
+  // 🧠 NAVEGACIÓN RÁPIDA DE NÓMINA A MARCACIONES
+  const irAMarcacionesEmpleado = (empleado) => {
+      setEmpleadosSeleccionados([{ cedula: empleado.cedula, nombre: empleado.nombre }]);
+      setModoDashboard('MARCACIONES');
+      setEmpleadoModal(null); // Cierra el modal
+  };
 // 🧠 FILTRADO DINÁMICO MULTI-SELECCIÓN (Afecta Tabla y Gráficas)
   const coleccionActiva = datosHistoricos ? (modoDashboard === 'JORNADA' ? datosHistoricos.alertasJornada : datosHistoricos.alertasTransporte) : [];
   
@@ -809,11 +922,15 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
         </p>
 
         <div className="flex flex-wrap items-center gap-4 mb-6">
-          <button onClick={() => setModoDashboard('JORNADA')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'JORNADA' ? 'bg-pink-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}>
-            ⏱️ Analítica de Jornada (Extras)
+          <button onClick={() => setModoDashboard('JORNADA')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'JORNADA' ? 'bg-pink-600 text-white shadow-lg ring-2 ring-pink-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+            ⏱️ Nómina: Extras
           </button>
-          <button onClick={() => setModoDashboard('TRANSPORTE')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'TRANSPORTE' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}>
-            🚗 Analítica de Fuga en Transporte
+          <button onClick={() => setModoDashboard('TRANSPORTE')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'TRANSPORTE' ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+            🚗 Nómina: Transporte
+          </button>
+          <div className="w-px h-8 bg-slate-700 mx-2"></div>
+          <button onClick={() => setModoDashboard('MARCACIONES')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'MARCACIONES' ? 'bg-purple-600 text-white shadow-lg ring-2 ring-purple-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+            ⏰ Analítica Biométrica
           </button>
         </div>
 
@@ -832,7 +949,7 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
         </div>
       </div>
 
-      {datosHistoricos && (
+      {datosHistoricos && (modoDashboard === 'JORNADA' || modoDashboard === 'TRANSPORTE') && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -1847,7 +1964,131 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
           </div>
         </div>
       )}
+{/* 🟣 NUEVO MÓDULO: MARCACIONES BIOMÉTRICAS */}
+     {modoDashboard === 'MARCACIONES' && (
+        <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                 <div>
+                     <h3 className="text-lg font-bold text-slate-800">Repositorio de Marcaciones (Biométrico)</h3>
+                     <p className="text-sm text-slate-500">Sube y gestiona los reportes del reloj para cruzar con la nómina.</p>
+                 </div>
+                 <div className="flex gap-4 items-center">
+                     {datosMarcaciones && (
+                        <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 shadow-sm">
+                            ✅ Nube Activa: {datosMarcaciones.length} turnos
+                        </span>
+                     )}
+                     <label className="cursor-pointer bg-purple-100 hover:bg-purple-200 text-purple-700 border border-purple-300 font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm">
+                        {isCargandoMarcaciones ? 'Procesando...' : '📂 Subir Archivo Excel'}
+                        <input type="file" accept=".xlsx, .xls" className="hidden" onChange={async (e) => {
+                           await handleCargarMarcaciones(e);
+                           obtenerListaMarcaciones().then(data => setListaMarcacionesBD(data));
+                        }} />
+                     </label>
+                 </div>
+             </div>
 
+             {/* 📋 LISTA DE ARCHIVOS SUBIDOS CON BOTÓN ELIMINAR */}
+             {listaMarcacionesBD.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                   <h4 className="text-xs font-bold text-slate-500 mb-2">ARCHIVOS ALOJADOS EN FIREBASE:</h4>
+                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-32 overflow-y-auto pr-2">
+                     {listaMarcacionesBD.map(archivo => (
+                       <div key={archivo.id} className="flex justify-between items-center bg-slate-50 p-2.5 rounded-lg border border-slate-200 shadow-sm">
+                          <div>
+                             <p className="text-[11px] font-bold text-slate-700">🗓️ Subido: {new Date(archivo.fechaCarga).toLocaleDateString('es-CO')}</p>
+                             <p className="text-[10px] text-purple-600 font-mono font-semibold">{archivo.totalRegistros} turnos procesados</p>
+                          </div>
+                          <button 
+                             onClick={() => handleEliminarMarcaciones(archivo.id)} 
+                             disabled={isCargandoMarcaciones}
+                             className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg font-black hover:bg-red-600 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                             🗑️ Borrar
+                          </button>
+                       </div>
+                     ))}
+                   </div>
+                </div>
+             )}
+          </div>
+
+          {datosMarcaciones && (
+             <>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-end">
+                    <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Empresa:</label>
+                        <select 
+                            value={filtroEmpresaMarcaciones} 
+                            onChange={(e) => setFiltroEmpresaMarcaciones(e.target.value)}
+                            className="w-full p-2 rounded border border-slate-300 text-sm font-bold text-slate-700"
+                        >
+                            <option value="TODAS">Ambas Empresas</option>
+                            <option value="FAM SAS">FAM SAS (Termales)</option>
+                            <option value="RECREFAM SAS">RECREFAM SAS</option>
+                        </select>
+                    </div>
+                    <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Colaborador en Revisión:</label>
+                        <div className="w-full p-2 rounded border border-purple-300 bg-purple-50 text-sm font-bold text-purple-800 flex justify-between items-center">
+                            {empleadosSeleccionados.length > 0 ? empleadosSeleccionados[0].nombre : 'Todos los colaboradores'}
+                            {empleadosSeleccionados.length > 0 && (
+                                <button onClick={() => setEmpleadosSeleccionados([])} className="text-xs font-bold bg-white text-red-500 px-2 py-1 rounded shadow-sm">✕ Limpiar</button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h4 className="font-bold text-slate-800 mb-4">Comportamiento Diario (Marcaciones vs Recargos)</h4>
+                    <div className="h-72 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={datosMarcaciones.filter(d => empleadosSeleccionados.length === 0 || d.Empleado.includes(empleadosSeleccionados[0].nombre.split(' ')[0]))}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="Fecha" fontSize={11} />
+                                <YAxis yAxisId="left" />
+                                <Tooltip formatter={(val) => `$${val.toLocaleString('es-CO')}`} />
+                                <Legend />
+                                <Bar yAxisId="left" dataKey="Total_Recargos_Dia" fill="#a855f7" name="Costo Generado ($)" />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs">
+                            <tr>
+                                <th className="p-3">Empresa</th>
+                                <th className="p-3">Empleado</th>
+                                <th className="p-3">Fecha</th>
+                                <th className="p-3">Horario Real Biométrico</th>
+                                <th className="p-3 text-center">Horas Trabs (HT)</th>
+                                <th className="p-3 text-right">Recargos Día ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {datosMarcaciones
+                                .filter(d => filtroEmpresaMarcaciones === 'TODAS' || d.Empresa === filtroEmpresaMarcaciones)
+                                .filter(d => empleadosSeleccionados.length === 0 || d.Empleado.includes(empleadosSeleccionados[0].nombre.split(' ')[0]))
+                                .map((row) => (
+                                <tr key={row.id} className="hover:bg-slate-50">
+                                    <td className="p-3 text-xs font-bold text-slate-500">{row.Empresa}</td>
+                                    <td className="p-3 font-bold text-slate-800">{row.Empleado}</td>
+                                    <td className="p-3">{row.Fecha}</td>
+                                    <td className="p-3 font-mono text-purple-700 bg-purple-50 rounded px-2">{row.Horario}</td>
+                                    <td className="p-3 text-center font-bold">{row.HT}</td>
+                                    <td className="p-3 text-right font-extrabold text-amber-600">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+             </>
+          )}
+        </div>
+      )}
       {/* 🔍 MODAL DE DIAGNÓSTICO FORENSE MULTI-USO */}
       {empleadoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -1862,7 +2103,13 @@ const tendenciasDinamicas = calcularTendenciaDinamica();
                 <p className="text-xs text-slate-400 mt-1 font-mono">
                   {empleadoModal.nombre} — Cédula: {empleadoModal.cedula} | Cargo: {empleadoModal.cargo}
                 </p>
+                
+                {/* Aquí está el botón anidado correctamente */}
+                <button onClick={() => irAMarcacionesEmpleado(empleadoModal)} className="mt-3 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded shadow-lg transition cursor-pointer border border-purple-500">
+                  ⏰ Analizar Marcaciones Biométricas
+                </button>
               </div>
+              
               <button 
                 onClick={() => setEmpleadoModal(null)}
                 className="text-slate-400 hover:text-white bg-slate-800 hover:bg-rose-600 rounded-lg text-lg w-8 h-8 flex items-center justify-center transition cursor-pointer"

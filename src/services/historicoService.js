@@ -130,3 +130,107 @@ export const eliminarNominaHistorica = async (docId) => {
     throw new Error("No se pudo eliminar el registro en la nube.");
   }
 };
+// ============================================================================
+// ⏰ NUEVAS FUNCIONES PARA MARCACIONES BIOMÉTRICAS (NUBE)
+// ============================================================================
+
+export const guardarMarcacionesEnLaNube = async (filasMarcaciones) => {
+  try {
+    if (!filasMarcaciones || filasMarcaciones.length === 0) return;
+
+    // Generamos un ID único y exacto basado en el milisegundo de subida
+    const docBaseId = `marcaciones_GCM_${Date.now()}`;
+    
+    const batch = writeBatch(db);
+    const resumenBatch = writeBatch(db);
+
+    // 1. Guardar el Índice Principal
+    const refIndice = doc(db, 'marcaciones_historicas', docBaseId);
+    resumenBatch.set(refIndice, {
+      id: docBaseId,
+      fechaCarga: new Date().toISOString(),
+      totalRegistros: filasMarcaciones.length,
+      tipo: 'Biometria_Completa'
+    }, { merge: true });
+
+    // 2. Dividir en Chunks para evitar el límite de 1MB de Firebase
+    for (let i = 0; i < filasMarcaciones.length; i += CHUNK_SIZE) {
+      const pedazo = filasMarcaciones.slice(i, i + CHUNK_SIZE);
+      const refChunk = doc(db, `marcaciones_historicas/${docBaseId}/chunks`, `part_${i}`);
+      batch.set(refChunk, { datos: pedazo });
+    }
+
+    await resumenBatch.commit();
+    await batch.commit();
+    console.log("✅ Marcaciones guardadas en Firebase exitosamente.");
+    
+    return true;
+  } catch (error) {
+    console.error("Error guardando marcaciones en Firebase:", error);
+    throw error;
+  }
+};
+
+export const cargarMarcacionesDeLaNube = async () => {
+  try {
+    // 1. Obtener la lista de todos los archivos de marcaciones subidos
+    const querySnapshot = await getDocs(collection(db, 'marcaciones_historicas'));
+    
+    if (querySnapshot.empty) return []; // Si no hay nada, regresa un arreglo vacío
+
+    let todaLaData = [];
+
+    // 2. Recorrer cada archivo índice y descargar sus chunks
+    for (const documento of querySnapshot.docs) {
+       const docBaseId = documento.id;
+       const chunksSnapshot = await getDocs(collection(db, `marcaciones_historicas/${docBaseId}/chunks`));
+       
+       chunksSnapshot.forEach(chunkDoc => {
+         const info = chunkDoc.data();
+         if (info.datos && Array.isArray(info.datos)) {
+           todaLaData.push(...info.datos);
+         }
+       });
+    }
+
+    return todaLaData;
+  } catch (error) {
+    console.error("Error leyendo marcaciones de Firebase:", error);
+    return [];
+  }
+};
+// ============================================================================
+// 🗑️ GESTIÓN Y BORRADO DE MARCACIONES
+// ============================================================================
+
+export const obtenerListaMarcaciones = async () => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'marcaciones_historicas'));
+    const lista = [];
+    querySnapshot.forEach((doc) => {
+      lista.push({ id: doc.id, ...doc.data() });
+    });
+    // Ordenamos para que los más recientes salgan primero
+    return lista.sort((a, b) => new Date(b.fechaCarga) - new Date(a.fechaCarga));
+  } catch (error) {
+    console.error("Error obteniendo lista de marcaciones:", error);
+    return [];
+  }
+};
+
+export const eliminarMarcacionesHistoricas = async (docId) => {
+  try {
+    // 1. Borrar todos los pedacitos (chunks) del archivo
+    const chunksSnapshot = await getDocs(collection(db, `marcaciones_historicas/${docId}/chunks`));
+    const batch = writeBatch(db);
+    chunksSnapshot.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+
+    // 2. Borrar el índice principal
+    await deleteDoc(doc(db, 'marcaciones_historicas', docId));
+    return { success: true };
+  } catch (error) {
+    console.error("Error eliminando marcaciones:", error);
+    throw new Error("No se pudo eliminar el registro biométrico en la nube.");
+  }
+};
