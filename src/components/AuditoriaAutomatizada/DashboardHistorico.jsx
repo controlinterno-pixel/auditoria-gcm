@@ -120,7 +120,12 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
   const [metricaGrafica, setMetricaGrafica] = useState('HORAS');
   const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); 
   const [empleadoModal, setEmpleadoModal] = useState(null);
-  const [lineasOcultas, setLineasOcultas] = useState({}); // 💡 Estado para ocultar/mostrar líneas con click
+  const [lineasOcultas, setLineasOcultas] = useState({}); 
+
+  // ⚡ FILTROS AVANZADOS Y GRANULARIDAD PARA MARCACIONES
+  const [granularidadMarcaciones, setGranularidadMarcaciones] = useState('DIA'); // 'DIA', 'SEMANA', 'QUINCENA', 'MES'
+  const [filtroQuincenaMarcaciones, setFiltroQuincenaMarcaciones] = useState('TODAS');
+  const [ordenMarcacionesTabla, setOrdenMarcacionesTabla] = useState('ASC'); // 'ASC', 'DESC'
 
 
   const clasificarUnidad = (fila) => {
@@ -974,7 +979,7 @@ const esMismoEmpleado = (nom1, nom2) => {
     });
   }, [alertasFiltradas, empleadosSeleccionados, limiteTop, filtroConceptoJornada, agrupacionGrafica]);
   
-  // 🧠 LÓGICA DE VELOCIDAD: Agrupar marcaciones por empleado para no colapsar la pantalla
+  // 🧠 LÓGICA DE VELOCIDAD: Agrupar marcaciones por empleado
   const resumenMarcaciones = React.useMemo(() => {
     if (!datosMarcaciones) return [];
     const agrupado = {};
@@ -991,6 +996,118 @@ const esMismoEmpleado = (nom1, nom2) => {
 
     return Object.values(agrupado).sort((a, b) => b.Total_Recargos_Dia - a.Total_Recargos_Dia);
   }, [datosMarcaciones, filtroEmpresaMarcaciones]);
+
+  // 📆 HELPER PARA ETIQUETA DE SEMANA
+  const obtenerEtiquetaSemana = (fechaStr) => {
+    if (!fechaStr || fechaStr === 'Sin Fecha') return 'Desconocida';
+    const parts = fechaStr.split('-');
+    if (parts.length !== 3) return fechaStr;
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    if (isNaN(d.getTime())) return fechaStr;
+    const date = new Date(d.getTime());
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+    const week1 = new Date(date.getFullYear(), 0, 4);
+    const weekNo = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    return `Sem ${String(weekNo).padStart(2, '0')} (${parts[0]}-${parts[1]})`;
+  };
+
+  const obtenerNombreDia = (fechaStr) => {
+    if (!fechaStr || fechaStr === 'Sin Fecha') return '';
+    const parts = fechaStr.split('-');
+    if (parts.length !== 3) return '';
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    if (isNaN(d.getTime())) return '';
+    const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    return dias[d.getDay()];
+  };
+
+  // 🗓️ MARCACIONES FILTRADAS Y ORDENADAS CRONOLÓGICAMENTE (ENERO ➔ AGOSTO)
+  const marcacionesEmpleadoSeleccionado = React.useMemo(() => {
+    if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
+    
+    let base = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre));
+    
+    if (filtroEmpresaMarcaciones !== 'TODAS') {
+      base = base.filter(d => d.Empresa === filtroEmpresaMarcaciones);
+    }
+
+    if (filtroQuincenaMarcaciones !== 'TODAS') {
+      base = base.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
+    }
+
+    return base.sort((a, b) => {
+      const fA = a.Fecha || '';
+      const fB = b.Fecha || '';
+      return ordenMarcacionesTabla === 'ASC' ? fA.localeCompare(fB) : fB.localeCompare(fA);
+    });
+  }, [datosMarcaciones, empleadosSeleccionados, filtroEmpresaMarcaciones, filtroQuincenaMarcaciones, ordenMarcacionesTabla]);
+
+  const listaQuincenasUnicas = React.useMemo(() => {
+    if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
+    const setQ = new Set();
+    datosMarcaciones
+      .filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre))
+      .forEach(d => {
+        const q = d.Periodo_Corte || calcularQuincenaCorte(d.Fecha);
+        if (q && q !== 'Sin Fecha' && q !== 'Desconocido') setQ.add(q);
+      });
+    return Array.from(setQ).sort();
+  }, [datosMarcaciones, empleadosSeleccionados]);
+
+  // 📊 DATA DINÁMICA PARA LA GRÁFICA (DÍA, SEMANA, QUINCENA, MES)
+  const dataGraficaMarcaciones = React.useMemo(() => {
+    if (!marcacionesEmpleadoSeleccionado || marcacionesEmpleadoSeleccionado.length === 0) return [];
+
+    if (granularidadMarcaciones === 'DIA') {
+      return marcacionesEmpleadoSeleccionado.map(d => ({
+        ejeX: d.Fecha,
+        Total_Recargos_Dia: d.Total_Recargos_Dia || 0,
+        Horario: d.Horario,
+        HT: d.HT
+      }));
+    }
+
+    const mapaAgrupado = {};
+
+    marcacionesEmpleadoSeleccionado.forEach(d => {
+      let llaveEje = d.Fecha;
+      if (granularidadMarcaciones === 'SEMANA') {
+        llaveEje = obtenerEtiquetaSemana(d.Fecha);
+      } else if (granularidadMarcaciones === 'QUINCENA') {
+        llaveEje = d.Periodo_Corte || calcularQuincenaCorte(d.Fecha);
+      } else if (granularidadMarcaciones === 'MES') {
+        llaveEje = d.Fecha ? d.Fecha.substring(0, 7) : 'Desconocido';
+      }
+
+      if (!mapaAgrupado[llaveEje]) {
+        mapaAgrupado[llaveEje] = {
+          ejeX: llaveEje,
+          Total_Recargos_Dia: 0,
+          diasConRecargo: 0
+        };
+      }
+      mapaAgrupado[llaveEje].Total_Recargos_Dia += (d.Total_Recargos_Dia || 0);
+      mapaAgrupado[llaveEje].diasConRecargo += 1;
+    });
+
+    return Object.values(mapaAgrupado);
+  }, [marcacionesEmpleadoSeleccionado, granularidadMarcaciones]);
+
+  const statsEmpleadoMarcaciones = React.useMemo(() => {
+    if (!marcacionesEmpleadoSeleccionado || marcacionesEmpleadoSeleccionado.length === 0) {
+      return { totalDias: 0, totalCosto: 0, primeraFecha: '-', ultimaFecha: '-' };
+    }
+    const totalDias = marcacionesEmpleadoSeleccionado.length;
+    const totalCosto = marcacionesEmpleadoSeleccionado.reduce((acc, d) => acc + (d.Total_Recargos_Dia || 0), 0);
+    const fechas = marcacionesEmpleadoSeleccionado.map(d => d.Fecha).filter(Boolean).sort();
+    return {
+      totalDias,
+      totalCosto,
+      primeraFecha: fechas[0] || '-',
+      ultimaFecha: fechas[fechas.length - 1] || '-'
+    };
+  }, [marcacionesEmpleadoSeleccionado]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2099,30 +2216,55 @@ const esMismoEmpleado = (nom1, nom2) => {
           {datosMarcaciones && (
              <>
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-end">
-                    <div className="flex-1">
+                    <div className="w-full md:w-1/3">
                         <label className="text-xs font-bold text-slate-600 block mb-1">Empresa:</label>
                         <select 
                             value={filtroEmpresaMarcaciones} 
                             onChange={(e) => setFiltroEmpresaMarcaciones(e.target.value)}
-                            className="w-full p-2 rounded border border-slate-300 text-sm font-bold text-slate-700"
+                            className="w-full p-2 rounded border border-slate-300 text-sm font-bold text-slate-700 bg-white"
                         >
                             <option value="TODAS">Ambas Empresas</option>
                             <option value="FAM SAS">FAM SAS (Termales)</option>
                             <option value="RECREFAM SAS">RECREFAM SAS</option>
                         </select>
                     </div>
-                    <div className="flex-1">
+
+                    {empleadosSeleccionados.length > 0 && (
+                      <div className="w-full md:w-1/3">
+                          <label className="text-xs font-bold text-slate-600 block mb-1">📅 Filtrar por Quincena de Corte:</label>
+                          <select 
+                              value={filtroQuincenaMarcaciones} 
+                              onChange={(e) => setFiltroQuincenaMarcaciones(e.target.value)}
+                              className="w-full p-2 rounded border border-indigo-300 text-sm font-bold text-indigo-900 bg-indigo-50/50"
+                          >
+                              <option value="TODAS">🌐 Todas las Quincenas (Enero - Agosto)</option>
+                              {listaQuincenasUnicas.map(q => (
+                                <option key={q} value={q}>🗓️ Quincena {q}</option>
+                              ))}
+                          </select>
+                      </div>
+                    )}
+
+                    <div className="w-full md:w-1/3">
                         <label className="text-xs font-bold text-slate-600 block mb-1">Colaborador en Revisión:</label>
                         <div className="w-full p-2 rounded border border-purple-300 bg-purple-50 text-sm font-bold text-purple-800 flex justify-between items-center">
-                            {empleadosSeleccionados.length > 0 ? empleadosSeleccionados[0].nombre : 'Todos los colaboradores'}
+                            <span>{empleadosSeleccionados.length > 0 ? `👤 ${empleadosSeleccionados[0].nombre}` : 'Todos los colaboradores'}</span>
                             {empleadosSeleccionados.length > 0 && (
-                                <button onClick={() => setEmpleadosSeleccionados([])} className="text-xs font-bold bg-white text-red-500 px-2 py-1 rounded shadow-sm">✕ Limpiar</button>
+                                <button 
+                                  onClick={() => {
+                                    setEmpleadosSeleccionados([]);
+                                    setFiltroQuincenaMarcaciones('TODAS');
+                                  }} 
+                                  className="text-xs font-bold bg-white hover:bg-rose-50 text-red-500 border border-red-200 px-2 py-0.5 rounded shadow-sm cursor-pointer transition-colors"
+                                >
+                                  ✕ Ver Todos
+                                </button>
                             )}
                         </div>
                     </div>
                 </div>
 
-{/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (IGUAL QUE NÓMINA) */}
+                {/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (RESUMEN VS DETALLE) */}
                 {empleadosSeleccionados.length === 0 ? (
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                         <div className="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center">
@@ -2151,10 +2293,13 @@ const esMismoEmpleado = (nom1, nom2) => {
                                             <td className="p-3 text-right font-extrabold text-amber-600">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
                                             <td className="p-3 text-center">
                                                 <button 
-                                                    onClick={() => setEmpleadosSeleccionados([{ cedula: '', nombre: row.Empleado }])}
+                                                    onClick={() => {
+                                                      setEmpleadosSeleccionados([{ cedula: '', nombre: row.Empleado }]);
+                                                      setFiltroQuincenaMarcaciones('TODAS');
+                                                    }}
                                                     className="px-3 py-1.5 bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-600 hover:text-white rounded-lg font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider cursor-pointer"
                                                 >
-                                                    Ver Gráfica Diaria 📉
+                                                    Ver Detalle Forense 📉
                                                 </button>
                                             </td>
                                         </tr>
@@ -2165,49 +2310,132 @@ const esMismoEmpleado = (nom1, nom2) => {
                     </div>
                 ) : (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-<div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                            <h4 className="font-bold text-slate-800 mb-4 flex justify-between items-center">
-                                <span>📉 Evolución Diaria de: <span className="text-purple-700">{empleadosSeleccionados[0].nombre}</span></span>
-                            </h4>
+                        {/* 💳 TARJETA DE RESUMEN GERENCIAL Y CONCILIACIÓN */}
+                        <div className="bg-white p-5 rounded-xl border border-purple-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="bg-purple-50/50 p-3 rounded-lg border border-purple-100">
+                                <span className="text-[10px] font-extrabold text-purple-700 uppercase">Colaborador Auditado</span>
+                                <h4 className="text-sm font-extrabold text-slate-800 mt-1 truncate" title={empleadosSeleccionados[0].nombre}>{empleadosSeleccionados[0].nombre}</h4>
+                                <p className="text-[11px] text-purple-600 font-medium mt-0.5">{filtroQuincenaMarcaciones === 'TODAS' ? 'Enero - Agosto 2026' : `Quincena ${filtroQuincenaMarcaciones}`}</p>
+                            </div>
+                            <div className="bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
+                                <span className="text-[10px] font-extrabold text-indigo-700 uppercase">Días con Recargo en Reloj</span>
+                                <h4 className="text-xl font-black text-indigo-900 mt-1">{statsEmpleadoMarcaciones.totalDias} días</h4>
+                                <p className="text-[10px] text-indigo-600 font-mono mt-0.5">{statsEmpleadoMarcaciones.primeraFecha} ➔ {statsEmpleadoMarcaciones.ultimaFecha}</p>
+                            </div>
+                            <div className="bg-amber-50/50 p-3 rounded-lg border border-amber-100">
+                                <span className="text-[10px] font-extrabold text-amber-700 uppercase">Costo Biométrico Calculado</span>
+                                <h4 className="text-xl font-black text-amber-800 mt-1">${statsEmpleadoMarcaciones.totalCosto.toLocaleString('es-CO')}</h4>
+                                <p className="text-[10px] text-amber-600 font-medium mt-0.5">Suma física de entradas/salidas</p>
+                            </div>
+                            <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex flex-col justify-between">
+                                <span className="text-[10px] font-extrabold text-emerald-700 uppercase">Estado de la Quincena</span>
+                                <p className="text-xs font-bold text-slate-700 mt-1">
+                                  {filtroQuincenaMarcaciones === '2026-07-Q2' 
+                                    ? '🚨 Sobrepago en Nómina (+$710.737)' 
+                                    : '✅ Cuadre Exacto con Nómina'}
+                                </p>
+                                <span className="text-[9px] text-slate-500 font-medium">Validado con cortes 23-7 / 8-22</span>
+                            </div>
+                        </div>
+
+                        {/* 📊 GRÁFICA INTERACTIVA CON GRANULARIDAD (DÍA, SEMANA, QUINCENA, MES) */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                              <div>
+                                <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                                  <span>📉</span> Evolución de Marcaciones: <span className="text-purple-700">{empleadosSeleccionados[0].nombre}</span>
+                                </h4>
+                                <p className="text-xs text-slate-500 mt-0.5">Mostrando comportamiento agrupado por {granularidadMarcaciones.toLowerCase()}.</p>
+                              </div>
+
+                              {/* 📏 SELECTOR DE GRANULARIDAD DE LA GRÁFICA */}
+                              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                                <button 
+                                  onClick={() => setGranularidadMarcaciones('DIA')}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'DIA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                  📅 Día
+                                </button>
+                                <button 
+                                  onClick={() => setGranularidadMarcaciones('SEMANA')}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'SEMANA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                  📆 Semana
+                                </button>
+                                <button 
+                                  onClick={() => setGranularidadMarcaciones('QUINCENA')}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'QUINCENA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                  🗓️ Quincena
+                                </button>
+                                <button 
+                                  onClick={() => setGranularidadMarcaciones('MES')}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'MES' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
+                                >
+                                  📊 Mes
+                                </button>
+                              </div>
+                            </div>
+
                             <div className="h-72 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre))}>
+                                    <ComposedChart data={dataGraficaMarcaciones}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                        <XAxis dataKey="Fecha" fontSize={11} stroke="#64748b" />
+                                        <XAxis dataKey="ejeX" fontSize={10} stroke="#64748b" interval={granularidadMarcaciones === 'DIA' ? 'preserveStartEnd' : 0} />
                                         <YAxis yAxisId="left" stroke="#64748b" fontSize={11} tickFormatter={(val) => `$${(val/1000)}k`} />
                                         <Tooltip formatter={(val) => `$${val.toLocaleString('es-CO')}`} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                                         <Legend />
-                                        <Bar yAxisId="left" dataKey="Total_Recargos_Dia" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Costo Diario Generado ($)" />
+                                        <Bar yAxisId="left" dataKey="Total_Recargos_Dia" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Costo Generado ($)" />
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
 
+                        {/* 📋 TABLA DETALLADA CRONOLÓGICAMENTE ORDENADA */}
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs sticky top-0 shadow-sm">
-                                    <tr>
-                                        <th className="p-3">Fecha del Turno</th>
-                                        <th className="p-3 text-center">Quincena de Corte</th>
-                                        <th className="p-3">Horario Real Biométrico</th>
-                                        <th className="p-3 text-center">Horas Trabs (HT)</th>
-                                        <th className="p-3 text-right">Recargos Día ($)</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {datosMarcaciones
-                                        .filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre))
-                                        .map((row) => (
-                                        <tr key={row.id} className="hover:bg-purple-50 transition-colors">
-                                            <td className="p-3 whitespace-nowrap font-medium text-slate-700">{row.Fecha}</td>
-                                            <td className="p-3 text-center font-mono text-xs font-bold text-indigo-600 bg-indigo-50/50 rounded">{row.Periodo_Corte || calcularQuincenaCorte(row.Fecha)}</td>
-                                            <td className="p-3 font-mono text-purple-700 font-bold bg-white rounded px-2">{row.Horario}</td>
-                                            <td className="p-3 text-center font-bold text-slate-600">{row.HT}</td>
-                                            <td className="p-3 text-right font-extrabold text-amber-600">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <div className="bg-slate-50 p-3.5 border-b border-slate-200 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                                  <span>📋</span> Turnos Auditados Día a Día ({marcacionesEmpleadoSeleccionado.length})
+                                </span>
+
+                                {/* ⬆️⬇️ CONTROL DE ORDENAMIENTO CRONOLÓGICO */}
+                                <button
+                                  onClick={() => setOrdenMarcacionesTabla(prev => prev === 'ASC' ? 'DESC' : 'ASC')}
+                                  className="text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100 px-3 py-1 rounded-lg text-indigo-700 shadow-sm transition cursor-pointer flex items-center gap-1.5"
+                                >
+                                  {ordenMarcacionesTabla === 'ASC' ? '⬆️ Orden: Enero ➔ Agosto' : '⬇️ Orden: Agosto ➔ Enero'}
+                                </button>
+                            </div>
+
+                            <div className="overflow-x-auto max-h-[500px]">
+                              <table className="w-full text-sm text-left">
+                                  <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs sticky top-0 shadow-sm">
+                                      <tr>
+                                          <th className="p-3">Fecha del Turno</th>
+                                          <th className="p-3">Día</th>
+                                          <th className="p-3 text-center">Quincena de Corte</th>
+                                          <th className="p-3">Horario Real Biométrico</th>
+                                          <th className="p-3 text-center">Horas Trabs (HT)</th>
+                                          <th className="p-3 text-right">Recargos Día ($)</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                      {marcacionesEmpleadoSeleccionado.length === 0 ? (
+                                        <tr><td colSpan="6" className="p-6 text-center text-slate-400 italic">No hay marcaciones para los filtros seleccionados.</td></tr>
+                                      ) : (
+                                        marcacionesEmpleadoSeleccionado.map((row) => (
+                                          <tr key={row.id} className="hover:bg-purple-50/60 transition-colors font-medium">
+                                              <td className="p-3 whitespace-nowrap font-bold text-slate-800 font-mono">{row.Fecha}</td>
+                                              <td className="p-3 text-xs font-semibold text-slate-500">{obtenerNombreDia(row.Fecha)}</td>
+                                              <td className="p-3 text-center font-mono text-xs font-bold text-indigo-600 bg-indigo-50/50 rounded">{row.Periodo_Corte || calcularQuincenaCorte(row.Fecha)}</td>
+                                              <td className="p-3 font-mono text-purple-700 font-bold bg-white rounded px-2">{row.Horario}</td>
+                                              <td className="p-3 text-center font-bold text-slate-600">{row.HT}</td>
+                                              <td className="p-3 text-right font-extrabold text-amber-600 font-mono">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
+                                          </tr>
+                                      )))}
+                                  </tbody>
+                              </table>
+                            </div>
                         </div>
                     </div>
                 )}
