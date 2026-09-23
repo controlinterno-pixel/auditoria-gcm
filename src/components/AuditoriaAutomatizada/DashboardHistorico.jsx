@@ -1117,12 +1117,18 @@ const esMismoEmpleado = (nom1, nom2) => {
     const totalCosto = marcacionesEmpleadoSeleccionado.reduce((acc, d) => acc + (d.Total_Recargos_Dia || 0), 0);
     const fechas = marcacionesEmpleadoSeleccionado.map(d => d.Fecha).filter(Boolean).sort();
     
-    // Cruce inteligente con la data de Nómina (Usando catálogo maestro crudo)
+    // Cruce inteligente con la data de Nómina 
     let alertaInteligente = { texto: "Inspeccionando...", color: "bg-slate-50", textCol: "text-slate-600", icono: "ℹ️" };
     
-    // 👁️ Ahora busca en la base maestra para no perder de vista a quienes no tenían "alertas"
-    const empNomina = datosHistoricos?.empleadosStatsMaster?.find(a => a.cedula === empleadosSeleccionados[0].cedula) || 
-                      alertasFiltradas.find(a => a.cedula === empleadosSeleccionados[0].cedula);
+    // 👁️ EMPAREJAMIENTO INTELIGENTE: Buscamos por Cédula o por coincidencia difusa de Nombre (Fuzzy Match)
+    const empNomina = datosHistoricos?.empleadosStatsMaster?.find(a => 
+                          a.cedula === empleadosSeleccionados[0].cedula || 
+                          esMismoEmpleado(a.nombre, empleadosSeleccionados[0].nombre)
+                      ) || 
+                      alertasFiltradas.find(a => 
+                          a.cedula === empleadosSeleccionados[0].cedula || 
+                          esMismoEmpleado(a.nombre, empleadosSeleccionados[0].nombre)
+                      );
     
     if (empNomina && empNomina.desgloseJornadaPorMes) {
       let totalPagadoNomina = 0;
