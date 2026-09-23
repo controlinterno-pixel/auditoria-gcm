@@ -771,8 +771,8 @@ const esMismoEmpleado = (nom1, nom2) => {
           const costoBio = bioPorMes[mesKeyNorm] || 0;
           
           // 💡 NUEVO: Empaquetar la evidencia separada por ' || '
-          const detalleTurnos = turnosPorMes[mesKeyNorm] && turnosPorMes[mesKeyNorm].length > 0 
-            ? turnosPorMes[mesKeyNorm].join(" || ") 
+         const detalleTurnos = turnosPorMes[mesKeyNorm] && turnosPorMes[mesKeyNorm].length > 0 
+            ? turnosPorMes[mesKeyNorm].map(t => t.includes("22:") || t.includes("23:") ? `🚨 ${t}` : `✔️ ${t}`).join("\r\n") 
             : "Sin turnos físicos con recargo";
           
           const diferencia = Math.round(pagoNominaExtras - costoBio);
