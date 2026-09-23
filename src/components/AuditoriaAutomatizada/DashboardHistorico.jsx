@@ -634,80 +634,74 @@ const esMismoEmpleado = (nom1, nom2) => {
 };
 
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
-  const handleCargarMarcaciones = async (e) => {
+const handleCargarMarcaciones = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setIsCargandoMarcaciones(true);
 
     try {
-      // 1. Leer el archivo físico
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
 
       let todasLasMarcaciones = [];
 
-      // 2. Recorrer todas las hojas del Excel (Ej: "FAM SAS", "RECREFAM SAS")
       workbook.SheetNames.forEach(sheetName => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-        // 🧠 FORMATEADOR UNIFICADO DE FECHAS (SERIALES EXCEL, TEXTOS O DATES)
         const dataLimpia = jsonData.map((row, index) => {
-          const empresaVal = buscarColumna(row, ['Empresa', 'EMPRESA', 'Compania']) || sheetName;
-          const empleadoVal = buscarColumna(row, ['Empleado', 'EMPLEADO', 'Nombre', 'Nombres']) || 'Desconocido';
-          
-          let fechaRaw = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
-          let fechaFormateada = '';
+          try {
+            const empresaVal = buscarColumna(row, ['Empresa', 'EMPRESA', 'Compania']) || sheetName;
+            const empleadoVal = buscarColumna(row, ['Empleado', 'EMPLEADO', 'Nombre', 'Nombres']);
+            
+            if (!empleadoVal || empleadoVal.toString().trim() === '') return null; // Saltar filas vacías reales
 
-          // A. Si es número serial de Excel (ej. 46222 o 46229)
-          if (typeof fechaRaw === 'number' && fechaRaw > 30000) {
-            const fechaObj = new Date((fechaRaw - 25569) * 86400 * 1000);
-            const ano = fechaObj.getUTCFullYear();
-            const mes = String(fechaObj.getUTCMonth() + 1).padStart(2, '0');
-            const dia = String(fechaObj.getUTCDate()).padStart(2, '0');
-            fechaFormateada = `${ano}-${mes}-${dia}`;
-          } 
-          // B. Si viene en formato texto largo "Lunes - 31/08/2026"
-          else if (typeof fechaRaw === 'string' && fechaRaw.includes('/')) {
-            const parteFecha = fechaRaw.includes('-') ? fechaRaw.split('-')[1].trim() : fechaRaw.trim();
-            const [d, m, a] = parteFecha.split('/');
-            if (d && m && a) {
-              fechaFormateada = `${a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            let fechaRaw = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
+            let fechaFormateada = '';
+
+            if (typeof fechaRaw === 'number' && fechaRaw > 30000) {
+              const fechaObj = new Date((fechaRaw - 25569) * 86400 * 1000);
+              const ano = fechaObj.getUTCFullYear();
+              const mes = String(fechaObj.getUTCMonth() + 1).padStart(2, '0');
+              const dia = String(fechaObj.getUTCDate()).padStart(2, '0');
+              fechaFormateada = `${ano}-${mes}-${dia}`;
+            } else if (typeof fechaRaw === 'string' && fechaRaw.includes('/')) {
+              const parteFecha = fechaRaw.includes('-') ? fechaRaw.split('-')[1].trim() : fechaRaw.trim();
+              const [d, m, a] = parteFecha.split('/');
+              if (d && m && a) fechaFormateada = `${a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+              else fechaFormateada = fechaRaw;
+            } else if (fechaRaw instanceof Date) {
+              fechaFormateada = fechaRaw.toISOString().split('T')[0];
             } else {
-              fechaFormateada = fechaRaw;
+              fechaFormateada = String(fechaRaw).split('T')[0].trim();
             }
-          } 
-          // C. Si es objeto Date o cadena ISO
-          else if (fechaRaw instanceof Date) {
-            fechaFormateada = fechaRaw.toISOString().split('T')[0];
-          } else {
-            fechaFormateada = String(fechaRaw).split('T')[0].trim();
-          }
 
-          return {
-            id: `${sheetName}-${index}`,
-            Empresa: String(empresaVal).trim(), 
-            Empleado: String(empleadoVal).trim(),
-            Fecha: fechaFormateada || 'Sin Fecha',
-           Periodo_Corte: calcularQuincenaCorte(fechaFormateada), // 🗓️ Asignación de quincena real (23-7 / 8-22)
-            Horario: buscarColumna(row, ['Horario', 'HORARIO', 'Turno']) || 'Sin Registro',
-            HT: buscarColumna(row, ['HT', 'Horas', 'HT_Horas']) || '00:00',
-            Total_Recargos_Dia: parsearMonto(buscarColumna(row, ['Total_Recargos_Dia', 'Total_Recargos', 'TOTAL_RECARGOS'])),
-          };
-        }).filter(row => row.Empleado !== 'Desconocido'); // 👁️ AHORA DEJA PASAR TODOS LOS TURNOS, INCLUSO LOS DE $0
+            return {
+              id: `${sheetName}-${index}`,
+              Empresa: String(empresaVal).trim(), 
+              Empleado: String(empleadoVal).trim(),
+              Fecha: fechaFormateada || 'Sin Fecha',
+              Periodo_Corte: calcularQuincenaCorte(fechaFormateada), 
+              Horario: String(buscarColumna(row, ['Horario', 'HORARIO', 'Turno']) || 'Sin Registro'),
+              HT: String(buscarColumna(row, ['HT', 'Horas', 'HT_Horas']) || '00:00'),
+              Total_Recargos_Dia: parsearMonto(buscarColumna(row, ['Total_Recargos_Dia', 'Total_Recargos', 'TOTAL_RECARGOS'])),
+            };
+          } catch (err) {
+            console.warn("Fila ignorada por error de formato", row);
+            return null;
+          }
+        }).filter(row => row !== null && row.Empleado !== 'Desconocido');
 
         todasLasMarcaciones = [...todasLasMarcaciones, ...dataLimpia];
       });
 
-      // 🛡️ ESCUDO ANTI-DUPLICADOS
       if (datosMarcaciones && datosMarcaciones.length > 0) {
          const posibleDuplicado = todasLasMarcaciones.find(nuevo => 
             datosMarcaciones.some(viejo => viejo.Empleado === nuevo.Empleado && viejo.Fecha === nuevo.Fecha)
          );
 
          if (posibleDuplicado) {
-            const confirmar = window.confirm(`⚠️ ALERTA DE DUPLICIDAD:\n\nEl sistema detectó que ya existen marcaciones en la Nube para el mes que intentas subir (Ej: ${posibleDuplicado.Empleado} el ${posibleDuplicado.Fecha}).\n\nSi continúas, duplicarás los costos y horas de este período en tus gráficas.\n\n¿Estás completamente seguro de querer subir y guardar este archivo?`);
-            
+            const confirmar = window.confirm(`⚠️ ALERTA DE DUPLICIDAD:\n\nEl sistema detectó que ya existen marcaciones en la Nube para el mes que intentas subir (Ej: ${posibleDuplicado.Empleado} el ${posibleDuplicado.Fecha}).\n\n¿Estás completamente seguro de querer subir y guardar este archivo?`);
             if (!confirmar) {
                setIsCargandoMarcaciones(false);
                e.target.value = null;
@@ -716,7 +710,6 @@ const esMismoEmpleado = (nom1, nom2) => {
          }
       }
 
-      // 4. GUARDAR EN LA NUBE (FIREBASE)
       await guardarMarcacionesEnLaNube(todasLasMarcaciones);
 
       const dataCombinada = datosMarcaciones ? [...datosMarcaciones, ...todasLasMarcaciones] : todasLasMarcaciones;
@@ -726,7 +719,7 @@ const esMismoEmpleado = (nom1, nom2) => {
 
     } catch (error) {
       console.error("Error leyendo Excel:", error);
-      alert("❌ Hubo un error procesando el archivo Excel. Verifica que no esté corrupto.");
+      alert(`❌ Error procesando el archivo: ${error.message}`);
     } finally {
       setIsCargandoMarcaciones(false);
       e.target.value = null;
