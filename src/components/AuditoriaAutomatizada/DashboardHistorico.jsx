@@ -726,6 +726,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       e.target.value = null;
     }
   };
+  
 // 📥 EXPORTAR REPORTE FORENSE ULTRA-RÁPIDO Y MULTI-CORTE (INCLUYE PERIODOS FALTANTES)
   const exportarAuditoriaCompletaExcel = () => {
     if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster || !datosMarcaciones) {
