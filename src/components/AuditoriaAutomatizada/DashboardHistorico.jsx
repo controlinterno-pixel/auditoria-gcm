@@ -98,8 +98,9 @@ const calcularQuincenaCorte = (fechaStr) => {
 };
 
 const DashboardHistorico = () => {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [datosHistoricos, setDatosHistoricos] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [listaBases, setListaBases] = useState([]);
 
   // --- FILTROS AVANZADOS Y TENDENCIAS ---
@@ -732,103 +733,104 @@ const esMismoEmpleado = (nom1, nom2) => {
       return;
     }
 
-    const deudasTrabajador = [];
-    const fugasEmpresa = [];
+    setIsExporting(true);
 
-    // Recorrer a todos los empleados de la nómina
-    datosHistoricos.empleadosStatsMaster.forEach(emp => {
-      if (emp.desgloseJornadaPorMes) {
-        
-        // 1. Filtrar las huellas físicas solo de este empleado
-        const huellasEmpleado = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre));
-        
-        // 2. Sumar la plata del reloj y GUARDAR EL DETALLE DE CADA TURNO
-        const bioPorMes = {};
-        const turnosPorMes = {}; // 💡 NUEVO: Colección de evidencia exacta
+    setTimeout(() => {
+      try {
+        const deudasTrabajador = [];
+        const fugasEmpresa = [];
 
-        huellasEmpleado.forEach(m => {
-          if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
-          const mesKey = String(m.Fecha).substring(0, 7).replace('/', '-'); // Formato AAAA-MM
-          
-          if (!bioPorMes[mesKey]) {
-            bioPorMes[mesKey] = 0;
-            turnosPorMes[mesKey] = [];
-          }
-          
-          const recargoDia = parsearMonto(m.Total_Recargos_Dia);
-          bioPorMes[mesKey] += recargoDia;
+        datosHistoricos.empleadosStatsMaster.forEach(emp => {
+          if (emp.desgloseJornadaPorMes) {
+            const huellasEmpleado = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre));
+            
+            const bioPorMes = {};
+            const turnosPorMes = {}; 
 
-          // Si el turno generó recargos, lo guardamos con lupa para la evidencia del Excel
-          if (recargoDia > 0) {
-            turnosPorMes[mesKey].push(`[${m.Fecha}] Horario: ${m.Horario} (Generó: $${Math.round(recargoDia).toLocaleString('es-CO')})`);
-          }
-        });
+            huellasEmpleado.forEach(m => {
+              if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
+              const mesKey = String(m.Fecha).substring(0, 7).replace('/', '-'); 
+              
+              if (!bioPorMes[mesKey]) {
+                bioPorMes[mesKey] = 0;
+                turnosPorMes[mesKey] = [];
+              }
+              
+              const recargoDia = parsearMonto(m.Total_Recargos_Dia);
+              bioPorMes[mesKey] += recargoDia;
 
-        // 3. Comparar contra lo que pagó Nómina en cada mes específico
-        Object.keys(emp.desgloseJornadaPorMes).forEach(rawMesKey => {
-          const mesKeyNorm = String(rawMesKey).replace('/', '-');
-          const pagoNominaExtras = emp.desgloseJornadaPorMes[rawMesKey].valor || 0;
-          const costoBio = bioPorMes[mesKeyNorm] || 0;
-          
-          // 💡 NUEVO: Empaquetar la evidencia separada por ' || '
-         const detalleTurnos = turnosPorMes[mesKeyNorm] && turnosPorMes[mesKeyNorm].length > 0 
-            ? turnosPorMes[mesKeyNorm].map(t => t.includes("22:") || t.includes("23:") ? `🚨 ${t}` : `✔️ ${t}`).join("\r\n") 
-            : "Sin turnos físicos con recargo";
-          
-         const diferencia = Math.round(pagoNominaExtras - costoBio);
-
-          // 🎯 FILTRO DE MATERIALIDAD: Ignorar redondeos. Solo deudas mayores a $30.000 COP
-          if (diferencia < -30000) {
-            deudasTrabajador.push({
-              "Cédula": emp.cedula,
-              "Trabajador": emp.nombre,
-              "Mes Auditado": mesKeyNorm,
-              "Soporte Biométrico ($)": Math.round(costoBio),
-              "Pagado en ERP ($)": Math.round(pagoNominaExtras),
-              "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
-              "Diagnóstico": "🚨 Omisión de turno amanecido completo o recargo mayor",
-              "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+              if (recargoDia > 0) {
+                turnosPorMes[mesKey].push(`[${m.Fecha}] Horario: ${m.Horario} (Generó: $${Math.round(recargoDia).toLocaleString('es-CO')})`);
+              }
             });
-          } 
-          // 🎯 FILTRO DE MATERIALIDAD: Ignorar redondeos. Solo sobrepagos mayores a $30.000 COP
-          else if (diferencia > 30000) {
-            fugasEmpresa.push({
-              "Cédula": emp.cedula,
-              "Trabajador": emp.nombre,
-              "Mes Auditado": mesKeyNorm,
-              "Soporte Biométrico ($)": Math.round(costoBio),
-              "Pagado en ERP ($)": Math.round(pagoNominaExtras),
-              "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
-              "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma",
-              "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+
+            Object.keys(emp.desgloseJornadaPorMes).forEach(rawMesKey => {
+              const mesKeyNorm = String(rawMesKey).replace('/', '-');
+              const pagoNominaExtras = emp.desgloseJornadaPorMes[rawMesKey].valor || 0;
+              const costoBio = bioPorMes[mesKeyNorm] || 0;
+              
+              const detalleTurnos = turnosPorMes[mesKeyNorm] && turnosPorMes[mesKeyNorm].length > 0 
+                ? turnosPorMes[mesKeyNorm].map(t => t.includes("22:") || t.includes("23:") ? `🚨 ${t}` : `✔️ ${t}`).join("\r\n") 
+                : "Sin turnos físicos con recargo";
+              
+              const diferencia = Math.round(pagoNominaExtras - costoBio);
+
+              if (diferencia < -30000) {
+                deudasTrabajador.push({
+                  "Cédula": emp.cedula,
+                  "Trabajador": emp.nombre,
+                  "Mes Auditado": mesKeyNorm,
+                  "Soporte Biométrico ($)": Math.round(costoBio),
+                  "Pagado en ERP ($)": Math.round(pagoNominaExtras),
+                  "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
+                  "Diagnóstico": "🚨 Omisión de turno amanecido completo o recargo mayor",
+                  "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+                });
+              } 
+              else if (diferencia > 30000) {
+                fugasEmpresa.push({
+                  "Cédula": emp.cedula,
+                  "Trabajador": emp.nombre,
+                  "Mes Auditado": mesKeyNorm,
+                  "Soporte Biométrico ($)": Math.round(costoBio),
+                  "Pagado en ERP ($)": Math.round(pagoNominaExtras),
+                  "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
+                  "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma",
+                  "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+                });
+              }
             });
           }
         });
+
+        if (deudasTrabajador.length === 0 && fugasEmpresa.length === 0) {
+          alert("¡Excelente! No se detectaron descuadres mayores a $30.000 COP en ningún mes.");
+          return;
+        }
+
+        const workbook = XLSX.utils.book_new();
+
+        if (deudasTrabajador.length > 0) {
+          const dataDeudas = deudasTrabajador.sort((a, b) => b["DEUDA AL EMPLEADO ($)"] - a["DEUDA AL EMPLEADO ($)"]);
+          const wsDeudas = XLSX.utils.json_to_sheet(dataDeudas);
+          XLSX.utils.book_append_sheet(workbook, wsDeudas, "Horas_Huerfanas_Deudas");
+        }
+
+        if (fugasEmpresa.length > 0) {
+          const dataFugas = fugasEmpresa.sort((a, b) => b["FUGA DE LA EMPRESA ($)"] - a["FUGA DE LA EMPRESA ($)"]);
+          const wsFugas = XLSX.utils.json_to_sheet(dataFugas);
+          XLSX.utils.book_append_sheet(workbook, wsFugas, "Fugas_y_Sobrepagos");
+        }
+
+        XLSX.writeFile(workbook, "Auditoria_Forense_Mes_a_Mes.xlsx");
+
+      } catch (error) {
+        console.error("Error al exportar:", error);
+        alert("Hubo un error construyendo el archivo Excel.");
+      } finally {
+        setIsExporting(false);
       }
-    });
-
-    if (deudasTrabajador.length === 0 && fugasEmpresa.length === 0) {
-      alert("¡Excelente! No se detectaron descuadres en ningún mes.");
-      return;
-    }
-
-    const workbook = XLSX.utils.book_new();
-
-    // Crear Pestaña 1 (Deudas)
-    if (deudasTrabajador.length > 0) {
-      const dataDeudas = deudasTrabajador.sort((a, b) => b["DEUDA AL EMPLEADO ($)"] - a["DEUDA AL EMPLEADO ($)"]);
-      const wsDeudas = XLSX.utils.json_to_sheet(dataDeudas);
-      XLSX.utils.book_append_sheet(workbook, wsDeudas, "Horas_Huerfanas_Deudas");
-    }
-
-    // Crear Pestaña 2 (Fugas)
-    if (fugasEmpresa.length > 0) {
-      const dataFugas = fugasEmpresa.sort((a, b) => b["FUGA DE LA EMPRESA ($)"] - a["FUGA DE LA EMPRESA ($)"]);
-      const wsFugas = XLSX.utils.json_to_sheet(dataFugas);
-      XLSX.utils.book_append_sheet(workbook, wsFugas, "Fugas_y_Sobrepagos");
-    }
-
-    XLSX.writeFile(workbook, "Auditoria_Forense_Mes_a_Mes.xlsx");
+    }, 100);
   };
   // 🧠 NAVEGACIÓN RÁPIDA DE NÓMINA A MARCACIONES
   const irAMarcacionesEmpleado = (empleado) => {
@@ -1365,13 +1367,14 @@ disabled={isAnalyzing || listaBases.length === 0}
           >
             {isAnalyzing ? '⏳ Procesando Big Data...' : '🚀 Ejecutar Escáner Histórico'}
           </button>
-          {/* 👇 NUEVO BOTÓN DE EXPORTACIÓN 👇 */}
+         {/* 👇 NUEVO BOTÓN DE EXPORTACIÓN 👇 */}
           {datosHistoricos && datosMarcaciones && (
             <button 
               onClick={exportarAuditoriaCompletaExcel}
-              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded shadow-lg transition-all flex items-center gap-2 border border-emerald-400"
+              disabled={isExporting}
+              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded shadow-lg transition-all flex items-center gap-2 border border-emerald-400 disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              📥 Descargar Excel de Auditoría Completa
+              {isExporting ? '⏳ Generando Excel...' : '📥 Descargar Excel de Auditoría Completa'}
             </button>
           )}
         </div>
