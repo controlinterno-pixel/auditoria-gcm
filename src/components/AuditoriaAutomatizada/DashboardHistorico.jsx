@@ -603,7 +603,8 @@ riesgo: (() => {
         totalCostoExtras: totalCostoExtrasCompania,
         totalFugaTransporte: totalFugaTransporteCompania, // 🚗
         alertasJornada, // ⏱️
-       alertasTransporte, // 🚗
+        alertasTransporte, // 🚗
+        empleadosStatsMaster: Object.values(empleadosStats), // 🧠 CATÁLOGO COMPLETO PARA EL CEREBRO
         procesos: Array.from(procesosUnicos).sort(),
         cargos: Array.from(cargosUnicos).sort(),
         conceptosJornada: Array.from(conceptosJornadaUnicos).sort(), // 💡 Lista de conceptos para la UI
@@ -1116,11 +1117,12 @@ const esMismoEmpleado = (nom1, nom2) => {
     const totalCosto = marcacionesEmpleadoSeleccionado.reduce((acc, d) => acc + (d.Total_Recargos_Dia || 0), 0);
     const fechas = marcacionesEmpleadoSeleccionado.map(d => d.Fecha).filter(Boolean).sort();
     
-    // Cruce inteligente con la data de Nómina 
+    // Cruce inteligente con la data de Nómina (Usando catálogo maestro crudo)
     let alertaInteligente = { texto: "Inspeccionando...", color: "bg-slate-50", textCol: "text-slate-600", icono: "ℹ️" };
     
-    // 👁️ CORRECCIÓN AQUÍ: Buscar directamente en la matriz maestra (datosHistoricos) para que no se apague al cambiar de pestaña
-    const empNomina = datosHistoricos?.alertasJornada?.find(a => a.cedula === empleadosSeleccionados[0].cedula);
+    // 👁️ Ahora busca en la base maestra para no perder de vista a quienes no tenían "alertas"
+    const empNomina = datosHistoricos?.empleadosStatsMaster?.find(a => a.cedula === empleadosSeleccionados[0].cedula) || 
+                      alertasFiltradas.find(a => a.cedula === empleadosSeleccionados[0].cedula);
     
     if (empNomina && empNomina.desgloseJornadaPorMes) {
       let totalPagadoNomina = 0;
@@ -1130,7 +1132,7 @@ const esMismoEmpleado = (nom1, nom2) => {
 
       // CASO 1: Vista General sin filtros activos
       if (periodoGrafica === 'TODAS' || !periodoGrafica) {
-         totalPagadoNomina = empNomina.totalDineroVisual;
+         totalPagadoNomina = empNomina.totalDineroVisual !== undefined ? empNomina.totalDineroVisual : ((empNomina.totalValorExtras || 0) + (empNomina.totalValorRecargos || 0));
          puedeCruzar = true;
       }
       // CASO 2: Clic en MES (Ej. "2026-07")
@@ -1140,7 +1142,7 @@ const esMismoEmpleado = (nom1, nom2) => {
             totalPagadoNomina = empNomina.desgloseJornadaPorMes[mesNube].valor;
             puedeCruzar = true;
          }
-      } 
+      }
       // CASO 3: Clic o Selección en QUINCENA (Ej. "2026-07-Q2")
       else if (granularidadMarcaciones === 'QUINCENA' || filtroQuincenaMarcaciones !== 'TODAS') {
          const partesQ = periodoGrafica.split('-');
@@ -1184,9 +1186,10 @@ const esMismoEmpleado = (nom1, nom2) => {
       totalCosto,
       primeraFecha: fechas[0] || '-',
       ultimaFecha: fechas[fechas.length - 1] || '-',
-      alertaInteligente
+      alertaInteligente,
+      empNominaRaw: empNomina // 🔍 PASAMOS LA DATA CRUDA PARA EL MODAL FORENSE
     };
-  }, [marcacionesEmpleadoSeleccionado, datosHistoricos, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
+  }, [marcacionesEmpleadoSeleccionado, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2413,10 +2416,22 @@ disabled={isAnalyzing || listaBases.length === 0}
                                 <p className="text-[10px] text-amber-600 font-medium mt-0.5">Suma de la vista actual</p>
                             </div>
                             <div className={`p-3 rounded-lg flex flex-col justify-between ${statsEmpleadoMarcaciones.alertaInteligente?.color || 'bg-slate-50'}`}>
-                                <span className={`text-[10px] font-extrabold uppercase ${statsEmpleadoMarcaciones.alertaInteligente?.textCol || 'text-slate-700'}`}>Auditoría vs Nómina Nube</span>
-                                <p className={`text-xs font-bold mt-1 leading-tight ${statsEmpleadoMarcaciones.alertaInteligente?.textCol || 'text-slate-800'}`}>
-                                  {statsEmpleadoMarcaciones.alertaInteligente?.texto}
-                                </p>
+                                <div>
+                                  <span className={`text-[10px] font-extrabold uppercase ${statsEmpleadoMarcaciones.alertaInteligente?.textCol || 'text-slate-700'}`}>Auditoría vs Nómina Nube</span>
+                                  <p className={`text-xs font-bold mt-1 leading-tight ${statsEmpleadoMarcaciones.alertaInteligente?.textCol || 'text-slate-800'}`}>
+                                    {statsEmpleadoMarcaciones.alertaInteligente?.texto}
+                                  </p>
+                                </div>
+                                
+                                {/* 🔍 BOTÓN FORENSE: Aparece solo si hay datos de nómina y si el motor detectó un error (🚨) o si el usuario quiere ver */}
+                                {statsEmpleadoMarcaciones.empNominaRaw && (
+                                  <button 
+                                     onClick={() => setEmpleadoModal(statsEmpleadoMarcaciones.empNominaRaw)}
+                                     className="mt-3 text-[10px] font-extrabold bg-white/80 hover:bg-white text-slate-800 px-3 py-1.5 rounded-lg shadow-sm border border-slate-300 cursor-pointer flex items-center justify-center gap-1.5 w-full transition-colors"
+                                  >
+                                     🔍 Ver Detalle en Nómina
+                                  </button>
+                                )}
                             </div>
                         </div>
 
