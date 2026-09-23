@@ -726,7 +726,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       e.target.value = null;
     }
   };
-// 📥 EXPORTAR REPORTE FORENSE ULTRA-RÁPIDO (CERO CONGELAMIENTO DE NAVEGADOR)
+// 📥 EXPORTAR REPORTE FORENSE ULTRA-RÁPIDO Y MULTI-CORTE (INCLUYE PERIODOS FALTANTES)
   const exportarAuditoriaCompletaExcel = () => {
     if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster || !datosMarcaciones) {
       alert("⚠️ Primero debes cargar las marcaciones y ejecutar el escáner.");
@@ -735,36 +735,26 @@ const esMismoEmpleado = (nom1, nom2) => {
 
     setIsExporting(true);
 
-    // ⚡ 1. Liberar el hilo de la UI para que la pantalla no se congele
+    // ⚡ Desbloquea el hilo del navegador para que no se congele
     setTimeout(() => {
       try {
-        // ⚡ 2. Pre-indexación en un Mapa de Memoria O(1)
-        // Agrupa todas las marcaciones por un hash del nombre del empleado
         const mapaHuellasPorEmpleado = {};
 
+        // Pre-Indexación ultra rápida
         datosMarcaciones.forEach(m => {
           if (!m.Empleado || !m.Fecha || m.Fecha === 'Sin Fecha') return;
           const keyNombre = normalizarTexto(m.Empleado).replace(/[^A-Z0-9]/g, '');
-          
-          if (!mapaHuellasPorEmpleado[keyNombre]) {
-            mapaHuellasPorEmpleado[keyNombre] = [];
-          }
+          if (!mapaHuellasPorEmpleado[keyNombre]) mapaHuellasPorEmpleado[keyNombre] = [];
           mapaHuellasPorEmpleado[keyNombre].push(m);
         });
 
         const deudasTrabajador = [];
         const fugasEmpresa = [];
 
-        // ⚡ 3. Procesamiento en Lote
         datosHistoricos.empleadosStatsMaster.forEach(emp => {
-          if (!emp.desgloseJornadaPorMes) return;
-
           const keyEmpNorm = normalizarTexto(emp.nombre).replace(/[^A-Z0-9]/g, '');
-          
-          // Búsqueda instantánea O(1)
           let huellasEmpleado = mapaHuellasPorEmpleado[keyEmpNorm] || [];
           
-          // Si no encuentra coincidencia exacta, busca coincidencias parciales de palabras clave
           if (huellasEmpleado.length === 0) {
             const palabrasEmp = keyEmpNorm.split(/\s+/).filter(w => w.length > 2);
             for (const [k, v] of Object.entries(mapaHuellasPorEmpleado)) {
@@ -780,34 +770,37 @@ const esMismoEmpleado = (nom1, nom2) => {
 
           huellasEmpleado.forEach(m => {
             const quincenaKey = m.Periodo_Corte || calcularQuincenaCorte(m.Fecha);
-            
             if (!bioPorQuincena[quincenaKey]) {
               bioPorQuincena[quincenaKey] = 0;
               turnosPorQuincena[quincenaKey] = [];
             }
-            
             const recargoDia = parsearMonto(m.Total_Recargos_Dia);
             bioPorQuincena[quincenaKey] += recargoDia;
-
             if (recargoDia > 0) {
               turnosPorQuincena[quincenaKey].push(`[${m.Fecha}] Horario: ${m.Horario} (Generó: $${Math.round(recargoDia).toLocaleString('es-CO')})`);
             }
           });
 
-          Object.keys(emp.desgloseJornadaPorMes).forEach(rawMesKey => {
-            const mesKeyNorm = String(rawMesKey).replace('/', '-');
-            const pagoNominaExtras = emp.desgloseJornadaPorMes[rawMesKey].valor || 0;
+          // 🔥 MAGIA DEVELOPER: Consolidar TODOS los meses (Los de Nómina + Los de Biométrico)
+          const mesesAEvaluar = new Set();
+          if (emp.desgloseJornadaPorMes) {
+            Object.keys(emp.desgloseJornadaPorMes).forEach(k => mesesAEvaluar.add(String(k).replace('/', '-')));
+          }
+          Object.keys(bioPorQuincena).forEach(k => {
+            mesesAEvaluar.add(k.substring(0, 7)); // Extrae "2026-09" de "2026-09-Q1"
+          });
+
+          mesesAEvaluar.forEach(mesKeyNorm => {
+            const pagoNominaExtras = (emp.desgloseJornadaPorMes && emp.desgloseJornadaPorMes[mesKeyNorm]) 
+                                      ? emp.desgloseJornadaPorMes[mesKeyNorm].valor 
+                                      : 0;
             
-            let costoBio = bioPorQuincena[mesKeyNorm] || 0;
-            let turnosRelacionados = turnosPorQuincena[mesKeyNorm] || [];
-
-            if (costoBio === 0 && !mesKeyNorm.includes('-Q')) {
-              const q1Key = `${mesKeyNorm}-Q1`;
-              const q2Key = `${mesKeyNorm}-Q2`;
-              costoBio = (bioPorQuincena[q1Key] || 0) + (bioPorQuincena[q2Key] || 0);
-              turnosRelacionados = [...(turnosPorQuincena[q1Key] || []), ...(turnosPorQuincena[q2Key] || [])];
-            }
-
+            const q1Key = `${mesKeyNorm}-Q1`;
+            const q2Key = `${mesKeyNorm}-Q2`;
+            const costoBio = (bioPorQuincena[q1Key] || 0) + (bioPorQuincena[q2Key] || 0);
+            
+            let turnosRelacionados = [...(turnosPorQuincena[q1Key] || []), ...(turnosPorQuincena[q2Key] || [])];
+            
             let detalleTurnos = "Sin turnos físicos con recargo";
             if (turnosRelacionados.length > 0) {
               const turnosAmanecidos = turnosRelacionados.filter(t => /2[0-3]:\d{2}\s*-\s*0[0-6]:\d{2}/.test(t));
@@ -820,8 +813,21 @@ const esMismoEmpleado = (nom1, nom2) => {
 
             const diferencia = Math.round(pagoNominaExtras - costoBio);
 
-            // 🎯 UMBRAL DE MATERIALIDAD DE AUDITORÍA ($15.000 COP)
-            if (diferencia < -15000) {
+            // 🎯 NUEVA ALERTA: Detecta si falta subir la nómina de un mes (Como septiembre)
+            if (pagoNominaExtras === 0 && costoBio > 0) {
+                deudasTrabajador.push({
+                  "Cédula": emp.cedula,
+                  "Trabajador": emp.nombre,
+                  "Período / Quincena": mesKeyNorm,
+                  "Soporte Biométrico ($)": Math.round(costoBio),
+                  "Pagado en ERP ($)": 0,
+                  "DEUDA AL EMPLEADO ($)": Math.round(costoBio),
+                  "Diagnóstico": "🚨 Base de Nómina No Cargada (Corte Biométrico Pendiente de Auditar)",
+                  "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+                });
+            }
+            // 🎯 FILTRO DE MATERIALIDAD AJUSTADO (> $15.000 COP)
+            else if (diferencia < -15000) {
               deudasTrabajador.push({
                 "Cédula": emp.cedula,
                 "Trabajador": emp.nombre,
@@ -873,7 +879,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       } finally {
         setIsExporting(false);
       }
-    }, 150); // Le da tiempo suficiente a React para pintar el estado de carga
+    }, 150);
   };
   // 🧠 NAVEGACIÓN RÁPIDA DE NÓMINA A MARCACIONES
   const irAMarcacionesEmpleado = (empleado) => {
