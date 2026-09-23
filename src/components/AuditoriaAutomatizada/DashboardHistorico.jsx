@@ -1113,34 +1113,42 @@ const esMismoEmpleado = (nom1, nom2) => {
     const totalCosto = marcacionesEmpleadoSeleccionado.reduce((acc, d) => acc + (d.Total_Recargos_Dia || 0), 0);
     const fechas = marcacionesEmpleadoSeleccionado.map(d => d.Fecha).filter(Boolean).sort();
     
-    // Cruce inteligente con la data de Nómina (alertasFiltradas)
+    // Cruce inteligente con la data de Nómina 
     let alertaInteligente = { texto: "Inspeccionando...", color: "bg-slate-50", textCol: "text-slate-600", icono: "ℹ️" };
-    
     const empNomina = alertasFiltradas.find(a => a.cedula === empleadosSeleccionados[0].cedula);
     
-    if (empNomina && empNomina.historialMeses) {
+    if (empNomina && empNomina.desgloseJornadaPorMes) {
       let totalPagadoNomina = 0;
       
-      // Si miramos una quincena, cruzamos exacto con el mesOrigen que en nómina contiene las quincenas.
-      // Como tu base histórica mapeó por MesOrigen (Ej. "2026/07"), haremos la suma aproximada para el periodo visible.
-      // (Para un cruce al 100% perfecto requeriríamos que el Excel histórico trajera la quincena separada)
-      
-      if (filtroQuincenaMarcaciones !== 'TODAS' || filtroClicGrafica) {
-          alertaInteligente = { 
-             texto: "Datos aislados. Para ver el cuadre contra nómina, quite el filtro de clic.", 
-             color: "bg-blue-50", textCol: "text-blue-700", icono: "🔍" 
-          };
-      } else {
-         // Suma global para saber si cuadra al final
-         const totalGlobalNomina = empNomina.totalDineroVisual;
-         const diff = Math.round(totalGlobalNomina - totalCosto);
-         
-         if (diff > 50000) {
+      // CASO 1: Si el usuario dio clic en un MES (ej. "2026-07") en la gráfica
+      if (filtroClicGrafica && granularidadMarcaciones === 'MES') {
+         // El filtro viene como YYYY-MM (ej. "2026-07"). La nómina guarda el mesOrigen como "2026/07"
+         const mesNube = filtroClicGrafica.replace('-', '/'); 
+         if (empNomina.desgloseJornadaPorMes[mesNube]) {
+            totalPagadoNomina = empNomina.desgloseJornadaPorMes[mesNube].valor;
+         }
+      } 
+      // CASO 2: Sin filtros (Vista Enero a Agosto)
+      else if (filtroQuincenaMarcaciones === 'TODAS' && !filtroClicGrafica) {
+         totalPagadoNomina = empNomina.totalDineroVisual;
+      }
+      // CASO 3: Otras vistas aisladas (Semana, Quincena, Día)
+      else {
+         alertaInteligente = { 
+             texto: "⚠️ La nómina solo puede cruzarse comparando el Mes completo (Selecciona 'Mes' en la gráfica).", 
+             color: "bg-blue-50 border-blue-200", textCol: "text-blue-700", icono: "🔍" 
+         };
+      }
+
+      // Si pudimos calcular el total pagado en nómina para este periodo, hacemos el cruce:
+      if (totalPagadoNomina > 0 || (filtroQuincenaMarcaciones === 'TODAS' && !filtroClicGrafica)) {
+         const diff = Math.round(totalPagadoNomina - totalCosto);
+         if (diff > 500) { // Tolerancia de 500 pesos por decimales
             alertaInteligente = { texto: `🚨 Sobrepago de Nómina (+$${diff.toLocaleString('es-CO')})`, color: "bg-rose-50 border-rose-200", textCol: "text-rose-700", icono: "⚠️" };
-         } else if (diff < -50000) {
-            alertaInteligente = { texto: `🚨 Dinero Faltante en Nómina (-$${Math.abs(diff).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
+         } else if (diff < -500) {
+            alertaInteligente = { texto: `🚨 Faltante en Nómina (-$${Math.abs(diff).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
          } else {
-            alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $${diff})`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
+            alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $0)`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
          }
       }
     }
@@ -1152,8 +1160,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       ultimaFecha: fechas[fechas.length - 1] || '-',
       alertaInteligente
     };
-  }, [marcacionesEmpleadoSeleccionado, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica]);
-
+  }, [marcacionesEmpleadoSeleccionado, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
