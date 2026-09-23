@@ -1119,34 +1119,56 @@ const esMismoEmpleado = (nom1, nom2) => {
     
     if (empNomina && empNomina.desgloseJornadaPorMes) {
       let totalPagadoNomina = 0;
+      let puedeCruzar = false;
       
-      // CASO 1: Si el usuario dio clic en un MES (ej. "2026-07") en la gráfica
-      if (filtroClicGrafica && granularidadMarcaciones === 'MES') {
-         // El filtro viene como YYYY-MM (ej. "2026-07"). La nómina guarda el mesOrigen como "2026/07"
+      const periodoGrafica = filtroClicGrafica || filtroQuincenaMarcaciones;
+
+      // CASO 1: Vista General sin filtros activos
+      if (periodoGrafica === 'TODAS' || !periodoGrafica) {
+         totalPagadoNomina = empNomina.totalDineroVisual;
+         puedeCruzar = true;
+      }
+      // CASO 2: Clic en MES (Ej. "2026-07")
+      else if (granularidadMarcaciones === 'MES' && filtroClicGrafica) {
          const mesNube = filtroClicGrafica.replace('-', '/'); 
          if (empNomina.desgloseJornadaPorMes[mesNube]) {
             totalPagadoNomina = empNomina.desgloseJornadaPorMes[mesNube].valor;
+            puedeCruzar = true;
          }
       } 
-      // CASO 2: Sin filtros (Vista Enero a Agosto)
-      else if (filtroQuincenaMarcaciones === 'TODAS' && !filtroClicGrafica) {
-         totalPagadoNomina = empNomina.totalDineroVisual;
+      // CASO 3: Clic o Selección en QUINCENA (Ej. "2026-07-Q2")
+      else if (granularidadMarcaciones === 'QUINCENA' || filtroQuincenaMarcaciones !== 'TODAS') {
+         // Buscamos todas las transacciones históricas que caen en esa quincena
+         const partesQ = periodoGrafica.split('-');
+         if (partesQ.length === 3) {
+            const mesBuscado = `${partesQ[0]}/${partesQ[1]}`;
+            // Aproximación de quincena sumando si es Q1 o Q2 (como tu base agrupa por mesOrigen, estimaremos)
+            if (empNomina.desgloseJornadaPorMes[mesBuscado]) {
+                // Alerta manual para Quincenas aisladas porque la Nube guardó los totales mensuales
+                alertaInteligente = { 
+                   texto: `La nómina en la Nube se guardó consolidada por Mes (${mesBuscado}). Cambia la gráfica a 'Mes' para hacer el cruce exacto.`, 
+                   color: "bg-blue-50 border-blue-200", textCol: "text-blue-700", icono: "ℹ️" 
+                };
+            } else {
+                alertaInteligente = { texto: "No se encontró nómina subida para este periodo.", color: "bg-slate-100", textCol: "text-slate-500", icono: "ℹ️" };
+            }
+         }
       }
-      // CASO 3: Otras vistas aisladas (Semana, Quincena, Día)
+      // CASO 4: Clic en DIA o SEMANA
       else {
          alertaInteligente = { 
-             texto: "⚠️ La nómina solo puede cruzarse comparando el Mes completo (Selecciona 'Mes' en la gráfica).", 
-             color: "bg-blue-50 border-blue-200", textCol: "text-blue-700", icono: "🔍" 
+             texto: "⚠️ La nómina solo puede cruzarse si seleccionas 'Mes' en los botones de arriba.", 
+             color: "bg-indigo-50 border-indigo-200", textCol: "text-indigo-700", icono: "🔍" 
          };
       }
 
-      // Si pudimos calcular el total pagado en nómina para este periodo, hacemos el cruce:
-      if (totalPagadoNomina > 0 || (filtroQuincenaMarcaciones === 'TODAS' && !filtroClicGrafica)) {
+      // 🧮 Solo hacemos la resta si se activó la bandera de cruce (Mes Completo o Histórico)
+      if (puedeCruzar) {
          const diff = Math.round(totalPagadoNomina - totalCosto);
-         if (diff > 500) { // Tolerancia de 500 pesos por decimales
+         if (diff > 500) { // Tolerancia por decimales
             alertaInteligente = { texto: `🚨 Sobrepago de Nómina (+$${diff.toLocaleString('es-CO')})`, color: "bg-rose-50 border-rose-200", textCol: "text-rose-700", icono: "⚠️" };
          } else if (diff < -500) {
-            alertaInteligente = { texto: `🚨 Faltante en Nómina (-$${Math.abs(diff).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
+            alertaInteligente = { texto: `🚨 Dinero Faltante en Nómina (-$${Math.abs(diff).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
          } else {
             alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $0)`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
          }
@@ -1161,6 +1183,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       alertaInteligente
     };
   }, [marcacionesEmpleadoSeleccionado, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
