@@ -1117,10 +1117,9 @@ const esMismoEmpleado = (nom1, nom2) => {
     const totalCosto = marcacionesEmpleadoSeleccionado.reduce((acc, d) => acc + (d.Total_Recargos_Dia || 0), 0);
     const fechas = marcacionesEmpleadoSeleccionado.map(d => d.Fecha).filter(Boolean).sort();
     
-    // Cruce inteligente con la data de Nómina 
+// Cruce inteligente con la data de Nómina (NARRATIVA FORENSE CORREGIDA Y PRECISA)
     let alertaInteligente = { texto: "Inspeccionando...", color: "bg-slate-50", textCol: "text-slate-600", icono: "ℹ️" };
     
-    // 👁️ EMPAREJAMIENTO INTELIGENTE: Buscamos por Cédula o por coincidencia difusa de Nombre (Fuzzy Match)
     const empNomina = datosHistoricos?.empleadosStatsMaster?.find(a => 
                           a.cedula === empleadosSeleccionados[0].cedula || 
                           esMismoEmpleado(a.nombre, empleadosSeleccionados[0].nombre)
@@ -1131,100 +1130,76 @@ const esMismoEmpleado = (nom1, nom2) => {
                       );
     
     if (empNomina && empNomina.desgloseJornadaPorMes) {
-      let totalPagadoNomina = 0;
-      let puedeCruzar = false;
+      let totalPagadoNomina = (empNomina.totalValorExtras || 0) + (empNomina.totalValorRecargos || 0);
+      const diffGeneral = Math.round(totalPagadoNomina - totalCosto);
       
-      const periodoGrafica = filtroClicGrafica || filtroQuincenaMarcaciones;
-
-      // CASO 1: Vista General sin filtros activos
-      if (periodoGrafica === 'TODAS' || !periodoGrafica) {
-         totalPagadoNomina = empNomina.totalDineroVisual !== undefined ? empNomina.totalDineroVisual : ((empNomina.totalValorExtras || 0) + (empNomina.totalValorRecargos || 0));
-         puedeCruzar = true;
-      }
-      // CASO 2: Clic en MES (Ej. "2026-07")
-      else if (granularidadMarcaciones === 'MES' && filtroClicGrafica) {
-         const mesNube = filtroClicGrafica.replace('-', '/'); 
-         if (empNomina.desgloseJornadaPorMes[mesNube]) {
-            totalPagadoNomina = empNomina.desgloseJornadaPorMes[mesNube].valor;
-            puedeCruzar = true;
-         }
-      }
-      // CASO 3: Clic o Selección en QUINCENA (Ej. "2026-07-Q2")
-      else if (granularidadMarcaciones === 'QUINCENA' || filtroQuincenaMarcaciones !== 'TODAS') {
-         const partesQ = periodoGrafica.split('-');
-         if (partesQ.length === 3) {
-            const mesBuscado = `${partesQ[0]}/${partesQ[1]}`;
-            if (empNomina.desgloseJornadaPorMes[mesBuscado]) {
-                alertaInteligente = { 
-                   texto: `La nómina en la Nube se guardó por Mes (${mesBuscado}). Cambia la gráfica a 'Mes' para hacer el cruce exacto.`, 
-                   color: "bg-blue-50 border-blue-200", textCol: "text-blue-700", icono: "ℹ️" 
-                };
-            } else {
-                alertaInteligente = { texto: "No se encontró nómina subida para este periodo.", color: "bg-slate-100", textCol: "text-slate-500", icono: "ℹ️" };
-            }
-         }
-      }
-      // CASO 4: Clic en DIA o SEMANA
-      else {
-         alertaInteligente = { 
-             texto: "⚠️ La nómina solo puede cruzarse si seleccionas 'Mes' en los botones de arriba.", 
-             color: "bg-indigo-50 border-indigo-200", textCol: "text-indigo-700", icono: "🔍" 
-         };
+      if (diffGeneral > 500) {
+         alertaInteligente = { texto: `🚨 Sobrepago de Nómina (+$${diffGeneral.toLocaleString('es-CO')})`, color: "bg-rose-50 border-rose-200", textCol: "text-rose-700", icono: "⚠️" };
+      } else if (diffGeneral < -500) {
+         alertaInteligente = { texto: `🚨 Dinero Faltante en Nómina (-$${Math.abs(diffGeneral).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
+      } else {
+         alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $0)`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
       }
 
-      // 🧮 Solo hacemos la resta si se activó la bandera de cruce
-      if (puedeCruzar) {
-         const diff = Math.round(totalPagadoNomina - totalCosto);
-         if (diff > 500) {
-            alertaInteligente = { texto: `🚨 Sobrepago de Nómina (+$${diff.toLocaleString('es-CO')})`, color: "bg-rose-50 border-rose-200", textCol: "text-rose-700", icono: "⚠️" };
-         } else if (diff < -500) {
-            alertaInteligente = { texto: `🚨 Dinero Faltante en Nómina (-$${Math.abs(diff).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
+      // 🧠 MOTOR DE NARRATIVA AUDITORA EN TIEMPO REAL
+      const baseBiometricoFull = datosMarcaciones ? datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre)) : [];
+      
+      const bioPorMes = {};
+      baseBiometricoFull.forEach(m => {
+         if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
+         const mesKey = m.Fecha.substring(0, 7).replace('-', '/');
+         if (!bioPorMes[mesKey]) {
+            bioPorMes[mesKey] = { costoTotal: 0, festivosDias: 0, turnosTotal: 0 };
+         }
+         const recargo = parsearMonto(m.Total_Recargos_Dia);
+         bioPorMes[mesKey].costoTotal += recargo;
+         bioPorMes[mesKey].turnosTotal += 1;
+         
+         // Se detecta jornada festiva si el recargo del día es superior a $0
+         if (recargo > 0) {
+            bioPorMes[mesKey].festivosDias += 1;
+         }
+      });
+
+      const discrepancias = [];
+      Object.keys(empNomina.desgloseJornadaPorMes).forEach(mesKey => {
+         const dataNomMes = empNomina.desgloseJornadaPorMes[mesKey];
+         const pagoNominaExtras = dataNomMes.valor || 0;
+         const bioMes = bioPorMes[mesKey] || { costoTotal: 0, festivosDias: 0, turnosTotal: 0 };
+         
+         const diffMes = Math.round(pagoNominaExtras - bioMes.costoTotal);
+         if (diffMes > 5000) {
+            discrepancias.push({ mesKey, pagoNominaExtras, bioMes, diffMes });
+         }
+      });
+
+      discrepancias.sort((a, b) => b.diffMes - a.diffMes);
+
+      const nombresMesesMap = { '01':'Enero', '02':'Febrero', '03':'Marzo', '04':'Abril', '05':'Mayo', '06':'Junio', '07':'Julio', '08':'Agosto', '09':'Septiembre', '10':'Octubre', '11':'Noviembre', '12':'Diciembre' };
+      const nombreEmpleado = empleadosSeleccionados[0].nombre.split(' ')[0] || 'El colaborador';
+
+      empNomina.historiaForense = discrepancias.slice(0, 2).map((d, index) => {
+         const [ano, mesNum] = d.mesKey.split('/');
+         const nombreMesStr = (nombresMesesMap[mesNum] || mesNum).toUpperCase();
+         
+         let subtituloContexto = index === 0 ? '(El mayor descuadre)' : '(Descuadre Crítico)';
+         if (nombreMesStr === 'ABRIL') subtituloContexto = '(El pico de Semana Santa)';
+         if (nombreMesStr === 'JULIO') subtituloContexto = '(El mayor descuadre de festivos)';
+
+         let detalleReloj = '';
+         if (d.bioMes.costoTotal > 0) {
+            detalleReloj = `${nombreEmpleado} registró ${d.bioMes.festivosDias} día(s) con recargos/festivos en el reloj. Por esos días, generó un costo real de $${d.bioMes.costoTotal.toLocaleString('es-CO')} COP.`;
          } else {
-            alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $0)`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
+            detalleReloj = `${nombreEmpleado} no registró marcaciones con recargos en el reloj para este mes ($0 COP).`;
          }
-      }
 
-      // 🧠 GENERADOR DE NARRATIVA FORENSE (La historia detallada)
-      if (empNomina.desgloseJornadaPorMes && marcacionesEmpleadoSeleccionado.length > 0) {
-         const bioPorMes = {};
-         marcacionesEmpleadoSeleccionado.forEach(m => {
-            if (!m.Fecha) return;
-            const mes = m.Fecha.substring(0, 7).replace('-', '/'); 
-            if (!bioPorMes[mes]) bioPorMes[mes] = { costo: 0, dias: 0 };
-            bioPorMes[mes].costo += m.Total_Recargos_Dia || 0;
-            if ((m.Total_Recargos_Dia || 0) > 0) bioPorMes[mes].dias += 1;
-         });
-
-         const discrepancias = [];
-         Object.keys(empNomina.desgloseJornadaPorMes).forEach(mes => {
-            const pagoNomina = empNomina.desgloseJornadaPorMes[mes].valor || 0;
-            const costoReloj = bioPorMes[mes] ? bioPorMes[mes].costo : 0;
-            const diasReloj = bioPorMes[mes] ? bioPorMes[mes].dias : 0;
-            const diff = Math.round(pagoNomina - costoReloj);
-            
-            if (diff > 50000) discrepancias.push({ mes, pagoNomina, costoReloj, diasReloj, diff });
-         });
-
-         discrepancias.sort((a, b) => b.diff - a.diff); // Ordenar de peor a mejor
-         const nombresMesesArr = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
-         const nombreCorto = empleadosSeleccionados[0].nombre.split(' ')[0] || 'El colaborador';
-
-         empNomina.historiaForense = discrepancias.slice(0, 2).map((d, index) => {
-            const numMes = parseInt(d.mes.split('/')[1], 10);
-            const mesNombre = nombresMesesArr[numMes - 1] || d.mes;
-            const anio = d.mes.split('/')[0];
-            
-            let textoReloj = `${nombreCorto} solo generó recargos en ${d.diasReloj} día(s) del mes. El reloj justificaba un costo físico de $${d.costoReloj.toLocaleString('es-CO')} COP.`;
-            if (d.diasReloj === 0) textoReloj = `${nombreCorto} NO registró ni una sola hora extra o recargo en el reloj durante todo el mes ($0 COP).`;
-
-            return {
-               titulo: `${index + 1}. ${mesNombre} DE ${anio} ${index === 0 ? '(El mayor descuadre)' : '(Descuadre Crítico)'}`,
-               reloj: textoReloj,
-               nomina: `El software contable le liquidó conceptos manuales girándole $${d.pagoNomina.toLocaleString('es-CO')} COP.`,
-               diferencia: `Se le pagaron +$${d.diff.toLocaleString('es-CO')} COP (Dinero extra que no tiene soporte físico en el biométrico).`
-            };
-         });
-      }
+         return {
+            titulo: `${index + 1}. ${nombreMesStr} DE ${ano} ${subtituloContexto}`,
+            reloj: detalleReloj,
+            nomina: `El software contable le liquidó un total de $${d.pagoNominaExtras.toLocaleString('es-CO')} COP en recargos y extras.`,
+            diferencia: `Se le pagaron +$${d.diffMes.toLocaleString('es-CO')} COP de más (dinero sin soporte físico suficiente en el reloj).`
+         };
+      });
     } else {
       alertaInteligente = { texto: "No hay datos de nómina cargados para este empleado.", color: "bg-slate-100", textCol: "text-slate-500", icono: "ℹ️" };
     }
@@ -1235,11 +1210,10 @@ const esMismoEmpleado = (nom1, nom2) => {
       primeraFecha: fechas[0] || '-',
       ultimaFecha: fechas[fechas.length - 1] || '-',
       alertaInteligente,
-      empNominaRaw: empNomina // 🔍 LA DATA AHORA LLEVA LA HISTORIA DENTRO
+      empNominaRaw: empNomina
     };
-  }, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
-
-  return (
+  }, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones, datosMarcaciones]);
+    return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10 text-8xl">🕵️‍♂️</div>
