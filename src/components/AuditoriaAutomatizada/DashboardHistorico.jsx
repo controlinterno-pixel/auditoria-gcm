@@ -1172,16 +1172,58 @@ const esMismoEmpleado = (nom1, nom2) => {
          };
       }
 
-      // 🧮 Solo hacemos la resta si se activó la bandera de cruce (Mes Completo o Histórico)
+      // 🧮 Solo hacemos la resta si se activó la bandera de cruce
       if (puedeCruzar) {
          const diff = Math.round(totalPagadoNomina - totalCosto);
-         if (diff > 500) { // Tolerancia de 500 pesos por decimales
+         if (diff > 500) {
             alertaInteligente = { texto: `🚨 Sobrepago de Nómina (+$${diff.toLocaleString('es-CO')})`, color: "bg-rose-50 border-rose-200", textCol: "text-rose-700", icono: "⚠️" };
          } else if (diff < -500) {
             alertaInteligente = { texto: `🚨 Dinero Faltante en Nómina (-$${Math.abs(diff).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
          } else {
             alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $0)`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
          }
+      }
+
+      // 🧠 GENERADOR DE NARRATIVA FORENSE (La historia detallada)
+      if (empNomina.desgloseJornadaPorMes && marcacionesEmpleadoSeleccionado.length > 0) {
+         const bioPorMes = {};
+         marcacionesEmpleadoSeleccionado.forEach(m => {
+            if (!m.Fecha) return;
+            const mes = m.Fecha.substring(0, 7).replace('-', '/'); 
+            if (!bioPorMes[mes]) bioPorMes[mes] = { costo: 0, dias: 0 };
+            bioPorMes[mes].costo += m.Total_Recargos_Dia || 0;
+            if ((m.Total_Recargos_Dia || 0) > 0) bioPorMes[mes].dias += 1;
+         });
+
+         const discrepancias = [];
+         Object.keys(empNomina.desgloseJornadaPorMes).forEach(mes => {
+            const pagoNomina = empNomina.desgloseJornadaPorMes[mes].valor || 0;
+            const costoReloj = bioPorMes[mes] ? bioPorMes[mes].costo : 0;
+            const diasReloj = bioPorMes[mes] ? bioPorMes[mes].dias : 0;
+            const diff = Math.round(pagoNomina - costoReloj);
+            
+            if (diff > 50000) discrepancias.push({ mes, pagoNomina, costoReloj, diasReloj, diff });
+         });
+
+         discrepancias.sort((a, b) => b.diff - a.diff); // Ordenar de peor a mejor
+         const nombresMesesArr = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+         const nombreCorto = empleadosSeleccionados[0].nombre.split(' ')[0] || 'El colaborador';
+
+         empNomina.historiaForense = discrepancias.slice(0, 2).map((d, index) => {
+            const numMes = parseInt(d.mes.split('/')[1], 10);
+            const mesNombre = nombresMesesArr[numMes - 1] || d.mes;
+            const anio = d.mes.split('/')[0];
+            
+            let textoReloj = `${nombreCorto} solo generó recargos en ${d.diasReloj} día(s) del mes. El reloj justificaba un costo físico de $${d.costoReloj.toLocaleString('es-CO')} COP.`;
+            if (d.diasReloj === 0) textoReloj = `${nombreCorto} NO registró ni una sola hora extra o recargo en el reloj durante todo el mes ($0 COP).`;
+
+            return {
+               titulo: `${index + 1}. ${mesNombre} DE ${anio} ${index === 0 ? '(El mayor descuadre)' : '(Descuadre Crítico)'}`,
+               reloj: textoReloj,
+               nomina: `El software contable le liquidó conceptos manuales girándole $${d.pagoNomina.toLocaleString('es-CO')} COP.`,
+               diferencia: `Se le pagaron +$${d.diff.toLocaleString('es-CO')} COP (Dinero extra que no tiene soporte físico en el biométrico).`
+            };
+         });
       }
     } else {
       alertaInteligente = { texto: "No hay datos de nómina cargados para este empleado.", color: "bg-slate-100", textCol: "text-slate-500", icono: "ℹ️" };
@@ -1193,9 +1235,9 @@ const esMismoEmpleado = (nom1, nom2) => {
       primeraFecha: fechas[0] || '-',
       ultimaFecha: fechas[fechas.length - 1] || '-',
       alertaInteligente,
-      empNominaRaw: empNomina // 🔍 PASAMOS LA DATA CRUDA PARA EL MODAL FORENSE
+      empNominaRaw: empNomina // 🔍 LA DATA AHORA LLEVA LA HISTORIA DENTRO
     };
-  }, [marcacionesEmpleadoSeleccionado, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
+  }, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2653,27 +2695,29 @@ disabled={isAnalyzing || listaBases.length === 0}
                 </div>
               )}
 
-              {/* Tablas de Desglose Condicionales */}
+{/* Tablas de Desglose Condicionales */}
               <div>
                 {modoDashboard !== 'TRANSPORTE' ? (
                   <>
-                    {/* 🕵️‍♂️ MINI-ASISTENTE DE AUDITORÍA FORENSE */}
-                    {empleadoModal.totalDineroVisual !== undefined && statsEmpleadoMarcaciones && (
-                      <div className="mb-6 bg-slate-50 border border-slate-200 p-4 rounded-xl">
-                        <h4 className="text-xs font-extrabold text-indigo-800 uppercase mb-2 flex items-center gap-1.5">
-                          💡 Pistas de Auditoría para el Descuadre:
+                    {/* 🕵️‍♂️ MINI-ASISTENTE DE AUDITORÍA FORENSE (IA NARRATIVA) */}
+                    {empleadoModal.historiaForense && empleadoModal.historiaForense.length > 0 && (
+                      <div className="mb-6 bg-slate-900 border border-slate-800 p-5 rounded-xl text-white shadow-xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-5 text-6xl">🤖</div>
+                        <h4 className="text-sm font-black text-cyan-400 uppercase mb-4 flex items-center gap-2">
+                          <span>🤖</span> Análisis de Inteligencia Forense:
                         </h4>
-                        <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4 font-medium">
-                           <li>
-                             <strong className="text-slate-800">1. Verifica el pago de festivos automáticos:</strong> El ERP muestra pagos por <span className="text-amber-700 font-bold">DV22 (Festivo No Compensado)</span> o similares. El ERP a veces liquida el día de descanso automáticamente aunque no haya marcación física en el reloj.
-                           </li>
-                           <li>
-                             <strong className="text-slate-800">2. Revisión de Redondeos:</strong> La diferencia de <span className="text-rose-600 font-bold">${Math.abs((empleadoModal.totalDineroVisual || ((empleadoModal.totalValorExtras || 0) + (empleadoModal.totalValorRecargos || 0))) - statsEmpleadoMarcaciones.totalCosto).toLocaleString('es-CO')}</span> podría deberse a que el personal de nómina aproxima las fracciones (Ej. 1h 45m ➔ 2h) al subir la novedad.
-                           </li>
-                           <li>
-                             <strong className="text-slate-800">3. Cruce Visual:</strong> Compara la columna "Horas Totales" de la tabla de abajo contra las horas sumadas en la pantalla del Biométrico. Si las horas cuadran pero el dinero no, es un error en la tarifa de liquidación del ERP.
-                           </li>
-                        </ul>
+                        <div className="space-y-4 relative z-10">
+                          {empleadoModal.historiaForense.map((h, i) => (
+                            <div key={i} className="bg-slate-800/80 p-4 rounded-lg border border-slate-700">
+                              <h5 className="font-bold text-amber-400 mb-2 text-xs">{h.titulo}</h5>
+                              <ul className="text-xs text-slate-300 space-y-2 font-medium">
+                                <li><strong className="text-white">Lo que marcó en el reloj:</strong> {h.reloj}</li>
+                                <li><strong className="text-white">Lo que pagó la Nómina:</strong> {h.nomina}</li>
+                                <li className="text-rose-400 font-bold bg-rose-500/10 inline-block px-2 py-1 rounded mt-1">{h.diferencia}</li>
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
