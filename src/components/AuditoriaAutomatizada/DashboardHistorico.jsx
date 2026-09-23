@@ -770,7 +770,16 @@ const esMismoEmpleado = (nom1, nom2) => {
               const costoBio = bioPorMes[mesKeyNorm] || 0;
               
               const detalleTurnos = turnosPorMes[mesKeyNorm] && turnosPorMes[mesKeyNorm].length > 0 
-                ? turnosPorMes[mesKeyNorm].map(t => t.includes("22:") || t.includes("23:") ? `🚨 ${t}` : `✔️ ${t}`).join("\r\n") 
+                ? turnosPorMes[mesKeyNorm].map(t => {
+                    // 1. Detecta turnos amanecidos (Inician PM y terminan AM)
+                    const esAmanecido = /2[0-3]:\d{2}\s*-\s*0[0-6]:\d{2}/.test(t);
+                    // 2. Detecta turnos donde Nómina recorta minutos
+                    const fraccionRecortada = /(22:55|23:15|23:26|23:30)/.test(t);
+                    
+                    if (esAmanecido) return `🚨 [AMANECE] ${t}`;
+                    if (fraccionRecortada) return `✂️ [RECORTAN MINUTOS] ${t}`;
+                    return `✔️ [OK] ${t}`;
+                  }).join("\r\n") 
                 : "Sin turnos físicos con recargo";
               
               const diferencia = Math.round(pagoNominaExtras - costoBio);
