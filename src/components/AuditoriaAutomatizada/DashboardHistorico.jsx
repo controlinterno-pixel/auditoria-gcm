@@ -725,7 +725,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       e.target.value = null;
     }
   };
-// 📥 EXPORTAR REPORTE FORENSE (MES A MES) A EXCEL CON 2 PESTAÑAS
+// 📥 EXPORTAR REPORTE FORENSE (MES A MES) A EXCEL CON DETALLE DE TURNOS
   const exportarAuditoriaCompletaExcel = () => {
     if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster || !datosMarcaciones) {
       alert("⚠️ Primero debes cargar las marcaciones y ejecutar el escáner.");
@@ -742,13 +742,26 @@ const esMismoEmpleado = (nom1, nom2) => {
         // 1. Filtrar las huellas físicas solo de este empleado
         const huellasEmpleado = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre));
         
-        // 2. Sumar la plata del reloj separada mes a mes
+        // 2. Sumar la plata del reloj y GUARDAR EL DETALLE DE CADA TURNO
         const bioPorMes = {};
+        const turnosPorMes = {}; // 💡 NUEVO: Colección de evidencia exacta
+
         huellasEmpleado.forEach(m => {
           if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
           const mesKey = String(m.Fecha).substring(0, 7).replace('/', '-'); // Formato AAAA-MM
-          if (!bioPorMes[mesKey]) bioPorMes[mesKey] = 0;
-          bioPorMes[mesKey] += parsearMonto(m.Total_Recargos_Dia);
+          
+          if (!bioPorMes[mesKey]) {
+            bioPorMes[mesKey] = 0;
+            turnosPorMes[mesKey] = [];
+          }
+          
+          const recargoDia = parsearMonto(m.Total_Recargos_Dia);
+          bioPorMes[mesKey] += recargoDia;
+
+          // Si el turno generó recargos, lo guardamos con lupa para la evidencia del Excel
+          if (recargoDia > 0) {
+            turnosPorMes[mesKey].push(`[${m.Fecha}] Horario: ${m.Horario} (Generó: $${Math.round(recargoDia).toLocaleString('es-CO')})`);
+          }
         });
 
         // 3. Comparar contra lo que pagó Nómina en cada mes específico
@@ -756,6 +769,11 @@ const esMismoEmpleado = (nom1, nom2) => {
           const mesKeyNorm = String(rawMesKey).replace('/', '-');
           const pagoNominaExtras = emp.desgloseJornadaPorMes[rawMesKey].valor || 0;
           const costoBio = bioPorMes[mesKeyNorm] || 0;
+          
+          // 💡 NUEVO: Empaquetar la evidencia separada por ' || '
+          const detalleTurnos = turnosPorMes[mesKeyNorm] && turnosPorMes[mesKeyNorm].length > 0 
+            ? turnosPorMes[mesKeyNorm].join(" || ") 
+            : "Sin turnos físicos con recargo";
           
           const diferencia = Math.round(pagoNominaExtras - costoBio);
 
@@ -768,7 +786,8 @@ const esMismoEmpleado = (nom1, nom2) => {
               "Soporte Biométrico ($)": Math.round(costoBio),
               "Pagado en ERP ($)": Math.round(pagoNominaExtras),
               "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
-              "Diagnóstico": "🚨 Turno amanecido u omisión de recargo"
+              "Diagnóstico": "🚨 Omisión de recargo",
+              "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos // 💡 NUEVA COLUMNA
             });
           } 
           // Si la diferencia es mayor a $1.000, la empresa pagó de más
@@ -780,7 +799,8 @@ const esMismoEmpleado = (nom1, nom2) => {
               "Soporte Biométrico ($)": Math.round(costoBio),
               "Pagado en ERP ($)": Math.round(pagoNominaExtras),
               "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
-              "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma"
+              "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma",
+              "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos // 💡 NUEVA COLUMNA
             });
           }
         });
