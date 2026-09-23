@@ -689,12 +689,12 @@ const esMismoEmpleado = (nom1, nom2) => {
             Empresa: String(empresaVal).trim(), 
             Empleado: String(empleadoVal).trim(),
             Fecha: fechaFormateada || 'Sin Fecha',
-            Periodo_Corte: calcularQuincenaCorte(fechaFormateada), // 🗓️ Asignación de quincena real (23-7 / 8-22)
+           Periodo_Corte: calcularQuincenaCorte(fechaFormateada), // 🗓️ Asignación de quincena real (23-7 / 8-22)
             Horario: buscarColumna(row, ['Horario', 'HORARIO', 'Turno']) || 'Sin Registro',
             HT: buscarColumna(row, ['HT', 'Horas', 'HT_Horas']) || '00:00',
             Total_Recargos_Dia: parsearMonto(buscarColumna(row, ['Total_Recargos_Dia', 'Total_Recargos', 'TOTAL_RECARGOS'])),
           };
-        }).filter(row => row.Empleado !== 'Desconocido' && row.Total_Recargos_Dia > 0); 
+        }).filter(row => row.Empleado !== 'Desconocido'); // 👁️ AHORA DEJA PASAR TODOS LOS TURNOS, INCLUSO LOS DE $0
 
         todasLasMarcaciones = [...todasLasMarcaciones, ...dataLimpia];
       });
