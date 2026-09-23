@@ -775,10 +775,10 @@ const esMismoEmpleado = (nom1, nom2) => {
             ? turnosPorMes[mesKeyNorm].map(t => t.includes("22:") || t.includes("23:") ? `🚨 ${t}` : `✔️ ${t}`).join("\r\n") 
             : "Sin turnos físicos con recargo";
           
-          const diferencia = Math.round(pagoNominaExtras - costoBio);
+         const diferencia = Math.round(pagoNominaExtras - costoBio);
 
-          // Si la diferencia es menor a -$1.000, le debemos plata al trabajador
-          if (diferencia < -1000) {
+          // 🎯 FILTRO DE MATERIALIDAD: Ignorar redondeos. Solo deudas mayores a $30.000 COP
+          if (diferencia < -30000) {
             deudasTrabajador.push({
               "Cédula": emp.cedula,
               "Trabajador": emp.nombre,
@@ -786,12 +786,12 @@ const esMismoEmpleado = (nom1, nom2) => {
               "Soporte Biométrico ($)": Math.round(costoBio),
               "Pagado en ERP ($)": Math.round(pagoNominaExtras),
               "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
-              "Diagnóstico": "🚨 Omisión de recargo",
-              "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos // 💡 NUEVA COLUMNA
+              "Diagnóstico": "🚨 Omisión de turno amanecido completo o recargo mayor",
+              "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
             });
           } 
-          // Si la diferencia es mayor a $1.000, la empresa pagó de más
-          else if (diferencia > 1000) {
+          // 🎯 FILTRO DE MATERIALIDAD: Ignorar redondeos. Solo sobrepagos mayores a $30.000 COP
+          else if (diferencia > 30000) {
             fugasEmpresa.push({
               "Cédula": emp.cedula,
               "Trabajador": emp.nombre,
@@ -800,7 +800,7 @@ const esMismoEmpleado = (nom1, nom2) => {
               "Pagado en ERP ($)": Math.round(pagoNominaExtras),
               "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
               "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma",
-              "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos // 💡 NUEVA COLUMNA
+              "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
             });
           }
         });
