@@ -2584,16 +2584,17 @@ disabled={isAnalyzing || listaBases.length === 0}
             <div className="bg-slate-900 text-white p-6 sticky top-0 z-10 flex justify-between items-start border-b border-slate-800">
               <div>
                 <h3 className="text-lg font-extrabold flex items-center gap-2">
-                  <span>🔍</span> Diagnóstico Forense de {modoDashboard === 'JORNADA' ? 'Tiempo Suplementario (Extras)' : 'Transporte y Rodamiento'}
+                  <span>🔍</span> Diagnóstico Forense de {modoDashboard !== 'TRANSPORTE' ? 'Tiempo Suplementario (Extras)' : 'Transporte y Rodamiento'}
                 </h3>
                 <p className="text-xs text-slate-400 mt-1 font-mono">
                   {empleadoModal.nombre} — Cédula: {empleadoModal.cedula} | Cargo: {empleadoModal.cargo}
                 </p>
                 
-                {/* Aquí está el botón anidado correctamente */}
-                <button onClick={() => irAMarcacionesEmpleado(empleadoModal)} className="mt-3 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded shadow-lg transition cursor-pointer border border-purple-500">
-                  ⏰ Analizar Marcaciones Biométricas
-                </button>
+                {modoDashboard !== 'MARCACIONES' && (
+                  <button onClick={() => irAMarcacionesEmpleado(empleadoModal)} className="mt-3 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white px-4 py-1.5 rounded shadow-lg transition cursor-pointer border border-purple-500">
+                    ⏰ Analizar Marcaciones Biométricas
+                  </button>
+                )}
               </div>
               
               <button 
@@ -2607,17 +2608,19 @@ disabled={isAnalyzing || listaBases.length === 0}
             <div className="p-6 space-y-6">
               {/* Tarjetas KPI de Resumen Condicionales */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {modoDashboard === 'JORNADA' ? (
+                {modoDashboard !== 'TRANSPORTE' ? (
                   <>
                     <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
                       <p className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">Períodos con Novedad</p>
-                      <h4 className="text-2xl font-black text-blue-800 mt-1">{empleadoModal.mesesActivos} mes(es)</h4>
+                      <h4 className="text-2xl font-black text-blue-800 mt-1">{empleadoModal.mesesConNovedad?.size || 0} mes(es)</h4>
                       <p className="text-xs text-blue-600 mt-0.5">Rastreado en la base histórica de nómina</p>
                     </div>
 
                     <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl">
-                      <p className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Costo Total Sobretasa</p>
-                      <h4 className="text-2xl font-black text-amber-800 mt-1">${(empleadoModal.totalDineroVisual || 0).toLocaleString('es-CO')}</h4>
+                      <p className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider">Costo Total Pagado en Nómina</p>
+                      <h4 className="text-2xl font-black text-amber-800 mt-1">
+                        ${(empleadoModal.totalDineroVisual !== undefined ? empleadoModal.totalDineroVisual : ((empleadoModal.totalValorExtras || 0) + (empleadoModal.totalValorRecargos || 0))).toLocaleString('es-CO')}
+                      </h4>
                       <p className="text-xs text-amber-600 mt-0.5">Suma total pagada en recargos y horas extras</p>
                     </div>
                   </>
@@ -2638,22 +2641,24 @@ disabled={isAnalyzing || listaBases.length === 0}
                 )}
               </div>
 
-              {/* Dictamen del Motor */}
-              <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-xl">
-                <p className="text-xs font-extrabold text-amber-800 uppercase mb-1 flex items-center gap-1">
-                  📌 Dictamen Financiero Ejecutado por el Motor:
-                </p>
-                <p className="text-xs text-slate-700 font-medium whitespace-pre-line leading-relaxed">
-                  {empleadoModal.riesgo}
-                </p>
-              </div>
+              {/* Dictamen del Motor (Solo si hay un riesgo detectado) */}
+              {empleadoModal.riesgo && (
+                <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-xl">
+                  <p className="text-xs font-extrabold text-amber-800 uppercase mb-1 flex items-center gap-1">
+                    📌 Dictamen Financiero Ejecutado por el Motor:
+                  </p>
+                  <p className="text-xs text-slate-700 font-medium whitespace-pre-line leading-relaxed">
+                    {empleadoModal.riesgo}
+                  </p>
+                </div>
+              )}
 
               {/* Tablas de Desglose Condicionales */}
               <div>
-                {modoDashboard === 'JORNADA' ? (
+                {modoDashboard !== 'TRANSPORTE' ? (
                   <>
                     <h4 className="text-xs font-bold text-slate-700 uppercase mb-3 flex items-center gap-1.5">
-                      📊 Desglose de Conceptos (Acumulado Histórico):
+                      📊 Desglose de Conceptos Pagados (Acumulado en Nómina):
                     </h4>
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                       <table className="w-full text-xs text-left">
