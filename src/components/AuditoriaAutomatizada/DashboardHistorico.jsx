@@ -2657,10 +2657,30 @@ disabled={isAnalyzing || listaBases.length === 0}
               <div>
                 {modoDashboard !== 'TRANSPORTE' ? (
                   <>
+                    {/* 🕵️‍♂️ MINI-ASISTENTE DE AUDITORÍA FORENSE */}
+                    {empleadoModal.totalDineroVisual !== undefined && statsEmpleadoMarcaciones && (
+                      <div className="mb-6 bg-slate-50 border border-slate-200 p-4 rounded-xl">
+                        <h4 className="text-xs font-extrabold text-indigo-800 uppercase mb-2 flex items-center gap-1.5">
+                          💡 Pistas de Auditoría para el Descuadre:
+                        </h4>
+                        <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4 font-medium">
+                           <li>
+                             <strong className="text-slate-800">1. Verifica el pago de festivos automáticos:</strong> El ERP muestra pagos por <span className="text-amber-700 font-bold">DV22 (Festivo No Compensado)</span> o similares. El ERP a veces liquida el día de descanso automáticamente aunque no haya marcación física en el reloj.
+                           </li>
+                           <li>
+                             <strong className="text-slate-800">2. Revisión de Redondeos:</strong> La diferencia de <span className="text-rose-600 font-bold">${Math.abs((empleadoModal.totalDineroVisual || ((empleadoModal.totalValorExtras || 0) + (empleadoModal.totalValorRecargos || 0))) - statsEmpleadoMarcaciones.totalCosto).toLocaleString('es-CO')}</span> podría deberse a que el personal de nómina aproxima las fracciones (Ej. 1h 45m ➔ 2h) al subir la novedad.
+                           </li>
+                           <li>
+                             <strong className="text-slate-800">3. Cruce Visual:</strong> Compara la columna "Horas Totales" de la tabla de abajo contra las horas sumadas en la pantalla del Biométrico. Si las horas cuadran pero el dinero no, es un error en la tarifa de liquidación del ERP.
+                           </li>
+                        </ul>
+                      </div>
+                    )}
+
                     <h4 className="text-xs font-bold text-slate-700 uppercase mb-3 flex items-center gap-1.5">
-                      📊 Desglose de Conceptos Pagados (Acumulado en Nómina):
+                      📊 Desglose de Conceptos Pagados en el ERP:
                     </h4>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                       <table className="w-full text-xs text-left">
                         <thead className="bg-slate-100 text-slate-600 font-bold uppercase border-b border-slate-200">
                           <tr>
