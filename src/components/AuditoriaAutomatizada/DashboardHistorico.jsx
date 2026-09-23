@@ -727,7 +727,7 @@ const esMismoEmpleado = (nom1, nom2) => {
   };
 // 📥 EXPORTAR REPORTE FORENSE (MES A MES) A EXCEL CON 2 PESTAÑAS
   const exportarAuditoriaCompletaExcel = () => {
-    if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster) {
+    if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster || !datosMarcaciones) {
       alert("⚠️ Primero debes cargar las marcaciones y ejecutar el escáner.");
       return;
     }
@@ -735,27 +735,31 @@ const esMismoEmpleado = (nom1, nom2) => {
     const deudasTrabajador = [];
     const fugasEmpresa = [];
 
+    // Recorrer a todos los empleados de la nómina
     datosHistoricos.empleadosStatsMaster.forEach(emp => {
-      if (emp.historiaForense) {
-        // En lugar de calcular manual, usamos el motor narrativo forense que ya lo hizo
-        const baseBiometricoFull = datosMarcaciones ? datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre)) : [];
-        const bioPorMes = {};
+      if (emp.desgloseJornadaPorMes) {
         
-        baseBiometricoFull.forEach(m => {
+        // 1. Filtrar las huellas físicas solo de este empleado
+        const huellasEmpleado = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre));
+        
+        // 2. Sumar la plata del reloj separada mes a mes
+        const bioPorMes = {};
+        huellasEmpleado.forEach(m => {
           if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
-          const mesKey = String(m.Fecha).substring(0, 7).replace('/', '-');
+          const mesKey = String(m.Fecha).substring(0, 7).replace('/', '-'); // Formato AAAA-MM
           if (!bioPorMes[mesKey]) bioPorMes[mesKey] = 0;
           bioPorMes[mesKey] += parsearMonto(m.Total_Recargos_Dia);
         });
 
+        // 3. Comparar contra lo que pagó Nómina en cada mes específico
         Object.keys(emp.desgloseJornadaPorMes).forEach(rawMesKey => {
           const mesKeyNorm = String(rawMesKey).replace('/', '-');
-          const dataNomMes = emp.desgloseJornadaPorMes[rawMesKey];
-          const pagoNominaExtras = dataNomMes.valor || 0;
+          const pagoNominaExtras = emp.desgloseJornadaPorMes[rawMesKey].valor || 0;
           const costoBio = bioPorMes[mesKeyNorm] || 0;
           
           const diferencia = Math.round(pagoNominaExtras - costoBio);
 
+          // Si la diferencia es menor a -$1.000, le debemos plata al trabajador
           if (diferencia < -1000) {
             deudasTrabajador.push({
               "Cédula": emp.cedula,
@@ -766,7 +770,9 @@ const esMismoEmpleado = (nom1, nom2) => {
               "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
               "Diagnóstico": "🚨 Turno amanecido u omisión de recargo"
             });
-          } else if (diferencia > 1000) {
+          } 
+          // Si la diferencia es mayor a $1.000, la empresa pagó de más
+          else if (diferencia > 1000) {
             fugasEmpresa.push({
               "Cédula": emp.cedula,
               "Trabajador": emp.nombre,
@@ -788,12 +794,14 @@ const esMismoEmpleado = (nom1, nom2) => {
 
     const workbook = XLSX.utils.book_new();
 
+    // Crear Pestaña 1 (Deudas)
     if (deudasTrabajador.length > 0) {
       const dataDeudas = deudasTrabajador.sort((a, b) => b["DEUDA AL EMPLEADO ($)"] - a["DEUDA AL EMPLEADO ($)"]);
       const wsDeudas = XLSX.utils.json_to_sheet(dataDeudas);
       XLSX.utils.book_append_sheet(workbook, wsDeudas, "Horas_Huerfanas_Deudas");
     }
 
+    // Crear Pestaña 2 (Fugas)
     if (fugasEmpresa.length > 0) {
       const dataFugas = fugasEmpresa.sort((a, b) => b["FUGA DE LA EMPRESA ($)"] - a["FUGA DE LA EMPRESA ($)"]);
       const wsFugas = XLSX.utils.json_to_sheet(dataFugas);
