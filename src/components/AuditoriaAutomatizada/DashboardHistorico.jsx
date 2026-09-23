@@ -158,15 +158,22 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
 
   const [listaMarcacionesBD, setListaMarcacionesBD] = useState([]);
 
-  useEffect(() => {
+ useEffect(() => {
     // 1. Cargar bases de Nómina
-    obtenerListaHistoricos().then(data => setListaBases(data));
+    obtenerListaHistoricos().then(data => {
+      setListaBases(data);
+      // Auto-clic instantáneo al botón de analizar si hay bases
+      if (data.length > 0) {
+        setTimeout(() => {
+          const btn = document.getElementById('btn-ejecutar-escaner');
+          if (btn && !btn.disabled) btn.click();
+        }, 1200);
+      }
+    });
 
     // 2. Cargar histórico de Marcaciones Biométricas desde la NUBE (Firebase)
     cargarMarcacionesDeLaNube().then(dataNube => {
-       if (dataNube && dataNube.length > 0) {
-           setDatosMarcaciones(dataNube);
-       }
+       if (dataNube && dataNube.length > 0) setDatosMarcaciones(dataNube);
     });
 
     // 3. Obtener listado de archivos de marcaciones subidos
@@ -1025,7 +1032,7 @@ const esMismoEmpleado = (nom1, nom2) => {
     return dias[d.getDay()];
   };
 
-// 🗓️ MARCACIONES FILTRADAS Y ORDENADAS CRONOLÓGICAMENTE (CON SOPORTE AL CLIC)
+// 🗓️ MARCACIONES FILTRADAS Y ORDENADAS CRONOLÓGICAMENTE (CON SOPORTE TOTAL AL CLIC)
   const marcacionesEmpleadoSeleccionado = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
     
@@ -1039,13 +1046,17 @@ const esMismoEmpleado = (nom1, nom2) => {
       base = base.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
     }
 
-    // 🖱️ NUEVO: Filtramos la base si el usuario hizo clic en una barra de la gráfica
+    // 🖱️ CEREBRO INTERACTIVO DE LA TABLA
     if (filtroClicGrafica) {
       base = base.filter(d => {
-        if (granularidadMarcaciones === 'MES') return d.Fecha && d.Fecha.startsWith(filtroClicGrafica);
-        if (granularidadMarcaciones === 'QUINCENA') return (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroClicGrafica;
-        if (granularidadMarcaciones === 'SEMANA') return obtenerEtiquetaSemana(d.Fecha) === filtroClicGrafica;
-        if (granularidadMarcaciones === 'DIA') return d.Fecha === filtroClicGrafica;
+        const dFecha = d.Fecha || '';
+        const dQuincena = d.Periodo_Corte || calcularQuincenaCorte(dFecha);
+        const dSemana = obtenerEtiquetaSemana(dFecha);
+        
+        if (granularidadMarcaciones === 'MES') return dFecha.startsWith(filtroClicGrafica);
+        if (granularidadMarcaciones === 'QUINCENA') return dQuincena === filtroClicGrafica;
+        if (granularidadMarcaciones === 'SEMANA') return dSemana === filtroClicGrafica;
+        if (granularidadMarcaciones === 'DIA') return dFecha === filtroClicGrafica;
         return true;
       });
     }
@@ -1214,8 +1225,9 @@ const esMismoEmpleado = (nom1, nom2) => {
             <p className="text-xl font-bold text-cyan-400">{listaBases.length} Períodos</p>
           </div>
           <button 
+id="btn-ejecutar-escaner"
             onClick={ejecutarAnalisisForense}
-            disabled={isAnalyzing || listaBases.length === 0}
+disabled={isAnalyzing || listaBases.length === 0}
             className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isAnalyzing ? '⏳ Procesando Big Data...' : '🚀 Ejecutar Escáner Histórico'}
@@ -2464,10 +2476,13 @@ const esMismoEmpleado = (nom1, nom2) => {
                                     <ComposedChart 
                                       data={dataGraficaMarcaciones}
                                       onClick={(e) => {
-                                        if (e && e.activePayload && e.activePayload.length > 0) {
-                                          const valorEjeX = e.activePayload[0].payload.ejeX;
-                                          if (filtroClicGrafica === valorEjeX) setFiltroClicGrafica(null);
-                                          else setFiltroClicGrafica(valorEjeX);
+                                        if (e && e.activeLabel) {
+                                          const valorEjeX = String(e.activeLabel);
+                                          if (filtroClicGrafica === valorEjeX) {
+                                              setFiltroClicGrafica(null); // Quitar filtro si se clica el mismo
+                                          } else {
+                                              setFiltroClicGrafica(valorEjeX); // Aplicar filtro
+                                          }
                                         } else {
                                           setFiltroClicGrafica(null); // Si da clic en lo blanco, quita el filtro
                                         }
