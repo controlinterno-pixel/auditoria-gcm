@@ -726,7 +726,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       e.target.value = null;
     }
   };
-// 📥 EXPORTAR REPORTE FORENSE (MES A MES) A EXCEL CON DETALLE DE TURNOS
+// 📥 EXPORTAR REPORTE FORENSE ALINEADO POR QUINCENA DE CORTE REAL (23-7 Y 8-22)
   const exportarAuditoriaCompletaExcel = () => {
     if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster || !datosMarcaciones) {
       alert("⚠️ Primero debes cargar las marcaciones y ejecutar el escáner.");
@@ -741,53 +741,68 @@ const esMismoEmpleado = (nom1, nom2) => {
         const fugasEmpresa = [];
 
         datosHistoricos.empleadosStatsMaster.forEach(emp => {
-          if (emp.desgloseJornadaPorMes) {
-            const huellasEmpleado = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre));
+          // 1. Filtrar las huellas físicas de este colaborador
+          const huellasEmpleado = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre));
+          
+          // 2. Agrupar el biométrico por QUINCENA DE CORTE REAL (Ej: "2026-08-Q1" o "2026-08-Q2")
+          const bioPorQuincena = {};
+          const turnosPorQuincena = {};
+
+          huellasEmpleado.forEach(m => {
+            if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
             
-            const bioPorMes = {};
-            const turnosPorMes = {}; 
+            // Usar la quincena de corte precalculada o calcularla en caliente
+            const quincenaKey = m.Periodo_Corte || calcularQuincenaCorte(m.Fecha);
+            
+            if (!bioPorQuincena[quincenaKey]) {
+              bioPorQuincena[quincenaKey] = 0;
+              turnosPorQuincena[quincenaKey] = [];
+            }
+            
+            const recargoDia = parsearMonto(m.Total_Recargos_Dia);
+            bioPorQuincena[quincenaKey] += recargoDia;
 
-            huellasEmpleado.forEach(m => {
-              if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
-              const mesKey = String(m.Fecha).substring(0, 7).replace('/', '-'); 
-              
-              if (!bioPorMes[mesKey]) {
-                bioPorMes[mesKey] = 0;
-                turnosPorMes[mesKey] = [];
-              }
-              
-              const recargoDia = parsearMonto(m.Total_Recargos_Dia);
-              bioPorMes[mesKey] += recargoDia;
+            if (recargoDia > 0) {
+              turnosPorQuincena[quincenaKey].push(`[${m.Fecha}] Horario: ${m.Horario} (Generó: $${Math.round(recargoDia).toLocaleString('es-CO')})`);
+            }
+          });
 
-              if (recargoDia > 0) {
-                turnosPorMes[mesKey].push(`[${m.Fecha}] Horario: ${m.Horario} (Generó: $${Math.round(recargoDia).toLocaleString('es-CO')})`);
-              }
-            });
-
+          // 3. Mapear pagos del ERP por Quincena o Mes de Nómina
+          if (emp.desgloseJornadaPorMes) {
             Object.keys(emp.desgloseJornadaPorMes).forEach(rawMesKey => {
               const mesKeyNorm = String(rawMesKey).replace('/', '-');
               const pagoNominaExtras = emp.desgloseJornadaPorMes[rawMesKey].valor || 0;
-              const costoBio = bioPorMes[mesKeyNorm] || 0;
               
+              // Buscar si existe un valor acumulado en el biométrico para este período/corte
+              let costoBio = bioPorQuincena[mesKeyNorm] || 0;
+              let turnosRelacionados = turnosPorQuincena[mesKeyNorm] || [];
+
+              // Si el mes no coincide de forma exacta, intentar sumar las dos quincenas del mes (Q1 + Q2)
+              if (costoBio === 0 && !mesKeyNorm.includes('-Q')) {
+                const q1Key = `${mesKeyNorm}-Q1`;
+                const q2Key = `${mesKeyNorm}-Q2`;
+                costoBio = (bioPorQuincena[q1Key] || 0) + (bioPorQuincena[q2Key] || 0);
+                turnosRelacionados = [...(turnosPorQuincena[q1Key] || []), ...(turnosPorQuincena[q2Key] || [])];
+              }
+
               let detalleTurnos = "Sin turnos físicos con recargo";
-              if (turnosPorMes[mesKeyNorm] && turnosPorMes[mesKeyNorm].length > 0) {
-                // 🎯 FILTRO RADICAL: Extraer ÚNICAMENTE los turnos que cruzan la medianoche
-                const turnosAmanecidos = turnosPorMes[mesKeyNorm].filter(t => /2[0-3]:\d{2}\s*-\s*0[0-6]:\d{2}/.test(t));
-                
+              if (turnosRelacionados.length > 0) {
+                const turnosAmanecidos = turnosRelacionados.filter(t => /2[0-3]:\d{2}\s*-\s*0[0-6]:\d{2}/.test(t));
                 if (turnosAmanecidos.length > 0) {
                   detalleTurnos = turnosAmanecidos.map(t => `🚨 [AMANECE] ${t}`).join("\r\n");
                 } else {
                   detalleTurnos = "⚠️ Sin amanecidas (Revisar posible festivo fantasma o error global)";
                 }
               }
-              
+
               const diferencia = Math.round(pagoNominaExtras - costoBio);
 
+              // 🎯 FILTRO DE MATERIALIDAD (> $30.000 COP)
               if (diferencia < -30000) {
                 deudasTrabajador.push({
                   "Cédula": emp.cedula,
                   "Trabajador": emp.nombre,
-                  "Mes Auditado": mesKeyNorm,
+                  "Período / Quincena": mesKeyNorm,
                   "Soporte Biométrico ($)": Math.round(costoBio),
                   "Pagado en ERP ($)": Math.round(pagoNominaExtras),
                   "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
@@ -799,7 +814,7 @@ const esMismoEmpleado = (nom1, nom2) => {
                 fugasEmpresa.push({
                   "Cédula": emp.cedula,
                   "Trabajador": emp.nombre,
-                  "Mes Auditado": mesKeyNorm,
+                  "Período / Quincena": mesKeyNorm,
                   "Soporte Biométrico ($)": Math.round(costoBio),
                   "Pagado en ERP ($)": Math.round(pagoNominaExtras),
                   "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
@@ -812,7 +827,7 @@ const esMismoEmpleado = (nom1, nom2) => {
         });
 
         if (deudasTrabajador.length === 0 && fugasEmpresa.length === 0) {
-          alert("¡Excelente! No se detectaron descuadres mayores a $30.000 COP en ningún mes.");
+          alert("¡Excelente! No se detectaron descuadres mayores a $30.000 COP en ningún período.");
           return;
         }
 
