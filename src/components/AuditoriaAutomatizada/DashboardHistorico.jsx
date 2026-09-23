@@ -797,31 +797,31 @@ const esMismoEmpleado = (nom1, nom2) => {
 
               const diferencia = Math.round(pagoNominaExtras - costoBio);
 
-              // 🎯 FILTRO DE MATERIALIDAD (> $30.000 COP)
-              if (diferencia < -30000) {
-                deudasTrabajador.push({
-                  "Cédula": emp.cedula,
-                  "Trabajador": emp.nombre,
-                  "Período / Quincena": mesKeyNorm,
-                  "Soporte Biométrico ($)": Math.round(costoBio),
-                  "Pagado en ERP ($)": Math.round(pagoNominaExtras),
-                  "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
-                  "Diagnóstico": "🚨 Omisión de turno amanecido completo o recargo mayor",
-                  "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
-                });
-              } 
-              else if (diferencia > 30000) {
-                fugasEmpresa.push({
-                  "Cédula": emp.cedula,
-                  "Trabajador": emp.nombre,
-                  "Período / Quincena": mesKeyNorm,
-                  "Soporte Biométrico ($)": Math.round(costoBio),
-                  "Pagado en ERP ($)": Math.round(pagoNominaExtras),
-                  "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
-                  "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma",
-                  "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
-                });
-              }
+              // 🎯 FILTRO DE MATERIALIDAD AJUSTADO (> $15.000 COP)
+if (diferencia < -15000) {
+  deudasTrabajador.push({
+    "Cédula": emp.cedula,
+    "Trabajador": emp.nombre,
+    "Período / Quincena": mesKeyNorm,
+    "Soporte Biométrico ($)": Math.round(costoBio),
+    "Pagado en ERP ($)": Math.round(pagoNominaExtras),
+    "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
+    "Diagnóstico": "🚨 Omisión / Recorte en recargos dominicales u horas nocturnas",
+    "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+  });
+} 
+else if (diferencia > 15000) {
+  fugasEmpresa.push({
+    "Cédula": emp.cedula,
+    "Trabajador": emp.nombre,
+    "Período / Quincena": mesKeyNorm,
+    "Soporte Biométrico ($)": Math.round(costoBio),
+    "Pagado en ERP ($)": Math.round(pagoNominaExtras),
+    "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
+    "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma",
+    "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+  });
+}
             });
           }
         });
