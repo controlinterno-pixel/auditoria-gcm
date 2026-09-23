@@ -123,9 +123,12 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
   const [lineasOcultas, setLineasOcultas] = useState({}); 
 
   // ⚡ FILTROS AVANZADOS Y GRANULARIDAD PARA MARCACIONES
-  const [granularidadMarcaciones, setGranularidadMarcaciones] = useState('DIA'); // 'DIA', 'SEMANA', 'QUINCENA', 'MES'
+  const [granularidadMarcaciones, setGranularidadMarcaciones] = useState('MES'); // 'DIA', 'SEMANA', 'QUINCENA', 'MES'
   const [filtroQuincenaMarcaciones, setFiltroQuincenaMarcaciones] = useState('TODAS');
   const [ordenMarcacionesTabla, setOrdenMarcacionesTabla] = useState('ASC'); // 'ASC', 'DESC'
+  
+  // 🖱️ NUEVO ESTADO: Filtro Interactivo por Clic en la Gráfica
+  const [filtroClicGrafica, setFiltroClicGrafica] = useState(null);
 
 
   const clasificarUnidad = (fila) => {
@@ -1022,7 +1025,7 @@ const esMismoEmpleado = (nom1, nom2) => {
     return dias[d.getDay()];
   };
 
-  // 🗓️ MARCACIONES FILTRADAS Y ORDENADAS CRONOLÓGICAMENTE (ENERO ➔ AGOSTO)
+// 🗓️ MARCACIONES FILTRADAS Y ORDENADAS CRONOLÓGICAMENTE (CON SOPORTE AL CLIC)
   const marcacionesEmpleadoSeleccionado = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
     
@@ -1036,12 +1039,23 @@ const esMismoEmpleado = (nom1, nom2) => {
       base = base.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
     }
 
+    // 🖱️ NUEVO: Filtramos la base si el usuario hizo clic en una barra de la gráfica
+    if (filtroClicGrafica) {
+      base = base.filter(d => {
+        if (granularidadMarcaciones === 'MES') return d.Fecha && d.Fecha.startsWith(filtroClicGrafica);
+        if (granularidadMarcaciones === 'QUINCENA') return (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroClicGrafica;
+        if (granularidadMarcaciones === 'SEMANA') return obtenerEtiquetaSemana(d.Fecha) === filtroClicGrafica;
+        if (granularidadMarcaciones === 'DIA') return d.Fecha === filtroClicGrafica;
+        return true;
+      });
+    }
+
     return base.sort((a, b) => {
       const fA = a.Fecha || '';
       const fB = b.Fecha || '';
       return ordenMarcacionesTabla === 'ASC' ? fA.localeCompare(fB) : fB.localeCompare(fA);
     });
-  }, [datosMarcaciones, empleadosSeleccionados, filtroEmpresaMarcaciones, filtroQuincenaMarcaciones, ordenMarcacionesTabla]);
+  }, [datosMarcaciones, empleadosSeleccionados, filtroEmpresaMarcaciones, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones, ordenMarcacionesTabla]);
 
   const listaQuincenasUnicas = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
@@ -1055,59 +1069,90 @@ const esMismoEmpleado = (nom1, nom2) => {
     return Array.from(setQ).sort();
   }, [datosMarcaciones, empleadosSeleccionados]);
 
-  // 📊 DATA DINÁMICA PARA LA GRÁFICA (DÍA, SEMANA, QUINCENA, MES)
+  // 📊 DATA DINÁMICA PARA LA GRÁFICA (Aislamos la data sin el filtroClic para que no desaparezcan las otras barras)
   const dataGraficaMarcaciones = React.useMemo(() => {
-    if (!marcacionesEmpleadoSeleccionado || marcacionesEmpleadoSeleccionado.length === 0) return [];
+    if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
+    let baseGrafica = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre));
+    if (filtroQuincenaMarcaciones !== 'TODAS') {
+      baseGrafica = baseGrafica.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
+    }
 
     if (granularidadMarcaciones === 'DIA') {
-      return marcacionesEmpleadoSeleccionado.map(d => ({
+      return baseGrafica.map(d => ({
         ejeX: d.Fecha,
         Total_Recargos_Dia: d.Total_Recargos_Dia || 0,
         Horario: d.Horario,
         HT: d.HT
-      }));
+      })).sort((a, b) => a.ejeX.localeCompare(b.ejeX));
     }
 
     const mapaAgrupado = {};
 
-    marcacionesEmpleadoSeleccionado.forEach(d => {
+    baseGrafica.forEach(d => {
       let llaveEje = d.Fecha;
-      if (granularidadMarcaciones === 'SEMANA') {
-        llaveEje = obtenerEtiquetaSemana(d.Fecha);
-      } else if (granularidadMarcaciones === 'QUINCENA') {
-        llaveEje = d.Periodo_Corte || calcularQuincenaCorte(d.Fecha);
-      } else if (granularidadMarcaciones === 'MES') {
-        llaveEje = d.Fecha ? d.Fecha.substring(0, 7) : 'Desconocido';
-      }
+      if (granularidadMarcaciones === 'SEMANA') llaveEje = obtenerEtiquetaSemana(d.Fecha);
+      else if (granularidadMarcaciones === 'QUINCENA') llaveEje = d.Periodo_Corte || calcularQuincenaCorte(d.Fecha);
+      else if (granularidadMarcaciones === 'MES') llaveEje = d.Fecha ? d.Fecha.substring(0, 7) : 'Desconocido';
 
       if (!mapaAgrupado[llaveEje]) {
-        mapaAgrupado[llaveEje] = {
-          ejeX: llaveEje,
-          Total_Recargos_Dia: 0,
-          diasConRecargo: 0
-        };
+        mapaAgrupado[llaveEje] = { ejeX: llaveEje, Total_Recargos_Dia: 0, diasConRecargo: 0 };
       }
       mapaAgrupado[llaveEje].Total_Recargos_Dia += (d.Total_Recargos_Dia || 0);
       mapaAgrupado[llaveEje].diasConRecargo += 1;
     });
 
-    return Object.values(mapaAgrupado);
-  }, [marcacionesEmpleadoSeleccionado, granularidadMarcaciones]);
+    return Object.values(mapaAgrupado).sort((a, b) => a.ejeX.localeCompare(b.ejeX));
+  }, [datosMarcaciones, empleadosSeleccionados, filtroQuincenaMarcaciones, granularidadMarcaciones]);
 
+  // 🤖 CEREBRO INTELIGENTE: CRUZAR LO SELECCIONADO EN MARCACIONES CON LA NÓMINA PAGADA
   const statsEmpleadoMarcaciones = React.useMemo(() => {
     if (!marcacionesEmpleadoSeleccionado || marcacionesEmpleadoSeleccionado.length === 0) {
-      return { totalDias: 0, totalCosto: 0, primeraFecha: '-', ultimaFecha: '-' };
+      return { totalDias: 0, totalCosto: 0, primeraFecha: '-', ultimaFecha: '-', alertaInteligente: null };
     }
     const totalDias = marcacionesEmpleadoSeleccionado.length;
     const totalCosto = marcacionesEmpleadoSeleccionado.reduce((acc, d) => acc + (d.Total_Recargos_Dia || 0), 0);
     const fechas = marcacionesEmpleadoSeleccionado.map(d => d.Fecha).filter(Boolean).sort();
+    
+    // Cruce inteligente con la data de Nómina (alertasFiltradas)
+    let alertaInteligente = { texto: "Inspeccionando...", color: "bg-slate-50", textCol: "text-slate-600", icono: "ℹ️" };
+    
+    const empNomina = alertasFiltradas.find(a => a.cedula === empleadosSeleccionados[0].cedula);
+    
+    if (empNomina && empNomina.historialMeses) {
+      let totalPagadoNomina = 0;
+      
+      // Si miramos una quincena, cruzamos exacto con el mesOrigen que en nómina contiene las quincenas.
+      // Como tu base histórica mapeó por MesOrigen (Ej. "2026/07"), haremos la suma aproximada para el periodo visible.
+      // (Para un cruce al 100% perfecto requeriríamos que el Excel histórico trajera la quincena separada)
+      
+      if (filtroQuincenaMarcaciones !== 'TODAS' || filtroClicGrafica) {
+          alertaInteligente = { 
+             texto: "Datos aislados. Para ver el cuadre contra nómina, quite el filtro de clic.", 
+             color: "bg-blue-50", textCol: "text-blue-700", icono: "🔍" 
+          };
+      } else {
+         // Suma global para saber si cuadra al final
+         const totalGlobalNomina = empNomina.totalDineroVisual;
+         const diff = Math.round(totalGlobalNomina - totalCosto);
+         
+         if (diff > 50000) {
+            alertaInteligente = { texto: `🚨 Sobrepago de Nómina (+$${diff.toLocaleString('es-CO')})`, color: "bg-rose-50 border-rose-200", textCol: "text-rose-700", icono: "⚠️" };
+         } else if (diff < -50000) {
+            alertaInteligente = { texto: `🚨 Dinero Faltante en Nómina (-$${Math.abs(diff).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
+         } else {
+            alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $${diff})`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
+         }
+      }
+    }
+
     return {
       totalDias,
       totalCosto,
       primeraFecha: fechas[0] || '-',
-      ultimaFecha: fechas[fechas.length - 1] || '-'
+      ultimaFecha: fechas[fechas.length - 1] || '-',
+      alertaInteligente
     };
-  }, [marcacionesEmpleadoSeleccionado]);
+  }, [marcacionesEmpleadoSeleccionado, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -2310,31 +2355,33 @@ const esMismoEmpleado = (nom1, nom2) => {
                     </div>
                 ) : (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                        {/* 💳 TARJETA DE RESUMEN GERENCIAL Y CONCILIACIÓN */}
+{/* 💳 TARJETA DE RESUMEN GERENCIAL Y CONCILIACIÓN */}
                         <div className="bg-white p-5 rounded-xl border border-purple-200 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-purple-50/50 p-3 rounded-lg border border-purple-100">
+                            <div className="bg-purple-50/50 p-3 rounded-lg border border-purple-100 relative">
+                                {filtroClicGrafica && (
+                                  <button onClick={() => setFiltroClicGrafica(null)} className="absolute top-2 right-2 text-[9px] bg-purple-200 text-purple-800 font-bold px-1.5 py-0.5 rounded cursor-pointer hover:bg-rose-500 hover:text-white">✕ Quitar Filtro</button>
+                                )}
                                 <span className="text-[10px] font-extrabold text-purple-700 uppercase">Colaborador Auditado</span>
                                 <h4 className="text-sm font-extrabold text-slate-800 mt-1 truncate" title={empleadosSeleccionados[0].nombre}>{empleadosSeleccionados[0].nombre}</h4>
-                                <p className="text-[11px] text-purple-600 font-medium mt-0.5">{filtroQuincenaMarcaciones === 'TODAS' ? 'Enero - Agosto 2026' : `Quincena ${filtroQuincenaMarcaciones}`}</p>
+                                <p className="text-[11px] text-purple-600 font-medium mt-0.5">
+                                  {filtroClicGrafica ? `Filtrando por: ${filtroClicGrafica}` : (filtroQuincenaMarcaciones === 'TODAS' ? 'Histórico General' : `Quincena ${filtroQuincenaMarcaciones}`)}
+                                </p>
                             </div>
                             <div className="bg-indigo-50/50 p-3 rounded-lg border border-indigo-100">
-                                <span className="text-[10px] font-extrabold text-indigo-700 uppercase">Días con Recargo en Reloj</span>
+                                <span className="text-[10px] font-extrabold text-indigo-700 uppercase">Días Analizados en Tabla</span>
                                 <h4 className="text-xl font-black text-indigo-900 mt-1">{statsEmpleadoMarcaciones.totalDias} días</h4>
                                 <p className="text-[10px] text-indigo-600 font-mono mt-0.5">{statsEmpleadoMarcaciones.primeraFecha} ➔ {statsEmpleadoMarcaciones.ultimaFecha}</p>
                             </div>
                             <div className="bg-amber-50/50 p-3 rounded-lg border border-amber-100">
-                                <span className="text-[10px] font-extrabold text-amber-700 uppercase">Costo Biométrico Calculado</span>
+                                <span className="text-[10px] font-extrabold text-amber-700 uppercase">Costo Biométrico Mostrado</span>
                                 <h4 className="text-xl font-black text-amber-800 mt-1">${statsEmpleadoMarcaciones.totalCosto.toLocaleString('es-CO')}</h4>
-                                <p className="text-[10px] text-amber-600 font-medium mt-0.5">Suma física de entradas/salidas</p>
+                                <p className="text-[10px] text-amber-600 font-medium mt-0.5">Suma de la vista actual</p>
                             </div>
-                            <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex flex-col justify-between">
-                                <span className="text-[10px] font-extrabold text-emerald-700 uppercase">Estado de la Quincena</span>
-                                <p className="text-xs font-bold text-slate-700 mt-1">
-                                  {filtroQuincenaMarcaciones === '2026-07-Q2' 
-                                    ? '🚨 Sobrepago en Nómina (+$710.737)' 
-                                    : '✅ Cuadre Exacto con Nómina'}
+                            <div className={`p-3 rounded-lg flex flex-col justify-between ${statsEmpleadoMarcaciones.alertaInteligente?.color || 'bg-slate-50'}`}>
+                                <span className={`text-[10px] font-extrabold uppercase ${statsEmpleadoMarcaciones.alertaInteligente?.textCol || 'text-slate-700'}`}>Auditoría vs Nómina Nube</span>
+                                <p className={`text-xs font-bold mt-1 leading-tight ${statsEmpleadoMarcaciones.alertaInteligente?.textCol || 'text-slate-800'}`}>
+                                  {statsEmpleadoMarcaciones.alertaInteligente?.texto}
                                 </p>
-                                <span className="text-[9px] text-slate-500 font-medium">Validado con cortes 23-7 / 8-22</span>
                             </div>
                         </div>
 
@@ -2345,31 +2392,36 @@ const esMismoEmpleado = (nom1, nom2) => {
                                 <h4 className="font-bold text-slate-800 flex items-center gap-2">
                                   <span>📉</span> Evolución de Marcaciones: <span className="text-purple-700">{empleadosSeleccionados[0].nombre}</span>
                                 </h4>
-                                <p className="text-xs text-slate-500 mt-0.5">Mostrando comportamiento agrupado por {granularidadMarcaciones.toLowerCase()}.</p>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  {filtroClicGrafica 
+                                    ? `Filtro activo: ${filtroClicGrafica} (Da clic afuera para quitarlo)` 
+                                    : `Da clic en cualquier barra para filtrar la tabla inferior por ${granularidadMarcaciones.toLowerCase()}.`
+                                  }
+                                </p>
                               </div>
 
                               {/* 📏 SELECTOR DE GRANULARIDAD DE LA GRÁFICA */}
                               <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
                                 <button 
-                                  onClick={() => setGranularidadMarcaciones('DIA')}
+                                  onClick={() => { setGranularidadMarcaciones('DIA'); setFiltroClicGrafica(null); }}
                                   className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'DIA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
                                 >
                                   📅 Día
                                 </button>
                                 <button 
-                                  onClick={() => setGranularidadMarcaciones('SEMANA')}
+                                  onClick={() => { setGranularidadMarcaciones('SEMANA'); setFiltroClicGrafica(null); }}
                                   className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'SEMANA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
                                 >
                                   📆 Semana
                                 </button>
                                 <button 
-                                  onClick={() => setGranularidadMarcaciones('QUINCENA')}
+                                  onClick={() => { setGranularidadMarcaciones('QUINCENA'); setFiltroClicGrafica(null); }}
                                   className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'QUINCENA' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
                                 >
                                   🗓️ Quincena
                                 </button>
                                 <button 
-                                  onClick={() => setGranularidadMarcaciones('MES')}
+                                  onClick={() => { setGranularidadMarcaciones('MES'); setFiltroClicGrafica(null); }}
                                   className={`px-2.5 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadMarcaciones === 'MES' ? 'bg-purple-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
                                 >
                                   📊 Mes
@@ -2377,15 +2429,37 @@ const esMismoEmpleado = (nom1, nom2) => {
                               </div>
                             </div>
 
-                            <div className="h-72 w-full">
+                            <div className="h-72 w-full cursor-pointer">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={dataGraficaMarcaciones}>
+                                    <ComposedChart 
+                                      data={dataGraficaMarcaciones}
+                                      onClick={(e) => {
+                                        if (e && e.activePayload && e.activePayload.length > 0) {
+                                          const valorEjeX = e.activePayload[0].payload.ejeX;
+                                          if (filtroClicGrafica === valorEjeX) setFiltroClicGrafica(null);
+                                          else setFiltroClicGrafica(valorEjeX);
+                                        } else {
+                                          setFiltroClicGrafica(null); // Si da clic en lo blanco, quita el filtro
+                                        }
+                                      }}
+                                    >
                                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                         <XAxis dataKey="ejeX" fontSize={10} stroke="#64748b" interval={granularidadMarcaciones === 'DIA' ? 'preserveStartEnd' : 0} />
                                         <YAxis yAxisId="left" stroke="#64748b" fontSize={11} tickFormatter={(val) => `$${(val/1000)}k`} />
-                                        <Tooltip formatter={(val) => `$${val.toLocaleString('es-CO')}`} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                                        <Tooltip formatter={(val) => `$${val.toLocaleString('es-CO')}`} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} cursor={{fill: '#f3e8ff'}} />
                                         <Legend />
-                                        <Bar yAxisId="left" dataKey="Total_Recargos_Dia" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Costo Generado ($)" />
+                                        <Bar 
+                                          yAxisId="left" 
+                                          dataKey="Total_Recargos_Dia" 
+                                          radius={[4, 4, 0, 0]} 
+                                          name="Costo Generado ($)"
+                                          shape={(props) => {
+                                            const { x, y, width, height, payload } = props;
+                                            const isSelected = filtroClicGrafica === payload.ejeX;
+                                            const isFaded = filtroClicGrafica && !isSelected;
+                                            return <rect x={x} y={y} width={width} height={height} fill={isFaded ? "#cbd5e1" : "#8b5cf6"} rx={4} ry={4} style={{transition: 'fill 0.3s'}}/>;
+                                          }}
+                                        />
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
