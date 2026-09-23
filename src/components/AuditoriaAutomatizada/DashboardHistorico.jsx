@@ -1108,8 +1108,7 @@ const esMismoEmpleado = (nom1, nom2) => {
     return Object.values(mapaAgrupado).sort((a, b) => a.ejeX.localeCompare(b.ejeX));
   }, [datosMarcaciones, empleadosSeleccionados, filtroQuincenaMarcaciones, granularidadMarcaciones]);
 
-// 🤖 CEREBRO INTELIGENTE: CRUZAR LO SELECCIONADO EN MARCACIONES CON LA NÓMINA PAGADA
-  const statsEmpleadoMarcaciones = React.useMemo(() => {
+const statsEmpleadoMarcaciones = React.useMemo(() => {
     if (!marcacionesEmpleadoSeleccionado || marcacionesEmpleadoSeleccionado.length === 0) {
       return { totalDias: 0, totalCosto: 0, primeraFecha: '-', ultimaFecha: '-', alertaInteligente: null };
     }
@@ -1117,16 +1116,15 @@ const esMismoEmpleado = (nom1, nom2) => {
     const totalCosto = marcacionesEmpleadoSeleccionado.reduce((acc, d) => acc + (d.Total_Recargos_Dia || 0), 0);
     const fechas = marcacionesEmpleadoSeleccionado.map(d => d.Fecha).filter(Boolean).sort();
     
-// Cruce inteligente con la data de Nómina (NARRATIVA FORENSE CORREGIDA Y PRECISA)
     let alertaInteligente = { texto: "Inspeccionando...", color: "bg-slate-50", textCol: "text-slate-600", icono: "ℹ️" };
     
     const empNomina = datosHistoricos?.empleadosStatsMaster?.find(a => 
-                          a.cedula === empleadosSeleccionados[0].cedula || 
-                          esMismoEmpleado(a.nombre, empleadosSeleccionados[0].nombre)
+                          a.cedula === empleadosSeleccionados[0]?.cedula || 
+                          esMismoEmpleado(a.nombre, empleadosSeleccionados[0]?.nombre)
                       ) || 
                       alertasFiltradas.find(a => 
-                          a.cedula === empleadosSeleccionados[0].cedula || 
-                          esMismoEmpleado(a.nombre, empleadosSeleccionados[0].nombre)
+                          a.cedula === empleadosSeleccionados[0]?.cedula || 
+                          esMismoEmpleado(a.nombre, empleadosSeleccionados[0]?.nombre)
                       );
     
     if (empNomina && empNomina.desgloseJornadaPorMes) {
@@ -1141,13 +1139,12 @@ const esMismoEmpleado = (nom1, nom2) => {
          alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $0)`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
       }
 
-      // 🧠 MOTOR DE NARRATIVA AUDITORA EN TIEMPO REAL
-      const baseBiometricoFull = datosMarcaciones ? datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre)) : [];
+      const baseBiometricoFull = datosMarcaciones ? datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0]?.nombre)) : [];
       
       const bioPorMes = {};
       baseBiometricoFull.forEach(m => {
          if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
-         const mesKey = m.Fecha.substring(0, 7).replace('-', '/');
+         const mesKey = String(m.Fecha).substring(0, 7).replace('-', '/');
          if (!bioPorMes[mesKey]) {
             bioPorMes[mesKey] = { costoTotal: 0, festivosDias: 0, turnosTotal: 0 };
          }
@@ -1155,7 +1152,6 @@ const esMismoEmpleado = (nom1, nom2) => {
          bioPorMes[mesKey].costoTotal += recargo;
          bioPorMes[mesKey].turnosTotal += 1;
          
-         // Se detecta jornada festiva si el recargo del día es superior a $0
          if (recargo > 0) {
             bioPorMes[mesKey].festivosDias += 1;
          }
@@ -1176,11 +1172,13 @@ const esMismoEmpleado = (nom1, nom2) => {
       discrepancias.sort((a, b) => b.diffMes - a.diffMes);
 
       const nombresMesesMap = { '01':'Enero', '02':'Febrero', '03':'Marzo', '04':'Abril', '05':'Mayo', '06':'Junio', '07':'Julio', '08':'Agosto', '09':'Septiembre', '10':'Octubre', '11':'Noviembre', '12':'Diciembre' };
-      const nombreEmpleado = empleadosSeleccionados[0].nombre.split(' ')[0] || 'El colaborador';
+      const nombreEmpleado = empleadosSeleccionados[0]?.nombre ? String(empleadosSeleccionados[0].nombre).split(' ')[0] : 'El colaborador';
 
       empNomina.historiaForense = discrepancias.slice(0, 2).map((d, index) => {
-         const [ano, mesNum] = d.mesKey.split('/');
-         const nombreMesStr = (nombresMesesMap[mesNum] || mesNum).toUpperCase();
+         const partes = String(d.mesKey || '').split('/');
+         const ano = partes[0] || '2026';
+         const mesNum = partes[1] || '01';
+         const nombreMesStr = String(nombresMesesMap[mesNum] || mesNum || '').toUpperCase();
          
          let subtituloContexto = index === 0 ? '(El mayor descuadre)' : '(Descuadre Crítico)';
          if (nombreMesStr === 'ABRIL') subtituloContexto = '(El pico de Semana Santa)';
@@ -1213,6 +1211,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       empNominaRaw: empNomina
     };
   }, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones, datosMarcaciones]);
+
     return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
