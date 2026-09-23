@@ -1176,43 +1176,32 @@ const statsEmpleadoMarcaciones = React.useMemo(() => {
          }
       });
 
-      discrepancias.sort((a, b) => b.diffMes - a.diffMes);
+     discrepancias.sort((a, b) => b.diffMes - a.diffMes);
 
       const nombresMesesMap = { '01':'Enero', '02':'Febrero', '03':'Marzo', '04':'Abril', '05':'Mayo', '06':'Junio', '07':'Julio', '08':'Agosto', '09':'Septiembre', '10':'Octubre', '11':'Noviembre', '12':'Diciembre' };
       const nombreEmpleado = empleadosSeleccionados[0]?.nombre ? String(empleadosSeleccionados[0].nombre).split(' ')[0] : 'El colaborador';
 
-      empNomina.historiaForense = discrepancias.slice(0, 2).map((d, index) => {
-         // Extraer año y mes usando '-' o '/' de forma segura
+    empNomina.historiaForense = discrepancias.slice(0, 2).map((d, index) => {
          const partes = String(d.mesKey).includes('-') ? d.mesKey.split('-') : d.mesKey.split('/');
          const ano = partes[0] || '2026';
          const mesNum = partes[1] || '01';
          const nombreMesStr = String(nombresMesesMap[mesNum] || mesNum).toUpperCase();
          
-         let subtituloContexto = index === 0 ? '(El mayor descuadre)' : '(Descuadre Crítico)';
-         
-         let detalleReloj = '';
-         let detalleNomina = '';
-         let detalleDiferencia = '';
+         // 💡 100% DINÁMICO: El subtítulo depende de la posición en el ranking de fugas del empleado
+         let subtituloContexto = index === 0 ? '(Fuga Financiera Principal)' : '(Descuadre Secundario)';
 
-         if (nombreMesStr === 'JULIO') {
-            subtituloContexto = '(El mayor descuadre de festivos)';
-            detalleReloj = `${nombreEmpleado} solo fue a trabajar 1 día festivo en todo el mes (el 20 de julio de ${ano}). Registró una jornada real generando un costo de $300.949 COP por ese día.`;
-            detalleNomina = `El software contable le liquidó 3 veces el concepto DV22-RECARGO FESTIVO NO COMPENSADO (en las quincenas 232 y 233) por un total de 21.5 horas, girándole $925.775 COP solo por ese concepto (y un total de $${d.pagoNominaExtras.toLocaleString('es-CO')} COP sumando recargos nocturnos y dominicales).`;
-            detalleDiferencia = `Se le pagaron +$624.826 COP en festivos no laborados (2 días festivos extra que jamás pisó el hotel).`;
-         } else if (nombreMesStr === 'ABRIL') {
-            subtituloContexto = '(El pico de Semana Santa)';
-            detalleReloj = `${nombreEmpleado} solo fue a trabajar 2 días festivos (el 2 y 3 de abril de ${ano}, correspondiente a Jueves y Viernes Santo). Por esos 2 días, generó un costo real en recargos de $570.218 COP ($285.109 COP por cada día).`;
-            detalleNomina = `En la quincena 226, la nómina registró un pago manual de 22 horas bajo el concepto DV22-RECARGO FESTIVO NO COMPENSADO, equivalente a $855.328 COP (y un total del mes de $${d.pagoNominaExtras.toLocaleString('es-CO')} COP en recargos/extras).`;
-            detalleDiferencia = `Se le pagó +$285.110 COP de más en festivos (equivalente a casi 1 día entero de festivo extra sin soporte de asistencia).`;
+         let detalleReloj = '';
+         if (d.bioMes.festivosDias > 0) {
+            detalleReloj = `${nombreEmpleado} registró asistencia en ${d.bioMes.festivosDias} día(s) festivos/dominicales. En total, durante el mes generó un costo real justificado en el reloj de $${d.bioMes.costoTotal.toLocaleString('es-CO')} COP.`;
+         } else if (d.bioMes.costoTotal > 0) {
+            detalleReloj = `${nombreEmpleado} registró ${d.bioMes.turnosTotal} turno(s) con recargos ordinarios en el reloj. Generó un costo físico real de $${d.bioMes.costoTotal.toLocaleString('es-CO')} COP.`;
          } else {
-            if (d.bioMes.costoTotal > 0) {
-               detalleReloj = `${nombreEmpleado} registró ${d.bioMes.festivosDias > 0 ? d.bioMes.festivosDias : d.bioMes.turnosTotal} turno(s) con recargos en el reloj. Generó un costo real de $${d.bioMes.costoTotal.toLocaleString('es-CO')} COP.`;
-            } else {
-               detalleReloj = `${nombreEmpleado} no registró marcaciones con recargos en el reloj durante este mes ($0 COP).`;
-            }
-            detalleNomina = `El software contable le liquidó un total de $${d.pagoNominaExtras.toLocaleString('es-CO')} COP en recargos y extras manuales.`;
-            detalleDiferencia = `Se le pagaron +$${d.diffMes.toLocaleString('es-CO')} COP de más (dinero sin soporte físico en el reloj).`;
+            detalleReloj = `${nombreEmpleado} NO registró ni una sola hora extra o recargo en el reloj durante todo el mes ($0 COP).`;
          }
+
+         let detalleNomina = `El software contable le liquidó conceptos manuales girándole un total de $${d.pagoNominaExtras.toLocaleString('es-CO')} COP en recargos y extras.`;
+         
+         let detalleDiferencia = `Se le pagaron +$${d.diffMes.toLocaleString('es-CO')} COP de más (dinero sin soporte físico en el reloj).`;
 
          return {
             titulo: `${index + 1}. ${nombreMesStr} DE ${ano} ${subtituloContexto}`,
