@@ -1107,7 +1107,7 @@ const esMismoEmpleado = (nom1, nom2) => {
     return Object.values(mapaAgrupado).sort((a, b) => a.ejeX.localeCompare(b.ejeX));
   }, [datosMarcaciones, empleadosSeleccionados, filtroQuincenaMarcaciones, granularidadMarcaciones]);
 
-  // 🤖 CEREBRO INTELIGENTE: CRUZAR LO SELECCIONADO EN MARCACIONES CON LA NÓMINA PAGADA
+// 🤖 CEREBRO INTELIGENTE: CRUZAR LO SELECCIONADO EN MARCACIONES CON LA NÓMINA PAGADA
   const statsEmpleadoMarcaciones = React.useMemo(() => {
     if (!marcacionesEmpleadoSeleccionado || marcacionesEmpleadoSeleccionado.length === 0) {
       return { totalDias: 0, totalCosto: 0, primeraFecha: '-', ultimaFecha: '-', alertaInteligente: null };
@@ -1118,7 +1118,9 @@ const esMismoEmpleado = (nom1, nom2) => {
     
     // Cruce inteligente con la data de Nómina 
     let alertaInteligente = { texto: "Inspeccionando...", color: "bg-slate-50", textCol: "text-slate-600", icono: "ℹ️" };
-    const empNomina = alertasFiltradas.find(a => a.cedula === empleadosSeleccionados[0].cedula);
+    
+    // 👁️ CORRECCIÓN AQUÍ: Buscar directamente en la matriz maestra (datosHistoricos) para que no se apague al cambiar de pestaña
+    const empNomina = datosHistoricos?.alertasJornada?.find(a => a.cedula === empleadosSeleccionados[0].cedula);
     
     if (empNomina && empNomina.desgloseJornadaPorMes) {
       let totalPagadoNomina = 0;
@@ -1141,15 +1143,12 @@ const esMismoEmpleado = (nom1, nom2) => {
       } 
       // CASO 3: Clic o Selección en QUINCENA (Ej. "2026-07-Q2")
       else if (granularidadMarcaciones === 'QUINCENA' || filtroQuincenaMarcaciones !== 'TODAS') {
-         // Buscamos todas las transacciones históricas que caen en esa quincena
          const partesQ = periodoGrafica.split('-');
          if (partesQ.length === 3) {
             const mesBuscado = `${partesQ[0]}/${partesQ[1]}`;
-            // Aproximación de quincena sumando si es Q1 o Q2 (como tu base agrupa por mesOrigen, estimaremos)
             if (empNomina.desgloseJornadaPorMes[mesBuscado]) {
-                // Alerta manual para Quincenas aisladas porque la Nube guardó los totales mensuales
                 alertaInteligente = { 
-                   texto: `La nómina en la Nube se guardó consolidada por Mes (${mesBuscado}). Cambia la gráfica a 'Mes' para hacer el cruce exacto.`, 
+                   texto: `La nómina en la Nube se guardó por Mes (${mesBuscado}). Cambia la gráfica a 'Mes' para hacer el cruce exacto.`, 
                    color: "bg-blue-50 border-blue-200", textCol: "text-blue-700", icono: "ℹ️" 
                 };
             } else {
@@ -1168,7 +1167,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       // 🧮 Solo hacemos la resta si se activó la bandera de cruce (Mes Completo o Histórico)
       if (puedeCruzar) {
          const diff = Math.round(totalPagadoNomina - totalCosto);
-         if (diff > 500) { // Tolerancia por decimales
+         if (diff > 500) { // Tolerancia de 500 pesos por decimales
             alertaInteligente = { texto: `🚨 Sobrepago de Nómina (+$${diff.toLocaleString('es-CO')})`, color: "bg-rose-50 border-rose-200", textCol: "text-rose-700", icono: "⚠️" };
          } else if (diff < -500) {
             alertaInteligente = { texto: `🚨 Dinero Faltante en Nómina (-$${Math.abs(diff).toLocaleString('es-CO')})`, color: "bg-orange-50 border-orange-200", textCol: "text-orange-700", icono: "⚠️" };
@@ -1176,6 +1175,8 @@ const esMismoEmpleado = (nom1, nom2) => {
             alertaInteligente = { texto: `✅ Cuadre Exacto con Nómina (Dif: $0)`, color: "bg-emerald-50 border-emerald-200", textCol: "text-emerald-700", icono: "✅" };
          }
       }
+    } else {
+      alertaInteligente = { texto: "No hay datos de nómina cargados para este empleado.", color: "bg-slate-100", textCol: "text-slate-500", icono: "ℹ️" };
     }
 
     return {
@@ -1185,7 +1186,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       ultimaFecha: fechas[fechas.length - 1] || '-',
       alertaInteligente
     };
-  }, [marcacionesEmpleadoSeleccionado, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
+  }, [marcacionesEmpleadoSeleccionado, datosHistoricos, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
