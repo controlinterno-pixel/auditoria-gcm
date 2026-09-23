@@ -66,6 +66,37 @@ const buscarColumna = (fila, aliasPosibles) => {
   return undefined;
 };
 
+// 🗓️ CÁLCULO DE QUINCENA SEGÚN CORTES REALES DE EMPRESA (23-7 / 8-22)
+const calcularQuincenaCorte = (fechaStr) => {
+  if (!fechaStr || fechaStr === 'Sin Fecha') return 'Desconocido';
+  
+  let dt = null;
+  if (fechaStr.includes('-')) {
+    const parts = fechaStr.split('-');
+    if (parts.length === 3) {
+      dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+  }
+
+  if (!dt || isNaN(dt.getTime())) return fechaStr;
+
+  const ano = dt.getFullYear();
+  const mes = dt.getMonth() + 1;
+  const dia = dt.getDate();
+
+  // Corte 1: Día 23 del mes anterior al 7 del mes actual -> Q1 (pago el 15)
+  if (dia >= 23) {
+    const mesSiguiente = mes === 12 ? 1 : mes + 1;
+    const anoSiguiente = mes === 12 ? ano + 1 : ano;
+    return `${anoSiguiente}-${String(mesSiguiente).padStart(2, '0')}-Q1`;
+  } else if (dia <= 7) {
+    return `${ano}-${String(mes).padStart(2, '0')}-Q1`;
+  } else {
+    // Corte 2: Día 8 al 22 del mes actual -> Q2 (pago el 30/31)
+    return `${ano}-${String(mes).padStart(2, '0')}-Q2`;
+  }
+};
+
 const DashboardHistorico = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [datosHistoricos, setDatosHistoricos] = useState(null);
@@ -643,6 +674,7 @@ const esMismoEmpleado = (nom1, nom2) => {
             Empresa: String(empresaVal).trim(), 
             Empleado: String(empleadoVal).trim(),
             Fecha: fechaFormateada || 'Sin Fecha',
+            Periodo_Corte: calcularQuincenaCorte(fechaFormateada), // 🗓️ Asignación de quincena real (23-7 / 8-22)
             Horario: buscarColumna(row, ['Horario', 'HORARIO', 'Turno']) || 'Sin Registro',
             HT: buscarColumna(row, ['HT', 'Horas', 'HT_Horas']) || '00:00',
             Total_Recargos_Dia: parsearMonto(buscarColumna(row, ['Total_Recargos_Dia', 'Total_Recargos', 'TOTAL_RECARGOS'])),
@@ -2156,6 +2188,7 @@ const esMismoEmpleado = (nom1, nom2) => {
                                 <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-xs sticky top-0 shadow-sm">
                                     <tr>
                                         <th className="p-3">Fecha del Turno</th>
+                                        <th className="p-3 text-center">Quincena de Corte</th>
                                         <th className="p-3">Horario Real Biométrico</th>
                                         <th className="p-3 text-center">Horas Trabs (HT)</th>
                                         <th className="p-3 text-right">Recargos Día ($)</th>
@@ -2167,6 +2200,7 @@ const esMismoEmpleado = (nom1, nom2) => {
                                         .map((row) => (
                                         <tr key={row.id} className="hover:bg-purple-50 transition-colors">
                                             <td className="p-3 whitespace-nowrap font-medium text-slate-700">{row.Fecha}</td>
+                                            <td className="p-3 text-center font-mono text-xs font-bold text-indigo-600 bg-indigo-50/50 rounded">{row.Periodo_Corte || calcularQuincenaCorte(row.Fecha)}</td>
                                             <td className="p-3 font-mono text-purple-700 font-bold bg-white rounded px-2">{row.Horario}</td>
                                             <td className="p-3 text-center font-bold text-slate-600">{row.HT}</td>
                                             <td className="p-3 text-right font-extrabold text-amber-600">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
