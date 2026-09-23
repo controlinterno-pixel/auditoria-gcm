@@ -725,7 +725,58 @@ const esMismoEmpleado = (nom1, nom2) => {
       e.target.value = null;
     }
   };
+// 📥 EXPORTAR REPORTE FORENSE DE HORAS HUÉRFANAS A EXCEL
+  const exportarDeudasLaboralesExcel = () => {
+    if (!datosMarcaciones || !datosHistoricos) {
+      alert("⚠️ Primero debes cargar las marcaciones biométricas y ejecutar el escáner de la nube.");
+      return;
+    }
 
+    const dataExportar = [];
+
+    // 1. Sumar el costo total biométrico por persona
+    const bioPorPersona = {};
+    datosMarcaciones.forEach(m => {
+      if (!bioPorPersona[m.Empleado]) bioPorPersona[m.Empleado] = 0;
+      bioPorPersona[m.Empleado] += (m.Total_Recargos_Dia || 0);
+    });
+
+    // 2. Cruzar contra lo pagado en Nómina
+    datosHistoricos.empleadosStatsMaster.forEach(empNom => {
+      // Buscar al empleado en la lista del biométrico tolerando diferencias de espacios
+      const nombreBio = Object.keys(bioPorPersona).find(n => esMismoEmpleado(n, empNom.nombre));
+      const costoBio = nombreBio ? bioPorPersona[nombreBio] : 0;
+      const costoNom = (empNom.totalValorExtras || 0) + (empNom.totalValorRecargos || 0);
+
+      const diferencia = costoNom - costoBio;
+
+      // 💡 Si la diferencia es menor a -$1.000 COP, significa que le debemos dinero (Horas Huérfanas)
+      if (diferencia < -1000) {
+        dataExportar.push({
+          "Cédula": empNom.cedula,
+          "Trabajador": empNom.nombre,
+          "Cargo": empNom.cargo,
+          "Unidad": empNom.unidad,
+          "Soporte Biométrico ($)": Math.round(costoBio),
+          "Pagado en ERP ($)": Math.round(costoNom),
+          "DEUDA (Faltante) ($)": Math.round(Math.abs(diferencia)),
+          "Diagnóstico": "🚨 Omisión de recargos / Turno amanecido"
+        });
+      }
+    });
+
+    if (dataExportar.length === 0) {
+      alert("¡Excelente! No se detectaron deudas laborales masivas.");
+      return;
+    }
+
+    // 3. Ordenar de mayor a menor deuda y generar el Excel
+    const dataOrdenada = dataExportar.sort((a, b) => b["DEUDA (Faltante) ($)"] - a["DEUDA (Faltante) ($)"]);
+    const worksheet = XLSX.utils.json_to_sheet(dataOrdenada);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Horas_Huerfanas");
+    XLSX.writeFile(workbook, "Auditoria_Pasivo_Laboral_GCM.xlsx");
+  };
   // 🧠 NAVEGACIÓN RÁPIDA DE NÓMINA A MARCACIONES
   const irAMarcacionesEmpleado = (empleado) => {
       setEmpleadosSeleccionados([{ cedula: empleado.cedula, nombre: empleado.nombre }]);
@@ -1261,6 +1312,15 @@ disabled={isAnalyzing || listaBases.length === 0}
           >
             {isAnalyzing ? '⏳ Procesando Big Data...' : '🚀 Ejecutar Escáner Histórico'}
           </button>
+          {/* 👇 NUEVO BOTÓN DE EXPORTACIÓN 👇 */}
+          {datosHistoricos && datosMarcaciones && (
+            <button 
+              onClick={exportarDeudasLaboralesExcel}
+              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded shadow-lg transition-all flex items-center gap-2 border border-emerald-400"
+            >
+              📥 Descargar Excel de Deudas (Horas Huérfanas)
+            </button>
+          )}
         </div>
       </div>
 
