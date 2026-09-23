@@ -2394,10 +2394,29 @@ disabled={isAnalyzing || listaBases.length === 0}
                 {/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (RESUMEN VS DETALLE) */}
                 {empleadosSeleccionados.length === 0 ? (
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
-                        <div className="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center">
+                        <div className="bg-slate-100 p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div>
                                 <h3 className="font-bold text-slate-800">📊 Resumen General por Colaborador</h3>
-                                <p className="text-xs text-slate-500 mt-0.5">La base tiene <strong>{datosMarcaciones.length.toLocaleString('es-CO')}</strong> registros. Se agruparon en <strong>{resumenMarcaciones.length}</strong> empleados para optimizar la velocidad.</p>
+                                <p className="text-xs text-slate-500 mt-0.5">La base tiene <strong>{datosMarcaciones.length.toLocaleString('es-CO')}</strong> registros en la nube.</p>
+                            </div>
+                            
+                            {/* 🔍 BARRA DE BÚSQUEDA EXCLUSIVA PARA LA TABLA DE MARCACIONES */}
+                            <div className="w-full md:w-1/3 relative">
+                                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">🔍</span>
+                                <input
+                                    type="text"
+                                    placeholder="Buscar por nombre o empresa..."
+                                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 shadow-sm font-medium"
+                                    onChange={(e) => {
+                                        // 💡 Filtro dinámico en tiempo real manipulando la tabla inferior
+                                        const searchTerm = e.target.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                                        const rows = document.querySelectorAll('.fila-resumen-marcacion');
+                                        rows.forEach(row => {
+                                            const textoFila = row.textContent.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                                            row.style.display = textoFila.includes(searchTerm) ? '' : 'none';
+                                        });
+                                    }}
+                                />
                             </div>
                         </div>
                         <div className="overflow-x-auto max-h-[500px]">
@@ -2413,7 +2432,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {resumenMarcaciones.map((row, idx) => (
-                                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                        <tr key={idx} className="hover:bg-slate-50 transition-colors fila-resumen-marcacion">
                                             <td className="p-3 text-xs font-bold text-slate-500">{row.Empresa}</td>
                                             <td className="p-3 font-bold text-slate-800">{row.Empleado}</td>
                                             <td className="p-3 text-center font-bold text-indigo-600">{row.dias} días auditados</td>
