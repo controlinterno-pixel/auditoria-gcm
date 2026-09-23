@@ -572,6 +572,22 @@ riesgo: (() => {
     }
   };
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
+  // 💡 HELPER FORENSE: Comparación de nombres inmune a diferencias de orden
+const esMismoEmpleado = (nom1, nom2) => {
+  if (!nom1 || !nom2) return false;
+  const c1 = normalizarTexto(nom1).replace(/[^A-Z0-9\s]/g, '');
+  const c2 = normalizarTexto(nom2).replace(/[^A-Z0-9\s]/g, '');
+  if (c1 === c2) return true;
+  const w1 = new Set(c1.split(/\s+/).filter(w => w.length > 2));
+  const w2 = new Set(c2.split(/\s+/).filter(w => w.length > 2));
+  if (w1.size >= 2 && w2.size >= 2) {
+    const inter = [...w1].filter(x => w2.has(x));
+    if (inter.length >= Math.min(w1.size, w2.size)) return true;
+  }
+  return false;
+};
+
+// 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
   const handleCargarMarcaciones = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -638,7 +654,6 @@ riesgo: (() => {
 
       // 🛡️ ESCUDO ANTI-DUPLICADOS
       if (datosMarcaciones && datosMarcaciones.length > 0) {
-         // Busca si hay al menos un registro en el Excel nuevo que coincida exactamente en Empleado y Fecha con la nube
          const posibleDuplicado = todasLasMarcaciones.find(nuevo => 
             datosMarcaciones.some(viejo => viejo.Empleado === nuevo.Empleado && viejo.Fecha === nuevo.Fecha)
          );
@@ -648,8 +663,8 @@ riesgo: (() => {
             
             if (!confirmar) {
                setIsCargandoMarcaciones(false);
-               e.target.value = null; // Resetea el botón de subir
-               return; // Aborta la operación sin guardar nada
+               e.target.value = null;
+               return;
             }
          }
       }
@@ -657,7 +672,6 @@ riesgo: (() => {
       // 4. GUARDAR EN LA NUBE (FIREBASE)
       await guardarMarcacionesEnLaNube(todasLasMarcaciones);
 
-      // 5. Unir la data nueva con la vieja para que la gráfica se actualice de inmediato sin recargar la página
       const dataCombinada = datosMarcaciones ? [...datosMarcaciones, ...todasLasMarcaciones] : todasLasMarcaciones;
       setDatosMarcaciones(dataCombinada);
       
@@ -668,7 +682,7 @@ riesgo: (() => {
       alert("❌ Hubo un error procesando el archivo Excel. Verifica que no esté corrupto.");
     } finally {
       setIsCargandoMarcaciones(false);
-      e.target.value = null; // Resetea el input
+      e.target.value = null;
     }
   };
 
@@ -2119,13 +2133,13 @@ riesgo: (() => {
                     </div>
                 ) : (
                     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+<div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <h4 className="font-bold text-slate-800 mb-4 flex justify-between items-center">
                                 <span>📉 Evolución Diaria de: <span className="text-purple-700">{empleadosSeleccionados[0].nombre}</span></span>
                             </h4>
                             <div className="h-72 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={datosMarcaciones.filter(d => d.Empleado.includes(empleadosSeleccionados[0].nombre.split(' ')[0]))}>
+                                    <ComposedChart data={datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre))}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                         <XAxis dataKey="Fecha" fontSize={11} stroke="#64748b" />
                                         <YAxis yAxisId="left" stroke="#64748b" fontSize={11} tickFormatter={(val) => `$${(val/1000)}k`} />
@@ -2149,7 +2163,7 @@ riesgo: (() => {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {datosMarcaciones
-                                        .filter(d => d.Empleado.includes(empleadosSeleccionados[0].nombre.split(' ')[0]))
+                                        .filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre))
                                         .map((row) => (
                                         <tr key={row.id} className="hover:bg-purple-50 transition-colors">
                                             <td className="p-3 whitespace-nowrap font-medium text-slate-700">{row.Fecha}</td>
@@ -2167,7 +2181,6 @@ riesgo: (() => {
           )}
         </div>
       )}
-      {/* 🔍 MODAL DE DIAGNÓSTICO FORENSE MULTI-USO */}
       {empleadoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[90vh] overflow-y-auto relative text-slate-800">
