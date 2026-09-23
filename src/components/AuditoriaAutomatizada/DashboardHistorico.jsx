@@ -634,7 +634,7 @@ const esMismoEmpleado = (nom1, nom2) => {
 };
 
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
-const handleCargarMarcaciones = async (e) => {
+  const handleCargarMarcaciones = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setIsCargandoMarcaciones(true);
@@ -650,47 +650,42 @@ const handleCargarMarcaciones = async (e) => {
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
         const dataLimpia = jsonData.map((row, index) => {
-          try {
-            const empresaVal = buscarColumna(row, ['Empresa', 'EMPRESA', 'Compania']) || sheetName;
-            const empleadoVal = buscarColumna(row, ['Empleado', 'EMPLEADO', 'Nombre', 'Nombres']);
-            
-            if (!empleadoVal || empleadoVal.toString().trim() === '') return null; // Saltar filas vacías reales
+          const empresaVal = buscarColumna(row, ['Empresa', 'EMPRESA', 'Compania']) || sheetName;
+          const empleadoVal = buscarColumna(row, ['Empleado', 'EMPLEADO', 'Nombre', 'Nombres']);
+          
+          if (!empleadoVal || String(empleadoVal).trim() === '') return null; // Ignorar filas rotas
 
-            let fechaRaw = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
-            let fechaFormateada = '';
+          let fechaRaw = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
+          let fechaFormateada = '';
 
-            if (typeof fechaRaw === 'number' && fechaRaw > 30000) {
-              const fechaObj = new Date((fechaRaw - 25569) * 86400 * 1000);
-              const ano = fechaObj.getUTCFullYear();
-              const mes = String(fechaObj.getUTCMonth() + 1).padStart(2, '0');
-              const dia = String(fechaObj.getUTCDate()).padStart(2, '0');
-              fechaFormateada = `${ano}-${mes}-${dia}`;
-            } else if (typeof fechaRaw === 'string' && fechaRaw.includes('/')) {
-              const parteFecha = fechaRaw.includes('-') ? fechaRaw.split('-')[1].trim() : fechaRaw.trim();
-              const [d, m, a] = parteFecha.split('/');
-              if (d && m && a) fechaFormateada = `${a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-              else fechaFormateada = fechaRaw;
-            } else if (fechaRaw instanceof Date) {
-              fechaFormateada = fechaRaw.toISOString().split('T')[0];
-            } else {
-              fechaFormateada = String(fechaRaw).split('T')[0].trim();
-            }
-
-            return {
-              id: `${sheetName}-${index}`,
-              Empresa: String(empresaVal).trim(), 
-              Empleado: String(empleadoVal).trim(),
-              Fecha: fechaFormateada || 'Sin Fecha',
-              Periodo_Corte: calcularQuincenaCorte(fechaFormateada), 
-              Horario: String(buscarColumna(row, ['Horario', 'HORARIO', 'Turno']) || 'Sin Registro'),
-              HT: String(buscarColumna(row, ['HT', 'Horas', 'HT_Horas']) || '00:00'),
-              Total_Recargos_Dia: parsearMonto(buscarColumna(row, ['Total_Recargos_Dia', 'Total_Recargos', 'TOTAL_RECARGOS'])),
-            };
-          } catch (err) {
-            console.warn("Fila ignorada por error de formato", row);
-            return null;
+          if (typeof fechaRaw === 'number' && fechaRaw > 30000) {
+            const fechaObj = new Date((fechaRaw - 25569) * 86400 * 1000);
+            const ano = fechaObj.getUTCFullYear();
+            const mes = String(fechaObj.getUTCMonth() + 1).padStart(2, '0');
+            const dia = String(fechaObj.getUTCDate()).padStart(2, '0');
+            fechaFormateada = `${ano}-${mes}-${dia}`;
+          } else if (typeof fechaRaw === 'string' && fechaRaw.includes('/')) {
+            const parteFecha = fechaRaw.includes('-') ? fechaRaw.split('-')[1].trim() : fechaRaw.trim();
+            const [d, m, a] = parteFecha.split('/');
+            if (d && m && a) fechaFormateada = `${a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            else fechaFormateada = fechaRaw;
+          } else if (fechaRaw instanceof Date) {
+            fechaFormateada = fechaRaw.toISOString().split('T')[0];
+          } else {
+            fechaFormateada = String(fechaRaw).split('T')[0].trim();
           }
-        }).filter(row => row !== null && row.Empleado !== 'Desconocido');
+
+          return {
+            id: `${sheetName}-${index}`,
+            Empresa: String(empresaVal).trim(), 
+            Empleado: String(empleadoVal).trim(),
+            Fecha: fechaFormateada || 'Sin Fecha',
+            Periodo_Corte: calcularQuincenaCorte(fechaFormateada), 
+            Horario: String(buscarColumna(row, ['Horario', 'HORARIO', 'Turno']) || 'Sin Registro'),
+            HT: String(buscarColumna(row, ['HT', 'Horas', 'HT_Horas']) || '00:00'),
+            Total_Recargos_Dia: parsearMonto(buscarColumna(row, ['Total_Recargos_Dia', 'Total_Recargos', 'TOTAL_RECARGOS'])),
+          };
+        }).filter(row => row !== null && row.Empleado !== 'Desconocido'); // 👁️ DEJA PASAR TODO (0 y Novedades)
 
         todasLasMarcaciones = [...todasLasMarcaciones, ...dataLimpia];
       });
@@ -699,9 +694,8 @@ const handleCargarMarcaciones = async (e) => {
          const posibleDuplicado = todasLasMarcaciones.find(nuevo => 
             datosMarcaciones.some(viejo => viejo.Empleado === nuevo.Empleado && viejo.Fecha === nuevo.Fecha)
          );
-
          if (posibleDuplicado) {
-            const confirmar = window.confirm(`⚠️ ALERTA DE DUPLICIDAD:\n\nEl sistema detectó que ya existen marcaciones en la Nube para el mes que intentas subir (Ej: ${posibleDuplicado.Empleado} el ${posibleDuplicado.Fecha}).\n\n¿Estás completamente seguro de querer subir y guardar este archivo?`);
+            const confirmar = window.confirm(`⚠️ ALERTA DE DUPLICIDAD:\n\nYa existen marcaciones en la Nube para este mes. Si continúas, duplicarás los costos. ¿Subir de todos modos?`);
             if (!confirmar) {
                setIsCargandoMarcaciones(false);
                e.target.value = null;
@@ -710,12 +704,17 @@ const handleCargarMarcaciones = async (e) => {
          }
       }
 
-      await guardarMarcacionesEnLaNube(todasLasMarcaciones);
+      // 🛡️ ESCUDO BIG DATA: DIVIDIR EN LOTES DE 10,000 PARA NO ESTALLAR FIREBASE
+      const chunk_size = 10000;
+      for (let i = 0; i < todasLasMarcaciones.length; i += chunk_size) {
+         const lote = todasLasMarcaciones.slice(i, i + chunk_size);
+         await guardarMarcacionesEnLaNube(lote); // Sube las cajas una por una
+      }
 
       const dataCombinada = datosMarcaciones ? [...datosMarcaciones, ...todasLasMarcaciones] : todasLasMarcaciones;
       setDatosMarcaciones(dataCombinada);
       
-      alert(`✅ Se procesaron y guardaron ${todasLasMarcaciones.length} turnos exitosamente en la Nube.`);
+      alert(`✅ ¡Big Data procesada! Se guardaron ${todasLasMarcaciones.length} turnos exitosamente en la Nube (divididos en lotes de seguridad).`);
 
     } catch (error) {
       console.error("Error leyendo Excel:", error);
