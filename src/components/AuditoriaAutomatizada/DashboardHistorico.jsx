@@ -725,57 +725,82 @@ const esMismoEmpleado = (nom1, nom2) => {
       e.target.value = null;
     }
   };
-// 📥 EXPORTAR REPORTE FORENSE DE HORAS HUÉRFANAS A EXCEL
-  const exportarDeudasLaboralesExcel = () => {
-    if (!datosMarcaciones || !datosHistoricos) {
-      alert("⚠️ Primero debes cargar las marcaciones biométricas y ejecutar el escáner de la nube.");
+// 📥 EXPORTAR REPORTE FORENSE (MES A MES) A EXCEL CON 2 PESTAÑAS
+  const exportarAuditoriaCompletaExcel = () => {
+    if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster) {
+      alert("⚠️ Primero debes cargar las marcaciones y ejecutar el escáner.");
       return;
     }
 
-    const dataExportar = [];
+    const deudasTrabajador = [];
+    const fugasEmpresa = [];
 
-    // 1. Sumar el costo total biométrico por persona
-    const bioPorPersona = {};
-    datosMarcaciones.forEach(m => {
-      if (!bioPorPersona[m.Empleado]) bioPorPersona[m.Empleado] = 0;
-      bioPorPersona[m.Empleado] += (m.Total_Recargos_Dia || 0);
-    });
+    datosHistoricos.empleadosStatsMaster.forEach(emp => {
+      if (emp.historiaForense) {
+        // En lugar de calcular manual, usamos el motor narrativo forense que ya lo hizo
+        const baseBiometricoFull = datosMarcaciones ? datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre)) : [];
+        const bioPorMes = {};
+        
+        baseBiometricoFull.forEach(m => {
+          if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
+          const mesKey = String(m.Fecha).substring(0, 7).replace('/', '-');
+          if (!bioPorMes[mesKey]) bioPorMes[mesKey] = 0;
+          bioPorMes[mesKey] += parsearMonto(m.Total_Recargos_Dia);
+        });
 
-    // 2. Cruzar contra lo pagado en Nómina
-    datosHistoricos.empleadosStatsMaster.forEach(empNom => {
-      // Buscar al empleado en la lista del biométrico tolerando diferencias de espacios
-      const nombreBio = Object.keys(bioPorPersona).find(n => esMismoEmpleado(n, empNom.nombre));
-      const costoBio = nombreBio ? bioPorPersona[nombreBio] : 0;
-      const costoNom = (empNom.totalValorExtras || 0) + (empNom.totalValorRecargos || 0);
+        Object.keys(emp.desgloseJornadaPorMes).forEach(rawMesKey => {
+          const mesKeyNorm = String(rawMesKey).replace('/', '-');
+          const dataNomMes = emp.desgloseJornadaPorMes[rawMesKey];
+          const pagoNominaExtras = dataNomMes.valor || 0;
+          const costoBio = bioPorMes[mesKeyNorm] || 0;
+          
+          const diferencia = Math.round(pagoNominaExtras - costoBio);
 
-      const diferencia = costoNom - costoBio;
-
-      // 💡 Si la diferencia es menor a -$1.000 COP, significa que le debemos dinero (Horas Huérfanas)
-      if (diferencia < -1000) {
-        dataExportar.push({
-          "Cédula": empNom.cedula,
-          "Trabajador": empNom.nombre,
-          "Cargo": empNom.cargo,
-          "Unidad": empNom.unidad,
-          "Soporte Biométrico ($)": Math.round(costoBio),
-          "Pagado en ERP ($)": Math.round(costoNom),
-          "DEUDA (Faltante) ($)": Math.round(Math.abs(diferencia)),
-          "Diagnóstico": "🚨 Omisión de recargos / Turno amanecido"
+          if (diferencia < -1000) {
+            deudasTrabajador.push({
+              "Cédula": emp.cedula,
+              "Trabajador": emp.nombre,
+              "Mes Auditado": mesKeyNorm,
+              "Soporte Biométrico ($)": Math.round(costoBio),
+              "Pagado en ERP ($)": Math.round(pagoNominaExtras),
+              "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
+              "Diagnóstico": "🚨 Turno amanecido u omisión de recargo"
+            });
+          } else if (diferencia > 1000) {
+            fugasEmpresa.push({
+              "Cédula": emp.cedula,
+              "Trabajador": emp.nombre,
+              "Mes Auditado": mesKeyNorm,
+              "Soporte Biométrico ($)": Math.round(costoBio),
+              "Pagado en ERP ($)": Math.round(pagoNominaExtras),
+              "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
+              "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma"
+            });
+          }
         });
       }
     });
 
-    if (dataExportar.length === 0) {
-      alert("¡Excelente! No se detectaron deudas laborales masivas.");
+    if (deudasTrabajador.length === 0 && fugasEmpresa.length === 0) {
+      alert("¡Excelente! No se detectaron descuadres en ningún mes.");
       return;
     }
 
-    // 3. Ordenar de mayor a menor deuda y generar el Excel
-    const dataOrdenada = dataExportar.sort((a, b) => b["DEUDA (Faltante) ($)"] - a["DEUDA (Faltante) ($)"]);
-    const worksheet = XLSX.utils.json_to_sheet(dataOrdenada);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Horas_Huerfanas");
-    XLSX.writeFile(workbook, "Auditoria_Pasivo_Laboral_GCM.xlsx");
+
+    if (deudasTrabajador.length > 0) {
+      const dataDeudas = deudasTrabajador.sort((a, b) => b["DEUDA AL EMPLEADO ($)"] - a["DEUDA AL EMPLEADO ($)"]);
+      const wsDeudas = XLSX.utils.json_to_sheet(dataDeudas);
+      XLSX.utils.book_append_sheet(workbook, wsDeudas, "Horas_Huerfanas_Deudas");
+    }
+
+    if (fugasEmpresa.length > 0) {
+      const dataFugas = fugasEmpresa.sort((a, b) => b["FUGA DE LA EMPRESA ($)"] - a["FUGA DE LA EMPRESA ($)"]);
+      const wsFugas = XLSX.utils.json_to_sheet(dataFugas);
+      XLSX.utils.book_append_sheet(workbook, wsFugas, "Fugas_y_Sobrepagos");
+    }
+
+    XLSX.writeFile(workbook, "Auditoria_Forense_Mes_a_Mes.xlsx");
   };
   // 🧠 NAVEGACIÓN RÁPIDA DE NÓMINA A MARCACIONES
   const irAMarcacionesEmpleado = (empleado) => {
@@ -1315,10 +1340,10 @@ disabled={isAnalyzing || listaBases.length === 0}
           {/* 👇 NUEVO BOTÓN DE EXPORTACIÓN 👇 */}
           {datosHistoricos && datosMarcaciones && (
             <button 
-              onClick={exportarDeudasLaboralesExcel}
+              onClick={exportarAuditoriaCompletaExcel}
               className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded shadow-lg transition-all flex items-center gap-2 border border-emerald-400"
             >
-              📥 Descargar Excel de Deudas (Horas Huérfanas)
+              📥 Descargar Excel de Auditoría Completa
             </button>
           )}
         </div>
