@@ -726,7 +726,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       e.target.value = null;
     }
   };
-// 📥 EXPORTAR REPORTE FORENSE ALINEADO POR QUINCENA DE CORTE REAL (23-7 Y 8-22)
+// 📥 EXPORTAR REPORTE FORENSE ULTRA-RÁPIDO (CERO CONGELAMIENTO DE NAVEGADOR)
   const exportarAuditoriaCompletaExcel = () => {
     if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster || !datosMarcaciones) {
       alert("⚠️ Primero debes cargar las marcaciones y ejecutar el escáner.");
@@ -735,23 +735,50 @@ const esMismoEmpleado = (nom1, nom2) => {
 
     setIsExporting(true);
 
+    // ⚡ 1. Liberar el hilo de la UI para que la pantalla no se congele
     setTimeout(() => {
       try {
+        // ⚡ 2. Pre-indexación en un Mapa de Memoria O(1)
+        // Agrupa todas las marcaciones por un hash del nombre del empleado
+        const mapaHuellasPorEmpleado = {};
+
+        datosMarcaciones.forEach(m => {
+          if (!m.Empleado || !m.Fecha || m.Fecha === 'Sin Fecha') return;
+          const keyNombre = normalizarTexto(m.Empleado).replace(/[^A-Z0-9]/g, '');
+          
+          if (!mapaHuellasPorEmpleado[keyNombre]) {
+            mapaHuellasPorEmpleado[keyNombre] = [];
+          }
+          mapaHuellasPorEmpleado[keyNombre].push(m);
+        });
+
         const deudasTrabajador = [];
         const fugasEmpresa = [];
 
+        // ⚡ 3. Procesamiento en Lote
         datosHistoricos.empleadosStatsMaster.forEach(emp => {
-          // 1. Filtrar las huellas físicas de este colaborador
-          const huellasEmpleado = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, emp.nombre));
+          if (!emp.desgloseJornadaPorMes) return;
+
+          const keyEmpNorm = normalizarTexto(emp.nombre).replace(/[^A-Z0-9]/g, '');
           
-          // 2. Agrupar el biométrico por QUINCENA DE CORTE REAL (Ej: "2026-08-Q1" o "2026-08-Q2")
+          // Búsqueda instantánea O(1)
+          let huellasEmpleado = mapaHuellasPorEmpleado[keyEmpNorm] || [];
+          
+          // Si no encuentra coincidencia exacta, busca coincidencias parciales de palabras clave
+          if (huellasEmpleado.length === 0) {
+            const palabrasEmp = keyEmpNorm.split(/\s+/).filter(w => w.length > 2);
+            for (const [k, v] of Object.entries(mapaHuellasPorEmpleado)) {
+              if (palabrasEmp.some(p => k.includes(p))) {
+                huellasEmpleado = v;
+                break;
+              }
+            }
+          }
+
           const bioPorQuincena = {};
           const turnosPorQuincena = {};
 
           huellasEmpleado.forEach(m => {
-            if (!m.Fecha || m.Fecha === 'Sin Fecha') return;
-            
-            // Usar la quincena de corte precalculada o calcularla en caliente
             const quincenaKey = m.Periodo_Corte || calcularQuincenaCorte(m.Fecha);
             
             if (!bioPorQuincena[quincenaKey]) {
@@ -767,81 +794,74 @@ const esMismoEmpleado = (nom1, nom2) => {
             }
           });
 
-          // 3. Mapear pagos del ERP por Quincena o Mes de Nómina
-          if (emp.desgloseJornadaPorMes) {
-            Object.keys(emp.desgloseJornadaPorMes).forEach(rawMesKey => {
-              const mesKeyNorm = String(rawMesKey).replace('/', '-');
-              const pagoNominaExtras = emp.desgloseJornadaPorMes[rawMesKey].valor || 0;
-              
-              // Buscar si existe un valor acumulado en el biométrico para este período/corte
-              let costoBio = bioPorQuincena[mesKeyNorm] || 0;
-              let turnosRelacionados = turnosPorQuincena[mesKeyNorm] || [];
+          Object.keys(emp.desgloseJornadaPorMes).forEach(rawMesKey => {
+            const mesKeyNorm = String(rawMesKey).replace('/', '-');
+            const pagoNominaExtras = emp.desgloseJornadaPorMes[rawMesKey].valor || 0;
+            
+            let costoBio = bioPorQuincena[mesKeyNorm] || 0;
+            let turnosRelacionados = turnosPorQuincena[mesKeyNorm] || [];
 
-              // Si el mes no coincide de forma exacta, intentar sumar las dos quincenas del mes (Q1 + Q2)
-              if (costoBio === 0 && !mesKeyNorm.includes('-Q')) {
-                const q1Key = `${mesKeyNorm}-Q1`;
-                const q2Key = `${mesKeyNorm}-Q2`;
-                costoBio = (bioPorQuincena[q1Key] || 0) + (bioPorQuincena[q2Key] || 0);
-                turnosRelacionados = [...(turnosPorQuincena[q1Key] || []), ...(turnosPorQuincena[q2Key] || [])];
+            if (costoBio === 0 && !mesKeyNorm.includes('-Q')) {
+              const q1Key = `${mesKeyNorm}-Q1`;
+              const q2Key = `${mesKeyNorm}-Q2`;
+              costoBio = (bioPorQuincena[q1Key] || 0) + (bioPorQuincena[q2Key] || 0);
+              turnosRelacionados = [...(turnosPorQuincena[q1Key] || []), ...(turnosPorQuincena[q2Key] || [])];
+            }
+
+            let detalleTurnos = "Sin turnos físicos con recargo";
+            if (turnosRelacionados.length > 0) {
+              const turnosAmanecidos = turnosRelacionados.filter(t => /2[0-3]:\d{2}\s*-\s*0[0-6]:\d{2}/.test(t));
+              if (turnosAmanecidos.length > 0) {
+                detalleTurnos = turnosAmanecidos.map(t => `🚨 [AMANECE] ${t}`).join("\r\n");
+              } else {
+                detalleTurnos = "⚠️ Sin amanecidas (Revisar posible festivo fantasma o error global)";
               }
+            }
 
-              let detalleTurnos = "Sin turnos físicos con recargo";
-              if (turnosRelacionados.length > 0) {
-                const turnosAmanecidos = turnosRelacionados.filter(t => /2[0-3]:\d{2}\s*-\s*0[0-6]:\d{2}/.test(t));
-                if (turnosAmanecidos.length > 0) {
-                  detalleTurnos = turnosAmanecidos.map(t => `🚨 [AMANECE] ${t}`).join("\r\n");
-                } else {
-                  detalleTurnos = "⚠️ Sin amanecidas (Revisar posible festivo fantasma o error global)";
-                }
-              }
+            const diferencia = Math.round(pagoNominaExtras - costoBio);
 
-              const diferencia = Math.round(pagoNominaExtras - costoBio);
-
-              // 🎯 FILTRO DE MATERIALIDAD AJUSTADO (> $15.000 COP)
-if (diferencia < -15000) {
-  deudasTrabajador.push({
-    "Cédula": emp.cedula,
-    "Trabajador": emp.nombre,
-    "Período / Quincena": mesKeyNorm,
-    "Soporte Biométrico ($)": Math.round(costoBio),
-    "Pagado en ERP ($)": Math.round(pagoNominaExtras),
-    "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
-    "Diagnóstico": "🚨 Omisión / Recorte en recargos dominicales u horas nocturnas",
-    "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
-  });
-} 
-else if (diferencia > 15000) {
-  fugasEmpresa.push({
-    "Cédula": emp.cedula,
-    "Trabajador": emp.nombre,
-    "Período / Quincena": mesKeyNorm,
-    "Soporte Biométrico ($)": Math.round(costoBio),
-    "Pagado en ERP ($)": Math.round(pagoNominaExtras),
-    "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
-    "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma",
-    "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
-  });
-}
-            });
-          }
+            // 🎯 UMBRAL DE MATERIALIDAD DE AUDITORÍA ($15.000 COP)
+            if (diferencia < -15000) {
+              deudasTrabajador.push({
+                "Cédula": emp.cedula,
+                "Trabajador": emp.nombre,
+                "Período / Quincena": mesKeyNorm,
+                "Soporte Biométrico ($)": Math.round(costoBio),
+                "Pagado en ERP ($)": Math.round(pagoNominaExtras),
+                "DEUDA AL EMPLEADO ($)": Math.round(Math.abs(diferencia)),
+                "Diagnóstico": "🚨 Omisión / Recorte en recargos dominicales u horas nocturnas",
+                "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+              });
+            } else if (diferencia > 15000) {
+              fugasEmpresa.push({
+                "Cédula": emp.cedula,
+                "Trabajador": emp.nombre,
+                "Período / Quincena": mesKeyNorm,
+                "Soporte Biométrico ($)": Math.round(costoBio),
+                "Pagado en ERP ($)": Math.round(pagoNominaExtras),
+                "FUGA DE LA EMPRESA ($)": Math.round(diferencia),
+                "Diagnóstico": "⚠️ Sobrepago / Festivo Fantasma",
+                "Evidencia Biométrico (Detalle de Turnos)": detalleTurnos
+              });
+            }
+          });
         });
 
         if (deudasTrabajador.length === 0 && fugasEmpresa.length === 0) {
-          alert("¡Excelente! No se detectaron descuadres mayores a $30.000 COP en ningún período.");
+          alert("¡Excelente! No se detectaron descuadres mayores a $15.000 COP en ningún período.");
+          setIsExporting(false);
           return;
         }
 
         const workbook = XLSX.utils.book_new();
 
         if (deudasTrabajador.length > 0) {
-          const dataDeudas = deudasTrabajador.sort((a, b) => b["DEUDA AL EMPLEADO ($)"] - a["DEUDA AL EMPLEADO ($)"]);
-          const wsDeudas = XLSX.utils.json_to_sheet(dataDeudas);
+          const wsDeudas = XLSX.utils.json_to_sheet(deudasTrabajador.sort((a, b) => b["DEUDA AL EMPLEADO ($)"] - a["DEUDA AL EMPLEADO ($)"]));
           XLSX.utils.book_append_sheet(workbook, wsDeudas, "Horas_Huerfanas_Deudas");
         }
 
         if (fugasEmpresa.length > 0) {
-          const dataFugas = fugasEmpresa.sort((a, b) => b["FUGA DE LA EMPRESA ($)"] - a["FUGA DE LA EMPRESA ($)"]);
-          const wsFugas = XLSX.utils.json_to_sheet(dataFugas);
+          const wsFugas = XLSX.utils.json_to_sheet(fugasEmpresa.sort((a, b) => b["FUGA DE LA EMPRESA ($)"] - a["FUGA DE LA EMPRESA ($)"]));
           XLSX.utils.book_append_sheet(workbook, wsFugas, "Fugas_y_Sobrepagos");
         }
 
@@ -853,7 +873,7 @@ else if (diferencia > 15000) {
       } finally {
         setIsExporting(false);
       }
-    }, 100);
+    }, 150); // Le da tiempo suficiente a React para pintar el estado de carga
   };
   // 🧠 NAVEGACIÓN RÁPIDA DE NÓMINA A MARCACIONES
   const irAMarcacionesEmpleado = (empleado) => {
@@ -1390,16 +1410,21 @@ disabled={isAnalyzing || listaBases.length === 0}
           >
             {isAnalyzing ? '⏳ Procesando Big Data...' : '🚀 Ejecutar Escáner Histórico'}
           </button>
-         {/* 👇 NUEVO BOTÓN DE EXPORTACIÓN 👇 */}
-          {datosHistoricos && datosMarcaciones && (
-            <button 
-              onClick={exportarAuditoriaCompletaExcel}
-              disabled={isExporting}
-              className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded shadow-lg transition-all flex items-center gap-2 border border-emerald-400 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isExporting ? '⏳ Generando Excel...' : '📥 Descargar Excel de Auditoría Completa'}
-            </button>
-          )}
+        {datosHistoricos && datosMarcaciones && (
+  <button 
+    onClick={exportarAuditoriaCompletaExcel}
+    disabled={isExporting}
+    className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded shadow-lg transition-all flex items-center gap-2 border border-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    {isExporting ? (
+      <>
+        <span className="animate-spin">⏳</span> Generando Reporte Big Data...
+      </>
+    ) : (
+      '📥 Descargar Excel de Auditoría Completa'
+    )}
+  </button>
+)}
         </div>
       </div>
 
