@@ -2809,19 +2809,35 @@ disabled={isAnalyzing || listaBases.length === 0}
                             </div>
                         </div>
 
-                        {/* 🚨 NUEVO: MAPA DE COBERTURA / SUPERPOSICIÓN DE JEFATURAS (Solo si eligen 2 o más) */}
+                      {/* 🚨 NUEVO: MAPA DE COBERTURA / SUPERPOSICIÓN DE JEFATURAS (Solo si eligen 2 o más) */}
                         {empleadosSeleccionados.length > 1 && (
                           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6 animate-in fade-in slide-in-from-bottom-4">
                               <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
                                   <span>🗺️</span> Mapa de Cobertura y Superposición (Jefaturas)
                               </h4>
                               <p className="text-xs text-slate-500 mb-6">
-                                  Si la barra pasa de <strong className="text-indigo-600">Nivel 1</strong>, significa que <strong className="text-rose-600">múltiples jefes trabajaron simultáneamente ese día</strong>. Los días rojos son Domingos.
+                                  Si la barra pasa de <strong className="text-indigo-600">Nivel 1</strong>, significa que <strong className="text-rose-600">múltiples jefes trabajaron simultáneamente ese día</strong>. Los días rojos son Domingos.<br/>
+                                  👉 <strong className="text-purple-600">Da clic en cualquier barra para filtrar la tabla inferior y cruzar los turnos exactos de ese día.</strong>
                               </p>
                               
-                              <div className="h-72 w-full">
+                              <div className="h-72 w-full cursor-pointer">
                                   <ResponsiveContainer width="100%" height="100%">
-                                      <BarChart data={dataSuperposicion}>
+                                      <BarChart 
+                                        data={dataSuperposicion}
+                                        onClick={(e) => {
+                                          if (e && e.activePayload && e.activePayload.length > 0) {
+                                            const fechaClic = e.activePayload[0].payload.Fecha;
+                                            if (filtroClicGrafica === fechaClic) {
+                                                setFiltroClicGrafica(null);
+                                            } else {
+                                                setFiltroClicGrafica(fechaClic);
+                                                setGranularidadMarcaciones('DIA'); // Fuerza la tabla de abajo a mostrar solo ese día
+                                            }
+                                          } else {
+                                            setFiltroClicGrafica(null);
+                                          }
+                                        }}
+                                      >
                                           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                                           <XAxis dataKey="Etiqueta" stroke="#64748b" fontSize={10} fontWeight="bold" interval={0} angle={-45} textAnchor="end" height={60} 
                                             tick={({ x, y, payload }) => {
@@ -2841,6 +2857,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                                 if (payload && payload.length) return `📅 Fecha: ${payload[0].payload.Fecha}`;
                                                 return label;
                                               }}
+                                              cursor={{fill: '#f3e8ff'}}
                                           />
                                           <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
                                           
@@ -2854,6 +2871,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                                     dataKey={nombreCorto} 
                                                     stackId="cobertura" 
                                                     fill={coloresJefes[idx % coloresJefes.length]} 
+                                                    style={{transition: 'fill 0.3s'}}
                                                   />
                                               );
                                           })}
@@ -2861,7 +2879,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                   </ResponsiveContainer>
                               </div>
                           </div>
-                        )}
+                        )}  
 
                         {/* 📈 NUEVA GRÁFICA DE TENDENCIA DE TURNOS (CURVA MULTI-LÍNEA) */}
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6">
