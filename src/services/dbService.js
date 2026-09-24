@@ -2,8 +2,61 @@
  * 🗄️ dbService.js - Capa Centralizada de Datos para GRC
  * Soporta API Backend + LocalStorage Fallback + Datos Semilla Iniciales
  */
+import CryptoJS from 'crypto-js';
 
 const BASE_URL = 'https://repos.termalessantarosa.com.co/api/grc';
+
+// 🔑 Llave secreta para encriptar el LocalStorage
+const SECRET_KEY = "GCM_Auditor_Key_2026"; 
+
+// 🔒 GUARDADO SEGURO ENCRIPTADO
+const guardarDataSegura = (key, data) => {
+  const dataString = JSON.stringify(data);
+  const dataEncriptada = CryptoJS.AES.encrypt(dataString, SECRET_KEY).toString();
+  localStorage.setItem(key, dataEncriptada);
+};
+
+// 🔓 LECTURA SEGURA DESENCRIPTADA
+const leerDataSegura = (key) => {
+  const dataEncriptada = localStorage.getItem(key);
+  if (!dataEncriptada) return null;
+  
+  try {
+    const bytes = CryptoJS.AES.decrypt(dataEncriptada, SECRET_KEY);
+    const dataDesencriptada = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+    return dataDesencriptada;
+  } catch (error) {
+    console.warn("Limpiando caché local por actualización de seguridad...");
+    localStorage.removeItem(key);
+    return null;
+  }
+};
+
+// 🔑 Llave secreta para encriptar el LocalStorage (Nadie podrá leerlo desde la consola)
+const SECRET_KEY = "GCM_Auditor_Key_2026"; 
+
+// 🔒 GUARDADO SEGURO ENCRIPTADO
+const guardarDataSegura = (key, data) => {
+  const dataString = JSON.stringify(data);
+  const dataEncriptada = CryptoJS.AES.encrypt(dataString, SECRET_KEY).toString();
+  localStorage.setItem(key, dataEncriptada);
+};
+
+// 🔓 LECTURA SEGURA DESENCRIPTADA
+const leerDataSegura = (key) => {
+  const dataEncriptada = localStorage.getItem(key);
+  if (!dataEncriptada) return null;
+  
+  try {
+    const bytes = CryptoJS.AES.decrypt(dataEncriptada, SECRET_KEY);
+    const dataDesencriptada = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+    return dataDesencriptada;
+  } catch (error) {
+    console.warn("Limpiando caché local por actualización de seguridad...");
+    localStorage.removeItem(key);
+    return null;
+  }
+};
 
 // 🌿 Datos Semilla por defecto (Para cuando la API falle y LocalStorage esté vacío)
 const DATOS_SEMILLA = {
@@ -40,22 +93,17 @@ export const dbService = {
       }
       return await response.json();
     } catch (error) {
-      console.warn(`⚠️ API no disponible para '${coleccion}'. Usando almacenamiento local.`);
+      console.warn(`⚠️ API no disponible para '${coleccion}'. Usando almacenamiento local seguro.`);
       
       const localKey = `grc_${coleccion}`;
-      const localData = localStorage.getItem(localKey);
+      const parsedData = leerDataSegura(localKey) || [];
 
-      // Convertimos los datos locales (si existen) o creamos un arreglo vacío
-      const parsedData = localData ? JSON.parse(localData) : [];
-
-      // 💡 SOLUCIÓN: Verificamos si realmente hay información (length > 0)
       if (parsedData.length > 0) {
         return parsedData;
       }
 
-      // Si está vacío (o no existía), inyectamos los datos semilla
       const datosIniciales = DATOS_SEMILLA[coleccion] || [];
-      localStorage.setItem(localKey, JSON.stringify(datosIniciales));
+      guardarDataSegura(localKey, datosIniciales);
       return datosIniciales;
     }
   },
@@ -81,10 +129,10 @@ export const dbService = {
       if (!response.ok) throw new Error('Error en backend');
       return await response.json();
     } catch (error) {
-      console.warn(`⚠️ Guardando localmente en '${coleccion}'.`);
+      console.warn(`⚠️ Guardando localmente y encriptado en '${coleccion}'.`);
 
       const localKey = `grc_${coleccion}`;
-      const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+      const localData = leerDataSegura(localKey) || [];
       let actualizados;
 
       if (esEdicion) {
@@ -94,7 +142,7 @@ export const dbService = {
         actualizados = [...localData, nuevoRegistro];
       }
 
-      localStorage.setItem(localKey, JSON.stringify(actualizados));
+      guardarDataSegura(localKey, actualizados);
       return registro;
     }
   },
@@ -110,12 +158,13 @@ export const dbService = {
       if (!response.ok) throw new Error('Error al eliminar en backend');
       return await response.json();
     } catch (error) {
-      console.warn(`⚠️ Eliminando localmente de '${coleccion}'.`);
+      console.warn(`⚠️ Eliminando localmente en base encriptada de '${coleccion}'.`);
 
       const localKey = `grc_${coleccion}`;
-      const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+      const localData = leerDataSegura(localKey) || [];
       const filtrados = localData.filter(item => item.id !== id);
-      localStorage.setItem(localKey, JSON.stringify(filtrados));
+      
+      guardarDataSegura(localKey, filtrados);
       return { success: true, id };
     }
   }
