@@ -361,10 +361,21 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   
 
 const handleLogout = async () => { 
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-    setUser(null);
-    setIsAdmin(false);
-    setShowWelcome(true); 
+    try {
+      // 1. Matamos la sesión en el Backend (Cookie)
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      // 2. Matamos la sesión en el Frontend (Firebase)
+      await signOut(auth);
+      // 3. Limpiamos los estados de React
+      setUser(null);
+      setIsAdmin(false);
+      setShowWelcome(true);
+      // 4. 🔥 BALA DE PLATA: Forzamos la limpieza del DOM para evitar formularios atascados
+      window.location.reload(); 
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      window.location.reload(); // Si falla algo, recargamos por seguridad
+    }
   };
 const saveToCloud = async (partialData) => { 
     try {
