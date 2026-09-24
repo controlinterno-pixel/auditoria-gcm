@@ -2629,7 +2629,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                       </div>
                     )}                  
 
-                 {/* 🔍 NUEVO BUSCADOR MULTI-EMPLEADO PARA BIOMÉTRICO */}
+                {/* 🔍 NUEVO BUSCADOR MULTI-EMPLEADO PARA BIOMÉTRICO */}
                     <div className="w-full md:w-1/4 relative group z-50">
                         <label className="text-xs font-bold text-slate-600 block mb-1">🔍 Añadir Jefaturas / Colab:</label>
                         <div className="relative">
@@ -2657,30 +2657,30 @@ disabled={isAnalyzing || listaBases.length === 0}
                         {/* 🎯 Dropdown de Autocompletado del Biométrico */}
                         {busqueda.trim().length > 0 && (
                           <div className="absolute top-full left-0 mt-1 w-96 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden hidden group-focus-within:block hover:block">
-                            {alertasFiltradas.filter(emp => emp.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()) || emp.cedula.includes(busqueda.trim())).length === 0 ? (
+                            {resumenMarcaciones.filter(row => row.Empleado.toLowerCase().includes(busqueda.toLowerCase().trim())).length === 0 ? (
                               <p className="text-[10px] text-slate-400 p-3 text-center italic">No hay coincidencias.</p>
                             ) : (
                               <div className="p-1">
-                                {alertasFiltradas
-                                  .filter(emp => emp.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()) || emp.cedula.includes(busqueda.trim()))
+                                {resumenMarcaciones
+                                  .filter(row => row.Empleado.toLowerCase().includes(busqueda.toLowerCase().trim()))
                                   .slice(0, 15)
-                                  .map(emp => {
-                                    const isSelected = empleadosSeleccionados.some(e => e.cedula === emp.cedula);
+                                  .map(row => {
+                                    const isSelected = empleadosSeleccionados.some(e => e.nombre === row.Empleado);
                                     return (
                                       <button
-                                        key={emp.cedula}
+                                        key={row.Empleado}
                                         type="button"
                                         onClick={() => {
                                           if (!isSelected) {
-                                            setEmpleadosSeleccionados(prev => [...prev, { cedula: emp.cedula, nombre: emp.nombre }]);
+                                            setEmpleadosSeleccionados(prev => [...prev, { cedula: '', nombre: row.Empleado }]);
                                           }
                                           setBusqueda(''); // Limpiamos el buscador después de seleccionar
                                         }}
                                         className="w-full text-left p-2 hover:bg-purple-50 rounded-lg transition-colors flex items-center justify-between group/btn border border-transparent hover:border-purple-100"
                                       >
                                         <div>
-                                          <p className="text-[11px] font-bold text-slate-700">{emp.nombre}</p>
-                                          <p className="text-[9px] text-slate-500 font-mono">{emp.cedula}</p>
+                                          <p className="text-[11px] font-bold text-slate-700">{row.Empleado}</p>
+                                          <p className="text-[9px] text-slate-500 font-mono">{row.Empresa}</p>
                                         </div>
                                         {isSelected ? (
                                           <span className="text-[10px] text-emerald-600 font-bold px-2 py-0.5 bg-emerald-50 rounded-md">Añadido</span>
@@ -2694,7 +2694,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                             )}
                           </div>
                         )}
-                    </div>    
+                    </div>  
                 </div>
 
                 {/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (RESUMEN VS DETALLE) */}
