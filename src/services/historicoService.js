@@ -9,58 +9,33 @@ export const guardarNominaHistorica = async (filasExcel, periodo) => {
       throw new Error("No hay datos en la nómina para guardar.");
     }
 
-    // 1. Agrupar por Empresa respetando los datos crudos originales (Sin comprimir)
-    const porEmpresa = {};
-    
-    filasExcel.forEach(fila => {
-      // Buscar la llave que contenga la empresa
-      const llaves = Object.keys(fila);
-      const llaveEmpresa = llaves.find(k => k.toLowerCase().includes('empresa') || k.toLowerCase().includes('compania'));
-      let empNombre = llaveEmpresa ? fila[llaveEmpresa] : 'GENERAL';
-      
-      const empresasLista = String(empNombre).split('+').map(e => e.trim());
-      
-      empresasLista.forEach(e => {
-        if (!porEmpresa[e]) porEmpresa[e] = [];
-        porEmpresa[e].push(fila); // Guardamos la fila INTACTA
+    const TAMANO_LOTE = 1000;
+    const totalFilas = filasExcel.length;
+
+    for (let i = 0; i < totalFilas; i += TAMANO_LOTE) {
+      const lote = filasExcel.slice(i, i + TAMANO_LOTE);
+
+      const response = await fetch('/api/grc/historico', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          filasExcel: lote, 
+          periodo 
+        }),
       });
-    });
 
-    const periodoLimpio = String(periodo).trim().replace('/', '-');
-    const batch = writeBatch(db);
-    const resumenBatch = writeBatch(db);
+      const data = await response.json();
 
-    // 2. Partir y Guardar en pedacitos (Chunks)
-    for (const empNombre of Object.keys(porEmpresa)) {
-      const empresaLimpia = empNombre.replace(/[\s/]/g, '_');
-      const docBaseId = `${empresaLimpia}_${periodoLimpio}`;
-      const filasEmpresa = porEmpresa[empNombre];
-      
-      // Guardar un "Indice Principal" para mostrar en la tabla de la UI
-      const refIndice = doc(db, 'nominas_historicas', docBaseId);
-      resumenBatch.set(refIndice, {
-        periodo: periodoLimpio,
-        empresa: empresaLimpia,
-        fechaCarga: new Date().toISOString(),
-        totalRegistros: filasEmpresa.length, // Aquí debería marcar miles de registros
-        esChunked: true 
-      }, { merge: true });
-
-      // Dividir el arreglo gigante en pedazos de 500 y guardarlos
-      for (let i = 0; i < filasEmpresa.length; i += CHUNK_SIZE) {
-        const pedazo = filasEmpresa.slice(i, i + CHUNK_SIZE);
-        const refChunk = doc(db, `nominas_historicas/${docBaseId}/chunks`, `part_${i}`);
-        batch.set(refChunk, { datos: pedazo });
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al procesar la nómina en el servidor.');
       }
     }
 
-    await resumenBatch.commit();
-    await batch.commit();
-
-    return { success: true, message: `Nómina cruda y particionada guardada con éxito.` };
+    return { success: true, message: 'Nómina procesada con éxito por el servidor.' };
   } catch (error) {
-    console.error("Error guardando nómina histórica:", error);
-    throw new Error(`No se pudo guardar la nómina en la nube: ${error.message}`);
+    console.error("Error guardando nómina vía backend:", error);
+    throw new Error(`Fallo en la carga: ${error.message}`);
   }
 };
 
