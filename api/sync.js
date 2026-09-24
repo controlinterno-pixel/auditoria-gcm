@@ -58,7 +58,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, message: 'Guardado exitoso.' });
   } catch (error) {
-    console.error('❌ Error en /api/sync:', error);
-    return res.status(500).json({ error: 'Error interno del servidor.', details: error.message });
-  }
+  console.error("❌ Detalle interno en sync.js:", error);
+  return res.status(500).json({ error: "Error interno al sincronizar la base de datos." });
+}
 }

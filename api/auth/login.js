@@ -3,6 +3,11 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { parse, serialize } from 'cookie';
 
+// 🛡️ Memoria en servidor para registrar intentos fallidos por IP (Rate Limiting)
+const loginAttempts = new Map();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 60 * 1000; // Ventana de 60 segundos
+
 if (!getApps().length) {
   let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
   if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
@@ -30,6 +35,25 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Solo POST.' });
 
+  // 🛡️ Rate Limiting por IP de origen
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-ip';
+  const now = Date.now();
+  const userAttempts = loginAttempts.get(clientIp) || { count: 0, resetTime: now + WINDOW_MS };
+
+  // Reiniciar ventana de tiempo si transcurrieron los 60 segundos
+  if (now > userAttempts.resetTime) {
+    userAttempts.count = 0;
+    userAttempts.resetTime = now + WINDOW_MS;
+  }
+
+  // Si supera los 5 intentos, bloquea de inmediato la petición en el servidor
+  if (userAttempts.count >= MAX_ATTEMPTS) {
+    const secondsLeft = Math.ceil((userAttempts.resetTime - now) / 1000);
+    return res.status(429).json({ 
+      error: `Demasiados intentos fallidos. Intente nuevamente en ${secondsLeft} segundos.` 
+    });
+  }
+
   try {
     const { idToken } = req.body;
     if (!idToken) return res.status(400).json({ error: 'Falta idToken' });
@@ -54,17 +78,25 @@ export default async function handler(req, res) {
       path: '/',
     });
 
+    // 🟢 Si el inicio de sesión es exitoso, limpiamos el contador de la IP
+    loginAttempts.delete(clientIp);
+
     res.setHeader('Set-Cookie', cookieSerialized);
     return res.status(200).json({
       success: true,
       user: {
         email: decoded.email,
         uid: decoded.uid,
-rol: userData.rol || 'lider',
+        rol: userData.rol || 'lider',
         nombreResponsable: userData.nombreResponsable || userData.nombre || 'Usuario GRC'
       }
     });
   } catch (error) {
-    return res.status(401).json({ error: 'Fallo al iniciar sesión en servidor: ' + error.message });
+    // 🔴 Si falla la autenticación, incrementamos el contador de intentos fallidos
+    userAttempts.count += 1;
+    loginAttempts.set(clientIp, userAttempts);
+
+    console.error("❌ Detalle interno en login.js:", error);
+    return res.status(401).json({ error: "Autenticación fallida o credenciales inválidas." });
   }
 }
