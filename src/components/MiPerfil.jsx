@@ -125,28 +125,41 @@ const handleResetPassword = async () => {
  const handleUpdateProfile = async () => {
     setIsSaving(true);
     try {
+      // 1. Actualización visual en Firebase Auth
       if (auth.currentUser) {
-        // 💡 Enviamos directamente la URL (enlace) al Firebase Auth
         await updateProfile(auth.currentUser, {
           displayName: displayName.trim(),
           photoURL: photoURL.trim() 
         });
-
-        // 🔒 Cumplimiento de Auditoría (Hallazgo #11): 
-        // Datos como Cargo, Teléfono y Ubicación ya NO se guardan en localStorage.
-        // En un entorno de producción, estos datos deben guardarse en la colección 'usuarios' de Firestore.
-
-        if (user) {
-          user.displayName = displayName.trim();
-          user.photoURL = photoURL.trim();
-        }
-
-        showNotification('Perfil actualizado con éxito en la nube.', 'success');
-        setIsEditing(false);
       }
+
+      // 2. 🔒 Envío seguro al servidor Backend para actualizar en Firestore sin manipular roles
+      const response = await fetch('/api/auth/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          nombreResponsable: displayName.trim(),
+          cargo: cargo.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Fallo al guardar el perfil en el servidor');
+      }
+
+      if (user) {
+        user.displayName = displayName.trim();
+        user.photoURL = photoURL.trim();
+      }
+
+      showNotification('Perfil actualizado de forma segura en el servidor.', 'success');
+      setIsEditing(false);
     } catch (error) {
-      console.error(error);
-      showNotification('Error al actualizar el perfil.', 'error');
+      console.error("Error al actualizar perfil:", error);
+      showNotification(error.message || 'Error al actualizar el perfil.', 'error');
     } finally {
       setIsSaving(false);
     }
