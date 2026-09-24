@@ -2629,24 +2629,72 @@ disabled={isAnalyzing || listaBases.length === 0}
                       </div>
                     )}                  
 
-                    <div className="w-full md:w-1/4">
-                        <label className="text-xs font-bold text-slate-600 block mb-1">Colaborador en Revisión:</label>
-                        <div className="w-full p-2 rounded border border-purple-300 bg-purple-50 text-sm font-bold text-purple-800 flex justify-between items-center">
-                            <span className="truncate pr-2">{empleadosSeleccionados.length > 0 ? `👤 ${empleadosSeleccionados[0].nombre}` : 'Todos'}</span>
-                            {empleadosSeleccionados.length > 0 && (
-                                <button 
-                                  onClick={() => {
-                                    setEmpleadosSeleccionados([]);
-                                    setFiltroQuincenaMarcaciones('TODAS');
-                                    setFiltroTurnoMarcaciones('TODOS');
-                                  }} 
-                                  className="text-xs font-bold bg-white hover:bg-rose-50 text-red-500 border border-red-200 px-2 py-0.5 rounded shadow-sm cursor-pointer transition-colors whitespace-nowrap"
-                                >
-                                  ✕ Ver Todos
-                                </button>
-                            )}
+                 {/* 🔍 NUEVO BUSCADOR MULTI-EMPLEADO PARA BIOMÉTRICO */}
+                    <div className="w-full md:w-1/4 relative group z-50">
+                        <label className="text-xs font-bold text-slate-600 block mb-1">🔍 Añadir Jefaturas / Colab:</label>
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            placeholder="Buscar nombre para añadir..." 
+                            value={busqueda}
+                            onChange={(e) => setBusqueda(e.target.value)}
+                            className="w-full p-2 text-sm border border-purple-300 rounded focus:outline-none focus:border-purple-500 font-bold text-slate-700 bg-purple-50"
+                          />
+                          {empleadosSeleccionados.length > 0 && (
+                            <button 
+                              onClick={() => {
+                                setEmpleadosSeleccionados([]);
+                                setFiltroQuincenaMarcaciones('TODAS');
+                                setFiltroTurnoMarcaciones('TODOS');
+                              }}
+                              className="absolute right-1 top-1 text-[10px] font-bold bg-white text-rose-500 hover:bg-rose-50 border border-rose-200 px-2 py-1 rounded shadow-sm cursor-pointer transition-colors whitespace-nowrap"
+                            >
+                              ✕ Vaciar
+                            </button>
+                          )}
                         </div>
-                    </div> 
+                        
+                        {/* 🎯 Dropdown de Autocompletado del Biométrico */}
+                        {busqueda.trim().length > 0 && (
+                          <div className="absolute top-full left-0 mt-1 w-96 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden hidden group-focus-within:block hover:block">
+                            {alertasFiltradas.filter(emp => emp.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()) || emp.cedula.includes(busqueda.trim())).length === 0 ? (
+                              <p className="text-[10px] text-slate-400 p-3 text-center italic">No hay coincidencias.</p>
+                            ) : (
+                              <div className="p-1">
+                                {alertasFiltradas
+                                  .filter(emp => emp.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()) || emp.cedula.includes(busqueda.trim()))
+                                  .slice(0, 15)
+                                  .map(emp => {
+                                    const isSelected = empleadosSeleccionados.some(e => e.cedula === emp.cedula);
+                                    return (
+                                      <button
+                                        key={emp.cedula}
+                                        type="button"
+                                        onClick={() => {
+                                          if (!isSelected) {
+                                            setEmpleadosSeleccionados(prev => [...prev, { cedula: emp.cedula, nombre: emp.nombre }]);
+                                          }
+                                          setBusqueda(''); // Limpiamos el buscador después de seleccionar
+                                        }}
+                                        className="w-full text-left p-2 hover:bg-purple-50 rounded-lg transition-colors flex items-center justify-between group/btn border border-transparent hover:border-purple-100"
+                                      >
+                                        <div>
+                                          <p className="text-[11px] font-bold text-slate-700">{emp.nombre}</p>
+                                          <p className="text-[9px] text-slate-500 font-mono">{emp.cedula}</p>
+                                        </div>
+                                        {isSelected ? (
+                                          <span className="text-[10px] text-emerald-600 font-bold px-2 py-0.5 bg-emerald-50 rounded-md">Añadido</span>
+                                        ) : (
+                                          <span className="text-[10px] text-purple-600 font-bold px-2 py-0.5 bg-purple-50 rounded-md opacity-0 group-hover/btn:opacity-100 transition-opacity">Añadir +</span>
+                                        )}
+                                      </button>
+                                    );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                    </div>    
                 </div>
 
                 {/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (RESUMEN VS DETALLE) */}
