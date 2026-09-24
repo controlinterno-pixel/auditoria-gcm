@@ -191,6 +191,24 @@ export default async function handler(req, res) {
       }
       if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
 
+      const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
+                      conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS') ||
+                      conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') ||
+                      conceptoLimpio.includes('EXTRA DOMINICAL');
+      
+      const esRecargo = (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA')) || 
+                        conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL') ||
+                        conceptoLimpio.includes('FESTIVO COMPENSADO') || conceptoLimpio.includes('FESTIVO NO COMPENSADO');
+
+      const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
+                      conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS') ||
+                      conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') ||
+                      conceptoLimpio.includes('EXTRA DOMINICAL');
+      
+      const esRecargo = (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA')) || 
+                        conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL') ||
+                        conceptoLimpio.includes('FESTIVO COMPENSADO') || conceptoLimpio.includes('FESTIVO NO COMPENSADO');
+
       if (['DV05', 'DV06', 'DV07', 'DV08', 'DV09', 'DV10', 'DV11', 'DV19', 'DV22'].some(codigo => conceptoLimpio.includes(codigo)) || esExtra || esRecargo) {
         conceptosJornadaUnicos.add(conceptoLimpio);
         if (!emp.desgloseConceptosJornada[conceptoLimpio]) emp.desgloseConceptosJornada[conceptoLimpio] = { horas: 0, valor: 0 };

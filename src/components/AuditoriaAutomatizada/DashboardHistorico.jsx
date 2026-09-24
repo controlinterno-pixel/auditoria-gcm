@@ -239,11 +239,13 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
       if (dataProcesada.alertasJornada) {
         dataProcesada.alertasJornada.forEach(a => {
           a.mesesConNovedad = new Set(a.mesesConNovedad);
+          a.periodosFuga = new Set(a.periodosFuga || []);
         });
       }
       if (dataProcesada.alertasTransporte) {
         dataProcesada.alertasTransporte.forEach(a => {
           a.periodosFuga = new Set(a.periodosFuga);
+          a.mesesConNovedad = new Set(a.mesesConNovedad || []);
         });
       }
 
