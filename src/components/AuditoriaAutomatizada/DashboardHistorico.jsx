@@ -206,7 +206,7 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
     }
   };
 
-  const ejecutarAnalisisForense = async () => {
+ const ejecutarAnalisisForense = async () => {
     if (listaBases.length === 0) {
       alert("No hay bases históricas en la nube para analizar.");
       return;
@@ -214,47 +214,407 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
 
     setIsAnalyzing(true);
     try {
-      // 🚀 ¡MAGIA DE ARQUITECTURA! Todo el cálculo pesado ahora se hace en el Backend
-      const response = await fetch('/api/forense', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // IMPORTANTE: Envia la cookie de sesión segura
-        body: JSON.stringify({ listaBases }) // Solo mandamos la lista de archivos
+      let todasLasTransacciones = [];
+      
+      // Descargar todas las bases de Firebase
+      for (const base of listaBases) {
+        const dataBruta = await cargarNominaHistorica(base.periodo, base.empresa);
+        let dataPlana = [];
+        if (Array.isArray(dataBruta)) {
+          dataBruta.forEach(item => {
+            if (item?.transacciones) dataPlana.push(...item.transacciones);
+            else if (item?.registros) dataPlana.push(...item.registros);
+            else dataPlana.push(item);
+          });
+        } else if (dataBruta && typeof dataBruta === 'object') {
+          dataPlana = dataBruta.transacciones || dataBruta.registros || Object.values(dataBruta) || [];
+        }
+
+        dataPlana.forEach(t => {
+          t.mesOrigen = base.periodo;
+          t.empresaOrigen = base.empresa; // 👈 Inyección clave de empresa de origen
+        });
+        todasLasTransacciones.push(...dataPlana);
+      }
+
+      // Procesamiento Forense 360
+      const empleadosStats = {};
+      const mesesDetectados = new Set();
+      const procesosUnicos = new Set();
+      const cargosUnicos = new Set();
+      const conceptosJornadaUnicos = new Set(); // 💡 Colección de conceptos únicos
+      
+      let totalCostoExtrasCompania = 0;
+      let tendenciasMeses = {};
+
+      todasLasTransacciones.forEach(fila => {
+       const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'Documento', 'NIT', 'CEDULA']);
+        if (!cedulaRaw) return;
+        
+        const cedula = cedulaRaw.toString().trim().replace(/\D/g, '');
+        const mesOrigen = fila.mesOrigen;
+        mesesDetectados.add(mesOrigen);
+
+        const conceptoRaw = buscarColumna(fila, ['NombreConcepto', 'Concepto', 'Descripcion', 'Detalle']);
+        let conceptoLimpio = normalizarTexto(conceptoRaw);
+        
+        // 🧹 ESTANDARIZACIÓN FORENSE (Agrupa variaciones tipográficas de la nómina)
+        if (conceptoLimpio.includes('DV06')) conceptoLimpio = 'DV06-HORA RECARGO DOMINICAL Y FESTIVO';
+        if (conceptoLimpio.includes('DV07')) conceptoLimpio = 'DV07-HORA RECARGO NOCTURNO FESTIVOS O DOM.';
+        
+        const cantidad = parsearMonto(buscarColumna(fila, ['Cantidad', 'Horas', 'Cant', 'Minutos']));
+        const valor = parsearMonto(buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago', 'Devengado']));
+        const nombre = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado']) || 'Sin Nombre';
+        const cargo = buscarColumna(fila, ['Cargo', 'DesCargo', 'Ocupacion']) || 'Sin Cargo';
+        const proceso = buscarColumna(fila, ['Grupo', 'NombreCcosto', 'CentroCosto']) || 'GENERAL';
+        const unidad = clasificarUnidad(fila);
+
+        procesosUnicos.add(proceso);
+        cargosUnicos.add(cargo);
+
+       if (!tendenciasMeses[mesOrigen]) {
+          tendenciasMeses[mesOrigen] = { 
+            mes: mesOrigen, 
+            ADMIN: 0, 
+            BALNEARIO: 0, 
+            ECOPARQUE_HOTEL: 0, 
+            costoADMIN: 0, 
+            costoBALNEARIO: 0, 
+            costoECOPARQUE_HOTEL: 0 
+          };
+        }
+
+        const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial']) || 'GENERAL';
+        if (!empleadosStats[cedula]) {
+          empleadosStats[cedula] = {
+            cedula, nombre, cargo, proceso, unidad,
+           empresasGrupo: new Set([empresaFila]),
+            totalHorasExtras: 0,
+            totalValorExtras: 0,
+            totalHorasRecargos: 0,
+            totalValorRecargos: 0,
+            mesesConNovedad: new Set(),
+           historialMeses: {},
+            desgloseJornadaPorMes: {}, // 💡 Desglose REAL por cada mes (para la gráfica)
+            desgloseConceptosJornada: {}, // 💡 Desglose para el filtro dinámico
+            fugaTransporteDinero: 0,
+            mesesConFugaTransporte: 0
+          };
+        } else {
+          empleadosStats[cedula].empresasGrupo.add(empresaFila);
+        }
+
+        const emp = empleadosStats[cedula];
+
+       // 🚗 RECOLECCIÓN TRANSPORTE (Agrupamos por MES y por EMPRESA para doble contrato)
+        if (!emp.historialMeses[mesOrigen]) {
+          emp.historialMeses[mesOrigen] = { 
+            mesContenedor: mesOrigen, devengadoSalarial: 0, transportePagado: 0, rodamientoPagado: 0,
+            porEmpresa: {} // <-- NUEVO OBJETO PARA DESGLOSE
+          };
+        }
+
+        // Clasificar la empresa de esta transacción
+        let normEmpresa = 'OTRAS';
+        const eUpper = (empresaFila || '').toUpperCase();
+        if (eUpper.includes('RECREFAM')) normEmpresa = 'RECREFAM';
+        else if (eUpper.includes('FAM') || eUpper.includes('TERMALES')) normEmpresa = 'FAM';
+
+        if (!emp.historialMeses[mesOrigen].porEmpresa[normEmpresa]) {
+            emp.historialMeses[mesOrigen].porEmpresa[normEmpresa] = { devengado: 0, transporte: 0 };
+        }
+        
+        const esTransporte = conceptoLimpio.includes('SUBSIDIO DE TRANSPORTE') || conceptoLimpio.includes('AUXILIO DE TRANSPORTE');
+        const esRodamiento = conceptoLimpio.includes('RODAMIENTO') || conceptoLimpio.includes('VIATICO');
+        const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA', 'SUSPENSION', 'VACACION', 'INCAPACIDAD', 'INC.', 'RETEFUENTE', 'LIBRANZA', 'PRESTAMO', 'FONDO', 'SINDICATO', 'PLAN EXEQUIAL', 'ALIMENTACION'].some(kw => conceptoLimpio.includes(kw));
+        const esTiempoSuplementario = ['EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN'].some(kw => conceptoLimpio.includes(kw));
+        
+        if (valor > 0 && !esExcluidoIBC && !esTiempoSuplementario && !esTransporte && !esRodamiento && !conceptoLimpio.includes('VEHICULO')) {
+           emp.historialMeses[mesOrigen].devengadoSalarial += valor;
+           emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].devengado += valor; // Desglose
+        }
+        if (esTransporte && valor > 0) {
+           emp.historialMeses[mesOrigen].transportePagado += valor;
+           emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].transporte += valor; // Desglose
+        }
+        if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
+
+        // ⏱️ RECOLECCIÓN JORNADA (Alineado 100% con Criterios de Auditoría)
+        const codigosAuditoria = ['DV05', 'DV06', 'DV07', 'DV08', 'DV09', 'DV10', 'DV11', 'DV19', 'DV22'];
+        
+        // 1. Busca por código exacto (Máxima precisión para evitar descuadres)
+        const tieneCodigoDV = codigosAuditoria.some(codigo => conceptoLimpio.includes(codigo));
+
+        // 2. Mantiene la búsqueda por texto por si algún mes el ERP exportó el nombre sin el código DV
+        const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
+                        conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS') ||
+                        conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') ||
+                        conceptoLimpio.includes('EXTRA DOMINICAL');
+        
+        const esRecargo = (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA')) || 
+                          conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL') ||
+                          conceptoLimpio.includes('FESTIVO COMPENSADO') || conceptoLimpio.includes('FESTIVO NO COMPENSADO');
+
+        if (tieneCodigoDV || esExtra || esRecargo) {
+          conceptosJornadaUnicos.add(conceptoLimpio); // Guardar concepto único
+          if (!emp.desgloseConceptosJornada[conceptoLimpio]) {
+             emp.desgloseConceptosJornada[conceptoLimpio] = { horas: 0, valor: 0 };
+          }
+          emp.desgloseConceptosJornada[conceptoLimpio].horas += cantidad;
+          emp.desgloseConceptosJornada[conceptoLimpio].valor += valor;
+
+          // 💡 GUARDADO MENSUAL REAL PARA LA GRÁFICA DE TENDENCIAS
+          if (!emp.desgloseJornadaPorMes[mesOrigen]) {
+            emp.desgloseJornadaPorMes[mesOrigen] = { horas: 0, valor: 0, conceptos: {} };
+          }
+          emp.desgloseJornadaPorMes[mesOrigen].horas += cantidad;
+          emp.desgloseJornadaPorMes[mesOrigen].valor += valor;
+          
+          if (!emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio]) {
+             emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio] = { horas: 0, valor: 0 };
+          }
+          emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio].horas += cantidad;
+          emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio].valor += valor;
+
+          if (esExtra) {
+            emp.totalHorasExtras += cantidad;
+            emp.totalValorExtras += valor;
+          } else {
+            emp.totalHorasRecargos += cantidad;
+            emp.totalValorRecargos += valor;
+          }
+          totalCostoExtrasCompania += valor; // Suma el total general para la compañía siempre
+          emp.mesesConNovedad.add(mesOrigen);
+
+          // Acumular tendencia por sede
+          if (unidad === 'ADMIN') {
+            tendenciasMeses[mesOrigen].ADMIN += cantidad;
+            tendenciasMeses[mesOrigen].costoADMIN += valor;
+          } else if (unidad === 'BALNEARIO') {
+            tendenciasMeses[mesOrigen].BALNEARIO += cantidad;
+            tendenciasMeses[mesOrigen].costoBALNEARIO += valor;
+          } else if (unidad === 'ECOPARQUE_HOTEL') {
+            tendenciasMeses[mesOrigen].ECOPARQUE_HOTEL += cantidad;
+            tendenciasMeses[mesOrigen].costoECOPARQUE_HOTEL += valor;
+          }
+        }
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'El servidor de auditoría rechazó la solicitud.');
-      }
-      
-      const dataProcesada = await response.json();
+     const alertasJornada = [];
+      const alertasTransporte = [];
+      let totalFugaTransporteCompania = 0;
 
-      // 🔄 Re-hidratar los Arrays en Sets para que funcionen tus filtros de la interfaz
-      if (dataProcesada.empleadosStatsMaster) {
-        dataProcesada.empleadosStatsMaster.forEach(emp => {
-          emp.empresasGrupo = new Set(emp.empresasGrupo);
-          emp.mesesConNovedad = new Set(emp.mesesConNovedad);
-        });
-      }
-      if (dataProcesada.alertasJornada) {
-        dataProcesada.alertasJornada.forEach(a => {
-          a.mesesConNovedad = new Set(a.mesesConNovedad);
-          a.periodosFuga = new Set(a.periodosFuga || []);
-        });
-      }
-      if (dataProcesada.alertasTransporte) {
-        dataProcesada.alertasTransporte.forEach(a => {
-          a.periodosFuga = new Set(a.periodosFuga);
-          a.mesesConNovedad = new Set(a.mesesConNovedad || []);
-        });
-      }
+      Object.values(empleadosStats).forEach(emp => {
+        // --- 1. EVALUACIÓN DE TRANSPORTE 360° (PROPORCIONAL, TELETRABAJO Y REINTEGROS) ---
+        let tieneFuga = false;
+        let detalleTransporte = [];
+        let periodosFuga = new Set();
+        let fugaNetaAcumulada = 0;
+        let quincenasConInfraccion = 0;
 
-      // 🎨 Cargar el resumen en el Dashboard instantáneamente
-      setDatosHistoricos(dataProcesada);
+        Object.entries(emp.historialMeses).forEach(([mesAgrupado, data]) => {
+           const transporte = data.transportePagado || 0;
+           const rodamiento = data.rodamientoPagado || 0;
+           const devengado = data.devengadoSalarial || 0;
+           
+           // Tope Legal Mensual 2026 (2 SMLMV = $3.501.810 COP)
+           const topeMensual = 3501810;
+
+           // Gestión de Reintegros / Descuentos Negativos en Nómina
+           if (transporte < 0 || devengado < 0) {
+              fugaNetaAcumulada += transporte;
+              detalleTransporte.push(`[Mes ${mesAgrupado}: Reintegro de Auxilio $${Math.abs(transporte).toLocaleString('es-CO')}]`);
+              return;
+           }
+
+           if (transporte > 0) {
+              let causalFuga = null;
+
+              if (rodamiento > 0) {
+                 causalFuga = `Doble Beneficio (Rodamiento $${rodamiento.toLocaleString('es-CO')})`;
+              } else if (data.esTeletrabajo) {
+                 causalFuga = `Incompatibilidad Teletrabajo / Conectividad`;
+              } else if (devengado > topeMensual) {
+                 causalFuga = `Base evaluada $${devengado.toLocaleString('es-CO')} excede tope mensual de $${topeMensual.toLocaleString('es-CO')} (Extras excluidas)`;
+              }
+
+              if (causalFuga) {
+                 fugaNetaAcumulada += transporte;
+                 quincenasConInfraccion += 1; // Aunque la variable se llame quincenas, ahora suma meses
+                 tieneFuga = true;
+                 periodosFuga.add(data.mesContenedor);
+                 detalleTransporte.push(`[Mes ${mesAgrupado}: ${causalFuga}]`);
+              }
+           }
+        });
+
+        // Alerta Corporativa Especial: Doble Contrato / Multi-Empresa
+        if (emp.empresasGrupo && emp.empresasGrupo.size > 1) {
+           tieneFuga = true;
+           detalleTransporte.push(`[ALERTA CORPORATIVA: Cobro simultáneo en ${Array.from(emp.empresasGrupo).join(' + ')}]`);
+        }
+
+        if (tieneFuga && fugaNetaAcumulada > 0) {
+           emp.fugaTransporteDinero = fugaNetaAcumulada;
+           emp.mesesConFugaTransporte = quincenasConInfraccion;
+           totalFugaTransporteCompania += fugaNetaAcumulada;
+
+           alertasTransporte.push({
+              ...emp,
+              periodosFuga,
+              totalHorasVisual: quincenasConInfraccion,
+              totalDineroVisual: fugaNetaAcumulada,
+             fugaPorMes: Object.values(emp.historialMeses).reduce((acc, q) => {
+                 if (q.transportePagado > 0) {
+                    const topeMensual = 3501810; // 2 SMLMV 2026
+                    if (q.rodamientoPagado > 0 || q.esTeletrabajo || q.devengadoSalarial > topeMensual) {
+                       acc[q.mesContenedor] = (acc[q.mesContenedor] || 0) + q.transportePagado;
+                    }
+                 }
+                 return acc;
+              }, {}),
+riesgo: (() => {
+                // 1. CÁLCULO DINÁMICO REAL DE MULTI-EMPRESA
+                if (emp.empresasGrupo && emp.empresasGrupo.size > 1) {
+                  let empresasLista = Array.from(emp.empresasGrupo).join(' y ');
+                  let totalAuxilioRecibido = fugaNetaAcumulada;
+                  let sueldoPromedioEmpresa = 0;
+
+                  Object.values(emp.historialMeses).forEach(q => {
+                    if (q.transportePagado > 0 && q.devengadoSalarial > 0) {
+                      sueldoPromedioEmpresa = q.devengadoSalarial;
+                    }
+                  });
+
+                  return `🚨 DIAGNÓSTICO GERENCIAL (DOBLE COBRO CORPORATIVO):
+• Doble Cobro en Nóminas Paralelas: Registra cobro simultáneo de Auxilio de Transporte en las razones sociales ${empresasLista}.
+• Análisis Salarial por Empresa: Registra un sueldo básico quincenal promedio de $${sueldoPromedioEmpresa.toLocaleString('es-CO')} por unidad de empresa.
+• Impacto Financiero Factual: Percibió $${totalAuxilioRecibido.toLocaleString('es-CO')} COP de auxilio en exceso acumulado en ${quincenasConInfraccion} quincena(s) auditada(s).`;
+                }
+
+                // 2. CÁLCULO DE PROMEDIOS FINANCIEROS REALES (Palacios, López y demás empleados)
+                let totalSalarialAcumulado = 0;
+                let totalRodamientoAcumulado = 0;
+                let quincenasSuperaTope = 0;
+                let quincenasConRodamiento = 0;
+
+                Object.values(emp.historialMeses).forEach(q => {
+                  if (q.transportePagado > 0) {
+                    totalSalarialAcumulado += (q.devengadoSalarial || 0);
+                    totalRodamientoAcumulado += (q.rodamientoPagado || 0);
+                    if (q.devengadoSalarial > 1750905) quincenasSuperaTope++;
+                    if (q.rodamientoPagado > 0) quincenasConRodamiento++;
+                  }
+                });
+
+                const promSalarial = quincenasConInfraccion > 0 ? Math.round(totalSalarialAcumulado / quincenasConInfraccion) : 0;
+                const promRodamiento = quincenasConRodamiento > 0 ? Math.round(totalRodamientoAcumulado / quincenasConRodamiento) : 0;
+
+                // 3. ANÁLISIS DE DOBLE INCOMPATIBILIDAD (RODAMIENTO + TOPE EXCEDIDO)
+                if (promRodamiento > 0 && promSalarial > 1750905) {
+                  return `🚨 DOBLE INCOMPATIBILIDAD (RODAMIENTO + TOPE EXCEDIDO):
+• Análisis de Ingresos: Devengado salarial promedio de $${promSalarial.toLocaleString('es-CO')} quincenales (Sueldo + Comisiones), superando el tope de 2 SMLMV ($1.750.905 COP) en ${quincenasSuperaTope} de ${quincenasConInfraccion} quincenas.
+• Doble Beneficio Extralegal: Percibe $${promRodamiento.toLocaleString('es-CO')} quincenales de Auxilio de Rodamiento, concepto exento que inhabilita legalmente el pago de Auxilio de Transporte (Art. 15 Ley 15/59).
+• Fuga de Capital Factual: El ERP continuó pagando el auxilio de transporte sin aplicar la regla de exclusión, acumulando $${fugaNetaAcumulada.toLocaleString('es-CO')} COP en exceso en ${quincenasConInfraccion} quincenas.`;
+                }
+
+               if (promRodamiento > 0) {
+                  return `⚠️ REVISIÓN DE COMPATIBILIDAD (RODAMIENTO vs. TRANSPORTE LEGAL):
+• Derecho Legal: Por devengar $${promSalarial.toLocaleString('es-CO')} quincenales (< 2 SMLMV), legalmente le corresponde el Auxilio de Transporte.
+• Beneficio Adicional: Registra cobro de Auxilio de Rodamiento por $${promRodamiento.toLocaleString('es-CO')} quincenales.
+• Validación Requerida: Si el rodamiento cubre la movilidad del empleado, el Auxilio de Transporte de Ley debía haberse excluido por sistema (ahorro potencial de $${fugaNetaAcumulada.toLocaleString('es-CO')} COP en ${quincenasConInfraccion} quincenas). Si es un beneficio extralegal independiente pactado por contrato, el pago dual es válido.`;
+                }
+
+                // 4. SUPERACIÓN ESTÁNDAR DEL TOPE LEGAL
+                return `⚠️ SUPERACIÓN DE TOPE LEGAL (2 SMLMV):
+• Análisis de Ingresos: Devengado salarial promedio de $${promSalarial.toLocaleString('es-CO')} quincenales, superando el límite legal de 2 SMLMV ($1.750.905 COP).
+• Fuga de Capital Factual: Se pagaron $${fugaNetaAcumulada.toLocaleString('es-CO')} COP de auxilio de transporte sin derecho legal en ${quincenasConInfraccion} quincenas.`;
+              })(),
+              tipo: 'FUGA_TRANSPORTE',
+              icono: '🚗',
+              mesesActivos: quincenasConInfraccion
+           });
+        }
+
+// --- 2. EVALUACIÓN DE JORNADA ---
+        const totalHoras = emp.totalHorasExtras + emp.totalHorasRecargos;
+        const totalDinero = emp.totalValorExtras + emp.totalValorRecargos;
+        
+        if (totalHoras > 0 || totalDinero > 0) {
+            const mesesActivos = emp.mesesConNovedad.size;
+            const promedioMensual = totalHoras / (mesesActivos || 1);
+            const cargoLimpio = normalizarTexto(emp.cargo);
+
+            const palabrasClaveAdmin = [
+              'CONTABLE', 'CONTABILIDAD', 'FINANCIER', 'TESORERIA', 'CARTERA',
+              'TALENTO', 'GERENT', 'DIRECTOR', 'MEJORA', 'SISTEMAS', 'TICS', 
+              'DESARROLLADOR', 'COMERCIAL', 'CONTACT CENTER', 'COMPRAS', 
+              'MERCADEO', 'COMUNICACIONES', 'PLANEACION', 'FAMILY', 
+              'ADMINISTRATIV', 'COSTOS', 'AUDITOR'
+            ];
+            const excepcionesOperativas = ['AUDITORIA NOCTURNA', 'OPERACIONES', 'RECEPCION', 'SPA', 'SERVICIO AL CLIENTE'];
+
+            const esAdminPuro = palabrasClaveAdmin.some(kw => cargoLimpio.includes(kw)) && !excepcionesOperativas.some(ex => cargoLimpio.includes(ex));
+            const esLiderAdmin = (cargoLimpio.includes('COORDINADOR') || cargoLimpio.includes('LIDER')) && 
+                                 !excepcionesOperativas.some(ex => cargoLimpio.includes(ex)) && 
+                                 !['MANTENIMIENTO', 'ALIMENTOS', 'AMBIENTAL', 'EXPERIENCIA', 'INFRAESTRUCTURA'].some(kw => cargoLimpio.includes(kw));
+
+            let riesgo = null;
+            let tipo = null;
+            let icono = null;
+
+            if ((esAdminPuro || esLiderAdmin) && totalHoras > 5) {
+              riesgo = `Alerta de Cargo Corporativo: Empleado administrativo (${emp.cargo}) acumuló ${totalHoras.toFixed(1)} hrs operativas. Requiere revisión estricta de autorización.`;
+              tipo = 'CARGO_CORPORATIVO';
+              icono = '🚨';
+            } else if (emp.totalHorasExtras > 50 && mesesActivos >= 3) {
+              riesgo = `Sobrecarga crónica: ${totalHoras.toFixed(1)} hrs en ${mesesActivos} meses. Riesgo alto de fatiga laboral (Burnout).`;
+              tipo = 'BURNOUT';
+              icono = '🔥';
+            } else if (totalDinero > 1500000) {
+              riesgo = `Alerta Financiera / Favoritismo: Ha cobrado $${totalDinero.toLocaleString('es-CO')} en recargos y extras. Revisar equidad en el equipo.`;
+              tipo = 'FAVORITISMO';
+              icono = '💰';
+            } else if (mesesActivos >= 2 && totalHoras >= 10) {
+              riesgo = `Comportamiento recurrente: Registra horas extras en ${mesesActivos} meses distintos. Requiere validación.`;
+              tipo = 'RECURRENCIA';
+              icono = '🔄';
+            }
+
+            if (riesgo) {
+              alertasJornada.push({
+                ...emp,
+                totalHorasVisual: totalHoras,
+                totalDineroVisual: totalDinero,
+                riesgo,
+                tipo,
+                icono,
+                mesesActivos
+              });
+            }
+        }
+      });
+
+      alertasJornada.sort((a, b) => b.totalHorasVisual - a.totalHorasVisual);
+      alertasTransporte.sort((a, b) => b.totalDineroVisual - a.totalDineroVisual);
+
+      setDatosHistoricos({
+        totalAnalizados: Object.keys(empleadosStats).length,
+        totalMeses: mesesDetectados.size,
+        totalCostoExtras: totalCostoExtrasCompania,
+        totalFugaTransporte: totalFugaTransporteCompania, // 🚗
+        alertasJornada, // ⏱️
+        alertasTransporte, // 🚗
+        empleadosStatsMaster: Object.values(empleadosStats), // 🧠 CATÁLOGO COMPLETO PARA EL CEREBRO
+        procesos: Array.from(procesosUnicos).sort(),
+        cargos: Array.from(cargosUnicos).sort(),
+        conceptosJornada: Array.from(conceptosJornadaUnicos).sort(), // 💡 Lista de conceptos para la UI
+        tendencias: Object.values(tendenciasMeses).sort((a, b) => a.mes.localeCompare(b.mes))
+      });
 
     } catch (error) {
-      console.error("Error conectando con el backend:", error);
-      alert(`❌ Error del Servidor GRC: ${error.message}`);
+      console.error(error);
+      alert("❌ Error al procesar la data histórica.");
     } finally {
       setIsAnalyzing(false);
     }
