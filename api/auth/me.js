@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       user: {
         email: decoded.email,
         uid: decoded.uid,
-        rol: userData.rol || (decoded.email === 'controlinterno@termales.com.co' ? 'admin' : 'lider'),
+rol: userData.rol || 'lider',
         nombreResponsable: userData.nombreResponsable || userData.nombre || 'Usuario GRC'
       }
     });

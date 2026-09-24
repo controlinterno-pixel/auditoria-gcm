@@ -94,19 +94,7 @@ export default function AuthScreen() {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const user = userCredential.user;
-
-      await setDoc(doc(db, 'usuarios', user.uid), {
-        uid: user.uid,
-        email: cleanEmail,
-        nombre: nombre,
-        cargo: cargo,
-        area: area,
-        rol: 'lider',
-        emailVerified: false,
-        habeasDataAceptado: new Date().toISOString(), // Registro de auditoría de aceptación
-        fechaRegistro: new Date().toISOString()
-      });
-
+   
       await sendEmailVerification(user);
       await signOut(auth);
       setPendingVerification(true);
@@ -131,8 +119,8 @@ export default function AuthScreen() {
       // Reseteamos intentos fallidos si entra con éxito
       setFailedAttempts(0);
 
-      if (!user.emailVerified && user.email !== 'controlinterno@termales.com.co') {
-        await signOut(auth);
+if (!user.emailVerified) {
+      await signOut(auth);
         alert("⚠️ Tu correo aún no ha sido verificado. Revisa tu bandeja de entrada o spam.");
         setPendingVerification(true);
         setLoading(false);
