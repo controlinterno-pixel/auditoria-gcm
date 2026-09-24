@@ -124,9 +124,10 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
   const [lineasOcultas, setLineasOcultas] = useState({}); 
 
   // ⚡ FILTROS AVANZADOS Y GRANULARIDAD PARA MARCACIONES
-  const [granularidadMarcaciones, setGranularidadMarcaciones] = useState('MES'); // 'DIA', 'SEMANA', 'QUINCENA', 'MES'
+  const [granularidadMarcaciones, setGranularidadMarcaciones] = useState('MES');
   const [filtroQuincenaMarcaciones, setFiltroQuincenaMarcaciones] = useState('TODAS');
-  const [ordenMarcacionesTabla, setOrdenMarcacionesTabla] = useState('ASC'); // 'ASC', 'DESC'
+  const [filtroTurnoMarcaciones, setFiltroTurnoMarcaciones] = useState('TODOS'); // 💡 NUEVO FILTRO
+  const [ordenMarcacionesTabla, setOrdenMarcacionesTabla] = useState('ASC');
   
   // 🖱️ NUEVO ESTADO: Filtro Interactivo por Clic en la Gráfica
   const [filtroClicGrafica, setFiltroClicGrafica] = useState(null);
@@ -726,7 +727,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       e.target.value = null;
     }
   };
-  
+
 // 📥 EXPORTAR REPORTE FORENSE ULTRA-RÁPIDO Y MULTI-CORTE (INCLUYE PERIODOS FALTANTES)
   const exportarAuditoriaCompletaExcel = () => {
     if (!datosHistoricos || !datosHistoricos.empleadosStatsMaster || !datosMarcaciones) {
@@ -1191,9 +1192,13 @@ const esMismoEmpleado = (nom1, nom2) => {
       base = base.filter(d => d.Empresa === filtroEmpresaMarcaciones);
     }
 
-    if (filtroQuincenaMarcaciones !== 'TODAS') {
+ if (filtroQuincenaMarcaciones !== 'TODAS') {
       base = base.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
     }
+    
+    if (filtroTurnoMarcaciones !== 'TODOS') {
+      base = base.filter(d => d.Horario === filtroTurnoMarcaciones);
+    }   
 
     // 🖱️ CEREBRO INTERACTIVO DE LA TABLA
     if (filtroClicGrafica) {
@@ -1215,8 +1220,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       const fB = b.Fecha || '';
       return ordenMarcacionesTabla === 'ASC' ? fA.localeCompare(fB) : fB.localeCompare(fA);
     });
-  }, [datosMarcaciones, empleadosSeleccionados, filtroEmpresaMarcaciones, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones, ordenMarcacionesTabla]);
-
+}, [datosMarcaciones, empleadosSeleccionados, filtroEmpresaMarcaciones, filtroQuincenaMarcaciones, filtroTurnoMarcaciones, filtroClicGrafica, granularidadMarcaciones, ordenMarcacionesTabla]);
   const listaQuincenasUnicas = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
     const setQ = new Set();
@@ -1228,14 +1232,56 @@ const esMismoEmpleado = (nom1, nom2) => {
       });
     return Array.from(setQ).sort();
   }, [datosMarcaciones, empleadosSeleccionados]);
+// 💡 NUEVO: Obtener lista única de todos los turnos/horarios del empleado
+  const listaTurnosUnicos = React.useMemo(() => {
+    if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
+    const setT = new Set();
+    datosMarcaciones
+      .filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre))
+      .forEach(d => {
+        if (d.Horario && d.Horario !== 'Sin Registro') setT.add(d.Horario);
+      });
+    return Array.from(setT).sort();
+  }, [datosMarcaciones, empleadosSeleccionados]);
+
+  // 📈 NUEVA DATA: TENDENCIA MENSUAL DE TURNOS (Para la gráfica interactiva curva)
+  const dataTendenciaTurnos = React.useMemo(() => {
+    if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
+    
+    let baseGrafica = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre));
+    const mapaMeses = {};
+    
+    baseGrafica.forEach(d => {
+      if (!d.Fecha || d.Fecha === 'Sin Fecha') return;
+      
+      const mesKey = d.Fecha.substring(0, 7); // "2026-01"
+      const turno = d.Horario || 'Sin Registro';
+      
+      if (!mapaMeses[mesKey]) {
+          mapaMeses[mesKey] = { mesKey, mesNombre: formatearMes(mesKey), TotalMensual: 0 };
+      }
+      
+      if (!mapaMeses[mesKey][turno]) {
+          mapaMeses[mesKey][turno] = 0;
+      }
+      
+      mapaMeses[mesKey][turno] += 1;
+      mapaMeses[mesKey].TotalMensual += 1;
+    });
+    
+    return Object.values(mapaMeses).sort((a, b) => a.mesKey.localeCompare(b.mesKey));
+  }, [datosMarcaciones, empleadosSeleccionados]);
 
   // 📊 DATA DINÁMICA PARA LA GRÁFICA (Aislamos la data sin el filtroClic para que no desaparezcan las otras barras)
   const dataGraficaMarcaciones = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
     let baseGrafica = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre));
-    if (filtroQuincenaMarcaciones !== 'TODAS') {
+   if (filtroQuincenaMarcaciones !== 'TODAS') {
       baseGrafica = baseGrafica.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
     }
+    if (filtroTurnoMarcaciones !== 'TODOS') {
+      baseGrafica = baseGrafica.filter(d => d.Horario === filtroTurnoMarcaciones);
+    } 
 
     if (granularidadMarcaciones === 'DIA') {
       return baseGrafica.map(d => ({
@@ -1262,8 +1308,7 @@ const esMismoEmpleado = (nom1, nom2) => {
     });
 
     return Object.values(mapaAgrupado).sort((a, b) => a.ejeX.localeCompare(b.ejeX));
-  }, [datosMarcaciones, empleadosSeleccionados, filtroQuincenaMarcaciones, granularidadMarcaciones]);
-
+}, [datosMarcaciones, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroTurnoMarcaciones, granularidadMarcaciones]);
 const statsEmpleadoMarcaciones = React.useMemo(() => {
     if (!marcacionesEmpleadoSeleccionado || marcacionesEmpleadoSeleccionado.length === 0) {
       return { totalDias: 0, totalCosto: 0, primeraFecha: '-', ultimaFecha: '-', alertaInteligente: null };
@@ -1378,8 +1423,7 @@ const statsEmpleadoMarcaciones = React.useMemo(() => {
       alertaInteligente,
       empNominaRaw: empNomina
     };
-  }, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroClicGrafica, granularidadMarcaciones, datosMarcaciones]);
-
+}, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroTurnoMarcaciones, filtroClicGrafica, granularidadMarcaciones, datosMarcaciones]);
     return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
@@ -2503,7 +2547,7 @@ disabled={isAnalyzing || listaBases.length === 0}
           {datosMarcaciones && (
              <>
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-end">
-                    <div className="w-full md:w-1/3">
+                 <div className="w-full md:w-1/4">
                         <label className="text-xs font-bold text-slate-600 block mb-1">Empresa:</label>
                         <select 
                             value={filtroEmpresaMarcaciones} 
@@ -2517,38 +2561,56 @@ disabled={isAnalyzing || listaBases.length === 0}
                     </div>
 
                     {empleadosSeleccionados.length > 0 && (
-                      <div className="w-full md:w-1/3">
+                      <div className="w-full md:w-1/4">
                           <label className="text-xs font-bold text-slate-600 block mb-1">📅 Filtrar por Quincena de Corte:</label>
                           <select 
                               value={filtroQuincenaMarcaciones} 
                               onChange={(e) => setFiltroQuincenaMarcaciones(e.target.value)}
                               className="w-full p-2 rounded border border-indigo-300 text-sm font-bold text-indigo-900 bg-indigo-50/50"
                           >
-                              <option value="TODAS">🌐 Todas las Quincenas (Enero - Agosto)</option>
+                              <option value="TODAS">🌐 Todas las Quincenas</option>
                               {listaQuincenasUnicas.map(q => (
                                 <option key={q} value={q}>🗓️ Quincena {q}</option>
                               ))}
                           </select>
                       </div>
                     )}
+                    
+                    {/* 💡 NUEVO FILTRO INTELIGENTE DE TURNOS */}
+                    {empleadosSeleccionados.length > 0 && (
+                      <div className="w-full md:w-1/4">
+                          <label className="text-xs font-bold text-slate-600 block mb-1">⏱️ Filtrar por Turno (Horario):</label>
+                          <select 
+                              value={filtroTurnoMarcaciones} 
+                              onChange={(e) => setFiltroTurnoMarcaciones(e.target.value)}
+                              className="w-full p-2 rounded border border-emerald-300 text-sm font-bold text-emerald-900 bg-emerald-50/50"
+                          >
+                              <option value="TODOS">🌐 Todos los Horarios</option>
+                              {listaTurnosUnicos.map(t => (
+                                <option key={t} value={t}>⏱️ {t}</option>
+                              ))}
+                          </select>
+                      </div>
+                    )}                  
 
-                    <div className="w-full md:w-1/3">
+                    <div className="w-full md:w-1/4">
                         <label className="text-xs font-bold text-slate-600 block mb-1">Colaborador en Revisión:</label>
                         <div className="w-full p-2 rounded border border-purple-300 bg-purple-50 text-sm font-bold text-purple-800 flex justify-between items-center">
-                            <span>{empleadosSeleccionados.length > 0 ? `👤 ${empleadosSeleccionados[0].nombre}` : 'Todos los colaboradores'}</span>
+                            <span className="truncate pr-2">{empleadosSeleccionados.length > 0 ? `👤 ${empleadosSeleccionados[0].nombre}` : 'Todos'}</span>
                             {empleadosSeleccionados.length > 0 && (
                                 <button 
                                   onClick={() => {
                                     setEmpleadosSeleccionados([]);
                                     setFiltroQuincenaMarcaciones('TODAS');
+                                    setFiltroTurnoMarcaciones('TODOS');
                                   }} 
-                                  className="text-xs font-bold bg-white hover:bg-rose-50 text-red-500 border border-red-200 px-2 py-0.5 rounded shadow-sm cursor-pointer transition-colors"
+                                  className="text-xs font-bold bg-white hover:bg-rose-50 text-red-500 border border-red-200 px-2 py-0.5 rounded shadow-sm cursor-pointer transition-colors whitespace-nowrap"
                                 >
                                   ✕ Ver Todos
                                 </button>
                             )}
                         </div>
-                    </div>
+                    </div> 
                 </div>
 
                 {/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (RESUMEN VS DETALLE) */}
@@ -2598,15 +2660,16 @@ disabled={isAnalyzing || listaBases.length === 0}
                                             <td className="p-3 text-center font-bold text-indigo-600">{row.dias} días auditados</td>
                                             <td className="p-3 text-right font-extrabold text-amber-600">${row.Total_Recargos_Dia.toLocaleString('es-CO')}</td>
                                             <td className="p-3 text-center">
-                                                <button 
+                                           <button 
                                                     onClick={() => {
                                                       setEmpleadosSeleccionados([{ cedula: '', nombre: row.Empleado }]);
                                                       setFiltroQuincenaMarcaciones('TODAS');
+                                                      setFiltroTurnoMarcaciones('TODOS');
                                                     }}
                                                     className="px-3 py-1.5 bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-600 hover:text-white rounded-lg font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider cursor-pointer"
                                                 >
                                                     Ver Detalle Forense 📉
-                                                </button>
+                                                </button>   
                                             </td>
                                         </tr>
                                     ))}
@@ -2657,7 +2720,73 @@ disabled={isAnalyzing || listaBases.length === 0}
                                 )}
                             </div>
                         </div>
-
+{/* 📈 NUEVA GRÁFICA DE TENDENCIA DE TURNOS (CURVA) */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6">
+                            <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
+                                <span>📈</span> Frecuencia Histórica de Turnos por Mes
+                            </h4>
+                            <p className="text-xs text-slate-500 mb-6">
+                                Evalúa qué tan recurrentes son los diferentes horarios asignados al colaborador a lo largo del año.
+                            </p>
+                            
+                            <div className="h-64 w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={dataTendenciaTurnos}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                        <XAxis dataKey="mesNombre" stroke="#64748b" fontSize={11} fontWeight="bold" />
+                                        <YAxis stroke="#64748b" fontSize={11} />
+                                        <Tooltip 
+                                            contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', color: '#0f172a', fontSize: '11px' }}
+                                            formatter={(value, name) => [`${value} turnos ejecutados`, name]}
+                                        />
+                                        <Legend 
+                                            wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                                            onClick={(e) => {
+                                                if (e && e.dataKey) {
+                                                    setLineasOcultas(prev => ({ ...prev, [e.dataKey]: !prev[e.dataKey] }));
+                                                }
+                                            }}
+                                            formatter={(value, entry) => (
+                                                <span style={{ 
+                                                    color: lineasOcultas[entry.dataKey] ? '#cbd5e1' : entry.color, 
+                                                    textDecoration: lineasOcultas[entry.dataKey] ? 'line-through' : 'none',
+                                                    transition: 'all 0.3s ease'
+                                                }}>
+                                                    {value}
+                                                </span>
+                                            )}
+                                        />
+                                        
+                                        {/* 💡 Genera dinámicamente las líneas curvas para cada turno del empleado */}
+                                        {(() => {
+                                            const colores = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                                            
+                                            if (filtroTurnoMarcaciones !== 'TODOS') {
+                                                return <Line type="monotone" dataKey={filtroTurnoMarcaciones} name={`⏱️ ${filtroTurnoMarcaciones}`} stroke="#10b981" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} hide={lineasOcultas[filtroTurnoMarcaciones]} />;
+                                            }
+                                            
+                                            // Si no hay filtro, muestra todos los turnos que tiene el empleado (o solo el Total si son muchos)
+                                            if (listaTurnosUnicos.length > 8) {
+                                                return <Line type="monotone" dataKey="TotalMensual" name="📊 Total Turnos en el Mes" stroke="#10b981" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} />;
+                                            }
+                                            
+                                            return listaTurnosUnicos.map((turno, idx) => (
+                                                <Line 
+                                                    key={turno} 
+                                                    type="monotone" 
+                                                    dataKey={turno} 
+                                                    name={`⏱️ ${turno}`} 
+                                                    stroke={colores[idx % colores.length]} 
+                                                    strokeWidth={3} 
+                                                    dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} 
+                                                    hide={lineasOcultas[turno]}
+                                                />
+                                            ));
+                                        })()}
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
                         {/* 📊 GRÁFICA INTERACTIVA CON GRANULARIDAD (DÍA, SEMANA, QUINCENA, MES) */}
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
