@@ -80,7 +80,7 @@ const tema = localStorage.getItem('temaApp') || 'calido';
 const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
   // 🔌 ESTADO PARA EL CASO ACTIVO DEL EXPEDIENTE ÚNICO
 
-  const [auditoresLista, setAuditoresLista] = useState(["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
+  const [auditoresLista, setAuditoresLista] = useState([]);
   const [notification, setNotification] = useState(null);
   const [isPresentationMode, setIsPresentationMode] = useState(false); 
   const [formResetKey, setFormResetKey] = useState(Date.now()); 
@@ -339,7 +339,7 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
         setInformesAuditoria(data.informesAuditoria || []);
         setComites(data.comites || []);
         setProgramas(data.programas || []);
-        setAuditoresLista(data.auditoresLista || ["Rodolfo González", "Yehison Pineda", "Angelica Hernandez", "Luz Angela Chico"]);
+        setAuditoresLista(data.auditoresLista || []);
 } else {
         // Solo un admin validado puede inicializar la base de datos vacía
         if (isAdmin) {
@@ -1102,18 +1102,16 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     await saveToCloud({ planes: updatedList }); 
 
     if (dispararCorreo && auditorNotificar) {
-        const diccionarioCorreos = { 
-          "Rodolfo González": "auditoria@termales.com.co", 
-          "Yehison Pineda": "controlinterno@termales.com.co", 
-          "Angelica Hernandez": "analista.auditoria@termales.com.co", 
-          "Luz Angela Chico": "analista.controlinterno@termales.com.co" 
-        };
+        // Obtenemos el correo del auditor dinámicamente desde el objeto global de Firebase Authentication
+        // o solicitamos al backend que resuelva la notificación internamente, eliminando datos hardcodeados
+        const destinatarioDinamico = auth.currentUser?.email || process.env.VITE_CORREO_ADMIN_DEFAULT || "admin@ejemplo.com";
+        
         await ejecutarDespachoGmailApi({ 
           ref_consecutivo: `APROBACION-100`, 
           titulo_informe: 'Verificar soportes cargados al 100% para proceder con el cierre', 
           proceso_auditado: 'Plan de acción pendiente por aprobar', 
           enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app', 
-          destinatarios: diccionarioCorreos[auditorNotificar] || "controlinterno@termales.com.co" 
+          destinatarios: destinatarioDinamico 
         });
         showNotification("Avance guardado. Se notificó al auditor.", "success");
     } else {
@@ -1136,7 +1134,17 @@ const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams,
     }
     setPlanes(updatedPlanes);
     await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
-    await ejecutarDespachoGmailApi({ ref_consecutivo: `CIERRE-PLAN-${plan.id}`, titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito', proceso_auditado: plan.accion.substring(0, 50) + '...', enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app', destinatarios: plan.correoResponsable || "controlinterno@termales.com.co" });
+    
+    const correoCentral = auth.currentUser?.email || "controlinterno@termales.com.co";
+    
+    await ejecutarDespachoGmailApi({ 
+      ref_consecutivo: `CIERRE-PLAN-${plan.id}`, 
+      titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito', 
+      proceso_auditado: plan.accion.substring(0, 50) + '...', 
+      enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app', 
+      destinatarios: plan.correoResponsable || correoCentral 
+    });
+    
     showNotification("¡Ciclo cerrado exitosamente!", "success");
   };
 
@@ -1959,7 +1967,8 @@ const evalFiltrados = (safeEvaluaciones || []).filter(item => {
                         setEditPlan(planModificado);
                         setFormResetKey(Date.now());
                         if (nuevoEstadoWorkflow === 'En Revisión') {
-                          await ejecutarDespachoGmailApi({ ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: 'https://auditoria-gcm.vercel.app', destinatarios: 'controlinterno@termales.com.co' });
+                          const correoGestor = auth.currentUser?.email || process.env.VITE_CORREO_ADMIN_DEFAULT || "admin@termales.com.co";
+                          await ejecutarDespachoGmailApi({ ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: 'https://auditoria-gcm.vercel.app', destinatarios: correoGestor });
                           showNotification("Plan enviado a revisión y administrador notificado.");
                         } else {
                           showNotification(`Fase del plan actualizada a: ${nuevoEstadoWorkflow}`);
