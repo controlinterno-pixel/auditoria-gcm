@@ -125,6 +125,7 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
 
   // ⚡ FILTROS AVANZADOS Y GRANULARIDAD PARA MARCACIONES
   const [granularidadMarcaciones, setGranularidadMarcaciones] = useState('MES');
+  const [granularidadTendencia, setGranularidadTendencia] = useState('MES'); // 📈 NUEVA: Para la gráfica de líneas curvas
   const [filtroQuincenaMarcaciones, setFiltroQuincenaMarcaciones] = useState('TODAS');
   const [filtroTurnoMarcaciones, setFiltroTurnoMarcaciones] = useState('TODOS'); // 💡 NUEVO FILTRO
   const [ordenMarcacionesTabla, setOrdenMarcacionesTabla] = useState('ASC');
@@ -1244,33 +1245,46 @@ const esMismoEmpleado = (nom1, nom2) => {
     return Array.from(setT).sort();
   }, [datosMarcaciones, empleadosSeleccionados]);
 
-  // 📈 NUEVA DATA: TENDENCIA MENSUAL DE TURNOS (Para la gráfica interactiva curva)
+ // 📈 NUEVA DATA: TENDENCIA DINÁMICA DE TURNOS (Mes, Quincena, Semana)
   const dataTendenciaTurnos = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
     
     let baseGrafica = datosMarcaciones.filter(d => esMismoEmpleado(d.Empleado, empleadosSeleccionados[0].nombre));
-    const mapaMeses = {};
+    const mapaAgrupado = {};
     
     baseGrafica.forEach(d => {
       if (!d.Fecha || d.Fecha === 'Sin Fecha') return;
       
-      const mesKey = d.Fecha.substring(0, 7); // "2026-01"
+      let llaveEje = '';
+      let nombreEje = '';
+
+      if (granularidadTendencia === 'SEMANA') {
+        llaveEje = obtenerEtiquetaSemana(d.Fecha);
+        nombreEje = llaveEje;
+      } else if (granularidadTendencia === 'QUINCENA') {
+        llaveEje = d.Periodo_Corte || calcularQuincenaCorte(d.Fecha);
+        nombreEje = llaveEje;
+      } else { // MES
+        llaveEje = d.Fecha.substring(0, 7);
+        nombreEje = formatearMes(llaveEje);
+      }
+      
       const turno = d.Horario || 'Sin Registro';
       
-      if (!mapaMeses[mesKey]) {
-          mapaMeses[mesKey] = { mesKey, mesNombre: formatearMes(mesKey), TotalMensual: 0 };
+      if (!mapaAgrupado[llaveEje]) {
+          mapaAgrupado[llaveEje] = { mesKey: llaveEje, mesNombre: nombreEje, TotalAgrupado: 0 };
       }
       
-      if (!mapaMeses[mesKey][turno]) {
-          mapaMeses[mesKey][turno] = 0;
+      if (!mapaAgrupado[llaveEje][turno]) {
+          mapaAgrupado[llaveEje][turno] = 0;
       }
       
-      mapaMeses[mesKey][turno] += 1;
-      mapaMeses[mesKey].TotalMensual += 1;
+      mapaAgrupado[llaveEje][turno] += 1;
+      mapaAgrupado[llaveEje].TotalAgrupado += 1;
     });
     
-    return Object.values(mapaMeses).sort((a, b) => a.mesKey.localeCompare(b.mesKey));
-  }, [datosMarcaciones, empleadosSeleccionados]);
+    return Object.values(mapaAgrupado).sort((a, b) => a.mesKey.localeCompare(b.mesKey));
+  }, [datosMarcaciones, empleadosSeleccionados, granularidadTendencia]);
 
   // 📊 DATA DINÁMICA PARA LA GRÁFICA (Aislamos la data sin el filtroClic para que no desaparezcan las otras barras)
   const dataGraficaMarcaciones = React.useMemo(() => {
@@ -2720,27 +2734,53 @@ disabled={isAnalyzing || listaBases.length === 0}
                                 )}
                             </div>
                         </div>
-{/* 📈 NUEVA GRÁFICA DE TENDENCIA DE TURNOS (CURVA) */}
+{/* 📈 NUEVA GRÁFICA DE TENDENCIA DE TURNOS (CURVA MULTI-LÍNEA) */}
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6">
-                            <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-2">
-                                <span>📈</span> Frecuencia Histórica de Turnos por Mes
-                            </h4>
-                            <p className="text-xs text-slate-500 mb-6">
-                                Evalúa qué tan recurrentes son los diferentes horarios asignados al colaborador a lo largo del año.
-                            </p>
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                                <div>
+                                    <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-1">
+                                        <span>📈</span> Frecuencia Histórica de Turnos
+                                    </h4>
+                                    <p className="text-xs text-slate-500 max-w-md">
+                                        Evalúa qué tan recurrentes son los diferentes horarios. <strong className="text-indigo-600">Da clic en los nombres de la leyenda para ocultar o mostrar líneas.</strong>
+                                    </p>
+                                </div>
+                                {/* 📏 SELECTOR DE GRANULARIDAD EXCLUSIVO PARA ESTA GRÁFICA */}
+                                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                                    <button 
+                                      onClick={() => setGranularidadTendencia('SEMANA')}
+                                      className={`px-3 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadTendencia === 'SEMANA' ? 'bg-emerald-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
+                                    >
+                                      📆 Por Semana
+                                    </button>
+                                    <button 
+                                      onClick={() => setGranularidadTendencia('QUINCENA')}
+                                      className={`px-3 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadTendencia === 'QUINCENA' ? 'bg-emerald-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
+                                    >
+                                      🗓️ Por Quincena
+                                    </button>
+                                    <button 
+                                      onClick={() => setGranularidadTendencia('MES')}
+                                      className={`px-3 py-1 text-[11px] font-bold rounded cursor-pointer transition-all ${granularidadTendencia === 'MES' ? 'bg-emerald-600 text-white shadow' : 'text-slate-600 hover:bg-slate-200'}`}
+                                    >
+                                      📊 Por Mes
+                                    </button>
+                                </div>
+                            </div>
                             
-                            <div className="h-64 w-full">
+                            <div className="h-80 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={dataTendenciaTurnos}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                                         <XAxis dataKey="mesNombre" stroke="#64748b" fontSize={11} fontWeight="bold" />
                                         <YAxis stroke="#64748b" fontSize={11} />
                                         <Tooltip 
+                                            itemSorter={(item) => -item.value}
                                             contentStyle={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', color: '#0f172a', fontSize: '11px' }}
                                             formatter={(value, name) => [`${value} turnos ejecutados`, name]}
                                         />
                                         <Legend 
-                                            wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                                            wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', paddingTop: '15px' }}
                                             onClick={(e) => {
                                                 if (e && e.dataKey) {
                                                     setLineasOcultas(prev => ({ ...prev, [e.dataKey]: !prev[e.dataKey] }));
@@ -2757,19 +2797,17 @@ disabled={isAnalyzing || listaBases.length === 0}
                                             )}
                                         />
                                         
-                                        {/* 💡 Genera dinámicamente las líneas curvas para cada turno del empleado */}
+                                        {/* 💡 Líneas Múltiples Desplegadas Sin Límite */}
                                         {(() => {
-                                            const colores = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                                            // Paleta de 20 colores para cubrir todas las variaciones de turnos
+                                            const colores = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1', '#eab308', '#84cc16', '#ec4899', '#0ea5e9', '#a855f7', '#64748b', '#ef4444', '#1d4ed8', '#047857', '#b45309'];
                                             
+                                            // Si hay un turno filtrado arriba, solo dibuja ese
                                             if (filtroTurnoMarcaciones !== 'TODOS') {
                                                 return <Line type="monotone" dataKey={filtroTurnoMarcaciones} name={`⏱️ ${filtroTurnoMarcaciones}`} stroke="#10b981" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} hide={lineasOcultas[filtroTurnoMarcaciones]} />;
                                             }
                                             
-                                            // Si no hay filtro, muestra todos los turnos que tiene el empleado (o solo el Total si son muchos)
-                                            if (listaTurnosUnicos.length > 8) {
-                                                return <Line type="monotone" dataKey="TotalMensual" name="📊 Total Turnos en el Mes" stroke="#10b981" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} />;
-                                            }
-                                            
+                                            // Si no hay filtro, DIBUJA TODAS LAS LÍNEAS PERMITIENDO OCULTARLAS AL CLIC
                                             return listaTurnosUnicos.map((turno, idx) => (
                                                 <Line 
                                                     key={turno} 
