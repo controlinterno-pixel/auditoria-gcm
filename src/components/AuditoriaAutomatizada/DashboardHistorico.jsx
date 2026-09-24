@@ -2654,7 +2654,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                           )}
                         </div>
                         
-                        {/* 🎯 Dropdown de Autocompletado del Biométrico */}
+                {/* 🎯 Dropdown de Autocompletado del Biométrico */}
                         {busqueda.trim().length > 0 && (
                           <div className="absolute top-full left-0 mt-1 w-96 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden hidden group-focus-within:block hover:block">
                             {resumenMarcaciones.filter(row => row.Empleado.toLowerCase().includes(busqueda.toLowerCase().trim())).length === 0 ? (
@@ -2697,7 +2697,41 @@ disabled={isAnalyzing || listaBases.length === 0}
                     </div>  
                 </div>
 
-                {/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (RESUMEN VS DETALLE) */}
+                {/* 🛒 BANDEJA DE JEFES/COLABORADORES SELECCIONADOS EN BIOMÉTRICO */}
+                {empleadosSeleccionados.length > 0 && (
+                  <div className="bg-purple-50/80 border border-purple-200 p-4 rounded-xl shadow-inner mt-4 animate-in fade-in">
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-sm font-black text-purple-900 flex items-center gap-2">
+                        <span>👥</span> Jefaturas / Colab en Comparación Activa
+                        <span className="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-full">
+                          {empleadosSeleccionados.length} en el mapa
+                        </span>
+                      </label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {empleadosSeleccionados.map((emp) => (
+                        <div 
+                          key={emp.nombre} 
+                          className="flex items-center gap-2 bg-white border border-purple-300 text-purple-900 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm animate-in fade-in"
+                        >
+                          <span>👤 {emp.nombre.split(' ').slice(0, 2).join(' ')}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEmpleadosSeleccionados(prev => prev.filter(e => e.nombre !== emp.nombre));
+                            }}
+                            className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded px-1.5 font-black text-sm cursor-pointer transition-colors border-l border-purple-200 pl-1.5 ml-1"
+                            title="Quitar del análisis"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (RESUMEN VS DETALLE) */}       
                 {empleadosSeleccionados.length === 0 ? (
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                         <div className="bg-slate-100 p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
