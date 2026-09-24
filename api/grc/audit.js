@@ -1,22 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-
-if (!getApps().length) {
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-  if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-    privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
-  }
-  privateKey = privateKey.replace(/\\n/g, '\n');
-
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: privateKey,
-    }),
-  });
-}
+import { adminAuth } from '../_lib/firebaseAdmin';
 
 export default async function handler(req, res) {
   const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
@@ -37,8 +20,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Falta sesión HttpOnly de servidor.' });
     }
 
-    const auth = getAuth();
-    const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
+    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
 
     if (!decodedToken.email || !decodedToken.email.endsWith('@termales.com.co')) {
       return res.status(403).json({ error: 'Dominio no autorizado para usar la IA.' });
@@ -79,14 +61,13 @@ export default async function handler(req, res) {
     }
 
     if (!text) {
-      console.error("❌ Detalle interno en audit.js:", lastError?.message || error);
-return res.status(500).json({
-  error: "Servicio no disponible temporalmente. Por favor intente más tarde."
-});
+      console.error("❌ Detalle interno en audit.js:", lastError);
+      return res.status(500).json({ error: "Servicio no disponible temporalmente. Por favor intente más tarde." });
     }
 
     return res.status(200).json({ respuesta: text });
   } catch (error) {
-    return res.status(500).json({ error: `Fallo general: ${error.message}` });
+    console.error("❌ Detalle interno en audit.js:", error);
+    return res.status(500).json({ error: "Error interno al procesar la consulta." });
   }
 }

@@ -1,27 +1,5 @@
 // Ruta: api/forense.js
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-
-// 1. INICIALIZACIÓN SEGURA DE FIREBASE ADMIN
-if (!getApps().length) {
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-  if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-    privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
-  }
-  privateKey = privateKey.replace(/\\n/g, '\n');
-
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: privateKey,
-    }),
-  });
-}
-
-const db = getFirestore();
-const auth = getAuth();
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
 
 // --- HELPERS MATEMÁTICOS PARA EL SERVIDOR ---
 const normalizarTexto = (str) => {
@@ -85,8 +63,8 @@ export default async function handler(req, res) {
     const cookies = parse(req.headers.cookie || '');
     const sessionCookie = cookies.grc_session;
 
-    if (!sessionCookie) return res.status(401).json({ error: 'Falta sesión HttpOnly de servidor.' });
-    await auth.verifySessionCookie(sessionCookie, true);
+  if (!sessionCookie) return res.status(401).json({ error: 'Falta sesión HttpOnly de servidor.' });
+    await adminAuth.verifySessionCookie(sessionCookie, true);
 
     const { listaBases } = req.body;
     if (!listaBases || listaBases.length === 0) return res.status(400).json({ error: 'No se enviaron bases.' });
@@ -99,8 +77,7 @@ export default async function handler(req, res) {
       const periodoLimpio = base.periodo.toString().trim().replace('/', '-');
       const docBaseId = `${empresaLimpia}_${periodoLimpio}`;
       
-      const chunksSnapshot = await db.collection(`nominas_historicas/${docBaseId}/chunks`).get();
-      
+const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}/chunks`).get();      
       let dataPlana = [];
       chunksSnapshot.forEach(doc => {
         const info = doc.data();

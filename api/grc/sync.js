@@ -1,25 +1,4 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getAuth } from 'firebase-admin/auth';
-
-if (!getApps().length) {
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-  if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-    privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
-  }
-  privateKey = privateKey.replace(/\\n/g, '\n');
-
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: privateKey,
-    }),
-  });
-}
-
-const db = getFirestore();
-const auth = getAuth();
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
 
 export default async function handler(req, res) {
   const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
@@ -40,22 +19,19 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Falta sesión HttpOnly de servidor.' });
     }
 
-    const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
-
+const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
     if (!decodedToken.email || !decodedToken.email.endsWith('@termales.com.co')) {
       return res.status(403).json({ error: 'Dominio no autorizado.' });
     }
 
     // 🔒 NUEVO: Validación estricta de Rol en Base de Datos (Cierra Hallazgo #6)
-    const userDoc = await db.collection('usuarios').doc(decodedToken.uid).get();
-    
+const userDoc = await adminDb.collection('usuarios').doc(decodedToken.uid).get();    
     if (!userDoc.exists || userDoc.data().rol !== 'admin') {
       return res.status(403).json({ error: 'Permisos insuficientes. Solo administradores pueden modificar la estructura GRC.' });
     }
 
     const { partialData } = req.body;
-    await db.collection('workspace_compartido').doc('base_de_datos_grc').set(partialData, { merge: true });
-
+await adminDb.collection('workspace_compartido').doc('base_de_datos_grc').set(partialData, { merge: true });
     return res.status(200).json({ success: true, message: 'Guardado exitoso.' });
   } catch (error) {
   console.error("❌ Detalle interno en sync.js:", error);

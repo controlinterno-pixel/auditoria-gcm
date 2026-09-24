@@ -1,28 +1,10 @@
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
 import { parse, serialize } from 'cookie';
 
 // 🛡️ Memoria en servidor para registrar intentos fallidos por IP (Rate Limiting)
 const loginAttempts = new Map();
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 60 * 1000; // Ventana de 60 segundos
-
-if (!getApps().length) {
-  let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
-  if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
-    privateKey = Buffer.from(privateKey, 'base64').toString('utf8');
-  }
-  privateKey = privateKey.replace(/\\n/g, '\n');
-
-  initializeApp({
-    credential: cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: privateKey,
-    }),
-  });
-}
 
 export default async function handler(req, res) {
   const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
@@ -59,13 +41,10 @@ export default async function handler(req, res) {
     if (!idToken) return res.status(400).json({ error: 'Falta idToken' });
 
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 días
-    const auth = getAuth();
-    
-    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
-    const decoded = await auth.verifySessionCookie(sessionCookie);
+    const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn });
+    const decoded = await adminAuth.verifySessionCookie(sessionCookie);
 
-    const db = getFirestore();
-    const userDoc = await db.collection('usuarios').doc(decoded.uid).get();
+    const userDoc = await adminDb.collection('usuarios').doc(decoded.uid).get();
     const userData = userDoc.exists ? userDoc.data() : {};
 
     const isProd = process.env.NODE_ENV === 'production' || (origin && origin.includes('vercel.app'));
