@@ -1,15 +1,17 @@
-export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
+// src/services/gemini.js - Conector ligero hacia /api/grc/audit
+export const consultarCopilotoIA = async (params = {}) => {
   try {
-    const response = await fetch('/api/audit', {
+    const payload = typeof params === 'string' 
+      ? { prompt: params } 
+      : params;
+
+    const response = await fetch('/api/grc/audit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include', // 🔒 Envía automáticamente la cookie HttpOnly
-      body: JSON.stringify({
-        prompt: preguntaUsuario,
-        datosContexto: contextoDatos,
-      }),
+      credentials: 'include', // 🔒 Envía cookie HttpOnly
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -21,7 +23,7 @@ export const consultarCopilotoIA = async (preguntaUsuario, contextoDatos) => {
     return result.respuesta || result;
 
   } catch (error) {
-    console.error("❌ Error al conectar con el Asistente GRC:", error);
-    throw new Error(`Falló la conexión con el Motor GRC: ${error.message}`);
+    console.error("❌ Error en conector Gemini:", error);
+    throw new Error(`Falló la comunicación con el Motor GRC: ${error.message}`);
   }
 };

@@ -778,7 +778,7 @@ const handleImportExcelRiesgos = (e) => {
     }
   };
 
- const sugerirConIA = async (tipoTarget) => {
+const sugerirConIA = async (tipoTarget) => {
     let textoBase = "";
     let inputDestino = null;
 
@@ -794,7 +794,6 @@ const handleImportExcelRiesgos = (e) => {
       inputDestino = document.querySelector('input[name="titulo"]');
     }
 
-    // 🔒 Sanitizar texto base para evitar inyección de código
     textoBase = textoBase.replace(/[<>{}[\]\\]/g, '').trim();
 
     if (!textoBase || textoBase === '' || textoBase.includes('-- Seleccione --')) {
@@ -806,16 +805,11 @@ const handleImportExcelRiesgos = (e) => {
     showNotification("Procesando consulta con el Motor GRC Serverless...", "success");
 
     try {
-      let prompt = "";
-      if (tipoTarget === 'control') {
-        prompt = `Analiza el evento: "${textoBase}". Redacta un CONTROL CLAVE mitigante (máx 20 palabras).`;
-      } else if (tipoTarget === 'plan') {
-        prompt = `Hallazgo detectado: "${textoBase}". Redacta una ACCIÓN DE CHOQUE correctiva (máx 20 palabras).`;
-      } else if (tipoTarget === 'hallazgo') {
-        prompt = `Proceso auditado: "${textoBase}". Redacta un HALLAZGO grave y realista (máx 20 palabras).`;
-      }
-
-      const sugerencia = await consultarCopilotoIA(prompt, { tipoTarget });
+      const sugerencia = await consultarCopilotoIA({
+        tipoAccion: 'sugerir_grc',
+        tipoTarget,
+        prompt: textoBase
+      });
 
       if (inputDestino) {
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
@@ -837,11 +831,13 @@ const handleImportExcelRiesgos = (e) => {
     showNotification("🤖 Enviando documento al Asistente Serverless...", "success");
 
     try {
-      const prompt = `Actúa como un Auditor Senior de Control Interno y Cumplimiento Normativo ISO.
-      Se acaba de adjuntar un archivo de evidencia (Foto o PDF o Enlace) para el siguiente ${tipoItem}: "${contextoItem}".
-      Tu tarea es generar un dictamen de pre-auditoría rápido y estricto. Genera una lista de 4 puntos exactos que el analista DEBE verificar OBLIGATORIAMENTE con sus propios ojos al abrir ese archivo para asegurar que la evidencia es legalmente válida, mitiga el riesgo y no es fraudulenta. Sé muy técnico y directo (sin saludos).`;
+      const analisis = await consultarCopilotoIA({
+        tipoAccion: 'analizar_evidencia',
+        evidenciaUrl,
+        contextoItem,
+        tipoItem
+      });
 
-      const analisis = await consultarCopilotoIA(prompt, { evidenciaUrl, contextoItem, tipoItem });
       setAiModal({ 
         titulo: `📋 Checklist IA de Auditoría`, 
         contenido: typeof analisis === 'string' ? analisis : JSON.stringify(analisis), 
