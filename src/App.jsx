@@ -92,125 +92,78 @@ const showNotification = (message, type = 'success') => {
     setTimeout(() => setNotification(null), 4000); 
   };
 
-  const saveToCloud = async (partialData) => {
-    await syncCloud(partialData, showNotification);
-  };
+  const saveToCloud = async (partialData) => syncCloud(partialData, showNotification);
 
   const handleLogout = async () => { 
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       await signOut(auth);
-      setUser(null);
-      setIsAdmin(false);
-      setShowWelcome(true);
-      window.location.reload(); 
-    } catch (error) {
-      window.location.reload(); 
-    }
+      setUser(null); setIsAdmin(false); setShowWelcome(true); window.location.reload(); 
+    } catch (e) { window.location.reload(); }
   };
 
   const handleDeleteItem = async (listType, id) => {
-    if (!isAdmin) return; 
-    if (!window.confirm('¿Eliminar registro permanentemente?')) return;
-    let updated;
-    if (listType === 'riesgos') { updated = safeRiesgos.filter(r => r.id !== id); setRiesgos(updated); }
-    if (listType === 'evaluaciones') { updated = safeEvaluaciones.filter(e => e.id !== id); setEvaluaciones(updated); }
-    if (listType === 'hallazgos') { updated = safeHallazgos.filter(h => h.id !== id); setHallazgos(updated); }
-    if (listType === 'planes') { updated = safePlanes.filter(p => p.id !== id); setPlanes(updated); }
-    if (listType === 'incidentes') { updated = safeIncidentes.filter(i => i.id !== id); setIncidentes(updated); }
-    if (listType === 'cronograma') { updated = safeCronograma.filter(c => c.id !== id); setCronograma(updated); }
-    if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
-    if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); }
-    if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); setComites(updated); }
-    if (listType === 'programas') { updated = safeProgramas.filter(p => p.id !== id); setProgramas(updated); }
-    await saveToCloud({ [listType]: updated }); 
-    showNotification("Registro eliminado.", "success");
+    if (!isAdmin || !window.confirm('¿Eliminar registro permanentemente?')) return;
+    const mapLists = { riesgos: [safeRiesgos, setRiesgos], evaluaciones: [safeEvaluaciones, setEvaluaciones], hallazgos: [safeHallazgos, setHallazgos], planes: [safePlanes, setPlanes], incidentes: [safeIncidentes, setIncidentes], cronograma: [safeCronograma, setCronograma], monitoreo: [safeMonitoreo, setMonitoreo], informesAuditoria: [informesAuditoria, setInformesAuditoria], comites: [safeComites, setComites], programas: [safeProgramas, setProgramas] };
+    const [targetList, setTarget] = mapLists[listType] || [];
+    if (targetList && setTarget) {
+      const updated = targetList.filter(item => item.id !== id);
+      setTarget(updated);
+      await saveToCloud({ [listType]: updated });
+      showNotification("Registro eliminado.", "success");
+    }
   };
 
   const scrollToForm = () => {
     setTimeout(() => {
       const formEl = document.getElementById('edit-form');
       const mainArea = document.getElementById('main-scroll-area');
-      if (formEl && mainArea) {
-        mainArea.scrollTo({ top: formEl.offsetTop - 20, behavior: 'smooth' });
-      } else if (formEl) {
-        formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      if (formEl && mainArea) mainArea.scrollTo({ top: formEl.offsetTop - 20, behavior: 'smooth' });
+      else if (formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      else window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 100);
   };
 
   const handleAuditorSubmit = async (e, textoDirecto = null) => {
     if (e) e.preventDefault();
-    await executeAuditorQuery({
-      textoDirecto, auditorInput, setIsAuditorThinking, setAuditorRespuesta,
-      setAiModal, safeRiesgos, safeHallazgos, safePlanes, safeIncidentes,
-      safeCronograma, safeEvaluaciones, safeMonitoreo, informesAuditoria
-    });
+    await executeAuditorQuery({ textoDirecto, auditorInput, setIsAuditorThinking, setAuditorRespuesta, setAiModal, safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma, safeEvaluaciones, safeMonitoreo, informesAuditoria });
     setAuditorInput('');
   };
 
   const handleExportExcel = (dataArray, fileName) => exportToExcel(dataArray, fileName, xlsxLoaded, showNotification);
   const handleExportJSON = () => exportToJSON({ riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo });
   const handleImportJSON = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
-        const parsedData = JSON.parse(event.target.result);
         if (window.confirm("⚠️ ALERTA: Sobrescribirá TODA la base de datos. ¿Continuar?")) {
-          setIsCloudLoaded(false); 
-          await saveToCloud(parsedData);
-          showNotification("Base de datos actualizada.", "success");
-          setIsCloudLoaded(true);
+          setIsCloudLoaded(false); await saveToCloud(JSON.parse(event.target.result));
+          showNotification("Base de datos actualizada.", "success"); setIsCloudLoaded(true);
         }
-      } catch (error) {
-        showNotification("Error: Formato JSON no válido.", "error");
-      }
-      e.target.value = null; 
+      } catch (err) { showNotification("Error: Formato JSON no válido.", "error"); }
+      e.target.value = null;
     };
     reader.readAsText(file);
   };
 
   const handleImportExcelRiesgos = (e) => processExcelRiesgos({ event: e, safeRiesgos, setRiesgos, saveToCloud, showNotification, setIsCloudLoaded, user });
-  const forceUpdateCronograma = async () => {
-    if (window.confirm("¿Deseas cargar los 20 procesos del Plan Anual?")) {
-      await saveToCloud({ cronograma: defaultCronograma });
-      showNotification("¡Plan Anual actualizado!", "success");
-    }
-  };
-
+  const forceUpdateCronograma = async () => { if (window.confirm("¿Deseas cargar los 20 procesos del Plan Anual?")) { await saveToCloud({ cronograma: defaultCronograma }); showNotification("¡Plan Anual actualizado!", "success"); } };
   const sugerirConIA = (tipoTarget) => sugerirTextoConIA(tipoTarget, setIsThinking, showNotification);
   const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
-
   const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
 
   const {
-    handleRiesgoSubmit,
-    handleHallazgoSubmit,
-    handlePlanSubmit,
-    handleAprobarCierrePlan,
-    handleEvaluacionSubmit,
-    handleComiteSubmit,
-    handleIncidenteSubmit,
-    handleCronogramaSubmit,
-    handleApetitoSubmit,
-    handleMonitoreoSubmit,
-    handleInformeAuditoriaSubmit
+    handleRiesgoSubmit, handleHallazgoSubmit, handlePlanSubmit, handleAprobarCierrePlan,
+    handleEvaluacionSubmit, handleComiteSubmit, handleIncidenteSubmit, handleCronogramaSubmit,
+    handleApetitoSubmit, handleMonitoreoSubmit, handleInformeAuditoriaSubmit
   } = createFormHandlers({
-    user, isAdmin, safeRiesgos, safeHallazgos, safePlanes, safeEvaluaciones,
-    safeComites, safeIncidentes, safeCronograma, safeMonitoreo, informesAuditoria,
-    editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente,
-    editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
-    setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes,
-    setCronograma, setMonitoreo, setInformesAuditoria,
-    setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite,
-    setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
+    user, isAdmin, safeRiesgos, safeHallazgos, safePlanes, safeEvaluaciones, safeComites, safeIncidentes, safeCronograma, safeMonitoreo, informesAuditoria,
+    editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
+    setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes, setCronograma, setMonitoreo, setInformesAuditoria,
+    setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
     saveToCloud, showNotification, setIsSubmitting, setFormResetKey, ejecutarDespachoGmailApi, defaultMeses
   });
-
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
