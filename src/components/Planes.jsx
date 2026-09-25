@@ -348,12 +348,15 @@ const handleNotificarPlan = (planId) => {
       return true; // Conservamos intactos los planes de otros informes
     });
 
-    const diccionarioCorreos = {
-      "Rodolfo González": "auditoria@termales.com.co",
-      "Yehison Pineda": "controlinterno@termales.com.co",
-      "Angelica Hernandez": "analista.auditoria@termales.com.co",
-      "Luz Angela Chico": "analista.controlinterno@termales.com.co"
-    };
+    // Obtiene el correo desde el .env (o usa un respaldo genérico)
+const correoAdminDefault = import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com";
+
+const diccionarioCorreos = {
+  "Rodolfo González": correoAdminDefault,
+  "Yehison Pineda": correoAdminDefault,
+  "Angelica Hernandez": correoAdminDefault,
+  "Luz Angela Chico": correoAdminDefault
+};
 
     Object.keys(matrixState).forEach(hallazgoId => {
       const node = matrixState[hallazgoId];

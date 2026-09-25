@@ -750,7 +750,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
             
             <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl shadow-inner mt-4">
               <label className="font-black text-blue-900 block mb-2 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
-              <input name="correosNotificacionInput" type="text" placeholder="Ej: gerente@termales.com.co, compras@termales.com.co (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm" />
+              <input name="correosNotificacionInput" type="text" placeholder="Ej: usuario1@empresa.com, usuario2@empresa.com" (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm" />
               <p className="text-[10px] text-blue-600 mt-2 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
             </div>
 
