@@ -87,12 +87,7 @@ export default function App() {
     setSearchTerm, setColumnFilters
   });
 
-const showNotification = (message, type = 'success') => { 
-    setNotification({ message, type }); 
-    setTimeout(() => setNotification(null), 4000); 
-  };
-
-  const saveToCloud = async (partialData) => syncCloud(partialData, showNotification);
+const saveToCloud = async (partialData) => syncCloud(partialData, showNotification);
 
   const handleLogout = async () => { 
     try {
@@ -104,7 +99,13 @@ const showNotification = (message, type = 'success') => {
 
   const handleDeleteItem = async (listType, id) => {
     if (!isAdmin || !window.confirm('¿Eliminar registro permanentemente?')) return;
-    const mapLists = { riesgos: [safeRiesgos, setRiesgos], evaluaciones: [safeEvaluaciones, setEvaluaciones], hallazgos: [safeHallazgos, setHallazgos], planes: [safePlanes, setPlanes], incidentes: [safeIncidentes, setIncidentes], cronograma: [safeCronograma, setCronograma], monitoreo: [safeMonitoreo, setMonitoreo], informesAuditoria: [informesAuditoria, setInformesAuditoria], comites: [safeComites, setComites], programas: [safeProgramas, setProgramas] };
+    const mapLists = { 
+      riesgos: [safeRiesgos, setRiesgos], evaluaciones: [safeEvaluaciones, setEvaluaciones], 
+      hallazgos: [safeHallazgos, setHallazgos], planes: [safePlanes, setPlanes], 
+      incidentes: [safeIncidentes, setIncidentes], cronograma: [safeCronograma, setCronograma], 
+      monitoreo: [safeMonitoreo, setMonitoreo], informesAuditoria: [informesAuditoria, setInformesAuditoria], 
+      comites: [safeComites, setComites], programas: [safeProgramas, setProgramas] 
+    };
     const [targetList, setTarget] = mapLists[listType] || [];
     if (targetList && setTarget) {
       const updated = targetList.filter(item => item.id !== id);
@@ -126,7 +127,11 @@ const showNotification = (message, type = 'success') => {
 
   const handleAuditorSubmit = async (e, textoDirecto = null) => {
     if (e) e.preventDefault();
-    await executeAuditorQuery({ textoDirecto, auditorInput, setIsAuditorThinking, setAuditorRespuesta, setAiModal, safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma, safeEvaluaciones, safeMonitoreo, informesAuditoria });
+    await executeAuditorQuery({ 
+      textoDirecto, auditorInput, setIsAuditorThinking, setAuditorRespuesta, 
+      setAiModal, safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, 
+      safeCronograma, safeEvaluaciones, safeMonitoreo, informesAuditoria 
+    });
     setAuditorInput('');
   };
 
