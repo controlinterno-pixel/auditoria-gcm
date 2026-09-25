@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } from '../../_lib/firebaseAdmin.js'; // ✅ Ruta relativa correcta
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
 
 export default async function handler(req, res) {
   const allowedOrigins = [
