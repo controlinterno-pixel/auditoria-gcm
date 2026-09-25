@@ -7,12 +7,21 @@ const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 60 * 1000; // Ventana de 60 segundos
 
 export default async function handler(req, res) {
-  const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
+  const allowedOrigins = [
+    process.env.FRONTEND_URL || 'https://auditoria-gcm.vercel.app',
+    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173'] : [])
+  ];
   const origin = req.headers.origin;
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : 'https://auditoria-gcm.vercel.app');
+
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+  }
+
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Solo POST.' });
