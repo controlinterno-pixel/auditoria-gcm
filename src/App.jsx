@@ -32,6 +32,7 @@ import { FilterInput, StepIndicatorHUD, HeaderFiltros } from './components/UICom
 import Navbar from './components/Navbar';
 import { enviarCorreoGmail } from './services/gmailService';
 import MiPerfil from './components/MiPerfil';
+import { useGrcData } from './hooks/useGrcData';
 import { createFormHandlers } from './handlers/grcFormHandlers';
 import { consultarCopilotoIA } from './services/gemini';
 import { 
@@ -88,26 +89,30 @@ const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [columnFilters, setColumnFilters] = useState({});
-  const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isCloudLoaded, setIsCloudLoaded] = useState(false);
-const [xlsxLoaded] = useState(true);
+  const {
+    user, setUser, isAdmin, setIsAdmin, perfilUsuario, setPerfilUsuario,
+    isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
+    riesgos, setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
+    incidentes, setIncidentes, evaluaciones, setEvaluaciones,
+    cronograma, setCronograma, monitoreo, setMonitoreo,
+    informesAuditoria, setInformesAuditoria, comites, setComites,
+    programas, setProgramas, auditoresLista, setAuditoresLista,
+    safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
+    safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
+  } = useGrcData();
+
+  const [xlsxLoaded] = useState(true);
   const [isThinking, setIsThinking] = useState(false);
   const [aiModal, setAiModal] = useState(null);
   const [chartDetail, setChartDetail] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
   const [matrizFiltro, setMatrizFiltro] = useState(null);
 
-// =========================================================
-  // 🤖 NUEVOS ESTADOS: AUDITOR IA (PANEL OSCURO FLOTANTE)
-  // =========================================================
   const [showAuditorIA, setShowAuditorIA] = useState(false);
   const [auditorInput, setAuditorInput] = useState('');
   const [auditorRespuesta, setAuditorRespuesta] = useState('');
   const [isAuditorThinking, setIsAuditorThinking] = useState(false);
 
-  // ✏️ ESTADOS DE EDICIÓN Y COMPONENTES
   const [editRiesgo, setEditRiesgo] = useState(null);
   const [editPlan, setEditPlan] = useState(null);
   const [editEvaluacion, setEditEvaluacion] = useState(null);
@@ -117,99 +122,25 @@ const [xlsxLoaded] = useState(true);
   const [editApetito, setEditApetito] = useState(null);
   const [editMonitoreo, setEditMonitoreo] = useState(null);
   const [activeTooltip, setActiveTooltip] = useState(null);
-// --- NUEVOS ESTADOS PARA INFORMES DE AUDITORÍA ---
-  const [informesAuditoria, setInformesAuditoria] = useState([]);
   const [editInformeAuditoria, setEditInformeAuditoria] = useState(null);
-const [comites, setComites] = useState([]);
-const [editComite, setEditComite] = useState(null);
-// --- NUEVOS ESTADOS PARA PROGRAMAS DE AUDITORÍA ---
-  const [programas, setProgramas] = useState([]);
+  const [editComite, setEditComite] = useState(null);
   const [editPrograma, setEditPrograma] = useState(null);
-  const safeProgramas = Array.isArray(programas) ? programas : [];
- // =====================================================================
-  // ⚙️ ENTIDADES PRINCIPALES (ESTADOS DE BASE DE DATOS)
-  // =====================================================================
-  const [riesgos, setRiesgos] = useState([]);
-  const [hallazgos, setHallazgos] = useState([]);
-  const [planes, setPlanes] = useState([]);
-  const [incidentes, setIncidentes] = useState([]);
-  const [evaluaciones, setEvaluaciones] = useState([]);
-  const [cronograma, setCronograma] = useState([]);
-  const [monitoreo, setMonitoreo] = useState([]);
-  const [perfilUsuario, setPerfilUsuario] = useState(null); // 👈 LO MOVIMOS AQUÍ ARRIBA
 
-  // =====================================================================
-  // 🛡️ MOTOR DE SEGURIDAD A NIVEL DE FILA (RLS) - "Solo ver lo mío"
-  // =====================================================================
-  
-  // 1. Verificamos si el usuario es Admin o tiene permisos de auditor (Ven TODO)
-  const isSuperUser = isAdmin || perfilUsuario?.rol === 'auditor';
-
-  // 2. Variables seguras para evitar errores .map()
-  const rawRiesgos = Array.isArray(riesgos) ? riesgos : [];
-  const rawHallazgos = Array.isArray(hallazgos) ? hallazgos : [];
-  const rawPlanes = Array.isArray(planes) ? planes : [];
-  const rawEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
-  const rawInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
-
-  // 3. Aplicamos el filtro si NO es super usuario
-  const applyRowLevelSecurity = (list, keyProceso, keyResp, keyCorreoResp) => {
-    if (isSuperUser) return list; // El Auditor/Admin ve la base de datos completa
-    
-    return list.filter(item => {
-      // Regla 1: Coincide el correo electrónico asignado (Para planes de acción)
-      if (keyCorreoResp && item[keyCorreoResp]?.toLowerCase() === user?.email?.toLowerCase()) return true;
-      
-      // Regla 2: Coincide el nombre del responsable configurado en el perfil
-      if (keyResp && perfilUsuario?.nombreResponsable && item[keyResp]?.toLowerCase().includes(perfilUsuario.nombreResponsable.toLowerCase())) return true;
-      
-      // Regla 3: Coincide el Proceso Dueño configurado en el perfil
-      if (keyProceso && perfilUsuario?.procesoAsignado && item[keyProceso] === perfilUsuario.procesoAsignado) return true;
-
-      // Si no cumple ninguna, se le oculta el registro
-      return false;
-    });
-  };
-
-  // 4. GENERAMOS LAS LISTAS FINALES (Pasamos las llaves: 'proceso', 'responsable', 'correo', 'subproceso')
-  const safePlanes = applyRowLevelSecurity(rawPlanes, 'proceso', 'responsable', 'correoResponsable', 'subproceso');
-  const safeHallazgos = applyRowLevelSecurity(rawHallazgos, 'proceso', 'responsable', null, 'subproceso');
-  const safeRiesgos = applyRowLevelSecurity(rawRiesgos, 'proceso', 'responsable', null, 'subproceso');
-  const safeEvaluaciones = applyRowLevelSecurity(rawEvaluaciones, 'proceso', null, null, 'subproceso');
-  
-  // Los informes de auditoría generalmente aplican por Macroproceso, pero si tienen subproceso, también se filtra
-  const informesGlobalesFiltrados = applyRowLevelSecurity(rawInformes, 'macroproceso', null, null, 'subproceso');
-
-  // Excepciones (Módulos que no requieren filtro RLS)
-  const safeIncidentes = Array.isArray(incidentes) ? incidentes : [];
-  const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
-  const safeMonitoreo = Array.isArray(monitoreo) ? monitoreo : [];
-  const safeComites = Array.isArray(comites) ? comites : [];
-
-  // =====================================================================
-  // 🗓️ FILTROS DE PERIODICIDAD INTELIGENTES Y ABIERTOS
-  // =====================================================================
   const [periodFilters, setPeriodFilters] = useState({});
 
-  // 🔥 ESCÁNER DINÁMICO: Encuentra automáticamente todos los años con datos + año actual
   const defaultAnios = useMemo(() => {
     const currentYear = new Date().getFullYear();
-const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3]);
-
-    // Extrae dinámicamente cualquier año registrado en tus módulos
+    const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3]);
     safeRiesgos.forEach(r => r.anio && yearsSet.add(Number(r.anio)));
     safeHallazgos.forEach(h => h.anio && yearsSet.add(Number(h.anio)));
     safePlanes.forEach(p => p.anio && yearsSet.add(Number(p.anio)));
     safeIncidentes.forEach(i => i.anio && yearsSet.add(Number(i.anio)));
     safeCronograma.forEach(c => c.anio && yearsSet.add(Number(c.anio)));
-
-    // Devuelve la lista ordenada de menor a mayor
     return Array.from(yearsSet).sort((a, b) => a - b);
   }, [safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma]);
 
   const defaultMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-// 🔥 NUEVO: Función para crear una llave de memoria única por cada sub-pestaña
   const getCurrentFilterKey = () => {
     if (activeTab === 'plan_anual_tab') return `plan_anual_tab_${subTabPlanificar}`;
     if (activeTab === 'resultados_tab') return `resultados_tab_${subTabResultados}`;
@@ -220,13 +151,10 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   
   const filterKey = getCurrentFilterKey();
 
-  // 🔥 EXCEPCIÓN: Determinar el filtro de años por defecto según el módulo
   const getDefaultAnios = (key) => {
-    // Si estamos en Riesgos o Apetito, iniciamos con el filtro vacío (muestra TODO)
     if (key === 'plan_anual_tab_riesgos' || key === 'plan_anual_tab_apetito') {
       return []; 
     }
-    // Para el resto de módulos, aplicamos el año en curso
     return [new Date().getFullYear()];
   };
 
@@ -246,11 +174,11 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
       return { ...prev, [filterKey]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
     });
   };
-  // Limpiar buscador al cambiar de pestaña
+
   useEffect(() => {
-  setSearchTerm('');
-  setColumnFilters({});
-}, [activeTab]);
+    setSearchTerm('');
+    setColumnFilters({});
+  }, [activeTab]);
 
   const handleColFilterChange = (key, value) => {
     setColumnFilters(prev => ({ ...prev, [key]: value }));
@@ -263,102 +191,6 @@ const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, current
   const toggleMes = (mes) => {
     setSelectedMeses(prev => prev.includes(mes) ? prev.filter(m => m !== mes) : [...prev, mes]);
   };
-// 🛡️ Estado y validación robusta de perfil/rol de usuario
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // 🔒 Sincronización automática de Cookie HttpOnly de servidor
-        try {
-          const idToken = await currentUser.getIdToken();
-          await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ idToken })
-          });
-        } catch (err) {
-          console.error("Error renovando cookie de servidor:", err);
-        }
-
-       try {
-          const docRef = doc(db, 'usuarios', currentUser.uid);
-          const docSnap = await getDoc(docRef);
-          
-          if (docSnap.exists()) {
-            const datosPerfil = docSnap.data();
-            setPerfilUsuario({
-              ...datosPerfil,
-              nombreResponsable: datosPerfil.nombreResponsable || datosPerfil.nombre || 'Usuario GRC',
-              correo: datosPerfil.correo || datosPerfil.email || currentUser.email
-            });
-            // 🔒 El rol proviene 100% del documento oficial del usuario
-            setIsAdmin(datosPerfil.rol === 'admin');
-          } else {
-            setPerfilUsuario({
-              correo: currentUser.email,
-              nombreResponsable: 'Usuario GRC',
-              rol: 'lider'
-            });
-            setIsAdmin(false);
-          }
-        } catch (error) {
-          console.error("Error obteniendo perfil en Firestore:", error);
-          setIsAdmin(false);
-        }
-      } else {
-        setPerfilUsuario(null);
-        setIsAdmin(false);
-        setShowWelcome(true);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
- // 📥 Carga Inicial Centralizada con Firebase
-  useEffect(() => {
-    if (!user) return;
-    setIsCloudLoaded(false);
-    
-    const timeoutSeguridad = setTimeout(() => {
-      console.warn("⚠️ Firebase está tardando. Forzando entrada...");
-      setIsCloudLoaded(true);
-    }, 4000);
-
-    const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
-    
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      clearTimeout(timeoutSeguridad); 
-      if (docSnap.exists()) {
-        const data = docSnap.data() || {};
-        setRiesgos(data.riesgos || defaultRiesgos);
-        setHallazgos(data.hallazgos || defaultHallazgos);
-        setPlanes(data.planes || defaultPlanes);
-        setIncidentes(data.incidentes || []);
-        setEvaluaciones(data.evaluaciones || defaultEvaluaciones);
-        setCronograma(data.cronograma || defaultCronograma);
-        setMonitoreo(data.monitoreo || defaultMonitoreo);
-        setInformesAuditoria(data.informesAuditoria || []);
-        setComites(data.comites || []);
-        setProgramas(data.programas || []);
-        setAuditoresLista(data.auditoresLista || []);
-} else {
-        // Solo un admin validado puede inicializar la base de datos vacía
-        if (isAdmin) {
-           setDoc(docRef, { riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, cronograma: defaultCronograma, monitoreo: defaultMonitoreo, informesAuditoria: [], comites: [] });
-        }
-      }      
-      setIsCloudLoaded(true);
-    }, (error) => {
-      clearTimeout(timeoutSeguridad);
-      console.error("🔥 Error de Firebase:", error);
-      setIsCloudLoaded(true);
-    });
-
-    return () => {
-      clearTimeout(timeoutSeguridad);
-      unsubscribe();
-    };
-  }, [user]);
   
 
 const handleLogout = async () => { 
