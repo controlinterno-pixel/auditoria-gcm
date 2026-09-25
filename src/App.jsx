@@ -34,6 +34,7 @@ import { enviarCorreoGmail } from './services/gmailService';
 import MiPerfil from './components/MiPerfil';
 import { useGrcData } from './hooks/useGrcData';
 import { createFormHandlers } from './handlers/grcFormHandlers';
+import { exportToExcel, exportToJSON, saveToCloud as syncCloud } from './services/grcStorageService';
 import { consultarCopilotoIA } from './services/gemini';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
@@ -209,50 +210,13 @@ const handleLogout = async () => {
       window.location.reload(); // Si falla algo, recargamos por seguridad
     }
   };
-const saveToCloud = async (partialData) => { 
-    try {
-      // 🛡️ INTERCEPTOR: Sanitizar URLs maliciosas (Hallazgo #8) antes de enviar a BD
-      const sanitizedData = JSON.parse(JSON.stringify(partialData)); // Copia profunda
-      
-      const traverseAndSanitize = (obj) => {
-        for (let key in obj) {
-          if (typeof obj[key] === 'string' && key.toLowerCase().includes('url') && obj[key].trim() !== '') {
-            try {
-              const parsed = new URL(obj[key]);
-              if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-                obj[key] = ''; // Borra enlace malicioso (ej. javascript:alert(1))
-              }
-            } catch (e) {
-              obj[key] = ''; // Borra si ni siquiera es una URL válida
-            }
-          } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-            traverseAndSanitize(obj[key]);
-          }
-        }
-      };
-      traverseAndSanitize(sanitizedData);
-
-      // 1. Petición limpia con Cookie HttpOnly gestionada por el navegador
-      const response = await fetch('/api/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include', // 🔒 Envía cookie de servidor
-        body: JSON.stringify({ partialData: sanitizedData })
-      });
-
-      if (!response.ok) {
-        throw new Error('El servidor rechazó la sincronización de datos.');
-      }
-    } catch (error) {
-      console.error('❌ Error de sincronización segura:', error);
-      showNotification('Error guardando en el servidor GRC.', 'error');
-    }
+const saveToCloud = async (partialData) => {
+    await syncCloud(partialData, showNotification);
   };
 
   const handleDeleteItem = async (listType, id) => {
-    if (!isAdmin) return; if (!window.confirm('¿Eliminar registro permanentemente?')) return;
+    if (!isAdmin) return; 
+    if (!window.confirm('¿Eliminar registro permanentemente?')) return;
     let updated;
     if (listType === 'riesgos') { updated = safeRiesgos.filter(r => r.id !== id); setRiesgos(updated); }
     if (listType === 'evaluaciones') { updated = safeEvaluaciones.filter(e => e.id !== id); setEvaluaciones(updated); }
@@ -263,12 +227,16 @@ const saveToCloud = async (partialData) => {
     if (listType === 'monitoreo') { updated = safeMonitoreo.filter(m => m.id !== id); setMonitoreo(updated); }
     if (listType === 'informesAuditoria') { updated = informesAuditoria.filter(i => i.id !== id); setInformesAuditoria(updated); }
     if (listType === 'comites') { updated = safeComites.filter(c => c.id !== id); setComites(updated); }
-   if (listType === 'programas') { updated = safeProgramas.filter(p => p.id !== id); setProgramas(updated); }
-    await saveToCloud({ [listType]: updated }); showNotification("Registro eliminado.", "success");
+    if (listType === 'programas') { updated = safeProgramas.filter(p => p.id !== id); setProgramas(updated); }
+    await saveToCloud({ [listType]: updated }); 
+    showNotification("Registro eliminado.", "success");
   };
-  const showNotification = (message, type = 'success') => { setNotification({message, type}); setTimeout(() => setNotification(null), 4000); };
+
+  const showNotification = (message, type = 'success') => { 
+    setNotification({message, type}); 
+    setTimeout(() => setNotification(null), 4000); 
+  };
   
-  // SOLUCIÓN AL SCROLL DE EDICIÓN: Búsqueda precisa del contenedor central para evitar el salto
   const scrollToForm = () => {
     setTimeout(() => {
       const formEl = document.getElementById('edit-form');
@@ -283,12 +251,8 @@ const saveToCloud = async (partialData) => {
     }, 100);
   };
 
-// =====================================================================
-  // 🧠 FUNCIÓN CENTRAL DEL "AUDITOR IA" (CONECTADA A GEMINI.JS)
-  // =====================================================================
   const handleAuditorSubmit = async (e, textoDirecto = null) => {
     if (e) e.preventDefault(); 
-    
     const consultaFinal = textoDirecto || auditorInput;
     if (!consultaFinal.trim()) return;
 
@@ -297,8 +261,6 @@ const saveToCloud = async (partialData) => {
 
     try {
       const hoy = new Date();
-
-      // 🛑 1. RECOLECCIÓN DE DATOS (Usamos la base "safe" para visión CONSOLIDADA)
       const riesgosBase = safeRiesgos;
       const hallazgosBase = safeHallazgos;
       const planesBase = safePlanes;
@@ -308,7 +270,7 @@ const saveToCloud = async (partialData) => {
       let criticosTotal = 0;
       try { criticosTotal = riesgosBase.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length; } catch(err) {}
       
-      const evalFiltradas = safeEvaluaciones; // También consolidado
+      const evalFiltradas = safeEvaluaciones;
       const totalEvaluaciones = evalFiltradas.length;
       const controlesEficaces = evalFiltradas.filter(ev => ev.calificacion === 100).length;
       const efectividadControlesGlobal = totalEvaluaciones > 0 ? Math.round((controlesEficaces / totalEvaluaciones) * 100) : 0;
@@ -324,15 +286,12 @@ const saveToCloud = async (partialData) => {
         fecha: inf.fecha
       }));
 
-    // 📦 2. EMPAQUETADO DEL CONTEXTO PARA LA IA (Inyectando Data Real para el Motor GRC)
       const contextoDatos = {
-        // 📊 2.1 Estadísticas ejecutivas 
         dashboard: {
           cumplimientoPlanAnual: avanceCronogramaGlobal + '%',
           avancePlanesAccion: (planesBase.length > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / planesBase.length) : 0) + '%',
           efectividadControles: efectividadControlesGlobal + '%'
         },
-        // 🚀 2.2 BASE DE DATOS REAL (Lo que necesitan los Expertos IA para responder)
         riesgos: riesgosBase,
         hallazgos: hallazgosBase,
         planesAccion: planesBase,
@@ -341,7 +300,7 @@ const saveToCloud = async (partialData) => {
         informesAuditoria: resumenInformes,
         indicadoresMonitoreo: safeMonitoreo
       };  
-// 🎯 INTERCEPTOR C-LEVEL 10/10: AUDITOR DIPLOMADO GRC & ANALÍTICA DE PATRONES
+
       if (
         consultaFinal.toLowerCase().includes('planes de mejoramiento') || 
         consultaFinal.toLowerCase().includes('avance físico') || 
@@ -357,7 +316,6 @@ const saveToCloud = async (partialData) => {
         const pctVencidos = total > 0 ? Math.round((vencidos / total) * 100) : 0;
         const avanceFisico = total > 0 ? Math.round(planesBase.reduce((acc, p) => acc + (p.progreso || p.avance || 0), 0) / total) : 0;
 
-        // 🧠 ANALÍTICA DE PATRONES EN TIEMPO REAL (Conteo dinámico por Proceso y Responsable)
         const conteoProcesos = {};
         const conteoResponsables = {};
 
@@ -373,7 +331,6 @@ const saveToCloud = async (partialData) => {
         const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]);
         const topResponsables = Object.entries(conteoResponsables).sort((a, b) => b[1] - a[1]);
 
-        // Construir frases de hallazgos de patrones
         let hallazgoPatron = "";
         if (topProcesos.length > 0) {
           const acumTopProcesos = topProcesos.slice(0, 3).reduce((acc, curr) => acc + curr[1], 0);
@@ -384,7 +341,6 @@ const saveToCloud = async (partialData) => {
           hallazgoPatron += `• Concentración de carga: El responsable **${topResponsables[0][0]}** acumula el ${pctResp}% de las acciones vencidas (${topResponsables[0][1]} planes), lo que evidencia una posible sobrecarga o cuello de botella operativo.`;
         }
 
-        // Semáforo Inteligente
         const nivelSemaforo = pctVencidos > 35 ? '🔴 Crítico' : (pctVencidos > 15 ? '🟠 Atención' : '🟢 Controlado');
 
         const dictamenEjecutivo = `📌 DIAGNÓSTICO EJECUTIVO GRC
@@ -429,25 +385,19 @@ Aunque el programa mantiene dinámica de ejecución, la acumulación de un **${p
 
         setAuditorRespuesta(dictamenEjecutivo);
       } else {
-        // 🚀 Para cualquier otra consulta, sigue llamando normalmente a Gemini
         const respuestaIA = await consultarCopilotoIA(consultaFinal, contextoDatos);
         
-        // 🛡️ Si el motor devuelve un objeto (JSON enriquecido), activa el Modal Ejecutivo
         if (typeof respuestaIA === 'object' && respuestaIA !== null) {
-          // 1. Dejamos un mensaje breve en el widget pequeño
           setAuditorRespuesta(respuestaIA.summary || respuestaIA.dictamen || "Análisis completado. Revisa el informe detallado en pantalla.");
-          
-          // 2. Disparamos el Modal grande con toda la data
           setAiModal({
             titulo: respuestaIA.title || respuestaIA.titulo || "Informe Ejecutivo de Auditoría GRC",
             contenido: respuestaIA
           });
         } else {
-          // Si devuelve texto simple, se queda en el widget
           setAuditorRespuesta(respuestaIA);
         }
       }
-      } catch (error) {
+    } catch (error) {
       console.error("🔍 Error IA:", error);
       setAuditorRespuesta(`❌ Error al consultar al asistente: ${error.message}`);
     } finally {
@@ -455,35 +405,14 @@ Aunque el programa mantiene dinámica de ejecución, la acumulación de un **${p
       setAuditorInput(''); 
     }
   };  
-// =====================================================================
-  // 📥 FUNCIONES DE EXPORTACIÓN (EXCEL Y JSON)
-  // =====================================================================
-  const exportToExcel = (dataArray, fileName) => {
-    if (!xlsxLoaded || !window.XLSX) {
-      showNotification("La librería de exportación aún está cargando.", "error");
-      return;
-    }
-    const cleanData = dataArray.map(item => {
-      const { historialCambios, ...rest } = item;
-      return rest;
-    });
-    
-    const ws = window.XLSX.utils.json_to_sheet(cleanData);
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, "Reporte");
-    window.XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().split('T')[0]}.xlsx`);
-    showNotification(`Archivo ${fileName} exportado con éxito.`);
+
+  const handleExportExcel = (dataArray, fileName) => {
+    exportToExcel(dataArray, fileName, xlsxLoaded, showNotification);
   };
 
-  const exportToJSON = () => {
+  const handleExportJSON = () => {
     const data = { riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "GCM_Backup_" + new Date().toISOString().split('T')[0] + ".json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    exportToJSON(data);
   };
 
   const handleImportJSON = (e) => {
