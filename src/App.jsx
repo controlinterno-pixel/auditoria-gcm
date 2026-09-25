@@ -82,7 +82,6 @@ const tema = localStorage.getItem('temaApp') || 'calido';
 const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
   // 🔌 ESTADO PARA EL CASO ACTIVO DEL EXPEDIENTE ÚNICO
 
-  const [auditoresLista, setAuditoresLista] = useState([]);
   const [notification, setNotification] = useState(null);
   const [isPresentationMode, setIsPresentationMode] = useState(false); 
   const [formResetKey, setFormResetKey] = useState(Date.now()); 
