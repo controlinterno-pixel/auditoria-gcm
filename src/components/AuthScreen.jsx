@@ -90,10 +90,15 @@ export default function AuthScreen() {
       return;
     }
 
-    setLoading(true);
+   setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
       const user = userCredential.user;
+
+      // 🛡️ REGLA DE SEGURIDAD N2:
+      // El rol ya NO se escribe desde el cliente hacia la colección "usuarios".
+      // La asignación de roles queda bajo control estricto del Administrador 
+      // mediante la consola de Firebase o un backend seguro.
    
       await sendEmailVerification(user);
       await signOut(auth);
@@ -105,7 +110,6 @@ export default function AuthScreen() {
       setLoading(false);
     }
   };
-
   // 2. Manejo del Login con Anti Fuerza Bruta (Rate Limiting)
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -119,9 +123,11 @@ export default function AuthScreen() {
       // Reseteamos intentos fallidos si entra con éxito
       setFailedAttempts(0);
 
-if (!user.emailVerified) {
-      await signOut(auth);
-        alert("⚠️ Tu correo aún no ha sido verificado. Revisa tu bandeja de entrada o spam.");
+// 🛡️ REGLA DE SEGURIDAD 2:
+      // Bloqueo obligatorio para cuentas no verificadas (Sin excepciones o puertas traseras)
+      if (!user.emailVerified) {
+        await signOut(auth);
+        alert("⚠️ Acceso denegado: Tu correo aún no ha sido verificado. Revisa tu bandeja de entrada o spam para activar tu cuenta.");
         setPendingVerification(true);
         setLoading(false);
         return;

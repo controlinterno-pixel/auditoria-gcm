@@ -78,22 +78,30 @@ export function useGrcData() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Carga Inicial Centralizada con Firebase
+  // 2. Carga Inicial Centralizada SEGURA (Backend-Driven)
   useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
     
-    const timeoutSeguridad = setTimeout(() => {
-      console.warn("⚠️ Firebase está tardando. Forzando entrada...");
-      setIsCloudLoaded(true);
-    }, 4000);
+    const fetchSecureData = async () => {
+      try {
+        // 🛡️ HALLAZGO N1 MITIGADO: 
+        // Eliminamos onSnapshot directo a Firestore.
+        // La solicitud pasa por el backend, quien valida la cookie HttpOnly 
+        // y aplica el filtrado RLS estricto antes de devolver el JSON.
+        const response = await fetch('/api/sync', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include' // 🔒 Exige validación de sesión
+        });
 
-    const docRef = doc(db, 'workspace_compartido', 'base_de_datos_grc');
-    
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      clearTimeout(timeoutSeguridad); 
-      if (docSnap.exists()) {
-        const data = docSnap.data() || {};
+        if (!response.ok) {
+          throw new Error("Acceso denegado o fallo en la recuperación de datos");
+        }
+
+        const data = await response.json();
+        
+        // Asignación directa: confiamos 100% en el filtro del servidor
         setRiesgos(data.riesgos || defaultRiesgos);
         setHallazgos(data.hallazgos || defaultHallazgos);
         setPlanes(data.planes || defaultPlanes);
@@ -105,47 +113,24 @@ export function useGrcData() {
         setComites(data.comites || []);
         setProgramas(data.programas || []);
         setAuditoresLista(data.auditoresLista || []);
-      } else {
-        if (isAdmin) {
-          setDoc(docRef, { 
-            riesgos: defaultRiesgos, hallazgos: defaultHallazgos, planes: defaultPlanes, 
-            incidentes: defaultIncidentes, evaluaciones: defaultEvaluaciones, 
-            cronograma: defaultCronograma, monitoreo: defaultMonitoreo, 
-            informesAuditoria: [], comites: [] 
-          });
-        }
-      }      
-      setIsCloudLoaded(true);
-    }, (error) => {
-      clearTimeout(timeoutSeguridad);
-      console.error("🔥 Error de Firebase:", error);
-      setIsCloudLoaded(true);
-    });
-
-    return () => {
-      clearTimeout(timeoutSeguridad);
-      unsubscribe();
+        
+      } catch (error) {
+        console.error("🔥 Error de seguridad/red obteniendo datos:", error);
+      } finally {
+        setIsCloudLoaded(true);
+      }
     };
-  }, [user, isAdmin]);
 
-  // 3. Motor RLS (Seguridad a nivel de fila)
-  const isSuperUser = isAdmin || perfilUsuario?.rol === 'auditor';
+    fetchSecureData();
+  }, [user]);
 
-  const applyRowLevelSecurity = (list, keyProceso, keyResp, keyCorreoResp) => {
-    if (isSuperUser) return list;
-    
-    return list.filter(item => {
-      if (keyCorreoResp && item[keyCorreoResp]?.toLowerCase() === user?.email?.toLowerCase()) return true;
-      if (keyResp && perfilUsuario?.nombreResponsable && item[keyResp]?.toLowerCase().includes(perfilUsuario.nombreResponsable.toLowerCase())) return true;
-      if (keyProceso && perfilUsuario?.procesoAsignado && item[keyProceso] === perfilUsuario.procesoAsignado) return true;
-      return false;
-    });
-  };
-
-  const safePlanes = applyRowLevelSecurity(Array.isArray(planes) ? planes : [], 'proceso', 'responsable', 'correoResponsable');
-  const safeHallazgos = applyRowLevelSecurity(Array.isArray(hallazgos) ? hallazgos : [], 'proceso', 'responsable', null);
-  const safeRiesgos = applyRowLevelSecurity(Array.isArray(riesgos) ? riesgos : [], 'proceso', 'responsable', null);
-  const safeEvaluaciones = applyRowLevelSecurity(Array.isArray(evaluaciones) ? evaluaciones : [], 'proceso', null, null);
+  // 3. Motor RLS Delegado al Servidor
+  // 🛡️ Ya no filtramos arreglos en el cliente. Si la data llegó aquí, 
+  // es porque el usuario tiene permiso legítimo para verla.
+  const safeRiesgos = Array.isArray(riesgos) ? riesgos : [];
+  const safeHallazgos = Array.isArray(hallazgos) ? hallazgos : [];
+  const safePlanes = Array.isArray(planes) ? planes : [];
+  const safeEvaluaciones = Array.isArray(evaluaciones) ? evaluaciones : [];
   const safeProgramas = Array.isArray(programas) ? programas : [];
   const safeIncidentes = Array.isArray(incidentes) ? incidentes : [];
   const safeCronograma = Array.isArray(cronograma) ? cronograma : [];
