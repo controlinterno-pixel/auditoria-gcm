@@ -89,8 +89,8 @@ export function useGrcData() {
         // Eliminamos onSnapshot directo a Firestore.
         // La solicitud pasa por el backend, quien valida la cookie HttpOnly 
         // y aplica el filtrado RLS estricto antes de devolver el JSON.
-        const response = await fetch('/api/sync', {
-          method: 'GET',
+const response = await fetch('/api/grc/sync', {
+        method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include' // 🔒 Exige validación de sesión
         });
