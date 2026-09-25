@@ -1,13 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { signOut, onAuthStateChanged } from 'firebase/auth'; 
-import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
-// 🔥 CONEXIÓN MODULAR Y SERVICIOS CENTRALIZADOS
-import { auth, db } from './services/firebase';
-import { 
-  formatSafeDate, getItemAnio, getItemMesText, calcularMatriz5x5, applyFilters 
-} from './utils/helpers';
+import React, { useState, useEffect } from 'react';
+import { signOut } from 'firebase/auth'; 
+import { auth } from './services/firebase';
+import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
+
 import InformesAuditoria from './components/InformesAuditoria';
-import * as XLSX from 'xlsx';
 import Configuracion from './components/Configuracion';
 import Incidentes from './components/Incidentes';
 import Hallazgos from './components/Hallazgos';
@@ -30,18 +26,18 @@ import AuthScreen from './components/AuthScreen';
 import ResetPassword from './components/ResetPassword';
 import { FilterInput, StepIndicatorHUD, HeaderFiltros } from './components/UIComponents';
 import Navbar from './components/Navbar';
-import { enviarCorreoGmail } from './services/gmailService';
+import SidebarNavigation from './components/SidebarNavigation';
 import MiPerfil from './components/MiPerfil';
+
+import { enviarCorreoGmail } from './services/gmailService';
 import { useGrcData } from './hooks/useGrcData';
+import { useGrcPeriodFilters } from './hooks/useGrcPeriodFilters';
 import { createFormHandlers } from './handlers/grcFormHandlers';
 import { exportToExcel, exportToJSON, saveToCloud as syncCloud } from './services/grcStorageService';
 import { executeAuditorQuery } from './handlers/auditorIaHandler';
 import { processExcelRiesgos } from './utils/excelImporter';
 import { sugerirTextoConIA, analizarEvidenciaDocumento } from './services/copilotService';
-import { 
-  defaultCronograma, defaultRiesgos, defaultHallazgos, 
-  defaultPlanes, defaultIncidentes, defaultEvaluaciones, defaultMonitoreo 
-} from './constants/defaultData';
+import { defaultCronograma } from './constants/defaultData';
 
 
 // =====================================================================
@@ -128,92 +124,37 @@ const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
   const [editComite, setEditComite] = useState(null);
   const [editPrograma, setEditPrograma] = useState(null);
 
-  const [periodFilters, setPeriodFilters] = useState({});
+  const {
+    defaultAnios, defaultMeses, selectedAnios, selectedMeses,
+    setSelectedAnios, setSelectedMeses, handleColFilterChange,
+    toggleAnio, toggleMes, incFiltrados, rFiltrados, hFiltrados,
+    pFiltrados, comitesFiltrados, cFiltrados
+  } = useGrcPeriodFilters({
+    activeTab, subTabPlanificar, subTabResultados, subTabPlanes, subTabGobernanza,
+    safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma, safeComites,
+    setSearchTerm, setColumnFilters
+  });
 
-  const defaultAnios = useMemo(() => {
-    const currentYear = new Date().getFullYear();
-    const yearsSet = new Set([currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3]);
-    safeRiesgos.forEach(r => r.anio && yearsSet.add(Number(r.anio)));
-    safeHallazgos.forEach(h => h.anio && yearsSet.add(Number(h.anio)));
-    safePlanes.forEach(p => p.anio && yearsSet.add(Number(p.anio)));
-    safeIncidentes.forEach(i => i.anio && yearsSet.add(Number(i.anio)));
-    safeCronograma.forEach(c => c.anio && yearsSet.add(Number(c.anio)));
-    return Array.from(yearsSet).sort((a, b) => a - b);
-  }, [safeRiesgos, safeHallazgos, safePlanes, safeIncidentes, safeCronograma]);
-
-  const defaultMeses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-
-  const getCurrentFilterKey = () => {
-    if (activeTab === 'plan_anual_tab') return `plan_anual_tab_${subTabPlanificar}`;
-    if (activeTab === 'resultados_tab') return `resultados_tab_${subTabResultados}`;
-    if (activeTab === 'planes_tab') return `planes_tab_${subTabPlanes}`;
-    if (activeTab === 'gobernanza_tab') return `gobernanza_tab_${subTabGobernanza}`;
-    return activeTab;
-  };
-  
-  const filterKey = getCurrentFilterKey();
-
-  const getDefaultAnios = (key) => {
-    if (key === 'plan_anual_tab_riesgos' || key === 'plan_anual_tab_apetito') {
-      return []; 
-    }
-    return [new Date().getFullYear()];
+const showNotification = (message, type = 'success') => { 
+    setNotification({ message, type }); 
+    setTimeout(() => setNotification(null), 4000); 
   };
 
-  const selectedAnios = periodFilters[filterKey]?.anios || getDefaultAnios(filterKey);
-  const selectedMeses = periodFilters[filterKey]?.meses || defaultMeses;
-
-  const setSelectedAnios = (valOrFunc) => {
-    setPeriodFilters(prev => {
-      const cur = prev[filterKey] || { anios: getDefaultAnios(filterKey), meses: defaultMeses };
-      return { ...prev, [filterKey]: { ...cur, anios: typeof valOrFunc === 'function' ? valOrFunc(cur.anios) : valOrFunc } };
-    });
+  const saveToCloud = async (partialData) => {
+    await syncCloud(partialData, showNotification);
   };
 
-  const setSelectedMeses = (valOrFunc) => {
-    setPeriodFilters(prev => {
-      const cur = prev[filterKey] || { anios: getDefaultAnios(filterKey), meses: defaultMeses };
-      return { ...prev, [filterKey]: { ...cur, meses: typeof valOrFunc === 'function' ? valOrFunc(cur.meses) : valOrFunc } };
-    });
-  };
-
-  useEffect(() => {
-    setSearchTerm('');
-    setColumnFilters({});
-  }, [activeTab]);
-
-  const handleColFilterChange = (key, value) => {
-    setColumnFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const toggleAnio = (anio) => {
-    setSelectedAnios(prev => prev.includes(anio) ? prev.filter(a => a !== anio) : [...prev, anio]);
-  };
-  
-  const toggleMes = (mes) => {
-    setSelectedMeses(prev => prev.includes(mes) ? prev.filter(m => m !== mes) : [...prev, mes]);
-  };
-  
-
-const handleLogout = async () => { 
+  const handleLogout = async () => { 
     try {
-      // 1. Matamos la sesión en el Backend (Cookie)
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-      // 2. Matamos la sesión en el Frontend (Firebase)
       await signOut(auth);
-      // 3. Limpiamos los estados de React
       setUser(null);
       setIsAdmin(false);
       setShowWelcome(true);
-      // 4. 🔥 BALA DE PLATA: Forzamos la limpieza del DOM para evitar formularios atascados
       window.location.reload(); 
     } catch (error) {
-      console.error("Error al cerrar sesión:", error);
-      window.location.reload(); // Si falla algo, recargamos por seguridad
+      window.location.reload(); 
     }
-  };
-const saveToCloud = async (partialData) => {
-    await syncCloud(partialData, showNotification);
   };
 
   const handleDeleteItem = async (listType, id) => {
@@ -234,11 +175,6 @@ const saveToCloud = async (partialData) => {
     showNotification("Registro eliminado.", "success");
   };
 
-  const showNotification = (message, type = 'success') => { 
-    setNotification({message, type}); 
-    setTimeout(() => setNotification(null), 4000); 
-  };
-  
   const scrollToForm = () => {
     setTimeout(() => {
       const formEl = document.getElementById('edit-form');
@@ -253,35 +189,18 @@ const saveToCloud = async (partialData) => {
     }, 100);
   };
 
-const handleAuditorSubmit = async (e, textoDirecto = null) => {
+  const handleAuditorSubmit = async (e, textoDirecto = null) => {
     if (e) e.preventDefault();
     await executeAuditorQuery({
-      textoDirecto,
-      auditorInput,
-      setIsAuditorThinking,
-      setAuditorRespuesta,
-      setAiModal,
-      safeRiesgos,
-      safeHallazgos,
-      safePlanes,
-      safeIncidentes,
-      safeCronograma,
-      safeEvaluaciones,
-      safeMonitoreo,
-      informesAuditoria
+      textoDirecto, auditorInput, setIsAuditorThinking, setAuditorRespuesta,
+      setAiModal, safeRiesgos, safeHallazgos, safePlanes, safeIncidentes,
+      safeCronograma, safeEvaluaciones, safeMonitoreo, informesAuditoria
     });
     setAuditorInput('');
   };
 
-  const handleExportExcel = (dataArray, fileName) => {
-    exportToExcel(dataArray, fileName, xlsxLoaded, showNotification);
-  };
-
-  const handleExportJSON = () => {
-    const data = { riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo };
-    exportToJSON(data);
-  };
-
+  const handleExportExcel = (dataArray, fileName) => exportToExcel(dataArray, fileName, xlsxLoaded, showNotification);
+  const handleExportJSON = () => exportToJSON({ riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo });
   const handleImportJSON = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -289,80 +208,33 @@ const handleAuditorSubmit = async (e, textoDirecto = null) => {
     reader.onload = async (event) => {
       try {
         const parsedData = JSON.parse(event.target.result);
-        if(window.confirm("⚠️ ALERTA: Esto sobrescribirá TODA la base de datos actual con los datos del archivo. ¿Estás seguro?")) {
+        if (window.confirm("⚠️ ALERTA: Sobrescribirá TODA la base de datos. ¿Continuar?")) {
           setIsCloudLoaded(false); 
           await saveToCloud(parsedData);
-          showNotification("Base de datos actualizada masivamente con éxito.", "success");
+          showNotification("Base de datos actualizada.", "success");
           setIsCloudLoaded(true);
         }
-      } catch(error) {
-        showNotification("Error: El archivo no tiene un formato JSON válido.", "error");
+      } catch (error) {
+        showNotification("Error: Formato JSON no válido.", "error");
       }
       e.target.value = null; 
     };
     reader.readAsText(file);
   };
 
-const handleImportExcelRiesgos = (e) => {
-    processExcelRiesgos({
-      event: e,
-      safeRiesgos,
-      setRiesgos,
-      saveToCloud,
-      showNotification,
-      setIsCloudLoaded,
-      user
-    });
-  };
-
+  const handleImportExcelRiesgos = (e) => processExcelRiesgos({ event: e, safeRiesgos, setRiesgos, saveToCloud, showNotification, setIsCloudLoaded, user });
   const forceUpdateCronograma = async () => {
-    if(window.confirm("¿Seguro que deseas cargar los 20 procesos del nuevo Plan Anual? Esto borrará el cronograma actual y lo reemplazará por la versión de Termales Santa Rosa.")) {
+    if (window.confirm("¿Deseas cargar los 20 procesos del Plan Anual?")) {
       await saveToCloud({ cronograma: defaultCronograma });
-      showNotification("¡Plan Anual actualizado exitosamente con los 20 procesos!", "success");
+      showNotification("¡Plan Anual actualizado!", "success");
     }
   };
 
-  const sugerirConIA = (tipoTarget) => {
-    sugerirTextoConIA(tipoTarget, setIsThinking, showNotification);
-  };
+  const sugerirConIA = (tipoTarget) => sugerirTextoConIA(tipoTarget, setIsThinking, showNotification);
+  const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
 
-  const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => {
-    analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
-  };
+  const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
 
-  // --- FILTRADO GLOBAL COMPACTO (AÑOS Y MESES MÚLTIPLES) ---
-  const filterByGlobalPeriod = (item) => {
-    const a = getItemAnio(item);
-    const m = getItemMesText(item);
-    
-    const passAnio = selectedAnios.length === 0 || selectedAnios.includes(Number(a)) || selectedAnios.includes(String(a));
-    const passMes = selectedMeses.length === 0 || selectedMeses.includes(m);
-    
-    return passAnio && passMes;
-  };
-
-// --- FILTROS GLOBALES OPTIMIZADOS ---
-  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
-  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, selectedAnios, selectedMeses]);
-  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, selectedAnios, selectedMeses]);
-  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, selectedAnios, selectedMeses]);
-
-  const comitesFiltrados = useMemo(() => {
-    return safeComites.filter(c => {
-      const anioComite = Number(c.anio) || new Date().getFullYear();
-      const mesComite = c.mes || '';
-      const cumpleAnio = selectedAnios.length === 0 || selectedAnios.includes(anioComite);
-      const cumpleMes = selectedMeses.length === 0 || selectedMeses.includes(mesComite);
-      return cumpleAnio && cumpleMes;
-    });
-  }, [safeComites, selectedAnios, selectedMeses]);
-
-  const cFiltrados = useMemo(() => safeCronograma.filter(c => {
-    const anio = Number(c.anio) || new Date().getFullYear();
-    return selectedAnios.length === 0 || selectedAnios.includes(anio);
-  }), [safeCronograma, selectedAnios]);
-
-const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
   const {
     handleRiesgoSubmit,
     handleHallazgoSubmit,
@@ -417,242 +289,25 @@ return (
         </button>
       )}
 
-<div 
-      className={`w-[260px] text-[#a3c2e0] flex flex-col shadow-2xl z-20 border-r border-slate-800/50 ${isPresentationMode ? 'hidden' : 'flex'} relative`}
-      style={{
-        background: 'linear-gradient(180deg, #041428 0%, #010613 100%)'
-      }}
-    >
-      
-      {/* BRANDING LOGO (Con resplandor radial) */}
-      <div 
-        className="p-6 flex items-center space-x-3 border-b border-[#0066ff1a] shrink-0 shadow-[0_4px_20px_rgba(0,102,255,0.05)]"
-        style={{ background: 'radial-gradient(circle at 50% 50%, rgba(0, 102, 255, 0.15) 0%, transparent 70%)' }}
-      >
-        <div className="w-8 h-8 bg-gradient-to-br from-[#0055ff] to-[#00aaff] rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(0,102,255,0.4)]">
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-        </div>
-        <div>
-          <h1 className="text-sm font-black text-white tracking-tight drop-shadow-md">GCM Auditor v5</h1>
-          <p className="text-[8px] text-[#6b96c3] font-bold uppercase tracking-widest mt-0.5">Auditoría • Riesgos • Cumplimiento</p>
-        </div>
-      </div>
-
-     {/* MENÚ ACORDEÓN CON FUNCIÓN TOGGLE (OCULTAR/MOSTRAR) */}
-      <nav className="flex-1 px-4 py-4 space-y-1 text-xs font-medium overflow-y-auto custom-scrollbar relative z-10">
-
-        {/* 1. INICIO */}
-        <div className="flex flex-col">
-          <button 
-            onClick={() => {
-              setMenuAbierto(menuAbierto === 'inicio' ? null : 'inicio');
-              if (menuAbierto !== 'inicio') setActiveTab('tablero');
-            }} 
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'tablero' || activeTab === 'dashboard_riesgos') ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-              <span className="font-bold">Inicio</span>
-            </div>
-            <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'inicio' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'inicio' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
-            <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => setActiveTab('tablero')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'tablero' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Mi Espacio GRC</button>
-              <button onClick={() => setActiveTab('dashboard_riesgos')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'dashboard_riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>GRC Dashboard</button>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. AUDITORÍAS */}
-        <div className="flex flex-col">
-          <button 
-            onClick={() => { 
-              setMenuAbierto(menuAbierto === 'auditorias' ? null : 'auditorias');
-              if (menuAbierto !== 'auditorias') { setActiveTab('plan_anual_tab'); setSubTabPlanificar('plan_anual'); }
-            }} 
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'plan_anual_tab' && (subTabPlanificar === 'plan_anual' || subTabPlanificar === 'programas')) || activeTab === 'evaluaciones' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
-              <span className="font-bold">Auditorías</span>
-            </div>
-            <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'auditorias' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'auditorias' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
-            <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('plan_anual'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'plan_anual' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Cronograma Anual</button>
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('programas'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'programas' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Programas de Auditoría</button>
-              {isAdmin && <button onClick={() => setActiveTab('evaluaciones')} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'evaluaciones' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Trabajo de Campo</button>}
-            </div>
-          </div>
-        </div>
-
-        {/* 3. RIESGOS */}
-        <div className="flex flex-col">
-          <button 
-            onClick={() => { 
-              setMenuAbierto(menuAbierto === 'riesgos' ? null : 'riesgos');
-              if (menuAbierto !== 'riesgos') { setActiveTab('plan_anual_tab'); setSubTabPlanificar('riesgos'); }
-            }} 
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'plan_anual_tab' && (subTabPlanificar === 'riesgos' || subTabPlanificar === 'apetito') ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-              <span className="font-bold">Riesgos</span>
-            </div>
-            <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'riesgos' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'riesgos' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
-            <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('riesgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'riesgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Matriz de Riesgos</button>
-              <button onClick={() => { setActiveTab('plan_anual_tab'); setSubTabPlanificar('apetito'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'plan_anual_tab' && subTabPlanificar === 'apetito' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Apetito de Riesgo</button>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. INFORMES Y HALLAZGOS */}
-        <div className="flex flex-col">
-          <button 
-            onClick={() => { 
-              setMenuAbierto(menuAbierto === 'hallazgos' ? null : 'hallazgos');
-              if (menuAbierto !== 'hallazgos') { 
-                setActiveTab('resultados_tab'); 
-                setSubTabResultados(isAdmin ? 'informes' : 'hallazgos'); 
-              }
-            }} 
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'resultados_tab' || (activeTab === 'planes_tab' && subTabPlanes === 'incidentes')) ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-              <span className="font-bold">Informes y Hallazgos</span>
-            </div>
-            <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'hallazgos' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'hallazgos' ? 'max-h-60 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
-            <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Informes Emitidos</button>}
-              <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>
-              <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('incidentes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>
-            </div>
-          </div>
-        </div>
-
-        {/* 5. PLANES DE ACCIÓN */}
-        <div className="flex flex-col">
-          <button 
-            onClick={() => { 
-              setMenuAbierto(menuAbierto === 'planes' ? null : 'planes');
-              if (menuAbierto !== 'planes') { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }
-            }} 
-            className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${(activeTab === 'planes_tab' && subTabPlanes === 'planes') ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <span className="font-bold">Planes de Acción</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {pendingPlansCount > 0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-md">{pendingPlansCount}</span>}
-              <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'planes' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </div>
-          </button>
-          <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'planes' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
-            <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg flex justify-between ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>
-                Seguimiento de Planes {pendingPlansCount > 0 && <span className="text-rose-400">({pendingPlansCount})</span>}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 5. GOBERNANZA E INTELIGENCIA */}
-        {isAdmin && (
-          <div className="flex flex-col">
-            <button 
-              onClick={() => { 
-                setMenuAbierto(menuAbierto === 'gobernanza' ? null : 'gobernanza');
-                if (menuAbierto !== 'gobernanza') { setActiveTab('gobernanza_tab'); setSubTabGobernanza('comites'); }
-              }} 
-              className={`flex items-center justify-between w-full px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'gobernanza_tab' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
-              <div className="flex items-center gap-3">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                <span className="font-bold">Gobernanza & IA</span>
-              </div>
-              <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'gobernanza' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'gobernanza' ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
-              <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('comites'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'comites' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Sesiones de Comité</button>
-                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('trazabilidad'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'trazabilidad' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Bitácora Trazabilidad</button>
-                <button onClick={() => { setActiveTab('gobernanza_tab'); setSubTabGobernanza('auditoria_auto'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'gobernanza_tab' && subTabGobernanza === 'auditoria_auto' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Auditoría Automatizada</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 6. CONFIGURACIÓN */}
-        {isAdmin && (
-          <div className="flex flex-col pt-2 border-t border-slate-800/50 mt-2">
-            <button onClick={() => setActiveTab('config')} className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all duration-200 ${activeTab === 'config' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)]' : 'hover:bg-slate-800/60 text-[#a3c2e0] hover:text-white'}`}>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              <span className="font-bold">Configuración</span>
-            </button>
-          </div>
-        )}
-
-      </nav>
-
-      {/* 👤 PERFIL DE USUARIO AL FONDO */}
-      <div 
-        className="p-4 shrink-0 z-10"
-        style={{
-          background: 'linear-gradient(180deg, rgba(4, 25, 55, 0.8) 0%, rgba(1, 6, 19, 0.9) 100%)',
-          boxShadow: '0 -10px 25px rgba(0, 102, 255, 0.1)',
-          borderTop: '1px solid rgba(0, 102, 255, 0.2)'
-        }}
-      >
-        <div className="bg-slate-800/40 border border-[#0066ff1a] rounded-xl p-3 flex flex-col gap-3">
-          
-          {/* Info del usuario (Clickable) */}
-          <div 
-            className="flex items-center gap-3 cursor-pointer group"
-            onClick={() => setActiveTab('mi_perfil')}
-            title="Ir a mi perfil"
-          >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0055ff] to-[#00aaff] flex items-center justify-center text-white font-black text-lg shadow-[0_0_15px_rgba(0,102,255,0.4)] shrink-0 overflow-hidden ring-2 ring-transparent group-hover:ring-[#0055ff] transition-all">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="Perfil" className="w-full h-full object-cover" />
-              ) : (
-                user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U')
-              )}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <h4 className="text-xs font-bold text-white truncate group-hover:text-[#a3c2e0] transition-colors drop-shadow-sm">
-                {user?.displayName || user?.email?.split('@')[0] || 'Usuario'}
-              </h4>
-              <p className="text-[9px] font-semibold text-[#00aaff] uppercase tracking-widest mt-0.5">
-                {isAdmin ? 'Auditor Líder' : 'Gestor de Proceso'}
-              </p>
-            </div>
-          </div>
-
-          <div className="h-[1px] w-full bg-slate-800/80" />
-          
-          {/* Botonera de cuenta */}
-          <div className="flex flex-col gap-1">
-            <button 
-              onClick={() => setActiveTab('mi_perfil')} 
-              className="flex items-center justify-between text-[11px] font-bold text-[#a3c2e0] hover:text-white hover:bg-slate-800/60 transition-colors px-2 py-1.5 rounded-lg w-full"
-            >
-              <span>⚙️ Configurar Perfil</span>
-            </button>
-            <button 
-              onClick={handleLogout} 
-              className="flex items-center justify-between text-[11px] font-bold text-[#a3c2e0] hover:text-rose-400 hover:bg-rose-950/30 transition-colors px-2 py-1.5 rounded-lg w-full"
-            >
-              <span>Cerrar Sesión</span>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-            </button>
-          </div>
-
-        </div>
-      </div>
-    </div>  
+<SidebarNavigation 
+        isPresentationMode={isPresentationMode}
+        menuAbierto={menuAbierto}
+        setMenuAbierto={setMenuAbierto}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        subTabPlanificar={subTabPlanificar}
+        setSubTabPlanificar={setSubTabPlanificar}
+        subTabResultados={subTabResultados}
+        setSubTabResultados={setSubTabResultados}
+        subTabPlanes={subTabPlanes}
+        setSubTabPlanes={setSubTabPlanes}
+        subTabGobernanza={subTabGobernanza}
+        setSubTabGobernanza={setSubTabGobernanza}
+        pendingPlansCount={pendingPlansCount}
+        isAdmin={isAdmin}
+        user={user}
+        handleLogout={handleLogout}
+      /> 
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
 <Navbar 
