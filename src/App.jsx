@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { signOut } from 'firebase/auth'; 
 import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
@@ -31,6 +31,7 @@ import MiPerfil from './components/MiPerfil';
 
 import { enviarCorreoGmail } from './services/gmailService';
 import { useGrcData } from './hooks/useGrcData';
+import { useGrcUI } from './hooks/useGrcUI';
 import { useGrcPeriodFilters } from './hooks/useGrcPeriodFilters';
 import { createFormHandlers } from './handlers/grcFormHandlers';
 import { exportToExcel, exportToJSON, saveToCloud as syncCloud } from './services/grcStorageService';
@@ -45,48 +46,24 @@ import { defaultCronograma } from './constants/defaultData';
 // =====================================================================
 
 export default function App() {
-  // 🔑 Detectar si el usuario viene desde el correo de restablecer contraseña
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [oobCode, setOobCode] = useState(null); // <-- NUEVO ESTADO PARA EL CÓDIGO
+  const ui = useGrcUI();
+  const {
+    isResettingPassword, oobCode, activeTab, setActiveTab, menuAbierto, setMenuAbierto,
+    subTabPlanificar, setSubTabPlanificar, subTabResultados, setSubTabResultados,
+    subTabPlanes, setSubTabPlanes, subTabGobernanza, setSubTabGobernanza,
+    selectedProcesoExpediente, setSelectedProcesoExpediente, notification, showNotification,
+    isPresentationMode, setIsPresentationMode, formResetKey, setFormResetKey,
+    searchTerm, setSearchTerm, columnFilters, setColumnFilters, xlsxLoaded,
+    isThinking, setIsThinking, aiModal, setAiModal, chartDetail, setChartDetail,
+    isSubmitting, setIsSubmitting, matrizFiltro, setMatrizFiltro,
+    showAuditorIA, setShowAuditorIA, auditorInput, setAuditorInput,
+    auditorRespuesta, setAuditorRespuesta, isAuditorThinking, setIsAuditorThinking,
+    editRiesgo, setEditRiesgo, editPlan, setEditPlan, editEvaluacion, setEditEvaluacion,
+    editHallazgo, setEditHallazgo, editIncidente, setEditIncidente, editCronograma, setEditCronograma,
+    editApetito, setEditApetito, editMonitoreo, setEditMonitoreo, activeTooltip, setActiveTooltip,
+    editInformeAuditoria, setEditInformeAuditoria, editComite, setEditComite, editPrograma, setEditPrograma
+  } = ui;
 
-  useEffect(() => {
-    // Leemos la URL para ver si Firebase nos mandó un código secreto
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get('mode');
-    const code = params.get('oobCode');
-
-    if (mode === 'resetPassword' && code) {
-      setIsResettingPassword(true);
-      setOobCode(code); // <-- GUARDAMOS EL CÓDIGO
-    }
-  }, []);
-
- const [activeTab, setActiveTab] = useState('tablero');
-  const [menuAbierto, setMenuAbierto] = useState('inicio');
-
-  // 🎨 LECTURA GLOBAL DEL TEMA EN TODA LA APP
-  useEffect(() => {
-const tema = localStorage.getItem('temaApp') || 'calido';
-    document.documentElement.classList.remove('dark', 'warm');
-    if (tema === 'oscuro') document.documentElement.classList.add('dark');
-    if (tema === 'calido') document.documentElement.classList.add('warm');
-  }, [activeTab]);
-  // 🔌 Hook para gestionar peticiones a la base de datos
-  // 🔌 ESTADOS PARA NAVEGACIÓN ANIDADA DE PROCESOS (WORKFLOW)
-  const [subTabPlanificar, setSubTabPlanificar] = useState('plan_anual');
-  const [subTabResultados, setSubTabResultados] = useState('hallazgos');
-  const [subTabPlanes, setSubTabPlanes] = useState('planes');
-  const [subTabGobernanza, setSubTabGobernanza] = useState('comites');
-// 🔌 ESTADO PARA NAVEGACIÓN DIRECTA DE PROCESOS AL EXPEDIENTE 360°
-const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
-  // 🔌 ESTADO PARA EL CASO ACTIVO DEL EXPEDIENTE ÚNICO
-
-  const [notification, setNotification] = useState(null);
-  const [isPresentationMode, setIsPresentationMode] = useState(false); 
-  const [formResetKey, setFormResetKey] = useState(Date.now()); 
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [columnFilters, setColumnFilters] = useState({});
   const {
     user, setUser, isAdmin, setIsAdmin, perfilUsuario, setPerfilUsuario,
     isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
@@ -98,31 +75,6 @@ const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();
-
-  const [xlsxLoaded] = useState(true);
-  const [isThinking, setIsThinking] = useState(false);
-  const [aiModal, setAiModal] = useState(null);
-  const [chartDetail, setChartDetail] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [matrizFiltro, setMatrizFiltro] = useState(null);
-
-  const [showAuditorIA, setShowAuditorIA] = useState(false);
-  const [auditorInput, setAuditorInput] = useState('');
-  const [auditorRespuesta, setAuditorRespuesta] = useState('');
-  const [isAuditorThinking, setIsAuditorThinking] = useState(false);
-
-  const [editRiesgo, setEditRiesgo] = useState(null);
-  const [editPlan, setEditPlan] = useState(null);
-  const [editEvaluacion, setEditEvaluacion] = useState(null);
-  const [editHallazgo, setEditHallazgo] = useState(null);
-  const [editIncidente, setEditIncidente] = useState(null);
-  const [editCronograma, setEditCronograma] = useState(null);
-  const [editApetito, setEditApetito] = useState(null);
-  const [editMonitoreo, setEditMonitoreo] = useState(null);
-  const [activeTooltip, setActiveTooltip] = useState(null);
-  const [editInformeAuditoria, setEditInformeAuditoria] = useState(null);
-  const [editComite, setEditComite] = useState(null);
-  const [editPrograma, setEditPrograma] = useState(null);
 
   const {
     defaultAnios, defaultMeses, selectedAnios, selectedMeses,
