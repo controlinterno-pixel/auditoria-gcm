@@ -288,7 +288,7 @@ export const createFormHandlers = ({
     setPlanes(updatedPlanes);
     await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
     
-    const correoCentral = user?.email || "controlinterno@termales.com.co";
+const correoCentral = user?.email || process.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com";
     await ejecutarDespachoGmailApi({ 
       ref_consecutivo: `CIERRE-PLAN-${plan.id}`, 
       titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito', 

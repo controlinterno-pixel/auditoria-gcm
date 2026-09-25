@@ -472,7 +472,7 @@ const diccionarioCorreos = {
           destinatarios: plan.correoResponsable
         });
 
-        const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || "controlinterno@termales.com.co";
+const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
         await ejecutarDespachoGmailApi({
           ref_consecutivo: `PLAN-${plan.id}`,
           titulo_informe: `Nuevo Plan de Accion Asignado`,
@@ -487,7 +487,7 @@ const diccionarioCorreos = {
     // 👉 AGREGA "enviarNotificaciones &&" AQUÍ:
     if (enviarNotificaciones && notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
       for (const act of notificacionesRevision100) {
-        const correoAuditor = diccionarioCorreos[act.auditorAsignado] || "controlinterno@termales.com.co";
+const correoAuditor = diccionarioCorreos[act.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
         await ejecutarDespachoGmailApi({
           ref_consecutivo: `REVISION-100`,
           titulo_informe: `Verificar soportes cargados al 100 por ciento para proceder con el cierre`,
@@ -513,8 +513,7 @@ const diccionarioCorreos = {
     const ts = new Date().toLocaleString();
     let updatedPlanesList = [...safePlanes];
     const esAprobado = puntajeHolistico >= 80;
-    const correoResponsableLider = modalEval.planes[0]?.correoResponsable || 'controlinterno@termales.com.co';
-
+const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || 'controlinterno@empresa.com');
     // Actualizamos en lote TODAS las actividades (Acumulando el Historial de Calificaciones)
     modalEval.planes.forEach(plan => {
       const idx = updatedPlanesList.findIndex(p => p.id === plan.id);
