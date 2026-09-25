@@ -347,78 +347,28 @@ return (
               />
             )}
 {/* 📈 DASHBOARD INTELIGENTE — RECONECTADO AQUÍ */}
-            {activeTab === 'dashboard_riesgos' && (() => {
-              const ajustarCoordenada = (valor) => {
-                if (valor === undefined || valor === null || valor === '') return 0;
-                const s = String(valor).toLowerCase().trim();
-                if (s === '20') return 1;
-                if (s === '40') return 2;
-                if (s === '60') return 3;
-                if (s === '80') return 4;
-                if (s === '100') return 5;
-                if (s === '0') return 1;
-
-                const num = parseInt(s.charAt(0), 10);
-                if (!isNaN(num) && num >= 1 && num <= 5) return num;
-                
-                if (s.includes('rara') || s.includes('muy baja')) return 1;
-                if (s.includes('improbable') || s.includes('baja')) return 2;
-                if (s.includes('posible') || s.includes('media')) return 3;
-                if (s.includes('probable') || s.includes('alta')) return 4;
-                if (s.includes('casi seguro') || s.includes('muy alta')) return 5;
-                
-                if (s.includes('insignificante') || s.includes('leve')) return 1;
-                if (s.includes('menor')) return 2;
-                if (s.includes('moderado') || s.includes('medio')) return 3;
-                if (s.includes('mayor') || s.includes('alto')) return 4;
-                if (s.includes('catastrófico') || s.includes('crítico')) return 5;
-                return 0;
-              };
-
-              const riesgosEstructurados5x5 = (rFiltrados || []).map(r => ({
-                ...r,
-                probabilidadResidual: ajustarCoordenada(r.probabilidadResidual),
-                impactoResidual: ajustarCoordenada(r.impactoResidual),
-                probabilidadInherente: ajustarCoordenada(r.probabilidadInherente),
-                impactoInherente: ajustarCoordenada(r.impactoInherente)
-              }));
-
-// 🟢 Solo evaluar si pertenecen al año y mes que el auditor seleccionó explícitamente en los botones
-const evalFiltrados = (safeEvaluaciones || []).filter(item => {
-  const anioItem = String(item.anio || '');
-  const mesItem = String(item.mes || '');
-  
-  // Si están todos los meses marcados, obligar a que solo lea el mes de análisis operativo (Junio) 
-  // para evitar que los datos demo del pasado ensucien el tablero.
-  const aniosSeleccionados = periodFilters['dashboard_riesgos']?.anios || [2026];
-  const mesesSeleccionados = periodFilters['dashboard_riesgos']?.meses || ["Junio"];
-
-  return aniosSeleccionados.map(String).includes(anioItem) && mesesSeleccionados.includes(mesItem);
-});
-              return (
-                <DashboardEjecutivo 
-                  rFiltrados={riesgosEstructurados5x5} riesgos={riesgos}
-                  hFiltrados={hFiltrados} hallazgos={hallazgos}
-                  pFiltrados={pFiltrados} planes={planes}
-                  cFiltrados={cFiltrados} cronograma={cronograma}
-                  // 🟢 INYECCIÓN MULTI-PROP PARA BLINDAR LA CONEXIÓN REAL
-                  safeEvaluaciones={safeEvaluaciones}
-                  evaluaciones={safeEvaluaciones}
-                  evalFiltrados={evalFiltrados}
-                  evFiltrados={evalFiltrados}
-                  eFiltrados={evalFiltrados}
-                  informesAuditoria={informesAuditoria} safeIncidentes={safeIncidentes}
-                  matrizFiltro={matrizFiltro} setMatrizFiltro={setMatrizFiltro}
-                  setChartDetail={setChartDetail}
-                  defaultMeses={defaultMeses} defaultAnios={defaultAnios}
-                  selectedAnios={selectedAnios} selectedMeses={selectedMeses}
-                  toggleAnio={toggleAnio} toggleMes={toggleMes}
-                  setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses}
-                  setActiveTab={setActiveTab}
-                  setSelectedProcesoExpediente={setSelectedProcesoExpediente}
-                />
-              );
-            })()}
+           {activeTab === 'dashboard_riesgos' && (
+              <DashboardEjecutivo 
+                rFiltrados={rFiltrados} riesgos={riesgos}
+                hFiltrados={hFiltrados} hallazgos={hallazgos}
+                pFiltrados={pFiltrados} planes={planes}
+                cFiltrados={cFiltrados} cronograma={cronograma}
+                safeEvaluaciones={safeEvaluaciones}
+                evaluaciones={safeEvaluaciones}
+                evalFiltrados={safeEvaluaciones}
+                evFiltrados={safeEvaluaciones}
+                eFiltrados={safeEvaluaciones}
+                informesAuditoria={informesAuditoria} safeIncidentes={safeIncidentes}
+                matrizFiltro={matrizFiltro} setMatrizFiltro={setMatrizFiltro}
+                setChartDetail={setChartDetail}
+                defaultMeses={defaultMeses} defaultAnios={defaultAnios}
+                selectedAnios={selectedAnios} selectedMeses={selectedMeses}
+                toggleAnio={toggleAnio} toggleMes={toggleMes}
+                setSelectedAnios={setSelectedAnios} setSelectedMeses={setSelectedMeses}
+                setActiveTab={setActiveTab}
+                setSelectedProcesoExpediente={setSelectedProcesoExpediente}
+              />
+            )}
 
 {/* 1️⃣ FASE DE PLANIFICACIÓN */}
  {activeTab === 'plan_anual_tab' && (
