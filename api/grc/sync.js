@@ -41,7 +41,8 @@ export default async function handler(req, res) {
     // Obtenemos los roles y datos verdaderos desde el backend
     const userDoc = await adminDb.collection('usuarios').doc(decodedToken.uid).get();
     const userData = userDoc.exists ? userDoc.data() : {};
-    const isAdmin = userData.rol === 'admin' || userData.rol === 'auditor';
+    const rawRol = String(userData.rol || '').toLowerCase().trim();
+    const isAdmin = rawRol === 'admin' || rawRol === 'administrador' || rawRol.includes('admin') || rawRol === 'auditor';
 
     // =========================================================================
     // 🛡️ LÓGICA GET: LECTURA CON ROW-LEVEL SECURITY (RLS) SERVER-SIDE
