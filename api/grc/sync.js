@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
 
 export default async function handler(req, res) {
   const allowedOrigins = [

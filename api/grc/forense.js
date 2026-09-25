@@ -1,5 +1,5 @@
 // Ruta: api/forense.js
-import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
 
 // --- HELPERS MATEMÁTICOS PARA EL SERVIDOR ---
 const normalizarTexto = (str) => {

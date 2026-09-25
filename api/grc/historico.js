@@ -1,5 +1,5 @@
 // api/grc/historico.js
-import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
 import { requireAuth } from '../_lib/authMiddleware';
 
 const CHUNK_SIZE = 500;

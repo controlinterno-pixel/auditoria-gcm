@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
 import { parse } from 'cookie';
 
 export default async function handler(req, res) {
