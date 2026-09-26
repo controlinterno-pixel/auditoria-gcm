@@ -1,4 +1,4 @@
-// api/_lib/logger.js - Logger JSON Estructurado para Vercel Serverless
+// api/_lib/logger.js - Logger JSON Estructurado para Vercel
 export const logger = {
   info: (mensaje, meta = {}) => {
     console.log(

@@ -1,6 +1,10 @@
 // Ruta: api/forense.js
-import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
-
+// api/forense.js - Cálculo Forense de Nómina Serverless
+import { applyCors } from '../_lib/cors.js';
+import { requireAuth } from '../_lib/authMiddleware.js';
+import { sendError } from '../_lib/responseHelper.js';
+import { logger } from '../_lib/logger.js';
+import { adminDb } from '../_lib/firebaseAdmin.js';
 // --- HELPERS MATEMÁTICOS PARA EL SERVIDOR ---
 const normalizarTexto = (str) => {
   if (!str) return "";
@@ -48,23 +52,17 @@ const clasificarUnidad = (fila) => {
 
 // 2. ENDPOINT PRINCIPAL (LA RUTA QUE LLAMARÁ REACT)
 export default async function handler(req, res) {
-  const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
-  const origin = req.headers.origin;
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : 'https://auditoria-gcm.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (applyCors(req, res)) return;
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Solo se acepta POST.' });
+  if (req.method !== 'POST') {
+    return sendError(res, 'Solo se acepta POST.', 405);
+  }
 
   try {
-    // 🔒 Verificación de Seguridad (Rechaza la petición si no tiene sesión activa)
-    const { parse } = await import('cookie');
-    const cookies = parse(req.headers.cookie || '');
-    const sessionCookie = cookies.grc_session;
+    const user = await requireAuth(req, res);
+    if (!user) return;
 
-    if (!sessionCookie) return res.status(401).json({ error: 'Falta sesión HttpOnly de servidor.' });
-await adminAuth.verifySessionCookie(sessionCookie, true);
+    logger.info('Ejecutando procesamiento forense', { usuario: user.email });
     const { listaBases } = req.body;
     if (!listaBases || listaBases.length === 0) return res.status(400).json({ error: 'No se enviaron bases.' });
 
@@ -306,7 +304,7 @@ Object.entries(emp.historialMeses).forEach(([, data]) => {
     });
 
   } catch (error) {
-    console.error("Error en API Forense:", error);
-    res.status(500).json({ error: error.message });
+    logger.error('Error en API Forense', error, { endpoint: req.url });
+    return sendError(res, error.message || 'Error en análisis forense.', 500);
   }
 }

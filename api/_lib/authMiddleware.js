@@ -27,7 +27,8 @@ export const requireAuth = async (req, res) => {
       uid: decodedToken.uid,
       email: decodedToken.email,
       rol: userData.rol || 'lider',
-      nombreResponsable: userData.nombreResponsable || userData.nombre || 'Usuario GRC'
+      nombreResponsable: userData.nombreResponsable || userData.nombre || 'Usuario GRC',
+      procesoAsignado: userData.procesoAsignado || '' // 🟢 Se agrega la coma en la línea anterior y '' como valor por defecto
     };
   } catch (error) {
     console.error("❌ Error de autenticación en middleware:", error);

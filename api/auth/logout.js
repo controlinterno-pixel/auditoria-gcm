@@ -1,23 +1,10 @@
 import { serialize } from 'cookie';
+import { applyCors } from '../_lib/cors.js';
+import { sendSuccess } from '../_lib/responseHelper.js';
+import { logger } from '../_lib/logger.js';
 
 export default async function handler(req, res) {
-  const allowedOrigins = [
-    process.env.FRONTEND_URL || 'https://auditoria-gcm.vercel.app',
-    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173'] : [])
-  ];
-  const origin = req.headers.origin;
-
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
-  }
-
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (applyCors(req, res)) return;
 
   const cookieSerialized = serialize('grc_session', '', {
     maxAge: -1,
@@ -28,5 +15,6 @@ export default async function handler(req, res) {
   });
 
   res.setHeader('Set-Cookie', cookieSerialized);
-  return res.status(200).json({ success: true, message: 'Sesión cerrada' });
+logger.info('Sesión cerrada correctamente');
+  return sendSuccess(res, { message: 'Sesión cerrada' });
 }

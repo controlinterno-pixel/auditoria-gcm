@@ -1,46 +1,25 @@
-import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
-import { parse } from 'cookie';
+// api/auth/me.js - Verificación de sesión activa
+import { applyCors } from '../_lib/cors.js';
+import { requireAuth } from '../_lib/authMiddleware.js';
+import { logger } from '../_lib/logger.js';
 
 export default async function handler(req, res) {
- const allowedOrigins = [
-    process.env.FRONTEND_URL || 'https://auditoria-gcm.vercel.app',
-    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173'] : [])
-  ];
-  const origin = req.headers.origin;
+  if (applyCors(req, res)) return;
 
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Método no permitido.' });
   }
 
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
   try {
-    const cookies = parse(req.headers.cookie || '');
-    const sessionCookie = cookies.grc_session;
-
-    if (!sessionCookie) return res.status(401).json({ authenticated: false });
-
-    const decoded = await adminAuth.verifySessionCookie(sessionCookie, true);
-    const userDoc = await adminDb.collection('usuarios').doc(decoded.uid).get();
-    const userData = userDoc.exists ? userDoc.data() : {};
+    const user = await requireAuth(req, res);
+    if (!user) return; // requireAuth emite 401/403 si la sesión no existe
 
     return res.status(200).json({
       authenticated: true,
-      user: {
-        email: decoded.email,
-        uid: decoded.uid,
-rol: userData.rol || 'lider',
-        nombreResponsable: userData.nombreResponsable || userData.nombre || 'Usuario GRC'
-      }
+      user
     });
   } catch (err) {
-    console.error("Error en me.js:", err);
-    return res.status(401).json({ error: 'Sesión inválida o expirada.' });
+    logger.error('Error al verificar sesión en me.js', err, { endpoint: req.url });
+    return res.status(401).json({ authenticated: false });
   }
 }

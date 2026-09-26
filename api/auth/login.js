@@ -1,29 +1,19 @@
 import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
 import { serialize } from 'cookie';
+import { applyCors } from '../_lib/cors.js';
+import { sendSuccess, sendError } from '../_lib/responseHelper.js';
+import { logger } from '../_lib/logger.js';
 // 🛡️ Memoria en servidor para registrar intentos fallidos por IP (Rate Limiting)
 const loginAttempts = new Map();
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 60 * 1000; // Ventana de 60 segundos
 
 export default async function handler(req, res) {
-  const allowedOrigins = [
-    process.env.FRONTEND_URL || 'https://auditoria-gcm.vercel.app',
-    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173'] : [])
-  ];
-  const origin = req.headers.origin;
+  if (applyCors(req, res)) return;
 
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
+  if (req.method !== 'POST') {
+    return sendError(res, 'Solo POST.', 405);
   }
-
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Solo POST.' });
 
   // 🛡️ Rate Limiting por IP de origen
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-ip';
@@ -39,9 +29,8 @@ export default async function handler(req, res) {
   // Si supera los 5 intentos, bloquea de inmediato la petición en el servidor
   if (userAttempts.count >= MAX_ATTEMPTS) {
     const secondsLeft = Math.ceil((userAttempts.resetTime - now) / 1000);
-    return res.status(429).json({ 
-      error: `Demasiados intentos fallidos. Intente nuevamente en ${secondsLeft} segundos.` 
-    });
+    logger.warn('Rate limit excedido en login', { clientIp });
+    return sendError(res, `Demasiados intentos fallidos. Intente nuevamente en ${secondsLeft} segundos.`, 429);
   }
 
   try {
@@ -55,8 +44,8 @@ export default async function handler(req, res) {
     const userDoc = await adminDb.collection('usuarios').doc(decoded.uid).get();
     const userData = userDoc.exists ? userDoc.data() : {};
 
-    const isProd = process.env.NODE_ENV === 'production' || (origin && origin.includes('vercel.app'));
-
+const origin = req.headers.origin || '';
+    const isProd = process.env.NODE_ENV === 'production' || origin.includes('vercel.app');
     const cookieSerialized = serialize('grc_session', sessionCookie, {
       maxAge: expiresIn / 1000,
       httpOnly: true, // 🔒 Inaccesible para JS del cliente
@@ -68,9 +57,10 @@ export default async function handler(req, res) {
     // 🟢 Si el inicio de sesión es exitoso, limpiamos el contador de la IP
     loginAttempts.delete(clientIp);
 
-    res.setHeader('Set-Cookie', cookieSerialized);
-    return res.status(200).json({
-      success: true,
+   res.setHeader('Set-Cookie', cookieSerialized);
+    logger.info('Inicio de sesión exitoso', { usuario: decoded.email, uid: decoded.uid });
+
+    return sendSuccess(res, {
       user: {
         email: decoded.email,
         uid: decoded.uid,
@@ -83,7 +73,7 @@ export default async function handler(req, res) {
     userAttempts.count += 1;
     loginAttempts.set(clientIp, userAttempts);
 
-    console.error("❌ Detalle interno en login.js:", error);
-    return res.status(401).json({ error: "Autenticación fallida o credenciales inválidas." });
+    logger.error('Error durante la autenticación en login.js', error, { clientIp });
+    return sendError(res, "Autenticación fallida o credenciales inválidas.", 401);
   }
 }

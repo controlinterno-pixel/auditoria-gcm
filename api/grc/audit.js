@@ -2,8 +2,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
+import { applyCors } from '../_lib/cors.js';
+import { logger } from '../_lib/logger.js';
 
 export default async function handler(req, res) {
+  if (applyCors(req, res)) return;
+
   if (req.method !== 'POST') {
     return sendError(res, 'Solo se acepta método POST.', 405);
   }
@@ -66,13 +70,13 @@ export default async function handler(req, res) {
     }
 
     if (!text) {
-      console.error("❌ Error en servicio de Gemini (audit.js):", lastError);
+logger.error('Error en servicio de Gemini', lastError, { endpoint: req.url, usuario: user.email });
       return sendError(res, "Servicio de IA no disponible temporalmente.", 500);
     }
 
     return sendSuccess(res, { respuesta: text });
   } catch (error) {
-    console.error("❌ Error interno en audit.js:", error);
+logger.error('Error interno en audit.js', error, { endpoint: req.url });
     return sendError(res, "Error interno al procesar la consulta.", 500);
   }
 }
