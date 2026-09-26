@@ -82,6 +82,11 @@ export function useGrcData() {
   useEffect(() => {
     if (!user) return;
     setIsCloudLoaded(false);
+
+    // 🛡️ PURGA AUTOMÁTICA DE DATOS RESIDUALES EN LOCALSTORAGE
+    // Garantiza que ningún navegador conserve datos en texto plano
+    const llavesBasura = ['grc_riesgos', 'grc_hallazgos', 'grc_planes', 'grc_incidentes', 'grc_evaluaciones', 'grc_cronograma', 'grc_monitoreo', 'grc_informesAuditoria', 'grc_comites', 'grc_programas', 'grc_auditoresLista'];
+    llavesBasura.forEach(key => localStorage.removeItem(key));
     
     const fetchSecureData = async () => {
       try {
