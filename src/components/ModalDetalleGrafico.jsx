@@ -1,4 +1,3 @@
-import React from 'react';
 
 export default function ModalDetalleGrafico({ chartDetail, setChartDetail }) {
   if (!chartDetail) return null;

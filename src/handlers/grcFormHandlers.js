@@ -257,10 +257,10 @@ export const createFormHandlers = ({
     await saveToCloud({ planes: updatedList }); 
 
     if (dispararCorreo && auditorNotificar) {
-        const destinatarioDinamico = user?.email || process.env.VITE_CORREO_ADMIN_DEFAULT || "admin@ejemplo.com";
+        const destinatarioDinamico = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "admin@ejemplo.com";
         await ejecutarDespachoGmailApi({ 
           ref_consecutivo: `APROBACION-100`, 
-          titulo_informe: 'Verificar soportes cargados al 100% para proceder con el cierre', 
+          titulo_informe: 'Verificar soportes cargados al 100% para proceder con el cierre',
           proceso_auditado: 'Plan de acción pendiente por aprobar', 
           enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app', 
           destinatarios: destinatarioDinamico 
@@ -288,9 +288,9 @@ export const createFormHandlers = ({
     setPlanes(updatedPlanes);
     await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
     
-const correoCentral = user?.email || process.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com";
+const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com";
     await ejecutarDespachoGmailApi({ 
-      ref_consecutivo: `CIERRE-PLAN-${plan.id}`, 
+      ref_consecutivo: `CIERRE-PLAN-${plan.id}`,
       titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito', 
       proceso_auditado: plan.accion.substring(0, 50) + '...', 
       enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app', 
@@ -567,12 +567,12 @@ const correoCentral = user?.email || process.env.VITE_CORREO_ADMIN_DEFAULT || "c
       if (correosNotificacionOut !== '') {
         await ejecutarDespachoGmailApi({ ref_consecutivo: refConsecutivoFinal, titulo_informe: limpiarTildesParaCorreo(`Radicacion de Informe: ${tituloVal}`), proceso_auditado: limpiarTildesParaCorreo(procesoVal), enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app', destinatarios: correosNotificacionOut });
       }
-      setInformesAuditoria(updated); await saveToCloud({ informesAuditoria: updated }); e.target.reset(); showNotification("Informe guardado.");
-    } catch (error) {
+  setInformesAuditoria(updated); await saveToCloud({ informesAuditoria: updated }); e.target.reset(); showNotification("Informe guardado.");
+    } catch {
       showNotification("Error al procesar el informe.", "error");
     } finally {
       setIsSubmitting(false);
-    }
+    }    
   };
 
   return {

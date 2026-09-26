@@ -1,5 +1,5 @@
 // Ruta: src/components/ModalIA.jsx
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { exportarA_PDF } from '../utils/pdfUtils';
 
 function cleanMarkdown(text) {
@@ -15,7 +15,7 @@ function normalizePanelEjecutivo(parsedData, rawText) {
   if (typeof data === 'string') {
     try {
       data = JSON.parse(data.replace(/```json/g, '').replace(/```/g, '').trim());
-    } catch (e) {
+    } catch {
       data = {};
     }
   }
@@ -89,6 +89,11 @@ function normalizePanelEjecutivo(parsedData, rawText) {
 } 
 
 export default function ModalIA({ aiModal, setAiModal }) {
+  // 1. TODOS LOS HOOKS ARRIBA (Reglas de React)
+  const pdfRef = useRef();
+  const [isExporting, setIsExporting] = useState(false);
+
+  // 2. RETORNO TEMPRANO
   if (!aiModal) return null;
 
   const rawText = aiModal?.contenido !== undefined ? aiModal.contenido : aiModal;
@@ -101,17 +106,14 @@ export default function ModalIA({ aiModal, setAiModal }) {
     } else if (typeof rawText === 'object') {
       parsedData = rawText;
     }
-  } catch (e) {
+  } catch {
     parsedData = null;
   }
   
   console.log("🚨 PAYLOAD CRUDO DE LA IA:", parsedData);
   const panelData = normalizePanelEjecutivo(parsedData, rawText);
 
-  // Hooks y Handlers para PDF
-  const pdfRef = useRef();
-  const [isExporting, setIsExporting] = useState(false);
-
+  // Handlers para PDF
   const descargarPDF = async (modoModoBlanco = false) => {
     setIsExporting(true);
     await new Promise(resolve => setTimeout(resolve, 400));

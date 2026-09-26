@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-
+import { useState } from 'react';
 import { 
   MAPA_PROCESOS, 
   CARGOS_POR_SEDE, 
@@ -165,6 +164,24 @@ const calcularMitigacionRiesgo = (r) => {
   const mitigacion = Math.round(((expInh - expRes) / expInh) * 100);
   return Math.max(0, Math.min(100, mitigacion));
 };
+// 🏷️ COMPONENTE AUXILIAR EXTRACTO (Fuera del render para evitar recreación dinámica)
+const LabelConPalomita = ({ idCampo, dark, onAbrirAyuda }) => {
+  const dataAyuda = EXPLICACIONES_CAMPOS[idCampo];
+  if (!dataAyuda) return null;
+  return (
+    <div className="flex items-center space-x-1.5 mb-1">
+      <span className={`text-[10px] font-black uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{dataAyuda.titulo}</span>
+      <button
+        type="button"
+        onClick={() => onAbrirAyuda && onAbrirAyuda(dataAyuda)}
+        className="w-4 h-4 rounded-full bg-emerald-50 border border-emerald-300 flex items-center justify-center text-[9px] text-emerald-600 font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm group"
+        title="Ver por qué diligenciar y ejemplo"
+      >
+        <span className="group-hover:scale-110 transition-transform">✓</span>
+      </button>
+    </div>
+  );
+};
 // 🏛️ COMPONENTE PRINCIPAL
 export default function Riesgos({ 
   hallazgos = [],        
@@ -186,8 +203,7 @@ export default function Riesgos({
 // 🛡️ Estado para el modal explicativo de eficacia del control
   const [controlSeleccionadoIA, setControlSeleccionadoIA] = useState(null);
   // 🚀 ESTADOS PARA EL EXPEDIENTE EXPANDIBLE (ACCORDEÓN 360°)
-  const [expandedRiesgoId, setExpandedRiesgoId] = useState(null);
-  const [activeSubTab, setActiveSubTab] = useState('controles');
+ const [expandedRiesgoId, setExpandedRiesgoId] = useState(null);
 // 🔍 ESTADOS DE BÚSQUEDA Y FILTROS ENTERPRISE
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroProceso, setFiltroProceso] = useState('Todos');
@@ -199,21 +215,18 @@ export default function Riesgos({
       setExpandedRiesgoId(null);
     } else {
       setExpandedRiesgoId(id);
-      setActiveSubTab('controles');
     }
   };
   // 🍿 ESTADO PARA EL POPUP INTERACTIVO ELEGANTE
 const [ayudaModal, setAyudaModal] = useState(null);
   
 const [editRiesgo, setEditRiesgo] = useState(null);
-  const [riesgoId, setRiesgoId] = useState('');
   const [customId, setCustomId] = useState('');
   const [idHallazgoOrigen, setIdHallazgoOrigen] = useState(null);
   
   // 🔢 FUNCIÓN BLINDADA PARA CALCULAR EL CONSECUTIVO EXACTO Y CAPTURAR RIESGO EMERGENTE
   const handleNuevoRiesgo = () => {
     setEditRiesgo(null);
-    setRiesgoId('');
     
     const maxId = safeRiesgos.reduce((max, r) => {
       const idStr = String(r.id).trim();
@@ -323,7 +336,6 @@ const [editRiesgo, setEditRiesgo] = useState(null);
     };
   };
   const residuales = calcularRiesgoResidual();
-  const descripcionAutomatica = `Posibilidad de afectación ${afectacion.toLowerCase()} por ${causaInmediata.toLowerCase()} debido a ${causaRaiz.toLowerCase()}`;
 
 // 🧮 GENERADOR DE TRAZA DE AUDITORÍA Y EXPLICACIÓN PASO A PASO POR RIESGO
   const obtenerExplicacionCalculo = (r) => {
@@ -459,7 +471,7 @@ Responde ÚNICAMENTE con un objeto JSON (sin comillas de markdown ni texto extra
       "responsable": "Comité de Innovación y Dirección de Operaciones"
     }
   ],
-  "dictamenDirector": "\"Evaluación de ATENCIÓN REQUERIDA para la Dirección. La disparidad entre el diseño teórico (${madurezReal}%) y la evidencia en bitácora expone a la empresa a un riesgo latente.\"",
+"dictamenDirector": "Evaluación de ATENCIÓN REQUERIDA para la Dirección. La disparidad entre el diseño teórico (${madurezReal}%) y la evidencia en bitácora expone a la empresa a un riesgo latente.",
   "iso31000": "El análisis se realizó bajo ISO 31000, contrastando el diseño teórico con la evidencia operativa y revelando brechas de ejecución.",
   "cosoErm": "Bajo COSO ERM, la evaluación de los ${totalControlesReal} controles indica ineficacia operativa para reducir el riesgo inherente al residual deseado.",
   "kris": "1) KRI Madurez: Meta ${madurezReal}%. 2) KRI Cobertura: Meta ${coberturaReal}%. 3) KRI Respuesta: < 7 días."
@@ -479,7 +491,7 @@ Responde ÚNICAMENTE con un objeto JSON (sin comillas de markdown ni texto extra
           parsed.kpis.coberturaControles = coberturaReal;
         }
         dictamenFinal = JSON.stringify(parsed);
-      } catch (e) {
+      } catch {
         console.warn("Aviso: La respuesta de la IA no era JSON estricto.");
       }
 
@@ -487,7 +499,7 @@ Responde ÚNICAMENTE con un objeto JSON (sin comillas de markdown ni texto extra
         titulo: `Panel Ejecutivo Inteligente — RSK-${riesgo.id}`,
         dictamen: dictamenFinal
       });      
-    } catch (error) {
+   } catch (error) {
       console.error("Error transmitiendo análisis de IA:", error);
       if (showNotification) {
         showNotification("Error al conectar con la Inteligencia Artificial.", "error");
@@ -623,28 +635,7 @@ Genera tu respuesta simulando ser el motor analítico de una plataforma Enterpri
       const altos = safeRiesgos.filter(r => getSeverityZone(r.probabilidadResidual, r.impactoResidual).label === 'Alto').length;
       const altosYCriticos = extremos + altos;
 
-      // Concentración por Procesos y Categorías ISO
-      const conteoProcesos = safeRiesgos.reduce((acc, r) => {
-        const p = r.proceso || r.macroproceso || 'Gestión Administrativa y Financiera';
-        acc[p] = (acc[p] || 0) + 1;
-        return acc;
-      }, {});
-      const topProcesosStr = Object.entries(conteoProcesos)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 4)
-        .map(([p, c]) => `${p} (${c} riesgos)`)
-        .join(', ');
-
-      const conteoCategorias = safeRiesgos.reduce((acc, r) => {
-        const cat = r.categoria || 'Operativo';
-        acc[cat] = (acc[cat] || 0) + 1;
-        return acc;
-      }, {});
-      const topCategoriasStr = Object.entries(conteoCategorias)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 4)
-        .map(([cat, c]) => `${cat} (${c})`)
-        .join(', ');
+      // Se removieron acumuladores conteoProcesos y conteoCategorias por no ser leídos posteriormente
 
       // Controles y Madurez
       const todosLosControles = safeRiesgos.flatMap(r => Array.isArray(r.controlesDetallados) ? r.controlesDetallados : []);
@@ -734,7 +725,7 @@ FORMATO DE SALIDA JSON EXACTO:
       let parsed;
       try {
         parsed = JSON.parse(rawText);
-      } catch (e) {
+      } catch {
         console.warn("La IA no devolvió un JSON perfecto, adaptando estructura...");
         parsed = { dictamen: rawText };
       }
@@ -771,7 +762,6 @@ FORMATO DE SALIDA JSON EXACTO:
   };
  const handleEditRiesgo = (riesgo) => {
     setEditRiesgo(riesgo);
-    setRiesgoId(riesgo.id);
     setCustomId(riesgo.id); // 🔥 RECUPERAMOS EL ID PARA EL FORMULARIO
       
 // 🏢 Recuperar Sede (Soporta versiones viejas de texto único y versiones nuevas de selección múltiple)
@@ -913,23 +903,7 @@ const nuevoRiesgo = {
       setIsSubmitting(false);
     }
   }; 
-  const LabelConPalomita = ({ idCampo, dark }) => {
-    const dataAyuda = EXPLICACIONES_CAMPOS[idCampo];
-    if (!dataAyuda) return null;
-    return (
-      <div className="flex items-center space-x-1.5 mb-1">
-        <span className={`text-[10px] font-black uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{dataAyuda.titulo}</span>
-        <button
-          type="button"
-          onClick={() => setAyudaModal(dataAyuda)}
-          className="w-4 h-4 rounded-full bg-emerald-50 border border-emerald-300 flex items-center justify-center text-[9px] text-emerald-600 font-bold hover:bg-emerald-600 hover:text-white transition-all shadow-sm group"
-          title="Ver por qué diligenciar y ejemplo"
-        >
-          <span className="group-hover:scale-110 transition-transform">✓</span>
-        </button>
-      </div>
-    );
-  };
+  
 
 
   const renderDashboard = () => {
@@ -2198,11 +2172,11 @@ const renderMatriz = () => {
             <h3 className="text-xs font-black text-white uppercase tracking-widest border-b border-slate-700 pb-2">6. Resultados de Mitigación (Cálculo Multivariable)</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <LabelConPalomita idCampo="probRes" dark={true} />
+              <LabelConPalomita idCampo="probRes" dark={true} onAbrirAyuda={setAyudaModal} />
                 <input type="text" value={`${residuales.probabilidad}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
               <div>
-                <LabelConPalomita idCampo="impRes" dark={true} />
+              <LabelConPalomita idCampo="impRes" dark={true} onAbrirAyuda={setAyudaModal} />
                 <input type="text" value={`${residuales.impacto}%`} disabled className="w-full text-xs p-2 border border-slate-600 rounded-lg bg-slate-800 text-emerald-400 font-black text-center cursor-not-allowed" />
               </div>
             </div>

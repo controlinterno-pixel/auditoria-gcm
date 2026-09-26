@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
@@ -37,18 +37,10 @@ export default function Evaluaciones({
   setEditEvaluacion,
   handleEvaluacionSubmit,
   safeRiesgos = [],
-  user,
   analizarEvidenciaIA,
   safeEvaluaciones = [],
   informesAuditoria = [],
   formatSafeDate,
-  searchTerm,
-  setSearchTerm,
-  columnFilters,
-  handleColFilterChange,
-  FilterInput,
-  applyFilters,
-  setFormResetKey,
   scrollToForm,
   handleDeleteItem
 }) {
@@ -69,13 +61,15 @@ export default function Evaluaciones({
   const [evidenciaUrlForm, setEvidenciaUrlForm] = useState('');
   const { isLoading: isUploading, error: uploadError, ejecutarPeticion: ejecutarSubidaEvidencia } = useDataFetching();
 
-  // Sincronizar URL si se entra en modo edición
+ // Sincronizar URL si se entra en modo edición
   useEffect(() => {
-    if (editEvaluacion) {
-      setEvidenciaUrlForm(editEvaluacion.evidenciaUrl || '');
-    } else {
-      setEvidenciaUrlForm('');
-    }
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted) {
+        setEvidenciaUrlForm(editEvaluacion?.evidenciaUrl || '');
+      }
+    }, 0);
+    return () => { isMounted = false; };
   }, [editEvaluacion]);
 
   // Manejador de subida directa a repos.termalessantarosa.com.co
@@ -104,22 +98,26 @@ export default function Evaluaciones({
 
   // 🔄 Cargar datos si se entra en modo Edición
   useEffect(() => {
-    if (editEvaluacion) {
-      const riesgoPadre = safeRiesgos.find(r => String(r.id) === String(editEvaluacion.idRiesgo));
-      if (riesgoPadre) {
-        setProcesoSel(riesgoPadre.proceso || riesgoPadre.macroproceso || '');
-        setSubprocesoSel(riesgoPadre.subproceso || 'General');
-        setRiesgoIdSel(String(riesgoPadre.id));
-      } else {
-        setProcesoSel(editEvaluacion.proceso || '');
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted && editEvaluacion) {
+        const riesgoPadre = safeRiesgos.find(r => String(r.id) === String(editEvaluacion.idRiesgo));
+        if (riesgoPadre) {
+          setProcesoSel(riesgoPadre.proceso || riesgoPadre.macroproceso || '');
+          setSubprocesoSel(riesgoPadre.subproceso || 'General');
+          setRiesgoIdSel(String(riesgoPadre.id));
+        } else {
+          setProcesoSel(editEvaluacion.proceso || '');
+        }
+        setControlSel(editEvaluacion.control || '');
+        setDiseno(editEvaluacion.diseno || 'Eficaz');
+        setEjecucion(editEvaluacion.ejecucion || 'Eficaz');
+        setEvidenciaUrl(editEvaluacion.evidenciaUrl || '');
+        setComentarios(editEvaluacion.comentarios || '');
       }
-      setControlSel(editEvaluacion.control || '');
-      setDiseno(editEvaluacion.diseno || 'Eficaz');
-      setEjecucion(editEvaluacion.ejecucion || 'Eficaz');
-      setEvidenciaUrl(editEvaluacion.evidenciaUrl || '');
-      setComentarios(editEvaluacion.comentarios || '');
-    }
-  }, [editEvaluacion, safeRiesgos]);
+    }, 0);
+    return () => { isMounted = false; };
+  }, [editEvaluacion, safeRiesgos]); 
 
   // Manejar cambio de Macroproceso (Mejorado con auto-selección)
   const handleProcesoChange = (e) => {
@@ -475,17 +473,17 @@ const controlesDisponibles = riesgoIdSel === 'EMERGENTE'
   <div className="space-y-3 mt-3 w-full max-w-md mx-auto">
     {/* TARJETA DE DOCUMENTO ADJUNTADO */}
     <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl flex items-center justify-between shadow-sm">
-      <div className="flex items-center space-x-3 overflow-hidden">
+   <div className="flex items-center space-x-3 overflow-hidden">
         <span className="text-2xl">📄</span>
         <div className="text-left overflow-hidden">
           <p className="text-[10px] font-black text-emerald-950 uppercase tracking-wider">
             Soporte Adjuntado
           </p>
           <p className="text-[9px] text-emerald-700 font-mono truncate max-w-[200px]">
-            {(evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl).split('/').pop()}
+            {(evidenciaUrlForm || evidenciaUrl || editEvaluacion?.evidenciaUrl || '').split('/').pop()}
           </p>
         </div>
-      </div>
+      </div>   
 
       {/* BOTÓN LIMPIO PARA ABRIR / DESCARGAR PDF */}
       <a

@@ -1,5 +1,4 @@
 // Ruta: src/components/AuditoriaAutomatizada/AuditDiagnosticSkeleton.jsx
-import React from 'react';
 
 export const AuditDiagnosticSkeleton = () => {
   return (

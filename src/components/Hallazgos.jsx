@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-
+import { useState, useEffect } from 'react';
 import { 
   AUDITORES_OFICIALES, 
   MAPA_PROCESOS, 
@@ -13,65 +12,23 @@ export default function Hallazgos({
   editHallazgo,
   setEditHallazgo,
   handleHallazgoSubmit,
-  setFormResetKey,
+  setFormResetKey = () => {},
   scrollToForm,
   handleDeleteItem,
   applyFilters,
-  hFiltrados,
-  searchTerm,
-  setSearchTerm,
-  columnFilters,
-  handleColFilterChange,
+  hFiltrados = [],
+  searchTerm = '',
+  setSearchTerm = () => {},
+  columnFilters = {},
+  handleColFilterChange = () => {},
   FilterInput,
-  exportToExcel // Asegúrate de recibirlo por props o declararlo si se usará en este nivel
+  exportToExcel
 }) {
 
-// 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
+  // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
-
-// 🏢 NUEVOS ESTADOS PARA SEDES Y CARGOS MÚLTIPLES
-  const [sedesMultiples, setSedesMultiples] = React.useState(['Administrativos']);
-  const [sedeTemp, setSedeTemp] = React.useState('');
-  
-  const [responsablesMultiples, setResponsablesMultiples] = React.useState([]);
-  const [responsableTemp, setResponsableTemp] = React.useState('');
-
- // 🌟 ESTADOS REFACTORIZADOS PARA MACRO Y SUBPROCESO
-  const [procesoForm, setProcesoForm] = useState('');
-  const [subprocesoForm, setSubprocesoForm] = useState('');
-  const [autoFillData, setAutoFillData] = useState(null); 
-
-  // 🧠 TRADUCTOR AUTOMÁTICO Y AUTORRELLENO DE RIESGOS EMERGENTES
-  React.useEffect(() => {
-    const tempAuto = sessionStorage.getItem('hallazgo_emergente_auto');
-
-    if (editHallazgo) {
-      if (editHallazgo.sede) setSedesMultiples(editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede]);
-      if (editHallazgo.responsable) setResponsablesMultiples(editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable]);
-      setProcesoForm(editHallazgo.proceso || '');
-      setSubprocesoForm(editHallazgo.subproceso || 'General');
-      setAutoFillData(null);
-    } else if (tempAuto && vistaActiva === 'nuevo') {
-      // 🚀 CAPTURA MAGICA DEL MÓDULO DE TRABAJO DE CAMPO
-      const data = JSON.parse(tempAuto);
-      setAutoFillData(data);
-      setProcesoForm(data.proceso || '');
-      setSubprocesoForm(data.subproceso || 'General');
-      setSedesMultiples(['Administrativos']); 
-      setResponsablesMultiples([]);
-      sessionStorage.removeItem('hallazgo_emergente_auto'); // Limpiamos la memoria
-    } else {
-      setSedesMultiples(['Administrativos']);
-      setResponsablesMultiples([]);
-      setProcesoForm('');
-      setSubprocesoForm('');
-      setAutoFillData(null);
-    }
-  }, [editHallazgo, vistaActiva]);
-  // Consolidar todos los cargos de las sedes elegidas
-  const cargosDisponibles = sedesMultiples.flatMap(s => CARGOS_POR_SEDE[s] || []);
 
   // 🎛️ ESTADOS DEL PANEL LATERAL (DASHBOARD)
   const [agruparPor, setAgruparPor] = useState('Año'); 
@@ -86,18 +43,60 @@ export default function Hallazgos({
   const [filtroAnio, setFiltroAnio] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
 
+  // 🏢 ESTADOS Y LÓGICA DERIVADA PARA FORMULARIO DE EDICIÓN
+  const [sedeTemp, setSedeTemp] = useState('');
+  const [responsableTemp, setResponsableTemp] = useState('');
+  const [sedesState, setSedesState] = useState({});
+  const [respState, setRespState] = useState({});
+
+  // 🌟 ESTADOS DERIVADOS DE MACRO Y SUBPROCESO
+  const [procesoFormState, setProcesoFormState] = useState({});
+  const [subprocesoFormState, setSubprocesoFormState] = useState({});
+  const [autoFillData] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const tempAuto = sessionStorage.getItem('hallazgo_emergente_auto');
+      return tempAuto ? JSON.parse(tempAuto) : null;
+    } catch { 
+      return null; 
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('hallazgo_emergente_auto')) {
+      sessionStorage.removeItem('hallazgo_emergente_auto');
+    }
+  }, []);
+
+  const idEdicion = editHallazgo?.id || 'nuevo';
+
+  const procesoForm = procesoFormState[idEdicion] ?? (editHallazgo?.proceso || autoFillData?.proceso || '');
+  const subprocesoForm = subprocesoFormState[idEdicion] ?? (editHallazgo?.subproceso || autoFillData?.subproceso || 'General');
+
+  const setProcesoForm = (val) => setProcesoFormState(prev => ({ ...prev, [idEdicion]: val }));
+  const setSubprocesoForm = (val) => setSubprocesoFormState(prev => ({ ...prev, [idEdicion]: val }));
+
+  const sedesMultiples = sedesState[idEdicion] ?? (editHallazgo?.sede
+    ? (editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede])
+    : ['Administrativos']);
+
+  const responsablesMultiples = respState[idEdicion] ?? (editHallazgo?.responsable
+    ? (editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable])
+    : []);
+
+  const setSedesMultiples = (newSedes) => setSedesState(prev => ({ ...prev, [idEdicion]: newSedes }));
+  const setResponsablesMultiples = (newResp) => setRespState(prev => ({ ...prev, [idEdicion]: newResp }));
+
+  // Consolidar todos los cargos de las sedes elegidas
+  const cargosDisponibles = sedesMultiples.flatMap(s => CARGOS_POR_SEDE[s] || []);
+
   // 🧠 GENERADOR DE ID AUTOMÁTICO
   const anioActual = new Date().getFullYear();
-  let nextIdVal = "";
-  if (editHallazgo) {
-    nextIdVal = editHallazgo.ref; 
-  } else {
-    const consecutivos = hFiltrados
-      .filter(h => h.ref && h.ref.includes(anioActual.toString()))
-      .map(h => parseInt(h.ref.split('-')[2]) || 0);
-    const maxConsecutivo = consecutivos.length > 0 ? Math.max(...consecutivos) : 0;
-    nextIdVal = `HAL-${anioActual}-${String(maxConsecutivo + 1).padStart(3, '0')}`;
-  }
+  const consecutivos = hFiltrados
+    .filter(h => h.ref && h.ref.includes(anioActual.toString()))
+    .map(h => parseInt(h.ref.split('-')[2]) || 0);
+  const maxConsecutivo = consecutivos.length > 0 ? Math.max(...consecutivos) : 0;
+  const nextIdVal = editHallazgo ? editHallazgo.ref : `HAL-${anioActual}-${String(maxConsecutivo + 1).padStart(3, '0')}`;
 
   // ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -132,7 +131,7 @@ export default function Hallazgos({
     const informeBase = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
     const fechaReal = informeBase?.fecha || h.fecha || 'Sin Fecha';
     // Generar campo unificado para soporte a datos viejos y nuevos
-    const procesoLimpio = h.proceso || h.proceso || 'Sin Proceso';
+    const procesoLimpio = h.proceso || 'Sin Proceso';
     return { ...h, fechaReal, anioReal: fechaReal !== 'Sin Fecha' ? fechaReal.split('-')[0] : 'Sin Fecha', procesoLimpio };
   });
 
@@ -711,7 +710,7 @@ export default function Hallazgos({
                   <option value="">-- Escoger Sede --</option>
                   {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
                 </select>
-                <button type="button" onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setSedesMultiples([...sedesMultiples, sedeTemp]); setSedeTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
+              <button type="button" onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setProcesoFormState(prev => ({ ...prev, [`${idEdicion}-sede`]: [...sedesMultiples, sedeTemp].join(', ') })); setSedeTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
               </div>
               
               <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
@@ -735,7 +734,7 @@ export default function Hallazgos({
                     <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>
                     ))}
                 </select>
-                <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setResponsablesMultiples([...responsablesMultiples, responsableTemp]); setResponsableTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
+              <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setSubprocesoFormState(prev => ({ ...prev, [`${idEdicion}-resp`]: [...responsablesMultiples, responsableTemp].join(', ') })); setResponsableTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
               </div>
               
               <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
@@ -993,7 +992,7 @@ export default function Hallazgos({
                                       {h.estado}
                                     </span>
                                     <div className="flex justify-center items-center space-x-2 text-[10px] border-t border-slate-100 pt-1.5 mt-1">
-                                      <button onClick={() => {setEditHallazgo(h); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-600 hover:underline font-bold">✏️ Editar</button>
+                                    <button onClick={() => {setEditHallazgo(h); setVistaActiva('nuevo'); if (typeof setFormResetKey === 'function') setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-600 hover:underline font-bold">✏️ Editar</button>
                                       <span className="text-slate-300">|</span>
 {(() => {
                                         const riesgoExistente = safeRiesgos?.find(r => String(r.idHallazgoOrigen) === String(h.id));

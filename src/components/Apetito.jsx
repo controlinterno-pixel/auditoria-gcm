@@ -1,14 +1,11 @@
-import React, { useState, useEffect } from 'react';
-
+import { useState } from 'react';
 export default function Apetito({
-  isAdmin,
   editApetito,
   setEditApetito,
   handleApetitoSubmit,
   activeTooltip,
   setActiveTooltip,
   setFormResetKey,
-  formResetKey,
   scrollToForm,
   rFiltrados,
   incFiltrados,
@@ -16,8 +13,6 @@ export default function Apetito({
   searchTerm,
   setSearchTerm,
   columnFilters,
-  handleColFilterChange,
-  FilterInput,
   applyFilters,
   renderHeaderFiltros
 }) {
@@ -63,26 +58,18 @@ export default function Apetito({
   });
 
   // 💰 ESTADO Y LÓGICA PARA FORMATEAR MONEDA EN TIEMPO REAL
-  const [finanzas, setFinanzas] = useState({
-    apetito: '',
-    tolerancia: '',
-    capacidad: ''
-  });
+  const [finanzasTemp, setFinanzasTemp] = useState({});
 
-  useEffect(() => {
-    if (editApetito) {
-      setFinanzas({
-        apetito: editApetito.apetitoFinanciero || '',
-        tolerancia: editApetito.toleranciaFinanciera || '',
-        capacidad: editApetito.capacidadRiesgo || ''
-      });
-    }
-  }, [editApetito]);
+  const idEdit = editApetito?.id || 'nuevo';
+  const finanzas = {
+    apetito: finanzasTemp[`${idEdit}-apetito`] ?? (editApetito?.apetitoFinanciero || ''),
+    tolerancia: finanzasTemp[`${idEdit}-tolerancia`] ?? (editApetito?.toleranciaFinanciera || ''),
+    capacidad: finanzasTemp[`${idEdit}-capacidad`] ?? (editApetito?.capacidadRiesgo || '')
+  };
 
   const handleFinanzasChange = (e, field) => {
-    // Elimina cualquier caracter que no sea número para guardar el valor real
     const rawValue = e.target.value.replace(/\D/g, '');
-    setFinanzas(prev => ({ ...prev, [field]: rawValue }));
+    setFinanzasTemp(prev => ({ ...prev, [`${idEdit}-${field}`]: rawValue }));
   };
 
   const formatMoney = (val) => {

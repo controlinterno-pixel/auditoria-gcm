@@ -9,13 +9,13 @@ export const saveToCloud = async (partialData, showNotification) => {
         if (typeof obj[key] === 'string' && key.toLowerCase().includes('url') && obj[key].trim() !== '') {
           try {
             const parsed = new URL(obj[key]);
-            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
               obj[key] = '';
             }
-          } catch (e) {
+          } catch {
             obj[key] = '';
           }
-        } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+        } else if (typeof obj[key] === 'object' && obj[key] !== null) {  
           traverseAndSanitize(obj[key]);
         }
       }
@@ -46,7 +46,8 @@ export const exportToExcel = (dataArray, fileName, xlsxLoaded, showNotification)
     return;
   }
   const cleanData = dataArray.map(item => {
-    const { historialCambios, ...rest } = item;
+    const rest = { ...item };
+    delete rest.historialCambios;
     return rest;
   });
   

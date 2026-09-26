@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const TIPOS_COMITE = [
   "Comité de Auditoría de Accionistas",
@@ -19,9 +19,7 @@ export default function Comites({
   comitesFiltrados,
   searchTerm,
   setSearchTerm,
-  columnFilters,
-  handleColFilterChange,
-  FilterInput
+  columnFilters
 }) {
   // 🗂️ ESTADO DEL ACORDEÓN
   const [grupoExpandido, setGrupoExpandido] = useState(null);
@@ -35,15 +33,9 @@ export default function Comites({
   const [isUploadingActa, setIsUploadingActa] = useState(false);
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
 
-  // 🧹 Efecto limpiador: Reacciona a la llave maestra para vaciar los recuadros de archivos
-  React.useEffect(() => {
-    if (!editComite) {
-      setPresentacionSubidaUrl('');
-      setActaSubidaUrl('');
-      setUploadProgressPres(0);
-      setUploadProgressActa(0);
-    }
-  }, [editComite, formResetKey]);
+  // 🧹 Reiniciamos las URLs temporales cuando cambia la sesión en edición
+  const urlPresFinal = presentacionSubidaUrl || editComite?.presentacionUrl || '';
+  const urlActaFinal = actaSubidaUrl || editComite?.actaUrl || '';
 
   const handleFileUpload = async (e, type) => {
     const file = e.target.files[0];
@@ -175,8 +167,8 @@ export default function Comites({
             </div>
 
             {/* INPUTS OCULTOS */}
-            <input type="hidden" name="presentacionUrl" value={presentacionSubidaUrl || editComite?.presentacionUrl || ''} />
-            <input type="hidden" name="actaUrl" value={actaSubidaUrl || editComite?.actaUrl || ''} />
+            <input type="hidden" name="presentacionUrl" value={urlPresFinal} />
+            <input type="hidden" name="actaUrl" value={urlActaFinal} />
 
             {/* CAJA 1: PRESENTACION */}
             <div className="bg-white border-2 border-dashed border-blue-300 p-6 rounded-2xl text-center relative hover:border-blue-500 hover:bg-blue-50/50 transition-all flex flex-col items-center justify-center min-h-[160px]">

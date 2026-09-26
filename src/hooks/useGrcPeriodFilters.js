@@ -1,5 +1,5 @@
 // src/hooks/useGrcPeriodFilters.js
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { getItemAnio, getItemMesText } from '../utils/helpers';
 
 export function useGrcPeriodFilters({
@@ -69,7 +69,7 @@ export function useGrcPeriodFilters({
   useEffect(() => {
     setSearchTerm('');
     setColumnFilters({});
-  }, [activeTab]);
+  }, [activeTab, setSearchTerm, setColumnFilters]);
 
   const handleColFilterChange = (key, value) => {
     setColumnFilters(prev => ({ ...prev, [key]: value }));
@@ -83,19 +83,18 @@ export function useGrcPeriodFilters({
     setSelectedMeses(prev => prev.includes(mes) ? prev.filter(m => m !== mes) : [...prev, mes]);
   };
 
-  const filterByGlobalPeriod = (item) => {
+  const filterByGlobalPeriod = useCallback((item) => {
     const a = getItemAnio(item);
     const m = getItemMesText(item);
     const passAnio = selectedAnios.length === 0 || selectedAnios.includes(Number(a)) || selectedAnios.includes(String(a));
     const passMes = selectedMeses.length === 0 || selectedMeses.includes(m);
     return passAnio && passMes;
-  };
+  }, [selectedAnios, selectedMeses]);
 
-  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, selectedAnios, selectedMeses]);
-  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, selectedAnios, selectedMeses]);
-  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, selectedAnios, selectedMeses]);
-  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, selectedAnios, selectedMeses]);
-
+  const incFiltrados = useMemo(() => safeIncidentes.filter(filterByGlobalPeriod), [safeIncidentes, filterByGlobalPeriod]);
+  const rFiltrados = useMemo(() => safeRiesgos.filter(filterByGlobalPeriod), [safeRiesgos, filterByGlobalPeriod]);
+  const hFiltrados = useMemo(() => safeHallazgos.filter(filterByGlobalPeriod), [safeHallazgos, filterByGlobalPeriod]);
+  const pFiltrados = useMemo(() => safePlanes.filter(filterByGlobalPeriod), [safePlanes, filterByGlobalPeriod]);
   const comitesFiltrados = useMemo(() => {
     return safeComites.filter(c => {
       const anioComite = Number(c.anio) || new Date().getFullYear();

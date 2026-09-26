@@ -1,5 +1,5 @@
 // 🌳 MAPA DE PROCESOS EN CASCADA (MACROPROCESO -> SUBPROCESOS)
-const MAPA_PROCESOS = {
+export const MAPA_PROCESOS = {
   // 🚀 PROCESOS MISIONALES
   "Gestión de mercadeo y comunicaciones": [
     "General"

@@ -1,7 +1,5 @@
-import React from 'react';
-
-export default function Navbar({ isPresentationMode, setIsPresentationMode }) {
-  return (
+export default function Navbar({ setIsPresentationMode }) {
+return (
     <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
       
       {/* Espaciador izquierdo para mantener la píldora centrada */}

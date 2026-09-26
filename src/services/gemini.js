@@ -22,8 +22,8 @@ export const consultarCopilotoIA = async (params = {}) => {
     const result = await response.json();
     return result.respuesta || result;
 
-  } catch (error) {
+ } catch (error) {
     console.error("❌ Error en conector Gemini:", error);
-    throw new Error(`Falló la comunicación con el Motor GRC: ${error.message}`);
-  }
+    throw new Error(`Falló la comunicación con el Motor GRC: ${error.message}`, { cause: error });
+  } 
 };

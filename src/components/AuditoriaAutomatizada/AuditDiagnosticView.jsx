@@ -1,5 +1,4 @@
 // Ruta: src/components/AuditoriaAutomatizada/AuditDiagnosticView.jsx
-import React from 'react';
 import { AlertTriangle, ShieldAlert, CheckCircle2, FileText, TrendingUp, Info } from 'lucide-react';
 import { RiskHeatmap } from './RiskHeatmap';
 
@@ -10,8 +9,7 @@ export const AuditDiagnosticView = ({ auditData }) => {
     resumenEjecutivo,
     diagnosticoRiesgosCriticos = [],
     hallazgosAuditoria,
-    planCAPAPriorizado = [],
-    limitacionesEvidencia = []
+    planCAPAPriorizado = []
   } = auditData;
 
   const getSeverityBadge = (level = '') => {

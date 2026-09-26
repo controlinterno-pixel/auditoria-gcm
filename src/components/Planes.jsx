@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
 import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
@@ -27,27 +27,19 @@ export default function Planes({
   isAdmin,
   editPlan,
   setEditPlan,
-  handlePlanSubmit,
-  handleAprobarCierrePlan,
   ejecutarDespachoGmailApi,
-  formResetKey,
-  setFormResetKey,
   scrollToForm,
   handleDeleteItem,
   applyFilters,
-  FilterInput,
-  pFiltrados,
-  safeHallazgos,
+  safeHallazgos = [],
   setHallazgos, 
-  safePlanes,
+  safePlanes = [],
   setPlanes,
   saveToCloud,
-  formatSafeDate,
-  searchTerm,
-  setSearchTerm,
-  columnFilters,
-  handleColFilterChange,
-  onUpdateItemStatus,
+  searchTerm = '',
+  setSearchTerm = () => {},
+  columnFilters = {},
+  handleColFilterChange = () => {},
   informesAuditoria = []
 }) {
 
@@ -56,15 +48,13 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [generandoPdfId, setGenerandoPdfId] = useState(null); // 👈 ¡Faltaba declarar este estado!
   const [evalDetalleModal, setEvalDetalleModal] = useState(null);
 
-  // Referencias para exportar el Plan de Acción Institucional (Ahora en el scope correcto)
-  const planRefs = useRef({});
-
   const handleDescargarPdfConLoader = async (idInf, refInforme) => {
     if (generandoPdfId) return; // Evita clics dobles
     try {
       setGenerandoPdfId(idInf); // Activa la pantalla de carga
       await new Promise(resolve => setTimeout(resolve, 100)); 
-      await exportarA_PDF(planRefs.current[idInf], `Plan_Mejoramiento_${refInforme}.pdf`, '#ffffff');
+      const element = document.getElementById(`pdf-export-plan-${idInf}`);
+      await exportarA_PDF(element, `Plan_Mejoramiento_${refInforme}.pdf`, '#ffffff');
     } catch (error) {
       console.error("Error al generar PDF:", error);
       alert("❌ Ocurrió un error al generar el PDF. Por favor reintente.");
@@ -149,7 +139,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
   const [uploadingCell, setUploadingCell] = useState(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
+const [, setUploadProgress] = useState(0);
   // ⚖️ ESTADOS PARA EVALUACIÓN HOLÍSTICA DEL PLAN (METODOLOGÍA EXCEL)
   const [modalEval, setModalEval] = useState({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false });
   const dictamenRef = useRef(null);
@@ -159,15 +149,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   // 🛡️ Salvaguarda: Si el registro es viejo y no tiene criterios, usa 100 por defecto para no romper React
   const safeCriterios = criterios || { c1: 100, c2: 100, c3: 100, c4: 100, c5: 100 };
   const puntajeHolistico = Math.round((safeCriterios.c1 * 0.3) + (safeCriterios.c2 * 0.2) + (safeCriterios.c3 * 0.2) + (safeCriterios.c4 * 0.2) + (safeCriterios.c5 * 0.1));
-// ⚡ MEJORA UX: Carga automáticamente la matriz del informe al dar clic en "Gestionar" desde el historial
-  React.useEffect(() => {
-    if (editPlan) {
-      const hallazgoBase = safeHallazgos.find(h => h.id === editPlan.idHallazgo);
-      if (hallazgoBase && hallazgoBase.idInforme) {
-        handleInformeChange(String(hallazgoBase.idInforme));
-      }
-    }
-  }, [editPlan, safeHallazgos]);
+
 
 // =========================================================
   // 📊 MOTOR DE CÁLCULO ANALÍTICO (100% REACTIVO A FILTROS)
@@ -263,7 +245,6 @@ const handleNotificarPlan = (planId) => {
   const criticos = planesDashboard.filter(p => p.severidad === 'Crítico').length;
   const altos = planesDashboard.filter(p => p.severidad === 'Alto').length;
   const medios = planesDashboard.filter(p => p.severidad === 'Medio').length;
-  const bajos = planesDashboard.filter(p => p.severidad === 'Bajo').length;
   // Agrupador Dinámico
  // Agrupador Dinámico
   const planesAgrupados = planesDashboard.reduce((acc, p) => {
@@ -680,7 +661,7 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
   };
 
 // 🧠 MODIFICADO: JALA AUTOMÁTICAMENTE CARGO Y AUDITOR DESDE EL HALLAZGO (Y ACEPTA DATOS FRESCOS)
-  const handleInformeChange = (informeId, customPlanes = null, customHallazgos = null) => {
+  const handleInformeChange = useCallback((informeId, customPlanes = null, customHallazgos = null) => {
     setFormInformeId(informeId);
     if (!informeId) { setMatrixState({}); return; }
 
@@ -721,7 +702,20 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
       }
     });
     setMatrixState(newState);
-  };
+  }, [safePlanes, safeHallazgos]);
+  // ⚡ MEJORA UX: Carga automáticamente la matriz del informe al dar clic en "Gestionar" desde el historial
+  useEffect(() => {
+    if (editPlan) {
+      const hallazgoBase = safeHallazgos.find(h => h.id === editPlan.idHallazgo);
+      if (hallazgoBase && hallazgoBase.idInforme) {
+        const idInfStr = String(hallazgoBase.idInforme);
+        const timer = setTimeout(() => {
+          handleInformeChange(idInfStr);
+        }, 0);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [editPlan, safeHallazgos, handleInformeChange]);
 
   const [modalNoAplica, setModalNoAplica] = useState({ activo: false, hallazgoId: null, justificacionTemporal: '' });
 
@@ -792,7 +786,6 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
   };
 
   const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).filter(a => a !== 'Sin Fecha'))].sort().reverse();
-  const responsablesDisponibles = [...new Set(planesEnriquecidos.map(p => p.responsable).filter(Boolean))].sort();
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -1717,9 +1710,9 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
                   const planesDelInforme = planesPorInforme[idInf];
                   const informeBase = informesAuditoria.find(inf => String(inf.id) === String(idInf));
                   
-                  // Mapear trazabilidad del informe padre
-                  const refInforme = informeBase ? informeBase.ref : "INF-S/N";
-                  const tituloInforme = informeBase ? informeBase.titulo : "Informe general o registros huérfanos";
+                 // Mapear trazabilidad del informe padre
+                  const codigoInforme = informeBase ? informeBase.ref : "INF-S/N";
+                  const tituloInforme = informeBase ? informeBase.titulo : "Informe general o registros huérfanos"; 
                   const procesoInforme = informeBase ? informeBase.proceso : "Varios Procesos";
                   const fechaInforme = informeBase ? informeBase.fecha : "Sin Fecha";
 
@@ -1740,7 +1733,7 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
                           <span className="text-xl shrink-0">📂</span>
                           <div className="truncate w-full">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="px-2 py-0.5 bg-[#0A3B32] text-white font-mono font-black rounded text-[9px] tracking-wider uppercase">{refInforme}</span>
+                              <span className="px-2 py-0.5 bg-[#0A3B32] text-white font-mono font-black rounded text-[9px] tracking-wider uppercase">{codigoInforme}</span>
                               <span className="text-[10px] text-slate-400 font-bold">📅 {fechaInforme}</span>
                               <span className="text-[10px] bg-slate-100 text-slate-600 font-black px-2 py-0.5 rounded uppercase max-w-[200px] truncate" title={procesoInforme}>🏛️ {procesoInforme}</span>
                             </div>
@@ -1765,11 +1758,11 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
 <div id={`plan-completo-${idInf}`} className="p-3 bg-white border-t border-slate-50 overflow-x-auto relative">
 <div className="flex justify-between items-center mb-3">
                             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Desglose de Actividades</h4>
-                       <button 
+                     <button 
   type="button"
   disabled={generandoPdfId === idInf}
-  onClick={() => handleDescargarPdfConLoader(idInf, refInforme)}
-  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 text-white ${
+  onClick={() => handleDescargarPdfConLoader(idInf, codigoInforme)}
+  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 text-white ${  
     generandoPdfId === idInf 
       ? 'bg-amber-600 opacity-90 cursor-wait' 
       : 'bg-slate-800 hover:bg-slate-900 cursor-pointer'
@@ -2032,7 +2025,7 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
                       {createPortal(
                         <div className="absolute -left-[9999px] top-0 opacity-0 pointer-events-none">
                           <div 
-                            ref={(el) => (planRefs.current[idInf] = el)} 
+                            id={`pdf-export-plan-${idInf}`}
                             style={{ width: '1350px', backgroundColor: '#ffffff', padding: '32px', fontFamily: 'sans-serif', color: '#1e293b' }}
                           >
                             {/* Cabecera Membretada */}
@@ -2046,7 +2039,7 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
                               </div>
                               <div style={{ textAlign: 'right', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                                 <div style={{ fontSize: '10px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Referencia Oficial</div>
-                                <div style={{ fontSize: '20px', fontWeight: '900', color: '#0A3B32', marginTop: '2px' }}>{refInforme}</div>
+                                <div style={{ fontSize: '20px', fontWeight: '900', color: '#0A3B32', marginTop: '2px' }}>{codigoInforme}</div>
                               </div>
                             </div>
 

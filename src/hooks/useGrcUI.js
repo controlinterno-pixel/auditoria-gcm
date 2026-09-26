@@ -6,13 +6,19 @@ export function useGrcUI() {
   const [oobCode, setOobCode] = useState(null);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get('mode');
-    const code = params.get('oobCode');
-    if (mode === 'resetPassword' && code) {
-      setIsResettingPassword(true);
-      setOobCode(code);
-    }
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted) {
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        const code = params.get('oobCode');
+        if (mode === 'resetPassword' && code) {
+          setIsResettingPassword(true);
+          setOobCode(code);
+        }
+      }
+    }, 0);
+    return () => { isMounted = false; };
   }, []);
 
   const [activeTab, setActiveTab] = useState('tablero');
@@ -23,10 +29,10 @@ export function useGrcUI() {
   const [subTabGobernanza, setSubTabGobernanza] = useState('comites');
   const [selectedProcesoExpediente, setSelectedProcesoExpediente] = useState('');
 
-  const [notification, setNotification] = useState(null);
+ const [notification, setNotification] = useState(null);
   const [isPresentationMode, setIsPresentationMode] = useState(false);
-  const [formResetKey, setFormResetKey] = useState(Date.now());
-  const [searchTerm, setSearchTerm] = useState('');
+  const [formResetKey, setFormResetKey] = useState(() => Date.now());
+  const [searchTerm, setSearchTerm] = useState(''); 
   const [columnFilters, setColumnFilters] = useState({});
 
   const [xlsxLoaded] = useState(true);

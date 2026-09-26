@@ -1,5 +1,5 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { auditarAuxilioTransporte, auditarSeguridadSocial, auditarJornadaLaboral } from '../../utils/motorAuditoria';
 import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica, cargarNominaHistorica } from '../../services/historicoService';
 import DashboardHistorico from './DashboardHistorico';
@@ -392,7 +392,6 @@ const hallazgosFiltrados = hallazgos ? hallazgos.filter(h => {
     const desgloses = obtenerDesgloseEmpleado(empleado);
     const causales = [];
 
-    const tieneVacaciones = desgloses.some(d => d.concepto.includes('VACACIONES'));
     const tieneIncapacidad = desgloses.some(d => d.concepto.includes('INCAPACIDAD') || d.concepto.includes('INC.'));
     const tieneExtras = desgloses.some(d => d.concepto.includes('HORA') || d.concepto.includes('EXTRA') || d.concepto.includes('RECARGO'));
     const tieneDiaFamilia = desgloses.some(d => d.concepto.includes('FAMILIA'));

@@ -1,7 +1,5 @@
-import React, { useState } from 'react';
-
+import { useState } from 'react';
 import { 
-  AUDITORES_OFICIALES, 
   MAPA_PROCESOS, 
   CARGOS_SOCIALIZACION 
 } from '../constants/diccionariosGRC';
@@ -12,12 +10,12 @@ import { apiService } from '../services/apiService';
 
 export default function InformesAuditoria({ 
   informesAuditoria, 
-safeProgramas = [],
+  safeProgramas = [],
   editInformeAuditoria, 
   setEditInformeAuditoria, 
   isAdmin, 
-  searchTerm, 
-  setSearchTerm, 
+  searchTerm = '',
+  setSearchTerm = () => {},
   columnFilters, 
   handleColFilterChange, 
   exportToExcel, 
@@ -36,26 +34,14 @@ safeProgramas = [],
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
   const [participanteTemp, setParticipanteTemp] = useState('');
 
-  // 🌟 NUEVOS ESTADOS PARA MACRO Y SUBPROCESO
-  const [macroprocesoForm, setMacroprocesoForm] = useState('');
-  const [subprocesoForm, setSubprocesoForm] = useState('');
+ // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
+  const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
+  const [subprocesoFormState, setSubprocesoForm] = useState(null);
 
-  // Sincronizador automático si se carga un informe en modo edición
-  React.useEffect(() => {
-    if (editInformeAuditoria) {
-      const datosCargos = editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '';
-      setParticipantesMultiples(datosCargos.includes(',') ? datosCargos.split(',').map(p => p.trim()) : (datosCargos ? [datosCargos] : []));
-      
-      // Restaurar valores jerárquicos
-      setMacroprocesoForm(editInformeAuditoria.macroproceso || editInformeAuditoria.proceso || '');
-      setSubprocesoForm(editInformeAuditoria.subproceso || 'General');
-    } else {
-      setParticipantesMultiples([]);
-      setMacroprocesoForm('');
-      setSubprocesoForm('');
-    }
-  }, [editInformeAuditoria]);
-
+  // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
+  const idEdicion = editInformeAuditoria?.id || 'nuevo';
+  const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || '');
+  const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
@@ -598,8 +584,8 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                   onChange={(e) => {
                     const prog = safeProgramas.find(p => String(p.id) === String(e.target.value));
                     if (prog) {
-                       setMacroprocesoForm(prog.proceso || '');
-                       setSubprocesoForm(prog.subproceso || 'General');
+                       setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: prog.proceso || '' }));
+                       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: prog.subproceso || 'General' }));
                     }
                   }}
                   className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer"
@@ -630,7 +616,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                  <select 
                    name="subproceso" 
                    value={subprocesoForm} 
-                   onChange={(e) => setSubprocesoForm(e.target.value)} 
+                  onChange={(e) => setSubprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }))}
                    required 
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50"
                    disabled={!macroprocesoForm}

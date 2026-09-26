@@ -1,5 +1,5 @@
 // Ruta: api/forense.js
-import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
+import { adminAuth, adminDb } from '../_lib/firebaseAdmin';
 
 // --- HELPERS MATEMÁTICOS PARA EL SERVIDOR ---
 const normalizarTexto = (str) => {
@@ -48,19 +48,9 @@ const clasificarUnidad = (fila) => {
 
 // 2. ENDPOINT PRINCIPAL (LA RUTA QUE LLAMARÁ REACT)
 export default async function handler(req, res) {
-  const allowedOrigins = [
-    process.env.FRONTEND_URL || 'https://auditoria-gcm.vercel.app',
-    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:5173'] : [])
-  ];
+  const allowedOrigins = ['https://auditoria-gcm.vercel.app', 'http://localhost:5173'];
   const origin = req.headers.origin;
-
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigins[0]);
-  }
-
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigins.includes(origin) ? origin : 'https://auditoria-gcm.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -73,9 +63,8 @@ export default async function handler(req, res) {
     const cookies = parse(req.headers.cookie || '');
     const sessionCookie = cookies.grc_session;
 
-  if (!sessionCookie) return res.status(401).json({ error: 'Falta sesión HttpOnly de servidor.' });
-    await adminAuth.verifySessionCookie(sessionCookie, true);
-
+    if (!sessionCookie) return res.status(401).json({ error: 'Falta sesión HttpOnly de servidor.' });
+await adminAuth.verifySessionCookie(sessionCookie, true);
     const { listaBases } = req.body;
     if (!listaBases || listaBases.length === 0) return res.status(400).json({ error: 'No se enviaron bases.' });
 
@@ -178,16 +167,7 @@ const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}
       }
       if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
 
-      const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
-                      conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS') ||
-                      conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') ||
-                      conceptoLimpio.includes('EXTRA DOMINICAL');
-      
-      const esRecargo = (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA')) || 
-                        conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL') ||
-                        conceptoLimpio.includes('FESTIVO COMPENSADO') || conceptoLimpio.includes('FESTIVO NO COMPENSADO');
-
-      const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
+const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
                       conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS') ||
                       conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') ||
                       conceptoLimpio.includes('EXTRA DOMINICAL');
@@ -232,8 +212,8 @@ const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}
       let fugaNetaAcumulada = 0;
       let quincenasConInfraccion = 0;
 
-      Object.entries(emp.historialMeses).forEach(([mesAgrupado, data]) => {
-         const transporte = data.transportePagado || 0;
+Object.entries(emp.historialMeses).forEach(([, data]) => {
+      const transporte = data.transportePagado || 0;
          const rodamiento = data.rodamientoPagado || 0;
          const devengado = data.devengadoSalarial || 0;
          const topeMensual = 3501810;

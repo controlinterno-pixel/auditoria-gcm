@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function AuditorIA({
   isPresentationMode,
   isAdmin,
@@ -136,14 +134,14 @@ export default function AuditorIA({
     if (!auditorRespuesta) return "";
     let parsed = auditorRespuesta;
 
-    // Si viene como string JSON, intentamos desestructurarlo
+  // Si viene como string JSON, intentamos desestructurarlo
     if (typeof auditorRespuesta === 'string') {
       try {
         parsed = JSON.parse(auditorRespuesta.replace(/```json/g, '').replace(/```/g, '').trim());
-      } catch (e) {
+      } catch {
         return auditorRespuesta; // Es texto plano normal
       }
-    }
+    }  
 
     // Extraer el texto legible en lenguaje natural
     if (typeof parsed === 'object' && parsed !== null) {
@@ -184,9 +182,9 @@ export default function AuditorIA({
                        key={`sug-${idx}`}
                        type="button"
                        disabled={isAuditorThinking}
-                       onClick={(e) => {
+                       onClick={(_e) => {
   // Pasamos directamente el texto de la sugerencia como string
-handleAuditorSubmit(e, sug.query, { persona: 'EXECUTIVE', domain: 'AUDIT' });
+handleAuditorSubmit(_e, sug.query, { persona: 'EXECUTIVE', domain: 'AUDIT' });
 }}
 className={`w-full bg-[#050a14]/90 border border-slate-800/80 hover:border-blue-500/40 hover:bg-[#0a1122] px-3 py-2.5 rounded-xl flex items-center space-x-2 text-left transition-all duration-200 group active:scale-95 disabled:opacity-30 ${idx === 0 ? 'col-span-2 justify-center' : ''}`}
                      >

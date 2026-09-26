@@ -56,8 +56,8 @@ export const calcularMatriz5x5 = (probabilidad, impacto) => {
 
   let apetito = "Dentro de Apetito";
   let accion = "Aceptar / Monitorear";
-  let color = "bg-emerald-500 text-white";
-  let borderSemaforo = "border-emerald-200";
+  let color;
+  let borderSemaforo;
 
   if (score <= 4) {
     color = "bg-emerald-500 text-white"; borderSemaforo = "border-emerald-600";

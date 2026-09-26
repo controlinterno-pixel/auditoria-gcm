@@ -1,11 +1,11 @@
 // src/hooks/useGrcData.js
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { 
   defaultCronograma, defaultRiesgos, defaultHallazgos, 
-  defaultPlanes, defaultIncidentes, defaultEvaluaciones, defaultMonitoreo 
+  defaultPlanes, defaultEvaluaciones, defaultMonitoreo 
 } from '../constants/defaultData';
 
 export function useGrcData() {
@@ -81,7 +81,11 @@ export function useGrcData() {
   // 2. Carga Inicial Centralizada SEGURA (Backend-Driven)
   useEffect(() => {
     if (!user) return;
-    setIsCloudLoaded(false);
+    
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted) setIsCloudLoaded(false);
+    }, 0);
 
     // 🛡️ PURGA AUTOMÁTICA DE DATOS RESIDUALES Y PII EN LOCALSTORAGE
     // Elimina datos de negocio y datos personales identificables del almacenamiento local
@@ -126,13 +130,14 @@ const response = await fetch('/api/grc/sync', {
         
       } catch (error) {
         console.error("🔥 Error de seguridad/red obteniendo datos:", error);
-      } finally {
-        setIsCloudLoaded(true);
+  } finally {
+        if (isMounted) setIsCloudLoaded(true);
       }
     };
 
     fetchSecureData();
-  }, [user]);
+    return () => { isMounted = false; };
+  }, [user]);    
 
   // 3. Motor RLS Delegado al Servidor
   // 🛡️ Ya no filtramos arreglos en el cliente. Si la data llegó aquí, 

@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-
+import { useState } from 'react';
 export default function Trazabilidad({ safeRiesgos, safeEvaluaciones, safeHallazgos, safePlanes, safeIncidentes }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroModulo, setFiltroModulo] = useState('Todos');

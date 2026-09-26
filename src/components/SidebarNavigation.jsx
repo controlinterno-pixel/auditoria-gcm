@@ -1,5 +1,4 @@
 // src/components/SidebarNavigation.jsx
-import React from 'react';
 
 export default function SidebarNavigation({
   isPresentationMode,

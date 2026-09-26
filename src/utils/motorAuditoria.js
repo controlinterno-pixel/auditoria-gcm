@@ -93,7 +93,6 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
   const constantes = HISTORICO_LEGAL[anoAuditoria] || HISTORICO_LEGAL[2026];
   const { smlmv, auxTransporte } = constantes;
   
-  const limiteSalarialQuincenal = smlmv;
   const valorDiarioAuxilio = auxTransporte / 30; 
 
   const conceptosSalario = (mapeoConceptos?.salario_base || []).map(normalizarTexto);
@@ -248,8 +247,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
     const diferenciaExacta = auxilioDeberSer - emp.auxilioPagado;
     const diferenciaAbsoluta = Math.abs(diferenciaExacta);
 
-    let tipoHallazgo = 'CONFORME';
-    let severidad = 'CORRECTO';
+    let tipoHallazgo;
+    let severidad;
 
     if (emp.auxilioPagado < 0 || emp.totalDevengadoSalarial < 0) {
       // 🚩 REGLA FORENSE: Identificar valores negativos como Reintegros y evitar falsos positivos
@@ -281,9 +280,8 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
        severidad = 'ADVERTENCIA (Multi-Empresa)';
     }
 
-   // 💡 DICTAMEN FORENSE INTELIGENTE Y CERTERO - AUXILIO DE TRANSPORTE
-    let notaForense = null;
-    const totalDevengado = emp.totalDevengadoSalarial;
+  // 💡 DICTAMEN FORENSE INTELIGENTE Y CERTERO - AUXILIO DE TRANSPORTE
+    let notaForense;
 
    if (emp.auxilioPagado < 0 || emp.totalDevengadoSalarial < 0) {
        notaForense = `ℹ️ AJUSTE DE NÓMINA (REINTEGRO): Se detectaron valores negativos. Corresponde a un descuento o reintegro por cruce de novedades.`;
@@ -607,19 +605,16 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
   for (const llave in empleadosPivoteados) {
     const emp = empleadosPivoteados[llave];
 
-    let ibcLiquidacion = 0;
-    let deberSerSalud = 0;
-    let deberSerPension = 0;
+   let ibcLiquidacion;
+    let deberSerSalud;
+    let deberSerPension;
+    const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
 
     if (emp.esAprendizSena) {
       ibcLiquidacion = emp.totalNoConstitutivo || 394000;
       deberSerSalud = 0;
       deberSerPension = 0;
-    } else {
-      let diasEfectivos = emp.diasTrabajados > 0 ? emp.diasTrabajados : 15;
-      diasEfectivos = Math.max(0, Math.min(diasEfectivos, 15));
-
-      const totalDevengado = emp.totalConstitutivoIBC + emp.totalNoConstitutivo + emp.valorAusentismosIBC;
+     } else {
       let ibcBruto = emp.totalConstitutivoIBC + emp.valorAusentismosIBC;
 
      // 🏖️ PROMEDIO HISTÓRICO LEGAL E HÍBRIDO DEL ERP
@@ -754,17 +749,17 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
         }
       }
             
-      // Ley 1393 (Tope 40%) - Las vacaciones de liquidacion NO suman aqui
+    // Ley 1393 (Tope 40%) - Las vacaciones de liquidacion NO suman aqui
       const limite40 = totalDevengado * 0.40;
       if (emp.totalNoConstitutivo > limite40) {
         ibcBruto += (emp.totalNoConstitutivo - limite40);
       }
 
-    ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
+      ibcLiquidacion = redondearBase(ibcBruto, pasoRedondeo);
       deberSerSalud = Math.round(ibcLiquidacion * 0.04);
       deberSerPension = Math.round(ibcLiquidacion * 0.04);
 
-      // 🧮 MÓDULO 360: CÁLCULO DE PARAFISCALES Y EXONERACIÓN LEY 1607/1819
+      // 🧮 MÓDULO 360: CÁLCULO DE PARAFISCALES Y EXONERACIÓN LEY 1607/1819  
       emp.deberSerCaja = Math.round(ibcLiquidacion * 0.04); // Caja siempre es 4%
       
       const anoCalculo = emp.periodoISO ? parseInt(emp.periodoISO.split('-')[0]) : 2026;
@@ -798,14 +793,14 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
     const ibcImplicitoSalud = emp.descuentoSaludReal > 0 ? Math.round(emp.descuentoSaludReal / 0.04) : 0;
     const ibcImplicitoPension = emp.descuentoPensionReal > 0 ? Math.round(emp.descuentoPensionReal / 0.04) : 0;
     
-    const desalineacionBases = (emp.descuentoSaludReal > 0 && emp.descuentoPensionReal > 0) &&
+  const desalineacionBases = (emp.descuentoSaludReal > 0 && emp.descuentoPensionReal > 0) &&
                                 Math.abs(ibcImplicitoSalud - ibcImplicitoPension) > pasoRedondeo;
 
-    let tipoHallazgo = 'CONFORME';
-    let severidad = 'CORRECTO';
+    let tipoHallazgo;
+    let severidad;
     
   // Aplicamos la tolerancia global para limpiar los falsos positivos operativos
-    const toleranciaAplicada = margenTolerancia;
+    const toleranciaAplicada = margenTolerancia;  
 
     // ETIQUETA SENA INTELIGENTE
     if (emp.esAprendizSena) {
@@ -935,8 +930,6 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
   const conceptosHEF = (mapeoConceptos?.he_festivas || []).map(normalizarTexto);
   const conceptosRecargos = (mapeoConceptos?.recargos || []).map(normalizarTexto);
 
-  const limiteHorasExtrasQuincenal = 24; // Límite legal: 2 horas diarias / 12 semanales
-
   const empleadosPivoteados = {};
 
   transaccionesExcel.forEach(fila => {
@@ -1006,14 +999,14 @@ export function auditarJornadaLaboral(transaccionesExcel, mapeoConceptos = {}) {
     const totalHorasExtras = emp.cantHED + emp.cantHEN + emp.cantHEF;
     const costoExtras = emp.valorHED + emp.valorHEN + emp.valorHEF;
     
-    totalHorasExtrasEmpresa += totalHorasExtras;
+   totalHorasExtrasEmpresa += totalHorasExtras;
     totalRecargosEmpresa += emp.cantRecargos;
     costoTotalExtras += costoExtras;
     costoTotalRecargos += emp.valorRecargos;
 
-    let tipoHallazgo = 'CONFORME';
-    let severidad = 'CORRECTO';
-    let notaForense = null;
+    let tipoHallazgo;
+    let severidad;
+    let notaForense;
 
     // 🧮 AUDITORÍA MATEMÁTICA Y LEGAL (FACTORES CST Y LEY 2101)
     if (totalHorasExtras >= 16) {

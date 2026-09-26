@@ -33,10 +33,10 @@ export const guardarNominaHistorica = async (filasExcel, periodo) => {
     }
 
     return { success: true, message: 'Nómina procesada con éxito por el servidor.' };
-  } catch (error) {
+ } catch (error) {
     console.error("Error guardando nómina vía backend:", error);
-    throw new Error(`Fallo en la carga: ${error.message}`);
-  }
+    throw new Error(`Fallo en la carga: ${error.message}`, { cause: error });
+  } 
 };
 
 export const cargarNominaHistorica = async (periodo, empresa = 'GENERAL') => {
@@ -88,10 +88,10 @@ export const eliminarNominaHistorica = async (docId) => {
 
     if (!response.ok) throw new Error("Fallo al eliminar en el servidor.");
     return { success: true };
-  } catch (error) {
+} catch (error) {
     console.error("Error eliminando histórico:", error);
-    throw new Error("No se pudo eliminar el registro en la nube.");
-  }
+    throw new Error("No se pudo eliminar el registro en la nube.", { cause: error });
+  } 
 };
 // ============================================================================
 // ⏰ NUEVAS FUNCIONES PARA MARCACIONES BIOMÉTRICAS (NUBE)
@@ -173,8 +173,8 @@ export const eliminarMarcacionesHistoricas = async (docId) => {
 
     if (!response.ok) throw new Error("Fallo al eliminar en el servidor.");
     return { success: true };
-  } catch (error) {
+ } catch (error) {
     console.error("Error eliminando marcaciones:", error);
-    throw new Error("No se pudo eliminar el registro biométrico en la nube.");
+    throw new Error("No se pudo eliminar el registro biométrico en la nube.", { cause: error });
   }
 };

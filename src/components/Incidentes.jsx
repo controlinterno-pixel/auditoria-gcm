@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 // 1. Importamos el componente reutilizable
 import FileUploader from '../components/FileUploader';
@@ -18,7 +18,6 @@ export default function Incidentes({
   incFiltrados,
   isAdmin,
   searchTerm,
-  setSearchTerm,
   columnFilters,
   handleColFilterChange,
   editIncidente,
@@ -33,14 +32,18 @@ export default function Incidentes({
   safeRiesgos = [] // Recibimos los riesgos desde el Dashboard (Main)
 }) {
 
-  // ☁️ URL del archivo subido
+ // ☁️ URL del archivo subido
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
 
   // Limpiar la URL de la evidencia cuando se inicia un nuevo registro
-  React.useEffect(() => {
-    if (!editIncidente) {
-      setArchivoSubidoUrl('');
-    }
+  useEffect(() => {
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted && !editIncidente) {
+        setArchivoSubidoUrl('');
+      }
+    }, 0);
+    return () => { isMounted = false; };
   }, [editIncidente]);
 
   return (

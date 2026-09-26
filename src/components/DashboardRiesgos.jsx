@@ -59,9 +59,6 @@ export default function DashboardRiesgos({
   setChartDetail,
   filtroHeatMap,
   setFiltroHeatMap,
-  searchTerm,
-  columnFilters,
-  applyFilters,
   renderHeaderFiltros
 }) {
   const esRes = tipoMatriz === 'residual';

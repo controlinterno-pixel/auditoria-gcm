@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { exportarA_PDF } from '../utils/pdfUtils'; // <-- Ajusta esta ruta si tu pdfUtils está en otra carpeta
 
 export default function PlanAnual({

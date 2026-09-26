@@ -39,7 +39,8 @@ rol: userData.rol || 'lider',
         nombreResponsable: userData.nombreResponsable || userData.nombre || 'Usuario GRC'
       }
     });
-  } catch (error) {
-    return res.status(401).json({ authenticated: false });
+  } catch (err) {
+    console.error("Error en me.js:", err);
+    return res.status(401).json({ error: 'Sesión inválida o expirada.' });
   }
 }

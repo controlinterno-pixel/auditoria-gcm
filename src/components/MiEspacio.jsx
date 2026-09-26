@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import InformeProceso from './InformeProceso';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
@@ -66,7 +66,7 @@ const homologarProcesoUniversal = (nombreEntrante, listaOficial = []) => {
 export default function MiEspacio({
   user, safeProgramas = [], safePlanes = [], safeHallazgos = [], safeComites = [], safeCronograma = [],
   safeRiesgos = [], safeEvaluaciones = [], informesAuditoria = [],
-  activeTab, setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm,
+  setActiveTab, setSubTabResultados, setSubTabPlanes, scrollToForm,
   selectedProceso, setSelectedProceso
 }) {
   // Lógica inteligente para mostrar el nombre ("Primer Nombre + Primer Apellido")
@@ -98,14 +98,14 @@ export default function MiEspacio({
   const [pestanaActiva, setPestanaActiva] = useState('resumen');
   
   // Listas seguras contra valores nulos
-  const programasList = Array.isArray(safeProgramas) ? safeProgramas : [];
-  const planesList = Array.isArray(safePlanes) ? safePlanes : [];
-  const hallazgosList = Array.isArray(safeHallazgos) ? safeHallazgos : [];
-  const cronogramaList = Array.isArray(safeCronograma) ? safeCronograma : [];
-  const riesgosList = Array.isArray(safeRiesgos) ? safeRiesgos : [];
-  const evaluacionesList = Array.isArray(safeEvaluaciones) ? safeEvaluaciones : [];
-  const informesList = Array.isArray(informesAuditoria) ? informesAuditoria : [];
-  const comitesList = Array.isArray(safeComites) ? safeComites : [];
+  const programasList = useMemo(() => Array.isArray(safeProgramas) ? safeProgramas : [], [safeProgramas]);
+  const planesList = useMemo(() => Array.isArray(safePlanes) ? safePlanes : [], [safePlanes]);
+  const hallazgosList = useMemo(() => Array.isArray(safeHallazgos) ? safeHallazgos : [], [safeHallazgos]);
+  const cronogramaList = useMemo(() => Array.isArray(safeCronograma) ? safeCronograma : [], [safeCronograma]);
+  const riesgosList = useMemo(() => Array.isArray(safeRiesgos) ? safeRiesgos : [], [safeRiesgos]);
+  const evaluacionesList = useMemo(() => Array.isArray(safeEvaluaciones) ? safeEvaluaciones : [], [safeEvaluaciones]);
+  const informesList = useMemo(() => Array.isArray(informesAuditoria) ? informesAuditoria : [], [informesAuditoria]);
+  const comitesList = useMemo(() => Array.isArray(safeComites) ? safeComites : [], [safeComites]);
 
   // Cálculos dinámicos
   const totalVencidos = planesList.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length;

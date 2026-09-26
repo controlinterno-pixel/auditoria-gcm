@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { auth } from '../services/firebase';
 import { confirmPasswordReset } from 'firebase/auth';
 
@@ -11,14 +11,20 @@ export default function ResetPassword() {
 
   // Capturamos el código secreto de la URL cuando carga la página
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('oobCode');
-    if (code) {
-      setOobCode(code);
-    }
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted) {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('oobCode');
+        if (code) {
+          setOobCode(code);
+        }
+      }
+    }, 0);
+    return () => { isMounted = false; };
   }, []);
 
-  // 🛡️ Medidor de Fortaleza de la Contraseña
+// 🛡️ Medidor de Fortaleza de la Contraseña
   const getPasswordStrength = (pass) => {
     let score = 0;
     if (!pass) return { score: 0, label: 'Muy débil', color: 'bg-slate-200' };

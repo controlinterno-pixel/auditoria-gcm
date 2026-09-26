@@ -1,9 +1,8 @@
-import React from 'react';
+import { useMemo, useCallback, lazy, Suspense } from 'react';
 import { signOut } from 'firebase/auth'; 
 import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
 
-import InformesAuditoria from './components/InformesAuditoria';
 import Configuracion from './components/Configuracion';
 import Incidentes from './components/Incidentes';
 import Hallazgos from './components/Hallazgos';
@@ -15,9 +14,12 @@ import Apetito from './components/Apetito';
 import PlanAnual from './components/PlanAnual';
 import ProgramasAuditoria from './components/ProgramasAuditoria'; 
 import AuditorIA from './components/AuditorIA';
-import Comites from './components/Comites';
-import ConceptMapper from './components/AuditoriaAutomatizada/ConceptMapper';
-import DashboardEjecutivo from './components/DashboardEjecutivo';
+
+// 🚀 Carga perezosa (Lazy Loading) de módulos secundarios/pesados
+const InformesAuditoria = lazy(() => import('./components/InformesAuditoria'));
+const Comites = lazy(() => import('./components/Comites'));
+const ConceptMapper = lazy(() => import('./components/AuditoriaAutomatizada/ConceptMapper'));
+const DashboardEjecutivo = lazy(() => import('./components/DashboardEjecutivo'));
 import MiEspacio from './components/MiEspacio';
 import ModalIA from './components/ModalIA';
 import ModalDetalleGrafico from './components/ModalDetalleGrafico';
@@ -34,10 +36,10 @@ import { useGrcData } from './hooks/useGrcData';
 import { useGrcUI } from './hooks/useGrcUI';
 import { useGrcPeriodFilters } from './hooks/useGrcPeriodFilters';
 import { createFormHandlers } from './handlers/grcFormHandlers';
-import { exportToExcel, exportToJSON, saveToCloud as syncCloud } from './services/grcStorageService';
+import { exportToJSON, saveToCloud as syncCloud } from './services/grcStorageService';
 import { executeAuditorQuery } from './handlers/auditorIaHandler';
 import { processExcelRiesgos } from './utils/excelImporter';
-import { sugerirTextoConIA, analizarEvidenciaDocumento } from './services/copilotService';
+import { analizarEvidenciaDocumento } from './services/copilotService';
 import { defaultCronograma } from './constants/defaultData';
 
 
@@ -47,31 +49,31 @@ import { defaultCronograma } from './constants/defaultData';
 
 export default function App() {
   const ui = useGrcUI();
-  const {
+const {
     isResettingPassword, oobCode, activeTab, setActiveTab, menuAbierto, setMenuAbierto,
     subTabPlanificar, setSubTabPlanificar, subTabResultados, setSubTabResultados,
     subTabPlanes, setSubTabPlanes, subTabGobernanza, setSubTabGobernanza,
     selectedProcesoExpediente, setSelectedProcesoExpediente, notification, showNotification,
     isPresentationMode, setIsPresentationMode, formResetKey, setFormResetKey,
-    searchTerm, setSearchTerm, columnFilters, setColumnFilters, xlsxLoaded,
-    isThinking, setIsThinking, aiModal, setAiModal, chartDetail, setChartDetail,
+    searchTerm, setSearchTerm, columnFilters, setColumnFilters,
+    setIsThinking, aiModal, setAiModal, chartDetail, setChartDetail,
     isSubmitting, setIsSubmitting, matrizFiltro, setMatrizFiltro,
     showAuditorIA, setShowAuditorIA, auditorInput, setAuditorInput,
     auditorRespuesta, setAuditorRespuesta, isAuditorThinking, setIsAuditorThinking,
     editRiesgo, setEditRiesgo, editPlan, setEditPlan, editEvaluacion, setEditEvaluacion,
     editHallazgo, setEditHallazgo, editIncidente, setEditIncidente, editCronograma, setEditCronograma,
     editApetito, setEditApetito, editMonitoreo, setEditMonitoreo, activeTooltip, setActiveTooltip,
-    editInformeAuditoria, setEditInformeAuditoria, editComite, setEditComite, editPrograma, setEditPrograma
+    editInformeAuditoria, setEditInformeAuditoria, editComite, setEditComite
   } = ui;
 
   const {
-    user, setUser, isAdmin, setIsAdmin, perfilUsuario, setPerfilUsuario,
+    user, setUser, isAdmin, setIsAdmin,
     isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
     riesgos, setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
-    incidentes, setIncidentes, evaluaciones, setEvaluaciones,
-    cronograma, setCronograma, monitoreo, setMonitoreo,
-    informesAuditoria, setInformesAuditoria, comites, setComites,
-    programas, setProgramas, auditoresLista, setAuditoresLista,
+    setIncidentes, setEvaluaciones,
+    cronograma, setCronograma, setMonitoreo,
+    informesAuditoria, setInformesAuditoria, setComites,
+    setProgramas, auditoresLista, setAuditoresLista,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();
@@ -87,15 +89,8 @@ export default function App() {
     setSearchTerm, setColumnFilters
   });
 
-const saveToCloud = async (partialData) => syncCloud(partialData, showNotification);
-
-  const handleLogout = async () => { 
-    try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-      await signOut(auth);
-      setUser(null); setIsAdmin(false); setShowWelcome(true); window.location.reload(); 
-    } catch (e) { window.location.reload(); }
-  };
+const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, showNotification), [showNotification]);
+  
 
   const handleDeleteItem = async (listType, id) => {
     if (!isAdmin || !window.confirm('¿Eliminar registro permanentemente?')) return;
@@ -135,10 +130,15 @@ const saveToCloud = async (partialData) => syncCloud(partialData, showNotificati
     setAuditorInput('');
   };
 
-  const handleExportExcel = (dataArray, fileName) => exportToExcel(dataArray, fileName, xlsxLoaded, showNotification);
-  const handleExportJSON = () => exportToJSON({ riesgos: safeRiesgos, hallazgos: safeHallazgos, planes: safePlanes, incidentes: safeIncidentes, evaluaciones: safeEvaluaciones, cronograma: safeCronograma, monitoreo: safeMonitoreo });
+  const handleLogout = async () => { 
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      await signOut(auth);
+      setUser(null); setIsAdmin(false); setShowWelcome(true); window.location.reload(); 
+    } catch { window.location.reload(); }
+  };
   const handleImportJSON = (e) => {
-    const file = e.target.files[0]; if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
@@ -146,7 +146,7 @@ const saveToCloud = async (partialData) => syncCloud(partialData, showNotificati
           setIsCloudLoaded(false); await saveToCloud(JSON.parse(event.target.result));
           showNotification("Base de datos actualizada.", "success"); setIsCloudLoaded(true);
         }
-      } catch (err) { showNotification("Error: Formato JSON no válido.", "error"); }
+      } catch { showNotification("Error: Formato JSON no válido.", "error"); }
       e.target.value = null;
     };
     reader.readAsText(file);
@@ -154,21 +154,25 @@ const saveToCloud = async (partialData) => syncCloud(partialData, showNotificati
 
   const handleImportExcelRiesgos = (e) => processExcelRiesgos({ event: e, safeRiesgos, setRiesgos, saveToCloud, showNotification, setIsCloudLoaded, user });
   const forceUpdateCronograma = async () => { if (window.confirm("¿Deseas cargar los 20 procesos del Plan Anual?")) { await saveToCloud({ cronograma: defaultCronograma }); showNotification("¡Plan Anual actualizado!", "success"); } };
-  const sugerirConIA = (tipoTarget) => sugerirTextoConIA(tipoTarget, setIsThinking, showNotification);
   const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
-  const ejecutarDespachoGmailApi = (emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification);
-
+const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification), [user?.email, showNotification]);
   const {
     handleRiesgoSubmit, handleHallazgoSubmit, handlePlanSubmit, handleAprobarCierrePlan,
     handleEvaluacionSubmit, handleComiteSubmit, handleIncidenteSubmit, handleCronogramaSubmit,
     handleApetitoSubmit, handleMonitoreoSubmit, handleInformeAuditoriaSubmit
-  } = createFormHandlers({
+  } = useMemo(() => createFormHandlers({
     user, isAdmin, safeRiesgos, safeHallazgos, safePlanes, safeEvaluaciones, safeComites, safeIncidentes, safeCronograma, safeMonitoreo, informesAuditoria,
     editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
     setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes, setCronograma, setMonitoreo, setInformesAuditoria,
     setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
     saveToCloud, showNotification, setIsSubmitting, setFormResetKey, ejecutarDespachoGmailApi, defaultMeses
-  });
+  }), [
+    user, isAdmin, safeRiesgos, safeHallazgos, safePlanes, safeEvaluaciones, safeComites, safeIncidentes, safeCronograma, safeMonitoreo, informesAuditoria,
+    editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
+    setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes, setCronograma, setMonitoreo, setInformesAuditoria,
+    setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
+    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, ejecutarDespachoGmailApi, defaultMeses
+  ]);
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
@@ -234,6 +238,7 @@ return (
         {!isPresentationMode && <StepIndicatorHUD activeStep={activeTab} />}
         
 <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
+          <Suspense fallback={<div className="flex justify-center items-center p-12 text-slate-400 font-bold text-sm uppercase tracking-widest animate-pulse">⏳ Cargando módulo...</div>}>
           <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
           {/* 🏠 FASE 0: MI ESPACIO DE TRABAJO (Bandeja Ejecutiva + Expediente Único + Dashboard) */}
             {activeTab === 'tablero' && (
@@ -323,7 +328,6 @@ return (
         setSearchTerm={setSearchTerm} 
         columnFilters={columnFilters} 
         handleColFilterChange={handleColFilterChange}
-        exportToExcel={exportToExcel} 
         safeRiesgos={safeRiesgos}
         hallazgos={safeHallazgos}
         planesDeAccion={safePlanes}
@@ -397,10 +401,10 @@ return (
                 {subTabResultados === 'informes' && isAdmin && (
                   <InformesAuditoria 
                     informesAuditoria={informesAuditoria} 
-                    safeProgramas={safeProgramas} /* 👈 ¡AQUÍ ESTÁ LA LÍNEA QUE FALTABA! */
+                    safeProgramas={safeProgramas}
                     setInformesAuditoria={setInformesAuditoria} editInformeAuditoria={editInformeAuditoria}
                     setEditInformeAuditoria={setEditInformeAuditoria} isAdmin={isAdmin} user={user} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-                    columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} exportToExcel={exportToExcel}
+                    columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
                     handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit} isSubmitting={isSubmitting} setFormResetKey={setFormResetKey}
                     scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters} FilterInput={FilterInput}
                     safeHallazgos={safeHallazgos} safePlanes={safePlanes} formatSafeDate={formatSafeDate} auditoresLista={auditoresLista}
@@ -439,7 +443,7 @@ return (
                         setEditPlan(planModificado);
                         setFormResetKey(Date.now());
                         if (nuevoEstadoWorkflow === 'En Revisión') {
-                          const correoGestor = auth.currentUser?.email || process.env.VITE_CORREO_ADMIN_DEFAULT || "admin@termales.com.co";
+                        const correoGestor = auth.currentUser?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "admin@termales.com.co";
                           await ejecutarDespachoGmailApi({ ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: 'https://auditoria-gcm.vercel.app', destinatarios: correoGestor });
                           showNotification("Plan enviado a revisión y administrador notificado.");
                         } else {
@@ -510,6 +514,7 @@ return (
               />
             )}
           </div>
+          </Suspense>
         </main>
       </div>
 

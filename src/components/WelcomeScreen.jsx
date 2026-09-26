@@ -1,28 +1,26 @@
-import React from 'react';
+// Logo Vectorial Corporativo (Extraído fuera del renderizado para evitar recreación dinámica)
+const LogoTermales = () => (
+  <svg viewBox="0 0 100 100" className="w-[75px] h-[75px] drop-shadow-sm shrink-0">
+    <circle cx="16" cy="45" r="2" fill="#203d4a" />
+    <circle cx="12" cy="49" r="1.5" fill="#203d4a" />
+    <circle cx="18" cy="52" r="1.2" fill="#203d4a" />
+    <circle cx="85" cy="42" r="1.8" fill="#203d4a" />
+    <circle cx="92" cy="45" r="2.5" fill="#203d4a" />
+    <circle cx="90" cy="50" r="1.5" fill="#203d4a" />
+    <circle cx="84" cy="54" r="1.2" fill="#203d4a" />
+    <path d="M 68 28 C 76 20, 88 22, 90 28 C 82 32, 72 32, 68 28 Z" fill="#4CAF50" />
+    <path d="M 63 15 C 68 8, 76 10, 78 14 C 72 17, 65 18, 63 15 Z" fill="#4CAF50" />
+    <path d="M 32 72 C 24 80, 12 78, 10 72 C 18 68, 28 68, 32 72 Z" fill="#4CAF50" />
+    <path d="M 37 85 C 32 92, 24 90, 22 86 C 28 83, 35 82, 37 85 Z" fill="#4CAF50" />
+    <circle cx="50" cy="50" r="25" stroke="#203d4a" strokeWidth="11" fill="none" />
+    <circle cx="43" cy="55" r="7" stroke="#203d4a" strokeWidth="3.5" fill="none" />
+    <circle cx="58" cy="62" r="4.5" stroke="#203d4a" strokeWidth="2.5" fill="none" />
+    <circle cx="59" cy="48" r="2.2" fill="#203d4a" />
+    <circle cx="53" cy="45" r="1.5" fill="#203d4a" />
+  </svg>
+);
 
 export default function WelcomeScreen({ isAdmin, onEnter, onLogout }) {
-  // Logo Vectorial Corporativo
-  const LogoTermales = () => (
-    <svg viewBox="0 0 100 100" className="w-[75px] h-[75px] drop-shadow-sm shrink-0">
-      <circle cx="16" cy="45" r="2" fill="#203d4a" />
-      <circle cx="12" cy="49" r="1.5" fill="#203d4a" />
-      <circle cx="18" cy="52" r="1.2" fill="#203d4a" />
-      <circle cx="85" cy="42" r="1.8" fill="#203d4a" />
-      <circle cx="92" cy="45" r="2.5" fill="#203d4a" />
-      <circle cx="90" cy="50" r="1.5" fill="#203d4a" />
-      <circle cx="84" cy="54" r="1.2" fill="#203d4a" />
-      <path d="M 68 28 C 76 20, 88 22, 90 28 C 82 32, 72 32, 68 28 Z" fill="#4CAF50" />
-      <path d="M 63 15 C 68 8, 76 10, 78 14 C 72 17, 65 18, 63 15 Z" fill="#4CAF50" />
-      <path d="M 32 72 C 24 80, 12 78, 10 72 C 18 68, 28 68, 32 72 Z" fill="#4CAF50" />
-      <path d="M 37 85 C 32 92, 24 90, 22 86 C 28 83, 35 82, 37 85 Z" fill="#4CAF50" />
-      <circle cx="50" cy="50" r="25" stroke="#203d4a" strokeWidth="11" fill="none" />
-      <circle cx="43" cy="55" r="7" stroke="#203d4a" strokeWidth="3.5" fill="none" />
-      <circle cx="58" cy="62" r="4.5" stroke="#203d4a" strokeWidth="2.5" fill="none" />
-      <circle cx="59" cy="48" r="2.2" fill="#203d4a" />
-      <circle cx="53" cy="45" r="1.5" fill="#203d4a" />
-    </svg>
-  );
-
   return (
     <div className="relative flex min-h-screen w-full bg-[#f8fbfa] font-sans overflow-hidden">
       {/* Fondo Cascada */}

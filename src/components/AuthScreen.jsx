@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { auth, db } from '../services/firebase';
+import { useState, useEffect } from 'react';
+import { auth } from '../services/firebase';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -7,7 +7,6 @@ import {
   sendPasswordResetEmail,
   signOut
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
 
 // 🔗 IMPORTAMOS TUS DICCIONARIOS REALES DE GRC
 import { MAPA_PROCESOS, CARGOS_SOCIALIZACION } from '../constants/diccionariosGRC';
@@ -100,16 +99,17 @@ export default function AuthScreen() {
       // La asignación de roles queda bajo control estricto del Administrador 
       // mediante la consola de Firebase o un backend seguro.
    
-      await sendEmailVerification(user);
+  await sendEmailVerification(user);
       await signOut(auth);
       setPendingVerification(true);
-    } catch (error) {
-      console.error("Error en registro:", error);
-      alert("❌ Error al crear la cuenta: " + error.message);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
+      console.error("Error en registro:", errorMessage);
+      alert("❌ Error al crear la cuenta: " + errorMessage);
     } finally {
       setLoading(false);
     }
-  };
+  };    
   // 2. Manejo del Login con Anti Fuerza Bruta (Rate Limiting)
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -129,12 +129,12 @@ export default function AuthScreen() {
         await signOut(auth);
         alert("⚠️ Acceso denegado: Tu correo aún no ha sido verificado. Revisa tu bandeja de entrada o spam para activar tu cuenta.");
         setPendingVerification(true);
-        setLoading(false);
+      setLoading(false);
         return;
       }
-    } catch (error) {
+    } catch {
       const newAttempts = failedAttempts + 1;
-      setFailedAttempts(newAttempts);
+      setFailedAttempts(newAttempts);  
       
       if (newAttempts >= 5) {
         setLockTimer(60); // Bloqueo por 60 segundos
@@ -167,14 +167,14 @@ export default function AuthScreen() {
   // 🔄 Reenviar correo
   const handleResendEmail = async () => {
     if (auth.currentUser) {
-      try {
+   try {
         await sendEmailVerification(auth.currentUser);
         alert("📩 Correo de verificación reenviado con éxito.");
-      } catch (err) {
+      } catch {
         alert("Espera un momento antes de solicitar otro correo.");
       }
     }
-  };
+  };   
 
   // 🔑 Recuperar Contraseña
   const handleResetPassword = async () => {

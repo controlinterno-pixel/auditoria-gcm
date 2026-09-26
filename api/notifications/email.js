@@ -5,8 +5,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { ref_consecutivo, titulo_informe, proceso_auditado, enlace_pdf, destinatarios } = req.body;
-
+const { ref_consecutivo, destinatarios } = req.body;
     if (!destinatarios) {
       return res.status(400).json({ error: 'Faltan destinatarios para el envío' });
     }

@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 export default function Configuracion({
-  isAdmin,
   forceUpdateCronograma,
   handleImportExcelRiesgos,
   exportToJSON,
@@ -18,13 +17,12 @@ export default function Configuracion({
   const [usuarioExpandido, setUsuarioExpandido] = useState(null);
 
   // Cargar lista de usuarios desde Firestore
-  const cargarUsuarios = async () => {
-    setLoading(true);
+ const cargarUsuarios = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, 'usuarios'));
       const docs = [];
-      querySnapshot.forEach((doc) => {
-        docs.push({ id: doc.id, ...doc.data() });
+      querySnapshot.forEach((docSnap) => {
+        docs.push({ id: docSnap.id, ...docSnap.data() });
       });
       setUsuarios(docs);
     } catch (error) {
@@ -35,10 +33,15 @@ export default function Configuracion({
   };
 
   useEffect(() => {
-    cargarUsuarios();
+    // Retrasar microsegundos la carga para evitar colisión con el primer render
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted) cargarUsuarios();
+    }, 0);
+    return () => { isMounted = false; };
   }, []);
 
-  // Cambiar rol de un usuario
+  // Cambiar rol de un usuario 
   const handleCambiarRol = async (uid, nuevoRol) => {
     try {
       const userRef = doc(db, 'usuarios', uid);
@@ -185,11 +188,13 @@ export default function Configuracion({
                                 const val = e.target.value;
                                 setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, nombreResponsable: val } : usr));
                               }}
-                              onBlur={async (e) => {
+                             onBlur={async (e) => {
                                 const val = e.target.value;
                                 try {
                                   await updateDoc(doc(db, 'usuarios', u.id), { nombreResponsable: val });
-                                } catch (err) {}
+                                } catch {
+                                  // Ignoramos fallo silencioso
+                                }
                               }}
                               className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm bg-white"
                             />
@@ -203,8 +208,10 @@ export default function Configuracion({
                                 setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, procesoAsignado: val, subprocesoAsignado: '' } : usr));
                                 try {
                                   await updateDoc(doc(db, 'usuarios', u.id), { procesoAsignado: val, subprocesoAsignado: '' });
-                                } catch (err) {}
-                              }}
+                                } catch {
+                                  // Ignoramos fallo silencioso
+                                }
+                              }} 
                               className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 bg-white cursor-pointer shadow-sm"
                             >
                               <option value="">-- Acceso Global / Sin área --</option>
@@ -218,13 +225,15 @@ export default function Configuracion({
                             <select 
                               value={u.subprocesoAsignado || ''} 
                               disabled={!u.procesoAsignado}
-                              onChange={async (e) => {
+                            onChange={async (e) => {
                                 const val = e.target.value;
                                 setUsuarios(prev => prev.map(usr => usr.id === u.id ? { ...usr, subprocesoAsignado: val } : usr));
                                 try {
                                   await updateDoc(doc(db, 'usuarios', u.id), { subprocesoAsignado: val });
-                                } catch (err) {}
-                              }}
+                                } catch {
+                                  // Ignoramos fallo silencioso
+                                }
+                              }}  
                               className="w-full text-[11px] p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 truncate bg-white"
                             >
                               <option value="">-- Ver todo el Macroproceso --</option>

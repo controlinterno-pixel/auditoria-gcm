@@ -52,9 +52,9 @@ const [notificacionesActivas, setNotificacionesActivas] = useState(true);
         if (data.city && data.country_name && isMounted) {
           setUbicacion(`${data.city}, ${data.country_name}`);
         }
-      } catch (error) {
+    } catch {
         if (isMounted) setUbicacion('Santa Rosa de Cabal, COL'); // Fallback por si falla el internet
-      }
+      }  
     };
     fetchLocation();
     return () => { isMounted = false; };
@@ -146,17 +146,12 @@ const handleResetPassword = async () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
+    if (!response.ok) {
         throw new Error(data.error || 'Fallo al guardar el perfil en el servidor');
       }
 
-      if (user) {
-        user.displayName = displayName.trim();
-        user.photoURL = photoURL.trim();
-      }
-
       showNotification('Perfil actualizado de forma segura en el servidor.', 'success');
-      setIsEditing(false);
+      setIsEditing(false);  
     } catch (error) {
       console.error("Error al actualizar perfil:", error);
       showNotification(error.message || 'Error al actualizar el perfil.', 'error');

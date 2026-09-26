@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 // ☁️ IMPORTAR HOOK Y SERVICIO DE API
@@ -121,8 +121,7 @@ export default function ProgramasAuditoria({
   };
 
   // ☁️ HOOK PARA LA BÓVEDA DE TERMALES
-  const { isLoading: isUploading, error: uploadError, ejecutarPeticion: ejecutarSubidaPrograma } = useDataFetching();
-
+const { isLoading: isUploading, ejecutarPeticion: ejecutarSubidaPrograma } = useDataFetching();
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
     return nombreOriginal
@@ -253,28 +252,28 @@ const handleGuardarPrograma = async () => {
     URL.revokeObjectURL(url);
   };
 
-  const TarjetaKanban = ({ p }) => (
-<div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group" onClick={() => handleEditarPrograma(p)}>
-      <div className="flex justify-between items-start mb-1">
-        <div className="flex items-center gap-2">
-          <span className="text-blue-500 bg-blue-50 p-1.5 rounded-lg text-sm">📄</span>
-          <h4 className="font-bold text-slate-800 text-[13px]">{p.proceso ? `Auditoría a ${p.proceso}` : 'Programa de Auditoría'}</h4>
-        </div>
-        <button className="text-slate-400 hover:text-slate-600 text-lg leading-none">⋯</button>
+  const TarjetaKanban = ({ p, onEdit }) => (
+  <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer group" onClick={() => onEdit(p)}>
+    <div className="flex justify-between items-start mb-1">
+      <div className="flex items-center gap-2">
+        <span className="text-blue-500 bg-blue-50 p-1.5 rounded-lg text-sm">📄</span>
+        <h4 className="font-bold text-slate-800 text-[13px]">{p.proceso ? `Auditoría a ${p.proceso}` : 'Programa de Auditoría'}</h4>
       </div>
-      <p className="text-[10px] text-slate-500 mb-4 pl-9">{p.subproceso || 'Gestión General'} • {p.vigencia || '2025'}</p>
-      
-      <div className="flex justify-between items-end pt-2 mt-2 border-t border-slate-50">
-        <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
-          {p.elaboradoPor ? p.elaboradoPor.substring(0,2).toUpperCase() : 'AL'}
-        </div>
-        <div className="text-[9px] text-slate-400 flex flex-col items-end">
-          {p.estado === 'Aprobado' && <span className="text-emerald-500 font-bold mb-1 flex items-center gap-1"><span className="border border-emerald-500 rounded-full w-3 h-3 flex items-center justify-center">✔</span> Aprobado: {p.fechaCreacion || '05/05/2025'}</span>}
-          <span>Actualizado: {p.fechaCreacion || '12/05/2025'}</span>
-        </div>
+      <button className="text-slate-400 hover:text-slate-600 text-lg leading-none">⋯</button>
+    </div>
+    <p className="text-[10px] text-slate-500 mb-4 pl-9">{p.subproceso || 'Gestión General'} • {p.vigencia || '2025'}</p>
+    
+    <div className="flex justify-between items-end pt-2 mt-2 border-t border-slate-50">
+      <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center shadow-sm">
+        {p.elaboradoPor ? p.elaboradoPor.substring(0,2).toUpperCase() : 'AL'}
+      </div>
+      <div className="text-[9px] text-slate-400 flex flex-col items-end">
+        {p.estado === 'Aprobado' && <span className="text-emerald-500 font-bold mb-1 flex items-center gap-1"><span className="border border-emerald-500 rounded-full w-3 h-3 flex items-center justify-center">✔</span> Aprobado: {p.fechaCreacion || '05/05/2025'}</span>}
+        <span>Actualizado: {p.fechaCreacion || '12/05/2025'}</span>
       </div>
     </div>
-  );
+  </div>
+);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -367,7 +366,7 @@ const handleGuardarPrograma = async () => {
                 <span className="bg-blue-100 text-blue-700 w-5 h-5 rounded-full flex items-center justify-center">{programasBorrador.length}</span>
               </h3>
               <div className="space-y-3 flex-1">
-                {programasBorrador.map(p => <TarjetaKanban key={p.id} p={p} />)}
+              {programasBorrador.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
                 {programasBorrador.length === 0 && <div className="text-center text-slate-400 text-xs py-8 italic font-bold">Sin programas</div>}
               </div>
               {programasBorrador.length > 0 && <button className="text-blue-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasBorrador.length})</button>}
@@ -379,7 +378,7 @@ const handleGuardarPrograma = async () => {
                 <span className="bg-orange-100 text-orange-700 w-5 h-5 rounded-full flex items-center justify-center">{programasRevision.length}</span>
               </h3>
               <div className="space-y-3 flex-1">
-                {programasRevision.map(p => <TarjetaKanban key={p.id} p={p} />)}
+              {programasRevision.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
                 {programasRevision.length === 0 && <div className="text-center text-orange-300 text-xs py-8 italic font-bold">Sin programas</div>}
               </div>
               {programasRevision.length > 0 && <button className="text-orange-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasRevision.length})</button>}
@@ -391,7 +390,7 @@ const handleGuardarPrograma = async () => {
                 <span className="bg-emerald-100 text-emerald-700 w-5 h-5 rounded-full flex items-center justify-center">{programasAprobados.length}</span>
               </h3>
               <div className="space-y-3 flex-1">
-                {programasAprobados.map(p => <TarjetaKanban key={p.id} p={p} />)}
+              {programasAprobados.map(p => <TarjetaKanban key={p.id} p={p} onEdit={handleEditarPrograma} />)}
                 {programasAprobados.length === 0 && <div className="text-center text-emerald-300 text-xs py-8 italic font-bold">Sin programas</div>}
               </div>
               {programasAprobados.length > 0 && <button className="text-emerald-600 text-xs font-bold w-full text-center mt-3 hover:underline">Ver todos ({programasAprobados.length})</button>}

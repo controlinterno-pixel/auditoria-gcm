@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { formatSafeDate } from '../utils/helpers';
 import { generarDictamenEjecutivo } from '../services/aiEngine';
 // 🧹 Normalizador estricto para emparejar cadenas
@@ -85,40 +85,41 @@ const TrendChart = ({ data, title, isCurrency, color, fillColor, onPointClick })
   );
 };
 const extraerNumeroPuro = (valor) => {
-    if (valor === undefined || valor === null || valor === '') return 0;
-    if (typeof valor === 'number') {
-      if (valor >= 1 && valor <= 5) return valor;
-      if (valor === 20) return 1; if (valor === 40) return 2;
-      if (valor === 60) return 3; if (valor === 80) return 4;
-      if (valor === 100) return 5;
-    }
-    const str = String(valor).toLowerCase().trim();
-    if (str === '20' || str === '20%') return 1;
-    if (str === '40' || str === '40%') return 2;
-    if (str === '60' || str === '60%') return 3;
-    if (str === '80' || str === '80%') return 4;
-    if (str === '100' || str === '100%') return 5;
-    if (str === '0' || str === '0%') return 1;
-    const num = parseInt(str.charAt(0), 10);
-    if (!isNaN(num) && num >= 1 && num <= 5) return num;
-    if (str.includes('rara') || str.includes('baja')) return 1;
-    if (str.includes('improbable')) return 2;
-    if (str.includes('posible') || str.includes('media')) return 3;
-    if (str.includes('probable') || str.includes('alta')) return 4;
-    if (str.includes('casi seguro')) return 5;
-    if (str.includes('insignificante') || str.includes('leve')) return 1;
-    if (str.includes('menor')) return 2;
-    if (str.includes('moderado') || str.includes('medio')) return 3;
-    if (str.includes('mayor') || str.includes('alto')) return 4;
-    if (str.includes('catastrófico') || str.includes('crítico')) return 5;
-    return 1; 
-  };
+  if (valor === undefined || valor === null || valor === '') return 0;
+  if (typeof valor === 'number') {
+    if (valor >= 1 && valor <= 5) return valor;
+    if (valor === 20) return 1; if (valor === 40) return 2;
+    if (valor === 60) return 3; if (valor === 80) return 4;
+    if (valor === 100) return 5;
+  }
+  const str = String(valor).toLowerCase().trim();
+  if (str === '20' || str === '20%') return 1;
+  if (str === '40' || str === '40%') return 2;
+  if (str === '60' || str === '60%') return 3;
+  if (str === '80' || str === '80%') return 4;
+  if (str === '100' || str === '100%') return 5;
+  if (str === '0' || str === '0%') return 1;
+  const num = parseInt(str.charAt(0), 10);
+  if (!isNaN(num) && num >= 1 && num <= 5) return num;
+  if (str.includes('rara') || str.includes('baja')) return 1;
+  if (str.includes('improbable')) return 2;
+  if (str.includes('posible') || str.includes('media')) return 3;
+  if (str.includes('probable') || str.includes('alta')) return 4;
+  if (str.includes('casi seguro')) return 5;
+  if (str.includes('insignificante') || str.includes('leve')) return 1;
+  if (str.includes('menor')) return 2;
+  if (str.includes('moderado') || str.includes('medio')) return 3;
+  if (str.includes('mayor') || str.includes('alto')) return 4;
+  if (str.includes('catastrófico') || str.includes('crítico')) return 5;
+  return 1;
+};
+
 export default function DashboardEjecutivo({
-  rFiltrados, riesgos, hFiltrados, hallazgos, pFiltrados, planes,
+  riesgos, hFiltrados, hallazgos, planes,
   cFiltrados, cronograma, informesAuditoria, safeIncidentes,
   matrizFiltro, setMatrizFiltro, setChartDetail, defaultMeses = [], defaultAnios = [],
   selectedAnios = [], selectedMeses = [], toggleAnio, toggleMes,
-  setSelectedAnios, setSelectedMeses, setActiveTab, evalFiltrados,
+  setActiveTab, evalFiltrados,
   setSelectedProcesoExpediente
 }) {
   const hoy = new Date();
@@ -127,8 +128,9 @@ export default function DashboardEjecutivo({
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
 
-// 🧠 CÁLCULOS PESADOS BLINDADOS CON USEMEMO
+  // 🧠 CÁLCULOS PESADOS BLINDADOS CON USEMEMO
   const metricas = useMemo(() => {
+    const ahora = new Date();
     const infoFinanciera = (defaultMeses || []).map((mText) => {
       if (!safeIncidentes || safeIncidentes.length === 0) return { mes: mText, valor: 0 };
       const totalCostoMes = safeIncidentes.filter(inc => {
@@ -158,7 +160,7 @@ export default function DashboardEjecutivo({
 
     const totPlanes = pBase.length;
     const planActivos = pBase.filter(p => (Number(p.progreso) || 0) < 100).length;
-    const planVencidos = pBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < hoy).length;
+    const planVencidos = pBase.filter(p => (Number(p.progreso) || 0) < 100 && p.fecha && new Date(p.fecha) < ahora).length;
     const planCerrados = pBase.filter(p => (Number(p.progreso) || 0) === 100).length;
     const avanceGlobal = totPlanes > 0 ? Math.round((planCerrados / totPlanes) * 100) : 0;
     
@@ -238,7 +240,7 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
         const parsed = typeof respuestaIA === 'string' ? JSON.parse(respuestaIA) : respuestaIA;
         objetoRespuesta.titulo = parsed.titulo || tituloModal;
         objetoRespuesta.dictamen = parsed.dictamen || respuestaIA;
-      } catch (e) {
+      } catch {
         objetoRespuesta.dictamen = typeof respuestaIA === 'string' ? respuestaIA : JSON.stringify(respuestaIA);
       }
 
@@ -254,9 +256,9 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
   const parseDateStr = (dateStr) => {
     try {
       const [datePart, timePart] = dateStr.split(', ');
-      const [d, m, y] = datePart.split(/[\/\-]/);
+      const [d, m, y] = datePart.split(/[-/]/);
       return new Date(`${y}-${m}-${d}T${timePart || '00:00:00'}`).getTime();
-    } catch(e) { return 0; }
+    } catch { return 0; }
   };
 
   const addAct = (items, type, icon, colorClass) => {
@@ -575,7 +577,7 @@ return (
               <div className="w-16 h-16 relative shrink-0">
                 <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                   <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1e293b" strokeWidth="4" />
-                  {totalRiesgos > 0 && procesosCountArray.map(([proc, data], idx) => {
+{totalRiesgos > 0 && procesosCountArray.map(([, data], idx) => {
                     const cant = data.count;
                     const p = (cant / totalRiesgos) * 100;
                     const color = coloresMini[idx % coloresMini.length];
@@ -1006,7 +1008,7 @@ return (
           {PROCESOS_OFICIALES_CARDS.map((proc, idx) => {
             const normTarget = normalizeStr(proc.nombreOficial);
 
-            const hallazgosProc = (hallazgosBase || []).filter(h => {
+            const hallazgosProc = (hallazgosBase || []).filter((h) => {
               const normH = normalizeStr(h.proceso);
               return normH === normTarget || normH.includes(normTarget) || normTarget.includes(normH);
             });
@@ -1025,15 +1027,15 @@ return (
             }
 
             return (
-<button
-  type="button"
-  key={idx}
-  onClick={() => {
-    if (setSelectedProcesoExpediente) setSelectedProcesoExpediente(proc.nombreOficial);
-    if (setActiveTab) setActiveTab('tablero'); // Pestaña 'Mi Espacio GRC'
-  }}
-  className={`text-left w-full block bg-[#0a1122] border ${semaforo} p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between group shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
->              
+              <button
+                type="button"
+                key={idx}
+                onClick={() => {
+                  if (setSelectedProcesoExpediente) setSelectedProcesoExpediente(proc.nombreOficial);
+                  if (setActiveTab) setActiveTab('tablero');
+                }}
+                className={`text-left w-full block bg-[#0a1122] border ${semaforo} p-4 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between group shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              >              
                 <div className="space-y-3">
                   <div className="flex justify-between items-center gap-2">
                     <h4 className="text-xs font-black text-white uppercase tracking-wider group-hover:text-blue-400 transition-colors flex items-center gap-1.5 truncate">

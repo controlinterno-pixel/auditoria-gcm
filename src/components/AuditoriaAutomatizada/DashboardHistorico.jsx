@@ -117,7 +117,6 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     
   const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); 
-  const [limiteTop, setLimiteTop] = useState('TODOS');                 
   const [metricaGrafica, setMetricaGrafica] = useState('HORAS');
   const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); 
   const [empleadoModal, setEmpleadoModal] = useState(null);
@@ -542,7 +541,6 @@ riesgo: (() => {
         
         if (totalHoras > 0 || totalDinero > 0) {
             const mesesActivos = emp.mesesConNovedad.size;
-            const promedioMensual = totalHoras / (mesesActivos || 1);
             const cargoLimpio = normalizarTexto(emp.cargo);
 
             const palabrasClaveAdmin = [
@@ -658,7 +656,7 @@ const esMismoEmpleado = (nom1, nom2) => {
           if (!empleadoVal || String(empleadoVal).trim() === '') return null; // Ignorar filas rotas
 
           let fechaRaw = buscarColumna(row, ['Fecha', 'FECHA', 'Fecha "', 'fecha']) || '';
-          let fechaFormateada = '';
+          let fechaFormateada;
 
           if (typeof fechaRaw === 'number' && fechaRaw > 30000) {
             const fechaObj = new Date((fechaRaw - 25569) * 86400 * 1000);
@@ -1055,8 +1053,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       return true;
     });
 
-    let totalMonto = 0;
-    
+let totalMonto;    
     // 💡 ANTI-BUG: Agregamos busqueda === '' para que el recuadro obedezca a los nombres escritos
     const vistaGlobalPura = empleadosSeleccionados.length === 0 && 
                             busqueda === '' && 
@@ -1109,8 +1106,7 @@ const esMismoEmpleado = (nom1, nom2) => {
   const dataGraficasApiladas = React.useMemo(() => {
     if (!alertasFiltradas || alertasFiltradas.length === 0) return [];
 
-    let baseParaMostrar = [];
-
+    let baseParaMostrar;
     // 🛡️ ANTI-CONGELAMIENTO: Si no hay nadie seleccionado, graficamos máximo 20 para no explotar la RAM del navegador. La tabla inferior mostrará a todos de igual forma.
     if (empleadosSeleccionados.length > 0) {
       baseParaMostrar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
@@ -1136,8 +1132,7 @@ const esMismoEmpleado = (nom1, nom2) => {
 
      return resumen;
     });
-  }, [alertasFiltradas, empleadosSeleccionados, limiteTop, filtroConceptoJornada, agrupacionGrafica]);
-  
+}, [alertasFiltradas, empleadosSeleccionados, filtroConceptoJornada]);  
   // 🧠 LÓGICA DE VELOCIDAD: Agrupar marcaciones por empleado
   const resumenMarcaciones = React.useMemo(() => {
     if (!datosMarcaciones) return [];
@@ -1249,8 +1244,8 @@ const esMismoEmpleado = (nom1, nom2) => {
     baseGrafica.forEach(d => {
       if (!d.Fecha || d.Fecha === 'Sin Fecha') return;
       
-      let llaveEje = '';
-      let nombreEje = '';
+      let llaveEje;
+      let nombreEje;
 
       if (granularidadTendencia === 'SEMANA') {
         llaveEje = obtenerEtiquetaSemana(d.Fecha);
@@ -1351,8 +1346,7 @@ const statsEmpleadoMarcaciones = React.useMemo(() => {
     const totalCosto = marcacionesEmpleadoSeleccionado.reduce((acc, d) => acc + (d.Total_Recargos_Dia || 0), 0);
     const fechas = marcacionesEmpleadoSeleccionado.map(d => d.Fecha).filter(Boolean).sort();
     
-    let alertaInteligente = { texto: "Inspeccionando...", color: "bg-slate-50", textCol: "text-slate-600", icono: "ℹ️" };
-    
+let alertaInteligente;    
     const empNomina = datosHistoricos?.empleadosStatsMaster?.find(a => 
                           a.cedula === empleadosSeleccionados[0]?.cedula || 
                           esMismoEmpleado(a.nombre, empleadosSeleccionados[0]?.nombre)
@@ -1425,7 +1419,7 @@ const statsEmpleadoMarcaciones = React.useMemo(() => {
          // 💡 100% DINÁMICO: El subtítulo depende de la posición en el ranking de fugas del empleado
          let subtituloContexto = index === 0 ? '(Fuga Financiera Principal)' : '(Descuadre Secundario)';
 
-         let detalleReloj = '';
+         let detalleReloj;
          if (d.bioMes.festivosDias > 0) {
             detalleReloj = `${nombreEmpleado} registró asistencia en ${d.bioMes.festivosDias} día(s) festivos/dominicales. En total, durante el mes generó un costo real justificado en el reloj de $${d.bioMes.costoTotal.toLocaleString('es-CO')} COP.`;
          } else if (d.bioMes.costoTotal > 0) {
@@ -1457,7 +1451,7 @@ const statsEmpleadoMarcaciones = React.useMemo(() => {
       alertaInteligente,
       empNominaRaw: empNomina
     };
-}, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, filtroQuincenaMarcaciones, filtroTurnoMarcaciones, filtroClicGrafica, granularidadMarcaciones, datosMarcaciones]);
+}, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, datosMarcaciones]);
     return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
@@ -1725,7 +1719,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                             })()
                          ) : agrupacionGrafica === 'SELECCIONADOS' || (agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40) ? (
                             (() => {
-                              let baseLineas = [];
+                              let baseLineas;
                               if (empleadosSeleccionados.length > 0) {
                                 baseLineas = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
                               } else {
@@ -3296,7 +3290,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                         </thead>
                         <tbody className="divide-y divide-slate-100 font-mono">
                           {Object.entries(empleadoModal.historialMeses || {})
-                            .filter(([_, q]) => q.transportePagado > 0 || q.rodamientoPagado > 0)
+                            .filter(([, q]) => q.transportePagado > 0 || q.rodamientoPagado > 0)
                             .map(([qKey, qData], i) => {
                               const excedeTope = qData.devengadoSalarial > 3501810; // Tope mensual 2026
                               const tieneRodamiento = qData.rodamientoPagado > 0;

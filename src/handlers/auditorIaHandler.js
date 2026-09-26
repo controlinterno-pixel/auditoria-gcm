@@ -31,10 +31,11 @@ export const executeAuditorQuery = async ({
     const incidentesBase = safeIncidentes;
     const cronogramaBase = safeCronograma;
 
-    let criticosTotal = 0;
     try { 
-      criticosTotal = riesgosBase.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16).length; 
-    } catch(err) {}
+      riesgosBase.filter(r => r.probabilidadResidual && r.impactoResidual && calcularMatriz5x5(r.probabilidadResidual, r.impactoResidual).score > 16); 
+    } catch (err) {
+      console.error("Error al evaluar severidad de riesgos:", err);
+    }
     
     const evalFiltradas = safeEvaluaciones;
     const totalEvaluaciones = evalFiltradas.length;

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 // Generador de lista de procesos a monitorear

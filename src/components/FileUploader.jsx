@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useDataFetching } from '../hooks/useDataFetching';
 import { apiService } from '../services/apiService';
 
@@ -83,6 +83,7 @@ export default function FileUploader({
       onUploadSuccess(urlFinal);
       triggerToast("🎉 ¡Soporte subido exitosamente al servidor!", "success");
     } catch (err) {
+      console.error("Error al subir archivo a la bóveda:", err);
       triggerToast("❌ No se pudo conectar con el servidor de archivos.", "error");
     }
   };

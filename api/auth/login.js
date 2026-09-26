@@ -1,6 +1,5 @@
 import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
-import { parse, serialize } from 'cookie';
-
+import { serialize } from 'cookie';
 // 🛡️ Memoria en servidor para registrar intentos fallidos por IP (Rate Limiting)
 const loginAttempts = new Map();
 const MAX_ATTEMPTS = 5;
