@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 🛡️ Valida autenticación y dominio corporativo @termales.com.co
+    function esUsuarioTermales() {
+      return request.auth != null
+        && request.auth.token != null
+        && 'email' in request.auth.token
+        && request.auth.token.email != null
+        && request.auth.token.email.matches('.*@[tT][eE][rR][mM][aA][lL][eE][sS][.][cC][oO][mM][.][cC][oO]$');
+    }
+
+    function esAdmin() {
+      return esUsuarioTermales() 
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // 👤 1. Usuarios: Permite lectura general y escritura propia BLINDANDO el campo 'rol'
+    match /usuarios/{userId} {
+      allow read: if esUsuarioTermales();
+      
+      // Creación inicial
+      allow create: if esUsuarioTermales() 
+        && request.auth.uid == userId 
+        && (!request.resource.data.keys().hasAny(['rol']) || request.resource.data.rol == 'lider');
+
+      // Edición: Si es el propio usuario, no puede alterar ni agregar el campo 'rol'
+      allow update: if esUsuarioTermales() && (
+        esAdmin() || (
+          request.auth.uid == userId 
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol'])
+        )
+      );
+
+      allow delete: if esAdmin();
+    }
+
+    // 🔒 2. Base de Datos GRC: CIERRE TOTAL CLIENT-SIDE.
+    match /workspace_compartido/{docId=**} {
+      allow read, write: if false; 
+    }
+
+    // 🔒 3. Históricos de Nóminas y Marcaciones: CIERRE TOTAL CLIENT-SIDE.
+    match /nominas_historicas/{docId=**} {
+      allow read, write, delete: if false;
+    }
+    
+    match /marcaciones_historicas/{docId=**} {
+      allow read, write, delete: if false;
+    }
+  }
+}
