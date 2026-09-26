@@ -6,12 +6,8 @@ export default defineConfig({
   plugins: [react()],
   build: {
     sourcemap: false, // 🛡️ Evita ingeniería inversa en producción
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true, // 🛡️ Borra todos los console.log en producción
-        drop_debugger: true
-      }
-    }
+  },
+  esbuild: {
+    drop: ['console', 'debugger'], // 🛡️ Borra todos los console.log nativamente sin instalar 'terser'
   }
 })
