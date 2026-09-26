@@ -1,6 +1,5 @@
 // src/services/copilotService.js
-import { consultarCopilotoIA } from './gemini';
-
+import { apiService } from './apiService';
 export const sugerirTextoConIA = async (tipoTarget, setIsThinking, showNotification) => {
   let textoBase = "";
   let inputDestino = null;
@@ -28,11 +27,12 @@ export const sugerirTextoConIA = async (tipoTarget, setIsThinking, showNotificat
   showNotification("Procesando consulta con el Motor GRC Serverless...", "success");
 
   try {
-    const sugerencia = await consultarCopilotoIA({
+    const res = await apiService.consultarAuditor({
       tipoAccion: 'sugerir_grc',
       tipoTarget,
       prompt: textoBase
     });
+    const sugerencia = res?.respuesta || res;
 
     if (inputDestino) {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
@@ -54,12 +54,13 @@ export const analizarEvidenciaDocumento = async (evidenciaUrl, contextoItem, tip
   showNotification("🤖 Enviando documento al Asistente Serverless...", "success");
 
   try {
-    const analisis = await consultarCopilotoIA({
+    const res = await apiService.consultarAuditor({
       tipoAccion: 'analizar_evidencia',
       evidenciaUrl,
       contextoItem,
       tipoItem
     });
+    const analisis = res?.respuesta || res;
 
     setAiModal({ 
       titulo: `📋 Checklist IA de Auditoría`, 

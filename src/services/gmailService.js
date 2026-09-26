@@ -1,21 +1,12 @@
 // src/services/gmailService.js - Puente seguro hacia la API Backend
+import { apiService } from './apiService';
+
 export const enviarCorreoGmail = async (emailParams, userEmail, showNotification) => {
   try {
-    const response = await fetch('/api/email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // 🔒 Envía la cookie de sesión del servidor
-      body: JSON.stringify({
-        ...emailParams,
-        remitente: userEmail
-      }),
+    await apiService.despacharCorreo({
+      ...emailParams,
+      remitente: userEmail
     });
-
-    if (!response.ok) {
-      throw new Error('El servidor rechazó el despacho del correo');
-    }
 
     if (showNotification) {
       showNotification("Notificación enviada exitosamente a través del servidor.", "success");
