@@ -1,5 +1,5 @@
 // src/services/grcStorageService.js
-
+import { apiService } from './apiService';
 export const saveToCloud = async (partialData, showNotification) => { 
   try {
     const sanitizedData = JSON.parse(JSON.stringify(partialData));
@@ -22,18 +22,7 @@ export const saveToCloud = async (partialData, showNotification) => {
     };
     traverseAndSanitize(sanitizedData);
 
-    const response = await fetch('/api/sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({ partialData: sanitizedData })
-    });
-
-    if (!response.ok) {
-      throw new Error('El servidor rechazó la sincronización de datos.');
-    }
+    await apiService.saveGrcData(sanitizedData);
   } catch (error) {
     console.error('❌ Error de sincronización segura:', error);
     if (showNotification) showNotification('Error guardando en el servidor GRC.', 'error');

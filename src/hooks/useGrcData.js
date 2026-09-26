@@ -1,6 +1,7 @@
 // src/hooks/useGrcData.js
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
+import { apiService } from '../services/apiService';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
 import { 
@@ -35,12 +36,7 @@ export function useGrcData() {
       if (currentUser) {
         try {
           const idToken = await currentUser.getIdToken();
-          await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ idToken })
-          });
+          await apiService.login(idToken);
         } catch (err) {
           console.error("Error renovando cookie de servidor:", err);
         }
@@ -103,17 +99,7 @@ export function useGrcData() {
         // Eliminamos onSnapshot directo a Firestore.
         // La solicitud pasa por el backend, quien valida la cookie HttpOnly 
         // y aplica el filtrado RLS estricto antes de devolver el JSON.
-const response = await fetch('/api/grc/sync', {
-        method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include' // 🔒 Exige validación de sesión
-        });
-
-        if (!response.ok) {
-          throw new Error("Acceso denegado o fallo en la recuperación de datos");
-        }
-
-        const data = await response.json();
+const data = await apiService.getGrcData();
         
         // Asignación directa: confiamos 100% en el filtro del servidor
         setRiesgos(data.riesgos || defaultRiesgos);
