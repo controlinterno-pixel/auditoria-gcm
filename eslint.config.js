@@ -17,5 +17,23 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+    rules: {
+      // 🛡️ REGLA ZERO-TRUST: Prohíbe usar librerías de backend en el frontend
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'firebase-admin',
+              message: '¡ALERTA DE SEGURIDAD! No puedes importar firebase-admin en React. Usa fetch() hacia la API de Vercel.',
+            },
+            {
+              name: '@google/generative-ai',
+              message: '¡ALERTA DE SEGURIDAD! Las claves de IA deben usarse solo en el backend. Llama a /api/grc/audit.',
+            }
+          ]
+        }
+      ]
+    }
   },
 ])
