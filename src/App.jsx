@@ -40,6 +40,7 @@ import { exportToJSON, saveToCloud as syncCloud } from './services/grcStorageSer
 import { executeAuditorQuery } from './handlers/auditorIaHandler';
 import { processExcelRiesgos } from './utils/excelImporter';
 import { analizarEvidenciaDocumento } from './services/copilotService';
+import { apiService } from './services/apiService';
 import { defaultCronograma } from './constants/defaultData';
 
 
@@ -130,12 +131,17 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
     setAuditorInput('');
   };
 
-  const handleLogout = async () => { 
+ const handleLogout = async () => { 
     try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      await apiService.logout();
       await signOut(auth);
-      setUser(null); setIsAdmin(false); setShowWelcome(true); window.location.reload(); 
-    } catch { window.location.reload(); }
+      setUser(null); 
+      setIsAdmin(false); 
+      setShowWelcome(true); 
+      window.location.reload(); 
+    } catch { 
+      window.location.reload(); 
+    }
   };
   const handleImportJSON = (e) => {
   const file = e.target.files[0]; if (!file) return;
