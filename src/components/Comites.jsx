@@ -1,5 +1,5 @@
 import { useState } from 'react';
-
+import { apiService } from '../services/apiService';
 const TIPOS_COMITE = [
   "Comité de Auditoría de Accionistas",
   "Junta Directiva",
@@ -49,25 +49,12 @@ export default function Comites({
       setUploadProgressActa(20);
     }
 
-    const formData = new FormData();
-    formData.append('appName', 'controlInterno'); 
-    formData.append('description', `Soporte de Comité - ${type}`); 
-    formData.append('file', file); 
-
     try {
       if (type === 'presentacion') setUploadProgressPres(50);
       else setUploadProgressActa(50);
 
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
-
-      const data = await response.json();
-      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
+      const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
 
       if (type === 'presentacion') {
         setPresentacionSubidaUrl(urlFinal);

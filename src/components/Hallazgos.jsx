@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiService } from '../services/apiService';
 import { 
   AUDITORES_OFICIALES, 
   MAPA_PROCESOS, 
@@ -103,20 +104,14 @@ export default function Hallazgos({
   const [isUploading, setIsUploading] = useState(false);
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
 
-  const handleFileUpload = async (e) => {
+ const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     setIsUploading(true); setUploadProgress(20);
-    const formData = new FormData();
-    formData.append('appName', 'controlInterno'); 
-    formData.append('description', 'Evidencia de Hallazgo'); 
-    formData.append('file', file); 
     try {
       setUploadProgress(50);
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', { method: 'POST', body: formData });
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-      const data = await response.json();
-      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
+      const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
       setArchivoSubidoUrl(urlFinal); setIsUploading(false); setUploadProgress(100);
       alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
     } catch (err) {
