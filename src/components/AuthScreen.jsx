@@ -246,16 +246,16 @@ export default function AuthScreen() {
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-slate-950 overflow-hidden font-sans select-none p-4 sm:p-6">
       
-      {/* 1. Imagen de Fondo de Paisaje (Alta Resolución) */}
+      {/* 1. Imagen de Fondo de Paisaje (Nítida) */}
       <div 
-        className="absolute inset-0 z-0 bg-cover bg-no-repeat scale-105 transition-transform duration-1000"
+        className="absolute inset-0 z-0 bg-cover bg-no-repeat"
         style={{ 
           backgroundImage: "url('/matriz_riesgos.png')",
-          backgroundPosition: "center 35%" /* Encuadre óptimo para resaltar el sol, las palmas y la casa */
+          backgroundPosition: "center 35%" 
         }}
       />
-      {/* Capa de contraste armoniosa: unifica los tonos cálidos del atardecer con el UI oscuro */}
-      <div className="absolute inset-0 z-10 bg-slate-950/40 backdrop-blur-[3px]" />
+      {/* Overlay sutil al 10% solo para apagar ligeramente el brillo extremo, manteniendo nitidez total */}
+      <div className="absolute inset-0 z-10 bg-slate-950/10" />
 
       {/* 2. Navegación Superior Derecha */}
       <div className="absolute top-6 right-8 z-20 hidden md:flex items-center space-x-2 text-[11px] font-bold tracking-widest text-white/90 uppercase drop-shadow-md">
@@ -267,8 +267,11 @@ export default function AuthScreen() {
         <span>RESULTADOS</span>
       </div>
 
-      {/* 3. Panel Izquierdo Corporativo (Branding) */}
-      <div className="absolute left-0 top-0 bottom-0 w-[44%] z-20 hidden lg:flex flex-col justify-between p-12 bg-gradient-to-r from-[#031326]/95 via-[#071c36]/85 to-transparent text-white">
+      {/* 3. Panel Izquierdo Corporativo (Branding con corte diagonal) */}
+      <div 
+        className="absolute left-0 top-0 bottom-0 w-[48%] z-20 hidden lg:flex flex-col justify-between p-12 bg-[#041224]/95 text-white shadow-[20px_0_50px_rgba(0,0,0,0.6)]"
+        style={{ clipPath: "polygon(0 0, 100% 0, 85% 100%, 0% 100%)" }}
+      >
         
         <div className="flex items-center space-x-3">
           <img 
