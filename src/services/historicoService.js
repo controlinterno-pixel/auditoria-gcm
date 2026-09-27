@@ -1,5 +1,4 @@
-// Se han eliminado las importaciones directas de Firestore (Zero Trust).
-// Las peticiones ahora se enrutan a través del Backend de Vercel.
+import { apiService } from './apiService';
 
 const CHUNK_SIZE = 500; // Pedazos de 500 filas para no superar el límite de 1MB de Firebase
 
@@ -15,21 +14,10 @@ export const guardarNominaHistorica = async (filasExcel, periodo) => {
     for (let i = 0; i < totalFilas; i += TAMANO_LOTE) {
       const lote = filasExcel.slice(i, i + TAMANO_LOTE);
 
-      const response = await fetch('/api/grc/historico', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          filasExcel: lote, 
-          periodo 
-        }),
+      await apiService.postHistorico({ 
+        filasExcel: lote, 
+        periodo 
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al procesar la nómina en el servidor.');
-      }
     }
 
     return { success: true, message: 'Nómina procesada con éxito por el servidor.' };
@@ -43,16 +31,13 @@ export const cargarNominaHistorica = async (periodo, empresa = 'GENERAL') => {
   try {
     if (!periodo) return [];
 
-    const response = await fetch(`/api/grc/historico?action=cargarNomina&periodo=${periodo}&empresa=${empresa}`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
+    const data = await apiService.getHistorico({
+      action: 'cargarNomina',
+      periodo,
+      empresa
     });
 
-    if (!response.ok) throw new Error("Fallo de acceso denegado por el servidor.");
-    
-    const data = await response.json();
-    return data.datos || [];
+    return data?.datos || [];
   } catch (error) {
     console.error(`Error consultando histórico para ${periodo}:`, error);
     return [];
@@ -61,16 +46,8 @@ export const cargarNominaHistorica = async (periodo, empresa = 'GENERAL') => {
 
 export const obtenerListaHistoricos = async () => {
   try {
-    const response = await fetch('/api/grc/historico?action=listaHistoricos', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    });
-
-    if (!response.ok) throw new Error("Fallo de acceso denegado por el servidor.");
-
-    const data = await response.json();
-    return data.lista || [];
+    const data = await apiService.getHistorico({ action: 'listaHistoricos' });
+    return data?.lista || [];
   } catch (error) {
     console.error("Error obteniendo lista de históricos:", error);
     return [];
@@ -79,14 +56,7 @@ export const obtenerListaHistoricos = async () => {
 
 export const eliminarNominaHistorica = async (docId) => {
   try {
-    const response = await fetch('/api/grc/historico', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ docId, tipo: 'nomina' })
-    });
-
-    if (!response.ok) throw new Error("Fallo al eliminar en el servidor.");
+    await apiService.deleteHistorico({ docId, tipo: 'nomina' });
     return { success: true };
 } catch (error) {
     console.error("Error eliminando histórico:", error);
@@ -104,19 +74,10 @@ export const guardarMarcacionesEnLaNube = async (filasMarcaciones) => {
     for (let i = 0; i < filasMarcaciones.length; i += CHUNK_SIZE) {
       const lote = filasMarcaciones.slice(i, i + CHUNK_SIZE);
 
-      const response = await fetch('/api/grc/historico', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          filasMarcaciones: lote, 
-          tipo: 'marcaciones' 
-        }),
+      await apiService.postHistorico({ 
+        filasMarcaciones: lote, 
+        tipo: 'marcaciones' 
       });
-
-      if (!response.ok) {
-        throw new Error('Error al guardar lote de marcaciones.');
-      }
     }
     
     return true;
@@ -128,16 +89,8 @@ export const guardarMarcacionesEnLaNube = async (filasMarcaciones) => {
 
 export const cargarMarcacionesDeLaNube = async () => {
   try {
-    const response = await fetch('/api/grc/historico?action=cargarMarcaciones', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    });
-
-    if (!response.ok) throw new Error("Fallo de acceso denegado por el servidor.");
-
-    const data = await response.json();
-    return data.datos || [];
+    const data = await apiService.getHistorico({ action: 'cargarMarcaciones' });
+    return data?.datos || [];
   } catch (error) {
     console.error("Error leyendo marcaciones de Firebase:", error);
     return [];
@@ -146,16 +99,8 @@ export const cargarMarcacionesDeLaNube = async () => {
 
 export const obtenerListaMarcaciones = async () => {
   try {
-    const response = await fetch('/api/grc/historico?action=listaMarcaciones', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    });
-
-    if (!response.ok) throw new Error("Fallo de acceso denegado por el servidor.");
-
-    const data = await response.json();
-    return data.lista || [];
+    const data = await apiService.getHistorico({ action: 'listaMarcaciones' });
+    return data?.lista || [];
   } catch (error) {
     console.error("Error obteniendo lista de marcaciones:", error);
     return [];
@@ -164,14 +109,7 @@ export const obtenerListaMarcaciones = async () => {
 
 export const eliminarMarcacionesHistoricas = async (docId) => {
   try {
-    const response = await fetch('/api/grc/historico', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ docId, tipo: 'marcaciones' })
-    });
-
-    if (!response.ok) throw new Error("Fallo al eliminar en el servidor.");
+    await apiService.deleteHistorico({ docId, tipo: 'marcaciones' });
     return { success: true };
  } catch (error) {
     console.error("Error eliminando marcaciones:", error);
