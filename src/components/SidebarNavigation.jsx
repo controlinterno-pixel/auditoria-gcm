@@ -23,13 +23,13 @@ export default function SidebarNavigation({
 }) {
   return (
     <div 
-      className={`text-[#a3c2e0] flex flex-col shadow-[10px_0_20px_rgba(0,0,0,0.15)] z-20 border-r border-slate-800/80 ${isPresentationMode ? 'hidden' : 'flex'} relative transition-all duration-300 ease-in-out ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}
+      className={`text-[#a3c2e0] flex flex-col shadow-[10px_0_20px_rgba(0,0,0,0.15)] z-50 border-r border-slate-800/80 ${isPresentationMode ? 'hidden' : 'flex'} relative transition-all duration-300 ease-in-out overflow-visible ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}
       style={{ background: 'linear-gradient(180deg, #041428 0%, #010613 100%)' }}
     >
-      {/* 🔘 BOTÓN FLOTANTE COLLAPSE (El toque "Crack") */}
+      {/* 🔘 BOTÓN FLOTANTE COLLAPSE (Centrado con matemática perfecta) */}
       <button
         onClick={toggleSidebar}
-        className="absolute -right-3 top-8 w-6 h-6 bg-[#0055ff] border-[3px] border-[#010613] rounded-full flex items-center justify-center text-white shadow-lg cursor-pointer hover:scale-110 hover:bg-[#0077ff] transition-transform z-50 group"
+        className="absolute right-0 translate-x-1/2 top-8 w-6 h-6 bg-[#0055ff] border-[3px] border-[#010613] rounded-full flex items-center justify-center text-white shadow-xl cursor-pointer hover:scale-110 hover:bg-[#0077ff] transition-all z-[100] group"
       >
         <svg className={`w-3 h-3 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15 19l-7-7 7-7" />
