@@ -188,9 +188,8 @@ export default function Riesgos({
   hallazgos = [],        
   planesDeAccion = [],  
   isAdmin = false, 
-  safeRiesgos: rawRiesgos, 
+ safeRiesgos: rawRiesgos, 
   setRiesgos = () => console.warn("Modo offline: setRiesgos no detectado"), 
-  saveToCloud = async () => console.warn("Modo offline: saveToCloud no detectado"), 
   showNotification = () => {} 
 }) {
    // 🛡️ BLINDAJE: Forzamos un array vacío si la BD envía null para evitar que .map o .reduce colapsen

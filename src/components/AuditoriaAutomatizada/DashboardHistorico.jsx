@@ -1523,7 +1523,7 @@ disabled={isAnalyzing || listaBases.length === 0}
             </div>
             <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm">
               <p className="text-xs font-bold text-amber-600 uppercase">
-                {modoDashboard === 'JORNADA' ? 'Costo Histórico Extras' : 'Fuga Financiera (Transporte)'}
+                {modoDashboard === 'JORNADA' ? 'Costo Histórico Extras y Recargos' : 'Fuga Financiera (Transporte)'}
               </p>
               <h3 className="text-3xl font-extrabold text-amber-700">
                 ${kpisFiltrados.totalMonto.toLocaleString('es-CO')}

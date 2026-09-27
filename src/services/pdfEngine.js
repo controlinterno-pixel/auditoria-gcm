@@ -93,7 +93,6 @@ export const generarPDFEjecutivo = (config) => {
     format: 'a4'
   });
 
-  const pageWidth = doc.internal.pageSize.width;
   let currentY = 35; // Posición inicial después del encabezado
 
   // Dibujar encabezado en la primera página manualmente
@@ -107,8 +106,8 @@ export const generarPDFEjecutivo = (config) => {
     doc.text("Métricas Ejecutivas y Tendencias", 14, currentY);
     currentY += 6;
 
-    imagenesGraficas.forEach((imgBase64, index) => {
-      // Ajuste de tamaño dinámico para que no desborde (A4 width = 210mm)
+imagenesGraficas.forEach((imgBase64) => {
+    // Ajuste de tamaño dinámico para que no desborde (A4 width = 210mm)
       const imgWidth = 182; // 210 - 28 (márgenes)
       const imgHeight = 60; // Altura fija de bloque
       
