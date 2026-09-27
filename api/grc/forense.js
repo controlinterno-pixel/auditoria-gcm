@@ -1,11 +1,10 @@
-// Ruta: api/forense.js
-// api/forense.js - Cálculo Forense de Nómina Serverless
+// api/forense.js - Cálculo Forense de Nómina Serverless Paralelizado
 import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
-import { sendError } from '../_lib/responseHelper.js';
+import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
-// --- HELPERS MATEMÁTICOS PARA EL SERVIDOR ---
+
 const normalizarTexto = (str) => {
   if (!str) return "";
   return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
@@ -37,25 +36,24 @@ const buscarColumna = (fila, aliasPosibles) => {
 };
 
 const clasificarUnidad = (fila) => {
-    const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
-    const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
-    const grupo = normalizarTexto(buscarColumna(fila, ['Grupo']) || '');
-    const cargo = normalizarTexto(buscarColumna(fila, ['Cargo', 'DesCargo']) || '');
+  const empresa = normalizarTexto(buscarColumna(fila, ['Empresa', 'Compania']) || '');
+  const ccosto = normalizarTexto(buscarColumna(fila, ['NombreCcosto', 'CentroCosto', 'CentroPadre']) || '');
+  const grupo = normalizarTexto(buscarColumna(fila, ['Grupo']) || '');
+  const cargo = normalizarTexto(buscarColumna(fila, ['Cargo', 'DesCargo']) || '');
 
-    const palabrasAdmin = ['ADMINISTRA', 'FINANCIER', 'TALENTO', 'HUMANA', 'CONTAB', 'TESORER', 'CONTROL INTERNO', 'TICS', 'MERCADEO', 'COMPRAS', 'FAMILY OFFICE', 'SISTEMAS', 'GERENCIA', 'DIRECTOR'];
-    const excepOperativas = ['AUDITORIA NOCTURNA', 'RECEPCION', 'SPA', 'MESERO', 'CAMARERA', 'STEWAR', 'COCINA', 'MANTENIMIENTO', 'SALVAVIDAS'];
+  const palabrasAdmin = ['ADMINISTRA', 'FINANCIER', 'TALENTO', 'HUMANA', 'CONTAB', 'TESORER', 'CONTROL INTERNO', 'TICS', 'MERCADEO', 'COMPRAS', 'FAMILY OFFICE', 'SISTEMAS', 'GERENCIA', 'DIRECTOR'];
+  const excepOperativas = ['AUDITORIA NOCTURNA', 'RECEPCION', 'SPA', 'MESERO', 'CAMARERA', 'STEWAR', 'COCINA', 'MANTENIMIENTO', 'SALVAVIDAS'];
 
-    if ((palabrasAdmin.some(p => ccosto.includes(p)) || palabrasAdmin.some(p => grupo.includes(p))) && !excepOperativas.some(ex => cargo.includes(ex))) return 'ADMIN';
-    if (empresa.includes('RECREFAM') || ccosto.includes('HOTEL') || ccosto.includes('ALOJAMIENTO') || grupo.includes('ALOJAMIENTO') || ccosto.includes('SPA') || ccosto.includes('CASCADA') || ccosto.includes('MONTAÑA') || ccosto.includes('DEL RIO') || ccosto.includes('JAIBANA') || ccosto.includes('PINDANA') || ccosto.includes('RUTA ECOLOGICA') || ccosto.includes('RECREACION')) return 'ECOPARQUE_HOTEL';
-    return 'BALNEARIO';
+  if ((palabrasAdmin.some(p => ccosto.includes(p)) || palabrasAdmin.some(p => grupo.includes(p))) && !excepOperativas.some(ex => cargo.includes(ex))) return 'ADMIN';
+  if (empresa.includes('RECREFAM') || ccosto.includes('HOTEL') || ccosto.includes('ALOJAMIENTO') || grupo.includes('ALOJAMIENTO') || ccosto.includes('SPA') || ccosto.includes('CASCADA') || ccosto.includes('MONTAÑA') || ccosto.includes('DEL RIO') || ccosto.includes('JAIBANA') || ccosto.includes('PINDANA') || ccosto.includes('RUTA ECOLOGICA') || ccosto.includes('RECREACION')) return 'ECOPARQUE_HOTEL';
+  return 'BALNEARIO';
 };
 
-// 2. ENDPOINT PRINCIPAL (LA RUTA QUE LLAMARÁ REACT)
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
 
   if (req.method !== 'POST') {
-    return sendError(res, 'Solo se acepta POST.', 405);
+    return sendError(res, 'Solo se acepta método POST.', 405);
   }
 
   try {
@@ -63,29 +61,36 @@ export default async function handler(req, res) {
     if (!user) return;
 
     logger.info('Ejecutando procesamiento forense', { usuario: user.email });
-    const { listaBases } = req.body;
-    if (!listaBases || listaBases.length === 0) return res.status(400).json({ error: 'No se enviaron bases.' });
+    const { listaBases } = req.body || {};
 
-    let todasLasTransacciones = [];
+    if (!Array.isArray(listaBases) || listaBases.length === 0) {
+      return sendError(res, 'No se enviaron bases de datos válidas para análisis.', 400);
+    }
 
-    // 📥 DESCARGA DIRECTA DE LA BASE DE DATOS AL SERVIDOR (Ultra-rápido)
-    for (const base of listaBases) {
-      const empresaLimpia = base.empresa.toString().trim().replace(/[\s/]/g, '_');
-      const periodoLimpio = base.periodo.toString().trim().replace('/', '-');
+    // 🚀 Descarga en paralelo de todos los lotes de nómina (Elimina el cuello de botella N+1)
+    const promesasDescarga = listaBases.map(async (base) => {
+      if (!base || !base.empresa || !base.periodo) return [];
+      const empresaLimpia = String(base.empresa).trim().replace(/[\s/]/g, '_');
+      const periodoLimpio = String(base.periodo).trim().replace('/', '-');
       const docBaseId = `${empresaLimpia}_${periodoLimpio}`;
-      
-const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}/chunks`).get();      
+
+      const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}/chunks`).get();
       let dataPlana = [];
       chunksSnapshot.forEach(doc => {
         const info = doc.data();
-        if (info.datos && Array.isArray(info.datos)) dataPlana.push(...info.datos);
+        if (info && Array.isArray(info.datos)) dataPlana.push(...info.datos);
       });
 
-      dataPlana.forEach(t => { t.mesOrigen = base.periodo; t.empresaOrigen = base.empresa; });
-      todasLasTransacciones.push(...dataPlana);
-    }
+      dataPlana.forEach(t => { 
+        t.mesOrigen = base.periodo; 
+        t.empresaOrigen = base.empresa; 
+      });
+      return dataPlana;
+    });
 
-    // 🧠 MOTOR DE CÁLCULO GRC
+    const resultadosArreglos = await Promise.all(promesasDescarga);
+    const todasLasTransacciones = resultadosArreglos.flat();
+
     const empleadosStats = {};
     const mesesDetectados = new Set();
     const procesosUnicos = new Set();
@@ -95,10 +100,13 @@ const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}
     let tendenciasMeses = {};
 
     todasLasTransacciones.forEach(fila => {
+      if (!fila || typeof fila !== 'object') return;
       const cedulaRaw = buscarColumna(fila, ['Identificacion', 'Cedula', 'Documento', 'NIT', 'CEDULA']);
       if (!cedulaRaw) return;
-      
+
       const cedula = cedulaRaw.toString().trim().replace(/\D/g, '');
+      if (!cedula) return;
+
       const mesOrigen = fila.mesOrigen;
       mesesDetectados.add(mesOrigen);
 
@@ -106,7 +114,7 @@ const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}
       let conceptoLimpio = normalizarTexto(conceptoRaw);
       if (conceptoLimpio.includes('DV06')) conceptoLimpio = 'DV06-HORA RECARGO DOMINICAL Y FESTIVO';
       if (conceptoLimpio.includes('DV07')) conceptoLimpio = 'DV07-HORA RECARGO NOCTURNO FESTIVOS O DOM.';
-      
+
       const cantidad = parsearMonto(buscarColumna(fila, ['Cantidad', 'Horas', 'Cant', 'Minutos']));
       const valor = parsearMonto(buscarColumna(fila, ['TotalDevengado', 'ValorTotal', 'Total', 'Valor', 'Pago', 'Devengado']));
       const nombre = buscarColumna(fila, ['Nombres', 'Nombre', 'Empleado']) || 'Sin Nombre';
@@ -122,7 +130,7 @@ const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}
       }
 
       const empresaFila = fila.empresaOrigen || buscarColumna(fila, ['Empresa', 'Compania', 'RazonSocial']) || 'GENERAL';
-      
+
       if (!empleadosStats[cedula]) {
         empleadosStats[cedula] = {
           cedula, nombre, cargo, proceso, unidad,
@@ -142,34 +150,34 @@ const chunksSnapshot = await adminDb.collection(`nominas_historicas/${docBaseId}
       }
 
       let normEmpresa = 'OTRAS';
-      const eUpper = (empresaFila || '').toUpperCase();
+      const eUpper = String(empresaFila).toUpperCase();
       if (eUpper.includes('RECREFAM')) normEmpresa = 'RECREFAM';
       else if (eUpper.includes('FAM') || eUpper.includes('TERMALES')) normEmpresa = 'FAM';
 
       if (!emp.historialMeses[mesOrigen].porEmpresa[normEmpresa]) {
-          emp.historialMeses[mesOrigen].porEmpresa[normEmpresa] = { devengado: 0, transporte: 0 };
+        emp.historialMeses[mesOrigen].porEmpresa[normEmpresa] = { devengado: 0, transporte: 0 };
       }
-      
+
       const esTransporte = conceptoLimpio.includes('SUBSIDIO DE TRANSPORTE') || conceptoLimpio.includes('AUXILIO DE TRANSPORTE');
       const esRodamiento = conceptoLimpio.includes('RODAMIENTO') || conceptoLimpio.includes('VIATICO');
       const esExcluidoIBC = ['NO REMUNERAD', 'CESANTIA', 'PRIMA', 'SUSPENSION', 'VACACION', 'INCAPACIDAD', 'INC.', 'RETEFUENTE', 'LIBRANZA', 'PRESTAMO', 'FONDO', 'SINDICATO', 'PLAN EXEQUIAL', 'ALIMENTACION'].some(kw => conceptoLimpio.includes(kw));
       const esTiempoSuplementario = ['EXTRA', 'RECARGO', 'DOMINICAL', 'FESTIVO', 'NOCTURN'].some(kw => conceptoLimpio.includes(kw));
-      
+
       if (valor > 0 && !esExcluidoIBC && !esTiempoSuplementario && !esTransporte && !esRodamiento && !conceptoLimpio.includes('VEHICULO')) {
-         emp.historialMeses[mesOrigen].devengadoSalarial += valor;
-         emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].devengado += valor;
+        emp.historialMeses[mesOrigen].devengadoSalarial += valor;
+        emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].devengado += valor;
       }
       if (esTransporte && valor > 0) {
-         emp.historialMeses[mesOrigen].transportePagado += valor;
-         emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].transporte += valor;
+        emp.historialMeses[mesOrigen].transportePagado += valor;
+        emp.historialMeses[mesOrigen].porEmpresa[normEmpresa].transporte += valor;
       }
       if (esRodamiento && valor > 0) emp.historialMeses[mesOrigen].rodamientoPagado += valor;
 
-const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
+      const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includes('EXTRAS DIURNAS') ||
                       conceptoLimpio.includes('EXTRA NOCTURNA') || conceptoLimpio.includes('EXTRAS NOCTURNAS') ||
                       conceptoLimpio.includes('EXTRA FESTIVA') || conceptoLimpio.includes('EXTRAS FESTIVAS') ||
                       conceptoLimpio.includes('EXTRA DOMINICAL');
-      
+
       const esRecargo = (conceptoLimpio.includes('RECARGO') && !conceptoLimpio.includes('EXTRA')) || 
                         conceptoLimpio.includes('NOCTURNO') || conceptoLimpio.includes('DOMINICAL') ||
                         conceptoLimpio.includes('FESTIVO COMPENSADO') || conceptoLimpio.includes('FESTIVO NO COMPENSADO');
@@ -183,14 +191,14 @@ const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includ
         if (!emp.desgloseJornadaPorMes[mesOrigen]) emp.desgloseJornadaPorMes[mesOrigen] = { horas: 0, valor: 0, conceptos: {} };
         emp.desgloseJornadaPorMes[mesOrigen].horas += cantidad;
         emp.desgloseJornadaPorMes[mesOrigen].valor += valor;
-        
+
         if (!emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio]) emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio] = { horas: 0, valor: 0 };
         emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio].horas += cantidad;
         emp.desgloseJornadaPorMes[mesOrigen].conceptos[conceptoLimpio].valor += valor;
 
         if (esExtra) { emp.totalHorasExtras += cantidad; emp.totalValorExtras += valor; } 
         else { emp.totalHorasRecargos += cantidad; emp.totalValorRecargos += valor; }
-        
+
         totalCostoExtrasCompania += valor;
         emp.mesesConNovedad.add(mesOrigen);
 
@@ -210,75 +218,78 @@ const esExtra = conceptoLimpio.includes('EXTRA DIURNA') || conceptoLimpio.includ
       let fugaNetaAcumulada = 0;
       let quincenasConInfraccion = 0;
 
-Object.entries(emp.historialMeses).forEach(([, data]) => {
-      const transporte = data.transportePagado || 0;
-         const rodamiento = data.rodamientoPagado || 0;
-         const devengado = data.devengadoSalarial || 0;
-         const topeMensual = 3501810;
+      Object.entries(emp.historialMeses).forEach(([, data]) => {
+        const transporte = data.transportePagado || 0;
+        const rodamiento = data.rodamientoPagado || 0;
+        const devengado = data.devengadoSalarial || 0;
+        const topeMensual = 3501810;
 
-         if (transporte < 0 || devengado < 0) { fugaNetaAcumulada += transporte; return; }
+        if (transporte < 0 || devengado < 0) { fugaNetaAcumulada += transporte; return; }
 
-         if (transporte > 0) {
-            let causalFuga = null;
-            if (rodamiento > 0) causalFuga = `Doble Beneficio`;
-            else if (data.esTeletrabajo) causalFuga = `Teletrabajo`;
-            else if (devengado > topeMensual) causalFuga = `Excede tope`;
+        if (transporte > 0) {
+          let causalFuga = null;
+          if (rodamiento > 0) causalFuga = `Doble Beneficio`;
+          else if (data.esTeletrabajo) causalFuga = `Teletrabajo`;
+          else if (devengado > topeMensual) causalFuga = `Excede tope`;
 
-            if (causalFuga) {
-               fugaNetaAcumulada += transporte;
-               quincenasConInfraccion += 1;
-               tieneFuga = true;
-               periodosFuga.add(data.mesContenedor);
-            }
-         }
+          if (causalFuga) {
+            fugaNetaAcumulada += transporte;
+            quincenasConInfraccion += 1;
+            tieneFuga = true;
+            periodosFuga.add(data.mesContenedor);
+          }
+        }
       });
 
       if (emp.empresasGrupo && emp.empresasGrupo.size > 1) tieneFuga = true;
 
       if (tieneFuga && fugaNetaAcumulada > 0) {
-         emp.fugaTransporteDinero = fugaNetaAcumulada;
-         emp.mesesConFugaTransporte = quincenasConInfraccion;
-         totalFugaTransporteCompania += fugaNetaAcumulada;
+        emp.fugaTransporteDinero = fugaNetaAcumulada;
+        emp.mesesConFugaTransporte = quincenasConInfraccion;
+        totalFugaTransporteCompania += fugaNetaAcumulada;
 
-         alertasTransporte.push({
-            ...emp,
-            periodosFuga: Array.from(periodosFuga),
-            totalHorasVisual: quincenasConInfraccion,
-            totalDineroVisual: fugaNetaAcumulada,
-            fugaPorMes: Object.values(emp.historialMeses).reduce((acc, q) => {
-               if (q.transportePagado > 0 && (q.rodamientoPagado > 0 || q.esTeletrabajo || q.devengadoSalarial > 3501810)) {
-                  acc[q.mesContenedor] = (acc[q.mesContenedor] || 0) + q.transportePagado;
-               }
-               return acc;
-            }, {}),
-            riesgo: "Alerta procesada de manera segura en el Backend GRC.",
-            tipo: 'FUGA_TRANSPORTE', icono: '🚗', mesesActivos: quincenasConInfraccion
-         });
+        alertasTransporte.push({
+          ...emp,
+          empresasGrupo: Array.from(emp.empresasGrupo),
+          mesesConNovedad: Array.from(emp.mesesConNovedad),
+          periodosFuga: Array.from(periodosFuga),
+          totalHorasVisual: quincenasConInfraccion,
+          totalDineroVisual: fugaNetaAcumulada,
+          fugaPorMes: Object.values(emp.historialMeses).reduce((acc, q) => {
+            if (q.transportePagado > 0 && (q.rodamientoPagado > 0 || q.esTeletrabajo || q.devengadoSalarial > 3501810)) {
+              acc[q.mesContenedor] = (acc[q.mesContenedor] || 0) + q.transportePagado;
+            }
+            return acc;
+          }, {}),
+          riesgo: "Alerta procesada de manera segura en el Backend GRC.",
+          tipo: 'FUGA_TRANSPORTE', icono: '🚗', mesesActivos: quincenasConInfraccion
+        });
       }
 
       const totalHoras = emp.totalHorasExtras + emp.totalHorasRecargos;
       const totalDinero = emp.totalValorExtras + emp.totalValorRecargos;
-      
+
       if (totalHoras > 0 || totalDinero > 0) {
-          const mesesActivos = emp.mesesConNovedad.size;
-          const cargoLimpio = normalizarTexto(emp.cargo);
-          const esAdminPuro = ['CONTABLE', 'TALENTO', 'GERENT', 'SISTEMAS', 'COMPRAS', 'ADMINISTRATIV'].some(kw => cargoLimpio.includes(kw)) && !['RECEPCION', 'SPA'].some(ex => cargoLimpio.includes(ex));
+        const mesesActivos = emp.mesesConNovedad.size;
+        const cargoLimpio = normalizarTexto(emp.cargo);
+        const esAdminPuro = ['CONTABLE', 'TALENTO', 'GERENT', 'SISTEMAS', 'COMPRAS', 'ADMINISTRATIV'].some(kw => cargoLimpio.includes(kw)) && !['RECEPCION', 'SPA'].some(ex => cargoLimpio.includes(ex));
 
-          let riesgo = null, tipo = null, icono = null;
+        let riesgo = null, tipo = null, icono = null;
 
-          if (esAdminPuro && totalHoras > 5) { riesgo = `Cargo Administrativo acumuló extras.`; tipo = 'CARGO_CORPORATIVO'; icono = '🚨'; } 
-          else if (emp.totalHorasExtras > 50 && mesesActivos >= 3) { riesgo = `Sobrecarga crónica. Riesgo Burnout.`; tipo = 'BURNOUT'; icono = '🔥'; } 
-          else if (totalDinero > 1500000) { riesgo = `Alerta Financiera / Equidad de equipo.`; tipo = 'FAVORITISMO'; icono = '💰'; } 
-          else if (mesesActivos >= 2 && totalHoras >= 10) { riesgo = `Comportamiento recurrente.`; tipo = 'RECURRENCIA'; icono = '🔄'; }
+        if (esAdminPuro && totalHoras > 5) { riesgo = `Cargo Administrativo acumuló extras.`; tipo = 'CARGO_CORPORATIVO'; icono = '🚨'; } 
+        else if (emp.totalHorasExtras > 50 && mesesActivos >= 3) { riesgo = `Sobrecarga crónica. Riesgo Burnout.`; tipo = 'BURNOUT'; icono = '🔥'; } 
+        else if (totalDinero > 1500000) { riesgo = `Alerta Financiera / Equidad de equipo.`; tipo = 'FAVORITISMO'; icono = '💰'; } 
+        else if (mesesActivos >= 2 && totalHoras >= 10) { riesgo = `Comportamiento recurrente.`; tipo = 'RECURRENCIA'; icono = '🔄'; }
 
-          if (riesgo) {
-            alertasJornada.push({
-              ...emp,
-              mesesConNovedad: Array.from(emp.mesesConNovedad),
-              totalHorasVisual: totalHoras, totalDineroVisual: totalDinero,
-              riesgo, tipo, icono, mesesActivos
-            });
-          }
+        if (riesgo) {
+          alertasJornada.push({
+            ...emp,
+            empresasGrupo: Array.from(emp.empresasGrupo),
+            mesesConNovedad: Array.from(emp.mesesConNovedad),
+            totalHorasVisual: totalHoras, totalDineroVisual: totalDinero,
+            riesgo, tipo, icono, mesesActivos
+          });
+        }
       }
     });
 
@@ -288,8 +299,7 @@ Object.entries(emp.historialMeses).forEach(([, data]) => {
       mesesConNovedad: Array.from(emp.mesesConNovedad)
     }));
 
-    // 📤 4. ENVÍO DEL RESUMEN LIMPIO Y LIGERO AL FRONTEND
-    res.status(200).json({
+    return sendSuccess(res, {
       totalAnalizados: Object.keys(empleadosStats).length,
       totalMeses: mesesDetectados.size,
       totalCostoExtras: totalCostoExtrasCompania,

@@ -12,26 +12,22 @@ export default async function handler(req, res) {
     return sendError(res, 'Método no permitido. Usa POST.', 405);
   }
 
-  // 🔒 1. Validar sesión HttpOnly en el servidor
   const user = await requireAuth(req, res);
-  if (!user) return; // Si falla la sesión, la función se detiene aquí
+  if (!user) return;
 
   try {
-    const { nombreResponsable, procesoAsignado, cargo } = req.body;
+    const { nombreResponsable, cargo } = req.body || {};
 
-    // 🛡️ 2. Filtrar únicamente los campos permitidos.
-    // NUNCA permitimos que el usuario envíe o modifique la propiedad "rol" desde este endpoint.
+    // 🛡️ BLOQUEO DE ESCALAMIENTO RLS: NUNCA se actualiza 'procesoAsignado' ni 'rol' desde este endpoint.
     const datosActualizar = {
-      nombreResponsable: nombreResponsable || user.nombreResponsable,
-      procesoAsignado: procesoAsignado || '',
-      cargo: cargo || '',
+      nombreResponsable: typeof nombreResponsable === 'string' ? nombreResponsable.trim() : user.nombreResponsable,
+      cargo: typeof cargo === 'string' ? cargo.trim() : (user.cargo || ''),
       ultimaActualizacion: new Date().toISOString()
     };
 
-    // 3. Escribir los cambios en la colección usuarios usando el UID extraído del token verificado
     await adminDb.collection('usuarios').doc(user.uid).set(datosActualizar, { merge: true });
 
-   logger.info('Perfil de usuario actualizado', { usuario: user.email, uid: user.uid });
+    logger.info('Perfil de usuario actualizado con éxito', { usuario: user.email, uid: user.uid });
 
     return sendSuccess(res, {
       message: 'Perfil actualizado correctamente.',
