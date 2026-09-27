@@ -23,4 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 .env
+# Proteger archivos físicos de claves de servicio
+serviceAccountKey.json
+firebase-key.json
+*.pem
+# Proteger archivos físicos de claves de servicio
+serviceAccountKey.json
+firebase-key.json
+*.pem
 

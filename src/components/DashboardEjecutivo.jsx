@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { formatSafeDate } from '../utils/helpers';
 import { generarDictamenEjecutivo } from '../services/aiEngine';
+import { toPng } from 'html-to-image';
+import { generarPDFEjecutivo } from '../services/pdfEngine';
 // 🧹 Normalizador estricto para emparejar cadenas
 const normalizeStr = (str) => {
   if (!str) return "";
@@ -128,6 +130,11 @@ export default function DashboardEjecutivo({
   const [dictamenIA, setDictamenIA] = useState(null);
   const [procesandoIA, setProcesandoIA] = useState(false);
 
+  // 🖨️ ESTADOS Y REFERENCIAS PARA EXPORTACIÓN PDF (FASE 2)
+  const [generandoPDF, setGenerandoPDF] = useState(false);
+  const matrizRef = useRef(null);
+  const tendenciaRef = useRef(null);
+
   // 🧠 CÁLCULOS PESADOS BLINDADOS CON USEMEMO
   const metricas = useMemo(() => {
     const ahora = new Date();
@@ -252,6 +259,51 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
       setProcesandoIA(false);
     }
   };
+
+  // 🚀 FUNCIÓN DE CAPTURA Y EXPORTACIÓN PDF
+  const exportarDashboardPDF = async () => {
+    setGenerandoPDF(true);
+    try {
+      // Configuramos el fondo del mismo color del dashboard para evitar transparencias rotas en el PDF
+      const opts = { backgroundColor: '#0a1122', cacheBust: true, pixelRatio: 2 };
+      
+      const imgMatriz = matrizRef.current ? await toPng(matrizRef.current, opts) : null;
+      const imgTendencia = tendenciaRef.current ? await toPng(tendenciaRef.current, opts) : null;
+      
+      const imagenes = [imgMatriz, imgTendencia].filter(Boolean);
+
+      // Formateamos la tabla exactamente como tu PDF de referencia
+      const datosTabla = planesBase.map(p => ({
+        id: `PM-${new Date().getFullYear()}-${String(p.id).padStart(3, '0')}`,
+        responsable: p.responsable || 'No asignado',
+        fecha: formatSafeDate(p.fecha),
+        estado: (Number(p.progreso) || 0) === 100 ? 'Terminada' : ((Number(p.progreso) || 0) > 0 ? 'En Proceso' : 'Sin Iniciar'),
+        progreso: `${p.progreso || 0}%`
+      }));
+
+      const columnasTabla = [
+        { header: 'Acción / Plan', dataKey: 'id' },
+        { header: 'Responsable', dataKey: 'responsable' },
+        { header: 'Fecha Límite', dataKey: 'fecha' },
+        { header: 'Estado', dataKey: 'estado' },
+        { header: 'Avance', dataKey: 'progreso' }
+      ];
+
+      generarPDFEjecutivo({
+        titulo: "Reporte de Planes de Mejoramiento",
+        periodo: selectedAnios.length ? selectedAnios.join(', ') : String(new Date().getFullYear()),
+        imagenesGraficas: imagenes,
+        datosTabla: datosTabla,
+        columnasTabla: columnasTabla
+      });
+    } catch (error) {
+      console.error("Error renderizando PDF:", error);
+      alert("Ocurrió un error al generar las gráficas para el PDF.");
+    } finally {
+      setGenerandoPDF(false);
+    }
+  };
+
   let allActivity = [];
   const parseDateStr = (dateStr) => {
     try {
@@ -353,6 +405,13 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
             <h2 className="text-xl font-black text-white">Dashboard Ejecutivo</h2>
             <p className="text-xs text-slate-400 font-medium">Resumen general del Sistema de Control Interno y Gestión Integral del Riesgo</p>
           </div>
+          <button 
+            onClick={exportarDashboardPDF} 
+            disabled={generandoPDF}
+            className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {generandoPDF ? '⏳ Generando PDF...' : '📥 Descargar Reporte'}
+          </button>
         </div>
         <div className="flex flex-col md:flex-row gap-4 pt-1 items-start md:items-end">
           <div className="flex flex-col">
@@ -509,7 +568,7 @@ const respuestaIA = await generarDictamenEjecutivo(datosParaIA);
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* MAPA DE CALOR CON TOOLTIP */}
-        <div className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+        <div ref={matrizRef} className="lg:col-span-2 bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <h3 className="text-xs font-black uppercase text-slate-300 mb-4">Mapa de Riesgos (Matriz 5x5)</h3>
           <div className="flex items-center space-x-4 flex-1">
             <div className="flex-1 flex flex-col space-y-1">
@@ -558,7 +617,7 @@ return (
         </div>
 
         {/* TENDENCIA HISTÓRICA & PROCESOS CON TOOLTIP */}
-        <div className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
+        <div ref={tendenciaRef} className="bg-[#0a1122] border border-slate-800 p-5 rounded-2xl shadow-xl flex flex-col justify-between relative group overflow-visible hover:border-slate-700 transition-all cursor-help">
           <h3 className="text-xs font-black uppercase text-slate-300">Tendencia Histórica</h3>
           <div className="w-full h-36 mt-2 relative">
             <svg viewBox="0 -5 100 45" className="w-full h-full overflow-visible" preserveAspectRatio="none">
