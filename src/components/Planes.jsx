@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
 import { exportarA_PDF } from '../utils/pdfUtils';
+import { apiService } from '../services/apiService';
 
 const ProgressBar = ({ progress }) => {
   const safeProgress = Math.min(Math.max(Math.round(Number(progress) || 0), 0), 100);
@@ -637,17 +638,11 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
     });
 
     setUploadingCell(`${hallazgoId}-${index}`); setUploadProgress(20);
-    const formData = new FormData();
-    formData.append('appName', 'controlInterno');
-    formData.append('description', 'Evidencia de Plan de Acción');
-    formData.append('file', file);
     
     try {
       setUploadProgress(50);
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', { method: 'POST', body: formData });
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-      const data = await response.json();
-      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
+      const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
       
       // Convertimos a arreglo y agregamos la nueva URL a las que ya existían
       const arrayEvidencias = Array.isArray(evidenciasActuales) ? evidenciasActuales : (evidenciasActuales ? [evidenciasActuales] : []);
