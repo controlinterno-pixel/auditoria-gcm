@@ -5,6 +5,7 @@ import {
   CLASIFICACIONES_MANUAL 
 } from '../constants/diccionariosGRC';
 import { analizarRiesgoConIA } from '../services/aiEngine';
+import { apiService } from '../services/apiService';
 import ModalIA from '../components/ModalIA';
 import * as XLSX from 'xlsx';
 
@@ -412,13 +413,16 @@ const [editRiesgo, setEditRiesgo] = useState(null);
   const handleDeleteRiesgo = async (id) => {
     if (window.confirm("⚠️ ¿Estás seguro de que deseas eliminar este riesgo de la matriz corporativa?")) {
       try {
+        // 1. Eliminación en el servidor
+        await apiService.deleteRiesgo(id);
+
+        // 2. Actualización del estado local en React
         const updatedList = safeRiesgos.filter(r => r.id !== id);
         setRiesgos(updatedList);
-        await saveToCloud({ riesgos: updatedList });
         showNotification("Riesgo eliminado con éxito", "success");
       } catch (error) {
         console.error("Error al eliminar:", error);
-        showNotification("Error al intentar eliminar el riesgo.", "error");
+        showNotification(error.message || "Error al intentar eliminar el riesgo.", "error");
       }
     }
   };
@@ -810,11 +814,10 @@ FORMATO DE SALIDA JSON EXACTO:
 const handleRiesgoSubmit = async (e) => {
     e.preventDefault();
 
-    // 🛑 1. NUEVO BLINDAJE: Verificación estricta de internet antes de empezar
     if (!navigator.onLine) {
       alert("❌ ERROR DE RED: No tienes conexión a Internet. El riesgo no se puede guardar en la nube. Revisa tu WiFi o cable de red e intenta de nuevo.");
       showNotification("Sin conexión a internet", "error");
-      return; // Detiene la ejecución aquí mismo
+      return;
     }
 
     setIsSubmitting(true);
@@ -824,10 +827,10 @@ const handleRiesgoSubmit = async (e) => {
       let updatedList = [...safeRiesgos];
       const textoControlesConsolidados = controles.map((c, index) => `C${index + 1}. [${c.tipo}] ${c.descripcion} (${c.documentacion} - ${c.frecuencia})`).join('\n\n');
 
-const nuevoRiesgo = {
+      const nuevoRiesgo = {
         ...(editRiesgo || {}),
-        id: editRiesgo ? editRiesgo.id : (customId || Date.now()), // 🔥 USA EL CONSECUTIVO DEL ADMIN
-        idHallazgoOrigen: editRiesgo ? (editRiesgo.idHallazgoOrigen || null) : idHallazgoOrigen, // 👈 Trazabilidad de origen
+        id: editRiesgo ? editRiesgo.id : (customId || Date.now()),
+        idHallazgoOrigen: editRiesgo ? (editRiesgo.idHallazgoOrigen || null) : idHallazgoOrigen,
         origen: idHallazgoOrigen ? `Hallazgo Emergente (HAL-${idHallazgoOrigen})` : (editRiesgo?.origen || 'Identificación Interna'),
         sede: sedeForm,      
         proceso: macroproceso,
@@ -859,27 +862,20 @@ const nuevoRiesgo = {
           : [{ fecha: ts, accion: 'Creación manual con matriz completa' }]
       };
 
-      // Limpiar memoria temporal tras guardar con éxito
       sessionStorage.removeItem('promover_riesgo_temp');
 
+      // 1. Guardar en el servidor Serverless (api/grc/riesgos.js)
+      const response = await apiService.saveRiesgo(nuevoRiesgo);
+      const riesgoGuardado = response?.riesgo || nuevoRiesgo;
+
+      // 2. Actualizar el estado local con la respuesta procesada por el servidor
       if (editRiesgo) {
         const idx = updatedList.findIndex(r => r.id === editRiesgo.id);
-        if (idx !== -1) updatedList[idx] = nuevoRiesgo;
+        if (idx !== -1) updatedList[idx] = riesgoGuardado;
       } else {
-        updatedList.push(nuevoRiesgo);
+        updatedList.push(riesgoGuardado);
       }
 
-      // ⏱️ 2. NUEVO BLINDAJE: Temporizador límite para Firebase (Timeout)
-      // Si Firebase tarda más de 8 segundos en responder por red inestable, forzamos un error.
-      const guardarPromesa = saveToCloud({ riesgos: updatedList });
-      const timeoutPromesa = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("TIMEOUT_ERROR")), 8000)
-      );
-
-      // Compite la carga en la nube vs el temporizador
-      await Promise.race([guardarPromesa, timeoutPromesa]);
-
-      // Si pasa de esta línea, se guardó correctamente
       setRiesgos(updatedList);
       showNotification(`Riesgo corporativo ${editRiesgo ? 'actualizado' : 'creado'} con éxito.`, "success");
       setVistaActiva('dashboard');
@@ -890,19 +886,11 @@ const nuevoRiesgo = {
 
     } catch (error) {
       console.error("Error crítico al guardar:", error);
-      
-      // 🚨 3. NUEVO BLINDAJE: Alerta visual infalible en caso de fallo
-      if (error.message === "TIMEOUT_ERROR") {
-        alert("⚠️ ERROR DE TIEMPO AGOTADO: La conexión con la base de datos es muy lenta o se cortó a la mitad. Refresca la página y vuelve a intentarlo.");
-      } else {
-        alert("❌ ERROR FATAL: Hubo un problema al procesar y subir el riesgo a la base de datos.");
-      }
-      
-      showNotification("Error de conexión al guardar el riesgo.", "error");
+      showNotification(error.message || "Error de conexión al guardar el riesgo.", "error");
     } finally {
       setIsSubmitting(false);
     }
-  }; 
+  };
   
 
 
