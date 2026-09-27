@@ -1,7 +1,6 @@
 // src/handlers/auditorIaHandler.js
 import { calcularMatriz5x5 } from '../utils/helpers';
-import { consultarCopilotoIA } from '../services/gemini';
-
+import { apiService } from '../services/apiService';
 export const executeAuditorQuery = async ({
   textoDirecto,
   auditorInput,
@@ -152,7 +151,11 @@ Aunque el programa mantiene dinámica de ejecución, la acumulación de un **${p
 
       setAuditorRespuesta(dictamenEjecutivo);
     } else {
-      const respuestaIA = await consultarCopilotoIA(consultaFinal, contextoDatos);
+      const resIA = await apiService.consultarAuditor({ 
+        prompt: consultaFinal, 
+        datosContexto: contextoDatos 
+      });
+      const respuestaIA = resIA?.respuesta || resIA;
       
       if (typeof respuestaIA === 'object' && respuestaIA !== null) {
         setAuditorRespuesta(respuestaIA.summary || respuestaIA.dictamen || "Análisis completado. Revisa el informe detallado en pantalla.");

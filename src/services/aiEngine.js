@@ -1,6 +1,5 @@
 // src/services/aiEngine.js
-import { consultarCopilotoIA } from './gemini';
-
+import { apiService } from './apiService';
 // Helper para mantener los cálculos matemáticos locales
 const calcularMetricasMatematicas = (riesgo) => {
   const totalControles = Array.isArray(riesgo.controlesDetallados) 
@@ -35,14 +34,20 @@ export const analizarRiesgoConIA = async (riesgo) => {
   `;
 
   // Se delega la ejecución al servidor mediante /api/audit
-  const respuesta = await consultarCopilotoIA(prompt, { metricasFijas, riesgo });
-  return respuesta;
+  const res = await apiService.consultarAuditor({
+    prompt,
+    datosContexto: { metricasFijas, riesgo }
+  });
+  return res?.respuesta || res;
 };
 
 export const generarDictamenEjecutivo = async (datosContexto) => {
   const prompt = `Actúa como un Socio Director Global de Consultoría GRC. Analiza los siguientes datos corporativos:
   ${typeof datosContexto === 'object' ? JSON.stringify(datosContexto, null, 2) : datosContexto}`;
 
-  const respuesta = await consultarCopilotoIA(prompt, { tipo: 'dictamen_ejecutivo' });
-  return respuesta;
+const res = await apiService.consultarAuditor({
+    prompt,
+    datosContexto: typeof datosContexto === 'object' ? datosContexto : { datosContexto }
+  });
+  return res?.respuesta || res;
 };
