@@ -1,19 +1,33 @@
-// api/grc/historico.js
+// api/grc/historico.js - Gestión de Nómina y Biometría con Optimización Async y RLS
 import { adminDb } from '../_lib/firebaseAdmin.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
+import { applyCors } from '../_lib/cors.js';
+import { sendSuccess, sendError } from '../_lib/responseHelper.js';
+import { logger } from '../_lib/logger.js';
 
 const CHUNK_SIZE = 500;
 
-export default async function handler(req, res) {
-  // 1. Validar autenticación siempre (Zero Trust)
-  const user = await requireAuth(req, res);
-  if (!user) return; // Si no hay sesión válida, requireAuth ya envió la respuesta 401/403
+/**
+ * Valida si el usuario posee privilegios para operaciones administrativas.
+ */
+function esRolAdministrador(rol) {
+  if (!rol || typeof rol !== 'string') return false;
+  const normalizado = rol.toLowerCase().trim();
+  return normalizado === 'admin' || normalizado === 'administrador' || normalizado === 'auditor';
+}
 
-  const { method } = req;
+export default async function handler(req, res) {
+  if (applyCors(req, res)) return;
 
   try {
+    const user = await requireAuth(req, res);
+    if (!user) return;
+
+    const { method } = req;
+    const isAdmin = esRolAdministrador(user.rol);
+
     // =========================================================================
-    // 📖 PETICIONES GET (LECTURA SEGURA)
+    // 📖 PETICIONES GET (LECTURA SEGURA Y PARALELIZADA)
     // =========================================================================
     if (method === 'GET') {
       const { action, periodo, empresa } = req.query;
@@ -22,73 +36,97 @@ export default async function handler(req, res) {
       if (action === 'listaHistoricos') {
         const snap = await adminDb.collection('nominas_historicas').get();
         const lista = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        return res.status(200).json({ lista: lista.sort((a, b) => b.periodo.localeCompare(a.periodo)) });
+        const ordenada = lista.sort((a, b) => String(b.periodo || '').localeCompare(String(a.periodo || '')));
+        return sendSuccess(res, { lista: ordenada });
       }
-      
+
       // 2. Descargar una Nómina específica
       if (action === 'cargarNomina') {
-        const empresaLimpia = empresa.toString().trim().replace(/[\s/]/g, '_');
-        const periodoLimpio = periodo.toString().trim().replace('/', '-');
+        if (!periodo || !empresa) {
+          return sendError(res, 'Parámetros periodo y empresa son requeridos.', 400);
+        }
+
+        const empresaLimpia = String(empresa).trim().replace(/[\s/]/g, '_');
+        const periodoLimpio = String(periodo).trim().replace('/', '-');
         const docBaseId = `${empresaLimpia}_${periodoLimpio}`;
-        
+
         const chunksSnap = await adminDb.collection(`nominas_historicas/${docBaseId}/chunks`).get();
         let datos = [];
+
         if (!chunksSnap.empty) {
           chunksSnap.forEach(doc => {
             const info = doc.data();
-            if (info.datos) datos.push(...info.datos);
+            if (Array.isArray(info.datos)) datos.push(...info.datos);
           });
         } else {
-          // Soporte para formato antiguo sin chunks
+          // Soporte para legado sin chunks
           const docSnap = await adminDb.collection('nominas_historicas').doc(docBaseId).get();
           if (docSnap.exists) {
-            datos = docSnap.data().empleados || docSnap.data().transacciones || [];
+            const payload = docSnap.data();
+            datos = payload.empleados || payload.transacciones || [];
           }
         }
-        return res.status(200).json({ datos });
+        return sendSuccess(res, { datos });
       }
 
       // 3. Obtener lista de Marcaciones Biométricas
       if (action === 'listaMarcaciones') {
         const snap = await adminDb.collection('marcaciones_historicas').get();
         const lista = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        return res.status(200).json({ lista: lista.sort((a, b) => new Date(b.fechaCarga) - new Date(a.fechaCarga)) });
+        const ordenada = lista.sort((a, b) => new Date(b.fechaCarga || 0) - new Date(a.fechaCarga || 0));
+        return sendSuccess(res, { lista: ordenada });
       }
 
-      // 4. Descargar TODAS las Marcaciones Biométricas
+      // 4. Descargar Marcaciones Biométricas (Consultas Ejecutadas en Paralelo)
       if (action === 'cargarMarcaciones') {
         const indicesSnap = await adminDb.collection('marcaciones_historicas').get();
-        let todosLosDatos = [];
-        
-        for (const indiceDoc of indicesSnap.docs) {
-          const chunksSnap = await adminDb.collection(`marcaciones_historicas/${indiceDoc.id}/chunks`).get();
-          chunksSnap.forEach(chunkDoc => {
-            const info = chunkDoc.data();
-            if (info.datos) todosLosDatos.push(...info.datos);
-          });
+
+        if (indicesSnap.empty) {
+          return sendSuccess(res, { datos: [] });
         }
-        return res.status(200).json({ datos: todosLosDatos });
+
+        // 🚀 Promesas en paralelo para resolver el cuello de botella N+1 y prevenir timeouts
+        const promesasChunks = indicesSnap.docs.map(indiceDoc =>
+          adminDb.collection(`marcaciones_historicas/${indiceDoc.id}/chunks`).get()
+        );
+
+        const chunksSnaps = await Promise.all(promesasChunks);
+        const todosLosDatos = [];
+
+        chunksSnaps.forEach(chunkSnap => {
+          chunkSnap.forEach(doc => {
+            const info = doc.data();
+            if (Array.isArray(info.datos)) todosLosDatos.push(...info.datos);
+          });
+        });
+
+        return sendSuccess(res, { datos: todosLosDatos });
       }
 
-      return res.status(400).json({ error: 'Acción GET no reconocida por el backend.' });
+      return sendError(res, 'Acción GET no reconocida por el servidor.', 400);
     }
 
     // =========================================================================
-    // 💾 PETICIONES POST (ESCRITURA SEGURA EN CHUNKS)
+    // 💾 PETICIONES POST (ESCRITURA CON CONTROL DE ROLES)
     // =========================================================================
     if (method === 'POST') {
-      const { filasExcel, periodo, filasMarcaciones, tipo } = req.body;
+      if (!isAdmin) {
+        logger.warn('Intento no autorizado de carga de histórico', { usuario: user.email });
+        return sendError(res, 'Permisos insuficientes para cargar registros históricos.', 403);
+      }
 
-      // A. Lógica para guardar Biométrico
-      if (tipo === 'marcaciones' && filasMarcaciones) {
+      const { filasExcel, periodo, filasMarcaciones, tipo } = req.body || {};
+
+      // A. Guardar Marcaciones
+      if (tipo === 'marcaciones' && Array.isArray(filasMarcaciones) && filasMarcaciones.length > 0) {
         const docBaseId = `marcaciones_GCM_${Date.now()}`;
         const batch = adminDb.batch();
-        
+
         const refIndice = adminDb.collection('marcaciones_historicas').doc(docBaseId);
         batch.set(refIndice, {
           id: docBaseId,
           fechaCarga: new Date().toISOString(),
-          totalRegistros: filasMarcaciones.length, 
+          totalRegistros: filasMarcaciones.length,
           subidoPor: user.email,
           tipo: 'Biometria_Completa'
         }, { merge: true });
@@ -100,22 +138,19 @@ export default async function handler(req, res) {
         }
 
         await batch.commit();
-        return res.status(200).json({ success: true, message: 'Marcaciones guardadas en el servidor.' });
+        logger.info('Marcaciones guardadas correctamente', { docBaseId, total: filasMarcaciones.length, usuario: user.email });
+        return sendSuccess(res, { success: true, message: 'Marcaciones guardadas en el servidor.' });
       }
-      
-      // B. Lógica original para guardar Nómina (Se conserva intacta tu lógica de negocio)
-      if (filasExcel && periodo) {
-        if (!Array.isArray(filasExcel) || filasExcel.length === 0) {
-          return res.status(400).json({ error: 'No se enviaron datos de nómina válidos.' });
-        }
 
-        // Agrupar por Empresa
+      // B. Guardar Nómina
+      if (Array.isArray(filasExcel) && filasExcel.length > 0 && periodo) {
         const porEmpresa = {};
         filasExcel.forEach(fila => {
+          if (!fila || typeof fila !== 'object') return;
           const llaves = Object.keys(fila);
           const llaveEmpresa = llaves.find(k => k.toLowerCase().includes('empresa') || k.toLowerCase().includes('compania'));
           let empNombre = llaveEmpresa ? fila[llaveEmpresa] : 'GENERAL';
-          
+
           const empresasLista = String(empNombre).split('+').map(e => e.trim());
           empresasLista.forEach(e => {
             if (!porEmpresa[e]) porEmpresa[e] = [];
@@ -129,14 +164,14 @@ export default async function handler(req, res) {
           const empresaLimpia = empNombre.replace(/[\s/]/g, '_');
           const docBaseId = `${empresaLimpia}_${periodoLimpio}`;
           const filasEmpresa = porEmpresa[empNombre];
-          
+
           await adminDb.collection('nominas_historicas').doc(docBaseId).set({
             periodo: periodoLimpio,
             empresa: empresaLimpia,
             fechaCarga: new Date().toISOString(),
             totalRegistros: filasEmpresa.length,
             subidoPor: user.email,
-            esChunked: true 
+            esChunked: true
           }, { merge: true });
 
           const batch = adminDb.batch();
@@ -148,39 +183,49 @@ export default async function handler(req, res) {
           await batch.commit();
         }
 
-        return res.status(200).json({
+        logger.info('Nómina guardada correctamente', { periodo: periodoLimpio, usuario: user.email });
+        return sendSuccess(res, {
           success: true,
           message: `Nómina del periodo ${periodo} procesada y guardada correctamente en el servidor.`
         });
       }
 
-      return res.status(400).json({ error: 'Estructura de datos POST inválida.' });
+      return sendError(res, 'Estructura de datos POST inválida o vacía.', 400);
     }
 
     // =========================================================================
-    // 🗑️ PETICIONES DELETE (ELIMINACIÓN SEGURA)
+    // 🗑️ PETICIONES DELETE (ELIMINACIÓN PROTEGIDA)
     // =========================================================================
     if (method === 'DELETE') {
-      const { docId, tipo } = req.body;
+      if (!isAdmin) {
+        logger.warn('Intento no autorizado de eliminación de histórico', { usuario: user.email });
+        return sendError(res, 'Permisos insuficientes para eliminar datos históricos.', 403);
+      }
+
+      const { docId, tipo } = req.body || {};
+      if (!docId) {
+        return sendError(res, 'Identificador de documento (docId) requerido.', 400);
+      }
+
       const coleccion = tipo === 'marcaciones' ? 'marcaciones_historicas' : 'nominas_historicas';
-      
       const chunksSnap = await adminDb.collection(`${coleccion}/${docId}/chunks`).get();
       const batch = adminDb.batch();
-      
+
       chunksSnap.forEach(doc => {
         batch.delete(doc.ref);
       });
-      
+
       batch.delete(adminDb.collection(coleccion).doc(docId));
       await batch.commit();
-      
-      return res.status(200).json({ success: true, message: 'Archivo eliminado correctamente.' });
+
+      logger.info('Histórico eliminado con éxito', { docId, coleccion, usuario: user.email });
+      return sendSuccess(res, { success: true, message: 'Archivo eliminado correctamente.' });
     }
 
-    return res.status(405).json({ error: 'Método HTTP no permitido.' });
-    
+    return sendError(res, 'Método HTTP no permitido.', 405);
+
   } catch (error) {
-    console.error("❌ Error en api/grc/historico.js:", error);
-    return res.status(500).json({ error: 'Error interno en el servidor.', details: error.message });
+    logger.error('Error interno en api/grc/historico.js', error, { endpoint: req.url });
+    return sendError(res, 'Error interno en el servidor.', 500);
   }
 }
