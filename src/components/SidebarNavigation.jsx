@@ -41,7 +41,7 @@ export default function SidebarNavigation({
 
       {/* BRANDING LOGO */}
       <div 
-        className="p-6 flex items-center gap-3 border-b border-[#0066ff1a] shrink-0 shadow-[0_4px_20px_rgba(0,102,255,0.05)] overflow-hidden"
+        className="px-4 py-6 flex items-center gap-2.5 border-b border-[#0066ff1a] shrink-0 shadow-[0_4px_20px_rgba(0,102,255,0.05)] overflow-hidden"
         style={{ background: 'radial-gradient(circle at 50% 50%, rgba(0, 102, 255, 0.15) 0%, transparent 70%)' }}
       >
         {/* Isotipo de Escudo con resplandor (Glow) */}
@@ -63,7 +63,7 @@ export default function SidebarNavigation({
             <span className="text-lg font-black text-white tracking-tight drop-shadow-md">GCM</span>
             <span className="text-sm font-normal text-cyan-300/90 tracking-wide">ENTERPRISE</span>
           </div>
-          <span className="text-[7.5px] font-bold text-[#6b96c3] tracking-[0.18em] uppercase mt-1">
+          <span className="text-[7px] font-bold text-[#6b96c3] tracking-widest uppercase mt-1">
             GOVERNANCE • COMPLIANCE • MANAGEMENT
           </span>
         </div>
