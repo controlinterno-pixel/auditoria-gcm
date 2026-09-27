@@ -246,12 +246,16 @@ export default function AuthScreen() {
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-slate-950 overflow-hidden font-sans select-none p-4 sm:p-6">
       
-      {/* 1. Imagen de Fondo de Termales */}
+      {/* 1. Imagen de Fondo de Paisaje (Alta Resolución) */}
       <div 
-        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat scale-105 transition-transform duration-1000"
-        style={{ backgroundImage: "url('/cascada.jpg')" }}
+        className="absolute inset-0 z-0 bg-cover bg-no-repeat scale-105 transition-transform duration-1000"
+        style={{ 
+          backgroundImage: "url('/matriz_riesgos.png')",
+          backgroundPosition: "center 35%" /* Encuadre óptimo para resaltar el sol, las palmas y la casa */
+        }}
       />
-      <div className="absolute inset-0 z-10 bg-slate-950/35 backdrop-blur-[2px]" />
+      {/* Capa de contraste armoniosa: unifica los tonos cálidos del atardecer con el UI oscuro */}
+      <div className="absolute inset-0 z-10 bg-slate-950/40 backdrop-blur-[3px]" />
 
       {/* 2. Navegación Superior Derecha */}
       <div className="absolute top-6 right-8 z-20 hidden md:flex items-center space-x-2 text-[11px] font-bold tracking-widest text-white/90 uppercase drop-shadow-md">
