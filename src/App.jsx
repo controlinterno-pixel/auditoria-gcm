@@ -1,4 +1,4 @@
-import { useMemo, useCallback, lazy, Suspense, useState } from 'react';
+import { useMemo, useCallback, lazy, Suspense, useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth'; 
 import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
@@ -198,7 +198,13 @@ const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
-  
+  // 📜 Restablecer el scroll arriba del todo al cambiar de módulo o subpestaña
+  useEffect(() => {
+    const mainArea = document.getElementById('main-scroll-area');
+    if (mainArea) {
+      mainArea.scrollTop = 0;
+    }
+  }, [activeTab, subTabPlanificar, subTabResultados, subTabPlanes, subTabGobernanza]);
   // 🛑 SI VIENE DEL CORREO, INTERCEPTAMOS Y MOSTRAMOS LA PANTALLA NUEVA
   if (isResettingPassword) return <ResetPassword oobCode={oobCode} />;
 

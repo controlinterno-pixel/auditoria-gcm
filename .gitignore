@@ -7,12 +7,18 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencias y compilación
 node_modules
 dist
 dist-ssr
+.vite/
 *.local
 
-# Editor directories and files
+# Archivos temporales de sincronización en la nube (Google Drive)
+.tmp.driveupload/
+*.tmp
+
+# Archivos de entorno y editores
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -23,12 +29,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
-# Proteger archivos físicos de claves de servicio
-serviceAccountKey.json
-firebase-key.json
-*.pem
-# Proteger archivos físicos de claves de servicio
-serviceAccountKey.json
-firebase-key.json
-*.pem
 
+# Claves de servicio y credenciales
+serviceAccountKey.json
+firebase-key.json
+*.pem
