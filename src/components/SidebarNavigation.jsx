@@ -41,15 +41,31 @@ export default function SidebarNavigation({
 
       {/* BRANDING LOGO */}
       <div 
-        className="p-6 flex items-center space-x-3 border-b border-[#0066ff1a] shrink-0 shadow-[0_4px_20px_rgba(0,102,255,0.05)] overflow-hidden"
+        className="p-6 flex items-center gap-3 border-b border-[#0066ff1a] shrink-0 shadow-[0_4px_20px_rgba(0,102,255,0.05)] overflow-hidden"
         style={{ background: 'radial-gradient(circle at 50% 50%, rgba(0, 102, 255, 0.15) 0%, transparent 70%)' }}
       >
-        <div className="w-8 h-8 shrink-0 bg-gradient-to-br from-[#0055ff] to-[#00aaff] rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(0,102,255,0.4)]">
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+        {/* Isotipo de Escudo con resplandor (Glow) */}
+        <div className="relative flex items-center justify-center shrink-0">
+          {/* Efecto de luz de fondo */}
+          <div className="absolute -inset-1 rounded-full bg-cyan-500/20 blur-md"></div>
+          <svg 
+            className="relative w-8 h-8 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]" 
+            viewBox="0 0 24 24" 
+            fill="currentColor"
+          >
+            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+          </svg>
         </div>
-        <div className={`transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0' : 'w-auto opacity-100'}`}>
-          <h1 className="text-sm font-black text-white tracking-tight drop-shadow-md">GCM Auditor v5</h1>
-          <p className="text-[8px] text-[#6b96c3] font-bold uppercase tracking-widest mt-0.5">Auditoría • Riesgos • Cumplimiento</p>
+
+        {/* Texto Principal y Subtítulo dinámico */}
+        <div className={`flex flex-col justify-center transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0 overflow-hidden hidden' : 'w-auto opacity-100'}`}>
+          <div className="flex items-baseline gap-1.5 leading-none">
+            <span className="text-lg font-black text-white tracking-tight drop-shadow-md">GCM</span>
+            <span className="text-sm font-normal text-cyan-300/90 tracking-wide">ENTERPRISE</span>
+          </div>
+          <span className="text-[7.5px] font-bold text-[#6b96c3] tracking-[0.18em] uppercase mt-1">
+            GOVERNANCE • COMPLIANCE • MANAGEMENT
+          </span>
         </div>
       </div>
 
