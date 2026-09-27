@@ -1107,11 +1107,11 @@ let totalMonto;
     if (!alertasFiltradas || alertasFiltradas.length === 0) return [];
 
     let baseParaMostrar;
-    // 🛡️ ANTI-CONGELAMIENTO: Si no hay nadie seleccionado, graficamos máximo 20 para no explotar la RAM del navegador. La tabla inferior mostrará a todos de igual forma.
     if (empleadosSeleccionados.length > 0) {
       baseParaMostrar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
     } else {
-      baseParaMostrar = alertasFiltradas.slice(0, 20); 
+      // ⚠️ CAMBIO: Se remueve el límite de 20 para enviar todos los datos a la gráfica
+      baseParaMostrar = alertasFiltradas; 
     }
 
     return baseParaMostrar.map(emp => {
@@ -1797,8 +1797,10 @@ disabled={isAnalyzing || listaBases.length === 0}
                       <h4 className="text-xs font-extrabold text-slate-800 uppercase mb-1">1. Horas de extras y recargos por trabajador</h4>
                       <p className="text-[11px] text-slate-500 mb-3">Comparación de las horas registradas por concepto acumulado.</p>
                       
-                      <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                      {/* Envolvemos en overflow-x-auto y calculamos un ancho dinámico (45px por empleado) para evitar que las barras colapsen */}
+                      <div className="h-72 w-full overflow-x-auto scrollbar-thin">
+                        <div style={{ minWidth: `${Math.max(100, (empleadosSeleccionados.length > 0 ? empleadosSeleccionados.length : dataGraficasApiladas.length) * 45)}px`, height: '100%' }}>
+                          <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(d => empleadosSeleccionados.some(e => e.cedula === d.cedula)) : dataGraficasApiladas}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                             <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
@@ -1844,6 +1846,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                             })}
                           </BarChart>
                         </ResponsiveContainer>
+                        </div>
                       </div>
                     </div>
 
@@ -1852,8 +1855,9 @@ disabled={isAnalyzing || listaBases.length === 0}
                       <h4 className="text-xs font-extrabold text-slate-800 uppercase mb-1">2. Valor pagado por extras y recargos</h4>
                       <p className="text-[11px] text-slate-500 mb-3">Valor acumulado registrado en nómina por concepto.</p>
                       
-                      <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                      <div className="h-72 w-full overflow-x-auto scrollbar-thin">
+                        <div style={{ minWidth: `${Math.max(100, (empleadosSeleccionados.length > 0 ? empleadosSeleccionados.length : dataGraficasApiladas.length) * 45)}px`, height: '100%' }}>
+                          <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(d => empleadosSeleccionados.some(e => e.cedula === d.cedula)) : dataGraficasApiladas}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                             <XAxis dataKey="nombre" stroke="#475569" fontSize={11} fontWeight="bold" />
@@ -1899,6 +1903,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                             })}
                           </BarChart>
                         </ResponsiveContainer>
+                        </div>
                       </div>
                     </div>
                   </div>
