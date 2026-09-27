@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../services/firebase';
+import { apiService } from '../services/apiService';
 
 export default function MiPerfil({ user, isAdmin, showNotification, safeProgramas = [], informesAuditoria = [], safePlanes = [] }) {
 const [activeTab, setActiveTab] = useState('perfil');
@@ -85,21 +86,9 @@ const [notificacionesActivas, setNotificacionesActivas] = useState(true);
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
     const fileToUpload = new File([originalFile], nombreLimpio, { type: originalFile.type });
 
-    const formData = new FormData();
-    formData.append('appName', 'controlInterno');
-    formData.append('description', 'Foto de Perfil GCM');
-    formData.append('file', fileToUpload);
-
     try {
-      const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload', { 
-        method: 'POST', 
-        body: formData 
-      });
-      
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-      
-      const data = await response.json();
-      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+      const data = await apiService.subirEvidencia(fileToUpload, { appName: 'controlInterno' });
+      const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
       
       setPhotoURL(urlFinal); // Guardamos la URL pública (enlace real)
       showNotification('Imagen subida temporalmente. Clic en Guardar para aplicar.', 'info');
@@ -134,21 +123,10 @@ const handleResetPassword = async () => {
       }
 
       // 2. 🔒 Envío seguro al servidor Backend para actualizar en Firestore sin manipular roles
-      const response = await fetch('/api/auth/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          nombreResponsable: displayName.trim(),
-          cargo: cargo.trim()
-        })
+      await apiService.updateProfile({
+        nombreResponsable: displayName.trim(),
+        cargo: cargo.trim()
       });
-
-      const data = await response.json();
-
-    if (!response.ok) {
-        throw new Error(data.error || 'Fallo al guardar el perfil en el servidor');
-      }
 
       showNotification('Perfil actualizado de forma segura en el servidor.', 'success');
       setIsEditing(false);  
