@@ -24,7 +24,7 @@ async function request(endpoint, options = {}) {
 
   const response = await fetch(endpoint, config);
 
- let data = null;
+  let data = null;
   try {
     data = await response.json();
   } catch {
@@ -65,6 +65,18 @@ export const apiService = {
     body: { partialData }
   }),
 
+  // 🛡️ MATRICES DE RIESGO (ISO 31000 / E-GE-MAN-001)
+  getRiesgos: () => request('/api/grc/riesgos'),
+
+  saveRiesgo: (riesgoData) => request('/api/grc/riesgos', {
+    method: 'POST',
+    body: riesgoData
+  }),
+
+  deleteRiesgo: (id) => request(`/api/grc/riesgos?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  }),
+
   // 🤖 AUDITORÍA E INTELIGENCIA ARTIFICIAL
   consultarAuditor: (payload) => request('/api/grc/audit', {
     method: 'POST',
@@ -82,6 +94,7 @@ export const apiService = {
     method: 'POST',
     body: payload
   }),
+
   // 📜 HISTÓRICO, NÓMINA Y MARCACIONES
   getHistorico: (params = {}) => {
     const query = new URLSearchParams(params).toString();
