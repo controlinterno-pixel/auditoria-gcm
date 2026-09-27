@@ -198,12 +198,27 @@ const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
   const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
-  // 📜 Restablecer el scroll arriba del todo al cambiar de módulo o subpestaña
+  // 📜 Restablecer el scroll arriba del todo al cambiar de módulo o subpestaña (Garantizado)
   useEffect(() => {
-    const mainArea = document.getElementById('main-scroll-area');
-    if (mainArea) {
-      mainArea.scrollTop = 0;
-    }
+    const resetScroll = () => {
+      const mainArea = document.getElementById('main-scroll-area');
+      if (mainArea) {
+        // 'instant' invalida la animación suave que interrumpe el salto
+        mainArea.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    };
+
+    // 1. Ejecución inmediata
+    resetScroll();
+
+    // 2. Ejecución diferida para vencer cargas asíncronas y renderizado de Suspense
+    const rafId = requestAnimationFrame(() => {
+      resetScroll();
+      setTimeout(resetScroll, 60);
+    });
+
+    return () => cancelAnimationFrame(rafId);
   }, [activeTab, subTabPlanificar, subTabResultados, subTabPlanes, subTabGobernanza]);
   // 🛑 SI VIENE DEL CORREO, INTERCEPTAMOS Y MOSTRAMOS LA PANTALLA NUEVA
   if (isResettingPassword) return <ResetPassword oobCode={oobCode} />;
@@ -269,7 +284,7 @@ return (
         
 <main id="main-scroll-area" className={`flex-grow overflow-y-auto ${isPresentationMode ? 'p-12' : 'p-8'} bg-slate-50 warm:bg-[#FCFBF8] warm:text-[#4A3F35] dark:bg-[#070f1e] dark:text-slate-300 scroll-smooth relative transition-colors duration-500`}>
           <Suspense fallback={<div className="flex justify-center items-center p-12 text-slate-400 font-bold text-sm uppercase tracking-widest animate-pulse">⏳ Cargando módulo...</div>}>
-          <div className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
+<div key={`${activeTab}-${subTabPlanificar}-${subTabResultados}-${subTabPlanes}-${subTabGobernanza}`} className={`${isPresentationMode ? 'max-w-none' : 'max-w-7xl'} mx-auto transition-all duration-500`}>
           {/* 🏠 FASE 0: MI ESPACIO DE TRABAJO (Bandeja Ejecutiva + Expediente Único + Dashboard) */}
             {activeTab === 'tablero' && (
               <MiEspacio
