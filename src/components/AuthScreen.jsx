@@ -7,8 +7,19 @@ import {
   sendPasswordResetEmail,
   signOut
 } from 'firebase/auth';
+import { 
+  Mail, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  ShieldCheck, 
+  BarChart3, 
+  Users, 
+  Leaf, 
+  ArrowRight,
+  UserCheck
+} from 'lucide-react';
 
-// 🔗 IMPORTAMOS TUS DICCIONARIOS REALES DE GRC
 import { MAPA_PROCESOS, CARGOS_SOCIALIZACION } from '../constants/diccionariosGRC';
 
 export default function AuthScreen() {
@@ -233,143 +244,351 @@ export default function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-lg w-full bg-white rounded-3xl p-8 shadow-2xl border border-slate-100">
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-slate-950 overflow-hidden font-sans select-none p-4 sm:p-6">
+      
+      {/* 1. Imagen de Fondo de Termales */}
+      <div 
+        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat scale-105 transition-transform duration-1000"
+        style={{ backgroundImage: "url('/cascada.jpg')" }}
+      />
+      <div className="absolute inset-0 z-10 bg-slate-950/35 backdrop-blur-[2px]" />
+
+      {/* 2. Navegación Superior Derecha */}
+      <div className="absolute top-6 right-8 z-20 hidden md:flex items-center space-x-2 text-[11px] font-bold tracking-widest text-white/90 uppercase drop-shadow-md">
+        <span className="text-emerald-400">|</span>
+        <span>AUDITORÍA</span>
+        <span className="text-emerald-400">|</span>
+        <span>CONTROL</span>
+        <span className="text-emerald-400">|</span>
+        <span>RESULTADOS</span>
+      </div>
+
+      {/* 3. Panel Izquierdo Corporativo (Branding) */}
+      <div className="absolute left-0 top-0 bottom-0 w-[44%] z-20 hidden lg:flex flex-col justify-between p-12 bg-gradient-to-r from-[#031326]/95 via-[#071c36]/85 to-transparent text-white">
         
-        {/* Encabezado con Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-block p-2 bg-white rounded-2xl mb-3 shadow-sm border border-slate-100">
-            <img src="/logo_termales.png" alt="Logo Termales Santa Rosa de Cabal" className="w-16 h-16 object-contain mx-auto" />
-          </div>
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">GCM Auditor v5</h1>
-          <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">Termales Santa Rosa de Cabal</p>
+        <div className="flex items-center space-x-3">
+          <img 
+            src="/logo_termales.png" 
+            alt="Termales Santa Rosa de Cabal" 
+            className="h-16 w-auto object-contain drop-shadow-md"
+          />
         </div>
 
-        {isRegistering ? (
-          // 📝 FORMULARIO DE REGISTRO
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="border-b pb-2 mb-4">
-              <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Registro de Nuevo Colaborador</h3>
-              <p className="text-[11px] text-slate-400">Ingresa tus datos institucionales completos</p>
-            </div>
+        <div className="space-y-6 max-w-md">
+          <div className="space-y-3">
+            <div className="w-10 h-1 bg-emerald-400 rounded-full" />
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight drop-shadow-md">
+              Auditoría que genera <br />
+              <span className="text-white">confianza</span>
+            </h1>
+            <p className="text-xs text-slate-200 font-medium leading-relaxed drop-shadow-sm">
+              Tecnología, control y análisis para tomar mejores decisiones.
+            </p>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Nombre Completo *</label>
-                <input type="text" required placeholder="Ej. Ana María Gómez" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none" />
+          <div className="space-y-4 pt-2">
+            <div className="flex items-start space-x-3">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Cargo / Puesto *</label>
-                <select required value={cargo} onChange={(e) => setCargo(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700">
-                  <option value="">-- Seleccionar --</option>
-                  {CARGOS_OPCIONES.map((item, idx) => (<option key={`cargo-${idx}`} value={item}>{item}</option>))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Macroproceso / Área *</label>
-              <select required value={area} onChange={(e) => setArea(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700">
-                <option value="">-- Seleccionar Proceso --</option>
-                {AREAS_OPCIONES.map((item, idx) => (<option key={`area-${idx}`} value={item}>{item}</option>))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Correo Institucional (@termales.com.co) *</label>
-              <input type="email" required placeholder="usuario@termales.com.co" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono" />
-            </div>
-
-            {/* CONTRASEÑA CON OJITO Y CONFIRMACIÓN */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-[10px] font-black uppercase text-slate-500">Contraseña Segura *</label>
-                </div>
-                <div className="relative">
-                  <input type={showPassword ? "text" : "password"} required placeholder="Mín. 8 caracteres..." value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none pr-10" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 transition-colors text-sm">
-                    {showPassword ? "👁️" : "🙈"}
-                  </button>
-                </div>
-                {password && (
-                  <div className="w-full mt-2">
-                    <span className="text-[9px] font-bold block mb-1">{getPasswordStrength(password).label}</span>
-                    <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
-                      <div className={`h-full transition-all duration-300 ${getPasswordStrength(password).color}`} style={{ width: `${getPasswordStrength(password).score}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Confirmar Contraseña *</label>
-                <div className="relative">
-                  <input type={showConfirmPassword ? "text" : "password"} required placeholder="Repite tu contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-3 py-2 text-xs font-semibold focus:ring-2 outline-none pr-10 ${confirmPassword && password !== confirmPassword ? 'border-red-400 focus:ring-red-500' : 'border-slate-200 focus:ring-blue-500'}`} />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 transition-colors text-sm">
-                    {showConfirmPassword ? "👁️" : "🙈"}
-                  </button>
-                </div>
+                <h4 className="text-xs font-bold text-white">Transparencia</h4>
+                <p className="text-[11px] text-slate-300">Procesos más seguros</p>
               </div>
             </div>
 
-            {/* CHECKBOX HABEAS DATA */}
-            <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
-              <input 
-                type="checkbox" 
-                id="habeasData" 
-                checked={habeasDataAccepted} 
-                onChange={(e) => setHabeasDataAccepted(e.target.checked)}
-                className="mt-1 w-4 h-4 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
-              />
-              <label htmlFor="habeasData" className="text-[10px] text-slate-600 leading-tight cursor-pointer">
-                Autorizo a Termales Santa Rosa de Cabal el tratamiento de mis datos personales según las políticas de privacidad y acepto mantener la confidencialidad de la información interna gestionada en esta plataforma de auditoría.
-              </label>
+            <div className="flex items-start space-x-3">
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Eficiencia</h4>
+                <p className="text-[11px] text-slate-300">Resultados en tiempo real</p>
+              </div>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all mt-2 disabled:opacity-50">
-              {loading ? "Creando cuenta..." : "Crear Cuenta y Enviar Verificación ✉️"}
-            </button>
-          </form>
+            <div className="flex items-start space-x-3">
+              <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 shrink-0">
+                <Users className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Trabajo en equipo</h4>
+                <p className="text-[11px] text-slate-300">Un mismo objetivo</p>
+              </div>
+            </div>
 
-        ) : (
+            <div className="flex items-start space-x-3">
+              <div className="p-2 rounded-lg bg-teal-500/10 text-teal-400 border border-teal-500/20 shrink-0">
+                <Leaf className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">Sostenibilidad</h4>
+                <p className="text-[11px] text-slate-300">Un futuro responsable</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-[11px] font-semibold text-slate-300 tracking-wider">
+          Eje Cafetero - Colombia
+        </div>
+      </div>
+
+      {/* 4. Tarjeta Formulario (Login / Registro) */}
+      <div className="relative z-30 w-full max-w-md my-auto lg:ml-[22%]">
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/60 text-slate-800 space-y-5 animate-in fade-in zoom-in-95 duration-500 max-h-[90vh] overflow-y-auto">
           
-          // 🔐 FORMULARIO DE LOGIN
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Correo Corporativo</label>
-              <input type="email" required placeholder="usuario@termales.com.co" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">Contraseña</label>
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none pr-10" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors text-sm">
-                  {showPassword ? "👁️" : "🙈"}
+          {/* Header */}
+          <div className="text-center space-y-1">
+            <img 
+              src="/logo_termales.png" 
+              alt="Logo Termales" 
+              className="h-12 w-auto mx-auto object-contain mb-1"
+            />
+            <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
+              SISTEMA DE AUDITORÍA
+            </p>
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+              GCM Auditor v5
+            </h2>
+            <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
+              TERMALES SANTA ROSA DE CABAL
+            </p>
+            <div className="w-10 h-0.5 bg-emerald-500 mx-auto rounded-full mt-2" />
+          </div>
+
+          {isRegistering ? (
+            /* 📝 FORMULARIO DE REGISTRO COMPLETO */
+            <form onSubmit={handleRegister} className="space-y-3 text-left">
+              <div className="border-b pb-2 mb-2">
+                <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Registro de Nuevo Colaborador</h3>
+                <p className="text-[10px] text-slate-400">Ingresa tus datos institucionales completos</p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Nombre Completo *</label>
+                <div className="relative">
+                  <UserCheck className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="Ej. Ana María Gómez" 
+                    value={nombre} 
+                    onChange={(e) => setNombre(e.target.value)} 
+                    className="w-full bg-slate-100/80 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Cargo *</label>
+                  <select 
+                    required 
+                    value={cargo} 
+                    onChange={(e) => setCargo(e.target.value)} 
+                    className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+                  >
+                    <option value="">-- Seleccionar --</option>
+                    {CARGOS_OPCIONES.map((item, idx) => (
+                      <option key={`cargo-${idx}`} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Macroproceso / Área *</label>
+                  <select 
+                    required 
+                    value={area} 
+                    onChange={(e) => setArea(e.target.value)} 
+                    className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"
+                  >
+                    <option value="">-- Proceso --</option>
+                    {AREAS_OPCIONES.map((item, idx) => (
+                      <option key={`area-${idx}`} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Correo Institucional *</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="email" 
+                    required 
+                    placeholder="usuario@termales.com.co" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    className="w-full bg-slate-100/80 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none font-mono" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Contraseña *</label>
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      required 
+                      placeholder="Mín. 8 caract..." 
+                      value={password} 
+                      onChange={(e) => setPassword(e.target.value)} 
+                      className="w-full bg-slate-100/80 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold focus:ring-2 focus:ring-blue-500 outline-none pr-8" 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)} 
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  {password && (
+                    <div className="w-full mt-1">
+                      <span className="text-[8px] font-bold block mb-0.5">{getPasswordStrength(password).label}</span>
+                      <div className="w-full bg-slate-200 rounded-full h-1 overflow-hidden">
+                        <div className={`h-full transition-all duration-300 ${getPasswordStrength(password).color}`} style={{ width: `${getPasswordStrength(password).score}%` }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase text-slate-600 mb-1">Confirmar *</label>
+                  <div className="relative">
+                    <input 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      required 
+                      placeholder="Repite clave" 
+                      value={confirmPassword} 
+                      onChange={(e) => setConfirmPassword(e.target.value)} 
+                      className={`w-full bg-slate-100/80 border rounded-xl px-2.5 py-2 text-xs font-semibold focus:ring-2 outline-none pr-8 ${confirmPassword && password !== confirmPassword ? 'border-red-400 focus:ring-red-500' : 'border-slate-200 focus:ring-blue-500'}`} 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-slate-100/80 border border-slate-200 rounded-xl flex items-start gap-2">
+                <input 
+                  type="checkbox" 
+                  id="habeasData" 
+                  checked={habeasDataAccepted} 
+                  onChange={(e) => setHabeasDataAccepted(e.target.checked)}
+                  className="mt-0.5 w-3.5 h-3.5 text-blue-600 bg-white border-slate-300 rounded focus:ring-blue-500 cursor-pointer"
+                />
+                <label htmlFor="habeasData" className="text-[9px] text-slate-600 leading-tight cursor-pointer">
+                  Autorizo a Termales Santa Rosa de Cabal el tratamiento de mis datos personales según las políticas de privacidad y acepto mantener la confidencialidad de la información interna.
+                </label>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading} 
+                className="w-full bg-[#0b2239] hover:bg-[#133252] text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg transition-all hover:scale-[1.01] disabled:opacity-50 mt-1"
+              >
+                <span>{loading ? "Creando cuenta..." : "Crear Cuenta y Enviar Verificación ✉️"}</span>
+                {!loading && <ArrowRight className="w-4 h-4" />}
+              </button>
+            </form>
+
+          ) : (
+            
+            /* 🔐 FORMULARIO DE LOGIN */
+            <form onSubmit={handleLogin} className="space-y-4 text-left">
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-600">Correo corporativo</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="email" 
+                    required 
+                    placeholder="usuario@termales.com.co" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    className="w-full bg-slate-100/80 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all font-mono" 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-600">Contraseña</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    required 
+                    placeholder="••••••••" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    className="w-full bg-slate-100/80 border border-slate-200 rounded-xl py-3 pl-10 pr-10 text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)} 
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="text-right">
+                <button 
+                  type="button" 
+                  onClick={handleResetPassword} 
+                  className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
                 </button>
               </div>
-            </div>
-            
-            <div className="flex justify-end -mt-2 mb-2">
-              <button type="button" onClick={handleResetPassword} className="text-[10px] font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors">
-                ¿Olvidaste tu contraseña?
+
+              <button 
+                type="submit" 
+                disabled={loading || lockTimer > 0} 
+                className={`w-full text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 ${lockTimer > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-[#0b2239] hover:bg-[#133252]'}`}
+              >
+                <span>
+                  {loading ? "Verificando..." : lockTimer > 0 ? `Bloqueado (${lockTimer}s)` : "INICIAR SESIÓN"}
+                </span>
+                {!loading && lockTimer === 0 && <ArrowRight className="w-4 h-4" />}
+              </button>
+            </form>
+          )}
+
+          {/* Opciones Inferiores */}
+          <div className="pt-2 border-t border-slate-200/80 space-y-3 text-center">
+            <div className="text-xs text-slate-500 font-medium">
+              <span>{isRegistering ? "¿Ya tienes una cuenta?" : "¿Nuevo usuario?"} </span>
+              <button 
+                type="button"
+                onClick={() => {
+                  setIsRegistering(!isRegistering);
+                  setFailedAttempts(0);
+                  setLockTimer(0);
+                }} 
+                className="font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+              >
+                {isRegistering ? "Inicia sesión aquí" : "Crea tu cuenta con perfil extendido aquí"}
               </button>
             </div>
 
-            <button type="submit" disabled={loading || lockTimer > 0} className={`w-full text-white font-black text-xs uppercase tracking-widest py-3.5 rounded-xl shadow-lg transition-all disabled:opacity-50 ${lockTimer > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-800 hover:bg-slate-900'}`}>
-              {loading ? "Verificando..." : lockTimer > 0 ? `Bloqueado (${lockTimer}s)` : "Iniciar Sesión"}
-            </button>
-          </form>
-        )}
+            <div className="flex items-center justify-center space-x-1.5 text-[10px] font-semibold text-slate-400 pt-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+              <span>Tu información está protegida</span>
+            </div>
+          </div>
 
-        <div className="mt-6 text-center border-t pt-4">
-          <button onClick={() => {
-            setIsRegistering(!isRegistering);
-            setFailedAttempts(0); // Limpiar bloqueos al cambiar de vista
-            setLockTimer(0);
-          }} className="text-xs font-bold text-blue-600 hover:underline">
-            {isRegistering ? "¿Ya tienes una cuenta? Inicia Sesión aquí" : "¿Nuevo usuario? Crea tu cuenta con perfil extendido aquí"}
-          </button>
         </div>
       </div>
     </div>
