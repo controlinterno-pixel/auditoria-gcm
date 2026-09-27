@@ -372,7 +372,6 @@ export default function MiEspacio({
             value={procesoHomologado || ''}
             onChange={(e) => {
   if(setSelectedProceso) setSelectedProceso(e.target.value);
-  setPestanaActiva('resumen');
 }}
             className="bg-[#060b16] border border-blue-500/30 rounded-xl text-xs font-black py-3.5 px-4 text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-96 shadow-inner cursor-pointer"
           >
@@ -385,38 +384,8 @@ export default function MiEspacio({
 
         {expedienteSeleccionado ? (
   <>
-    {/* MENÚ DE PESTAÑAS */}
-    <div className="flex space-x-2 border-b border-slate-800/80 mb-2 mt-4 relative z-10 pl-6 sm:pl-10">
-      <button
-        onClick={() => setPestanaActiva('resumen')}
-        className={`px-5 py-3 font-black text-[10px] uppercase tracking-widest rounded-t-lg transition-colors border-t border-x ${
-          pestanaActiva === 'resumen' 
-            ? 'bg-blue-900/30 text-blue-400 border-blue-500/40 border-b-transparent shadow-[0_-4px_15px_rgba(59,130,246,0.1)]' 
-            : 'bg-[#060b16] text-slate-500 border-slate-800 border-b-transparent hover:text-slate-300'
-        }`}
-      >
-        📊 Resumen Ejecutivo
-      </button>
-      <button
-        onClick={() => setPestanaActiva('nodos')}
-        className={`px-5 py-3 font-black text-[10px] uppercase tracking-widest rounded-t-lg transition-colors border-t border-x ${
-          pestanaActiva === 'nodos' 
-            ? 'bg-blue-900/30 text-blue-400 border-blue-500/40 border-b-transparent shadow-[0_-4px_15px_rgba(59,130,246,0.1)]' 
-            : 'bg-[#060b16] text-slate-500 border-slate-800 border-b-transparent hover:text-slate-300'
-        }`}
-      >
-        ⚙️ Detalle Operativo (7 Nodos)
-      </button>
-    </div>
-{/* CONTENIDO DEL INFORME (PESTAÑA 1) */}
-    {pestanaActiva === 'resumen' && datosInformeIA && (
-      <div className="relative animate-in fade-in duration-500 pt-4 pl-6 sm:pl-10">
-        <InformeProceso datosProceso={datosInformeIA} />
-      </div>
-    )}
-    {/* CONTENIDO DE LOS NODOS (PESTAÑA 2) */}
-    {pestanaActiva === 'nodos' && (
-      <div className="relative animate-in fade-in duration-700 pl-6 sm:pl-10 pt-4 pb-4">            
+    {/* CONTENIDO DE LOS NODOS (EXPEDIENTE DIRECTO) */}
+    <div className="relative animate-in fade-in duration-700 pl-6 sm:pl-10 pt-6 pb-4">          
             <div className="absolute left-[34px] sm:left-[50px] top-8 bottom-8 w-[3px] bg-gradient-to-b from-blue-500 via-purple-500 to-emerald-500 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
 
             <div className="space-y-10 relative z-10">
@@ -620,7 +589,6 @@ export default function MiEspacio({
 
             </div>
           </div>
-)}
   </>
 ) : (
   <div className="text-center py-20 text-slate-500 border border-dashed border-blue-500/30 rounded-2xl bg-[#060b16]/50 flex flex-col items-center justify-center transition-colors">
