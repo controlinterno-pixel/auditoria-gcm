@@ -1,4 +1,4 @@
-import { useMemo, useCallback, lazy, Suspense } from 'react';
+import { useMemo, useCallback, lazy, Suspense, useState } from 'react';
 import { signOut } from 'firebase/auth'; 
 import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
@@ -47,8 +47,24 @@ import { defaultCronograma } from './constants/defaultData';
 // =====================================================================
 // 🛠️ FUNCIONES GLOBALES Y CÁLCULOS
 // =====================================================================
+// ⚡ Estado persistente para la barra colapsada
+const getInitialSidebarState = () => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('grc_sidebar_collapsed');
+    return saved === 'true';
+  }
+  return false;
+};
 
 export default function App() {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialSidebarState);
+
+  const toggleSidebar = () => {
+    const newVal = !isSidebarCollapsed;
+    setIsSidebarCollapsed(newVal);
+    localStorage.setItem('grc_sidebar_collapsed', String(newVal));
+  };
+
   const ui = useGrcUI();
 const {
     isResettingPassword, oobCode, activeTab, setActiveTab, menuAbierto, setMenuAbierto,
@@ -211,6 +227,8 @@ return (
 
 <SidebarNavigation 
         isPresentationMode={isPresentationMode}
+        isCollapsed={isSidebarCollapsed}
+        toggleSidebar={toggleSidebar}
         menuAbierto={menuAbierto}
         setMenuAbierto={setMenuAbierto}
         activeTab={activeTab}
