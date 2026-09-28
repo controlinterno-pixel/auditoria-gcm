@@ -118,6 +118,7 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     
   const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); 
+  const [conceptosSeleccionadosGrafica, setConceptosSeleccionadosGrafica] = useState(null);
   const [metricaGrafica, setMetricaGrafica] = useState('HORAS');
   const [empleadosSeleccionados, setEmpleadosSeleccionados] = useState([]); 
   const [empleadoModal, setEmpleadoModal] = useState(null);
@@ -1606,6 +1607,49 @@ disabled={isAnalyzing || listaBases.length === 0}
                     <option value="CONCEPTOS">📑 Ver línea por Conceptos</option>
                   </select>
                 )}
+                {modoDashboard === 'JORNADA' && agrupacionGrafica === 'CONCEPTOS' && datosHistoricos.conceptosJornada?.length > 0 && (
+                  <details className="relative">
+                    <summary className="list-none cursor-pointer rounded border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-xs font-bold text-amber-800 shadow-sm hover:bg-amber-100">
+                      📑 Conceptos: {conceptosSeleccionadosGrafica === null ? 'Todos' : `${conceptosSeleccionadosGrafica.length} seleccionados`} ▾
+                    </summary>
+                    <div className="absolute right-0 z-30 mt-2 max-h-72 w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
+                      <div className="sticky top-0 flex gap-2 border-b border-slate-100 bg-white pb-2">
+                        <button
+                          type="button"
+                          onClick={() => setConceptosSeleccionadosGrafica(null)}
+                          className="flex-1 rounded bg-amber-100 px-2 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-200"
+                        >
+                          Todos
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConceptosSeleccionadosGrafica([])}
+                          className="flex-1 rounded bg-slate-100 px-2 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-200"
+                        >
+                          Ninguno
+                        </button>
+                      </div>
+                      <div className="space-y-1 pt-2">
+                        {datosHistoricos.conceptosJornada.map((concepto) => (
+                          <label key={concepto} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-amber-50">
+                            <input
+                              type="checkbox"
+                              checked={conceptosSeleccionadosGrafica === null || conceptosSeleccionadosGrafica.includes(concepto)}
+                              onChange={() => setConceptosSeleccionadosGrafica((actuales) => {
+                                const seleccion = actuales ?? datosHistoricos.conceptosJornada;
+                                return seleccion.includes(concepto)
+                                  ? seleccion.filter((item) => item !== concepto)
+                                  : [...seleccion, concepto];
+                              })}
+                              className="h-3.5 w-3.5 accent-amber-600"
+                            />
+                            <span>{concepto}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </details>
+                )}
                 <button 
                   onClick={() => setVerTendencias(!verTendencias)}
                   className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded border border-blue-200"
@@ -1723,6 +1767,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                 empleadosAAnalizar.forEach(emp => {
                                   datosHistoricos.conceptosJornada.forEach(conceptoName => {
                                     if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return;
+                                    if (conceptosSeleccionadosGrafica && !conceptosSeleccionadosGrafica.includes(conceptoName)) return;
                                     if (!emp.desgloseConceptosJornada || !emp.desgloseConceptosJornada[conceptoName]) return;
                                     
                                     const llaveCruzada = `${conceptoName}_${emp.cedula}`;
@@ -1744,6 +1789,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                 const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
                                 
                                 if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
+                                if (conceptosSeleccionadosGrafica && !conceptosSeleccionadosGrafica.includes(conceptoName)) return null;
                                 
                                 let tieneValoresMes = false;
                                 tendenciasDinamicas.forEach(mesData => {
