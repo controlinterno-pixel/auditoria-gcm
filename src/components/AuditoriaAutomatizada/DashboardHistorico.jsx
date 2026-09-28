@@ -106,6 +106,8 @@ const DashboardHistorico = () => {
   // --- FILTROS AVANZADOS Y TENDENCIAS ---
   const [busqueda, setBusqueda] = useState('');
   const [busquedaCargoProceso, setBusquedaCargoProceso] = useState('');
+  const [metricaRankingJornada, setMetricaRankingJornada] = useState('HORAS');
+  const [conceptosRankingSeleccionados, setConceptosRankingSeleccionados] = useState(null);
   const [filtroUnidad, setFiltroUnidad] = useState('TODOS');
   const [filtroProceso, setFiltroProceso] = useState([]); 
   const [filtroCargo, setFiltroCargo] = useState([]);     
@@ -967,18 +969,38 @@ const estaPersonaSeleccionada = (persona) =>
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .trim();
-    if (!termino) return alertasFiltradas;
-
-    return alertasFiltradas.filter(alerta =>
-      [alerta.cargo, alerta.proceso].some(valor =>
+    return alertasFiltradas
+      .filter(alerta => !termino || [alerta.cargo, alerta.proceso].some(valor =>
         String(valor || '')
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
           .toLowerCase()
           .includes(termino)
-      )
-    );
-  }, [alertasFiltradas, busquedaCargoProceso]);
+      ))
+      .map(alerta => {
+        let horasRanking = alerta.totalHorasVisual || 0;
+        let dineroRanking = alerta.totalDineroVisual || 0;
+        const conceptosActivos = modoDashboard === 'JORNADA' ? conceptosRankingSeleccionados : null;
+        if (conceptosActivos !== null) {
+          horasRanking = 0;
+          dineroRanking = 0;
+          conceptosActivos.forEach(concepto => {
+            const metricas = alerta.desgloseConceptosJornada?.[concepto];
+            horasRanking += metricas?.horas || 0;
+            dineroRanking += metricas?.valor || 0;
+          });
+        }
+        return { ...alerta, horasRanking, dineroRanking };
+      })
+      .filter(alerta => modoDashboard !== 'JORNADA' || conceptosRankingSeleccionados === null || alerta.horasRanking > 0 || alerta.dineroRanking > 0)
+      .sort((a, b) => {
+        const ordenarPorDinero = modoDashboard === 'TRANSPORTE' || metricaRankingJornada === 'DINERO';
+        const diferenciaPrincipal = ordenarPorDinero
+          ? b.dineroRanking - a.dineroRanking
+          : b.horasRanking - a.horasRanking;
+        return diferenciaPrincipal || (b.dineroRanking - a.dineroRanking);
+      });
+  }, [alertasFiltradas, busquedaCargoProceso, conceptosRankingSeleccionados, metricaRankingJornada, modoDashboard]);
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
   const tendenciasDinamicas = React.useMemo(() => {
@@ -2564,13 +2586,13 @@ disabled={isAnalyzing || listaBases.length === 0}
             })()}
           </div>
 
-          <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
-            <div className="bg-slate-100 p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="bg-white rounded-xl shadow-md border border-slate-200 overflow-visible">
+            <div className="bg-slate-100 p-4 border-b border-slate-200 rounded-t-xl flex flex-col md:flex-row justify-between items-center gap-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <span>⚠️</span> Ranking de Riesgo Histórico — <span className="text-blue-700 font-extrabold">{filtroUnidad}</span>
                 <span className="text-xs font-semibold text-slate-500">({alertasTablaFiltradas.length})</span>
               </h3>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 <input
                   type="search"
                   value={busquedaCargoProceso}
@@ -2579,6 +2601,64 @@ disabled={isAnalyzing || listaBases.length === 0}
                   aria-label="Filtrar por cargo o proceso"
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:w-64"
                 />
+
+                {modoDashboard === 'JORNADA' && (
+                  <>
+                    <select
+                      value={metricaRankingJornada}
+                      onChange={(e) => setMetricaRankingJornada(e.target.value)}
+                      aria-label="Ordenar ranking por"
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 shadow-sm outline-none focus:border-blue-500"
+                    >
+                      <option value="HORAS">⏱️ Ordenar por horas</option>
+                      <option value="DINERO">💰 Ordenar por dinero</option>
+                    </select>
+
+                    {datosHistoricos.conceptosJornada?.length > 0 && (
+                      <details className="relative">
+                        <summary className="list-none cursor-pointer rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 shadow-sm hover:bg-amber-100">
+                          📑 Conceptos: {conceptosRankingSeleccionados === null ? 'Todos' : `${conceptosRankingSeleccionados.length} seleccionados`} ▾
+                        </summary>
+                        <div className="absolute right-0 z-50 mt-2 max-h-72 w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
+                          <div className="sticky top-0 flex gap-2 border-b border-slate-100 bg-white pb-2">
+                            <button
+                              type="button"
+                              onClick={() => setConceptosRankingSeleccionados(null)}
+                              className="flex-1 rounded bg-amber-100 px-2 py-1.5 text-[11px] font-bold text-amber-800 hover:bg-amber-200"
+                            >
+                              Todos
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConceptosRankingSeleccionados([])}
+                              className="flex-1 rounded bg-slate-100 px-2 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-200"
+                            >
+                              Ninguno
+                            </button>
+                          </div>
+                          <div className="space-y-1 pt-2">
+                            {datosHistoricos.conceptosJornada.map(concepto => (
+                              <label key={concepto} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-amber-50">
+                                <input
+                                  type="checkbox"
+                                  checked={conceptosRankingSeleccionados === null || conceptosRankingSeleccionados.includes(concepto)}
+                                  onChange={() => setConceptosRankingSeleccionados(actuales => {
+                                    const seleccion = actuales ?? datosHistoricos.conceptosJornada;
+                                    return seleccion.includes(concepto)
+                                      ? seleccion.filter(item => item !== concepto)
+                                      : [...seleccion, concepto];
+                                  })}
+                                  className="h-3.5 w-3.5 accent-amber-600"
+                                />
+                                <span>{concepto}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </details>
+                    )}
+                  </>
+                )}
 
                 {/* SELECTOR DE TIPO DE ALERTA (SOLO EN JORNADA) */}
                 {modoDashboard === 'JORNADA' && (
@@ -2610,7 +2690,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                     <th className="p-4">Empleado</th>
                     <th className="p-4">Cargo / Proceso</th>
                     <th className="p-4 text-center">{modoDashboard === 'JORNADA' ? 'Periodos c/Extras' : 'Periodos c/Fuga'}</th>
-                    <th className="p-4 text-right">{modoDashboard === 'JORNADA' ? 'Total Hrs Extras y Recargos' : 'Total Fuga Financiera'}</th>
+                    <th className="p-4 text-right">{modoDashboard === 'JORNADA' ? (metricaRankingJornada === 'HORAS' ? 'Total Hrs Extras y Recargos' : 'Total Dinero Extras y Recargos') : 'Total Fuga Financiera'}</th>
                     <th className="p-4">Diagnóstico del Motor</th>
                   </tr>
                 </thead>
@@ -2660,10 +2740,17 @@ disabled={isAnalyzing || listaBases.length === 0}
                         </td>
                         <td className="p-4 text-right">
                           {modoDashboard === 'JORNADA' ? (
-                            <>
-                              <span className="font-extrabold text-rose-600 text-lg">{alerta.totalHorasVisual.toFixed(1)}</span> hrs
-                              <span className="block text-[10px] text-slate-500 font-bold mt-0.5">${alerta.totalDineroVisual.toLocaleString('es-CO')}</span>
-                            </>
+                            metricaRankingJornada === 'HORAS' ? (
+                              <>
+                                <span className="font-extrabold text-rose-600 text-lg">{alerta.horasRanking.toFixed(1)}</span> hrs
+                                <span className="block text-[10px] text-slate-500 font-bold mt-0.5">${alerta.dineroRanking.toLocaleString('es-CO')}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="font-extrabold text-rose-600 text-lg">${alerta.dineroRanking.toLocaleString('es-CO')}</span>
+                                <span className="block text-[10px] text-slate-500 font-bold mt-0.5">{alerta.horasRanking.toFixed(1)} hrs</span>
+                              </>
+                            )
                           ) : (
                             <span className="font-extrabold text-rose-600 text-lg">${alerta.totalDineroVisual.toLocaleString('es-CO')}</span>
                           )}
