@@ -1238,7 +1238,10 @@ let totalMonto;
 
     if (minutosDelDia >= 22 * 60 + 50 || minutosDelDia < 60) return 'Nocturno (22:50-00:59)';
     if (minutosDelDia === 6 * 60 + 30 || minutosDelDia === 7 * 60) return 'Mañana (06:30 / 07:00)';
-    if (minutosDelDia >= 15 * 60 + 10 && minutosDelDia <= 16 * 60 + 15) return 'Tarde (15:10-16:15)';
+    if (minutosDelDia === 8 * 60 || minutosDelDia === 9 * 60) return 'Mañana (08:00 / 09:00)';
+    if (minutosDelDia === 11 * 60) return 'Turno de las 11:00';
+    if (minutosDelDia === 13 * 60 || minutosDelDia === 14 * 60) return 'Turno (13:00 / 14:00)';
+    if (minutosDelDia >= 14 * 60 + 30 && minutosDelDia <= 16 * 60 + 20) return 'Tarde (14:30-16:20)';
     return texto;
   };
 
@@ -2608,7 +2611,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                     <th className="p-4">Empleado</th>
                     <th className="p-4">Cargo / Proceso</th>
                     <th className="p-4 text-center">{modoDashboard === 'JORNADA' ? 'Periodos c/Extras' : 'Periodos c/Fuga'}</th>
-                    <th className="p-4 text-right">{modoDashboard === 'JORNADA' ? 'Total Hrs Extras' : 'Total Fuga Financiera'}</th>
+                    <th className="p-4 text-right">{modoDashboard === 'JORNADA' ? 'Total Hrs Extras y Recargos' : 'Total Fuga Financiera'}</th>
                     <th className="p-4">Diagnóstico del Motor</th>
                   </tr>
                 </thead>
