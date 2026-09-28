@@ -105,6 +105,7 @@ const DashboardHistorico = () => {
 
   // --- FILTROS AVANZADOS Y TENDENCIAS ---
   const [busqueda, setBusqueda] = useState('');
+  const [busquedaCargoProceso, setBusquedaCargoProceso] = useState('');
   const [filtroUnidad, setFiltroUnidad] = useState('TODOS');
   const [filtroProceso, setFiltroProceso] = useState([]); 
   const [filtroCargo, setFiltroCargo] = useState([]);     
@@ -944,6 +945,25 @@ const esMismoEmpleado = (nom1, nom2) => {
       return cumpleFiltrosBase;
     });
   }, [coleccionRecalculada, busqueda, empleadosSeleccionados, filtroUnidad, filtroProceso, filtroCargo, filtroPeriodo, filtroAlerta, modoDashboard, filtroConceptoJornada]);
+
+  const alertasTablaFiltradas = React.useMemo(() => {
+    const termino = busquedaCargoProceso
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    if (!termino) return alertasFiltradas;
+
+    return alertasFiltradas.filter(alerta =>
+      [alerta.cargo, alerta.proceso].some(valor =>
+        String(valor || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .includes(termino)
+      )
+    );
+  }, [alertasFiltradas, busquedaCargoProceso]);
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
   const tendenciasDinamicas = React.useMemo(() => {
@@ -2453,25 +2473,36 @@ disabled={isAnalyzing || listaBases.length === 0}
             <div className="bg-slate-100 p-4 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <span>⚠️</span> Ranking de Riesgo Histórico — <span className="text-blue-700 font-extrabold">{filtroUnidad}</span>
+                <span className="text-xs font-semibold text-slate-500">({alertasTablaFiltradas.length})</span>
               </h3>
-              
-              {/* SELECTOR DE TIPO DE ALERTA (SOLO EN JORNADA) */}
-              {modoDashboard === 'JORNADA' && (
-                <div className="flex items-center gap-2 text-xs font-bold bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm">
-                  <span className="text-slate-500">Filtrar Diagnóstico:</span>
-                  <select 
-                    value={filtroAlerta} 
-                    onChange={(e) => setFiltroAlerta(e.target.value)}
-                    className="bg-transparent border-none outline-none text-slate-800 cursor-pointer font-extrabold"
-                  >
-                    <option value="TODOS">🌐 Todas las Alertas</option>
-                    <option value="FAVORITISMO">💰 Financiera / Favoritismo</option>
-                    <option value="BURNOUT">🔥 Riesgo Burnout</option>
-                    <option value="CARGO_CORPORATIVO">🚨 Cargo Corporativo</option>
-                    <option value="RECURRENCIA">🔄 Recurrencia</option>
-                  </select>
-                </div>
-              )}
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <input
+                  type="search"
+                  value={busquedaCargoProceso}
+                  onChange={(e) => setBusquedaCargoProceso(e.target.value)}
+                  placeholder="Filtrar cargo o proceso..."
+                  aria-label="Filtrar por cargo o proceso"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:w-64"
+                />
+
+                {/* SELECTOR DE TIPO DE ALERTA (SOLO EN JORNADA) */}
+                {modoDashboard === 'JORNADA' && (
+                  <div className="flex items-center gap-2 text-xs font-bold bg-white px-3 py-1.5 rounded-lg border border-slate-300 shadow-sm">
+                    <span className="text-slate-500">Filtrar Diagnóstico:</span>
+                    <select 
+                      value={filtroAlerta} 
+                      onChange={(e) => setFiltroAlerta(e.target.value)}
+                      className="bg-transparent border-none outline-none text-slate-800 cursor-pointer font-extrabold"
+                    >
+                      <option value="TODOS">🌐 Todas las Alertas</option>
+                      <option value="FAVORITISMO">💰 Financiera / Favoritismo</option>
+                      <option value="BURNOUT">🔥 Riesgo Burnout</option>
+                      <option value="CARGO_CORPORATIVO">🚨 Cargo Corporativo</option>
+                      <option value="RECURRENCIA">🔄 Recurrencia</option>
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -2489,10 +2520,12 @@ disabled={isAnalyzing || listaBases.length === 0}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {alertasFiltradas.length === 0 ? (
-                    <tr><td colSpan="7" className="p-8 text-center text-slate-500 italic">No se detectaron comportamientos anómalos.</td></tr>
+                  {alertasTablaFiltradas.length === 0 ? (
+                    <tr><td colSpan="7" className="p-8 text-center text-slate-500 italic">
+                      {busquedaCargoProceso.trim() ? 'No hay cargos o procesos que coincidan con la búsqueda.' : 'No se detectaron comportamientos anómalos.'}
+                    </td></tr>
                   ) : (
-                    alertasFiltradas.map((alerta, idx) => {
+                    alertasTablaFiltradas.map((alerta, idx) => {
                       const isChecked = empleadosSeleccionados.some(e => e.cedula === alerta.cedula);
                       return (
                       <tr key={idx} className={`transition-colors ${isChecked ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
