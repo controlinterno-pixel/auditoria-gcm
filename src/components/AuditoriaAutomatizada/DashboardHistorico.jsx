@@ -130,6 +130,7 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
   const [filtroQuincenaMarcaciones, setFiltroQuincenaMarcaciones] = useState('TODAS');
   const [filtroTurnoMarcaciones, setFiltroTurnoMarcaciones] = useState('TODOS'); // 💡 NUEVO FILTRO
   const [filtroDiaSemanaMarcaciones, setFiltroDiaSemanaMarcaciones] = useState('TODOS');
+  const [filtroEmpleadosTablaMarcaciones, setFiltroEmpleadosTablaMarcaciones] = useState(null);
   const [ordenMarcacionesTabla, setOrdenMarcacionesTabla] = useState('ASC');  
   
   // 🖱️ NUEVO ESTADO: Filtro Interactivo por Clic en la Gráfica
@@ -1244,10 +1245,35 @@ let totalMonto;
     });
   }, [datosMarcaciones, empleadosSeleccionados, filtroEmpresaMarcaciones, filtroQuincenaMarcaciones, filtroTurnoMarcaciones, filtroClicGrafica, granularidadMarcaciones, ordenMarcacionesTabla]);
 
+  const empleadosDisponiblesTabla = React.useMemo(() =>
+    [...new Set(marcacionesEmpleadoSeleccionado.map(row => row.Empleado))].sort((a, b) => a.localeCompare(b, 'es')),
+    [marcacionesEmpleadoSeleccionado]
+  );
+
+  const empleadosSeleccionadosTabla = filtroEmpleadosTablaMarcaciones === null
+    ? null
+    : filtroEmpleadosTablaMarcaciones.filter(nombre => empleadosDisponiblesTabla.includes(nombre));
+
+  const filtroEmpleadosTablaActivo = filtroEmpleadosTablaMarcaciones !== null &&
+    filtroEmpleadosTablaMarcaciones.length > 0 && empleadosSeleccionadosTabla.length === 0
+    ? null
+    : empleadosSeleccionadosTabla;
+
   const marcacionesTablaFiltradas = React.useMemo(() => {
-    if (filtroDiaSemanaMarcaciones === 'TODOS') return marcacionesEmpleadoSeleccionado;
-    return marcacionesEmpleadoSeleccionado.filter(row => obtenerNombreDia(row.Fecha) === filtroDiaSemanaMarcaciones);
-  }, [marcacionesEmpleadoSeleccionado, filtroDiaSemanaMarcaciones]);
+    let filas = marcacionesEmpleadoSeleccionado;
+    if (filtroEmpleadosTablaActivo !== null) {
+      filas = filas.filter(row => filtroEmpleadosTablaActivo.includes(row.Empleado));
+    }
+    if (filtroDiaSemanaMarcaciones !== 'TODOS') {
+      filas = filas.filter(row => obtenerNombreDia(row.Fecha) === filtroDiaSemanaMarcaciones);
+    }
+    return filas;
+  }, [marcacionesEmpleadoSeleccionado, filtroEmpleadosTablaActivo, filtroDiaSemanaMarcaciones]);
+
+  const empleadosVisiblesEnTabla = React.useMemo(() =>
+    [...new Set(marcacionesTablaFiltradas.map(row => row.Empleado))],
+    [marcacionesTablaFiltradas]
+  );
 
   const listaQuincenasUnicas = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
@@ -3183,6 +3209,52 @@ disabled={isAnalyzing || listaBases.length === 0}
                                 </span>
 
                                 <div className="flex flex-wrap items-center gap-2">
+                                  {empleadosDisponiblesTabla.length > 0 && (
+                                    <details className="relative">
+                                      <summary className="list-none cursor-pointer rounded-lg border border-indigo-300 bg-indigo-50 px-2.5 py-1.5 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100">
+                                        👥 Empleados: {filtroEmpleadosTablaActivo === null ? 'Todos' : `${filtroEmpleadosTablaActivo.length} seleccionados`} ▾
+                                      </summary>
+                                      <div className="absolute right-0 z-30 mt-2 max-h-64 w-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
+                                        <div className="sticky top-0 flex gap-2 border-b border-slate-100 bg-white pb-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => setFiltroEmpleadosTablaMarcaciones(null)}
+                                            className="flex-1 rounded bg-indigo-100 px-2 py-1.5 text-[11px] font-bold text-indigo-800 hover:bg-indigo-200"
+                                          >
+                                            Todos
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setFiltroEmpleadosTablaMarcaciones([])}
+                                            className="flex-1 rounded bg-slate-100 px-2 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-200"
+                                          >
+                                            Ninguno
+                                          </button>
+                                        </div>
+                                        <div className="space-y-1 pt-2">
+                                          {empleadosDisponiblesTabla.map(nombre => (
+                                            <label key={nombre} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-indigo-50">
+                                              <input
+                                                type="checkbox"
+                                                checked={filtroEmpleadosTablaActivo === null || filtroEmpleadosTablaActivo.includes(nombre)}
+                                                onChange={() => setFiltroEmpleadosTablaMarcaciones(actuales => {
+                                                  const seleccion = actuales === null
+                                                    ? empleadosDisponiblesTabla
+                                                    : empleadosDisponiblesTabla.filter(item => actuales.includes(item));
+                                                  return seleccion.includes(nombre)
+                                                    ? seleccion.filter(item => item !== nombre)
+                                                    : [...seleccion, nombre];
+                                                })}
+                                                className="h-3.5 w-3.5 accent-indigo-600"
+                                              />
+                                              <span>{nombre}</span>
+                                            </label>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </details>
+                                  )}
+
                                   <label htmlFor="filtro-dia-turnos" className="text-xs font-semibold text-slate-600">Día:</label>
                                   <select
                                     id="filtro-dia-turnos"
@@ -3216,7 +3288,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                       <tr>
                                           <th className="p-3">Fecha del Turno</th>
                                           <th className="p-3">Día</th>
-                                          {empleadosSeleccionados.length > 1 && <th className="p-3">Empleado</th>}
+                                          {empleadosVisiblesEnTabla.length > 1 && <th className="p-3">Empleado</th>}
                                           <th className="p-3 text-center">Quincena Corte</th>
                                           <th className="p-3">Horario Biométrico</th>
                                           <th className="p-3 text-center">Horas Trabs (HT)</th>
@@ -3225,7 +3297,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
                                       {marcacionesTablaFiltradas.length === 0 ? (
-                                        <tr><td colSpan={empleadosSeleccionados.length > 1 ? 7 : 6} className="p-6 text-center text-slate-400 italic">No hay marcaciones para los filtros seleccionados.</td></tr>
+                                        <tr><td colSpan={empleadosVisiblesEnTabla.length > 1 ? 7 : 6} className="p-6 text-center text-slate-400 italic">No hay marcaciones para los filtros seleccionados.</td></tr>
                                       ) : (
                                         marcacionesTablaFiltradas.map((row) => (
                                           <tr key={row.id} className="hover:bg-purple-50/60 transition-colors font-medium">
@@ -3233,7 +3305,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                               <td className="p-3 text-xs font-semibold text-slate-500">{obtenerNombreDia(row.Fecha)}</td>
                                               
                                               {/* Nueva columna que muestra el empleado si hay varios seleccionados */}
-                                              {empleadosSeleccionados.length > 1 && (
+                                              {empleadosVisiblesEnTabla.length > 1 && (
                                                 <td className="p-3 text-xs font-bold text-indigo-700 uppercase bg-indigo-50/30">
                                                   {row.Empleado.split(' ').slice(0, 2).join(' ')}
                                                 </td>
