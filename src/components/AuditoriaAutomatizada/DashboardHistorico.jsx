@@ -1357,17 +1357,21 @@ let totalMonto;
         nombreEje = formatearMes(llaveEje);
       }
       
-      const turno = obtenerGrupoTurno(d.Horario);
+        const turno = obtenerGrupoTurno(d.Horario);
+        const empleadoSeleccionado = empleadosSeleccionados.find(emp => esMismoEmpleado(d.Empleado, emp.nombre));
+        const claveSerie = empleadosSeleccionados.length > 1
+        ? `${turno}::${normalizarTexto(empleadoSeleccionado?.nombre || d.Empleado)}`
+        : turno;
       
       if (!mapaAgrupado[llaveEje]) {
           mapaAgrupado[llaveEje] = { mesKey: llaveEje, mesNombre: nombreEje, TotalAgrupado: 0 };
       }
       
-      if (!mapaAgrupado[llaveEje][turno]) {
-          mapaAgrupado[llaveEje][turno] = 0;
+        if (!mapaAgrupado[llaveEje][claveSerie]) {
+          mapaAgrupado[llaveEje][claveSerie] = 0;
       }
       
-      mapaAgrupado[llaveEje][turno] += 1;
+        mapaAgrupado[llaveEje][claveSerie] += 1;
       mapaAgrupado[llaveEje].TotalAgrupado += 1;
     });
     
@@ -3134,7 +3138,8 @@ disabled={isAnalyzing || listaBases.length === 0}
                                             formatter={(value, name) => [`${value} turnos ejecutados`, name]}
                                         />
                                         <Legend 
-                                            wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', paddingTop: '15px' }}
+                                          height={64}
+                                          wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', paddingTop: '8px', maxHeight: '64px', overflowY: 'auto', lineHeight: '16px' }}
                                             onClick={(e) => {
                                                 if (e && e.dataKey) {
                                                     setLineasOcultas(prev => ({ ...prev, [e.dataKey]: !prev[e.dataKey] }));
@@ -3151,28 +3156,32 @@ disabled={isAnalyzing || listaBases.length === 0}
                                             )}
                                         />
                                         
-                                        {/* 💡 Líneas Múltiples Desplegadas Sin Límite */}
+                                        {/* Una serie por turno, o por persona y turno al comparar empleados. */}
                                         {(() => {
-                                            // Paleta de colores extensa para cubrir todos los turnos
-                                            const colores = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1', '#eab308', '#84cc16', '#ec4899', '#0ea5e9', '#a855f7', '#64748b', '#ef4444', '#1d4ed8', '#047857', '#b45309'];
-                                            
-                                            // Si hay un turno filtrado arriba, solo dibuja ese
-                                            if (filtroTurnoMarcaciones !== 'TODOS') {
-                                                return <Line type="monotone" dataKey={filtroTurnoMarcaciones} name={`⏱️ ${filtroTurnoMarcaciones}`} stroke="#10b981" strokeWidth={3} dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} hide={lineasOcultas[filtroTurnoMarcaciones]} />;
-                                            }
-                                            
-                                            // Si no hay filtro, DIBUJA TODAS LAS LÍNEAS PERMITIENDO OCULTARLAS AL CLIC
-                                            return listaTurnosUnicos.map((turno, idx) => (
-                                                <Line 
-                                                    key={turno} 
-                                                    type="monotone" 
-                                                    dataKey={turno} 
-                                                    name={`⏱️ ${turno}`} 
-                                                    stroke={colores[idx % colores.length]} 
-                                                    strokeWidth={3} 
-                                                    dot={{ r: 5, strokeWidth: 2, fill: '#fff' }} 
-                                                    hide={lineasOcultas[turno]}
-                                                />
+                                          const colores = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1', '#eab308', '#84cc16', '#ec4899', '#0ea5e9', '#a855f7', '#64748b', '#ef4444', '#1d4ed8', '#047857', '#b45309'];
+                                          const turnos = filtroTurnoMarcaciones === 'TODOS'
+                                            ? listaTurnosUnicos
+                                            : [filtroTurnoMarcaciones];
+                                          const series = empleadosSeleccionados.length > 1
+                                            ? empleadosSeleccionados.flatMap(emp => turnos.map(turno => ({
+                                              dataKey: `${turno}::${normalizarTexto(emp.nombre)}`,
+                                              name: `👤 ${emp.nombre.split(' ').slice(0, 2).join(' ')} · ${turno}`,
+                                            })))
+                                            : turnos.map(turno => ({ dataKey: turno, name: `⏱️ ${turno}` }));
+
+                                          return series
+                                            .filter(serie => dataTendenciaTurnos.some(punto => Number(punto[serie.dataKey]) > 0))
+                                            .map((serie, idx) => (
+                                              <Line
+                                                key={serie.dataKey}
+                                                type="monotone"
+                                                dataKey={serie.dataKey}
+                                                name={serie.name}
+                                                stroke={colores[idx % colores.length]}
+                                                strokeWidth={2.5}
+                                                dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                                                hide={lineasOcultas[serie.dataKey]}
+                                              />
                                             ));
                                         })()}
                                     </LineChart>
