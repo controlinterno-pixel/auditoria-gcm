@@ -246,16 +246,16 @@ export default function AuthScreen() {
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center bg-slate-950 overflow-hidden font-sans select-none p-4 sm:p-6">
       
-      {/* 1. Imagen de Fondo de Paisaje (Nítida) */}
+      {/* 1. Imagen de Fondo de Paisaje */}
       <div 
-        className="absolute inset-0 z-0 bg-cover bg-no-repeat"
+        className="absolute inset-0 z-0 bg-cover bg-no-repeat scale-105"
         style={{ 
           backgroundImage: "url('/matriz_riesgos.png')",
-          backgroundPosition: "center 35%" 
+          backgroundPosition: "center center" 
         }}
       />
-      {/* Overlay sutil al 10% solo para apagar ligeramente el brillo extremo, manteniendo nitidez total */}
-      <div className="absolute inset-0 z-10 bg-slate-950/10" />
+      {/* Overlay en Gradiente: Oscuro a la izquierda para lectura, transparente a la derecha */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-r from-slate-950/90 via-slate-950/50 to-transparent" />
 
       {/* 2. Navegación Superior Derecha */}
       <div className="absolute top-6 right-8 z-20 hidden md:flex items-center space-x-2 text-[11px] font-bold tracking-widest text-white/90 uppercase drop-shadow-md">
@@ -267,28 +267,24 @@ export default function AuthScreen() {
         <span>RESULTADOS</span>
       </div>
 
-      {/* 3. Panel Izquierdo Corporativo (Branding con corte diagonal) */}
-      <div 
-        className="absolute left-0 top-0 bottom-0 w-[48%] z-20 hidden lg:flex flex-col justify-between p-12 bg-[#041224]/95 text-white shadow-[20px_0_50px_rgba(0,0,0,0.6)]"
-        style={{ clipPath: "polygon(0 0, 100% 0, 85% 100%, 0% 100%)" }}
-      >
+      {/* 3. Panel Izquierdo Corporativo (Textos Flotantes sin fondo sólido) */}
+      <div className="absolute left-0 top-0 bottom-0 w-[50%] z-20 hidden lg:flex flex-col justify-between p-12 text-white">
         
         <div className="flex items-center space-x-3">
           <img 
             src="/logo_termales.png" 
             alt="Termales Santa Rosa de Cabal" 
-            className="h-16 w-auto object-contain drop-shadow-md"
+            className="h-16 w-auto object-contain drop-shadow-xl"
           />
         </div>
 
-        <div className="space-y-6 max-w-md">
-          <div className="space-y-3">
-            <div className="w-10 h-1 bg-emerald-400 rounded-full" />
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight drop-shadow-md">
-              Auditoría que genera <br />
-              <span className="text-white">confianza</span>
+        <div className="space-y-6 max-w-lg mt-8">
+          <div className="space-y-4">
+            <div className="w-12 h-1 bg-emerald-400 rounded-full shadow-[0_0_15px_rgba(52,211,153,0.5)]" />
+            <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-serif font-bold tracking-wide leading-[1.1] drop-shadow-2xl uppercase">
+              Auditoría que <br /> genera confianza
             </h1>
-            <p className="text-xs text-slate-200 font-medium leading-relaxed drop-shadow-sm">
+            <p className="text-sm text-slate-300 font-medium leading-relaxed drop-shadow-lg max-w-sm">
               Tecnología, control y análisis para tomar mejores decisiones.
             </p>
           </div>
@@ -341,9 +337,9 @@ export default function AuthScreen() {
         </div>
       </div>
 
-      {/* 4. Tarjeta Formulario (Login / Registro) */}
+     {/* 4. Tarjeta Formulario Glassmorphism (Efecto Cristal) */}
       <div className="relative z-30 w-full max-w-md my-auto lg:ml-[22%]">
-        <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/60 text-slate-800 space-y-5 animate-in fade-in zoom-in-95 duration-500 max-h-[90vh] overflow-y-auto">
+        <div className="bg-white/20 backdrop-blur-2xl rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/40 text-slate-900 space-y-5 animate-in fade-in zoom-in-95 duration-500 max-h-[90vh] overflow-y-auto bg-gradient-to-br from-white/40 to-white/5">
           
           {/* Header */}
           <div className="text-center space-y-1">
@@ -499,10 +495,10 @@ export default function AuthScreen() {
                 </label>
               </div>
 
-              <button 
+             <button 
                 type="submit" 
                 disabled={loading} 
-                className="w-full bg-[#0b2239] hover:bg-[#133252] text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg transition-all hover:scale-[1.01] disabled:opacity-50 mt-1"
+                className="w-full bg-gradient-to-r from-[#9b6a38] to-[#784f25] hover:from-[#a87642] hover:to-[#63401d] border border-[#a87642]/50 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-xl transition-all hover:scale-[1.02] disabled:opacity-50 mt-1"
               >
                 <span>{loading ? "Creando cuenta..." : "Crear Cuenta y Enviar Verificación ✉️"}</span>
                 {!loading && <ArrowRight className="w-4 h-4" />}
@@ -560,10 +556,10 @@ export default function AuthScreen() {
                 </button>
               </div>
 
-              <button 
+             <button 
                 type="submit" 
                 disabled={loading || lockTimer > 0} 
-                className={`w-full text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 ${lockTimer > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-[#0b2239] hover:bg-[#133252]'}`}
+                className={`w-full text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-xl transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 ${lockTimer > 0 ? 'bg-red-600 hover:bg-red-700' : 'bg-gradient-to-r from-[#9b6a38] to-[#784f25] hover:from-[#a87642] hover:to-[#63401d] border border-[#a87642]/50'}`}
               >
                 <span>
                   {loading ? "Verificando..." : lockTimer > 0 ? `Bloqueado (${lockTimer}s)` : "INICIAR SESIÓN"}
