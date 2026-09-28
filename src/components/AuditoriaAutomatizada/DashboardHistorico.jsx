@@ -115,6 +115,7 @@ const [modoDashboard, setModoDashboard] = useState('JORNADA'); // 'JORNADA', 'TR
 const [datosMarcaciones, setDatosMarcaciones] = useState(null);
 const [isCargandoMarcaciones, setIsCargandoMarcaciones] = useState(false);
 const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS');
+const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
   const [filtroPeriodo, setFiltroPeriodo] = useState('TODOS');   
   const [filtroAlerta, setFiltroAlerta] = useState('TODOS');     
   const [agrupacionGrafica, setAgrupacionGrafica] = useState('SEDES'); 
@@ -1185,6 +1186,20 @@ let totalMonto;
 
     return Object.values(agrupado).sort((a, b) => b.Total_Recargos_Dia - a.Total_Recargos_Dia);
   }, [datosMarcaciones, filtroEmpresaMarcaciones]);
+
+  const opcionesEmpleadosComparacion = React.useMemo(() => {
+    const nombres = resumenMarcaciones.map(row => row.Empleado).filter(Boolean);
+    empleadosSeleccionados.forEach(({ nombre }) => {
+      if (nombre && !nombres.some(actual => esMismoEmpleado(actual, nombre))) nombres.push(nombre);
+    });
+    return nombres.sort((a, b) => a.localeCompare(b, 'es'));
+  }, [resumenMarcaciones, empleadosSeleccionados]);
+
+  const empleadosCoincidentesComparacion = React.useMemo(() => {
+    const termino = normalizarTexto(busquedaListaComparacion.trim());
+    if (!termino) return opcionesEmpleadosComparacion;
+    return opcionesEmpleadosComparacion.filter(nombre => normalizarTexto(nombre).includes(termino));
+  }, [opcionesEmpleadosComparacion, busquedaListaComparacion]);
 
   // 📆 HELPER PARA ETIQUETA DE SEMANA
   const obtenerEtiquetaSemana = (fechaStr) => {
@@ -2808,39 +2823,67 @@ disabled={isAnalyzing || listaBases.length === 0}
                     </div>  
                 </div>
 
-                {/* 🛒 BANDEJA DE JEFES/COLABORADORES SELECCIONADOS EN BIOMÉTRICO */}
-                {empleadosSeleccionados.length > 0 && (
-                  <div className="bg-purple-50/80 border border-purple-200 p-4 rounded-xl shadow-inner mt-4 animate-in fade-in">
-                    <div className="flex justify-between items-center mb-3">
-                      <label className="text-sm font-black text-purple-900 flex items-center gap-2">
-                        <span>👥</span> Jefaturas / Colab en Comparación Activa
-                        <span className="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded-full">
-                          {empleadosSeleccionados.length} en el mapa
+                <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50/80 p-3 shadow-inner">
+                  <details className="group relative">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg border border-purple-200 bg-white px-3 py-2.5 text-sm font-bold text-purple-900 shadow-sm hover:bg-purple-50">
+                      <span className="flex items-center gap-2">
+                        <span>👥</span> Jefaturas / Colab en comparación
+                        <span className="rounded-full bg-purple-600 px-2 py-0.5 text-[10px] text-white">
+                          {empleadosSeleccionados.length} seleccionados
                         </span>
-                      </label>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {empleadosSeleccionados.map((emp) => (
-                        <div 
-                          key={emp.nombre} 
-                          className="flex items-center gap-2 bg-white border border-purple-300 text-purple-900 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm animate-in fade-in"
+                      </span>
+                      <span className="transition-transform group-open:rotate-180">▾</span>
+                    </summary>
+                    <div className="absolute left-0 right-0 z-50 mt-2 rounded-xl border border-slate-200 bg-white p-3 shadow-2xl">
+                      <div className="mb-2 flex flex-col gap-2 sm:flex-row">
+                        <input
+                          type="search"
+                          value={busquedaListaComparacion}
+                          onChange={(e) => setBusquedaListaComparacion(e.target.value)}
+                          placeholder="Buscar empleado..."
+                          aria-label="Buscar empleado para comparar"
+                          className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setEmpleadosSeleccionados([])}
+                          disabled={empleadosSeleccionados.length === 0}
+                          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          <span>👤 {emp.nombre.split(' ').slice(0, 2).join(' ')}</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEmpleadosSeleccionados(prev => prev.filter(e => e.nombre !== emp.nombre));
-                            }}
-                            className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded px-1.5 font-black text-sm cursor-pointer transition-colors border-l border-purple-200 pl-1.5 ml-1"
-                            title="Quitar del análisis"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
+                          Limpiar selección
+                        </button>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-100">
+                        {empleadosCoincidentesComparacion.length === 0 ? (
+                          <p className="p-4 text-center text-xs text-slate-500">No hay empleados que coincidan con la búsqueda.</p>
+                        ) : (
+                          empleadosCoincidentesComparacion.slice(0, 50).map(nombre => (
+                            <label key={nombre} className="flex cursor-pointer items-center gap-2 border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 last:border-b-0 hover:bg-purple-50">
+                              <input
+                                type="checkbox"
+                                checked={estaPersonaSeleccionada({ nombre })}
+                                onChange={(e) => {
+                                  const estaMarcado = e.target.checked;
+                                  setEmpleadosSeleccionados(prev => {
+                                    const yaSeleccionado = prev.some(persona => sonLaMismaPersona(persona, { nombre }));
+                                    if (estaMarcado && !yaSeleccionado) return [...prev, { cedula: '', nombre }];
+                                    if (!estaMarcado && yaSeleccionado) return prev.filter(persona => !sonLaMismaPersona(persona, { nombre }));
+                                    return prev;
+                                  });
+                                }}
+                                className="h-4 w-4 accent-purple-600"
+                              />
+                              <span>{nombre}</span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                      {empleadosCoincidentesComparacion.length > 50 && (
+                        <p className="mt-2 text-[10px] text-slate-500">Mostrando 50 resultados; escribe para acotar la búsqueda.</p>
+                      )}
                     </div>
-                  </div>
-                )}
+                  </details>
+                </div>
 
                 {/* 🔀 LÓGICA DE RENDERIZADO INTELIGENTE (RESUMEN VS DETALLE) */}       
                 {empleadosSeleccionados.length === 0 ? (
