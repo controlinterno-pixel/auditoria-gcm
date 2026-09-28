@@ -127,6 +127,7 @@ const [filtroEmpresaMarcaciones, setFiltroEmpresaMarcaciones] = useState('TODAS'
   const [granularidadTendencia, setGranularidadTendencia] = useState('MES'); // 📈 NUEVA: Para la gráfica de líneas curvas
   const [filtroQuincenaMarcaciones, setFiltroQuincenaMarcaciones] = useState('TODAS');
   const [filtroTurnoMarcaciones, setFiltroTurnoMarcaciones] = useState('TODOS'); // 💡 NUEVO FILTRO
+  const [filtroDiaSemanaMarcaciones, setFiltroDiaSemanaMarcaciones] = useState('TODOS');
   const [ordenMarcacionesTabla, setOrdenMarcacionesTabla] = useState('ASC');  
   
   // 🖱️ NUEVO ESTADO: Filtro Interactivo por Clic en la Gráfica
@@ -1209,6 +1210,11 @@ let totalMonto;
       return ordenMarcacionesTabla === 'ASC' ? fA.localeCompare(fB) : fB.localeCompare(fA);
     });
   }, [datosMarcaciones, empleadosSeleccionados, filtroEmpresaMarcaciones, filtroQuincenaMarcaciones, filtroTurnoMarcaciones, filtroClicGrafica, granularidadMarcaciones, ordenMarcacionesTabla]);
+
+  const marcacionesTablaFiltradas = React.useMemo(() => {
+    if (filtroDiaSemanaMarcaciones === 'TODOS') return marcacionesEmpleadoSeleccionado;
+    return marcacionesEmpleadoSeleccionado.filter(row => obtenerNombreDia(row.Fecha) === filtroDiaSemanaMarcaciones);
+  }, [marcacionesEmpleadoSeleccionado, filtroDiaSemanaMarcaciones]);
 
   const listaQuincenasUnicas = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
@@ -3098,18 +3104,37 @@ disabled={isAnalyzing || listaBases.length === 0}
 
                         {/* 📋 TABLA DETALLADA CRONOLÓGICAMENTE ORDENADA */}
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="bg-slate-50 p-3.5 border-b border-slate-200 flex justify-between items-center">
+                            <div className="bg-slate-50 p-3.5 border-b border-slate-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                                 <span className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                                  <span>📋</span> Turnos Auditados Día a Día ({marcacionesEmpleadoSeleccionado.length})
+                                  <span>📋</span> Turnos Auditados Día a Día ({marcacionesTablaFiltradas.length})
                                 </span>
 
-                                {/* ⬆️⬇️ CONTROL DE ORDENAMIENTO CRONOLÓGICO */}
-                                <button
-                                  onClick={() => setOrdenMarcacionesTabla(prev => prev === 'ASC' ? 'DESC' : 'ASC')}
-                                  className="text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100 px-3 py-1 rounded-lg text-indigo-700 shadow-sm transition cursor-pointer flex items-center gap-1.5"
-                                >
-                                  {ordenMarcacionesTabla === 'ASC' ? '⬆️ Orden: Enero ➔ Agosto' : '⬇️ Orden: Agosto ➔ Enero'}
-                                </button>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <label htmlFor="filtro-dia-turnos" className="text-xs font-semibold text-slate-600">Día:</label>
+                                  <select
+                                    id="filtro-dia-turnos"
+                                    value={filtroDiaSemanaMarcaciones}
+                                    onChange={(e) => setFiltroDiaSemanaMarcaciones(e.target.value)}
+                                    className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                                  >
+                                    <option value="TODOS">Todos los días</option>
+                                    <option value="Domingo">Domingo</option>
+                                    <option value="Lunes">Lunes</option>
+                                    <option value="Martes">Martes</option>
+                                    <option value="Miércoles">Miércoles</option>
+                                    <option value="Jueves">Jueves</option>
+                                    <option value="Viernes">Viernes</option>
+                                    <option value="Sábado">Sábado</option>
+                                  </select>
+
+                                  {/* ⬆️⬇️ CONTROL DE ORDENAMIENTO CRONOLÓGICO */}
+                                  <button
+                                    onClick={() => setOrdenMarcacionesTabla(prev => prev === 'ASC' ? 'DESC' : 'ASC')}
+                                    className="text-xs font-bold bg-white border border-slate-300 hover:bg-slate-100 px-3 py-1 rounded-lg text-indigo-700 shadow-sm transition cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    {ordenMarcacionesTabla === 'ASC' ? '⬆️ Orden: Enero ➔ Agosto' : '⬇️ Orden: Agosto ➔ Enero'}
+                                  </button>
+                                </div>
                             </div>
 
                             <div className="overflow-x-auto max-h-[500px]">
@@ -3126,10 +3151,10 @@ disabled={isAnalyzing || listaBases.length === 0}
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
-                                      {marcacionesEmpleadoSeleccionado.length === 0 ? (
+                                      {marcacionesTablaFiltradas.length === 0 ? (
                                         <tr><td colSpan={empleadosSeleccionados.length > 1 ? 7 : 6} className="p-6 text-center text-slate-400 italic">No hay marcaciones para los filtros seleccionados.</td></tr>
                                       ) : (
-                                        marcacionesEmpleadoSeleccionado.map((row) => (
+                                        marcacionesTablaFiltradas.map((row) => (
                                           <tr key={row.id} className="hover:bg-purple-50/60 transition-colors font-medium">
                                               <td className="p-3 whitespace-nowrap font-bold text-slate-800 font-mono">{row.Fecha}</td>
                                               <td className="p-3 text-xs font-semibold text-slate-500">{obtenerNombreDia(row.Fecha)}</td>
