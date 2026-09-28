@@ -1,5 +1,5 @@
 import { useMemo, useCallback, lazy, Suspense, useState, useEffect } from 'react';
-import { signOut } from 'firebase/auth'; 
+import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from './services/firebase';
 import { formatSafeDate, calcularMatriz5x5, applyFilters } from './utils/helpers';
 
@@ -56,8 +56,20 @@ const getInitialSidebarState = () => {
   return false;
 };
 
-export default function App() {
+
+const {
+    isResettingPassword, oobCoexport default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialSidebarState);
+  
+  // 🛡️ ESTADO DE BLOQUEO: Previene la "condición de carrera" al recargar con F5
+  const [authInitialized, setAuthInitialized] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, () => {
+      setAuthInitialized(true); // Libera el renderizado solo cuando Firebase confirma la sesión
+    });
+    return () => unsubscribe();
+  }, []);
 
   const toggleSidebar = () => {
     const newVal = !isSidebarCollapsed;
@@ -65,9 +77,7 @@ export default function App() {
     localStorage.setItem('grc_sidebar_collapsed', String(newVal));
   };
 
-  const ui = useGrcUI();
-const {
-    isResettingPassword, oobCode, activeTab, setActiveTab, menuAbierto, setMenuAbierto,
+  const ui = useGrcUI();de, activeTab, setActiveTab, menuAbierto, setMenuAbierto,
     subTabPlanificar, setSubTabPlanificar, subTabResultados, setSubTabResultados,
     subTabPlanes, setSubTabPlanes, subTabGobernanza, setSubTabGobernanza,
     selectedProcesoExpediente, setSelectedProcesoExpediente, notification, showNotification,
@@ -220,11 +230,24 @@ const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(
 
     return () => cancelAnimationFrame(rafId);
   }, [activeTab, subTabPlanificar, subTabResultados, subTabPlanes, subTabGobernanza]);
-  // 🛑 SI VIENE DEL CORREO, INTERCEPTAMOS Y MOSTRAMOS LA PANTALLA NUEVA
+// 🛑 SI VIENE DEL CORREO, INTERCEPTAMOS Y MOSTRAMOS LA PANTALLA NUEVA
   if (isResettingPassword) return <ResetPassword oobCode={oobCode} />;
 
+  // 🛡️ BARRERA DE CONTENCIÓN: Firebase está procesando el token guardado en caché
+  if (!authInitialized) {
+    return (
+      <div className="min-h-screen bg-[#041224] flex flex-col items-center justify-center space-y-5">
+         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin shadow-[0_0_15px_rgba(16,185,129,0.5)]"></div>
+         <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest animate-pulse">Verificando Sesión...</p>
+      </div>
+    );
+  }
+
+  // Si la sesión es inválida o no existe, al login
   if (!user) return <AuthScreen />;
-if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-slate-900 text-white flex-col space-y-4"><span className="text-6xl animate-bounce">☁️</span><h2 className="text-xl font-bold tracking-widest uppercase">Conectando...</h2></div>);
+  
+  // Si hay sesión pero los datos aún no descargan, mostramos el conector
+  if (!isCloudLoaded) return (<div className="flex h-screen w-full items-center justify-center bg-[#041224] text-white flex-col space-y-4"><span className="text-6xl animate-bounce drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">☁️</span><h2 className="text-xs text-blue-400 font-black tracking-widest uppercase">Sincronizando Base de Datos...</h2></div>);
 if (showWelcome) {
   return (
     <WelcomeScreen 
