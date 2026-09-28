@@ -33,6 +33,14 @@ const formatearMes = (per) => {
   }
   return str; // Si es una quincena (Ej. "228"), la deja intacta
 };
+
+const PALETA_CONCEPTOS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1', '#eab308', '#84cc16', '#ec4899', '#0ea5e9', '#a855f7'];
+
+const obtenerColorConcepto = (concepto, conceptos) => {
+  const indice = conceptos.indexOf(concepto);
+  return PALETA_CONCEPTOS[(indice < 0 ? 0 : indice) % PALETA_CONCEPTOS.length];
+};
+
 // --- ⚡ CACHÉ ULTRA-RÁPIDO (A PRUEBA DE BIG DATA Y FIREBASE) ---
 const cacheNormalizacionLlaves = {};
 const cacheLlavesExactas = {};
@@ -1895,8 +1903,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                         <>
                          {/* 💡 Cada concepto se agrega sobre las personas seleccionadas. */}
                           {agrupacionGrafica === 'CONCEPTOS' ? (
-                            datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
-                              const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                            datosHistoricos.conceptosJornada.map((conceptoName) => {
                               const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
                               const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
 
@@ -1908,7 +1915,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                               );
                               if (!tieneValoresMes) return null;
 
-                              return <Line key={conceptoName} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas[keyData]} />;
+                              return <Line key={conceptoName} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={obtenerColorConcepto(conceptoName, datosHistoricos.conceptosJornada)} strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas[keyData]} />;
                             })
                          ) : agrupacionGrafica === 'SELECCIONADOS' || (agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40) ? (
                             (() => {
@@ -2027,9 +2034,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                               )}
                             />
                             
-                            {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
-                              // 💡 Paleta ampliada de 15 colores para que ningún concepto se repita
-                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1', '#eab308', '#84cc16', '#ec4899', '#0ea5e9', '#a855f7'];
+                            {datosHistoricos?.conceptosJornada?.map((concepto) => {
                               if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return null;
                               return (
                                 <Bar 
@@ -2037,7 +2042,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                   dataKey={`hrs_${concepto}`} 
                                   name={concepto} 
                                   stackId="horas" 
-                                  fill={colores[idx % colores.length]} 
+                                  fill={obtenerColorConcepto(concepto, datosHistoricos.conceptosJornada)} 
                                   hide={lineasOcultas[`hrs_${concepto}`]}
                                 />
                               );
@@ -2089,9 +2094,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                               )}
                             />
 
-                            {datosHistoricos?.conceptosJornada?.map((concepto, idx) => {
-                              // 💡 Paleta ampliada de 15 colores para que ningún concepto se repita
-                              const colores = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1', '#eab308', '#84cc16', '#ec4899', '#0ea5e9', '#a855f7'];
+                            {datosHistoricos?.conceptosJornada?.map((concepto) => {
                               if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(concepto)) return null;
                               return (
                                 <Bar 
@@ -2099,7 +2102,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                   dataKey={`val_${concepto}`} 
                                   name={concepto} 
                                   stackId="valor" 
-                                  fill={colores[idx % colores.length]}
+                                  fill={obtenerColorConcepto(concepto, datosHistoricos.conceptosJornada)}
                                   hide={lineasOcultas[`val_${concepto}`]} 
                                />
                               );
