@@ -227,7 +227,7 @@ export default function AuthScreen() {
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left">
             <p className="text-[11px] text-amber-800 font-semibold leading-normal">
-              💡 <b>Paso final de seguridad:</b> Haz clic en el enlace del correo para activar tu acceso a GCM Auditor v5.
+              💡 <b>Paso final de seguridad:</b> Haz clic en el enlace del correo para activar tu acceso a Enterprise.
             </p>
           </div>
           <div className="space-y-3 pt-2">
@@ -352,7 +352,7 @@ export default function AuthScreen() {
               SISTEMA DE AUDITORÍA
             </p>
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              GCM Auditor v5
+              Enterprise
             </h2>
             <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
               TERMALES SANTA ROSA DE CABAL
