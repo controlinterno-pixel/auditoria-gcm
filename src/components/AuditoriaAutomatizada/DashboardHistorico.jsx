@@ -1458,6 +1458,17 @@ let alertaInteligente;
       empNominaRaw: empNomina
     };
 }, [marcacionesEmpleadoSeleccionado, datosHistoricos, alertasFiltradas, empleadosSeleccionados, datosMarcaciones]);
+
+  const cambiarModoDashboard = (nuevoModo) => {
+    const cambiaEntreNominaYBiometria = (modoDashboard === 'MARCACIONES') !== (nuevoModo === 'MARCACIONES');
+    if (cambiaEntreNominaYBiometria) {
+      setEmpleadosSeleccionados([]);
+      setAgrupacionGrafica('SEDES');
+      setFiltroClicGrafica(null);
+    }
+    setModoDashboard(nuevoModo);
+  };
+
     return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
      <div className="bg-slate-900 rounded-xl shadow-2xl p-6 border border-slate-800 text-white mb-8 relative overflow-hidden">
@@ -1470,14 +1481,14 @@ let alertaInteligente;
         </p>
 
         <div className="flex flex-wrap items-center gap-4 mb-6">
-          <button onClick={() => setModoDashboard('JORNADA')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'JORNADA' ? 'bg-pink-600 text-white shadow-lg ring-2 ring-pink-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+          <button onClick={() => cambiarModoDashboard('JORNADA')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'JORNADA' ? 'bg-pink-600 text-white shadow-lg ring-2 ring-pink-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
             ⏱️ Nómina: Extras
           </button>
-          <button onClick={() => setModoDashboard('TRANSPORTE')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'TRANSPORTE' ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+          <button onClick={() => cambiarModoDashboard('TRANSPORTE')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'TRANSPORTE' ? 'bg-blue-600 text-white shadow-lg ring-2 ring-blue-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
             🚗 Nómina: Transporte
           </button>
           <div className="w-px h-8 bg-slate-700 mx-2"></div>
-          <button onClick={() => setModoDashboard('MARCACIONES')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'MARCACIONES' ? 'bg-purple-600 text-white shadow-lg ring-2 ring-purple-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+          <button onClick={() => cambiarModoDashboard('MARCACIONES')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'MARCACIONES' ? 'bg-purple-600 text-white shadow-lg ring-2 ring-purple-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
             ⏰ Analítica Biométrica
           </button>
         </div>
