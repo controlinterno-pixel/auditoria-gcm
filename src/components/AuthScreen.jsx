@@ -270,22 +270,22 @@ export default function AuthScreen() {
       {/* 3. Panel Izquierdo Corporativo (Textos Flotantes sin fondo sólido) */}
       <div className="absolute left-0 top-0 bottom-0 w-[50%] z-20 hidden lg:flex flex-col justify-between p-12 text-white">
 
-        <div className="flex items-center space-x-3">
+        <div className="flex justify-center">
           <img
             src="/logo_termales.png"
             alt="Termales Santa Rosa de Cabal"
-            className="h-16 w-auto object-contain drop-shadow-xl"
+            className="h-28 w-auto object-contain drop-shadow-xl"
           />
         </div>
 
         <div className="space-y-6 max-w-lg mt-8">
           <div className="space-y-4">
             <div className="w-12 h-1 bg-emerald-400 rounded-full shadow-[0_0_15px_rgba(52,211,153,0.5)] mb-6" />
-            <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-black tracking-wide leading-[1.1] drop-shadow-2xl uppercase font-sans">
-              GCM <br /> ENTERPRISE
+            <h1 className="text-3xl sm:text-4xl font-light leading-tight drop-shadow-2xl font-sans">
+              Auditoría que genera <span className="font-black">confianza</span>
             </h1>
-            <p className="text-[10px] text-slate-200 font-black tracking-[0.2em] uppercase drop-shadow-lg mt-2 opacity-90">
-              GOVERNANCE • COMPLIANCE • MANAGEMENT
+            <p className="max-w-sm text-sm text-slate-200 font-normal leading-relaxed drop-shadow-lg mt-2 opacity-90">
+              Tecnología, control y análisis para tomar mejores decisiones.
             </p>
           </div>
 
@@ -351,9 +351,12 @@ export default function AuthScreen() {
             <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase">
               SISTEMA DE AUDITORÍA
             </p>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-              Enterprise
+            <h2 className="text-2xl font-black text-slate-950 tracking-tight drop-shadow-[0_2px_2px_rgba(0,0,0,0.35)]">
+              GCM ENTERPRISE
             </h2>
+            <p className="text-[8px] sm:text-[9px] font-bold text-slate-600 tracking-[0.16em] uppercase">
+              GOVERNANCE, COMPLIANCE, MANAGEMENT
+            </p>
             <p className="text-[10px] font-bold text-slate-500 tracking-wider uppercase">
               TERMALES SANTA ROSA DE CABAL
             </p>
