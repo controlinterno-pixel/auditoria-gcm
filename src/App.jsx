@@ -57,8 +57,7 @@ const getInitialSidebarState = () => {
 };
 
 
-const {
-    isResettingPassword, oobCoexport default function App() {
+export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialSidebarState);
   
   // 🛡️ ESTADO DE BLOQUEO: Previene la "condición de carrera" al recargar con F5
@@ -77,7 +76,9 @@ const {
     localStorage.setItem('grc_sidebar_collapsed', String(newVal));
   };
 
-  const ui = useGrcUI();de, activeTab, setActiveTab, menuAbierto, setMenuAbierto,
+  const ui = useGrcUI();
+  const {
+    isResettingPassword, oobCode, activeTab, setActiveTab, menuAbierto, setMenuAbierto,
     subTabPlanificar, setSubTabPlanificar, subTabResultados, setSubTabResultados,
     subTabPlanes, setSubTabPlanes, subTabGobernanza, setSubTabGobernanza,
     selectedProcesoExpediente, setSelectedProcesoExpediente, notification, showNotification,
