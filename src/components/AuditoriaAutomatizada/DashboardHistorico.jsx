@@ -1226,6 +1226,25 @@ let totalMonto;
     return dias[d.getDay()];
   };
 
+  const obtenerGrupoTurno = (horario) => {
+    const texto = String(horario || '').trim();
+    const inicio = texto.match(/(\d{1,2}):(\d{2})/);
+    if (!inicio) return texto || 'Sin Registro';
+
+    const hora = Number(inicio[1]);
+    const minuto = Number(inicio[2]);
+    if (hora > 23 || minuto > 59) return texto;
+    const minutosDelDia = hora * 60 + minuto;
+
+    if (minutosDelDia >= 22 * 60 + 50 || minutosDelDia < 60) return 'Nocturno (22:50-00:59)';
+    if (minutosDelDia === 6 * 60 + 30 || minutosDelDia === 7 * 60) return 'Mañana (06:30 / 07:00)';
+    if (minutosDelDia >= 15 * 60 + 10 && minutosDelDia <= 16 * 60 + 15) return 'Tarde (15:10-16:15)';
+    return texto;
+  };
+
+  const coincideFiltroTurno = (horario) =>
+    filtroTurnoMarcaciones === 'TODOS' || obtenerGrupoTurno(horario) === filtroTurnoMarcaciones;
+
 // 🗓️ MARCACIONES FILTRADAS Y ORDENADAS CRONOLÓGICAMENTE (SOPORTE MULTI-EMPLEADO)
   const marcacionesEmpleadoSeleccionado = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
@@ -1237,7 +1256,7 @@ let totalMonto;
     
     if (filtroEmpresaMarcaciones !== 'TODAS') base = base.filter(d => d.Empresa === filtroEmpresaMarcaciones);
     if (filtroQuincenaMarcaciones !== 'TODAS') base = base.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
-    if (filtroTurnoMarcaciones !== 'TODOS') base = base.filter(d => d.Horario === filtroTurnoMarcaciones);
+    if (filtroTurnoMarcaciones !== 'TODOS') base = base.filter(d => coincideFiltroTurno(d.Horario));
 
     if (filtroClicGrafica) {
       base = base.filter(d => {
@@ -1309,7 +1328,7 @@ let totalMonto;
     datosMarcaciones
       .filter(d => empleadosSeleccionados.some(e => esMismoEmpleado(d.Empleado, e.nombre)))
       .forEach(d => {
-        if (d.Horario && d.Horario !== 'Sin Registro') setT.add(d.Horario);
+        if (d.Horario && d.Horario !== 'Sin Registro') setT.add(obtenerGrupoTurno(d.Horario));
       });
     return Array.from(setT).sort();
   }, [datosMarcaciones, empleadosSeleccionados]);
@@ -1338,7 +1357,7 @@ let totalMonto;
         nombreEje = formatearMes(llaveEje);
       }
       
-      const turno = d.Horario || 'Sin Registro';
+      const turno = obtenerGrupoTurno(d.Horario);
       
       if (!mapaAgrupado[llaveEje]) {
           mapaAgrupado[llaveEje] = { mesKey: llaveEje, mesNombre: nombreEje, TotalAgrupado: 0 };
@@ -1360,7 +1379,7 @@ let totalMonto;
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
     let baseGrafica = datosMarcaciones.filter(d => empleadosSeleccionados.some(e => esMismoEmpleado(d.Empleado, e.nombre)));
     if (filtroQuincenaMarcaciones !== 'TODAS') baseGrafica = baseGrafica.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
-    if (filtroTurnoMarcaciones !== 'TODOS') baseGrafica = baseGrafica.filter(d => d.Horario === filtroTurnoMarcaciones); 
+    if (filtroTurnoMarcaciones !== 'TODOS') baseGrafica = baseGrafica.filter(d => coincideFiltroTurno(d.Horario)); 
 
     if (granularidadMarcaciones === 'DIA') {
       return baseGrafica.map(d => ({
@@ -1387,7 +1406,7 @@ let totalMonto;
     
     let base = datosMarcaciones.filter(d => empleadosSeleccionados.some(e => esMismoEmpleado(d.Empleado, e.nombre)));
     if (filtroQuincenaMarcaciones !== 'TODAS') base = base.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
-    if (filtroTurnoMarcaciones !== 'TODOS') base = base.filter(d => d.Horario === filtroTurnoMarcaciones);
+    if (filtroTurnoMarcaciones !== 'TODOS') base = base.filter(d => coincideFiltroTurno(d.Horario));
 
     const mapaFechas = {};
     base.forEach(d => {
