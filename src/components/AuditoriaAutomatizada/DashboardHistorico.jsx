@@ -636,6 +636,18 @@ const esMismoEmpleado = (nom1, nom2) => {
   return false;
 };
 
+const sonLaMismaPersona = (persona1, persona2) => {
+  const cedula1 = String(persona1?.cedula || '').trim();
+  const cedula2 = String(persona2?.cedula || '').trim();
+  if (cedula1 && cedula2) return cedula1 === cedula2;
+  const nombre1 = persona1?.nombreCompleto || persona1?.nombre;
+  const nombre2 = persona2?.nombreCompleto || persona2?.nombre;
+  return esMismoEmpleado(nombre1, nombre2);
+};
+
+const estaPersonaSeleccionada = (persona) =>
+  empleadosSeleccionados.some(seleccionada => sonLaMismaPersona(seleccionada, persona));
+
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
   const handleCargarMarcaciones = async (e) => {
     const file = e.target.files[0];
@@ -919,7 +931,7 @@ const esMismoEmpleado = (nom1, nom2) => {
       if (modoDashboard === 'JORNADA' && filtroConceptoJornada.length > 0 && a.totalHorasVisual === 0 && a.totalDineroVisual === 0) return false;
 
       // 1. Las personas en tu Bandeja SIEMPRE se muestran
-      const estaSeleccionado = empleadosSeleccionados.some(e => e.cedula === a.cedula);
+      const estaSeleccionado = estaPersonaSeleccionada(a);
       if (estaSeleccionado) return true;
 
       // 2. Evaluamos los filtros normales (Mantenimiento, etc.)
@@ -984,7 +996,7 @@ const esMismoEmpleado = (nom1, nom2) => {
    // 💡 MAGIA: Si hay empleados seleccionados (con chulito), obligamos a que las gráficas
    // de líneas y los cuadros mensuales calculen EXCLUSIVAMENTE la data de esas personas.
    const baseGrafica = empleadosSeleccionados.length > 0
-     ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
+     ? alertasFiltradas.filter(estaPersonaSeleccionada)
      : alertasFiltradas;
 
    baseGrafica.forEach(emp => {
@@ -1062,7 +1074,7 @@ const esMismoEmpleado = (nom1, nom2) => {
     if (!datosHistoricos) return { totalMeses: 0, totalAlertas: 0, totalMonto: 0 };
 
     let universoAfectado = empleadosSeleccionados.length > 0 
-      ? alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula))
+      ? alertasFiltradas.filter(estaPersonaSeleccionada)
       : alertasFiltradas;
 
     universoAfectado = universoAfectado.filter(a => {
@@ -1130,7 +1142,7 @@ let totalMonto;
 
     let baseParaMostrar;
     if (empleadosSeleccionados.length > 0) {
-      baseParaMostrar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
+      baseParaMostrar = alertasFiltradas.filter(estaPersonaSeleccionada);
     } else {
       // ⚠️ CAMBIO: Se remueve el límite de 20 para enviar todos los datos a la gráfica
       baseParaMostrar = alertasFiltradas; 
@@ -1483,7 +1495,6 @@ let alertaInteligente;
   const cambiarModoDashboard = (nuevoModo) => {
     const cambiaEntreNominaYBiometria = (modoDashboard === 'MARCACIONES') !== (nuevoModo === 'MARCACIONES');
     if (cambiaEntreNominaYBiometria) {
-      setEmpleadosSeleccionados([]);
       setAgrupacionGrafica('SEDES');
       setFiltroClicGrafica(null);
     }
@@ -1686,7 +1697,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                       <button
                         type="button"
                         onClick={() => {
-                          const resto = empleadosSeleccionados.filter(e => e.cedula !== emp.cedula);
+                          const resto = empleadosSeleccionados.filter(e => !sonLaMismaPersona(e, emp));
                           setEmpleadosSeleccionados(resto);
                           if (resto.length === 0) setAgrupacionGrafica('SEDES');
                         }}
@@ -1776,7 +1787,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                             (() => {
                               let baseLineas;
                               if (empleadosSeleccionados.length > 0) {
-                                baseLineas = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
+                                baseLineas = alertasFiltradas.filter(estaPersonaSeleccionada);
                               } else {
                                 baseLineas = alertasFiltradas;
                               }
@@ -1854,7 +1865,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                       
                       <div className="h-72 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(d => empleadosSeleccionados.some(e => e.cedula === d.cedula)) : dataGraficasApiladas}>
+                          <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(estaPersonaSeleccionada) : dataGraficasApiladas}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                             {/* 🚀 Oculta los nombres si hay más de 30 personas para mantener limpia la vista macroscópica */}
                             <XAxis 
@@ -1916,7 +1927,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                       
                       <div className="h-72 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(d => empleadosSeleccionados.some(e => e.cedula === d.cedula)) : dataGraficasApiladas}>
+                          <BarChart data={empleadosSeleccionados.length > 0 ? dataGraficasApiladas.filter(estaPersonaSeleccionada) : dataGraficasApiladas}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                             {/* 🚀 Lógica de densidad macroscópica replicada aquí */}
                             <XAxis 
@@ -2000,7 +2011,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
                     {dataGraficasApiladas
-                      .filter(empData => empleadosSeleccionados.some(e => e.cedula === empData.cedula))
+                      .filter(estaPersonaSeleccionada)
                       .map(empData => {
                         const empOriginal = alertasFiltradas.find(a => a.cedula === empData.cedula);
                         const totalHoras = empOriginal ? empOriginal.totalHorasVisual : 0;
@@ -2017,7 +2028,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                               checked={true}
                               onChange={() => {
                                 setEmpleadosSeleccionados(prev => {
-                                  const resto = prev.filter(x => x.cedula !== emp.cedula);
+                                  const resto = prev.filter(x => !sonLaMismaPersona(x, emp));
                                   if(resto.length === 0) setAgrupacionGrafica('SEDES');
                                   return resto;
                                 });
@@ -2075,7 +2086,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                       <td colSpan="3" className="py-4 px-4 text-slate-800 uppercase tracking-wider text-right text-[10px]">Gran Total de Seleccionados:</td>
                       <td className="py-4 px-4 text-right text-rose-600 text-sm font-mono">
                         {dataGraficasApiladas
-                          .filter(empData => empleadosSeleccionados.some(e => e.cedula === empData.cedula))
+                          .filter(estaPersonaSeleccionada)
                           .reduce((acc, empData) => {
                             const emp = alertasFiltradas.find(a => a.cedula === empData.cedula);
                             return acc + (emp ? emp.totalHorasVisual : 0);
@@ -2083,7 +2094,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                       </td>
                       <td className="py-4 px-4 text-right text-rose-600 text-sm font-mono">
                         ${dataGraficasApiladas
-                          .filter(empData => empleadosSeleccionados.some(e => e.cedula === empData.cedula))
+                          .filter(estaPersonaSeleccionada)
                           .reduce((acc, empData) => {
                             const emp = alertasFiltradas.find(a => a.cedula === empData.cedula);
                             return acc + (emp ? emp.totalDineroVisual : 0);
@@ -2122,7 +2133,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                           .filter(emp => emp.nombre.toLowerCase().includes(busqueda.toLowerCase().trim()) || emp.cedula.includes(busqueda.trim()))
                           .slice(0, 15) // Limitamos a 15 resultados para no saturar
                           .map(emp => {
-                            const isSelected = empleadosSeleccionados.some(e => e.cedula === emp.cedula);
+                            const isSelected = estaPersonaSeleccionada(emp);
                             return (
                               <button
                                 key={emp.cedula}
@@ -2194,7 +2205,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                     )}
 
                     {alertasFiltradas.map(emp => {
-                      const isChecked = empleadosSeleccionados.some(e => e.cedula === emp.cedula);
+                      const isChecked = estaPersonaSeleccionada(emp);
                       return (
                         <label key={emp.cedula} className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-slate-200 m-0">
                           <input 
@@ -2209,7 +2220,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                 });
                               } else {
                                 setEmpleadosSeleccionados(prev => {
-                                  const resto = prev.filter(x => x.cedula !== emp.cedula);
+                                  const resto = prev.filter(x => !sonLaMismaPersona(x, emp));
                                   if (resto.length === 0) setAgrupacionGrafica('SEDES');
                                   return resto;
                                 });
@@ -2273,7 +2284,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                     <button
                         type="button"
                         onClick={() => {
-                          const resto = empleadosSeleccionados.filter((e) => e.cedula !== emp.cedula);
+                          const resto = empleadosSeleccionados.filter((e) => !sonLaMismaPersona(e, emp));
                           setEmpleadosSeleccionados(resto);
                           if (resto.length === 0) {
                             setAgrupacionGrafica('SEDES');
@@ -2544,7 +2555,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                     </td></tr>
                   ) : (
                     alertasTablaFiltradas.map((alerta, idx) => {
-                      const isChecked = empleadosSeleccionados.some(e => e.cedula === alerta.cedula);
+                      const isChecked = estaPersonaSeleccionada(alerta);
                       return (
                       <tr key={idx} className={`transition-colors ${isChecked ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
                         <td className="p-4 text-center">
@@ -2555,7 +2566,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                               if (e.target.checked) {
                                 setEmpleadosSeleccionados(prev => [...prev, { cedula: alerta.cedula, nombre: alerta.nombre }]);
                               } else {
-                                setEmpleadosSeleccionados(prev => prev.filter(emp => emp.cedula !== alerta.cedula));
+                                setEmpleadosSeleccionados(prev => prev.filter(emp => !sonLaMismaPersona(emp, alerta)));
                               }
                             }}
                             className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
@@ -2739,7 +2750,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                                   .filter(row => row.Empleado.toLowerCase().includes(busqueda.toLowerCase().trim()))
                                   .slice(0, 15)
                                   .map(row => {
-                                    const isSelected = empleadosSeleccionados.some(e => e.nombre === row.Empleado);
+                                    const isSelected = estaPersonaSeleccionada({ nombre: row.Empleado });
                                     return (
                                       <button
                                         key={row.Empleado}
