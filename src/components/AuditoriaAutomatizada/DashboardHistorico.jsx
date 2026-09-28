@@ -1237,11 +1237,10 @@ let totalMonto;
     const minutosDelDia = hora * 60 + minuto;
 
     if (minutosDelDia >= 22 * 60 + 50 || minutosDelDia < 60) return 'Nocturno (22:50-00:59)';
-    if (minutosDelDia === 6 * 60 + 30 || minutosDelDia === 7 * 60) return 'Mañana (06:30 / 07:00)';
-    if (minutosDelDia === 8 * 60 || minutosDelDia === 9 * 60) return 'Mañana (08:00 / 09:00)';
+    if (minutosDelDia === 6 * 60 + 30) return 'Mañana (06:30)';
+    if ((minutosDelDia >= 7 * 60 && minutosDelDia <= 8 * 60 + 35) || minutosDelDia === 9 * 60) return 'Mañana (07:00-08:35 / 09:00)';
     if (minutosDelDia === 11 * 60) return 'Turno de las 11:00';
-    if (minutosDelDia === 13 * 60 || minutosDelDia === 14 * 60) return 'Turno (13:00 / 14:00)';
-    if (minutosDelDia >= 14 * 60 + 30 && minutosDelDia <= 16 * 60 + 20) return 'Tarde (14:30-16:20)';
+    if (minutosDelDia >= 13 * 60 && minutosDelDia <= 16 * 60 + 40) return 'Tarde (13:00-16:40)';
     return texto;
   };
 
