@@ -1735,7 +1735,8 @@ disabled={isAnalyzing || listaBases.length === 0}
 
                           {/* 💡 MAGIA: Leyenda interactiva (clic para tachar y ocultar líneas) */}
                       <Legend 
-                        wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                        height={56}
+                        wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', cursor: 'pointer', maxHeight: '56px', overflowY: 'auto', lineHeight: '16px' }}
                         onClick={(e) => {
                           if (e && e.dataKey) {
                             setLineasOcultas(prev => ({ ...prev, [e.dataKey]: !prev[e.dataKey] }));
@@ -1754,52 +1755,23 @@ disabled={isAnalyzing || listaBases.length === 0}
                       
 {modoDashboard === 'JORNADA' ? (
                         <>
-                         {/* 💡 1. Modo CONCEPTOS CRUZADOS CON EMPLEADOS */}
+                         {/* 💡 Cada concepto se agrega sobre las personas seleccionadas. */}
                           {agrupacionGrafica === 'CONCEPTOS' ? (
-                            (() => {
-                              if (empleadosSeleccionados.length > 0) {
-                                let lineasConceptosMultiples = [];
-                                let colorIdx = 0;
-                                const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
-                                
-                                const empleadosAAnalizar = alertasFiltradas.filter(a => empleadosSeleccionados.some(e => e.cedula === a.cedula));
-                                
-                                empleadosAAnalizar.forEach(emp => {
-                                  datosHistoricos.conceptosJornada.forEach(conceptoName => {
-                                    if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return;
-                                    if (conceptosSeleccionadosGrafica && !conceptosSeleccionadosGrafica.includes(conceptoName)) return;
-                                    if (!emp.desgloseConceptosJornada || !emp.desgloseConceptosJornada[conceptoName]) return;
-                                    
-                                    const llaveCruzada = `${conceptoName}_${emp.cedula}`;
-                                    const keyData = metricaGrafica === 'DINERO' ? `costo_${llaveCruzada}` : llaveCruzada;
-                                    const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo ${conceptoName} 👤 ${emp.nombre.split(' ')[0]}` : `🔹 ${conceptoName} 👤 ${emp.nombre.split(' ')[0]}`;
-                                    
-                                    lineasConceptosMultiples.push(
-                                      <Line key={`${emp.cedula}-${conceptoName}`} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[colorIdx % colores.length]} strokeWidth={3} dot={{ r: 5 }} connectNulls={true} hide={lineasOcultas[keyData]} />
-                                    );
-                                    colorIdx++;
-                                  });
-                                });
-                                return lineasConceptosMultiples;
-                              } 
-                              
-                              return datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
-                                const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
-                                const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
-                                const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
-                                
-                                if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
-                                if (conceptosSeleccionadosGrafica && !conceptosSeleccionadosGrafica.includes(conceptoName)) return null;
-                                
-                                let tieneValoresMes = false;
-                                tendenciasDinamicas.forEach(mesData => {
-                                  if (mesData[conceptoName] > 0 || mesData[`costo_${conceptoName}`] > 0) tieneValoresMes = true;
-                                });
-                                if (!tieneValoresMes) return null;
+                            datosHistoricos.conceptosJornada.map((conceptoName, idx) => {
+                              const colores = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#d946ef', '#14b8a6', '#f97316', '#6366f1'];
+                              const keyData = metricaGrafica === 'DINERO' ? `costo_${conceptoName}` : conceptoName;
+                              const nameEtiqueta = metricaGrafica === 'DINERO' ? `Costo 🔹 ${conceptoName}` : `🔹 ${conceptoName}`;
 
-                                return <Line key={idx} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas[keyData]} />;
-                              });
-                            })()
+                              if (filtroConceptoJornada.length > 0 && !filtroConceptoJornada.includes(conceptoName)) return null;
+                              if (conceptosSeleccionadosGrafica && !conceptosSeleccionadosGrafica.includes(conceptoName)) return null;
+
+                              const tieneValoresMes = tendenciasDinamicas.some(mesData =>
+                                mesData[conceptoName] > 0 || mesData[`costo_${conceptoName}`] > 0
+                              );
+                              if (!tieneValoresMes) return null;
+
+                              return <Line key={conceptoName} yAxisId="left" type="monotone" dataKey={keyData} name={nameEtiqueta} stroke={colores[idx % colores.length]} strokeWidth={3} dot={{ r: 5 }} hide={lineasOcultas[keyData]} />;
+                            })
                          ) : agrupacionGrafica === 'SELECCIONADOS' || (agrupacionGrafica === 'EMPLEADOS' && alertasFiltradas.length <= 40) ? (
                             (() => {
                               let baseLineas;
