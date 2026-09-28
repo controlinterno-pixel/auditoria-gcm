@@ -108,6 +108,7 @@ const DashboardHistorico = () => {
   const [busquedaCargoProceso, setBusquedaCargoProceso] = useState('');
   const [metricaRankingJornada, setMetricaRankingJornada] = useState('HORAS');
   const [conceptosRankingSeleccionados, setConceptosRankingSeleccionados] = useState(null);
+  const [modoPresentacionRanking, setModoPresentacionRanking] = useState(false);
   const [filtroUnidad, setFiltroUnidad] = useState('TODOS');
   const [filtroProceso, setFiltroProceso] = useState([]); 
   const [filtroCargo, setFiltroCargo] = useState([]);     
@@ -1001,6 +1002,44 @@ const estaPersonaSeleccionada = (persona) =>
         return diferenciaPrincipal || (b.dineroRanking - a.dineroRanking);
       });
   }, [alertasFiltradas, busquedaCargoProceso, conceptosRankingSeleccionados, metricaRankingJornada, modoDashboard]);
+
+  const exportarRankingExcel = () => {
+    const filas = alertasTablaFiltradas.map((alerta, indice) => ({
+      Posicion: indice + 1,
+      Empleado: alerta.nombre,
+      Cedula: alerta.cedula,
+      Cargo: alerta.cargo,
+      Proceso: alerta.proceso,
+      PeriodosActivos: alerta.mesesActivos,
+      PeriodosAnalizados: datosHistoricos.totalMeses,
+      HorasExtrasYRecargos: alerta.horasRanking,
+      DineroExtrasYRecargos: alerta.dineroRanking,
+      Diagnostico: alerta.riesgo,
+    }));
+    const conceptos = conceptosRankingSeleccionados === null
+      ? 'Todos'
+      : conceptosRankingSeleccionados.join(', ') || 'Ninguno';
+    const hojaResumen = XLSX.utils.aoa_to_sheet([
+      ['Reporte', 'Ranking de Riesgo Histórico'],
+      ['Unidad', filtroUnidad],
+      ['Ordenado por', modoDashboard === 'JORNADA' ? metricaRankingJornada : 'Dinero'],
+      ['Cargo o proceso', busquedaCargoProceso || 'Todos'],
+      ['Diagnóstico', filtroAlerta],
+      ['Conceptos', conceptos],
+      ['Período', filtroPeriodo],
+      ['Registros exportados', filas.length],
+      ['Generado', new Date().toLocaleString('es-CO')],
+    ]);
+    const hojaRanking = XLSX.utils.json_to_sheet(filas);
+    hojaRanking['!cols'] = [
+      { wch: 10 }, { wch: 32 }, { wch: 16 }, { wch: 28 }, { wch: 28 },
+      { wch: 18 }, { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 72 },
+    ];
+    const libro = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(libro, hojaResumen, 'Resumen');
+    XLSX.utils.book_append_sheet(libro, hojaRanking, 'Ranking');
+    XLSX.writeFile(libro, 'Ranking_Riesgo_Historico.xlsx');
+  };
 
   // 📈 RECALCULAR TENDENCIA GRÁFICA SEGÚN LOS FILTROS ACTIVOS
   const tendenciasDinamicas = React.useMemo(() => {
@@ -2590,9 +2629,12 @@ disabled={isAnalyzing || listaBases.length === 0}
             <div className="bg-slate-100 p-4 border-b border-slate-200 rounded-t-xl flex flex-col md:flex-row justify-between items-center gap-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <span>⚠️</span> Ranking de Riesgo Histórico — <span className="text-blue-700 font-extrabold">{filtroUnidad}</span>
+                {modoPresentacionRanking && <span className="text-xs font-bold text-emerald-700">· Vista para presentar</span>}
                 <span className="text-xs font-semibold text-slate-500">({alertasTablaFiltradas.length})</span>
               </h3>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                {!modoPresentacionRanking && (
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 <input
                   type="search"
                   value={busquedaCargoProceso}
@@ -2677,16 +2719,38 @@ disabled={isAnalyzing || listaBases.length === 0}
                     </select>
                   </div>
                 )}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setModoPresentacionRanking(actual => !actual)}
+                  className={`rounded-lg border px-3 py-2 text-xs font-bold shadow-sm transition-colors ${modoPresentacionRanking ? 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50' : 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}`}
+                >
+                  {modoPresentacionRanking ? 'Volver al análisis' : 'Vista para presentar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={exportarRankingExcel}
+                  className="rounded-lg border border-blue-300 bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-blue-700"
+                >
+                  Exportar Excel
+                </button>
               </div>
             </div>
            <div className="p-0 overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-xs border-b border-slate-200">
                   <tr>
-                    <th className="p-4 text-center" title="Seleccionar para Graficar">
-                       <button onClick={() => setEmpleadosSeleccionados([])} className="text-[10px] text-blue-600 underline cursor-pointer">Vaciar</button>
-                    </th>
-                    <th className="p-4">Alerta</th>
+                    {modoPresentacionRanking ? (
+                      <th className="p-4 text-center">N.º</th>
+                    ) : (
+                      <>
+                        <th className="p-4 text-center" title="Seleccionar para Graficar">
+                           <button onClick={() => setEmpleadosSeleccionados([])} className="text-[10px] text-blue-600 underline cursor-pointer">Vaciar</button>
+                        </th>
+                        <th className="p-4">Alerta</th>
+                      </>
+                    )}
                     <th className="p-4">Empleado</th>
                     <th className="p-4">Cargo / Proceso</th>
                     <th className="p-4 text-center">{modoDashboard === 'JORNADA' ? 'Periodos c/Extras' : 'Periodos c/Fuga'}</th>
@@ -2696,7 +2760,7 @@ disabled={isAnalyzing || listaBases.length === 0}
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {alertasTablaFiltradas.length === 0 ? (
-                    <tr><td colSpan="7" className="p-8 text-center text-slate-500 italic">
+                    <tr><td colSpan={modoPresentacionRanking ? 6 : 7} className="p-8 text-center text-slate-500 italic">
                       {busquedaCargoProceso.trim() ? 'No hay cargos o procesos que coincidan con la búsqueda.' : 'No se detectaron comportamientos anómalos.'}
                     </td></tr>
                   ) : (
@@ -2704,30 +2768,38 @@ disabled={isAnalyzing || listaBases.length === 0}
                       const isChecked = estaPersonaSeleccionada(alerta);
                       return (
                       <tr key={idx} className={`transition-colors ${isChecked ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
-                        <td className="p-4 text-center">
-                          <input 
-                            type="checkbox" 
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setEmpleadosSeleccionados(prev => [...prev, { cedula: alerta.cedula, nombre: alerta.nombre }]);
-                              } else {
-                                setEmpleadosSeleccionados(prev => prev.filter(emp => !sonLaMismaPersona(emp, alerta)));
-                              }
-                            }}
-                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                          />
-                        </td>
-                        <td className="p-4 text-center text-2xl" title={alerta.tipo}>{alerta.icono}</td>
+                        {modoPresentacionRanking ? (
+                          <td className="p-4 text-center font-bold text-slate-500">{idx + 1}</td>
+                        ) : (
+                          <>
+                            <td className="p-4 text-center">
+                              <input 
+                                type="checkbox" 
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEmpleadosSeleccionados(prev => [...prev, { cedula: alerta.cedula, nombre: alerta.nombre }]);
+                                  } else {
+                                    setEmpleadosSeleccionados(prev => prev.filter(emp => !sonLaMismaPersona(emp, alerta)));
+                                  }
+                                }}
+                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                              />
+                            </td>
+                            <td className="p-4 text-center text-2xl" title={alerta.tipo}>{alerta.icono}</td>
+                          </>
+                        )}
                        <td className="p-4 font-bold text-slate-800 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setEmpleadoModal(alerta)}
-                              className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition-all border border-blue-200 cursor-pointer text-xs font-bold flex items-center gap-1 shadow-sm"
-                              title="Ver Desglose Forense Quincenal"
-                            >
-                              🔍
-                            </button>
+                            {!modoPresentacionRanking && (
+                              <button
+                                onClick={() => setEmpleadoModal(alerta)}
+                                className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition-all border border-blue-200 cursor-pointer text-xs font-bold flex items-center gap-1 shadow-sm"
+                                title="Ver Desglose Forense Quincenal"
+                              >
+                                🔍
+                              </button>
+                            )}
                             <div>
                               <span>{alerta.nombre}</span>
                               <span className="block text-[10px] text-slate-400 font-mono mt-0.5">{alerta.cedula}</span>
