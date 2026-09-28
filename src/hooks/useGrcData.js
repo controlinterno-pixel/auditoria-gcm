@@ -1,6 +1,6 @@
 // src/hooks/useGrcData.js
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { apiService } from '../services/apiService';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../services/firebase';
@@ -32,14 +32,17 @@ export function useGrcData() {
   // 1. Estado y validación de perfil/rol de usuario
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
       if (currentUser) {
         try {
           const idToken = await currentUser.getIdToken();
           await apiService.login(idToken);
         } catch (err) {
           console.error("Error renovando cookie de servidor:", err);
+          await signOut(auth);
+          return;
         }
+
+        setUser(currentUser);
 
         try {
           const docRef = doc(db, 'usuarios', currentUser.uid);
@@ -66,6 +69,7 @@ export function useGrcData() {
           setIsAdmin(false);
         }
       } else {
+        setUser(null);
         setPerfilUsuario(null);
         setIsAdmin(false);
         setShowWelcome(true);
