@@ -1,5 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
-import InformeProceso from './InformeProceso';
+import { useMemo, useRef, useEffect } from 'react';
 import { MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 // 🧠 Lista oficial de procesos
@@ -95,7 +94,6 @@ export default function MiEspacio({
   };
 
   const usuarioNombre = getNombreFormateado();
-  const [pestanaActiva, setPestanaActiva] = useState('resumen');
   
   // Listas seguras contra valores nulos
   const programasList = useMemo(() => Array.isArray(safeProgramas) ? safeProgramas : [], [safeProgramas]);
@@ -161,50 +159,6 @@ export default function MiEspacio({
       informes: informesVinculados
     };
   }, [procesoHomologado, cronogramaList, programasList, riesgosList, evaluacionesList, hallazgosList, planesList, informesList]); 
-// 🧠 FUNCIÓN PARA COMPILAR DATOS DEL INFORME IA DEL PROCESO
-  const compilarDatosParaInforme = (procesoName) => {
-    if (!procesoName) return null;
-
-    const rProc = riesgosList.filter(r => r.proceso === procesoName);
-    const hProc = hallazgosList.filter(h => h.proceso === procesoName);
-    const pProc = planesList.filter(p => {
-        const hallazgoPadre = hallazgosList.find(h => String(h.id) === String(p.idHallazgo));
-        return hallazgoPadre?.proceso === procesoName || p.proceso === procesoName;
-    });
-
-    const hAbiertos = hProc.filter(h => h.estado !== 'Cerrado').length;
-    const rCriticos = rProc.filter(r => parseInt(r.probabilidadResidual || 0) * parseInt(r.impactoResidual || 0) > 16).length;
-    const pVencidos = pProc.filter(p => p.estado !== 'Cerrado' && p.fecha && new Date(p.fecha) < new Date()).length;
-    const pCerrados = pProc.filter(p => p.estado === 'Cerrado' || p.progreso === 100).length;
-
-    let cumplimientoCalc = 100;
-    if (hProc.length > 0) {
-      cumplimientoCalc = Math.round(((hProc.length - hAbiertos) / hProc.length) * 100);
-    }
-
-    return {
-      nombreProceso: procesoName,
-      fechaGeneracion: new Date().toLocaleDateString('es-CO'),
-      cumplimiento: cumplimientoCalc,
-      totales: {
-        auditorias: 1, 
-        riesgos: rProc.length,
-        hallazgos: hProc.length,
-        planes: pProc.length
-      },
-      topRiesgos: rProc.slice(0, 5), 
-      topHallazgos: hProc.slice(0, 5),
-      estadisticas: {
-        hallazgosAbiertos: hAbiertos,
-        riesgosCriticos: rCriticos,
-        planesTotales: pProc.length,
-        planesVencidos: pVencidos,
-        planesCerrados: pCerrados
-      }
-    };
-  };
-
-  const datosInformeIA = compilarDatosParaInforme(selectedProceso);
   return (
     <div className="space-y-6 text-left">
       

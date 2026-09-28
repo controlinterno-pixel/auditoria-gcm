@@ -105,6 +105,50 @@ const calcularQuincenaCorte = (fechaStr) => {
   }
 };
 
+const esMismoEmpleado = (nom1, nom2) => {
+  if (!nom1 || !nom2) return false;
+  const c1 = normalizarTexto(nom1).replace(/[^A-Z0-9\s]/g, '');
+  const c2 = normalizarTexto(nom2).replace(/[^A-Z0-9\s]/g, '');
+  if (c1 === c2) return true;
+  const w1 = new Set(c1.split(/\s+/).filter(w => w.length > 2));
+  const w2 = new Set(c2.split(/\s+/).filter(w => w.length > 2));
+  if (w1.size >= 2 && w2.size >= 2) {
+    const inter = [...w1].filter(x => w2.has(x));
+    if (inter.length >= Math.min(w1.size, w2.size)) return true;
+  }
+  return false;
+};
+
+const sonLaMismaPersona = (persona1, persona2) => {
+  const cedula1 = String(persona1?.cedula || '').trim();
+  const cedula2 = String(persona2?.cedula || '').trim();
+  if (cedula1 && cedula2) return cedula1 === cedula2;
+  const nombre1 = persona1?.nombreCompleto || persona1?.nombre;
+  const nombre2 = persona2?.nombreCompleto || persona2?.nombre;
+  return esMismoEmpleado(nombre1, nombre2);
+};
+
+const obtenerGrupoTurno = (horario) => {
+  const texto = String(horario || '').trim();
+  const inicio = texto.match(/(\d{1,2}):(\d{2})/);
+  if (!inicio) return texto || 'Sin Registro';
+
+  const hora = Number(inicio[1]);
+  const minuto = Number(inicio[2]);
+  if (hora > 23 || minuto > 59) return texto;
+  const minutosDelDia = hora * 60 + minuto;
+
+  if (minutosDelDia >= 22 * 60 + 50 || minutosDelDia < 60) return 'Nocturno (22:50-00:59)';
+  if (minutosDelDia === 6 * 60 + 30) return 'Mañana (06:30)';
+  if ((minutosDelDia >= 7 * 60 && minutosDelDia <= 8 * 60 + 35) || minutosDelDia === 9 * 60) return 'Mañana (07:00-08:35 / 09:00)';
+  if (minutosDelDia === 11 * 60) return 'Turno de las 11:00';
+  if (minutosDelDia >= 13 * 60 && minutosDelDia <= 16 * 60 + 40) return 'Tarde (13:00-16:40)';
+  return texto;
+};
+
+const coincideFiltroTurno = (horario, filtro) =>
+  filtro === 'TODOS' || obtenerGrupoTurno(horario) === filtro;
+
 const DashboardHistorico = () => {
   const [datosHistoricos, setDatosHistoricos] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -635,31 +679,10 @@ riesgo: (() => {
   };
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
   // 💡 HELPER FORENSE: Comparación de nombres inmune a diferencias de orden
-const esMismoEmpleado = (nom1, nom2) => {
-  if (!nom1 || !nom2) return false;
-  const c1 = normalizarTexto(nom1).replace(/[^A-Z0-9\s]/g, '');
-  const c2 = normalizarTexto(nom2).replace(/[^A-Z0-9\s]/g, '');
-  if (c1 === c2) return true;
-  const w1 = new Set(c1.split(/\s+/).filter(w => w.length > 2));
-  const w2 = new Set(c2.split(/\s+/).filter(w => w.length > 2));
-  if (w1.size >= 2 && w2.size >= 2) {
-    const inter = [...w1].filter(x => w2.has(x));
-    if (inter.length >= Math.min(w1.size, w2.size)) return true;
-  }
-  return false;
-};
-
-const sonLaMismaPersona = (persona1, persona2) => {
-  const cedula1 = String(persona1?.cedula || '').trim();
-  const cedula2 = String(persona2?.cedula || '').trim();
-  if (cedula1 && cedula2) return cedula1 === cedula2;
-  const nombre1 = persona1?.nombreCompleto || persona1?.nombre;
-  const nombre2 = persona2?.nombreCompleto || persona2?.nombre;
-  return esMismoEmpleado(nombre1, nombre2);
-};
-
-const estaPersonaSeleccionada = (persona) =>
-  empleadosSeleccionados.some(seleccionada => sonLaMismaPersona(seleccionada, persona));
+const estaPersonaSeleccionada = React.useCallback(
+  persona => empleadosSeleccionados.some(seleccionada => sonLaMismaPersona(seleccionada, persona)),
+  [empleadosSeleccionados]
+);
 
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
   const handleCargarMarcaciones = async (e) => {
@@ -970,7 +993,7 @@ const estaPersonaSeleccionada = (persona) =>
       }
       return cumpleFiltrosBase;
     });
-  }, [coleccionRecalculada, busqueda, empleadosSeleccionados, filtroUnidad, filtroProceso, filtroCargo, filtroPeriodo, filtroAlerta, modoDashboard, filtroConceptoJornada]);
+  }, [coleccionRecalculada, busqueda, estaPersonaSeleccionada, filtroUnidad, filtroProceso, filtroCargo, filtroPeriodo, filtroAlerta, modoDashboard, filtroConceptoJornada]);
 
   const alertasTablaFiltradas = React.useMemo(() => {
     const termino = busquedaCargoProceso
@@ -1138,7 +1161,7 @@ const estaPersonaSeleccionada = (persona) =>
     });
 
     return Object.values(mapaMeses).sort((a, b) => a.mes.localeCompare(b.mes));
-  }, [datosHistoricos, alertasFiltradas, empleadosSeleccionados, modoDashboard, filtroConceptoJornada, agrupacionGrafica]);
+  }, [datosHistoricos, alertasFiltradas, empleadosSeleccionados, estaPersonaSeleccionada, modoDashboard, filtroConceptoJornada, agrupacionGrafica]);
 
  // 🧮 RECALCULAR TARJETAS SUPERIORES (KPIs) SEGÚN FILTROS ACTIVOS
   const kpisFiltrados = React.useMemo(() => {
@@ -1206,7 +1229,7 @@ let totalMonto;
       totalAlertas,
       totalMonto
     };
-  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados, lineasOcultas, agrupacionGrafica, filtroConceptoJornada, filtroUnidad, filtroProceso, filtroCargo, filtroAlerta, modoDashboard, busqueda]);
+  }, [datosHistoricos, alertasFiltradas, filtroPeriodo, empleadosSeleccionados, estaPersonaSeleccionada, lineasOcultas, agrupacionGrafica, filtroConceptoJornada, filtroUnidad, filtroProceso, filtroCargo, filtroAlerta, modoDashboard, busqueda]);
  // 📊 CÁLCULO DE DATA PARA BARRAS APILADAS POR TRABAJADOR
   const dataGraficasApiladas = React.useMemo(() => {
     if (!alertasFiltradas || alertasFiltradas.length === 0) return [];
@@ -1237,7 +1260,7 @@ let totalMonto;
 
      return resumen;
     });
-}, [alertasFiltradas, empleadosSeleccionados, filtroConceptoJornada]);  
+  }, [alertasFiltradas, empleadosSeleccionados, estaPersonaSeleccionada, filtroConceptoJornada]);
   // 🧠 LÓGICA DE VELOCIDAD: Agrupar marcaciones por empleado
   const resumenMarcaciones = React.useMemo(() => {
     if (!datosMarcaciones) return [];
@@ -1295,27 +1318,6 @@ let totalMonto;
     return dias[d.getDay()];
   };
 
-  const obtenerGrupoTurno = (horario) => {
-    const texto = String(horario || '').trim();
-    const inicio = texto.match(/(\d{1,2}):(\d{2})/);
-    if (!inicio) return texto || 'Sin Registro';
-
-    const hora = Number(inicio[1]);
-    const minuto = Number(inicio[2]);
-    if (hora > 23 || minuto > 59) return texto;
-    const minutosDelDia = hora * 60 + minuto;
-
-    if (minutosDelDia >= 22 * 60 + 50 || minutosDelDia < 60) return 'Nocturno (22:50-00:59)';
-    if (minutosDelDia === 6 * 60 + 30) return 'Mañana (06:30)';
-    if ((minutosDelDia >= 7 * 60 && minutosDelDia <= 8 * 60 + 35) || minutosDelDia === 9 * 60) return 'Mañana (07:00-08:35 / 09:00)';
-    if (minutosDelDia === 11 * 60) return 'Turno de las 11:00';
-    if (minutosDelDia >= 13 * 60 && minutosDelDia <= 16 * 60 + 40) return 'Tarde (13:00-16:40)';
-    return texto;
-  };
-
-  const coincideFiltroTurno = (horario) =>
-    filtroTurnoMarcaciones === 'TODOS' || obtenerGrupoTurno(horario) === filtroTurnoMarcaciones;
-
 // 🗓️ MARCACIONES FILTRADAS Y ORDENADAS CRONOLÓGICAMENTE (SOPORTE MULTI-EMPLEADO)
   const marcacionesEmpleadoSeleccionado = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
@@ -1327,7 +1329,7 @@ let totalMonto;
     
     if (filtroEmpresaMarcaciones !== 'TODAS') base = base.filter(d => d.Empresa === filtroEmpresaMarcaciones);
     if (filtroQuincenaMarcaciones !== 'TODAS') base = base.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
-    if (filtroTurnoMarcaciones !== 'TODOS') base = base.filter(d => coincideFiltroTurno(d.Horario));
+    if (filtroTurnoMarcaciones !== 'TODOS') base = base.filter(d => coincideFiltroTurno(d.Horario, filtroTurnoMarcaciones));
 
     if (filtroClicGrafica) {
       base = base.filter(d => {
@@ -1454,7 +1456,7 @@ let totalMonto;
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
     let baseGrafica = datosMarcaciones.filter(d => empleadosSeleccionados.some(e => esMismoEmpleado(d.Empleado, e.nombre)));
     if (filtroQuincenaMarcaciones !== 'TODAS') baseGrafica = baseGrafica.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
-    if (filtroTurnoMarcaciones !== 'TODOS') baseGrafica = baseGrafica.filter(d => coincideFiltroTurno(d.Horario)); 
+    if (filtroTurnoMarcaciones !== 'TODOS') baseGrafica = baseGrafica.filter(d => coincideFiltroTurno(d.Horario, filtroTurnoMarcaciones)); 
 
     if (granularidadMarcaciones === 'DIA') {
       return baseGrafica.map(d => ({
@@ -1481,7 +1483,7 @@ let totalMonto;
     
     let base = datosMarcaciones.filter(d => empleadosSeleccionados.some(e => esMismoEmpleado(d.Empleado, e.nombre)));
     if (filtroQuincenaMarcaciones !== 'TODAS') base = base.filter(d => (d.Periodo_Corte || calcularQuincenaCorte(d.Fecha)) === filtroQuincenaMarcaciones);
-    if (filtroTurnoMarcaciones !== 'TODOS') base = base.filter(d => coincideFiltroTurno(d.Horario));
+    if (filtroTurnoMarcaciones !== 'TODOS') base = base.filter(d => coincideFiltroTurno(d.Horario, filtroTurnoMarcaciones));
 
     const mapaFechas = {};
     base.forEach(d => {
