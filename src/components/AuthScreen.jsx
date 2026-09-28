@@ -269,23 +269,23 @@ export default function AuthScreen() {
 
       {/* 3. Panel Izquierdo Corporativo (Textos Flotantes sin fondo sólido) */}
       <div className="absolute left-0 top-0 bottom-0 w-[50%] z-20 hidden lg:flex flex-col justify-between p-12 text-white">
-        
+
         <div className="flex items-center space-x-3">
-          <img 
-            src="/logo_termales.png" 
-            alt="Termales Santa Rosa de Cabal" 
+          <img
+            src="/logo_termales.png"
+            alt="Termales Santa Rosa de Cabal"
             className="h-16 w-auto object-contain drop-shadow-xl"
           />
         </div>
 
         <div className="space-y-6 max-w-lg mt-8">
           <div className="space-y-4">
-            <div className="w-12 h-1 bg-emerald-400 rounded-full shadow-[0_0_15px_rgba(52,211,153,0.5)]" />
-            <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-serif font-bold tracking-wide leading-[1.1] drop-shadow-2xl uppercase">
-              Auditoría que <br /> genera confianza
+            <div className="w-12 h-1 bg-emerald-400 rounded-full shadow-[0_0_15px_rgba(52,211,153,0.5)] mb-6" />
+            <h1 className="text-4xl sm:text-5xl lg:text-[52px] font-black tracking-wide leading-[1.1] drop-shadow-2xl uppercase font-sans">
+              GCM <br /> ENTERPRISE
             </h1>
-            <p className="text-sm text-slate-300 font-medium leading-relaxed drop-shadow-lg max-w-sm">
-              Tecnología, control y análisis para tomar mejores decisiones.
+            <p className="text-[10px] text-slate-200 font-black tracking-[0.2em] uppercase drop-shadow-lg mt-2 opacity-90">
+              GOVERNANCE • COMPLIANCE • MANAGEMENT
             </p>
           </div>
 
@@ -337,8 +337,8 @@ export default function AuthScreen() {
         </div>
       </div>
 
-     {/* 4. Tarjeta Formulario Glassmorphism (Efecto Cristal) */}
-      <div className="relative z-30 w-full max-w-md my-auto lg:ml-[22%]">
+     {/* 4. Tarjeta Formulario Glassmorphism (Alineada a la Derecha) */}
+      <div className="relative z-30 w-full max-w-md my-auto lg:ml-auto lg:mr-[10%] xl:mr-[15%]">
         <div className="bg-white/20 backdrop-blur-2xl rounded-[2rem] p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.5)] border border-white/40 text-slate-900 space-y-5 animate-in fade-in zoom-in-95 duration-500 max-h-[90vh] overflow-y-auto bg-gradient-to-br from-white/40 to-white/5">
           
           {/* Header */}
@@ -570,24 +570,24 @@ export default function AuthScreen() {
           )}
 
           {/* Opciones Inferiores */}
-          <div className="pt-2 border-t border-slate-200/80 space-y-3 text-center">
-            <div className="text-xs text-slate-500 font-medium">
+          <div className="pt-2 border-t border-white/20 space-y-3 text-center relative z-20">
+            <div className="text-xs text-slate-200 font-medium">
               <span>{isRegistering ? "¿Ya tienes una cuenta?" : "¿Nuevo usuario?"} </span>
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setIsRegistering(!isRegistering);
                   setFailedAttempts(0);
                   setLockTimer(0);
-                }} 
-                className="font-bold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                }}
+                className="font-bold text-white hover:text-emerald-400 hover:underline transition-colors drop-shadow-md"
               >
-                {isRegistering ? "Inicia sesión aquí" : "Crea tu cuenta con perfil extendido aquí"}
+                {isRegistering ? "Inicia sesión aquí" : "Crea tu cuenta"}
               </button>
             </div>
 
-            <div className="flex items-center justify-center space-x-1.5 text-[10px] font-semibold text-slate-400 pt-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+            <div className="flex items-center justify-center space-x-1.5 text-[10px] font-semibold text-slate-300 pt-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-300" />
               <span>Tu información está protegida</span>
             </div>
           </div>
