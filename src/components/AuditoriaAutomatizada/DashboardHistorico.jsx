@@ -304,7 +304,7 @@ const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
       }
 
       const periodosCargados = [...new Set(listaBases.map(base => String(base.periodo || '').replace(/\//g, '-').slice(0, 7)))].filter(Boolean).sort();
-      onDatosHistoricosCargados?.(todasLasTransacciones, periodosCargados);
+      await onDatosHistoricosCargados?.(todasLasTransacciones, periodosCargados);
 
       // Procesamiento Forense 360
       const empleadosStats = {};
@@ -1722,15 +1722,14 @@ let alertaInteligente;
           <button
             type="button"
             onClick={() => {
-              if (isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada) return;
+              if (isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada || !resultadoMotorIntegral) return;
               cambiarModoDashboard('UGPP');
-              onAuditarPeriodosGuardados?.();
             }}
-            disabled={isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada}
+            disabled={isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada || !resultadoMotorIntegral}
             className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'UGPP' ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'} disabled:cursor-not-allowed disabled:opacity-50`}
-            title={isAnalyzing ? 'El escáner está terminando la carga inicial' : !hayDatosNominaCargada ? 'Espera a que termine la carga automática de nóminas' : 'Ejecutar con la nómina que ya está cargada'}
+            title={isAnalyzing ? 'El escáner está procesando la nómina inicial' : !resultadoMotorIntegral ? 'El Motor 360° se ejecutará junto con el Escáner Histórico' : 'Ver los resultados 360° ya calculados'}
           >
-            {isAnalyzing ? '⏳ Cargando nómina...' : isAuditingMotorIntegral ? '⏳ Analizando datos cargados...' : '🛡️ Motor Integral 360°'}
+            {isAnalyzing ? '🛡️ Motor Integral 360°' : isAuditingMotorIntegral ? '⏳ Analizando datos cargados...' : '🛡️ Motor Integral 360°'}
           </button>
         </div>
 
@@ -1742,7 +1741,7 @@ let alertaInteligente;
           <button 
 id="btn-ejecutar-escaner"
             onClick={ejecutarAnalisisForense}
-disabled={isAnalyzing || listaBases.length === 0}
+disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
             className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isAnalyzing ? '⏳ Procesando Big Data...' : '🚀 Ejecutar Escáner Histórico'}

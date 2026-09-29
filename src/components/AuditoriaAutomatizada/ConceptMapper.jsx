@@ -113,7 +113,61 @@ const systemCategories = [
     return nuevoMapeo; // 🔥 Retornamos el objeto para que el Macro-Escáner lo use instantáneamente
   }, []);
 
-  const recibirNominaHistoricaCargada = useCallback((transacciones, periodos) => {
+  const ejecutarAuditoriaIntegralConDatos = useCallback(async (transacciones, mapeoConceptos, periodosSugeridos = []) => {
+    if (!Array.isArray(transacciones) || transacciones.length === 0) {
+      throw new Error('No hay nómina cargada para auditar.');
+    }
+
+    setIsAuditingHistoricalIntegral(true);
+    try {
+      const transaccionesPorPeriodo = new Map();
+      transacciones.forEach(transaccion => {
+        const periodo = String(transaccion.mesOrigen || transaccion.MesVisual || transaccion.AnoMes || transaccion['AñoMes'] || transaccion['Periodo Mes'] || '').trim().replace(/\//g, '-').slice(0, 7);
+        const llavePeriodo = periodo || 'Sin período';
+        const filasPeriodo = transaccionesPorPeriodo.get(llavePeriodo) || [];
+        filasPeriodo.push(transaccion);
+        transaccionesPorPeriodo.set(llavePeriodo, filasPeriodo);
+      });
+
+      const periodosOrdenados = [...new Set([...periodosSugeridos, ...transaccionesPorPeriodo.keys()])].sort();
+      const resultadoCombinado = {
+        periodos: periodosOrdenados,
+        totalTransacciones: transacciones.length,
+        hallazgos: [],
+        kpis: {
+          totalEmpleados: 0,
+          conteoConformes: 0,
+          conteoBajoPago: 0,
+          conteoExcesos: 0,
+          conteoDesalineados: 0,
+          conteoNoAplica: 0,
+        },
+      };
+
+      for (const periodo of periodosOrdenados) {
+        const filasPeriodo = transaccionesPorPeriodo.get(periodo) || [];
+        if (filasPeriodo.length === 0) continue;
+        const resultado = await auditarSeguridadSocial(filasPeriodo, mapeoConceptos, { pasoRedondeo });
+        resultadoCombinado.hallazgos.push(...resultado.hallazgos.map(hallazgo => ({ ...hallazgo, mesVisual: periodo })));
+        Object.keys(resultadoCombinado.kpis).forEach(clave => {
+          resultadoCombinado.kpis[clave] += resultado.kpis[clave] || 0;
+        });
+      }
+
+      setTipoAuditoriaActiva('UGPP');
+      setHallazgos(resultadoCombinado.hallazgos);
+      setResumenKpi(resultadoCombinado.kpis);
+      setFileName(`[Histórico Nube] ${periodosOrdenados.length} períodos procesados.`);
+      setFiltroTipo('TODOS');
+      setBusqueda('');
+      setResultadoAuditoriaHistoricaIntegral(resultadoCombinado);
+      return resultadoCombinado;
+    } finally {
+      setIsAuditingHistoricalIntegral(false);
+    }
+  }, [pasoRedondeo]);
+
+  const recibirNominaHistoricaCargada = useCallback(async (transacciones, periodos) => {
     const llavesExcel = Object.keys(transacciones[0] || {});
     const columnaConcepto = llavesExcel.find(llave => {
       const llaveNormalizada = llave.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[\s_]/g, '');
@@ -124,10 +178,17 @@ const systemCategories = [
     setDatosExcel(transacciones);
     setFileName(`[Histórico Nube] ${periodos.length} períodos listos para auditar.`);
     setConceptosExtraidosUI(conceptos);
-    ejecutarAutoMapeoInteligente(conceptos);
+    const mapeoAutomatico = ejecutarAutoMapeoInteligente(conceptos);
     setHallazgos(null);
     setResumenKpi(null);
-  }, [ejecutarAutoMapeoInteligente]);
+    try {
+      await ejecutarAuditoriaIntegralConDatos(transacciones, mapeoAutomatico, periodos);
+    } catch (error) {
+      console.error('Error auditando los períodos cargados con Motor Integral:', error);
+      setResultadoAuditoriaHistoricaIntegral(null);
+      alert(`La nómina quedó cargada, pero no se pudo completar la auditoría 360°: ${error.message}`);
+    }
+  }, [ejecutarAutoMapeoInteligente, ejecutarAuditoriaIntegralConDatos]);
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
@@ -293,57 +354,20 @@ const systemCategories = [
   };
 
   const handleAuditSavedPeriodsIntegral = async () => {
-    setIsAuditingHistoricalIntegral(true);
     try {
       if (!Array.isArray(datosExcel) || datosExcel.length === 0) {
-        throw new Error('Primero espera a que Análisis Histórico termine de cargar la nómina guardada.');
+        throw new Error('Primero carga la nómina con el Escáner Histórico.');
       }
-
-      const transaccionesPorPeriodo = new Map();
-      datosExcel.forEach(transaccion => {
-        const periodo = String(transaccion.mesOrigen || transaccion.MesVisual || transaccion.AnoMes || transaccion['AñoMes'] || transaccion['Periodo Mes'] || '').trim().replace(/\//g, '-').slice(0, 7);
-        const llavePeriodo = periodo || 'Sin período';
-        const filasPeriodo = transaccionesPorPeriodo.get(llavePeriodo) || [];
-        filasPeriodo.push(transaccion);
-        transaccionesPorPeriodo.set(llavePeriodo, filasPeriodo);
-      });
-
-      const periodosOrdenados = [...transaccionesPorPeriodo.keys()].sort();
-      const mapeoAutomatico = ejecutarAutoMapeoInteligente(conceptosExtraidosUI);
-      const resultadoCombinado = {
-        periodos: periodosOrdenados,
-        totalTransacciones: datosExcel.length,
-        hallazgos: [],
-        kpis: {
-          totalEmpleados: 0,
-          conteoConformes: 0,
-          conteoBajoPago: 0,
-          conteoExcesos: 0,
-          conteoDesalineados: 0,
-          conteoNoAplica: 0,
-        },
-      };
-
-      for (const periodo of periodosOrdenados) {
-        const resultado = await auditarSeguridadSocial(transaccionesPorPeriodo.get(periodo), mapeoAutomatico, { pasoRedondeo });
-        resultadoCombinado.hallazgos.push(...resultado.hallazgos.map(hallazgo => ({ ...hallazgo, mesVisual: periodo })));
-        Object.keys(resultadoCombinado.kpis).forEach(clave => {
-          resultadoCombinado.kpis[clave] += resultado.kpis[clave] || 0;
-        });
-      }
-
-      setTipoAuditoriaActiva('UGPP');
-      setHallazgos(resultadoCombinado.hallazgos);
-      setResumenKpi(resultadoCombinado.kpis);
-      setFileName(`[Histórico Nube] ${periodosOrdenados.length} períodos procesados.`);
-      setFiltroTipo('TODOS');
-      setBusqueda('');
-      setResultadoAuditoriaHistoricaIntegral(resultadoCombinado);
+      const periodos = [...new Set(datosExcel.map(transaccion =>
+        String(transaccion.mesOrigen || transaccion.MesVisual || transaccion.AnoMes || transaccion['AñoMes'] || transaccion['Periodo Mes'] || '')
+          .trim()
+          .replace(/\//g, '-')
+          .slice(0, 7)
+      ).filter(Boolean))].sort();
+      await ejecutarAuditoriaIntegralConDatos(datosExcel, mapping, periodos);
     } catch (error) {
       console.error('Error auditando nóminas históricas con Motor Integral:', error);
       alert(`No fue posible ejecutar el Motor Integral con los períodos guardados: ${error.message}`);
-    } finally {
-      setIsAuditingHistoricalIntegral(false);
     }
   };
 
