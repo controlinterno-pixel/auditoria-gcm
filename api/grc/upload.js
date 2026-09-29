@@ -4,8 +4,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 
-// 🛡️ ARQUITECTURA: Ampliar el límite del bodyParser de Next.js 
-// para soportar el overhead del formato Base64 (~33% extra)
+// 🛡️️ ARQUITECTURA: Ampliar el límite del bodyParser de Next.js
 export const config = {
   api: {
     bodyParser: {
@@ -15,7 +14,7 @@ export const config = {
 };
 
 const EXTENSIONES_PERMITIDAS = ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'docx'];
-const MAX_BASE64_LENGTH = 10 * 1024 * 1024; // Límite ampliado a 10MB para el Base64 (equivale a ~7MB reales)
+const MAX_BASE64_LENGTH = 10 * 1024 * 1024; // Límite de ~7MB en Base64
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -43,28 +42,28 @@ export default async function handler(req, res) {
       return sendError(res, `Formato de archivo .${ext} no permitido por políticas de seguridad GRC.`, 400);
     }
 
-    // 🚀 MAGIA AQUÍ: Convertimos el Base64 a un Buffer Binario para simular un formulario real
+    // Convertimos el Base64 a un Buffer Binario
     const base64Data = fileBase64.includes('base64,') ? fileBase64.split('base64,')[1] : fileBase64;
     const buffer = Buffer.from(base64Data, 'base64');
 
-    // Construimos el formulario (multipart/form-data) de forma nativa
+    // Construimos el formulario (multipart/form-data)
     const blob = new Blob([buffer], { type: fileType || 'application/octet-stream' });
     const formData = new FormData();
     
-    // ⚠️ NOTA: Usamos 'file' como nombre del campo. Si el servidor de Termales exige otro nombre 
-    // (ej: 'archivo' o 'documento'), cámbialo en la línea de abajo.
-    formData.append('file', blob, fileName);
+    // Adjuntamos los datos al FormData
+    formData.append('archivo', blob, fileName); 
     formData.append('subidoPor', user.email);
     formData.append('appName', appName || 'controlInterno');
 
-    const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload?appName=controlInterno', {
+    // 🚀 MAGIA AQUÍ: Inyectamos el appName en la URL para que el servidor de Termales lo lea correctamente
+    const destinoUrl = `https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${appName || 'controlInterno'}`;
+
+    const response = await fetch(destinoUrl, {
       method: 'POST',
-      // ¡NO PONEMOS Content-Type A MANO! 
-      // fetch calculará automáticamente el multipart boundary gracias a FormData.
       body: formData
     });
 
-    // 🛡️ ARQUITECTURA: Extraer la respuesta real del servidor de Termales si falla
+    // 🛡️️ Extraer la respuesta real del servidor de Termales si falla
     if (!response.ok) {
       const errorText = await response.text();
       logger.error('Fallo en servidor Termales', { status: response.status, errorText });
@@ -82,10 +81,8 @@ export default async function handler(req, res) {
       message: 'Evidencia validada y almacenada con éxito.'
     });
 
-    
   } catch (error) {
     logger.error('Error en api/grc/upload.js', error, { endpoint: req.url, detalle: error.message });
-    // 🛡️ ARQUITECTURA: Devolver el mensaje de error real al frontend para depuración
     return sendError(res, `Fallo Interno (Vercel/Node): ${error.message}`, 500);
   }
 }
