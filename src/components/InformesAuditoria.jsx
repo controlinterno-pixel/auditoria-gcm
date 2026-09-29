@@ -155,22 +155,24 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
       .toLowerCase();
   };
 
-  const handleFileUpload = async (e, type) => {
+  
+const handleFileUpload = async (e, type) => {
     const originalFile = e.target.files[0];
     if (!originalFile) return;
 
-  // 🛡️ ARQUITECTURA: Límite estricto a 3MB. 
-    // Vercel corta las peticiones > 4.5MB. Al convertir a Base64 el archivo crece un 33%.
-    // 3MB * 1.33 = ~4MB (Totalmente seguro para pasar por Vercel sin dar error 413).
+    // 🛡️ ARQUITECTURA: Límite estricto de 3MB en el cliente.
+    // Vercel bloquea payloads > 4.5MB. Al convertir a Base64 el peso sube un 33%.
+    // 3MB asegura que el payload final sea ~4MB y no reviente la infraestructura.
     const MAX_MB = 3;
     if (originalFile.size > MAX_MB * 1024 * 1024) {
-      alert(`🛑 ARCHIVO DEMASIADO PESADO\n\nPor restricciones de la infraestructura en la nube, el sistema solo permite archivos de hasta ${MAX_MB} MB.\n\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\n💡 Sugerencia: Si es un PDF, utiliza herramientas como ilovepdf.com para comprimirlo antes de subirlo.`);
-      e.target.value = ''; // Resetea el input de forma segura
+      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite seguro de la infraestructura (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el archivo PDF antes de intentar subirlo.`);
+      e.target.value = ''; // Limpia el input para prevenir bloqueos en la UI
       return;
-    }  
+    }
 
     // 🌟 Limpiar el nombre
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
+    
     const file = new File([originalFile], nombreLimpio, {
       type: originalFile.type,
       lastModified: originalFile.lastModified,
