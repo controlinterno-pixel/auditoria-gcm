@@ -1382,6 +1382,38 @@ let totalMonto;
     [marcacionesTablaFiltradas]
   );
 
+  const resumenMensualTurnos = React.useMemo(() => {
+    const meses = new Set();
+    const filasPorEmpleadoYTurno = new Map();
+
+    marcacionesTablaFiltradas.forEach(row => {
+      const fecha = String(row.Fecha || '');
+      if (!/^\d{4}-\d{2}/.test(fecha)) return;
+
+      const mes = fecha.slice(0, 7);
+      const turno = obtenerGrupoTurno(row.Horario);
+      const empleado = row.Empleado || 'Sin empleado';
+      const llave = `${normalizarTexto(empleado)}::${turno}`;
+      meses.add(mes);
+
+      if (!filasPorEmpleadoYTurno.has(llave)) {
+        filasPorEmpleadoYTurno.set(llave, { empleado, turno, conteos: {} });
+      }
+      const fila = filasPorEmpleadoYTurno.get(llave);
+      fila.conteos[mes] = (fila.conteos[mes] || 0) + 1;
+    });
+
+    const mesesOrdenados = Array.from(meses).sort();
+    const filas = Array.from(filasPorEmpleadoYTurno.values())
+      .map(fila => ({
+        ...fila,
+        total: mesesOrdenados.reduce((suma, mes) => suma + (fila.conteos[mes] || 0), 0),
+      }))
+      .sort((a, b) => a.empleado.localeCompare(b.empleado, 'es') || a.turno.localeCompare(b.turno, 'es'));
+
+    return { meses: mesesOrdenados, filas };
+  }, [marcacionesTablaFiltradas]);
+
   const listaQuincenasUnicas = React.useMemo(() => {
     if (!datosMarcaciones || empleadosSeleccionados.length === 0) return [];
     const setQ = new Set();
@@ -3436,6 +3468,61 @@ disabled={isAnalyzing || listaBases.length === 0}
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                          <div className="flex flex-col gap-1 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <h4 className="text-sm font-bold text-slate-800">Resumen mensual de turnos por empleado</h4>
+                            <span className="text-xs font-semibold text-slate-500">{resumenMensualTurnos.filas.length} grupos empleado/turno</span>
+                          </div>
+                          <div className="max-h-96 overflow-auto">
+                            <table className="w-full min-w-max text-left text-xs">
+                              <thead className="sticky top-0 z-10 bg-slate-100 text-[10px] font-bold uppercase text-slate-600 shadow-sm">
+                                <tr>
+                                  <th className="sticky left-0 z-20 bg-slate-100 px-3 py-2.5">Empleado</th>
+                                  <th className="px-3 py-2.5">Grupo de turno</th>
+                                  {resumenMensualTurnos.meses.map(mes => (
+                                    <th key={mes} className="px-3 py-2.5 text-center">{formatearMes(mes)}</th>
+                                  ))}
+                                  <th className="px-3 py-2.5 text-center">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {resumenMensualTurnos.filas.length === 0 ? (
+                                  <tr>
+                                    <td colSpan={resumenMensualTurnos.meses.length + 3} className="px-4 py-8 text-center text-slate-500">
+                                      No hay turnos para resumir con los filtros actuales.
+                                    </td>
+                                  </tr>
+                                ) : (
+                                  <>
+                                    {resumenMensualTurnos.filas.map(fila => (
+                                      <tr key={`${normalizarTexto(fila.empleado)}::${fila.turno}`} className="hover:bg-purple-50/50">
+                                        <td className="sticky left-0 bg-white px-3 py-2 font-bold text-slate-800">{fila.empleado}</td>
+                                        <td className="whitespace-nowrap px-3 py-2 font-semibold text-purple-700">{fila.turno}</td>
+                                        {resumenMensualTurnos.meses.map(mes => (
+                                          <td key={mes} className="px-3 py-2 text-center font-mono text-slate-700">{fila.conteos[mes] || 0}</td>
+                                        ))}
+                                        <td className="px-3 py-2 text-center font-mono font-extrabold text-indigo-700">{fila.total}</td>
+                                      </tr>
+                                    ))}
+                                    <tr className="sticky bottom-0 border-t-2 border-slate-200 bg-slate-50 font-extrabold text-slate-800">
+                                      <td className="sticky left-0 bg-slate-50 px-3 py-2.5">Total de turnos</td>
+                                      <td className="px-3 py-2.5">—</td>
+                                      {resumenMensualTurnos.meses.map(mes => (
+                                        <td key={mes} className="px-3 py-2.5 text-center font-mono">
+                                          {resumenMensualTurnos.filas.reduce((suma, fila) => suma + (fila.conteos[mes] || 0), 0)}
+                                        </td>
+                                      ))}
+                                      <td className="px-3 py-2.5 text-center font-mono text-indigo-700">
+                                        {resumenMensualTurnos.filas.reduce((suma, fila) => suma + fila.total, 0)}
+                                      </td>
+                                    </tr>
+                                  </>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
 
                         {/* 📋 TABLA DETALLADA CRONOLÓGICAMENTE ORDENADA */}
