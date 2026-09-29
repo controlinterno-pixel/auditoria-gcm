@@ -42,7 +42,6 @@ export default function InformesAuditoria({
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
   const tipoFuenteForm = tipoFuenteFormState?.[idEdicion] ?? (editInformeAuditoria?.tipoFuente || '');
-  const idEdicion = editInformeAuditoria?.id || 'nuevo';
   const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || '');
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
