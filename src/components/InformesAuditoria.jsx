@@ -155,17 +155,69 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
       .toLowerCase();
   };
 
-  
-const handleFileUpload = async (e, type) => {
-    const originalFile = e.target.files[0];
+  // 🖼️ Utilidad para comprimir imágenes en el cliente sin librerías extra
+  const compressImage = (file, maxWidth, maxHeight, quality) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = event => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            const newFile = new File([blob], file.name, {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            });
+            resolve(newFile);
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = error => reject(error);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleFileUpload = async (e, type) => {
+    let originalFile = e.target.files[0];
     if (!originalFile) return;
 
-    // 🛡️ ARQUITECTURA: Límite estricto de 3MB en el cliente.
-    // Vercel bloquea payloads > 4.5MB. Al convertir a Base64 el peso sube un 33%.
-    // 3MB asegura que el payload final sea ~4MB y no reviente la infraestructura.
-    const MAX_MB = 3;
+    // 🖼️ Si es imagen, intentamos comprimirla automáticamente primero
+    if (originalFile.type.startsWith('image/')) {
+      try {
+        originalFile = await compressImage(originalFile, 1280, 1280, 0.7);
+      } catch (err) {
+        console.error("Error comprimiendo imagen:", err);
+      }
+    }
+
+    // 🛡️ ARQUITECTURA: Límite estricto en el cliente.
+    // El servidor destino está rechazando payloads grandes con HTTP 413.
+    // Ajustado a 1MB por seguridad (aprox 1.33MB en Base64).
+    const MAX_MB = 1;
     if (originalFile.size > MAX_MB * 1024 * 1024) {
-      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite seguro de la infraestructura (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el archivo PDF antes de intentar subirlo.`);
+      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite de ${MAX_MB} MB permitido por el servidor remoto.\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el archivo (si es PDF u otro) antes de intentar subirlo.`);
       e.target.value = ''; // Limpia el input para prevenir bloqueos en la UI
       return;
     }
