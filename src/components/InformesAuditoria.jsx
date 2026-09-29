@@ -586,7 +586,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
                     <option value="Programa de Auditoría">Programa de Auditoría</option>
-                    <option value="Solo Auditoría">Solo Auditoría</option>
+                    <option value="Auditoría">Solo Auditoría</option>
                     <option value="Cliente">Cliente</option>
                     <option value="Accidente">Accidente</option>
                     <option value="Indicador">Indicador</option>
