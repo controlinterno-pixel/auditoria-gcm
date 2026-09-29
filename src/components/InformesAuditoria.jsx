@@ -571,7 +571,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
               <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2 space-y-4">
                 <div>
                   <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📍 Fuente de Mejora (Obligatorio)</label>
-                  <select
+                 <select
                     name="tipoFuente"
                     required
                     value={tipoFuenteForm}
@@ -586,12 +586,13 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
                     <option value="Programa de Auditoría">Programa de Auditoría</option>
+                    <option value="Solo Auditoría">Solo Auditoría</option>
                     <option value="Cliente">Cliente</option>
                     <option value="Accidente">Accidente</option>
                     <option value="Indicador">Indicador</option>
                     <option value="Iniciativa">Iniciativa</option>
                     <option value="Otra">Otra</option>
-                  </select>
+                  </select> 
                 </div>
 
                 {tipoFuenteForm === 'Programa de Auditoría' && (
