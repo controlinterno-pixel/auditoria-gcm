@@ -692,42 +692,42 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                 />
               </div>
 
-              <div className="md:col-span-1">
-                <label className="font-bold text-gray-600 block mb-1.5">✍️ Elaborado Por (Auditor)</label>
+             <div className="md:col-span-1">
+                <label className="font-bold text-gray-600 block mb-1.5">✍️ Elaborado Por (Cargo)</label>
                 <select 
                   name="elaboradoPor" 
                   defaultValue={editInformeAuditoria?.elaboradoPor || ''} 
                   required 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium text-slate-800 shadow-sm cursor-pointer"
                 >
-                  <option value="">-- Asignar Auditor --</option>
-                  {auditoresLista.map((aud, i) => <option key={`elab-${i}`} value={aud}>{aud}</option>)}
+                  <option value="">-- Seleccionar Cargo --</option>
+                  {CARGOS_EMPRESA.map((cargo, i) => <option key={`elab-${i}`} value={cargo}>{cargo}</option>)}
                 </select>
               </div>
 
               <div className="md:col-span-1">
-                <label className="font-bold text-gray-600 block mb-1.5">🔍 Revisado Por (Líder)</label>
+                <label className="font-bold text-gray-600 block mb-1.5">🔍 Revisado Por (Cargo)</label>
                 <select 
                   name="revisadoPor" 
                   defaultValue={editInformeAuditoria?.revisadoPor || ''} 
                   required 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800"
                 >
-                  <option value="">-- Seleccionar --</option>
-                  {auditoresLista.map((a, i) => <option key={`rev-${i}`} value={a}>{a}</option>)}
+                  <option value="">-- Seleccionar Cargo --</option>
+                  {CARGOS_EMPRESA.map((cargo, i) => <option key={`rev-${i}`} value={cargo}>{cargo}</option>)}
                 </select>
               </div>
 
               <div className="md:col-span-1">
-                <label className="font-bold text-gray-600 block mb-1.5">🔒 Aprobado Por (Gerencia)</label>
+                <label className="font-bold text-gray-600 block mb-1.5">🔒 Aprobado Por (Cargo)</label>
                 <select 
                   name="aprobadoPor" 
                   defaultValue={editInformeAuditoria?.aprobadoPor || ''} 
                   required 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800"
                 >
-                  <option value="">-- Seleccionar --</option>
-                  {auditoresLista.map((a, i) => <option key={`apr-${i}`} value={a}>{a}</option>)}
+                  <option value="">-- Seleccionar Cargo --</option>
+                  {CARGOS_EMPRESA.map((cargo, i) => <option key={`apr-${i}`} value={cargo}>{cargo}</option>)}
                 </select>
               </div>
 
