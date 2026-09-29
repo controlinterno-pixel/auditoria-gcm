@@ -57,23 +57,27 @@ export default async function handler(req, res) {
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`El repositorio devolvió un estado HTTP ${response.status}`);
-    }
+   // 🛡️ ARQUITECTURA: Extraer la respuesta real del servidor de Termales si falla
+        if (!response.ok) {
+          const errorText = await response.text();
+          logger.error('Fallo en servidor Termales', { status: response.status, errorText });
+          return sendError(res, `Servidor Destino Rechazado (HTTP ${response.status}): ${errorText}`, response.status);
+        }
 
-    const data = await response.json();
-    logger.info('Evidencia subida con éxito', { fileName, usuario: user.email, appName });
+        const data = await response.json();
+        logger.info('Evidencia subida con éxito', { fileName, usuario: user.email, appName });
 
-    return sendSuccess(res, {
-      success: true,
-      url: data.url || data.path || '',
-      appName: data.appName || 'controlInterno',
-      fileName: data.fileName || fileName,
-      message: 'Evidencia validada y almacenada con éxito.'
-    });
+        return sendSuccess(res, {
+          success: true,
+          url: data.url || data.path || '',
+          appName: data.appName || 'controlInterno',
+          fileName: data.fileName || fileName,
+          message: 'Evidencia validada y almacenada con éxito.'
+        });
 
-  } catch (error) {
-    logger.error('Error en api/grc/upload.js', error, { endpoint: req.url });
-    return sendError(res, 'Error interno al procesar y subir el archivo.', 500);
-  }
-}
+      } catch (error) {
+        logger.error('Error en api/grc/upload.js', error, { endpoint: req.url, detalle: error.message });
+        // 🛡️ ARQUITECTURA: Devolver el mensaje de error real al frontend para depuración
+        return sendError(res, `Fallo Interno (Vercel/Node): ${error.message}`, 500);
+      }
+    } 
