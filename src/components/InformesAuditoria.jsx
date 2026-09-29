@@ -37,8 +37,11 @@ export default function InformesAuditoria({
  // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
+  const [tipoFuenteFormState, setTipoFuenteFormState] = useState(null);
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
+  const idEdicion = editInformeAuditoria?.id || 'nuevo';
+  const tipoFuenteForm = tipoFuenteFormState?.[idEdicion] ?? (editInformeAuditoria?.tipoFuente || '');
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
   const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || '');
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
@@ -48,15 +51,8 @@ export default function InformesAuditoria({
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(null);
   
-  // 🛑 LÓGICA DE HARD CONTROL: Bloqueo inteligente si no hay programas
+ // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
   const handleCrearNuevoInforme = () => {
-    const programasAprobados = safeProgramas.filter(p => p.estado === 'Aprobado');
-    
-    if (programasAprobados.length === 0) {
-      alert("🛑 ACCIÓN DENEGADA: No puedes emitir un informe porque no tienes ningún Programa de Auditoría en estado 'Aprobado'.\n\nPor favor, dirígete al módulo de Planificación > Programas de Auditoría para crear y aprobar uno primero.");
-      return; // Bloquea la ejecución, no abre el formulario
-    }
-    
     setEditInformeAuditoria(null); 
     setVistaActiva('nuevo');
   };
@@ -570,45 +566,104 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
 
           <form key={editInformeAuditoria?.ref || 'form-nuevo'} onSubmit={(e) => { handleInformeAuditoriaSubmit(e); setVistaActiva('dashboard'); }} className="space-y-6 text-xs">
             
-            <input type="hidden" name="proceso" value={macroprocesoForm} />
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+             {/* 🛡️ FUENTE DE MEJORA Y VINCULACIÓN OBLIGATORIA */}
+              <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2 space-y-4">
+                <div>
+                  <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📍 Fuente de Mejora (Obligatorio)</label>
+                  <select
+                    name="tipoFuente"
+                    required
+                    value={tipoFuenteForm}
+                    onChange={(e) => {
+                      setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: e.target.value }));
+                      if (e.target.value !== 'Programa de Auditoría') {
+                        setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
+                        setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
+                      }
+                    }}
+                    className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer"
+                  >
+                    <option value="">-- Seleccione la Fuente que origina el informe --</option>
+                    <option value="Programa de Auditoría">Programa de Auditoría</option>
+                    <option value="Cliente">Cliente</option>
+                    <option value="Accidente">Accidente</option>
+                    <option value="Indicador">Indicador</option>
+                    <option value="Iniciativa">Iniciativa</option>
+                    <option value="Otra">Otra</option>
+                  </select>
+                </div>
 
-             {/* 🛡️ HARD CONTROL: VINCULACIÓN OBLIGATORIA AL PROGRAMA */}
-              <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2">
-                <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📋 Vincular Programa de Auditoría (Pre-requisito)</label>
-                <select
-                  name="programaId"
-                  required
-                  defaultValue={editInformeAuditoria?.programaId || ''}
-                  onChange={(e) => {
-                    const prog = safeProgramas.find(p => String(p.id) === String(e.target.value));
-                    if (prog) {
-                       setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: prog.proceso || '' }));
-                       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: prog.subproceso || 'General' }));
-                    }
-                  }}
-                  className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer"
-                >
-                  <option value="">-- Seleccione un Programa Aprobado --</option>
-                  {safeProgramas.filter(p => p.estado === 'Aprobado').map((p, idx) => (
-                    <option key={p.id} value={p.id}>
-                      [{p.ref || `PRG-2026-${String(idx + 1).padStart(3, '0')}`}] {p.proceso} — {p.subproceso || 'General'} ({p.vigencia || '2026'})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">Al seleccionar el programa, el sistema autocompletará el área y proceso auditado.</p>
+                {tipoFuenteForm === 'Programa de Auditoría' && (
+                  <div className="animate-in fade-in duration-300 border-t border-emerald-200 pt-3">
+                    <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📋 Vincular Programa de Auditoría Aprobado</label>
+                    <select
+                      name="programaId"
+                      required
+                      defaultValue={editInformeAuditoria?.programaId || ''}
+                      onChange={(e) => {
+                        const prog = safeProgramas.find(p => String(p.id) === String(e.target.value));
+                        if (prog) {
+                           setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: prog.proceso || '' }));
+                           setSubprocesoForm(prev => ({ ...prev, [idEdicion]: prog.subproceso || 'General' }));
+                        }
+                      }}
+                      className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer"
+                    >
+                      <option value="">-- Seleccione un Programa --</option>
+                      {safeProgramas.filter(p => p.estado === 'Aprobado').map((p, idx) => (
+                        <option key={p.id} value={p.id}>
+                          [{p.ref || `PRG-${new Date().getFullYear()}-${String(idx + 1).padStart(3, '0')}`}] {p.proceso} — {p.subproceso || 'General'}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">El sistema autocompletará el Macroproceso y Subproceso auditado.</p>
+                  </div>
+                )}
+
+                {tipoFuenteForm && tipoFuenteForm !== 'Programa de Auditoría' && (
+                  <div className="animate-in fade-in duration-300 border-t border-emerald-200 pt-3">
+                    <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📝 Detalle de la Fuente ({tipoFuenteForm})</label>
+                    <input
+                      name="detalleFuente"
+                      required
+                      defaultValue={editInformeAuditoria?.detalleFuente || ''}
+                      placeholder={`Especifique el origen relacionado a: ${tipoFuenteForm}`}
+                      className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white"
+                    />
+                    <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">Debe especificar manualmente el Macroproceso y Subproceso afectados.</p>
+                  </div>
+                )}
               </div>
-              
+
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 block mb-1.5">Título del Informe Formal</label>
                 <input 
                   name="titulo" 
                   defaultValue={editInformeAuditoria?.titulo || ''} 
                   required 
-                  placeholder="Ej: Auditoría de Cumplimiento a Cadena de Suministros" 
+                  placeholder="Ej: Informe de Accidente en Planta" 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm" 
                 />
+              </div>
+
+              <div className="md:col-span-1">
+                 <label className="font-bold text-gray-600 block mb-1.5">🏛️ Macroproceso</label>
+                 <select
+                   name="proceso"
+                   required
+                   value={macroprocesoForm}
+                   onChange={(e) => {
+                     setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }));
+                     setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
+                   }}
+                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50"
+                   disabled={tipoFuenteForm === 'Programa de Auditoría'}
+                 >
+                   <option value="">-- Seleccionar --</option>
+                   {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
+                 </select>
               </div>
 
               <div className="md:col-span-1">
@@ -616,15 +671,15 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                  <select 
                    name="subproceso" 
                    value={subprocesoForm} 
-                  onChange={(e) => setSubprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }))}
+                   onChange={(e) => setSubprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }))}
                    required 
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50"
-                   disabled={!macroprocesoForm}
+                   disabled={(!macroprocesoForm) || tipoFuenteForm === 'Programa de Auditoría'}
                  >
                    <option value="">-- Seleccionar --</option>
                    {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(s => <option key={s} value={s}>{s}</option>)}
                  </select>
-              </div>
+              </div>  
 
                 <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>
