@@ -148,13 +148,19 @@ const obtenerGrupoTurno = (horario) => {
 const coincideFiltroTurno = (horario, filtro) =>
   filtro === 'TODOS' || obtenerGrupoTurno(horario) === filtro;
 
-const DashboardHistorico = () => {
+const DashboardHistorico = ({
+  onAuditarPeriodosGuardados,
+  isAuditingMotorIntegral = false,
+  resultadoMotorIntegral = null,
+}) => {
   const [datosHistoricos, setDatosHistoricos] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [listaBases, setListaBases] = useState([]);
   const [basesHistoricasCargadas, setBasesHistoricasCargadas] = useState(false);
   const autoAnalisisIniciado = React.useRef(false);
+  const [busquedaMotorIntegral, setBusquedaMotorIntegral] = useState('');
+  const [filtroMotorIntegral, setFiltroMotorIntegral] = useState('TODOS');
 
   // --- FILTROS AVANZADOS Y TENDENCIAS ---
   const [busqueda, setBusqueda] = useState('');
@@ -1036,6 +1042,22 @@ const estaPersonaSeleccionada = React.useCallback(
       });
   }, [alertasFiltradas, busquedaCargoProceso, conceptosRankingSeleccionados, metricaRankingJornada, modoDashboard]);
 
+  const hallazgosMotorIntegralFiltrados = React.useMemo(() => {
+    const busquedaNormalizada = normalizarTexto(busquedaMotorIntegral);
+    return (resultadoMotorIntegral?.hallazgos || []).filter(hallazgo => {
+      const coincideTipo = filtroMotorIntegral === 'TODOS' || hallazgo.tipoHallazgo === filtroMotorIntegral;
+      const textoFila = normalizarTexto([
+        hallazgo.nombre,
+        hallazgo.cedula,
+        hallazgo.cargo,
+        hallazgo.empresa,
+        hallazgo.mesVisual,
+        hallazgo.periodo,
+      ].join(' '));
+      return coincideTipo && (!busquedaNormalizada || textoFila.includes(busquedaNormalizada));
+    });
+  }, [resultadoMotorIntegral, busquedaMotorIntegral, filtroMotorIntegral]);
+
   const exportarRankingExcel = () => {
     const filas = alertasTablaFiltradas.map((alerta, indice) => ({
       Posicion: indice + 1,
@@ -1709,6 +1731,14 @@ disabled={isAnalyzing || listaBases.length === 0}
           >
             {isAnalyzing ? '⏳ Procesando Big Data...' : '🚀 Ejecutar Escáner Histórico'}
           </button>
+          <button
+            type="button"
+            onClick={() => onAuditarPeriodosGuardados?.()}
+            disabled={isAuditingMotorIntegral || listaBases.length === 0}
+            className="px-5 py-2.5 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold shadow-lg transition-all hover:from-indigo-500 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isAuditingMotorIntegral ? '⏳ Auditando períodos guardados...' : '🛡️ Motor Auditoría Integral 360°'}
+          </button>
         {datosHistoricos && datosMarcaciones && (
   <button 
     onClick={exportarAuditoriaCompletaExcel}
@@ -1726,6 +1756,117 @@ disabled={isAnalyzing || listaBases.length === 0}
 )}
         </div>
       </div>
+
+      {resultadoMotorIntegral && (
+        <section className="mb-8 overflow-hidden rounded-xl border border-indigo-200 bg-white shadow-md">
+          <div className="flex flex-col gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-bold text-indigo-950">Motor Auditoría Integral (360°)</h3>
+              <p className="mt-1 text-xs font-medium text-indigo-700">
+                {resultadoMotorIntegral.periodos.length} períodos · {resultadoMotorIntegral.totalTransacciones.toLocaleString('es-CO')} transacciones cargadas desde la nube
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onAuditarPeriodosGuardados?.()}
+              disabled={isAuditingMotorIntegral}
+              className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"
+            >
+              {isAuditingMotorIntegral ? 'Procesando...' : 'Actualizar auditoría'}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 p-4 lg:grid-cols-5">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-[10px] font-bold uppercase text-slate-500">Auditorías empleado/período</p>
+              <p className="mt-1 text-xl font-extrabold text-slate-800">{resultadoMotorIntegral.kpis.totalEmpleados}</p>
+            </div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-[10px] font-bold uppercase text-emerald-700">Conformes</p>
+              <p className="mt-1 text-xl font-extrabold text-emerald-800">{resultadoMotorIntegral.kpis.conteoConformes}</p>
+            </div>
+            <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+              <p className="text-[10px] font-bold uppercase text-rose-700">Bajo pago UGPP</p>
+              <p className="mt-1 text-xl font-extrabold text-rose-800">{resultadoMotorIntegral.kpis.conteoBajoPago}</p>
+            </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="text-[10px] font-bold uppercase text-amber-700">Pagos en exceso</p>
+              <p className="mt-1 text-xl font-extrabold text-amber-800">{resultadoMotorIntegral.kpis.conteoExcesos}</p>
+            </div>
+            <div className="rounded-lg border border-purple-200 bg-purple-50 p-3">
+              <p className="text-[10px] font-bold uppercase text-purple-700">Desalineaciones</p>
+              <p className="mt-1 text-xl font-extrabold text-purple-800">{resultadoMotorIntegral.kpis.conteoDesalineados}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 px-4 pb-4 sm:flex-row">
+            <input
+              type="search"
+              value={busquedaMotorIntegral}
+              onChange={e => setBusquedaMotorIntegral(e.target.value)}
+              placeholder="Buscar empleado, cédula, empresa o período..."
+              aria-label="Buscar en resultados del Motor Integral"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            />
+            <select
+              value={filtroMotorIntegral}
+              onChange={e => setFiltroMotorIntegral(e.target.value)}
+              aria-label="Filtrar resultados del Motor Integral por estado"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+            >
+              <option value="TODOS">Todos los estados</option>
+              <option value="CONFORME">Conformes</option>
+              <option value="PAGO_INSUFICIENTE">Bajo pago UGPP</option>
+              <option value="PAGO_EXCESO">Pagos en exceso</option>
+              <option value="DESALINEACION_SUBSISTEMAS">Desalineación de subsistemas</option>
+            </select>
+          </div>
+
+          <div className="max-h-[560px] overflow-auto border-t border-slate-200">
+            <table className="w-full min-w-[1100px] text-left text-xs">
+              <thead className="sticky top-0 z-10 bg-slate-100 text-[10px] font-bold uppercase text-slate-600 shadow-sm">
+                <tr>
+                  <th className="px-3 py-3">Empresa</th>
+                  <th className="px-3 py-3">Período</th>
+                  <th className="px-3 py-3">Empleado</th>
+                  <th className="px-3 py-3">Cargo</th>
+                  <th className="px-3 py-3 text-right">IBC motor</th>
+                  <th className="px-3 py-3 text-right">IBC nómina</th>
+                  <th className="px-3 py-3 text-right">Salud esperada</th>
+                  <th className="px-3 py-3 text-right">Salud descontada</th>
+                  <th className="px-3 py-3 text-right">Diferencia</th>
+                  <th className="px-3 py-3">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {hallazgosMotorIntegralFiltrados.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-8 text-center text-slate-500">No hay resultados para los filtros seleccionados.</td>
+                  </tr>
+                ) : hallazgosMotorIntegralFiltrados.map(hallazgo => (
+                  <tr key={hallazgo.id} className="hover:bg-indigo-50/40">
+                    <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-slate-700">{hallazgo.empresa || 'GENERAL'}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 font-semibold text-indigo-700">{hallazgo.mesVisual || hallazgo.periodo}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 font-bold text-slate-800">
+                      {hallazgo.nombre}
+                      <span className="block text-[10px] font-mono text-slate-400">{hallazgo.cedula}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600">{hallazgo.cargo || 'Sin cargo'}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono">${(hallazgo.salarioBase || 0).toLocaleString('es-CO')}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono">${(hallazgo.ibcImplicito || 0).toLocaleString('es-CO')}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono">${(hallazgo.auxilioDeberSer || 0).toLocaleString('es-CO')}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right font-mono">${(hallazgo.auxilioPagado || 0).toLocaleString('es-CO')}</td>
+                    <td className={`whitespace-nowrap px-3 py-2.5 text-right font-mono font-bold ${hallazgo.tipoHallazgo === 'CONFORME' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      ${(hallazgo.diferenciaExacta || 0).toLocaleString('es-CO')}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 font-bold text-slate-700">{hallazgo.tipoHallazgo.replaceAll('_', ' ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {datosHistoricos && (modoDashboard === 'JORNADA' || modoDashboard === 'TRANSPORTE') && (
         <div className="space-y-6">

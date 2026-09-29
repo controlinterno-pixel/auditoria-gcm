@@ -28,6 +28,8 @@ const ConceptMapper = () => {
   const [periodoHistorico, setPeriodoHistorico] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [listaHistoricosBD, setListaHistoricosBD] = useState([]);
+  const [isAuditingHistoricalIntegral, setIsAuditingHistoricalIntegral] = useState(false);
+  const [resultadoAuditoriaHistoricaIntegral, setResultadoAuditoriaHistoricaIntegral] = useState(null);
 
     useEffect(() => {
     // Quitamos el 'if' para que siempre consulte la nube al cargar la página
@@ -287,6 +289,105 @@ const systemCategories = [
       alert("❌ Error al procesar la data histórica masiva. Asegúrate de tener bases válidas en la Nube.");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleAuditSavedPeriodsIntegral = async () => {
+    setIsAuditingHistoricalIntegral(true);
+    try {
+      const basesGuardadas = await obtenerListaHistoricos();
+      setListaHistoricosBD(basesGuardadas);
+      if (basesGuardadas.length === 0) {
+        throw new Error('No hay nóminas históricas guardadas para auditar.');
+      }
+
+      const transaccionesPorPeriodo = new Map();
+      for (const base of basesGuardadas) {
+        const periodo = String(base.periodo || '').trim().replace(/\//g, '-');
+        if (!periodo) continue;
+
+        const dataBruta = await cargarNominaHistorica(base.periodo, base.empresa);
+        let dataPlana = [];
+        if (Array.isArray(dataBruta)) {
+          dataBruta.forEach(item => {
+            if (Array.isArray(item)) dataPlana.push(...item);
+            else if (Array.isArray(item?.transacciones)) dataPlana.push(...item.transacciones);
+            else if (Array.isArray(item?.registros)) dataPlana.push(...item.registros);
+            else dataPlana.push(item);
+          });
+        } else if (dataBruta && typeof dataBruta === 'object') {
+          dataPlana = dataBruta.transacciones || dataBruta.registros || dataBruta.datos || Object.values(dataBruta);
+        }
+
+        const filasPeriodo = transaccionesPorPeriodo.get(periodo) || [];
+        dataPlana.forEach(fila => {
+          if (!fila || typeof fila !== 'object') return;
+          const transaccion = { ...fila };
+          const llavesNormalizadas = Object.keys(transaccion).map(llave =>
+            llave.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[\s_]/g, '')
+          );
+          const tienePeriodo = ['IDENPERIODO', 'PERIODO', 'MES', 'QUINCENA'].some(llave => llavesNormalizadas.includes(llave));
+          const tieneMes = ['ANOMES', 'PERIODOMES', 'FECHA'].some(llave => llavesNormalizadas.includes(llave));
+          const tieneEmpresa = ['EMPRESA', 'COMPANIA', 'RAZONSOCIAL', 'NITEMPRESA'].some(llave => llavesNormalizadas.includes(llave));
+
+          if (!tienePeriodo) transaccion.IDEN_Periodo = periodo;
+          if (!tieneMes) transaccion.AnoMes = periodo.slice(0, 7);
+          if (!tieneEmpresa && base.empresa) transaccion.Empresa = String(base.empresa).replace(/_/g, ' ');
+          transaccion.MesVisual = periodo;
+          filasPeriodo.push(transaccion);
+        });
+        transaccionesPorPeriodo.set(periodo, filasPeriodo);
+      }
+
+      const conceptosColumnas = Object.keys([...transaccionesPorPeriodo.values()].flat()[0] || {});
+      const columnaConcepto = conceptosColumnas.find(llave => {
+        const llaveNormalizada = llave.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[\s_]/g, '');
+        return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(llaveNormalizada);
+      });
+      const todosLosDatos = Array.from(transaccionesPorPeriodo.values()).flat();
+      if (todosLosDatos.length === 0) {
+        throw new Error('Los períodos guardados no contienen transacciones válidas.');
+      }
+
+      const conceptos = [...new Set(todosLosDatos.map(fila => normalizarTexto(columnaConcepto ? fila[columnaConcepto] : '')))].filter(Boolean);
+      const mapeoAutomatico = ejecutarAutoMapeoInteligente(conceptos);
+      const periodosOrdenados = [...transaccionesPorPeriodo.keys()].sort();
+      const resultadoCombinado = {
+        periodos: periodosOrdenados,
+        totalTransacciones: todosLosDatos.length,
+        hallazgos: [],
+        kpis: {
+          totalEmpleados: 0,
+          conteoConformes: 0,
+          conteoBajoPago: 0,
+          conteoExcesos: 0,
+          conteoDesalineados: 0,
+          conteoNoAplica: 0,
+        },
+      };
+
+      for (const periodo of periodosOrdenados) {
+        const resultado = await auditarSeguridadSocial(transaccionesPorPeriodo.get(periodo), mapeoAutomatico, { pasoRedondeo });
+        resultadoCombinado.hallazgos.push(...resultado.hallazgos.map(hallazgo => ({ ...hallazgo, mesVisual: periodo })));
+        Object.keys(resultadoCombinado.kpis).forEach(clave => {
+          resultadoCombinado.kpis[clave] += resultado.kpis[clave] || 0;
+        });
+      }
+
+      setDatosExcel(todosLosDatos);
+      setConceptosExtraidosUI(conceptos);
+      setTipoAuditoriaActiva('UGPP');
+      setHallazgos(resultadoCombinado.hallazgos);
+      setResumenKpi(resultadoCombinado.kpis);
+      setFileName(`[Histórico Nube] ${periodosOrdenados.length} períodos procesados.`);
+      setFiltroTipo('TODOS');
+      setBusqueda('');
+      setResultadoAuditoriaHistoricaIntegral(resultadoCombinado);
+    } catch (error) {
+      console.error('Error auditando nóminas históricas con Motor Integral:', error);
+      alert(`No fue posible ejecutar el Motor Integral con los períodos guardados: ${error.message}`);
+    } finally {
+      setIsAuditingHistoricalIntegral(false);
     }
   };
 
@@ -750,7 +851,11 @@ if (empleado.usoHistoricoAnterior) {
         </div>
 
 {pestanaActiva === 'HISTORICO' ? (
-  <DashboardHistorico />
+  <DashboardHistorico
+    onAuditarPeriodosGuardados={handleAuditSavedPeriodsIntegral}
+    isAuditingMotorIntegral={isAuditingHistoricalIntegral}
+    resultadoMotorIntegral={resultadoAuditoriaHistoricaIntegral}
+  />
 ) : (
   <>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
