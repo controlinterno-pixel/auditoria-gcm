@@ -622,7 +622,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                   </div>
                 )}
 
-                {tipoFuenteForm && tipoFuenteForm !== 'Programa de Auditoría' && (
+              {tipoFuenteForm && tipoFuenteForm !== 'Programa de Auditoría' && (
                   <div className="animate-in fade-in duration-300 border-t border-emerald-200 pt-3">
                     <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📝 Detalle de la Fuente ({tipoFuenteForm})</label>
                     <input
@@ -632,9 +632,9 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                       placeholder={`Especifique el origen relacionado a: ${tipoFuenteForm}`}
                       className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white"
                     />
-                    <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">Debe especificar manualmente la fuente - informes de auditoría, PQRs, accidentes de trabajo e iniciativas de proceso,entre otros.</p>
+                    <p className="text-xs text-emerald-700 mt-2 font-semibold">Debe especificar manualmente la fuente - informes de auditoría, PQRs, accidentes de trabajo e iniciativas de proceso, entre otros.</p>
                   </div>
-                )}
+                )} 
               </div>
 
               <div className="md:col-span-2">
