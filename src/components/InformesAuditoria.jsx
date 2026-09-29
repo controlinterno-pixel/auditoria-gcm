@@ -743,7 +743,19 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                 </select>
               </div>
 
-              <div className="md:col-span-3 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+              {/* ✨ NUEVO CAMPO: Fecha de Socialización */}
+              <div className="md:col-span-1">
+                <label className="font-bold text-gray-600 block mb-1.5">🗓️ Fecha Socialización</label>
+                <input 
+                  name="fechaSocializacion" 
+                  type="date" 
+                  defaultValue={editInformeAuditoria?.fechaSocializacion || ''} 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer" 
+                />
+              </div>
+
+              {/* ⚠️ Nota: Se redujo a md:col-span-2 para mantener la cuadrícula simétrica */}
+              <div className="md:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Cargos)</label>
                 <div className="flex gap-2">
                 <select 
