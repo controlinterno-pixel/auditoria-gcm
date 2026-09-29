@@ -655,8 +655,16 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                    required
                    value={macroprocesoForm}
                    onChange={(e) => {
-                     setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }));
-                     setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
+                     const nuevoMacro = e.target.value;
+                     setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
+                     
+                     // Lógica arquitectónica: Autoseleccionar si solo existe 1 subproceso (Ej: "General")
+                     const subprocesosAsociados = MAPA_PROCESOS[nuevoMacro] || [];
+                     if (subprocesosAsociados.length === 1) {
+                       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesosAsociados[0] }));
+                     } else {
+                       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
+                     }
                    }}
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50"
                    disabled={tipoFuenteForm === 'Programa de Auditoría'}
@@ -673,8 +681,12 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                    value={subprocesoForm} 
                    onChange={(e) => setSubprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }))}
                    required 
-                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50"
-                   disabled={(!macroprocesoForm) || tipoFuenteForm === 'Programa de Auditoría'}
+                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50"
+                   disabled={
+                     !macroprocesoForm || 
+                     tipoFuenteForm === 'Programa de Auditoría' || 
+                     (MAPA_PROCESOS[macroprocesoForm]?.length <= 1)
+                   }
                  >
                    <option value="">-- Seleccionar --</option>
                    {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(s => <option key={s} value={s}>{s}</option>)}
