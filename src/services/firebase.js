@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 // 🛡️ DICTAMEN DE CIBERSEGURIDAD PARA AUDITORÍA TI:
 // Los identificadores del Client SDK SON PÚBLICOS por diseño de Google Firebase.
@@ -23,3 +24,4 @@ const getSecureClientConfig = () => {
 const app = initializeApp(getSecureClientConfig());
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+export const storage = getStorage(app);

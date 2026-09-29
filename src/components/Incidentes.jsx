@@ -129,7 +129,7 @@ export default function Incidentes({
                 fileUrl={archivoSubidoUrl || editIncidente?.evidenciaUrl}
                 onUploadSuccess={(url) => setArchivoSubidoUrl(url)}
                 themeColor="red"
-                maxSizeMB={8}
+                maxSizeMB={7}
                 description="Soporte Evento de Pérdida GCM"
               />
             </div>

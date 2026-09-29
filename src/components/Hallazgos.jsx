@@ -105,12 +105,21 @@ export default function Hallazgos({
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
 
  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const originalFile = e.target.files[0];
+    if (!originalFile) return;
+
+    // 🛑 VALIDACIÓN DE PESO (MÁXIMO 7MB) PARA EVITAR ERROR 413
+    const MAX_MB = 7;
+    if (originalFile.size > MAX_MB * 1024 * 1024) {
+      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite máximo permitido por el servidor (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el PDF antes de subirlo.`);
+      e.target.value = '';
+      return;
+    }
+
     setIsUploading(true); setUploadProgress(20);
     try {
       setUploadProgress(50);
-      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
+      const data = await apiService.subirEvidencia(originalFile, { appName: 'controlInterno' });
       const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
       setArchivoSubidoUrl(urlFinal); setIsUploading(false); setUploadProgress(100);
       alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");

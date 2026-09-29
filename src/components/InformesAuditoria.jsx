@@ -7,6 +7,7 @@ import {
 // 1. Importamos la arquitectura centralizada
 import { useDataFetching } from '../hooks/useDataFetching';
 import { apiService } from '../services/apiService';
+import { subirArchivoStorage } from '../services/uploadService';
 
 export default function InformesAuditoria({ 
   informesAuditoria, 
@@ -203,7 +204,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
     let originalFile = e.target.files[0];
     if (!originalFile) return;
 
-    // 🖼️ Si es imagen, intentamos comprimirla automáticamente primero
+    // 🖼️ Si es imagen, comprimirla automáticamente antes de subir
     if (originalFile.type.startsWith('image/')) {
       try {
         originalFile = await compressImage(originalFile, 1280, 1280, 0.7);
@@ -212,45 +213,35 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
       }
     }
 
-    // 🛡️ ARQUITECTURA: Límite estricto en el cliente.
-    // El servidor destino está rechazando payloads grandes con HTTP 413.
-    // Ajustado a 1MB por seguridad (aprox 1.33MB en Base64).
-    const MAX_MB = 1;
+    // 🛑 VALIDACIÓN DE PESO (MÁXIMO 7MB) PARA EVITAR ERROR 413 EN VERCEL
+    const MAX_MB = 7;
     if (originalFile.size > MAX_MB * 1024 * 1024) {
-      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite de ${MAX_MB} MB permitido por el servidor remoto.\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el archivo (si es PDF u otro) antes de intentar subirlo.`);
-      e.target.value = ''; // Limpia el input para prevenir bloqueos en la UI
+      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite máximo permitido por el servidor (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el PDF antes de subirlo.`);
+      e.target.value = '';
       return;
     }
 
     // 🌟 Limpiar el nombre
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
-    
     const file = new File([originalFile], nombreLimpio, {
       type: originalFile.type,
       lastModified: originalFile.lastModified,
     });
 
     try {
-      const payloadMeta = {
-        appName: 'controlInterno',
-        description: `Documento adjunto desde GCM Auditor - ${type}`,
-        fieldName: 'file' 
-      };
-
+      // ☁️ Subida directa al servidor de Termales
       if (type === 'informe') {
         const data = await ejecutarSubidaInforme(
-          apiService.subirEvidencia(file, payloadMeta)
+          subirArchivoStorage(file, { appName: 'controlInterno' })
         );
-        const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
-        setArchivoSubidoUrl(urlFinal);
+        setArchivoSubidoUrl(data.url);
       } else {
         const data = await ejecutarSubidaActa(
-          apiService.subirEvidencia(file, payloadMeta)
+          subirArchivoStorage(file, { appName: 'controlInterno' })
         );
-        const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
-        setActaSubidaUrl(urlFinal);
+        setActaSubidaUrl(data.url);
       }
-      alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
+      alert("🎉 ¡Archivo guardado con éxito en el repositorio GCM!");
     } catch (err) {
       alert(`⚠️ No se pudo subir el archivo:\n${err.message}`);
     }

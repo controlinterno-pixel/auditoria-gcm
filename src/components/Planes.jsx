@@ -626,9 +626,17 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
       .toLowerCase();
   };
 
-  const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) => {
+const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) => {
     const originalFile = e.target.files[0];
     if (!originalFile) return;
+
+    // 🛑 VALIDACIÓN DE PESO (MÁXIMO 7MB) PARA EVITAR ERROR 413
+    const MAX_MB = 7;
+    if (originalFile.size > MAX_MB * 1024 * 1024) {
+      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite máximo permitido por el servidor (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el PDF antes de subirlo.`);
+      e.target.value = '';
+      return;
+    }
 
     // 🌟 Limpiar el nombre
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
@@ -644,7 +652,6 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
       const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
       const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
       
-      // Convertimos a arreglo y agregamos la nueva URL a las que ya existían
       const arrayEvidencias = Array.isArray(evidenciasActuales) ? evidenciasActuales : (evidenciasActuales ? [evidenciasActuales] : []);
       handleUpdateActivityField(hallazgoId, index, 'evidenciaUrl', [...arrayEvidencias, urlFinal]);
       
@@ -654,7 +661,6 @@ const correoResponsableLider = modalEval.planes[0]?.correoResponsable || (import
       console.error(err); alert("Error al conectar con el servidor de archivos."); setUploadingCell(null);
     }
   };
-
 // 🧠 MODIFICADO: JALA AUTOMÁTICAMENTE CARGO Y AUDITOR DESDE EL HALLAZGO (Y ACEPTA DATOS FRESCOS)
   const handleInformeChange = useCallback((informeId, customPlanes = null, customHallazgos = null) => {
     setFormInformeId(informeId);
