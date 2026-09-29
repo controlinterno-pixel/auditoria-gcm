@@ -101,7 +101,7 @@ export default function App() {
     setIncidentes, setEvaluaciones,
     cronograma, setCronograma, setMonitoreo,
     informesAuditoria, setInformesAuditoria, setComites,
-    setProgramas, auditoresLista, setAuditoresLista,
+    setProgramas,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();

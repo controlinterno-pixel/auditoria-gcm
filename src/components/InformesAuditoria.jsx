@@ -25,9 +25,7 @@ export default function InformesAuditoria({
   scrollToForm, 
   handleDeleteItem, 
   applyFilters, 
-  FilterInput,
-  auditoresLista = [], 
-  onActualizarAuditores 
+  FilterInput
 }) {
 
   // 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
