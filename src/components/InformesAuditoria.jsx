@@ -632,7 +632,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                       placeholder={`Especifique el origen relacionado a: ${tipoFuenteForm}`}
                       className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white"
                     />
-                    <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">Debe especificar manualmente el Macroproceso y Subproceso afectados.</p>
+                    <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">Debe especificar manualmente la fuente - informes de auditoría, PQRs, accidentes de trabajo e iniciativas de proceso,entre otros.</p>
                   </div>
                 )}
               </div>
