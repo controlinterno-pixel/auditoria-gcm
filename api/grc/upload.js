@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     const formData = new FormData();
     
     // Adjuntamos los datos al FormData
-    formData.append('archivo', blob, fileName); 
+formData.append('file', blob, fileName);
     formData.append('subidoPor', user.email);
     formData.append('appName', appName || 'controlInterno');
 
