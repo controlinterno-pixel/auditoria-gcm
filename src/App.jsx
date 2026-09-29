@@ -467,7 +467,7 @@ return (
                     FilterInput={FilterInput}
                   />
                 )}
-                {subTabResultados === 'informes' && isAdmin && (
+              {subTabResultados === 'informes' && isAdmin && (
                   <InformesAuditoria 
                     informesAuditoria={informesAuditoria} 
                     safeProgramas={safeProgramas}
@@ -476,10 +476,9 @@ return (
                     columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
                     handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit} isSubmitting={isSubmitting} setFormResetKey={setFormResetKey}
                     scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters} FilterInput={FilterInput}
-                    safeHallazgos={safeHallazgos} safePlanes={safePlanes} formatSafeDate={formatSafeDate} auditoresLista={auditoresLista}
-                    onActualizarAuditores={async (nuevaLista) => { setAuditoresLista(nuevaLista); await saveToCloud({ auditoresLista: nuevaLista }); }}
+                    safeHallazgos={safeHallazgos} safePlanes={safePlanes} formatSafeDate={formatSafeDate}
                   />
-                )}
+                )}  
               </div>
             )}
 
