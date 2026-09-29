@@ -145,9 +145,13 @@ const systemCategories = [
       };
 
       for (const periodo of periodosOrdenados) {
+        await new Promise(resolve => setTimeout(resolve, 0));
         const filasPeriodo = transaccionesPorPeriodo.get(periodo) || [];
         if (filasPeriodo.length === 0) continue;
-        const resultado = await auditarSeguridadSocial(filasPeriodo, mapeoConceptos, { pasoRedondeo });
+        const resultado = await auditarSeguridadSocial(filasPeriodo, mapeoConceptos, {
+          pasoRedondeo,
+          datosHistoricosCargados: transacciones,
+        });
         resultadoCombinado.hallazgos.push(...resultado.hallazgos.map(hallazgo => ({ ...hallazgo, mesVisual: periodo })));
         Object.keys(resultadoCombinado.kpis).forEach(clave => {
           resultadoCombinado.kpis[clave] += resultado.kpis[clave] || 0;
@@ -167,7 +171,7 @@ const systemCategories = [
     }
   }, [pasoRedondeo]);
 
-  const recibirNominaHistoricaCargada = useCallback(async (transacciones, periodos) => {
+  const recibirNominaHistoricaCargada = useCallback((transacciones, periodos) => {
     const llavesExcel = Object.keys(transacciones[0] || {});
     const columnaConcepto = llavesExcel.find(llave => {
       const llaveNormalizada = llave.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[\s_]/g, '');
@@ -181,14 +185,9 @@ const systemCategories = [
     const mapeoAutomatico = ejecutarAutoMapeoInteligente(conceptos);
     setHallazgos(null);
     setResumenKpi(null);
-    try {
-      await ejecutarAuditoriaIntegralConDatos(transacciones, mapeoAutomatico, periodos);
-    } catch (error) {
-      console.error('Error auditando los períodos cargados con Motor Integral:', error);
-      setResultadoAuditoriaHistoricaIntegral(null);
-      alert(`La nómina quedó cargada, pero no se pudo completar la auditoría 360°: ${error.message}`);
-    }
-  }, [ejecutarAutoMapeoInteligente, ejecutarAuditoriaIntegralConDatos]);
+    setResultadoAuditoriaHistoricaIntegral(null);
+    return mapeoAutomatico;
+  }, [ejecutarAutoMapeoInteligente]);
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
@@ -353,18 +352,18 @@ const systemCategories = [
     }
   };
 
-  const handleAuditSavedPeriodsIntegral = async () => {
+  const handleAuditSavedPeriodsIntegral = async (transaccionesCargadas = datosExcel, mapeoCargado = mapping) => {
     try {
-      if (!Array.isArray(datosExcel) || datosExcel.length === 0) {
+      if (!Array.isArray(transaccionesCargadas) || transaccionesCargadas.length === 0) {
         throw new Error('Primero carga la nómina con el Escáner Histórico.');
       }
-      const periodos = [...new Set(datosExcel.map(transaccion =>
+      const periodos = [...new Set(transaccionesCargadas.map(transaccion =>
         String(transaccion.mesOrigen || transaccion.MesVisual || transaccion.AnoMes || transaccion['AñoMes'] || transaccion['Periodo Mes'] || '')
           .trim()
           .replace(/\//g, '-')
           .slice(0, 7)
       ).filter(Boolean))].sort();
-      await ejecutarAuditoriaIntegralConDatos(datosExcel, mapping, periodos);
+      await ejecutarAuditoriaIntegralConDatos(transaccionesCargadas, mapeoCargado, periodos);
     } catch (error) {
       console.error('Error auditando nóminas históricas con Motor Integral:', error);
       alert(`No fue posible ejecutar el Motor Integral con los períodos guardados: ${error.message}`);

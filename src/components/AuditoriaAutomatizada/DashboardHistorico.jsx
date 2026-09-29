@@ -161,6 +161,7 @@ const DashboardHistorico = ({
   const [isExporting, setIsExporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [listaBases, setListaBases] = useState([]);
+  const motor360Pendiente = React.useRef(false);
   const [busquedaMotorIntegral, setBusquedaMotorIntegral] = useState('');
   const [filtroMotorIntegral, setFiltroMotorIntegral] = useState('TODOS');
 
@@ -274,9 +275,9 @@ const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
     }
 
     setIsAnalyzing(true);
+    let todasLasTransacciones = [];
+    let mapeoNominaCargada = null;
     try {
-      let todasLasTransacciones = [];
-      
       // Descargar todas las bases de Firebase
       for (const base of listaBases) {
         const dataBruta = await cargarNominaHistorica(base.periodo, base.empresa);
@@ -304,7 +305,7 @@ const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
       }
 
       const periodosCargados = [...new Set(listaBases.map(base => String(base.periodo || '').replace(/\//g, '-').slice(0, 7)))].filter(Boolean).sort();
-      await onDatosHistoricosCargados?.(todasLasTransacciones, periodosCargados);
+      mapeoNominaCargada = await onDatosHistoricosCargados?.(todasLasTransacciones, periodosCargados);
 
       // Procesamiento Forense 360
       const empleadosStats = {};
@@ -685,8 +686,14 @@ riesgo: (() => {
       alert("❌ Error al procesar la data histórica.");
     } finally {
       setIsAnalyzing(false);
+      if (motor360Pendiente.current) {
+        motor360Pendiente.current = false;
+        if (todasLasTransacciones.length > 0) {
+          onAuditarPeriodosGuardados?.(todasLasTransacciones, mapeoNominaCargada || undefined);
+        }
+      }
     }
-  }, [listaBases, onDatosHistoricosCargados]);
+  }, [listaBases, onDatosHistoricosCargados, onAuditarPeriodosGuardados]);
 
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
   // 💡 HELPER FORENSE: Comparación de nombres inmune a diferencias de orden
@@ -1722,14 +1729,27 @@ let alertaInteligente;
           <button
             type="button"
             onClick={() => {
-              if (isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada || !resultadoMotorIntegral) return;
+              if (isAuditingMotorIntegral) return;
+              if (listaBases.length === 0) {
+                alert('No hay períodos históricos guardados para auditar.');
+                return;
+              }
               cambiarModoDashboard('UGPP');
+              if (isAnalyzing) {
+                motor360Pendiente.current = true;
+                return;
+              }
+              if (hayDatosNominaCargada) {
+                onAuditarPeriodosGuardados?.();
+                return;
+              }
+              motor360Pendiente.current = true;
+              ejecutarAnalisisForense();
             }}
-            disabled={isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada || !resultadoMotorIntegral}
-            className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'UGPP' ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'} disabled:cursor-not-allowed disabled:opacity-50`}
-            title={isAnalyzing ? 'El escáner está procesando la nómina inicial' : !resultadoMotorIntegral ? 'El Motor 360° se ejecutará junto con el Escáner Histórico' : 'Ver los resultados 360° ya calculados'}
+            className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'UGPP' ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+            title={isAnalyzing ? 'Se ejecutará cuando termine el escáner actual' : 'Ejecutar el Motor 360° con la nómina ya cargada'}
           >
-            {isAnalyzing ? '🛡️ Motor Integral 360°' : isAuditingMotorIntegral ? '⏳ Analizando datos cargados...' : '🛡️ Motor Integral 360°'}
+            {isAuditingMotorIntegral ? '⏳ Análisis 360° en curso...' : '🛡️ Motor Integral 360°'}
           </button>
         </div>
 
@@ -1763,6 +1783,16 @@ disabled={isAnalyzing || isAuditingMotorIntegral || listaBases.length === 0}
 )}
         </div>
       </div>
+
+      {modoDashboard === 'UGPP' && isAuditingMotorIntegral && !resultadoMotorIntegral && (
+        <section className="mb-8 flex items-center gap-4 rounded-xl border border-indigo-200 bg-indigo-50 px-5 py-6 text-indigo-900 shadow-sm" role="status">
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-700" aria-hidden="true" />
+          <div>
+            <h3 className="font-bold">Analizando Motor Integral 360°</h3>
+            <p className="mt-1 text-xs text-indigo-700">Procesando los datos de nómina ya cargados, sin volver a descargarlos.</p>
+          </div>
+        </section>
+      )}
 
       {modoDashboard === 'UGPP' && resultadoMotorIntegral && (
         <section className="mb-8 overflow-hidden rounded-xl border border-indigo-200 bg-white shadow-md">

@@ -348,6 +348,9 @@ export function auditarAuxilioTransporte(transaccionesExcel, mapeoConceptos = {}
 // ==========================================
 export async function auditarSeguridadSocial(transaccionesExcel, mapeoConceptos = {}, config = {}) {
   const pasoRedondeo = config.pasoRedondeo || 500;
+  const datosHistoricosCargados = Array.isArray(config.datosHistoricosCargados)
+    ? config.datosHistoricosCargados
+    : null;
   // 🛡️ AUMENTAMOS LA TOLERANCIA A $2.000 COP:
   // Esto absorbe hasta $50.000 pesos de diferencia en la base causados por el "ruido operativo"
   // del ERP al promediar o diferir las horas extras y recargos.
@@ -564,37 +567,50 @@ if (conceptoLimpio.includes('SOSTENIMIENTO')) {
     }
   }
 
-  const promesasCarga = [];
-  periodosEmpresasNecesarios.forEach(key => {
-    const [perAnterior, empresa] = key.split('|');
-    promesasCarga.push(
-      cargarNominaHistorica(perAnterior, empresa)
-        .then(dataHist => {
-          let listaPlana = [];
-          if (Array.isArray(dataHist)) {
-            dataHist.forEach(item => {
-              if (item?.transacciones && Array.isArray(item.transacciones)) {
-                listaPlana.push(...item.transacciones);
-              } else if (item?.registros && Array.isArray(item.registros)) {
-                listaPlana.push(...item.registros);
-              } else if (item?.data && Array.isArray(item.data)) {
-                listaPlana.push(...item.data);
-              } else {
-                listaPlana.push(item);
-              }
-            });
-          } else if (dataHist && typeof dataHist === 'object') {
-            listaPlana = dataHist.transacciones || dataHist.registros || dataHist.datos || dataHist.data || Object.values(dataHist) || [];
-          }
-          historicosPreCargados[key] = listaPlana;
-        })
-        .catch(() => {
-          historicosPreCargados[key] = [];
-        })
-    );
-  });
+  if (datosHistoricosCargados) {
+    const periodosAnteriores = new Set(Array.from(periodosEmpresasNecesarios, key => key.split('|')[0]));
+    periodosAnteriores.forEach(periodoAnterior => {
+      historicosPreCargados[`${periodoAnterior}|MEMORIA`] = datosHistoricosCargados.filter(fila => {
+        const periodoFila = String(fila?.mesOrigen || fila?.MesVisual || fila?.AnoMes || fila?.['AñoMes'] || fila?.['Periodo Mes'] || '')
+          .trim()
+          .replace(/\//g, '-')
+          .slice(0, 7);
+        return periodoFila === periodoAnterior;
+      });
+    });
+  } else {
+    const promesasCarga = [];
+    periodosEmpresasNecesarios.forEach(key => {
+      const [perAnterior, empresa] = key.split('|');
+      promesasCarga.push(
+        cargarNominaHistorica(perAnterior, empresa)
+          .then(dataHist => {
+            let listaPlana = [];
+            if (Array.isArray(dataHist)) {
+              dataHist.forEach(item => {
+                if (item?.transacciones && Array.isArray(item.transacciones)) {
+                  listaPlana.push(...item.transacciones);
+                } else if (item?.registros && Array.isArray(item.registros)) {
+                  listaPlana.push(...item.registros);
+                } else if (item?.data && Array.isArray(item.data)) {
+                  listaPlana.push(...item.data);
+                } else {
+                  listaPlana.push(item);
+                }
+              });
+            } else if (dataHist && typeof dataHist === 'object') {
+              listaPlana = dataHist.transacciones || dataHist.registros || dataHist.datos || dataHist.data || Object.values(dataHist) || [];
+            }
+            historicosPreCargados[key] = listaPlana;
+          })
+          .catch(() => {
+            historicosPreCargados[key] = [];
+          })
+      );
+    });
 
-  await Promise.all(promesasCarga);
+    await Promise.all(promesasCarga);
+  }
 
   const hallazgos = [];
   let conteoConformes = 0;
