@@ -227,21 +227,20 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
       type: originalFile.type,
       lastModified: originalFile.lastModified,
     });
-
-    try {
-      // ☁️ Subida directa al servidor de Termales
+try {
+      // ☁️ Subida enrutada correctamente al servidor de Termales mediante apiService
       if (type === 'informe') {
         const data = await ejecutarSubidaInforme(
-          subirArchivoStorage(file, { appName: 'controlInterno' })
+          apiService.subirEvidencia(file, { appName: 'controlInterno' })
         );
         setArchivoSubidoUrl(data.url);
       } else {
         const data = await ejecutarSubidaActa(
-          subirArchivoStorage(file, { appName: 'controlInterno' })
+          apiService.subirEvidencia(file, { appName: 'controlInterno' })
         );
         setActaSubidaUrl(data.url);
       }
-      alert("🎉 ¡Archivo guardado con éxito en el repositorio GCM!");
+      alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
       alert(`⚠️ No se pudo subir el archivo:\n${err.message}`);
     }
