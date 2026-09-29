@@ -137,6 +137,16 @@ const { isLoading: isUploading, ejecutarPeticion: ejecutarSubidaPrograma } = use
     const originalFile = e.target.files[0];
     if (!originalFile) return;
 
+    // 🛡️ NUEVO: Validación de tamaño en el cliente (Ejemplo: Límite 5MB)
+    const MAX_SIZE_MB = 5; 
+    const maxSizeInBytes = MAX_SIZE_MB * 1024 * 1024;
+    
+    if (originalFile.size > maxSizeInBytes) {
+      alert(`⚠️ El archivo es demasiado pesado. El límite es de ${MAX_SIZE_MB}MB.\nTamaño actual: ${(originalFile.size / 1024 / 1024).toFixed(2)}MB`);
+      e.target.value = ''; // Resetea el input para permitir seleccionar otro
+      return;
+    }
+
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
     const file = new File([originalFile], nombreLimpio, {
       type: originalFile.type,

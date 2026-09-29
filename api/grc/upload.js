@@ -4,6 +4,16 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 
+// 🛡️ ARQUITECTURA: Ampliar el límite del bodyParser de Next.js 
+// para soportar el overhead del formato Base64 (~33% extra)
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 const EXTENSIONES_PERMITIDAS = ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'docx'];
 const MAX_BASE64_LENGTH = 7 * 1024 * 1024; // Límite de ~5MB en Base64
 

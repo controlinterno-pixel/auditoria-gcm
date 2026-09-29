@@ -161,6 +161,14 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
     const originalFile = e.target.files[0];
     if (!originalFile) return;
 
+    // 🛡️ ARQUITECTURA: Validación temprana para evitar saturación de red y memoria (413/500)
+    const MAX_MB = 5;
+    if (originalFile.size > MAX_MB * 1024 * 1024) {
+      alert(`🛑 ARCHIVO RECHAZADO: El sistema solo permite archivos hasta ${MAX_MB}MB para garantizar el rendimiento.\n\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.`);
+      e.target.value = ''; // Resetea el input para prevenir envíos corruptos
+      return;
+    }
+
     // 🌟 Limpiar el nombre
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
     const file = new File([originalFile], nombreLimpio, {
@@ -563,8 +571,15 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
             </h3>
           </div>
 
-          <form key={editInformeAuditoria?.ref || 'form-nuevo'} onSubmit={(e) => { handleInformeAuditoriaSubmit(e); setVistaActiva('dashboard'); }} className="space-y-6 text-xs">
-            
+        <form 
+            key={editInformeAuditoria?.ref || 'form-nuevo'} 
+            onSubmit={async (e) => { 
+              // 🛡️ ARQUITECTURA: El 'await' garantiza que el correo se despache antes de destruir el componente
+              await handleInformeAuditoriaSubmit(e); 
+              setVistaActiva('dashboard'); 
+            }} 
+            className="space-y-6 text-xs"
+          >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
 
              {/* 🛡️ FUENTE DE MEJORA Y VINCULACIÓN OBLIGATORIA */}
