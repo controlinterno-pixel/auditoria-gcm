@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { 
   MAPA_PROCESOS, 
-  CARGOS_SOCIALIZACION 
+  CARGOS_EMPRESA 
 } from '../constants/diccionariosGRC';
 
 // 1. Importamos la arquitectura centralizada
