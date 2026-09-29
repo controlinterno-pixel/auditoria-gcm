@@ -154,6 +154,8 @@ const DashboardHistorico = ({
   onAuditarPeriodosGuardados,
   isAuditingMotorIntegral = false,
   resultadoMotorIntegral = null,
+  pasoRedondeo = 500,
+  setPasoRedondeo,
 }) => {
   const [datosHistoricos, setDatosHistoricos] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -1729,14 +1731,15 @@ let alertaInteligente;
           <button
             type="button"
             onClick={() => {
+              if (isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada) return;
               cambiarModoDashboard('UGPP');
               onAuditarPeriodosGuardados?.();
             }}
-            disabled={isAuditingMotorIntegral || !hayDatosNominaCargada}
+            disabled={isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada}
             className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'UGPP' ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'} disabled:cursor-not-allowed disabled:opacity-50`}
-            title={!hayDatosNominaCargada ? 'Espera a que termine la carga automática de nóminas' : 'Ejecutar el Motor Integral con la nómina ya cargada'}
+            title={isAnalyzing ? 'El escáner está terminando la carga inicial' : !hayDatosNominaCargada ? 'Espera a que termine la carga automática de nóminas' : 'Ejecutar con la nómina que ya está cargada'}
           >
-            {isAuditingMotorIntegral ? '⏳ Auditando 360°...' : '🛡️ Motor Integral 360°'}
+            {isAnalyzing ? '⏳ Cargando nómina...' : isAuditingMotorIntegral ? '⏳ Analizando datos cargados...' : '🛡️ Motor Integral 360°'}
           </button>
         </div>
 
@@ -1780,14 +1783,29 @@ disabled={isAnalyzing || listaBases.length === 0}
                 {resultadoMotorIntegral.periodos.length} períodos · {resultadoMotorIntegral.totalTransacciones.toLocaleString('es-CO')} transacciones cargadas desde la nube
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => onAuditarPeriodosGuardados?.()}
-              disabled={isAuditingMotorIntegral}
-              className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"
-            >
-              {isAuditingMotorIntegral ? 'Procesando...' : 'Actualizar auditoría'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-indigo-900">
+                <span>Redondeo IBC</span>
+                <select
+                  value={pasoRedondeo}
+                  onChange={event => setPasoRedondeo?.(Number(event.target.value))}
+                  className="rounded border border-indigo-200 bg-white px-2 py-1 text-[11px] font-bold text-slate-700"
+                >
+                  <option value={500}>$500</option>
+                  <option value={1000}>$1.000</option>
+                  <option value={2500}>$2.500</option>
+                  <option value={1}>Exacto</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => onAuditarPeriodosGuardados?.()}
+                disabled={isAnalyzing || isAuditingMotorIntegral || !hayDatosNominaCargada}
+                className="rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-bold text-indigo-800 shadow-sm hover:bg-indigo-100 disabled:opacity-50"
+              >
+                {isAuditingMotorIntegral ? 'Analizando...' : 'Recalcular 360°'}
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 p-4 lg:grid-cols-5">

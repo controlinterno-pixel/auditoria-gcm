@@ -214,22 +214,6 @@ const systemCategories = [
     }, 50);
   };
 
-  const handleStartAuditUGPP = async () => {
-    if (!datosExcel || datosExcel.length === 0) return;
-    setIsUploading(true);
-    try {
-      const resultadoEngine = await auditarSeguridadSocial(datosExcel, mapping, { pasoRedondeo });
-      setTipoAuditoriaActiva('UGPP');
-      setHallazgos(resultadoEngine.hallazgos);
-      setResumenKpi(resultadoEngine.kpis);
-    } catch (error) {
-      console.error("Error al ejecutar auditoría UGPP:", error);
-      alert("❌ Ocurrió un error consultando el histórico de seguridad social.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
  const handleStartAuditJornada = () => {
     if (!datosExcel || datosExcel.length === 0) return;
     setIsUploading(true);
@@ -786,12 +770,6 @@ if (empleado.usoHistoricoAnterior) {
               ⚡ Motor Auxilio Transporte
             </button>
             <button 
-              onClick={() => setPestanaActiva('UGPP')}
-              className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'UGPP' ? 'bg-indigo-700 text-white border-b-4 border-indigo-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-            >
-              🛡️ Motor Auditoría Integral (360°)
-            </button>
-            <button 
               onClick={() => setPestanaActiva('JORNADA')}
               className={`px-4 py-2 font-bold rounded-t-lg transition-colors ${pestanaActiva === 'JORNADA' ? 'bg-pink-700 text-white border-b-4 border-pink-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
             >
@@ -805,21 +783,6 @@ if (empleado.usoHistoricoAnterior) {
             </button>
                       </div>  
 
-          {pestanaActiva === 'UGPP' && (
-            <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-200 text-xs font-semibold text-indigo-900">
-              <span>⚙️ Regla Redondeo IBC ERP:</span>
-              <select 
-                value={pasoRedondeo} 
-                onChange={(e) => setPasoRedondeo(Number(e.target.value))}
-                className="bg-white border border-indigo-300 font-bold rounded px-2 py-1 text-slate-800 focus:outline-none"
-              >
-                <option value={500}>Redondeo $500 (Ej: 1.177.500)</option>
-                <option value={1000}>Redondeo $1.000 (PILA Estándar)</option>
-                <option value={2500}>Redondeo $2.500</option>
-                <option value={1}>Valor Exacto (Sin redondeo)</option>
-              </select>
-            </div>
-          )}
         </div>
 
 {pestanaActiva === 'HISTORICO' ? (
@@ -829,6 +792,8 @@ if (empleado.usoHistoricoAnterior) {
     onAuditarPeriodosGuardados={handleAuditSavedPeriodsIntegral}
     isAuditingMotorIntegral={isAuditingHistoricalIntegral}
     resultadoMotorIntegral={resultadoAuditoriaHistoricaIntegral}
+    pasoRedondeo={pasoRedondeo}
+    setPasoRedondeo={setPasoRedondeo}
   />
 ) : (
   <>
@@ -982,15 +947,7 @@ if (empleado.usoHistoricoAnterior) {
             >
               {isUploading ? <><span className="animate-spin text-xl">⚙️</span> Analizando Tiempos...</> : '⏱️ Ejecutar Auditoría de Jornada (Ley 2101)'}
             </button>
-       ) : (
-            <button 
-              onClick={handleStartAuditUGPP} 
-              disabled={isUploading} 
-              className="px-8 py-3 bg-indigo-700 text-white font-bold rounded-lg shadow-md hover:bg-indigo-600 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed w-full md:w-auto ml-auto flex items-center gap-2 justify-center"
-            >
-              {isUploading ? <><span className="animate-spin text-xl">⚙️</span> Auditando Subsistemas...</> : '🛡️ Ejecutar Auditoría Integral'}
-            </button>
-          )}
+       ) : null}
         </div>
       </>
       )}
