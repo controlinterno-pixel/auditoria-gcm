@@ -1,5 +1,5 @@
 // Ruta: src/components/AuditoriaAutomatizada/ConceptMapper.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { auditarAuxilioTransporte, auditarSeguridadSocial, auditarJornadaLaboral } from '../../utils/motorAuditoria';
 import { guardarNominaHistorica, obtenerListaHistoricos, eliminarNominaHistorica, cargarNominaHistorica } from '../../services/historicoService';
 import DashboardHistorico from './DashboardHistorico';
@@ -70,7 +70,7 @@ const systemCategories = [
   ];
   
   // ⚡ AUTO-MAPEO AMPLIADO CON LEXICÓN DE NÓMINA COLOMBIANA
-  const ejecutarAutoMapeoInteligente = (conceptos) => {
+  const ejecutarAutoMapeoInteligente = useCallback((conceptos) => {
    const autoSalario = conceptos.filter(c => {
       if (['NO REMUNERAD', 'SUSPENSION', 'VACACIONES', 'CESANTIA', 'PRIMA'].some(kw => c.includes(kw))) return false;
       // Añadimos explícitamente DOMINICAL, FESTIVO y NOCTURN al diccionario de autoselección
@@ -111,7 +111,23 @@ const systemCategories = [
 
     setMapping(nuevoMapeo);
     return nuevoMapeo; // 🔥 Retornamos el objeto para que el Macro-Escáner lo use instantáneamente
-  };
+  }, []);
+
+  const recibirNominaHistoricaCargada = useCallback((transacciones, periodos) => {
+    const llavesExcel = Object.keys(transacciones[0] || {});
+    const columnaConcepto = llavesExcel.find(llave => {
+      const llaveNormalizada = llave.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[\s_]/g, '');
+      return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(llaveNormalizada);
+    });
+    const conceptos = [...new Set(transacciones.map(fila => normalizarTexto(columnaConcepto ? fila[columnaConcepto] : '')))].filter(Boolean);
+
+    setDatosExcel(transacciones);
+    setFileName(`[Histórico Nube] ${periodos.length} períodos listos para auditar.`);
+    setConceptosExtraidosUI(conceptos);
+    ejecutarAutoMapeoInteligente(conceptos);
+    setHallazgos(null);
+    setResumenKpi(null);
+  }, [ejecutarAutoMapeoInteligente]);
 
   const handleFileUpload = (e) => {
     if (!window.XLSX) {
@@ -295,66 +311,24 @@ const systemCategories = [
   const handleAuditSavedPeriodsIntegral = async () => {
     setIsAuditingHistoricalIntegral(true);
     try {
-      const basesGuardadas = await obtenerListaHistoricos();
-      setListaHistoricosBD(basesGuardadas);
-      if (basesGuardadas.length === 0) {
-        throw new Error('No hay nóminas históricas guardadas para auditar.');
+      if (!Array.isArray(datosExcel) || datosExcel.length === 0) {
+        throw new Error('Primero espera a que Análisis Histórico termine de cargar la nómina guardada.');
       }
 
       const transaccionesPorPeriodo = new Map();
-      for (const base of basesGuardadas) {
-        const periodo = String(base.periodo || '').trim().replace(/\//g, '-');
-        if (!periodo) continue;
-
-        const dataBruta = await cargarNominaHistorica(base.periodo, base.empresa);
-        let dataPlana = [];
-        if (Array.isArray(dataBruta)) {
-          dataBruta.forEach(item => {
-            if (Array.isArray(item)) dataPlana.push(...item);
-            else if (Array.isArray(item?.transacciones)) dataPlana.push(...item.transacciones);
-            else if (Array.isArray(item?.registros)) dataPlana.push(...item.registros);
-            else dataPlana.push(item);
-          });
-        } else if (dataBruta && typeof dataBruta === 'object') {
-          dataPlana = dataBruta.transacciones || dataBruta.registros || dataBruta.datos || Object.values(dataBruta);
-        }
-
-        const filasPeriodo = transaccionesPorPeriodo.get(periodo) || [];
-        dataPlana.forEach(fila => {
-          if (!fila || typeof fila !== 'object') return;
-          const transaccion = { ...fila };
-          const llavesNormalizadas = Object.keys(transaccion).map(llave =>
-            llave.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[\s_]/g, '')
-          );
-          const tienePeriodo = ['IDENPERIODO', 'PERIODO', 'MES', 'QUINCENA'].some(llave => llavesNormalizadas.includes(llave));
-          const tieneMes = ['ANOMES', 'PERIODOMES', 'FECHA'].some(llave => llavesNormalizadas.includes(llave));
-          const tieneEmpresa = ['EMPRESA', 'COMPANIA', 'RAZONSOCIAL', 'NITEMPRESA'].some(llave => llavesNormalizadas.includes(llave));
-
-          if (!tienePeriodo) transaccion.IDEN_Periodo = periodo;
-          if (!tieneMes) transaccion.AnoMes = periodo.slice(0, 7);
-          if (!tieneEmpresa && base.empresa) transaccion.Empresa = String(base.empresa).replace(/_/g, ' ');
-          transaccion.MesVisual = periodo;
-          filasPeriodo.push(transaccion);
-        });
-        transaccionesPorPeriodo.set(periodo, filasPeriodo);
-      }
-
-      const conceptosColumnas = Object.keys([...transaccionesPorPeriodo.values()].flat()[0] || {});
-      const columnaConcepto = conceptosColumnas.find(llave => {
-        const llaveNormalizada = llave.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[\s_]/g, '');
-        return ['NOMBRECONCEPTO', 'CONCEPTO', 'DESCRIPCION', 'DETALLE'].includes(llaveNormalizada);
+      datosExcel.forEach(transaccion => {
+        const periodo = String(transaccion.mesOrigen || transaccion.MesVisual || transaccion.AnoMes || transaccion['AñoMes'] || transaccion['Periodo Mes'] || '').trim().replace(/\//g, '-').slice(0, 7);
+        const llavePeriodo = periodo || 'Sin período';
+        const filasPeriodo = transaccionesPorPeriodo.get(llavePeriodo) || [];
+        filasPeriodo.push(transaccion);
+        transaccionesPorPeriodo.set(llavePeriodo, filasPeriodo);
       });
-      const todosLosDatos = Array.from(transaccionesPorPeriodo.values()).flat();
-      if (todosLosDatos.length === 0) {
-        throw new Error('Los períodos guardados no contienen transacciones válidas.');
-      }
 
-      const conceptos = [...new Set(todosLosDatos.map(fila => normalizarTexto(columnaConcepto ? fila[columnaConcepto] : '')))].filter(Boolean);
-      const mapeoAutomatico = ejecutarAutoMapeoInteligente(conceptos);
       const periodosOrdenados = [...transaccionesPorPeriodo.keys()].sort();
+      const mapeoAutomatico = ejecutarAutoMapeoInteligente(conceptosExtraidosUI);
       const resultadoCombinado = {
         periodos: periodosOrdenados,
-        totalTransacciones: todosLosDatos.length,
+        totalTransacciones: datosExcel.length,
         hallazgos: [],
         kpis: {
           totalEmpleados: 0,
@@ -374,8 +348,6 @@ const systemCategories = [
         });
       }
 
-      setDatosExcel(todosLosDatos);
-      setConceptosExtraidosUI(conceptos);
       setTipoAuditoriaActiva('UGPP');
       setHallazgos(resultadoCombinado.hallazgos);
       setResumenKpi(resultadoCombinado.kpis);
@@ -852,6 +824,8 @@ if (empleado.usoHistoricoAnterior) {
 
 {pestanaActiva === 'HISTORICO' ? (
   <DashboardHistorico
+    onDatosHistoricosCargados={recibirNominaHistoricaCargada}
+    hayDatosNominaCargada={Boolean(datosExcel?.length)}
     onAuditarPeriodosGuardados={handleAuditSavedPeriodsIntegral}
     isAuditingMotorIntegral={isAuditingHistoricalIntegral}
     resultadoMotorIntegral={resultadoAuditoriaHistoricaIntegral}

@@ -149,6 +149,8 @@ const coincideFiltroTurno = (horario, filtro) =>
   filtro === 'TODOS' || obtenerGrupoTurno(horario) === filtro;
 
 const DashboardHistorico = ({
+  onDatosHistoricosCargados,
+  hayDatosNominaCargada = false,
   onAuditarPeriodosGuardados,
   isAuditingMotorIntegral = false,
   resultadoMotorIntegral = null,
@@ -293,9 +295,17 @@ const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
         dataPlana.forEach(t => {
           t.mesOrigen = base.periodo;
           t.empresaOrigen = base.empresa; // 👈 Inyección clave de empresa de origen
+          const llavesPeriodo = Object.keys(t).map(llave =>
+            llave.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[\s_]/g, '')
+          );
+          const tieneMes = ['ANOMES', 'PERIODOMES', 'FECHA'].some(llave => llavesPeriodo.includes(llave));
+          if (!tieneMes) t.AnoMes = String(base.periodo || '').replace(/\//g, '-').slice(0, 7);
         });
         todasLasTransacciones.push(...dataPlana);
       }
+
+      const periodosCargados = [...new Set(listaBases.map(base => String(base.periodo || '').replace(/\//g, '-').slice(0, 7)))].filter(Boolean).sort();
+      onDatosHistoricosCargados?.(todasLasTransacciones, periodosCargados);
 
       // Procesamiento Forense 360
       const empleadosStats = {};
@@ -677,7 +687,7 @@ riesgo: (() => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [listaBases]);
+  }, [listaBases, onDatosHistoricosCargados]);
 
   useEffect(() => {
     if (!basesHistoricasCargadas || listaBases.length === 0 || autoAnalisisIniciado.current) return;
@@ -1716,6 +1726,18 @@ let alertaInteligente;
           <button onClick={() => cambiarModoDashboard('MARCACIONES')} className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'MARCACIONES' ? 'bg-purple-600 text-white shadow-lg ring-2 ring-purple-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
             ⏰ Analítica Biométrica
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              cambiarModoDashboard('UGPP');
+              onAuditarPeriodosGuardados?.();
+            }}
+            disabled={isAuditingMotorIntegral || !hayDatosNominaCargada}
+            className={`px-4 py-2 font-bold rounded-lg transition-all ${modoDashboard === 'UGPP' ? 'bg-indigo-600 text-white shadow-lg ring-2 ring-indigo-400' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'} disabled:cursor-not-allowed disabled:opacity-50`}
+            title={!hayDatosNominaCargada ? 'Espera a que termine la carga automática de nóminas' : 'Ejecutar el Motor Integral con la nómina ya cargada'}
+          >
+            {isAuditingMotorIntegral ? '⏳ Auditando 360°...' : '🛡️ Motor Integral 360°'}
+          </button>
         </div>
 
         <div className="flex items-center gap-4 bg-slate-900 p-4 rounded-lg border border-slate-700 w-fit">
@@ -1730,14 +1752,6 @@ disabled={isAnalyzing || listaBases.length === 0}
             className="px-6 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
           >
             {isAnalyzing ? '⏳ Procesando Big Data...' : '🚀 Ejecutar Escáner Histórico'}
-          </button>
-          <button
-            type="button"
-            onClick={() => onAuditarPeriodosGuardados?.()}
-            disabled={isAuditingMotorIntegral || listaBases.length === 0}
-            className="px-5 py-2.5 rounded bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold shadow-lg transition-all hover:from-indigo-500 hover:to-purple-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isAuditingMotorIntegral ? '⏳ Auditando períodos guardados...' : '🛡️ Motor Auditoría Integral 360°'}
           </button>
         {datosHistoricos && datosMarcaciones && (
   <button 
@@ -1757,7 +1771,7 @@ disabled={isAnalyzing || listaBases.length === 0}
         </div>
       </div>
 
-      {resultadoMotorIntegral && (
+      {modoDashboard === 'UGPP' && resultadoMotorIntegral && (
         <section className="mb-8 overflow-hidden rounded-xl border border-indigo-200 bg-white shadow-md">
           <div className="flex flex-col gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
