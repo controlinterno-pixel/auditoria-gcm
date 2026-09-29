@@ -82,6 +82,7 @@ export default async function handler(req, res) {
       message: 'Evidencia validada y almacenada con éxito.'
     });
 
+    
   } catch (error) {
     logger.error('Error en api/grc/upload.js', error, { endpoint: req.url, detalle: error.message });
     // 🛡️ ARQUITECTURA: Devolver el mensaje de error real al frontend para depuración
