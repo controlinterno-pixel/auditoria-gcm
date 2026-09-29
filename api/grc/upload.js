@@ -4,7 +4,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 
-// 🛡️️ ARQUITECTURA: Ampliar el límite del bodyParser de Next.js
+// 🛡️ Mantenemos el límite ampliado en Vercel para que no tire Error 413
 export const config = {
   api: {
     bodyParser: {
@@ -14,7 +14,7 @@ export const config = {
 };
 
 const EXTENSIONES_PERMITIDAS = ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'docx'];
-const MAX_BASE64_LENGTH = 10 * 1024 * 1024; // Límite de ~7MB en Base64
+const MAX_BASE64_LENGTH = 10 * 1024 * 1024; // Límite de 10MB en Base64
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -42,28 +42,22 @@ export default async function handler(req, res) {
       return sendError(res, `Formato de archivo .${ext} no permitido por políticas de seguridad GRC.`, 400);
     }
 
-    // Convertimos el Base64 a un Buffer Binario
-    const base64Data = fileBase64.includes('base64,') ? fileBase64.split('base64,')[1] : fileBase64;
-    const buffer = Buffer.from(base64Data, 'base64');
-
-    // Construimos el formulario (multipart/form-data)
-    const blob = new Blob([buffer], { type: fileType || 'application/octet-stream' });
-    const formData = new FormData();
-    
-    // Adjuntamos los datos al FormData
-formData.append('file', blob, fileName);
-    formData.append('subidoPor', user.email);
-    formData.append('appName', appName || 'controlInterno');
-
-    // 🚀 MAGIA AQUÍ: Inyectamos el appName en la URL para que el servidor de Termales lo lea correctamente
-    const destinoUrl = `https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${appName || 'controlInterno'}`;
-
-    const response = await fetch(destinoUrl, {
+    // 🚀 RESTAURADO: Enviamos el JSON exacto que el servidor de Termales espera
+    const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload?appName=controlInterno', {
       method: 'POST',
-      body: formData
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        fileName,
+        fileType,
+        fileData: fileBase64,
+        subidoPor: user.email,
+        appName: appName || 'controlInterno'
+      })
     });
 
-    // 🛡️️ Extraer la respuesta real del servidor de Termales si falla
+    // 🛡️ Extraer la respuesta real del servidor de Termales si falla
     if (!response.ok) {
       const errorText = await response.text();
       logger.error('Fallo en servidor Termales', { status: response.status, errorText });
