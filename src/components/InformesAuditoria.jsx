@@ -755,7 +755,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                     {CARGOS_EMPRESA.map(cargo => (
                       <option key={cargo} value={cargo} disabled={participantesMultiples.includes(cargo)}>{cargo}</option>
                     ))}
-                  </select>  
+                  </select>
                   <button 
                     type="button" 
                     onClick={() => { 
