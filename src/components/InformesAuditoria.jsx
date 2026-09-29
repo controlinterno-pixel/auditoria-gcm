@@ -161,13 +161,15 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
     const originalFile = e.target.files[0];
     if (!originalFile) return;
 
-    // 🛡️ ARQUITECTURA: Validación temprana para evitar saturación de red y memoria (413/500)
-    const MAX_MB = 5;
+  // 🛡️ ARQUITECTURA: Límite estricto a 3MB. 
+    // Vercel corta las peticiones > 4.5MB. Al convertir a Base64 el archivo crece un 33%.
+    // 3MB * 1.33 = ~4MB (Totalmente seguro para pasar por Vercel sin dar error 413).
+    const MAX_MB = 3;
     if (originalFile.size > MAX_MB * 1024 * 1024) {
-      alert(`🛑 ARCHIVO RECHAZADO: El sistema solo permite archivos hasta ${MAX_MB}MB para garantizar el rendimiento.\n\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.`);
-      e.target.value = ''; // Resetea el input para prevenir envíos corruptos
+      alert(`🛑 ARCHIVO DEMASIADO PESADO\n\nPor restricciones de la infraestructura en la nube, el sistema solo permite archivos de hasta ${MAX_MB} MB.\n\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\n💡 Sugerencia: Si es un PDF, utiliza herramientas como ilovepdf.com para comprimirlo antes de subirlo.`);
+      e.target.value = ''; // Resetea el input de forma segura
       return;
-    }
+    }  
 
     // 🌟 Limpiar el nombre
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
