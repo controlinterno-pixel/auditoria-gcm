@@ -746,16 +746,16 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
               <div className="md:col-span-3 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <label className="font-bold text-gray-600 block mb-1">Participantes de la Socialización (Cargos)</label>
                 <div className="flex gap-2">
-                  <select 
+                <select 
                     value={participanteTemp} 
                     onChange={(e) => setParticipanteTemp(e.target.value)} 
                     className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 text-xs shadow-sm cursor-pointer"
                   >
                     <option value="">-- Seleccionar Cargo Participante --</option>
-                    {CARGOS_SOCIALIZACION.map(cargo => (
+                    {CARGOS_EMPRESA.map(cargo => (
                       <option key={cargo} value={cargo} disabled={participantesMultiples.includes(cargo)}>{cargo}</option>
                     ))}
-                  </select>
+                  </select>  
                   <button 
                     type="button" 
                     onClick={() => { 
