@@ -571,11 +571,15 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
             </h3>
           </div>
 
-        <form 
+       <form 
             key={editInformeAuditoria?.ref || 'form-nuevo'} 
             onSubmit={async (e) => { 
-              // 🛡️ ARQUITECTURA: El 'await' garantiza que el correo se despache antes de destruir el componente
+              // 1. Ejecuta y ESPERA que termine el proceso de backend y envío de correos
               await handleInformeAuditoriaSubmit(e); 
+              
+              // 2. Limpieza determinista (solo ocurre si lo anterior tuvo éxito, sin setTimeout)
+              handleResetForm();
+              if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
               setVistaActiva('dashboard'); 
             }} 
             className="space-y-6 text-xs"
@@ -823,9 +827,10 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
                       </button>
                     </span>
                   ))}
-                </div>
+             </div>
                 <input type="hidden" name="participantes" value={participantesMultiples.join(', ')} />
-              </div>
+                <input type="hidden" name="socializadoCon" value={participantesMultiples.join(', ')} />
+              </div>   
             </div>            
             
             <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl shadow-inner mt-4">
@@ -904,46 +909,15 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
               </div>
             </div>
 
-            <div className="md:col-span-4 flex justify-end pt-4">
+           <div className="md:col-span-4 flex justify-end pt-4">
               <button 
                 type="submit" 
                 disabled={isSubmitting || isUploading || isActaUploading} 
-                onClick={(e) => {
-                  const form = e.target.closest('form');
-                  if (!form) return;
-
-                  const cadenaCargos = participantesMultiples.join(', ');
-                  
-                  const inputParticipantes = form.querySelector('input[name="participantes"]');
-                  if (inputParticipantes) {
-                    inputParticipantes.value = cadenaCargos;
-                  }
-
-                  let inputSocializadoCon = form.querySelector('input[name="socializadoCon"]');
-                  if (!inputSocializadoCon) {
-                    inputSocializadoCon = document.createElement('input');
-                    inputSocializadoCon.type = 'hidden';
-                    inputSocializadoCon.name = 'socializadoCon';
-                    form.appendChild(inputSocializadoCon);
-                  }
-                  inputSocializadoCon.value = cadenaCargos;
-
-                  const inputEvidencia = form.querySelector('input[name="evidenciaUrlInput"]');
-                  const inputActa = form.querySelector('input[name="actaSocializacionUrlInput"]');
-                  if (inputEvidencia && archivoSubidoUrl) inputEvidencia.value = archivoSubidoUrl;
-                  if (inputActa && actaSubidaUrl) inputActa.value = actaSubidaUrl;
-
-                  setTimeout(() => {
-                    handleResetForm();
-                    form.reset();
-                    if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
-                  }, 4500);
-                }}
                 className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting || isUploading || isActaUploading ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
               >
                 {isSubmitting ? '⏳ Procesando...' : isUploading || isActaUploading ? 'Subiendo archivos...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
               </button>
-            </div>
+            </div> 
           </form>
         </div>
       )}
