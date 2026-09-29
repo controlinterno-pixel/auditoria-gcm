@@ -153,6 +153,8 @@ const DashboardHistorico = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [listaBases, setListaBases] = useState([]);
+  const [basesHistoricasCargadas, setBasesHistoricasCargadas] = useState(false);
+  const autoAnalisisIniciado = React.useRef(false);
 
   // --- FILTROS AVANZADOS Y TENDENCIAS ---
   const [busqueda, setBusqueda] = useState('');
@@ -223,13 +225,7 @@ const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
     // 1. Cargar bases de Nómina
     obtenerListaHistoricos().then(data => {
       setListaBases(data);
-      // Auto-clic instantáneo al botón de analizar si hay bases
-      if (data.length > 0) {
-        setTimeout(() => {
-          const btn = document.getElementById('btn-ejecutar-escaner');
-          if (btn && !btn.disabled) btn.click();
-        }, 1200);
-      }
+      setBasesHistoricasCargadas(true);
     });
 
     // 2. Cargar histórico de Marcaciones Biométricas desde la NUBE (Firebase)
@@ -264,7 +260,7 @@ const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
     }
   };
 
- const ejecutarAnalisisForense = async () => {
+ const ejecutarAnalisisForense = React.useCallback(async () => {
     if (listaBases.length === 0) {
       alert("No hay bases históricas en la nube para analizar.");
       return;
@@ -675,7 +671,14 @@ riesgo: (() => {
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [listaBases]);
+
+  useEffect(() => {
+    if (!basesHistoricasCargadas || listaBases.length === 0 || autoAnalisisIniciado.current) return;
+    autoAnalisisIniciado.current = true;
+    ejecutarAnalisisForense();
+  }, [basesHistoricasCargadas, listaBases.length, ejecutarAnalisisForense]);
+
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
   // 💡 HELPER FORENSE: Comparación de nombres inmune a diferencias de orden
 const estaPersonaSeleccionada = React.useCallback(
