@@ -930,45 +930,6 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
               </button>
             </div>
           </form>
-
-          {/* 🟢 PANEL DE CONTROL DE PERSONAL */}
-          <div className="bg-slate-900 text-slate-100 p-6 rounded-3xl border border-slate-800 space-y-4 mt-8 shadow-inner">
-            <div className="border-b border-slate-800 pb-3">
-              <h4 className="text-xs font-black uppercase tracking-widest text-slate-300">👥 Gestión de Personal del Equipo de Auditoría</h4>
-              <p className="text-[10px] text-slate-500 font-medium mt-1">Agregue o retire firmas autorizadas para los flujos del sistema en tiempo real.</p>
-            </div>
-            <div className="flex flex-wrap gap-2 py-2">
-              {auditoresLista.map((auditor, index) => (
-                <div key={`badge-${index}`} className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center space-x-2 text-[11px] font-bold shadow-sm">
-                  <span>{auditor}</span>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      if(window.confirm(`¿Desea eliminar a ${auditor}?`)) {
-                        onActualizarAuditores(auditoresLista.filter(a => a !== auditor));
-                      }
-                    }}
-                    className="text-red-400 hover:text-white font-black text-[9px] ml-1 bg-red-500/10 hover:bg-red-500 w-5 h-5 rounded-full flex items-center justify-center transition-colors"
-                  >✕</button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3 pt-2">
-              <input type="text" id="inputNuevoAuditor" placeholder="Nombre del nuevo funcionario..." className="bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-2.5 text-xs flex-1 outline-none focus:border-blue-500 font-bold shadow-inner" />
-              <button
-                type="button"
-                onClick={() => {
-                  const input = document.getElementById('inputNuevoAuditor');
-                  const nuevoNombre = input?.value?.trim();
-                  if (!nuevoNombre) return;
-                  if (auditoresLista.includes(nuevoNombre)) return alert("Ya registrado.");
-                  onActualizarAuditores([...auditoresLista, nuevoNombre]);
-                  input.value = "";
-                }}
-                className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-6 py-2.5 rounded-xl font-bold transition-all shrink-0 uppercase tracking-wider shadow-md"
-              >➕ Agregar</button>
-            </div>
-          </div>
         </div>
       )}
 
