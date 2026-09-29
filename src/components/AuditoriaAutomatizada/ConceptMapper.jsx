@@ -785,7 +785,7 @@ if (empleado.usoHistoricoAnterior) {
 
         </div>
 
-{pestanaActiva === 'HISTORICO' ? (
+<div className={pestanaActiva === 'HISTORICO' ? 'block' : 'hidden'}>
   <DashboardHistorico
     onDatosHistoricosCargados={recibirNominaHistoricaCargada}
     hayDatosNominaCargada={Boolean(datosExcel?.length)}
@@ -795,7 +795,8 @@ if (empleado.usoHistoricoAnterior) {
     pasoRedondeo={pasoRedondeo}
     setPasoRedondeo={setPasoRedondeo}
   />
-) : (
+</div>
+{pestanaActiva !== 'HISTORICO' && (
   <>
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {systemCategories

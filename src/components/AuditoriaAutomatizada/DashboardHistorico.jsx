@@ -161,8 +161,6 @@ const DashboardHistorico = ({
   const [isExporting, setIsExporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [listaBases, setListaBases] = useState([]);
-  const [basesHistoricasCargadas, setBasesHistoricasCargadas] = useState(false);
-  const autoAnalisisIniciado = React.useRef(false);
   const [busquedaMotorIntegral, setBusquedaMotorIntegral] = useState('');
   const [filtroMotorIntegral, setFiltroMotorIntegral] = useState('TODOS');
 
@@ -235,7 +233,6 @@ const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
     // 1. Cargar bases de Nómina
     obtenerListaHistoricos().then(data => {
       setListaBases(data);
-      setBasesHistoricasCargadas(true);
     });
 
     // 2. Cargar histórico de Marcaciones Biométricas desde la NUBE (Firebase)
@@ -690,12 +687,6 @@ riesgo: (() => {
       setIsAnalyzing(false);
     }
   }, [listaBases, onDatosHistoricosCargados]);
-
-  useEffect(() => {
-    if (!basesHistoricasCargadas || listaBases.length === 0 || autoAnalisisIniciado.current) return;
-    autoAnalisisIniciado.current = true;
-    ejecutarAnalisisForense();
-  }, [basesHistoricasCargadas, listaBases.length, ejecutarAnalisisForense]);
 
 // 🔌 CARGAR MARCACIONES DESDE EXCEL REAL Y GUARDAR HISTÓRICO
   // 💡 HELPER FORENSE: Comparación de nombres inmune a diferencias de orden
