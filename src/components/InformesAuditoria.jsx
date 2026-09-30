@@ -159,13 +159,69 @@ export default function InformesAuditoria({
     setActaEliminada(false);
   }, [editInformeAuditoria?.id, editInformeAuditoria?.ref]);
 
-  // 🔍 Búsqueda exhaustiva de archivos adjuntos (Soporta todas las variantes de nombres de campos)
+  // 🔄 Reiniciar estados y registrar log de depuración al cambiar el informe en edición
+  useEffect(() => {
+    setArchivoSubidoUrl('');
+    setActaSubidaUrl('');
+    setArchivoSubidoNombre('');
+    setActaSubidaNombre('');
+    setArchivoEliminado(false);
+    setActaEliminada(false);
+
+    if (editInformeAuditoria) {
+      console.log("🛠️ [GRC DEBUG] Objeto completo cargado en Edición:", editInformeAuditoria);
+    }
+  }, [editInformeAuditoria?.id, editInformeAuditoria?.ref]);
+
+  // 🔍 Funciones auxiliares de extracción profunda multi-campo
+  const extraerUrlInformeDeep = (inf) => {
+    if (!inf || typeof inf !== 'object') return '';
+    return (
+      inf.evidenciaUrl ||
+      inf.evidencia_url ||
+      inf.evidenciaUrlInput ||
+      inf.evidencia_url_input ||
+      inf.archivoUrl ||
+      inf.archivo_url ||
+      inf.urlEvidencia ||
+      inf.url_evidencia ||
+      inf.soporteUrl ||
+      inf.soporte_url ||
+      inf.pdfUrl ||
+      inf.pdf_url ||
+      inf.documentoUrl ||
+      inf.documento_url ||
+      inf.url ||
+      inf.path ||
+      inf.filePath ||
+      inf.file_path ||
+      (typeof inf.evidencia === 'string' ? inf.evidencia : '') ||
+      ''
+    );
+  };
+
+  const extraerUrlActaDeep = (inf) => {
+    if (!inf || typeof inf !== 'object') return '';
+    return (
+      inf.actaSocializacionUrl ||
+      inf.acta_socializacion_url ||
+      inf.actaSocializacionUrlInput ||
+      inf.acta_socializacion_url_input ||
+      inf.actaUrl ||
+      inf.acta_url ||
+      inf.urlActa ||
+      inf.url_acta ||
+      (typeof inf.acta === 'string' ? inf.acta : '') ||
+      ''
+    );
+  };
+
   const urlInformeExistente = !archivoEliminado 
-    ? (archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || editInformeAuditoria?.archivoUrl || editInformeAuditoria?.url || editInformeAuditoria?.path || '') 
+    ? (archivoSubidoUrl || extraerUrlInformeDeep(editInformeAuditoria)) 
     : archivoSubidoUrl;
 
   const urlActaExistente = !actaEliminada 
-    ? (actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || editInformeAuditoria?.actaUrl || '') 
+    ? (actaSubidaUrl || extraerUrlActaDeep(editInformeAuditoria)) 
     : actaSubidaUrl;
 
   // Estados de barra de progreso
