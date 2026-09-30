@@ -139,7 +139,7 @@ export default function InformesAuditoria({
     setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
   }; 
 
-  // ☁️ BÓVEDA CON PROGRESO, CARGA Y GESTIÓN DE EDICIÓN
+ // ☁️ BÓVEDA CON PROGRESO, CARGA Y GESTIÓN DE EDICIÓN
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
   const [archivoSubidoNombre, setArchivoSubidoNombre] = useState('');
@@ -149,81 +149,6 @@ export default function InformesAuditoria({
   const [archivoEliminado, setArchivoEliminado] = useState(false);
   const [actaEliminada, setActaEliminada] = useState(false);
 
-  // 🔄 Reiniciar estados al cambiar el informe en edición
-  useEffect(() => {
-    setArchivoSubidoUrl('');
-    setActaSubidaUrl('');
-    setArchivoSubidoNombre('');
-    setActaSubidaNombre('');
-    setArchivoEliminado(false);
-    setActaEliminada(false);
-  }, [editInformeAuditoria?.id, editInformeAuditoria?.ref]);
-
-  // 🔄 Reiniciar estados y registrar log de depuración al cambiar el informe en edición
-  useEffect(() => {
-    setArchivoSubidoUrl('');
-    setActaSubidaUrl('');
-    setArchivoSubidoNombre('');
-    setActaSubidaNombre('');
-    setArchivoEliminado(false);
-    setActaEliminada(false);
-
-    if (editInformeAuditoria) {
-      console.log("🛠️ [GRC DEBUG] Objeto completo cargado en Edición:", editInformeAuditoria);
-    }
-  }, [editInformeAuditoria?.id, editInformeAuditoria?.ref]);
-
-  // 🔍 Funciones auxiliares de extracción profunda multi-campo
-  const extraerUrlInformeDeep = (inf) => {
-    if (!inf || typeof inf !== 'object') return '';
-    return (
-      inf.evidenciaUrl ||
-      inf.evidencia_url ||
-      inf.evidenciaUrlInput ||
-      inf.evidencia_url_input ||
-      inf.archivoUrl ||
-      inf.archivo_url ||
-      inf.urlEvidencia ||
-      inf.url_evidencia ||
-      inf.soporteUrl ||
-      inf.soporte_url ||
-      inf.pdfUrl ||
-      inf.pdf_url ||
-      inf.documentoUrl ||
-      inf.documento_url ||
-      inf.url ||
-      inf.path ||
-      inf.filePath ||
-      inf.file_path ||
-      (typeof inf.evidencia === 'string' ? inf.evidencia : '') ||
-      ''
-    );
-  };
-
-  const extraerUrlActaDeep = (inf) => {
-    if (!inf || typeof inf !== 'object') return '';
-    return (
-      inf.actaSocializacionUrl ||
-      inf.acta_socializacion_url ||
-      inf.actaSocializacionUrlInput ||
-      inf.acta_socializacion_url_input ||
-      inf.actaUrl ||
-      inf.acta_url ||
-      inf.urlActa ||
-      inf.url_acta ||
-      (typeof inf.acta === 'string' ? inf.acta : '') ||
-      ''
-    );
-  };
-
-  const urlInformeExistente = !archivoEliminado 
-    ? (archivoSubidoUrl || extraerUrlInformeDeep(editInformeAuditoria)) 
-    : archivoSubidoUrl;
-
-  const urlActaExistente = !actaEliminada 
-    ? (actaSubidaUrl || extraerUrlActaDeep(editInformeAuditoria)) 
-    : actaSubidaUrl;
-
   // Estados de barra de progreso
   const [cargandoInforme, setCargandoInforme] = useState(false);
   const [progresoInforme, setProgresoInforme] = useState(0);
@@ -232,6 +157,31 @@ export default function InformesAuditoria({
   const [cargandoActa, setCargandoActa] = useState(false);
   const [progresoActa, setProgresoActa] = useState(0);
   const [actaUploadError, setActaUploadError] = useState(null);
+
+  // 🔄 Limpieza de estados al cerrar edición
+  useEffect(() => {
+    if (!editInformeAuditoria) {
+      setArchivoSubidoUrl('');
+      setActaSubidaUrl('');
+      setArchivoSubidoNombre('');
+      setActaSubidaNombre('');
+      setArchivoEliminado(false);
+      setActaEliminada(false);
+    } else {
+      setArchivoEliminado(false);
+      setActaEliminada(false);
+    }
+  }, [editInformeAuditoria?.id]);
+
+  // 🔍 Resolución dinámica (Directamente vinculada a los campos que sí lee la tabla)
+  const urlOriginalInforme = editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || editInformeAuditoria?.archivoUrl || editInformeAuditoria?.url || editInformeAuditoria?.path || '';
+  const urlOriginalActa = editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || editInformeAuditoria?.actaUrl || '';
+
+  const urlInformeExistente = !archivoEliminado ? (archivoSubidoUrl || urlOriginalInforme) : archivoSubidoUrl;
+  const urlActaExistente = !actaEliminada ? (actaSubidaUrl || urlOriginalActa) : actaSubidaUrl;
+
+  const nombreInformeExistente = archivoSubidoNombre || (urlOriginalInforme && !archivoEliminado ? decodeURIComponent(urlOriginalInforme.split('/').pop().split('?')[0]) : '');
+  const nombreActaExistente = actaSubidaNombre || (urlOriginalActa && !actaEliminada ? decodeURIComponent(urlOriginalActa.split('/').pop().split('?')[0]) : '');
 
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
@@ -1037,8 +987,8 @@ const handleFileUpload = async (e, type) => {
                       </span>
                     </div>
 
-                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={archivoSubidoNombre || urlInformeExistente}>
-                      📎 {archivoSubidoNombre || (urlInformeExistente ? decodeURIComponent(urlInformeExistente.split('/')?.pop()?.split('?')?.[0] || 'Informe_Adjunto.pdf') : 'Informe_Adjunto.pdf')}
+                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={nombreInformeExistente}>
+                      📎 {nombreInformeExistente || 'Informe_Adjunto.pdf'}
                     </p>
 
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
@@ -1106,8 +1056,8 @@ const handleFileUpload = async (e, type) => {
                       </span>
                     </div>
 
-                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={actaSubidaNombre || urlActaExistente}>
-                      📎 {actaSubidaNombre || (urlActaExistente ? decodeURIComponent(urlActaExistente.split('/')?.pop()?.split('?')?.[0] || 'Acta_Adjunta.pdf') : 'Acta_Adjunta.pdf')}
+                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={nombreActaExistente}>
+                      📎 {nombreActaExistente || 'Acta_Adjunta.pdf'}
                     </p>
 
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
