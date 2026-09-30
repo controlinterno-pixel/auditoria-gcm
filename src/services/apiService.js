@@ -125,42 +125,64 @@ export const apiService = {
     body: payload
   }),
 
-  // 📁 CARGA EN FORM-DATA (MULTIPART BINARIO) A TERMALES
+  // 📁 CARGA DIRECTA DE EVIDENCIAS AL REPOSITORIO CORPORATIVO DE TERMALES
   subirEvidencia: async (archivo, metadata = {}) => {
-    try {
-      const appName = metadata.appName || 'controlInterno';
-      
-      // Creamos un paquete de datos binarios en lugar de JSON
-      const formData = new FormData();
-      formData.append('file', archivo);
-      formData.append('archivo', archivo); // Nombre alternativo común
-      formData.append('fileName', archivo.name);
-      formData.append('fileType', archivo.type);
-      formData.append('subidoPor', 'auditoria_app@termales.com.co');
-      formData.append('appName', appName);
+    return new Promise(async (resolve, reject) => {
+      try {
+        let base64Final = '';
 
-      const response = await fetch(`https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${appName}`, {
-        method: 'POST',
-        // NOTA: No enviamos Content-Type para que el navegador configure el boundary multipart automáticamente
-        body: formData 
-      });
+        // 1. Compresión previa si es imagen
+        if (archivo.type.startsWith('image/')) {
+          base64Final = await comprimirImagen(archivo);
+        } else {
+          // Lectura Base64 para PDFs u otros documentos
+          base64Final = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res(reader.result);
+            reader.onerror = (e) => rej(e);
+            reader.readAsDataURL(archivo);
+          });
+        }
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Rechazado por Termales (HTTP ${response.status}): ${errText}`);
+        const appName = metadata.appName || 'controlInterno';
+
+        // 2. Envío directo al servidor de Termales con formato JSON
+        const response = await fetch(`https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${appName}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fileName: archivo.name,
+            fileType: archivo.type,
+            fileData: base64Final,
+            subidoPor: 'auditoria_app@termales.com.co',
+            appName: appName
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          if (response.status === 413) {
+            const pesoKB = Math.round(base64Final.length / 1024);
+            throw new Error(`EL PDF PESA ${pesoKB} KB Y EL SERVIDOR RECHAZÓ LA SUBIDA (HTTP 413).\n\nEl servidor Express de Termales requiere configurar app.use(express.json({ limit: '50mb' })) para habilitar archivos de mayor peso.`);
+          }
+          throw new Error(`Rechazado por Termales (HTTP ${response.status}): ${errText}`);
+        }
+
+        const data = await response.json();
+
+        resolve({
+          success: true,
+          url: data.url || data.path || '',
+          appName: data.appName || appName,
+          fileName: data.fileName || archivo.name
+        });
+
+      } catch (error) {
+        console.error("🔴 Error en carga a Termales:", error);
+        reject(error);
       }
-
-      const data = await response.json();
-
-      return {
-        success: true,
-        url: data.url || data.path || '',
-        appName: data.appName || appName,
-        fileName: data.fileName || archivo.name
-      };
-    } catch (error) {
-      console.error("🔴 Error en subida por FormData a Termales:", error);
-      throw error;
-    }
+    });
   }
-  };
+};

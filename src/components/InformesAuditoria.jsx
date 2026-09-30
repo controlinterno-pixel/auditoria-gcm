@@ -893,8 +893,10 @@ try {
                 <div className="text-slate-300 text-3xl">☁️</div>
               </div>
 
-              <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || ''} />
-              <input type="hidden" name="actaSocializacionUrlInput" value={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || ''} />
+              <input type="hidden" name="evidenciaUrl" value={archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || ''} />
+<input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || ''} />
+<input type="hidden" name="actaSocializacionUrl" value={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || ''} />
+<input type="hidden" name="actaSocializacionUrlInput" value={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || ''} />
 
               {/* ARCHIVO 1: INFORME PRINCIPAL */}
               <div className="bg-white border-2 border-dashed border-emerald-300 p-6 rounded-2xl text-center relative hover:border-emerald-500 hover:bg-emerald-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
@@ -1077,37 +1079,44 @@ try {
                         </td>
                         <td className="p-4 text-center space-y-1.5 align-middle">
                           <button 
-  type="button" 
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const url = inf.evidenciaUrl || inf.archivoUrl || inf.url;
-    if (!url || url === '#' || url.trim() === '') {
-      alert("⚠️ ARCHIVO NO DISPONIBLE\n\nEste informe no tiene un enlace de PDF válido en la base de datos.");
-      return;
-    }
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }} 
-  className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full cursor-pointer"
->
-  <span>📄</span><span>Ver Informe Final</span>
-</button>
+                            type="button" 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Búsqueda multi-campo para garantizar lectura de informes antiguos y nuevos
+                              const urlValida = inf.evidenciaUrl || inf.evidenciaUrlInput || inf.archivoUrl || inf.url || inf.path;
+                              
+                              if (!urlValida || urlValida === '#' || urlValida.trim() === '') {
+                                alert("⚠️ ARCHIVO NO DISPONIBLE\n\nEste informe no tiene un enlace de PDF asignado en la base de datos.");
+                                return;
+                              }
+                              
+                              window.open(urlValida, '_blank', 'noopener,noreferrer');
+                            }} 
+                            className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full cursor-pointer"
+                          >
+                            <span>📄</span><span>Ver Informe Final</span>
+                          </button>
 
-{inf.actaSocializacionUrl && inf.actaSocializacionUrl !== '#' ? (
-  <button 
-    type="button" 
-    onClick={(e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      window.open(inf.actaSocializacionUrl, '_blank', 'noopener,noreferrer');
-    }} 
-    className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full cursor-pointer"
-  >
-    <span>🤝</span><span>Ver Acta Socialización</span>
-  </button>
-) : (
-  <div className="text-[9px] text-slate-400 italic bg-slate-50 py-1.5 rounded border border-dashed text-center">Sin Acta Cargada</div>
-)}
+                          {(() => {
+                            const urlActa = inf.actaSocializacionUrl || inf.actaSocializacionUrlInput || inf.actaUrl;
+                            if (urlActa && urlActa !== '#') {
+                              return (
+                                <button 
+                                  type="button" 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    window.open(urlActa, '_blank', 'noopener,noreferrer');
+                                  }} 
+                                  className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full cursor-pointer mt-1"
+                                >
+                                  <span>🤝</span><span>Ver Acta Socialización</span>
+                                </button>
+                              );
+                            }
+                            return <div className="text-[9px] text-slate-400 italic bg-slate-50 py-1.5 rounded border border-dashed text-center mt-1">Sin Acta Cargada</div>;
+                          })()}
                           {isAdmin && (
                             <div className="flex justify-center items-center space-x-2 pt-2 border-t mt-2">
                               <button type="button" onClick={() => { setEditInformeAuditoria(inf); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏️ Editar</button>
