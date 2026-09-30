@@ -142,6 +142,8 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   // ☁️ 2. DOS INSTANCIAS DE BÓVEDA (Informe Principal y Acta de Reunión)
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
+  const [archivoSubidoNombre, setArchivoSubidoNombre] = useState('');
+  const [actaSubidaNombre, setActaSubidaNombre] = useState('');
 
   const { isLoading: isUploading, error: uploadError, ejecutarPeticion: ejecutarSubidaInforme } = useDataFetching();
   const { isLoading: isActaUploading, error: actaUploadError, ejecutarPeticion: ejecutarSubidaActa } = useDataFetching();
@@ -228,17 +230,20 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
       lastModified: originalFile.lastModified,
     });
 try {
-      // ☁️ Subida enrutada correctamente al servidor de Termales mediante apiService
       if (type === 'informe') {
         const data = await ejecutarSubidaInforme(
           apiService.subirEvidencia(file, { appName: 'controlInterno' })
         );
-        setArchivoSubidoUrl(data.url);
+        const urlFinal = data?.url || data?.path || data?.filePath || data?.fileUrl || (typeof data === 'string' ? data : '');
+        setArchivoSubidoUrl(urlFinal);
+        setArchivoSubidoNombre(file.name);
       } else {
         const data = await ejecutarSubidaActa(
           apiService.subirEvidencia(file, { appName: 'controlInterno' })
         );
-        setActaSubidaUrl(data.url);
+        const urlFinal = data?.url || data?.path || data?.filePath || data?.fileUrl || (typeof data === 'string' ? data : '');
+        setActaSubidaUrl(urlFinal);
+        setActaSubidaNombre(file.name);
       }
       alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
@@ -909,10 +914,13 @@ try {
                     </div>
                     <p className="text-[9px] font-bold text-emerald-600 animate-pulse">Subiendo Informe al servidor...</p>
                   </div>
-                ) : archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl ? (
+                ) : (archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl) ? (
                   <div className="space-y-2 mt-4">
                     <div className="text-4xl text-emerald-500">✅</div>
-                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-emerald-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
+                    <p className="text-[10px] font-black text-slate-700 max-w-[220px] truncate mx-auto bg-slate-50 px-2 py-1 rounded border border-slate-200" title={archivoSubidoNombre || 'Archivo cargado correctamente'}>
+                      📎 {archivoSubidoNombre || editInformeAuditoria?.evidenciaUrl?.split('/')?.pop() || 'Informe Cargado OK'}
+                    </p>
+                    <label className="block mt-2 cursor-pointer text-slate-400 hover:text-emerald-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
                       Reemplazar Archivo <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
                     </label>
                   </div>
@@ -937,10 +945,13 @@ try {
                     </div>
                     <p className="text-[9px] font-bold text-purple-600 animate-pulse">Subiendo Acta al servidor...</p>
                   </div>
-                ) : actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl ? (
+                ) : (actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl) ? (
                   <div className="space-y-2 mt-4">
                     <div className="text-4xl text-purple-500">✅</div>
-                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-purple-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
+                    <p className="text-[10px] font-black text-slate-700 max-w-[220px] truncate mx-auto bg-slate-50 px-2 py-1 rounded border border-slate-200" title={actaSubidaNombre || 'Acta cargada correctamente'}>
+                      📎 {actaSubidaNombre || editInformeAuditoria?.actaSocializacionUrl?.split('/')?.pop() || 'Acta Cargada OK'}
+                    </p>
+                    <label className="block mt-2 cursor-pointer text-slate-400 hover:text-purple-600 text-[10px] font-bold uppercase tracking-wider underline transition-colors">
                       Reemplazar Archivo <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
                     </label>
                   </div>

@@ -161,13 +161,16 @@ export const apiService = {
           };
         }
 
-        xhr.onload = () => {
+       xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText);
+              // Búsqueda exhaustiva de la URL devuelta por Termales
+              const urlExtraida = data.url || data.path || data.filePath || data.fileUrl || data.location || (data.file && (data.file.path || data.file.url)) || (typeof data === 'string' ? data : '');
+              
               resolve({
                 success: true,
-                url: data.url || data.path || '',
+                url: urlExtraida,
                 appName: data.appName || appName,
                 fileName: data.fileName || archivo.name
               });
