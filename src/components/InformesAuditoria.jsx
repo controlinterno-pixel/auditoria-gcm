@@ -139,13 +139,13 @@ export default function InformesAuditoria({
     setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
   }; 
 
- // ☁️ BÓVEDA CON PROGRESO, CARGA Y GESTIÓN DE EDICIÓN
+// ☁️️ BÓVEDA CON PROGRESO, CARGA Y GESTIÓN DE EDICIÓN
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
   const [archivoSubidoNombre, setArchivoSubidoNombre] = useState('');
   const [actaSubidaNombre, setActaSubidaNombre] = useState('');
 
-  // Control de eliminación en edición
+  // Control de eliminación manual durante edición
   const [archivoEliminado, setArchivoEliminado] = useState(false);
   const [actaEliminada, setActaEliminada] = useState(false);
 
@@ -158,30 +158,30 @@ export default function InformesAuditoria({
   const [progresoActa, setProgresoActa] = useState(0);
   const [actaUploadError, setActaUploadError] = useState(null);
 
-  // 🔄 Limpieza de estados al cerrar edición
+  // 🔄 REINICIO SEGURO: Al abrir modo edición o cambiar de pestaña
   useEffect(() => {
     if (!editInformeAuditoria) {
       setArchivoSubidoUrl('');
       setActaSubidaUrl('');
       setArchivoSubidoNombre('');
       setActaSubidaNombre('');
-      setArchivoEliminado(false);
-      setActaEliminada(false);
-    } else {
-      setArchivoEliminado(false);
-      setActaEliminada(false);
     }
+    setArchivoEliminado(false);
+    setActaEliminada(false);
   }, [editInformeAuditoria?.id]);
 
-  // 🔍 Resolución dinámica (Directamente vinculada a los campos que sí lee la tabla)
-  const urlOriginalInforme = editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || editInformeAuditoria?.archivoUrl || editInformeAuditoria?.url || editInformeAuditoria?.path || '';
-  const urlOriginalActa = editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || editInformeAuditoria?.actaUrl || '';
+  // 🔍 RESOLUCIÓN DINÁMICA: Lectura precisa de la Base de Datos (Misma lógica de la tabla inferior)
+  const dbUrlInforme = editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || editInformeAuditoria?.archivoUrl || editInformeAuditoria?.url || editInformeAuditoria?.path || '';
+  const dbUrlActa = editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || editInformeAuditoria?.actaUrl || '';
 
-  const urlInformeExistente = !archivoEliminado ? (archivoSubidoUrl || urlOriginalInforme) : archivoSubidoUrl;
-  const urlActaExistente = !actaEliminada ? (actaSubidaUrl || urlOriginalActa) : actaSubidaUrl;
+  // DECISIÓN FINAL DE LA URL: Prioriza lo nuevo, si no hay nuevo usa la BD (siempre y cuando no se haya eliminado).
+  const urlInformeExistente = archivoSubidoUrl || (archivoEliminado ? '' : dbUrlInforme);
+  const urlActaExistente = actaSubidaUrl || (actaEliminada ? '' : dbUrlActa);
 
-  const nombreInformeExistente = archivoSubidoNombre || (urlOriginalInforme && !archivoEliminado ? decodeURIComponent(urlOriginalInforme.split('/').pop().split('?')[0]) : '');
-  const nombreActaExistente = actaSubidaNombre || (urlOriginalActa && !actaEliminada ? decodeURIComponent(urlOriginalActa.split('/').pop().split('?')[0]) : '');
+  // DECISIÓN DEL NOMBRE: Extrae el nombre bonito para la tarjeta
+  const getNombreArchivo = (url) => url && typeof url === 'string' ? decodeURIComponent(url.split('/').pop().split('?')[0]) : '';
+  const nombreInformeExistente = archivoSubidoNombre || (urlInformeExistente === dbUrlInforme ? getNombreArchivo(dbUrlInforme) : '');
+  const nombreActaExistente = actaSubidaNombre || (urlActaExistente === dbUrlActa ? getNombreArchivo(dbUrlActa) : '');
 
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
@@ -962,29 +962,22 @@ const handleFileUpload = async (e, type) => {
               <input type="hidden" name="actaSocializacionUrl" value={urlActaExistente} />
               <input type="hidden" name="actaSocializacionUrlInput" value={urlActaExistente} />
 
-              {/* ARCHIVO 1: INFORME PRINCIPAL */}
+{/* ARCHIVO 1: INFORME PRINCIPAL */}
               <div className="bg-white border-2 border-dashed border-emerald-300 p-5 rounded-2xl text-center relative hover:border-emerald-500 transition-all flex flex-col items-center justify-center min-h-[170px] shadow-sm">
                 <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-emerald-600 tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">📄 Documento Principal</span>
                 {cargandoInforme ? (
                   <div className="space-y-3 w-full mt-4 px-4">
                     <div className="text-3xl animate-bounce">🚀</div>
                     <div className="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden border border-slate-200 shadow-inner">
-                      <div 
-                        className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-150 rounded-full" 
-                        style={{ width: `${progresoInforme}%` }}
-                      ></div>
+                      <div className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-150 rounded-full" style={{ width: `${progresoInforme}%` }}></div>
                     </div>
-                    <p className="text-[10px] font-black text-emerald-700 tracking-wider">
-                      Subiendo Informe... <span className="font-mono text-xs">{progresoInforme}%</span>
-                    </p>
+                    <p className="text-[10px] font-black text-emerald-700 tracking-wider">Subiendo Informe... <span className="font-mono text-xs">{progresoInforme}%</span></p>
                   </div>
                 ) : urlInformeExistente ? (
                   <div className="space-y-3 mt-4 w-full px-2">
                     <div className="flex items-center justify-center space-x-1.5">
                       <span className="text-xl text-emerald-500">✅</span>
-                      <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                        Documento Adjunto
-                      </span>
+                      <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">Documento Adjunto</span>
                     </div>
 
                     <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={nombreInformeExistente}>
@@ -992,11 +985,7 @@ const handleFileUpload = async (e, type) => {
                     </p>
 
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); window.open(urlInformeExistente, '_blank'); }}
-                        className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer"
-                      >
+                      <button type="button" onClick={(e) => { e.preventDefault(); window.open(urlInformeExistente, '_blank'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>👁️</span><span>Ver PDF</span>
                       </button>
 
@@ -1005,18 +994,7 @@ const handleFileUpload = async (e, type) => {
                         <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => { setArchivoEliminado(false); handleFileUpload(e, 'informe'); }} />
                       </label>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (confirm("¿Estás seguro de quitar este archivo adjunto del informe?")) {
-                            setArchivoSubidoUrl('');
-                            setArchivoSubidoNombre('');
-                            setArchivoEliminado(true);
-                          }
-                        }}
-                        className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer"
-                      >
+                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Estás seguro de quitar este archivo adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); setArchivoEliminado(true); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🗑️</span><span>Eliminar</span>
                       </button>
                     </div>
@@ -1038,22 +1016,15 @@ const handleFileUpload = async (e, type) => {
                   <div className="space-y-3 w-full mt-4 px-4">
                     <div className="text-3xl animate-bounce">🚀</div>
                     <div className="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden border border-slate-200 shadow-inner">
-                      <div 
-                        className="bg-gradient-to-r from-purple-500 to-indigo-400 h-full transition-all duration-150 rounded-full" 
-                        style={{ width: `${progresoActa}%` }}
-                      ></div>
+                      <div className="bg-gradient-to-r from-purple-500 to-indigo-400 h-full transition-all duration-150 rounded-full" style={{ width: `${progresoActa}%` }}></div>
                     </div>
-                    <p className="text-[10px] font-black text-purple-700 tracking-wider">
-                      Subiendo Acta... <span className="font-mono text-xs">{progresoActa}%</span>
-                    </p>
+                    <p className="text-[10px] font-black text-purple-700 tracking-wider">Subiendo Acta... <span className="font-mono text-xs">{progresoActa}%</span></p>
                   </div>
                 ) : urlActaExistente ? (
                   <div className="space-y-3 mt-4 w-full px-2">
                     <div className="flex items-center justify-center space-x-1.5">
                       <span className="text-xl text-purple-500">✅</span>
-                      <span className="text-[10px] font-black text-purple-800 uppercase tracking-wider bg-purple-100/80 px-2.5 py-0.5 rounded-full border border-purple-200">
-                        Acta Adjunta
-                      </span>
+                      <span className="text-[10px] font-black text-purple-800 uppercase tracking-wider bg-purple-100/80 px-2.5 py-0.5 rounded-full border border-purple-200">Acta Adjunta</span>
                     </div>
 
                     <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={nombreActaExistente}>
@@ -1061,11 +1032,7 @@ const handleFileUpload = async (e, type) => {
                     </p>
 
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.preventDefault(); window.open(urlActaExistente, '_blank'); }}
-                        className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer"
-                      >
+                      <button type="button" onClick={(e) => { e.preventDefault(); window.open(urlActaExistente, '_blank'); }} className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>👁️</span><span>Ver Acta</span>
                       </button>
 
@@ -1074,18 +1041,7 @@ const handleFileUpload = async (e, type) => {
                         <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => { setActaEliminada(false); handleFileUpload(e, 'acta'); }} />
                       </label>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (confirm("¿Estás seguro de quitar esta acta adjunta del informe?")) {
-                            setActaSubidaUrl('');
-                            setActaSubidaNombre('');
-                            setActaEliminada(true);
-                          }
-                        }}
-                        className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer"
-                      >
+                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Estás seguro de quitar esta acta adjunta?")) { setActaSubidaUrl(''); setActaSubidaNombre(''); setActaEliminada(true); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🗑️</span><span>Eliminar</span>
                       </button>
                     </div>
