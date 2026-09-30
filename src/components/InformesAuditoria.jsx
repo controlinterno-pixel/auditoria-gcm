@@ -139,14 +139,20 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
     setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
   }; 
 
-  // ☁️ 2. DOS INSTANCIAS DE BÓVEDA (Informe Principal y Acta de Reunión)
+  // ☁️ BÓVEDA CON PROGRESO Y CARGA EN TIEMPO REAL
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
   const [archivoSubidoNombre, setArchivoSubidoNombre] = useState('');
   const [actaSubidaNombre, setActaSubidaNombre] = useState('');
 
-  const { isLoading: isUploading, error: uploadError, ejecutarPeticion: ejecutarSubidaInforme } = useDataFetching();
-  const { isLoading: isActaUploading, error: actaUploadError, ejecutarPeticion: ejecutarSubidaActa } = useDataFetching();
+  // Estados de barra de progreso
+  const [cargandoInforme, setCargandoInforme] = useState(false);
+  const [progresoInforme, setProgresoInforme] = useState(0);
+  const [uploadError, setUploadError] = useState(null);
+
+  const [cargandoActa, setCargandoActa] = useState(false);
+  const [progresoActa, setProgresoActa] = useState(0);
+  const [actaUploadError, setActaUploadError] = useState(null);
 
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
@@ -206,7 +212,6 @@ const handleFileUpload = async (e, type) => {
     let originalFile = e.target.files[0];
     if (!originalFile) return;
 
-    // 🖼️ Compresión automática si es imagen
     if (originalFile.type.startsWith('image/')) {
       try {
         originalFile = await compressImage(originalFile, 1280, 1280, 0.7);
@@ -215,7 +220,6 @@ const handleFileUpload = async (e, type) => {
       }
     }
 
-    // 🛑 Validación de tamaño máximo (7MB)
     const MAX_MB = 7;
     if (originalFile.size > MAX_MB * 1024 * 1024) {
       alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite permitido (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.`);
@@ -229,11 +233,25 @@ const handleFileUpload = async (e, type) => {
       lastModified: originalFile.lastModified,
     });
 
+    // Activar loader y reiniciar porcentaje
+    if (type === 'informe') {
+      setCargandoInforme(true);
+      setProgresoInforme(0);
+      setUploadError(null);
+    } else {
+      setCargandoActa(true);
+      setProgresoActa(0);
+      setActaUploadError(null);
+    }
+
     try {
-      // Petición directa a la API
-      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
+      const onProgress = (porcentaje) => {
+        if (type === 'informe') setProgresoInforme(porcentaje);
+        else setProgresoActa(porcentaje);
+      };
+
+      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' }, onProgress);
       
-      // Captura segura de la URL devolviendo siempre un valor no vacío en éxito
       const urlFinal = data?.url || data?.path || data?.filePath || data?.fileUrl || data?.location || (typeof data === 'string' ? data : '') || file.name;
 
       if (type === 'informe') {
@@ -247,7 +265,12 @@ const handleFileUpload = async (e, type) => {
       alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
       console.error("🔴 Error en subida de evidencia:", err);
+      if (type === 'informe') setUploadError(err.message);
+      else setActaUploadError(err.message);
       alert(`⚠️ No se pudo subir el archivo:\n${err.message}`);
+    } finally {
+      if (type === 'informe') setCargandoInforme(false);
+      else setCargandoActa(false);
     }
   };
   const handleResetForm = () => {
@@ -903,16 +926,21 @@ const handleFileUpload = async (e, type) => {
 <input type="hidden" name="actaSocializacionUrl" value={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || ''} />
 <input type="hidden" name="actaSocializacionUrlInput" value={actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || ''} />
 
-              {/* ARCHIVO 1: INFORME PRINCIPAL */}
+{/* ARCHIVO 1: INFORME PRINCIPAL */}
               <div className="bg-white border-2 border-dashed border-emerald-300 p-6 rounded-2xl text-center relative hover:border-emerald-500 hover:bg-emerald-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
                 <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-emerald-600 tracking-widest bg-emerald-50 px-2 py-0.5 rounded">📄 Documento Principal</span>
-                {isUploading ? (
-                  <div className="space-y-3 w-full mt-4">
+                {cargandoInforme ? (
+                  <div className="space-y-3 w-full mt-4 px-4">
                     <div className="text-3xl animate-bounce">🚀</div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden relative">
-                      <div className="bg-emerald-500 h-2.5 rounded-full w-full animate-pulse"></div>
+                    <div className="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden border border-slate-200 shadow-inner">
+                      <div 
+                        className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full transition-all duration-150 rounded-full" 
+                        style={{ width: `${progresoInforme}%` }}
+                      ></div>
                     </div>
-                    <p className="text-[9px] font-bold text-emerald-600 animate-pulse">Subiendo Informe al servidor...</p>
+                    <p className="text-[10px] font-black text-emerald-700 tracking-wider">
+                      Subiendo Informe... <span className="font-mono text-xs">{progresoInforme}%</span>
+                    </p>
                   </div>
                 ) : (archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl) ? (
                   <div className="space-y-2 mt-4">
@@ -937,13 +965,18 @@ const handleFileUpload = async (e, type) => {
               {/* ARCHIVO 2: ACTA DE REUNIÓN */}
               <div className="bg-white border-2 border-dashed border-purple-300 p-6 rounded-2xl text-center relative hover:border-purple-500 hover:bg-purple-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
                  <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-purple-600 tracking-widest bg-purple-50 px-2 py-0.5 rounded">🤝 Acta de Reunión</span>
-                {isActaUploading ? (
-                  <div className="space-y-3 w-full mt-4">
+                {cargandoActa ? (
+                  <div className="space-y-3 w-full mt-4 px-4">
                     <div className="text-3xl animate-bounce">🚀</div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 max-w-[80%] mx-auto overflow-hidden relative">
-                      <div className="bg-purple-500 h-2.5 rounded-full w-full animate-pulse"></div>
+                    <div className="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden border border-slate-200 shadow-inner">
+                      <div 
+                        className="bg-gradient-to-r from-purple-500 to-indigo-400 h-full transition-all duration-150 rounded-full" 
+                        style={{ width: `${progresoActa}%` }}
+                      ></div>
                     </div>
-                    <p className="text-[9px] font-bold text-purple-600 animate-pulse">Subiendo Acta al servidor...</p>
+                    <p className="text-[10px] font-black text-purple-700 tracking-wider">
+                      Subiendo Acta... <span className="font-mono text-xs">{progresoActa}%</span>
+                    </p>
                   </div>
                 ) : (actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl) ? (
                   <div className="space-y-2 mt-4">
