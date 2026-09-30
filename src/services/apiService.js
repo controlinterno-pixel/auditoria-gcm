@@ -141,15 +141,17 @@ export const apiService = {
     body: payload
   }),
 
-  // 📁 CARGA DE EVIDENCIAS Y ARCHIVOS CON COMPRESIÓN DE SEGURIDAD
+  // 📁 CARGA DIRECTA Y EXCLUSIVA AL REPOSITORIO CORPORATIVO DE TERMALES
   subirEvidencia: async (archivo, metadata = {}) => {
     return new Promise(async (resolve, reject) => {
       try {
         let base64Final = '';
 
+        // 1. Si es imagen, se optimiza automáticamente en el navegador
         if (archivo.type.startsWith('image/')) {
           base64Final = await comprimirImagen(archivo);
         } else {
+          // Lectura limpia en Base64 para el PDF
           base64Final = await new Promise((res, rej) => {
             const reader = new FileReader();
             reader.onload = () => res(reader.result);
@@ -158,24 +160,39 @@ export const apiService = {
           });
         }
 
-        const tamanoAproximadoKB = Math.round((base64Final.length * 0.75) / 1024);
-
-        if (tamanoAproximadoKB > 95 && !archivo.type.startsWith('image/')) {
-          alert(`⚠️ ATENCIÓN: El PDF pesa ${tamanoAproximadoKB} KB en Base64.\n\nEl servidor de Termales tiene un límite estricto de 100 KB.\nSi la subida falla con Error 413, comprime el PDF en ilovepdf.com o expórtalo con menor resolución.`);
-        }
-
-        const data = await request('/api/grc/upload', {
+        // 2. Envío directo al endpoint oficial de Termales
+        const appName = metadata.appName || 'controlInterno';
+        const response = await fetch(`https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${appName}`, {
           method: 'POST',
-          body: {
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
             fileName: archivo.name,
             fileType: archivo.type,
-            fileBase64: base64Final,
-            appName: metadata.appName || 'controlInterno'
-          }
+            fileData: base64Final,
+            subidoPor: 'auditoria_app@termales.com.co',
+            appName: appName
+          })
         });
 
-        resolve(data);
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Rechazado por Termales (HTTP ${response.status}): ${errText}`);
+        }
+
+        const data = await response.json();
+
+        // 3. Devuelve la URL oficial otorgada por Termales para guardarla en Firebase
+        resolve({
+          success: true,
+          url: data.url || data.path || '',
+          appName: data.appName || appName,
+          fileName: data.fileName || archivo.name
+        });
+
       } catch (error) {
+        console.error("🔴 Error en subida directa a Termales:", error);
         reject(error);
       }
     });
