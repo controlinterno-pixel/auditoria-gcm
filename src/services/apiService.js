@@ -125,57 +125,75 @@ export const apiService = {
     body: payload
   }),
 
-  // 📁 CARGA BINARIA DE EVIDENCIAS EN FORM-DATA (ORDEN CORRECTO PARA NESTJS)
-  subirEvidencia: async (archivo, metadata = {}) => {
-    try {
-      const formData = new FormData();
-      const appName = metadata.appName || 'controlInterno';
-      const fileFieldName = metadata.fieldName || 'file';
+  // 📁 CARGA BINARIA DE EVIDENCIAS EN FORM-DATA (OPTIMIZADO NESTJS + SOPORTE PROGRESO)
+  subirEvidencia: (archivo, metadata = {}, onProgress = null) => {
+    return new Promise((resolve, reject) => {
+      try {
+        const formData = new FormData();
+        const appName = metadata.appName || 'controlInterno';
+        const fileFieldName = metadata.fieldName || 'file';
 
-      // 1. ⚠️ CRÍTICO: 'appName' y metadatos DEBEN ir PRIMERO antes del archivo
-      formData.append('appName', appName);
+        // 1. ⚠️ CRÍTICO: 'appName' y metadatos DEBEN ir PRIMERO antes del archivo
+        formData.append('appName', appName);
 
-      Object.keys(metadata).forEach(key => {
-        if (key !== 'fieldName' && key !== 'appName') {
-          formData.append(key, metadata[key]);
+        Object.keys(metadata).forEach(key => {
+          if (key !== 'fieldName' && key !== 'appName') {
+            formData.append(key, metadata[key]);
+          }
+        });
+
+        // 2. El archivo se agrega AL FINAL del FormData
+        formData.append(fileFieldName, archivo);
+
+        // 3. 'appName' en la URL por compatibilidad con validadores Query de NestJS
+        const urlConQuery = `https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${encodeURIComponent(appName)}`;
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', urlConQuery, true);
+
+        // 📊 Notificador de progreso en tiempo real para la interfaz
+        if (xhr.upload && typeof onProgress === 'function') {
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const porcentaje = Math.round((e.loaded / e.total) * 100);
+              onProgress(porcentaje);
+            }
+          };
         }
-      });
 
-      // 2. El archivo se agrega AL FINAL del FormData
-      formData.append(fileFieldName, archivo);
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve({
+                success: true,
+                url: data.url || data.path || '',
+                appName: data.appName || appName,
+                fileName: data.fileName || archivo.name
+              });
+            } catch {
+              resolve({ success: true, url: xhr.responseText });
+            }
+          } else {
+            let detalleError = 'Falló la carga del archivo';
+            try {
+              const errorJson = JSON.parse(xhr.responseText);
+              detalleError = errorJson.message || errorJson.error || JSON.stringify(errorJson);
+              if (Array.isArray(detalleError)) detalleError = detalleError.join(', ');
+            } catch {
+              detalleError = `Error HTTP ${xhr.status}`;
+            }
+            reject(new Error(`Servidor (${xhr.status}): ${detalleError}`));
+          }
+        };
 
-      // 3. 'appName' en la URL por compatibilidad con validadores Query de NestJS
-      const urlConQuery = `https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${encodeURIComponent(appName)}`;
+        xhr.onerror = () => reject(new Error('Error de conexión con el repositorio de Termales'));
+        xhr.send(formData);
 
-      const response = await fetch(urlConQuery, {
-        method: 'POST',
-        // Nota: No se define 'Content-Type', el navegador asigna el boundary multipart automáticamente
-        body: formData,
-      });
-
-      if (!response.ok) {
-        let detalleError = 'Falló la carga del archivo';
-        try {
-          const errorJson = await response.json();
-          detalleError = errorJson.message || errorJson.error || JSON.stringify(errorJson);
-          if (Array.isArray(detalleError)) detalleError = detalleError.join(', ');
-        } catch (e) {
-          detalleError = `Error HTTP ${response.status}`;
-        }
-        throw new Error(`Servidor (${response.status}): ${detalleError}`);
+      } catch (error) {
+        console.error("🔴 Error en carga binaria a Termales:", error);
+        reject(error);
       }
-
-      const data = await response.json();
-
-      return {
-        success: true,
-        url: data.url || data.path || '',
-        appName: data.appName || appName,
-        fileName: data.fileName || archivo.name
-      };
-    } catch (error) {
-      console.error("🔴 Error en carga binaria a Termales:", error);
-      throw error;
-    }
-    }
+    });
   }
+};
