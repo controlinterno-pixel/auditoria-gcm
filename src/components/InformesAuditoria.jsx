@@ -37,12 +37,14 @@ export default function InformesAuditoria({
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
   const [tipoFuenteFormState, setTipoFuenteFormState] = useState(null);
+  const [socializadoFormState, setSocializadoFormState] = useState(null);
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
   const tipoFuenteForm = tipoFuenteFormState?.[idEdicion] ?? (editInformeAuditoria?.tipoFuente || '');
   const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || '');
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
+  const socializadoForm = socializadoFormState?.[idEdicion] ?? (editInformeAuditoria?.socializado || 'No');
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
@@ -838,7 +840,8 @@ const handleFileUpload = async (e, type) => {
                 <label className="font-bold text-gray-600 block mb-1.5">📢 ¿Fue Socializado?</label>
                 <select 
                   name="socializado" 
-                  defaultValue={editInformeAuditoria?.socializado || 'No'} 
+                  value={socializadoForm} 
+                  onChange={(e) => setSocializadoFormState(prev => ({ ...prev, [idEdicion]: e.target.value }))}
                   className="w-full border rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm cursor-pointer"
                 >
                   <option value="No">No</option>
@@ -846,14 +849,16 @@ const handleFileUpload = async (e, type) => {
                 </select>
               </div>
 
-              {/* ✨ NUEVO CAMPO: Fecha de Socialización */}
+              {/* ✨ CAMPO CONDICIONADO: Fecha de Socialización */}
               <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">🗓️ Fecha Socialización</label>
                 <input 
+                  key={`fecha-soc-${idEdicion}-${socializadoForm}`}
                   name="fechaSocializacion" 
                   type="date" 
-                  defaultValue={editInformeAuditoria?.fechaSocializacion || ''} 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer" 
+                  disabled={socializadoForm !== 'Sí'}
+                  defaultValue={socializadoForm === 'Sí' ? (editInformeAuditoria?.fechaSocializacion || '') : ''} 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed transition-all" 
                 />
               </div>
 
