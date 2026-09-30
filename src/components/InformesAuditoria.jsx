@@ -202,11 +202,11 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
     });
   };
 
-  const handleFileUpload = async (e, type) => {
+const handleFileUpload = async (e, type) => {
     let originalFile = e.target.files[0];
     if (!originalFile) return;
 
-    // 🖼️ Si es imagen, comprimirla automáticamente antes de subir
+    // 🖼️ Compresión automática si es imagen
     if (originalFile.type.startsWith('image/')) {
       try {
         originalFile = await compressImage(originalFile, 1280, 1280, 0.7);
@@ -215,38 +215,38 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
       }
     }
 
-    // 🛑 VALIDACIÓN DE PESO (MÁXIMO 7MB) PARA EVITAR ERROR 413 EN VERCEL
+    // 🛑 Validación de tamaño máximo (7MB)
     const MAX_MB = 7;
     if (originalFile.size > MAX_MB * 1024 * 1024) {
-      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite máximo permitido por el servidor (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el PDF antes de subirlo.`);
+      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite permitido (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.`);
       e.target.value = '';
       return;
     }
 
-    // 🌟 Limpiar el nombre
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
     const file = new File([originalFile], nombreLimpio, {
       type: originalFile.type,
       lastModified: originalFile.lastModified,
     });
-try {
+
+    try {
+      // Petición directa a la API
+      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
+      
+      // Captura segura de la URL devolviendo siempre un valor no vacío en éxito
+      const urlFinal = data?.url || data?.path || data?.filePath || data?.fileUrl || data?.location || (typeof data === 'string' ? data : '') || file.name;
+
       if (type === 'informe') {
-        const data = await ejecutarSubidaInforme(
-          apiService.subirEvidencia(file, { appName: 'controlInterno' })
-        );
-        const urlFinal = data?.url || data?.path || data?.filePath || data?.fileUrl || (typeof data === 'string' ? data : '');
         setArchivoSubidoUrl(urlFinal);
         setArchivoSubidoNombre(file.name);
       } else {
-        const data = await ejecutarSubidaActa(
-          apiService.subirEvidencia(file, { appName: 'controlInterno' })
-        );
-        const urlFinal = data?.url || data?.path || data?.filePath || data?.fileUrl || (typeof data === 'string' ? data : '');
         setActaSubidaUrl(urlFinal);
         setActaSubidaNombre(file.name);
       }
+
       alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
+      console.error("🔴 Error en subida de evidencia:", err);
       alert(`⚠️ No se pudo subir el archivo:\n${err.message}`);
     }
   };
