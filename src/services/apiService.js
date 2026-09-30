@@ -111,51 +111,145 @@ export const apiService = {
     body: payload
   }),
 
-// 📁 CARGA DE EVIDENCIAS Y ARCHIVOS (BYPASS DE VERCEL DIRECTO AL SERVIDOR DE TERMALES)
-  subirEvidencia: async (archivo, metadata = {}) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
+// 🖼️ Helper privado: Comprime imágenes en el navegador antes de convertirlas a Base64
+const comprimirImagen = (file, maxWidth = 1000, quality = 0.6) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
 
-      reader.onload = async () => {
-        try {
-          const fileBase64 = reader.result;
-          
-          // 🔥 Nos saltamos Vercel y su límite de 4.5MB enviando directo al servidor de tu empresa
-          const response = await fetch(`https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${metadata.appName || 'controlInterno'}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              fileName: archivo.name,
-              fileType: archivo.type,
-              fileData: fileBase64,
-              // Usa un nombre genérico o pásale el usuario si lo tienes en el contexto
-              subidoPor: 'auditoria_app@termales.com.co', 
-              appName: metadata.appName || 'controlInterno'
-            })
-          });
-
-          if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Rechazado por Termales: ${errText}`);
-          }
-
-          const data = await response.json();
-          resolve({
-            success: true,
-            url: data.url || data.path || '',
-            appName: data.appName || 'controlInterno',
-            fileName: data.fileName || archivo.name
-          });
-
-        } catch (error) {
-          reject(error);
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
         }
-      };
 
-      reader.onerror = (error) => reject(error);
-      reader.readAsDataURL(archivo);
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(dataUrl);
+      };
+    };
+  });
+};
+
+export const apiService = {
+  // 🔑 AUTENTICACIÓN Y SESIÓN
+  checkSession: () => request('/api/auth/me'),
+  
+  login: (idToken) => request('/api/auth/login', {
+    method: 'POST',
+    body: { idToken }
+  }),
+
+  logout: () => request('/api/auth/logout', {
+    method: 'POST'
+  }),
+
+  updateProfile: (profileData) => request('/api/auth/profile', {
+    method: 'POST',
+    body: profileData
+  }),
+
+  // 📊 SINCRONIZACIÓN GRC Y RLS
+  getGrcData: () => request('/api/grc/sync'),
+
+  saveGrcData: (partialData) => request('/api/grc/sync', {
+    method: 'POST',
+    body: { partialData }
+  }),
+
+  // 🛡️ MATRICES DE RIESGO (ISO 31000 / E-GE-MAN-001)
+  getRiesgos: () => request('/api/grc/riesgos'),
+
+  saveRiesgo: (riesgoData) => request('/api/grc/riesgos', {
+    method: 'POST',
+    body: riesgoData
+  }),
+
+  deleteRiesgo: (id) => request(`/api/grc/riesgos?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  }),
+
+  // 🤖 AUDITORÍA E INTELIGENCIA ARTIFICIAL
+  consultarAuditor: (payload) => request('/api/grc/audit', {
+    method: 'POST',
+    body: payload
+  }),
+
+  // 🔎 ANÁLISIS FORENSE DE NÓMINA
+  ejecutarAnalisisForense: (listaBases) => request('/api/forense', {
+    method: 'POST',
+    body: { listaBases }
+  }),
+
+  // 📧 NOTIFICACIONES POR CORREO
+  despacharCorreo: (payload) => request('/api/notifications/email', {
+    method: 'POST',
+    body: payload
+  }),
+
+  // 📜 HISTÓRICO, NÓMINA Y MARCACIONES
+  getHistorico: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/api/grc/historico${query ? `?${query}` : ''}`);
+  },
+
+  postHistorico: (payload) => request('/api/grc/historico', {
+    method: 'POST',
+    body: payload
+  }),
+
+  deleteHistorico: (payload) => request('/api/grc/historico', {
+    method: 'DELETE',
+    body: payload
+  }),
+
+  // 📁 CARGA DE EVIDENCIAS Y ARCHIVOS CON COMPRESIÓN DE SEGURIDAD
+  subirEvidencia: async (archivo, metadata = {}) => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        let base64Final = '';
+
+        if (archivo.type.startsWith('image/')) {
+          base64Final = await comprimirImagen(archivo);
+        } else {
+          base64Final = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = () => res(reader.result);
+            reader.onerror = (e) => rej(e);
+            reader.readAsDataURL(archivo);
+          });
+        }
+
+        const tamanoAproximadoKB = Math.round((base64Final.length * 0.75) / 1024);
+
+        if (tamanoAproximadoKB > 95 && !archivo.type.startsWith('image/')) {
+          alert(`⚠️ ATENCIÓN: El PDF pesa ${tamanoAproximadoKB} KB en Base64.\n\nEl servidor de Termales tiene un límite estricto de 100 KB.\nSi la subida falla con Error 413, comprime el PDF en ilovepdf.com o expórtalo con menor resolución.`);
+        }
+
+        const data = await request('/api/grc/upload', {
+          method: 'POST',
+          body: {
+            fileName: archivo.name,
+            fileType: archivo.type,
+            fileBase64: base64Final,
+            appName: metadata.appName || 'controlInterno'
+          }
+        });
+
+        resolve(data);
+      } catch (error) {
+        reject(error);
+      }
     });
   }
 };
