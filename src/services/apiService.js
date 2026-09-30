@@ -125,76 +125,42 @@ export const apiService = {
     body: payload
   }),
 
-  // 📜 HISTÓRICO, NÓMINA Y MARCACIONES
-  getHistorico: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
-    return request(`/api/grc/historico${query ? `?${query}` : ''}`);
-  },
-
-  postHistorico: (payload) => request('/api/grc/historico', {
-    method: 'POST',
-    body: payload
-  }),
-
-  deleteHistorico: (payload) => request('/api/grc/historico', {
-    method: 'DELETE',
-    body: payload
-  }),
-
-  // 📁 CARGA DIRECTA Y EXCLUSIVA AL REPOSITORIO CORPORATIVO DE TERMALES
+  // 📁 CARGA EN FORM-DATA (MULTIPART BINARIO) A TERMALES
   subirEvidencia: async (archivo, metadata = {}) => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        let base64Final = '';
+    try {
+      const appName = metadata.appName || 'controlInterno';
+      
+      // Creamos un paquete de datos binarios en lugar de JSON
+      const formData = new FormData();
+      formData.append('file', archivo);
+      formData.append('archivo', archivo); // Nombre alternativo común
+      formData.append('fileName', archivo.name);
+      formData.append('fileType', archivo.type);
+      formData.append('subidoPor', 'auditoria_app@termales.com.co');
+      formData.append('appName', appName);
 
-        // 1. Si es imagen, se optimiza automáticamente en el navegador
-        if (archivo.type.startsWith('image/')) {
-          base64Final = await comprimirImagen(archivo);
-        } else {
-          // Lectura limpia en Base64 para el PDF
-          base64Final = await new Promise((res, rej) => {
-            const reader = new FileReader();
-            reader.onload = () => res(reader.result);
-            reader.onerror = (e) => rej(e);
-            reader.readAsDataURL(archivo);
-          });
-        }
+      const response = await fetch(`https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${appName}`, {
+        method: 'POST',
+        // NOTA: No enviamos Content-Type para que el navegador configure el boundary multipart automáticamente
+        body: formData 
+      });
 
-        // 2. Envío directo al endpoint oficial de Termales
-        const appName = metadata.appName || 'controlInterno';
-        const response = await fetch(`https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${appName}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            fileName: archivo.name,
-            fileType: archivo.type,
-            fileData: base64Final,
-            subidoPor: 'auditoria_app@termales.com.co',
-            appName: appName
-          })
-        });
-
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(`Rechazado por Termales (HTTP ${response.status}): ${errText}`);
-        }
-
-        const data = await response.json();
-
-        // 3. Devuelve la URL oficial otorgada por Termales para guardarla en Firebase
-        resolve({
-          success: true,
-          url: data.url || data.path || '',
-          appName: data.appName || appName,
-          fileName: data.fileName || archivo.name
-        });
-
-      } catch (error) {
-        console.error("🔴 Error en subida directa a Termales:", error);
-        reject(error);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Rechazado por Termales (HTTP ${response.status}): ${errText}`);
       }
-    });
+
+      const data = await response.json();
+
+      return {
+        success: true,
+        url: data.url || data.path || '',
+        appName: data.appName || appName,
+        fileName: data.fileName || archivo.name
+      };
+    } catch (error) {
+      console.error("🔴 Error en subida por FormData a Termales:", error);
+      throw error;
+    }
   }
-};
+  };
