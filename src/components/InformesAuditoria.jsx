@@ -999,15 +999,15 @@ const handleFileUpload = async (e, type) => {
               </div>
             </div>
 
-           <div className="md:col-span-4 flex justify-end pt-4">
+          <div className="md:col-span-4 flex justify-end pt-4">
               <button 
                 type="submit" 
-                disabled={isSubmitting || isUploading || isActaUploading} 
-                className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting || isUploading || isActaUploading ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
+                disabled={isSubmitting || cargandoInforme || cargandoActa} 
+                className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting || cargandoInforme || cargandoActa ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
               >
-                {isSubmitting ? '⏳ Procesando...' : isUploading || isActaUploading ? 'Subiendo archivos...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
+                {isSubmitting ? '⏳ Procesando...' : cargandoInforme || cargandoActa ? 'Subiendo archivos...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
               </button>
-            </div> 
+            </div>
           </form>
         </div>
       )}
