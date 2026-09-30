@@ -141,27 +141,23 @@ export default function InformesAuditoria({
 
 // ☁️ BÓVEDA: ESTADOS UNIFICADOS E INFALIBLES
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
-  const [actaSubidaUrl, setActaSubidaUrl] = useState('');
   const [archivoSubidoNombre, setArchivoSubidoNombre] = useState('');
-  const [actaSubidaNombre, setActaSubidaNombre] = useState('');
-
   const [cargandoInforme, setCargandoInforme] = useState(false);
   const [progresoInforme, setProgresoInforme] = useState(0);
   const [uploadError, setUploadError] = useState(null);
 
-  const [cargandoActa, setCargandoActa] = useState(false);
-  const [progresoActa, setProgresoActa] = useState(0);
-  const [actaUploadError, setActaUploadError] = useState(null);
+  // ESTADOS NUEVOS: Múltiples Anexos e Historial de Cambios
+  const [anexosMultiples, setAnexosMultiples] = useState([]); 
+  const [cargandoAnexo, setCargandoAnexo] = useState(false);
+  const [progresoAnexo, setProgresoAnexo] = useState(0);
+  const [motivoCambio, setMotivoCambio] = useState('');
 
-  // 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante
+// 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante
   useEffect(() => {
     if (editInformeAuditoria) {
       try {
-        const dbUrlInf = editInformeAuditoria.evidenciaUrl || editInformeAuditoria.evidenciaUrlInput || editInformeAuditoria.archivoUrl || editInformeAuditoria.url || editInformeAuditoria.path || '';
-        const dbUrlAct = editInformeAuditoria.actaSocializacionUrl || editInformeAuditoria.actaSocializacionUrlInput || editInformeAuditoria.actaUrl || '';
-        
+        const dbUrlInf = editInformeAuditoria.evidenciaUrl || editInformeAuditoria.evidenciaUrlInput || editInformeAuditoria.archivoUrl || '';
         const urlInfValida = (dbUrlInf === '#' || dbUrlInf.trim() === '') ? '' : dbUrlInf;
-        const urlActValida = (dbUrlAct === '#' || dbUrlAct.trim() === '') ? '' : dbUrlAct;
 
         const decodeName = (url) => {
           if (!url) return '';
@@ -169,21 +165,28 @@ export default function InformesAuditoria({
           catch(e) { return 'Archivo_Adjunto'; }
         };
 
+        // Soporte Legacy: Convertir acta vieja al nuevo formato de array o cargar array existente
+        let anexosCargados = [];
+        if (editInformeAuditoria.anexos && Array.isArray(editInformeAuditoria.anexos)) {
+          anexosCargados = editInformeAuditoria.anexos;
+        } else if (editInformeAuditoria.actaSocializacionUrl && editInformeAuditoria.actaSocializacionUrl !== '#') {
+          anexosCargados = [{ url: editInformeAuditoria.actaSocializacionUrl, nombre: decodeName(editInformeAuditoria.actaSocializacionUrl) }];
+        }
+
         setArchivoSubidoUrl(urlInfValida);
         setArchivoSubidoNombre(decodeName(urlInfValida));
-        setActaSubidaUrl(urlActValida);
-        setActaSubidaNombre(decodeName(urlActValida));
+        setAnexosMultiples(anexosCargados);
+        setMotivoCambio(''); // Obligamos a justificar la nueva edición
       } catch (error) {
         console.error("Error leyendo datos del informe:", error);
       }
     } else {
       setArchivoSubidoUrl('');
       setArchivoSubidoNombre('');
-      setActaSubidaUrl('');
-      setActaSubidaNombre('');
+      setAnexosMultiples([]);
+      setMotivoCambio('');
     }
   }, [editInformeAuditoria]);
-
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
     return nombreOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9.\-_]/g, "").toLowerCase();
@@ -221,68 +224,74 @@ export default function InformesAuditoria({
     });
   };
 
-  const handleFileUpload = async (e, type) => {
-    let originalFile = e.target.files[0];
-    if (!originalFile) return;
-
-    if (originalFile.type.startsWith('image/')) {
-      try { originalFile = await compressImage(originalFile, 1280, 1280, 0.7); } 
-      catch (err) { console.error("Error comprimiendo imagen:", err); }
-    }
+const handleFileUpload = async (e, type) => {
+    const originalFiles = Array.from(e.target.files);
+    if (originalFiles.length === 0) return;
 
     const MAX_MB = 7;
-    if (originalFile.size > MAX_MB * 1024 * 1024) {
-      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite permitido (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.`);
-      e.target.value = '';
-      return;
-    }
 
-    const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
-    const file = new File([originalFile], nombreLimpio, { type: originalFile.type, lastModified: originalFile.lastModified });
+    const procesarYSubirArchivo = async (originalFile, onProgressCallback) => {
+      let fileToUpload = originalFile;
+      if (fileToUpload.type.startsWith('image/')) {
+        try { fileToUpload = await compressImage(fileToUpload, 1280, 1280, 0.7); } 
+        catch (err) { console.error("Error comprimiendo imagen:", err); }
+      }
+
+      if (fileToUpload.size > MAX_MB * 1024 * 1024) {
+        throw new Error(`El archivo ${fileToUpload.name} supera el límite (${MAX_MB} MB).`);
+      }
+
+      const nombreLimpio = sanitizarNombreArchivo(fileToUpload.name);
+      const file = new File([fileToUpload], nombreLimpio, { type: fileToUpload.type });
+      
+      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' }, onProgressCallback);
+      const urlFinal = data?.url || data?.path || data?.filePath || (typeof data === 'string' ? data : file.name);
+      return { url: urlFinal, nombre: file.name };
+    };
 
     if (type === 'informe') {
       setCargandoInforme(true);
       setProgresoInforme(0);
       setUploadError(null);
-    } else {
-      setCargandoActa(true);
-      setProgresoActa(0);
-      setActaUploadError(null);
-    }
-
-    try {
-      const onProgress = (porcentaje) => {
-        if (type === 'informe') setProgresoInforme(porcentaje);
-        else setProgresoActa(porcentaje);
-      };
-      const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' }, onProgress);
-      const urlFinal = data?.url || data?.path || data?.filePath || data?.fileUrl || data?.location || (typeof data === 'string' ? data : '') || file.name;
-
-      if (type === 'informe') {
-        setArchivoSubidoUrl(urlFinal);
-        setArchivoSubidoNombre(file.name);
-      } else {
-        setActaSubidaUrl(urlFinal);
-        setActaSubidaNombre(file.name);
+      try {
+        const resultado = await procesarYSubirArchivo(originalFiles[0], setProgresoInforme);
+        setArchivoSubidoUrl(resultado.url);
+        setArchivoSubidoNombre(resultado.nombre);
+        alert("🎉 ¡Informe guardado con éxito!");
+      } catch (err) {
+        setUploadError(err.message);
+        alert(`⚠️ No se pudo subir:\n${err.message}`);
+      } finally {
+        setCargandoInforme(false);
       }
-      alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
-    } catch (err) {
-      console.error("🔴 Error en subida de evidencia:", err);
-      if (type === 'informe') setUploadError(err.message);
-      else setActaUploadError(err.message);
-      alert(`⚠️ No se pudo subir el archivo:\n${err.message}`);
-    } finally {
-      if (type === 'informe') setCargandoInforme(false);
-      else setCargandoActa(false);
+    } else {
+      setCargandoAnexo(true);
+      setProgresoAnexo(0);
+      try {
+        const nuevosAnexos = [];
+        for (let i = 0; i < originalFiles.length; i++) {
+          const onProgress = (pct) => setProgresoAnexo(Math.round(((i * 100) + pct) / originalFiles.length));
+          const resultado = await procesarYSubirArchivo(originalFiles[i], onProgress);
+          nuevosAnexos.push(resultado);
+        }
+        setAnexosMultiples(prev => [...prev, ...nuevosAnexos]);
+        alert("🎉 ¡Anexos guardados con éxito!");
+      } catch (err) {
+        alert(`⚠️ Error al subir anexos:\n${err.message}`);
+      } finally {
+        setCargandoAnexo(false);
+        setProgresoAnexo(0);
+        e.target.value = ''; // Limpiar el input
+      }
     }
   };
 
   const handleResetForm = () => {
     setEditInformeAuditoria(null); 
     setArchivoSubidoUrl(''); 
-    setActaSubidaUrl('');
     setArchivoSubidoNombre('');
-    setActaSubidaNombre('');
+    setAnexosMultiples([]);
+    setMotivoCambio('');
     setFormResetKey(Date.now());
     setVistaActiva('dashboard');
   };
@@ -931,9 +940,26 @@ export default function InformesAuditoria({
               </div>
 
 <input type="hidden" name="evidenciaUrl" value={archivoSubidoUrl} />
-              <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl} />
-              <input type="hidden" name="actaSocializacionUrl" value={actaSubidaUrl} />
-              <input type="hidden" name="actaSocializacionUrlInput" value={actaSubidaUrl} />
+              {/* Enviamos los anexos como JSON string para que el backend lo parsee */}
+              <input type="hidden" name="anexosMultiples" value={JSON.stringify(anexosMultiples)} />
+
+              {/* 🛑 CONTROL DE CAMBIOS: Solo visible al editar */}
+              {editInformeAuditoria && (
+                <div className="md:col-span-2 mb-4 bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-xl shadow-sm animate-in fade-in">
+                  <label className="font-black text-orange-900 block mb-1.5 uppercase tracking-widest text-[10px]">
+                    📝 Motivo de la Edición (Control de Cambios / Obligatorio)
+                  </label>
+                  <textarea 
+                    name="motivoCambio"
+                    required
+                    value={motivoCambio}
+                    onChange={(e) => setMotivoCambio(e.target.value)}
+                    placeholder="Justifique técnicamente qué está modificando en este informe para dejar trazabilidad..."
+                    className="w-full border border-orange-300 rounded-lg p-2 focus:ring-2 focus:ring-orange-500 outline-none text-xs font-medium bg-white"
+                    rows="2"
+                  />
+                </div>
+              )}
 
               {/* ARCHIVO 1: INFORME PRINCIPAL */}
               <div className="bg-white border-2 border-dashed border-emerald-300 p-5 rounded-2xl text-center relative hover:border-emerald-500 transition-all flex flex-col items-center justify-center min-h-[170px] shadow-sm">
@@ -952,22 +978,18 @@ export default function InformesAuditoria({
                       <span className="text-xl text-emerald-500">✅</span>
                       <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">Documento Adjunto</span>
                     </div>
-
                     <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={archivoSubidoNombre}>
                       📎 {archivoSubidoNombre || 'Informe_Adjunto.pdf'}
                     </p>
-
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
                       <button type="button" onClick={(e) => { e.preventDefault(); window.open(archivoSubidoUrl, '_blank'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>👁️</span><span>Ver PDF</span>
                       </button>
-
                       <label className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🔄</span><span>Reemplazar</span>
                         <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
                       </label>
-
-                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Estás seguro de quitar este archivo adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
+                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Seguro de quitar este adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🗑️</span><span>Eliminar</span>
                       </button>
                     </div>
@@ -982,61 +1004,55 @@ export default function InformesAuditoria({
                 {uploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{uploadError}</p>}
               </div>
 
-              {/* ARCHIVO 2: ACTA DE REUNIÓN */}
-              <div className="bg-white border-2 border-dashed border-purple-300 p-5 rounded-2xl text-center relative hover:border-purple-500 transition-all flex flex-col items-center justify-center min-h-[170px] shadow-sm">
-                 <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-purple-600 tracking-widest bg-purple-50 px-2 py-0.5 rounded border border-purple-100">🤝 Acta de Reunión</span>
-                {cargandoActa ? (
-                  <div className="space-y-3 w-full mt-4 px-4">
+              {/* ARCHIVOS 2: ANEXOS Y ACTAS MÚLTIPLES */}
+              <div className="bg-white border-2 border-dashed border-purple-300 p-5 rounded-2xl relative hover:border-purple-500 transition-all flex flex-col items-center justify-start min-h-[170px] shadow-sm">
+                 <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-purple-600 tracking-widest bg-purple-50 px-2 py-0.5 rounded border border-purple-100">🤝 Actas y Anexos</span>
+                
+                {cargandoAnexo ? (
+                  <div className="space-y-3 w-full mt-8 px-4 text-center">
                     <div className="text-3xl animate-bounce">🚀</div>
                     <div className="w-full bg-slate-100 rounded-full h-3.5 overflow-hidden border border-slate-200 shadow-inner">
-                      <div className="bg-gradient-to-r from-purple-500 to-indigo-400 h-full transition-all duration-150 rounded-full" style={{ width: `${progresoActa}%` }}></div>
+                      <div className="bg-gradient-to-r from-purple-500 to-indigo-400 h-full transition-all duration-150 rounded-full" style={{ width: `${progresoAnexo}%` }}></div>
                     </div>
-                    <p className="text-[10px] font-black text-purple-700 tracking-wider">Subiendo Acta... <span className="font-mono text-xs">{progresoActa}%</span></p>
-                  </div>
-                ) : actaSubidaUrl ? (
-                  <div className="space-y-3 mt-4 w-full px-2">
-                    <div className="flex items-center justify-center space-x-1.5">
-                      <span className="text-xl text-purple-500">✅</span>
-                      <span className="text-[10px] font-black text-purple-800 uppercase tracking-wider bg-purple-100/80 px-2.5 py-0.5 rounded-full border border-purple-200">Acta Adjunta</span>
-                    </div>
-
-                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={actaSubidaNombre}>
-                      📎 {actaSubidaNombre || 'Acta_Adjunta.pdf'}
-                    </p>
-
-                    <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                      <button type="button" onClick={(e) => { e.preventDefault(); window.open(actaSubidaUrl, '_blank'); }} className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
-                        <span>👁️</span><span>Ver Acta</span>
-                      </button>
-
-                      <label className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
-                        <span>🔄</span><span>Reemplazar</span>
-                        <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
-                      </label>
-
-                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Estás seguro de quitar esta acta adjunta?")) { setActaSubidaUrl(''); setActaSubidaNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
-                        <span>🗑️</span><span>Eliminar</span>
-                      </button>
-                    </div>
+                    <p className="text-[10px] font-black text-purple-700 tracking-wider">Subiendo archivos... <span className="font-mono text-xs">{progresoAnexo}%</span></p>
                   </div>
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-4">
-                    <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📷</div>
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Seleccionar Imagen o PDF</p>
-                    <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
-                  </label>
+                  <div className="w-full mt-8 space-y-3">
+                    {anexosMultiples.length > 0 && (
+                      <div className="flex flex-col gap-2 w-full max-h-32 overflow-y-auto pr-2">
+                        {anexosMultiples.map((anexo, index) => (
+                          <div key={index} className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-sm">
+                            <p className="text-[10px] font-mono font-bold text-slate-700 truncate w-3/4" title={anexo.nombre}>
+                              📎 {anexo.nombre}
+                            </p>
+                            <div className="flex gap-1">
+                              <button type="button" onClick={(e) => { e.preventDefault(); window.open(anexo.url, '_blank'); }} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-md transition-colors" title="Ver PDF">👁️</button>
+                              <button type="button" onClick={(e) => { e.preventDefault(); setAnexosMultiples(prev => prev.filter((_, i) => i !== index)); }} className="text-red-500 hover:bg-red-100 p-1.5 rounded-md transition-colors" title="Eliminar">🗑️</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-2">
+                      <div className="text-3xl opacity-50 group-hover:scale-110 transition-transform">➕</div>
+                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Añadir Archivos</p>
+                      {/* Atributo 'multiple' añadido aquí */}
+                      <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx, .xlsx" onChange={(e) => handleFileUpload(e, 'acta')} />
+                    </label>
+                  </div>
                 )}
-                {actaUploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{actaUploadError}</p>}
               </div>
             </div>
 
-          <div className="md:col-span-4 flex justify-end pt-4">
+            {/* BOTÓN DE GUARDAR / SUBMIT */}
+            <div className="md:col-span-4 flex justify-end pt-4">
               <button 
                 type="submit" 
-                disabled={isSubmitting || cargandoInforme || cargandoActa} 
-                className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting || cargandoInforme || cargandoActa ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
+                disabled={isSubmitting || cargandoInforme || cargandoAnexo} 
+                className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting || cargandoInforme || cargandoAnexo ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
               >
-                {isSubmitting ? '⏳ Procesando...' : cargandoInforme || cargandoActa ? 'Subiendo archivos...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
+                {isSubmitting ? '⏳ Procesando...' : cargandoInforme || cargandoAnexo ? 'Subiendo archivos...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
               </button>
             </div>
           </form>
