@@ -139,17 +139,12 @@ export default function InformesAuditoria({
     setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
   }; 
 
-// ☁️️ BÓVEDA CON PROGRESO, CARGA Y GESTIÓN DE EDICIÓN
+// ☁️ BÓVEDA: ESTADOS UNIFICADOS E INFALIBLES
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
   const [actaSubidaUrl, setActaSubidaUrl] = useState('');
   const [archivoSubidoNombre, setArchivoSubidoNombre] = useState('');
   const [actaSubidaNombre, setActaSubidaNombre] = useState('');
 
-  // Control de eliminación manual durante edición
-  const [archivoEliminado, setArchivoEliminado] = useState(false);
-  const [actaEliminada, setActaEliminada] = useState(false);
-
-  // Estados de barra de progreso
   const [cargandoInforme, setCargandoInforme] = useState(false);
   const [progresoInforme, setProgresoInforme] = useState(0);
   const [uploadError, setUploadError] = useState(null);
@@ -158,31 +153,30 @@ export default function InformesAuditoria({
   const [progresoActa, setProgresoActa] = useState(0);
   const [actaUploadError, setActaUploadError] = useState(null);
 
-  // 🔄 REINICIO SEGURO: Al abrir modo edición o cambiar de pestaña
+  // 🔄 SINCRONIZACIÓN MAESTRA: Se ejecuta exactamente al darle clic a "Editar"
   useEffect(() => {
-    if (!editInformeAuditoria) {
+    if (editInformeAuditoria) {
+      // Leer base de datos usando las claves de la tabla inferior
+      const dbUrlInf = editInformeAuditoria.evidenciaUrl || editInformeAuditoria.evidenciaUrlInput || editInformeAuditoria.archivoUrl || editInformeAuditoria.url || editInformeAuditoria.path || '';
+      const dbUrlAct = editInformeAuditoria.actaSocializacionUrl || editInformeAuditoria.actaSocializacionUrlInput || editInformeAuditoria.actaUrl || '';
+      
+      const urlInfValida = (dbUrlInf === '#' || dbUrlInf.trim() === '') ? '' : dbUrlInf;
+      const urlActValida = (dbUrlAct === '#' || dbUrlAct.trim() === '') ? '' : dbUrlAct;
+
+      // Inyectar archivos directamente a los estados del componente
+      setArchivoSubidoUrl(urlInfValida);
+      setArchivoSubidoNombre(urlInfValida ? decodeURIComponent(urlInfValida.split('/').pop().split('?')[0]) : '');
+      
+      setActaSubidaUrl(urlActValida);
+      setActaSubidaNombre(urlActValida ? decodeURIComponent(urlActValida.split('/').pop().split('?')[0]) : '');
+    } else {
+      // Limpiar al crear uno nuevo
       setArchivoSubidoUrl('');
-      setActaSubidaUrl('');
       setArchivoSubidoNombre('');
+      setActaSubidaUrl('');
       setActaSubidaNombre('');
     }
-    setArchivoEliminado(false);
-    setActaEliminada(false);
-  }, [editInformeAuditoria?.id]);
-
-  // 🔍 RESOLUCIÓN DINÁMICA: Lectura precisa de la Base de Datos (Misma lógica de la tabla inferior)
-  const dbUrlInforme = editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || editInformeAuditoria?.archivoUrl || editInformeAuditoria?.url || editInformeAuditoria?.path || '';
-  const dbUrlActa = editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || editInformeAuditoria?.actaUrl || '';
-
-  // DECISIÓN FINAL DE LA URL: Prioriza lo nuevo, si no hay nuevo usa la BD (siempre y cuando no se haya eliminado).
-  const urlInformeExistente = archivoSubidoUrl || (archivoEliminado ? '' : dbUrlInforme);
-  const urlActaExistente = actaSubidaUrl || (actaEliminada ? '' : dbUrlActa);
-
-  // DECISIÓN DEL NOMBRE: Extrae el nombre bonito para la tarjeta
-  const getNombreArchivo = (url) => url && typeof url === 'string' ? decodeURIComponent(url.split('/').pop().split('?')[0]) : '';
-  const nombreInformeExistente = archivoSubidoNombre || (urlInformeExistente === dbUrlInforme ? getNombreArchivo(dbUrlInforme) : '');
-  const nombreActaExistente = actaSubidaNombre || (urlActaExistente === dbUrlActa ? getNombreArchivo(dbUrlActa) : '');
-
+  }, [editInformeAuditoria]);
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
     return nombreOriginal
@@ -957,12 +951,12 @@ const handleFileUpload = async (e, type) => {
                 <div className="text-slate-300 text-3xl">☁️</div>
               </div>
 
-<input type="hidden" name="evidenciaUrl" value={urlInformeExistente} />
-              <input type="hidden" name="evidenciaUrlInput" value={urlInformeExistente} />
-              <input type="hidden" name="actaSocializacionUrl" value={urlActaExistente} />
-              <input type="hidden" name="actaSocializacionUrlInput" value={urlActaExistente} />
+<input type="hidden" name="evidenciaUrl" value={archivoSubidoUrl} />
+              <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl} />
+              <input type="hidden" name="actaSocializacionUrl" value={actaSubidaUrl} />
+              <input type="hidden" name="actaSocializacionUrlInput" value={actaSubidaUrl} />
 
-{/* ARCHIVO 1: INFORME PRINCIPAL */}
+              {/* ARCHIVO 1: INFORME PRINCIPAL */}
               <div className="bg-white border-2 border-dashed border-emerald-300 p-5 rounded-2xl text-center relative hover:border-emerald-500 transition-all flex flex-col items-center justify-center min-h-[170px] shadow-sm">
                 <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-emerald-600 tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">📄 Documento Principal</span>
                 {cargandoInforme ? (
@@ -973,28 +967,28 @@ const handleFileUpload = async (e, type) => {
                     </div>
                     <p className="text-[10px] font-black text-emerald-700 tracking-wider">Subiendo Informe... <span className="font-mono text-xs">{progresoInforme}%</span></p>
                   </div>
-                ) : urlInformeExistente ? (
+                ) : archivoSubidoUrl ? (
                   <div className="space-y-3 mt-4 w-full px-2">
                     <div className="flex items-center justify-center space-x-1.5">
                       <span className="text-xl text-emerald-500">✅</span>
                       <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">Documento Adjunto</span>
                     </div>
 
-                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={nombreInformeExistente}>
-                      📎 {nombreInformeExistente || 'Informe_Adjunto.pdf'}
+                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={archivoSubidoNombre}>
+                      📎 {archivoSubidoNombre || 'Informe_Adjunto.pdf'}
                     </p>
 
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                      <button type="button" onClick={(e) => { e.preventDefault(); window.open(urlInformeExistente, '_blank'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
+                      <button type="button" onClick={(e) => { e.preventDefault(); window.open(archivoSubidoUrl, '_blank'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>👁️</span><span>Ver PDF</span>
                       </button>
 
                       <label className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🔄</span><span>Reemplazar</span>
-                        <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => { setArchivoEliminado(false); handleFileUpload(e, 'informe'); }} />
+                        <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
                       </label>
 
-                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Estás seguro de quitar este archivo adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); setArchivoEliminado(true); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
+                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Estás seguro de quitar este archivo adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🗑️</span><span>Eliminar</span>
                       </button>
                     </div>
@@ -1003,7 +997,7 @@ const handleFileUpload = async (e, type) => {
                   <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-4">
                     <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
                     <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-emerald-100 group-hover:text-emerald-700 transition-colors">Seleccionar Archivo PDF</p>
-                    <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => { setArchivoEliminado(false); handleFileUpload(e, 'informe'); }} />
+                    <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
                   </label>
                 )}
                 {uploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{uploadError}</p>}
@@ -1012,6 +1006,7 @@ const handleFileUpload = async (e, type) => {
               {/* ARCHIVO 2: ACTA DE REUNIÓN */}
               <div className="bg-white border-2 border-dashed border-purple-300 p-5 rounded-2xl text-center relative hover:border-purple-500 transition-all flex flex-col items-center justify-center min-h-[170px] shadow-sm">
                  <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-purple-600 tracking-widest bg-purple-50 px-2 py-0.5 rounded border border-purple-100">🤝 Acta de Reunión</span>
+                
                 {cargandoActa ? (
                   <div className="space-y-3 w-full mt-4 px-4">
                     <div className="text-3xl animate-bounce">🚀</div>
@@ -1020,28 +1015,28 @@ const handleFileUpload = async (e, type) => {
                     </div>
                     <p className="text-[10px] font-black text-purple-700 tracking-wider">Subiendo Acta... <span className="font-mono text-xs">{progresoActa}%</span></p>
                   </div>
-                ) : urlActaExistente ? (
+                ) : actaSubidaUrl ? (
                   <div className="space-y-3 mt-4 w-full px-2">
                     <div className="flex items-center justify-center space-x-1.5">
                       <span className="text-xl text-purple-500">✅</span>
                       <span className="text-[10px] font-black text-purple-800 uppercase tracking-wider bg-purple-100/80 px-2.5 py-0.5 rounded-full border border-purple-200">Acta Adjunta</span>
                     </div>
 
-                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={nombreActaExistente}>
-                      📎 {nombreActaExistente || 'Acta_Adjunta.pdf'}
+                    <p className="text-[10px] font-mono font-bold text-slate-700 max-w-[240px] truncate mx-auto bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-inner" title={actaSubidaNombre}>
+                      📎 {actaSubidaNombre || 'Acta_Adjunta.pdf'}
                     </p>
 
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                      <button type="button" onClick={(e) => { e.preventDefault(); window.open(urlActaExistente, '_blank'); }} className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
+                      <button type="button" onClick={(e) => { e.preventDefault(); window.open(actaSubidaUrl, '_blank'); }} className="bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>👁️</span><span>Ver Acta</span>
                       </button>
 
                       <label className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🔄</span><span>Reemplazar</span>
-                        <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => { setActaEliminada(false); handleFileUpload(e, 'acta'); }} />
+                        <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
                       </label>
 
-                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Estás seguro de quitar esta acta adjunta?")) { setActaSubidaUrl(''); setActaSubidaNombre(''); setActaEliminada(true); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
+                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Estás seguro de quitar esta acta adjunta?")) { setActaSubidaUrl(''); setActaSubidaNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🗑️</span><span>Eliminar</span>
                       </button>
                     </div>
@@ -1050,7 +1045,7 @@ const handleFileUpload = async (e, type) => {
                   <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-4">
                     <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📷</div>
                     <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Seleccionar Imagen o PDF</p>
-                    <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => { setActaEliminada(false); handleFileUpload(e, 'acta'); }} />
+                    <input type="file" className="hidden" accept=".pdf, .jpg, .png" onChange={(e) => handleFileUpload(e, 'acta')} />
                   </label>
                 )}
                 {actaUploadError && <p className="text-red-500 text-[10px] mt-2 font-bold">{actaUploadError}</p>}
