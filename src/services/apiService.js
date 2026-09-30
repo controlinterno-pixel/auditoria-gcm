@@ -125,64 +125,57 @@ export const apiService = {
     body: payload
   }),
 
-  // 📁 CARGA DIRECTA DE EVIDENCIAS AL REPOSITORIO CORPORATIVO DE TERMALES
+  // 📁 CARGA BINARIA DE EVIDENCIAS EN FORM-DATA (ORDEN CORRECTO PARA NESTJS)
   subirEvidencia: async (archivo, metadata = {}) => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        let base64Final = '';
+    try {
+      const formData = new FormData();
+      const appName = metadata.appName || 'controlInterno';
+      const fileFieldName = metadata.fieldName || 'file';
 
-        // 1. Compresión previa si es imagen
-        if (archivo.type.startsWith('image/')) {
-          base64Final = await comprimirImagen(archivo);
-        } else {
-          // Lectura Base64 para PDFs u otros documentos
-          base64Final = await new Promise((res, rej) => {
-            const reader = new FileReader();
-            reader.onload = () => res(reader.result);
-            reader.onerror = (e) => rej(e);
-            reader.readAsDataURL(archivo);
-          });
+      // 1. ⚠️ CRÍTICO: 'appName' y metadatos DEBEN ir PRIMERO antes del archivo
+      formData.append('appName', appName);
+
+      Object.keys(metadata).forEach(key => {
+        if (key !== 'fieldName' && key !== 'appName') {
+          formData.append(key, metadata[key]);
         }
+      });
 
-        const appName = metadata.appName || 'controlInterno';
+      // 2. El archivo se agrega AL FINAL del FormData
+      formData.append(fileFieldName, archivo);
 
-        // 2. Envío directo al servidor de Termales con formato JSON
-        const response = await fetch(`https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${appName}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            fileName: archivo.name,
-            fileType: archivo.type,
-            fileData: base64Final,
-            subidoPor: 'auditoria_app@termales.com.co',
-            appName: appName
-          })
-        });
+      // 3. 'appName' en la URL por compatibilidad con validadores Query de NestJS
+      const urlConQuery = `https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${encodeURIComponent(appName)}`;
 
-        if (!response.ok) {
-          const errText = await response.text();
-          if (response.status === 413) {
-            const pesoKB = Math.round(base64Final.length / 1024);
-            throw new Error(`EL PDF PESA ${pesoKB} KB Y EL SERVIDOR RECHAZÓ LA SUBIDA (HTTP 413).\n\nEl servidor Express de Termales requiere configurar app.use(express.json({ limit: '50mb' })) para habilitar archivos de mayor peso.`);
-          }
-          throw new Error(`Rechazado por Termales (HTTP ${response.status}): ${errText}`);
+      const response = await fetch(urlConQuery, {
+        method: 'POST',
+        // Nota: No se define 'Content-Type', el navegador asigna el boundary multipart automáticamente
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let detalleError = 'Falló la carga del archivo';
+        try {
+          const errorJson = await response.json();
+          detalleError = errorJson.message || errorJson.error || JSON.stringify(errorJson);
+          if (Array.isArray(detalleError)) detalleError = detalleError.join(', ');
+        } catch (e) {
+          detalleError = `Error HTTP ${response.status}`;
         }
-
-        const data = await response.json();
-
-        resolve({
-          success: true,
-          url: data.url || data.path || '',
-          appName: data.appName || appName,
-          fileName: data.fileName || archivo.name
-        });
-
-      } catch (error) {
-        console.error("🔴 Error en carga a Termales:", error);
-        reject(error);
+        throw new Error(`Servidor (${response.status}): ${detalleError}`);
       }
-    });
+
+      const data = await response.json();
+
+      return {
+        success: true,
+        url: data.url || data.path || '',
+        appName: data.appName || appName,
+        fileName: data.fileName || archivo.name
+      };
+    } catch (error) {
+      console.error("🔴 Error en carga binaria a Termales:", error);
+      throw error;
+    }
+    }
   }
-};
