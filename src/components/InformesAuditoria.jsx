@@ -1076,10 +1076,38 @@ try {
                           </div>
                         </td>
                         <td className="p-4 text-center space-y-1.5 align-middle">
-                          <a href={inf.evidenciaUrl || "#"} target="_blank" rel="noreferrer" className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full"><span>📄</span><span>Ver Informe Final</span></a>
-                          {inf.actaSocializacionUrl ? (
-                            <a href={inf.actaSocializacionUrl} target="_blank" rel="noreferrer" className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full"><span>🤝</span><span>Ver Acta Socialización</span></a>
-                          ) : <div className="text-[9px] text-slate-400 italic bg-slate-50 py-1.5 rounded border border-dashed text-center">Sin Acta Cargada</div>}
+                          <button 
+  type="button" 
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = inf.evidenciaUrl || inf.archivoUrl || inf.url;
+    if (!url || url === '#' || url.trim() === '') {
+      alert("⚠️ ARCHIVO NO DISPONIBLE\n\nEste informe no tiene un enlace de PDF válido en la base de datos.");
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }} 
+  className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full cursor-pointer"
+>
+  <span>📄</span><span>Ver Informe Final</span>
+</button>
+
+{inf.actaSocializacionUrl && inf.actaSocializacionUrl !== '#' ? (
+  <button 
+    type="button" 
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.open(inf.actaSocializacionUrl, '_blank', 'noopener,noreferrer');
+    }} 
+    className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full cursor-pointer"
+  >
+    <span>🤝</span><span>Ver Acta Socialización</span>
+  </button>
+) : (
+  <div className="text-[9px] text-slate-400 italic bg-slate-50 py-1.5 rounded border border-dashed text-center">Sin Acta Cargada</div>
+)}
                           {isAdmin && (
                             <div className="flex justify-center items-center space-x-2 pt-2 border-t mt-2">
                               <button type="button" onClick={() => { setEditInformeAuditoria(inf); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏️ Editar</button>
