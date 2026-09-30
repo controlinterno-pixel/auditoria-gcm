@@ -153,41 +153,43 @@ export default function InformesAuditoria({
   const [progresoActa, setProgresoActa] = useState(0);
   const [actaUploadError, setActaUploadError] = useState(null);
 
-  // 🔄 SINCRONIZACIÓN MAESTRA: Se ejecuta exactamente al darle clic a "Editar"
+  // 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante
   useEffect(() => {
     if (editInformeAuditoria) {
-      // Leer base de datos usando las claves de la tabla inferior
-      const dbUrlInf = editInformeAuditoria.evidenciaUrl || editInformeAuditoria.evidenciaUrlInput || editInformeAuditoria.archivoUrl || editInformeAuditoria.url || editInformeAuditoria.path || '';
-      const dbUrlAct = editInformeAuditoria.actaSocializacionUrl || editInformeAuditoria.actaSocializacionUrlInput || editInformeAuditoria.actaUrl || '';
-      
-      const urlInfValida = (dbUrlInf === '#' || dbUrlInf.trim() === '') ? '' : dbUrlInf;
-      const urlActValida = (dbUrlAct === '#' || dbUrlAct.trim() === '') ? '' : dbUrlAct;
+      try {
+        const dbUrlInf = editInformeAuditoria.evidenciaUrl || editInformeAuditoria.evidenciaUrlInput || editInformeAuditoria.archivoUrl || editInformeAuditoria.url || editInformeAuditoria.path || '';
+        const dbUrlAct = editInformeAuditoria.actaSocializacionUrl || editInformeAuditoria.actaSocializacionUrlInput || editInformeAuditoria.actaUrl || '';
+        
+        const urlInfValida = (dbUrlInf === '#' || dbUrlInf.trim() === '') ? '' : dbUrlInf;
+        const urlActValida = (dbUrlAct === '#' || dbUrlAct.trim() === '') ? '' : dbUrlAct;
 
-      // Inyectar archivos directamente a los estados del componente
-      setArchivoSubidoUrl(urlInfValida);
-      setArchivoSubidoNombre(urlInfValida ? decodeURIComponent(urlInfValida.split('/').pop().split('?')[0]) : '');
-      
-      setActaSubidaUrl(urlActValida);
-      setActaSubidaNombre(urlActValida ? decodeURIComponent(urlActValida.split('/').pop().split('?')[0]) : '');
+        const decodeName = (url) => {
+          if (!url) return '';
+          try { return decodeURIComponent(url.split('/').pop().split('?')[0]); } 
+          catch(e) { return 'Archivo_Adjunto'; }
+        };
+
+        setArchivoSubidoUrl(urlInfValida);
+        setArchivoSubidoNombre(decodeName(urlInfValida));
+        setActaSubidaUrl(urlActValida);
+        setActaSubidaNombre(decodeName(urlActValida));
+      } catch (error) {
+        console.error("Error leyendo datos del informe:", error);
+      }
     } else {
-      // Limpiar al crear uno nuevo
       setArchivoSubidoUrl('');
       setArchivoSubidoNombre('');
       setActaSubidaUrl('');
       setActaSubidaNombre('');
     }
   }, [editInformeAuditoria]);
+
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
-    return nombreOriginal
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\s+/g, "_")
-      .replace(/[^a-zA-Z0-9.\-_]/g, "")
-      .toLowerCase();
+    return nombreOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9.\-_]/g, "").toLowerCase();
   };
 
-  // 🖼️ Utilidad para comprimir imágenes en el cliente sin librerías extra
+  // 🖼️ Utilidad para comprimir imágenes
   const compressImage = (file, maxWidth, maxHeight, quality) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -198,30 +200,18 @@ export default function InformesAuditoria({
         img.onload = () => {
           let width = img.width;
           let height = img.height;
-
           if (width > height) {
-            if (width > maxWidth) {
-              height *= maxWidth / width;
-              width = maxWidth;
-            }
+            if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
           } else {
-            if (height > maxHeight) {
-              width *= maxHeight / height;
-              height = maxHeight;
-            }
+            if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
           }
-
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
-          
           canvas.toBlob((blob) => {
-            const newFile = new File([blob], file.name, {
-              type: 'image/jpeg',
-              lastModified: Date.now(),
-            });
+            const newFile = new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() });
             resolve(newFile);
           }, 'image/jpeg', quality);
         };
@@ -231,16 +221,13 @@ export default function InformesAuditoria({
     });
   };
 
-const handleFileUpload = async (e, type) => {
+  const handleFileUpload = async (e, type) => {
     let originalFile = e.target.files[0];
     if (!originalFile) return;
 
     if (originalFile.type.startsWith('image/')) {
-      try {
-        originalFile = await compressImage(originalFile, 1280, 1280, 0.7);
-      } catch (err) {
-        console.error("Error comprimiendo imagen:", err);
-      }
+      try { originalFile = await compressImage(originalFile, 1280, 1280, 0.7); } 
+      catch (err) { console.error("Error comprimiendo imagen:", err); }
     }
 
     const MAX_MB = 7;
@@ -251,12 +238,8 @@ const handleFileUpload = async (e, type) => {
     }
 
     const nombreLimpio = sanitizarNombreArchivo(originalFile.name);
-    const file = new File([originalFile], nombreLimpio, {
-      type: originalFile.type,
-      lastModified: originalFile.lastModified,
-    });
+    const file = new File([originalFile], nombreLimpio, { type: originalFile.type, lastModified: originalFile.lastModified });
 
-    // Activar loader y reiniciar porcentaje
     if (type === 'informe') {
       setCargandoInforme(true);
       setProgresoInforme(0);
@@ -272,9 +255,7 @@ const handleFileUpload = async (e, type) => {
         if (type === 'informe') setProgresoInforme(porcentaje);
         else setProgresoActa(porcentaje);
       };
-
       const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' }, onProgress);
-      
       const urlFinal = data?.url || data?.path || data?.filePath || data?.fileUrl || data?.location || (typeof data === 'string' ? data : '') || file.name;
 
       if (type === 'informe') {
@@ -284,7 +265,6 @@ const handleFileUpload = async (e, type) => {
         setActaSubidaUrl(urlFinal);
         setActaSubidaNombre(file.name);
       }
-
       alert("🎉 ¡Archivo guardado con éxito en el repositorio oficial de Termales!");
     } catch (err) {
       console.error("🔴 Error en subida de evidencia:", err);
@@ -296,14 +276,13 @@ const handleFileUpload = async (e, type) => {
       else setCargandoActa(false);
     }
   };
+
   const handleResetForm = () => {
     setEditInformeAuditoria(null); 
     setArchivoSubidoUrl(''); 
     setActaSubidaUrl('');
     setArchivoSubidoNombre('');
     setActaSubidaNombre('');
-    setArchivoEliminado(false);
-    setActaEliminada(false);
     setFormResetKey(Date.now());
     setVistaActiva('dashboard');
   };
@@ -1006,7 +985,6 @@ const handleFileUpload = async (e, type) => {
               {/* ARCHIVO 2: ACTA DE REUNIÓN */}
               <div className="bg-white border-2 border-dashed border-purple-300 p-5 rounded-2xl text-center relative hover:border-purple-500 transition-all flex flex-col items-center justify-center min-h-[170px] shadow-sm">
                  <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-purple-600 tracking-widest bg-purple-50 px-2 py-0.5 rounded border border-purple-100">🤝 Acta de Reunión</span>
-                
                 {cargandoActa ? (
                   <div className="space-y-3 w-full mt-4 px-4">
                     <div className="text-3xl animate-bounce">🚀</div>
