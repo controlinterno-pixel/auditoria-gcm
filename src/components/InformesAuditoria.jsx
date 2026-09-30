@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   MAPA_PROCESOS, 
   CARGOS_EMPRESA 
@@ -33,7 +33,7 @@ export default function InformesAuditoria({
   const [participantesMultiples, setParticipantesMultiples] = useState([]);
   const [participanteTemp, setParticipanteTemp] = useState('');
 
- // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
+  // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
   const [tipoFuenteFormState, setTipoFuenteFormState] = useState(null);
@@ -51,7 +51,7 @@ export default function InformesAuditoria({
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(null);
   
- // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
+  // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
   const handleCrearNuevoInforme = () => {
     setEditInformeAuditoria(null); 
     setVistaActiva('nuevo');
@@ -61,7 +61,7 @@ export default function InformesAuditoria({
   const [agruparPor, setAgruparPor] = useState('Año'); 
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
   const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
-const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
+  const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
 
@@ -79,11 +79,9 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
 
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
   const informesFiltradosPorFecha = informesEnriquecidos.filter(inf => {
-    // 1. Filtrar por Proceso y Subproceso
     if (filtroProceso && inf.procesoLimpio !== filtroProceso) return false;
     if (filtroSubproceso && inf.subproceso !== filtroSubproceso) return false;
     
-    // 2. Filtrar por Fecha
     if (!filtroAnio && !filtroMes) return true;
     if (!inf.fecha) return false;
     const [anio, mes] = inf.fecha.split('-'); 
@@ -136,7 +134,7 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   }, {});
   const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
- const limpiarFiltrosDashboard = () => {
+  const limpiarFiltrosDashboard = () => {
     setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSubproceso('Todos');
     setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
   }; 
@@ -151,6 +149,25 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [archivoEliminado, setArchivoEliminado] = useState(false);
   const [actaEliminada, setActaEliminada] = useState(false);
 
+  // 🔄 Reiniciar estados al cambiar el informe en edición
+  useEffect(() => {
+    setArchivoSubidoUrl('');
+    setActaSubidaUrl('');
+    setArchivoSubidoNombre('');
+    setActaSubidaNombre('');
+    setArchivoEliminado(false);
+    setActaEliminada(false);
+  }, [editInformeAuditoria?.id, editInformeAuditoria?.ref]);
+
+  // 🔍 Búsqueda exhaustiva de archivos adjuntos (Soporta todas las variantes de nombres de campos)
+  const urlInformeExistente = !archivoEliminado 
+    ? (archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || editInformeAuditoria?.archivoUrl || editInformeAuditoria?.url || editInformeAuditoria?.path || '') 
+    : archivoSubidoUrl;
+
+  const urlActaExistente = !actaEliminada 
+    ? (actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || editInformeAuditoria?.actaUrl || '') 
+    : actaSubidaUrl;
+
   // Estados de barra de progreso
   const [cargandoInforme, setCargandoInforme] = useState(false);
   const [progresoInforme, setProgresoInforme] = useState(0);
@@ -159,10 +176,6 @@ const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [cargandoActa, setCargandoActa] = useState(false);
   const [progresoActa, setProgresoActa] = useState(0);
   const [actaUploadError, setActaUploadError] = useState(null);
-
-  // 🔍 Resolución dinámica de archivos adjuntos (Soporta múltiples estructuras de campos)
-  const urlInformeExistente = !archivoEliminado ? (archivoSubidoUrl || editInformeAuditoria?.evidenciaUrl || editInformeAuditoria?.evidenciaUrlInput || editInformeAuditoria?.archivoUrl || editInformeAuditoria?.url || editInformeAuditoria?.path || '') : archivoSubidoUrl;
-  const urlActaExistente = !actaEliminada ? (actaSubidaUrl || editInformeAuditoria?.actaSocializacionUrl || editInformeAuditoria?.actaSocializacionUrlInput || editInformeAuditoria?.actaUrl || '') : actaSubidaUrl;
 
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
@@ -865,11 +878,11 @@ const handleFileUpload = async (e, type) => {
               <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">🗓️ Fecha Socialización</label>
                 <input 
-                  key={`fecha-soc-${idEdicion}-${socializadoForm}`}
+                  key={`fecha-soc-${idEdicion}-${socializadoForm}-${editInformeAuditoria?.id || 'nuevo'}`}
                   name="fechaSocializacion" 
                   type="date" 
                   disabled={socializadoForm !== 'Sí'}
-                  defaultValue={socializadoForm === 'Sí' ? (editInformeAuditoria?.fechaSocializacion || '') : ''} 
+                  defaultValue={socializadoForm === 'Sí' ? (editInformeAuditoria?.fechaSocializacion || editInformeAuditoria?.fecha_socializacion || editInformeAuditoria?.fechaSoc || '') : ''} 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed transition-all" 
                 />
               </div>
