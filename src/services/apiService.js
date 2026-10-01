@@ -4,6 +4,21 @@ import { secureLogger } from './secureLogger.js';
 /**
  * Helper privado para ejecutar peticiones HTTP estandarizadas a la API.
  */
+const sanitizeServerMessage = (message) => {
+  if (!message) return 'Error del servidor.';
+
+  let safe = String(message)
+    .replace(/https?:\/\/[^\s]+/gi, '[url-redactada]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[email-redactado]')
+    .replace(/(?:[A-Za-z]:)?(?:\\|\/)[^\s]+/g, '[ruta-redactada]');
+
+  if (safe.length > 180) {
+    safe = `${safe.slice(0, 170)}...`;
+  }
+
+  return safe || 'Error del servidor.';
+};
+
 async function request(endpoint, options = {}) {
   const defaultHeaders = {
     'Content-Type': 'application/json',
@@ -33,8 +48,8 @@ async function request(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    const errorMessage = data?.error || data?.message || `Error HTTP ${response.status}`;
-    throw new Error(errorMessage);
+    const rawMessage = data?.error || data?.message || data?.details || `Error HTTP ${response.status}`;
+    throw new Error(sanitizeServerMessage(rawMessage));
   }
 
   return data;
