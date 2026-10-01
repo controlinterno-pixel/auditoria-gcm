@@ -117,12 +117,23 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
   if (!rawCandidate) return '';
 
   const rawValue = rawCandidate.trim();
+  const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
 
-  // Extraemos únicamente el nombre del archivo o hash
-  const fileName = decodeURIComponent(rawValue.split('/').pop().split('?')[0]);
+  let fileName = '';
+  try {
+    const stripped = rawValue.split('?')[0].split('#')[0];
+    fileName = decodeURIComponent(stripped.split('/').pop() || '');
+  } catch {
+    fileName = 'archivo';
+  }
 
-  // Ruta pública servida directamente por Nginx en el VPS
-  return `https://control.termalessantarosa.com.co/docs/${encodeURIComponent(fileName)}`;
+  if (!fileName) {
+    const candidateFileName = String(fallbackFileName || payload?.fileName || 'archivo').split('?')[0].split('#')[0];
+    fileName = decodeURIComponent(candidateFileName.split('/').pop() || candidateFileName || 'archivo');
+  }
+
+  // ⚠️ El dominio correcto para la descarga es el repositorio de archivos, no el frontend /docs.
+  return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(appName)}/${encodeURIComponent(fileName)}`;
 };
 
 export const apiService = {
