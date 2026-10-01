@@ -222,28 +222,24 @@ xhr.onload = () => {
             try {
               const data = JSON.parse(xhr.responseText);
               
-              // 1. Extraemos el nombre único encriptado que NestJS/Multer asignó al archivo
-              const nombreUnico = data.file?.filename || data.fileName || data.filename;
+              // 1. Buscamos el nombre encriptado (UUID) en todas las propiedades posibles del backend
+              const nombreUnico = data.file?.filename || data.fileName || data.filename || data.file?.fileName || data.file?.name;
               
-              if (nombreUnico) {
-                  const urlAbsoluta = resolveArchivoUrl({
-                    appName: data.appName || appName,
-                    fileName: data.file?.originalname || data.originalName || archivoPreparado.name,
-                    file: { filename: nombreUnico },
-                    url: data.url || data.path,
-                  }, nombreUnico);
-                  
-                  resolve({ 
-                    success: true, 
-                    url: urlAbsoluta,
-                    appName: data.appName || appName, 
-                    fileName: data.file?.originalname || data.originalName || archivoPreparado.name 
-                  });
-                  return;
-              }
-
-              // Fallback
-              resolve({ success: true, url: '', rawData: data, appName, fileName: archivoPreparado.name });
+              // 2. Resolvemos la URL garantizando que siempre usemos el nombre encriptado
+              const urlAbsoluta = resolveArchivoUrl({
+                appName: data.appName || appName,
+                url: data.url || data.path,
+              }, nombreUnico || archivoPreparado.name);
+              
+              resolve({ 
+                success: true, 
+                url: urlAbsoluta,
+                path: urlAbsoluta,
+                filePath: urlAbsoluta,
+                appName: data.appName || appName, 
+                fileName: data.file?.originalname || data.originalName || archivoPreparado.name 
+              });
+              return;
             } catch {
               resolve({ success: true, url: '', appName, fileName: archivoPreparado.name });
             }
