@@ -118,31 +118,12 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
 
   const rawValue = rawCandidate.trim();
 
-  if (/^https?:\/\//i.test(rawValue)) {
-    if (rawValue.includes('/uploads/')) {
-      const partes = rawValue.split('/uploads/');
-      const componentes = (partes[1] || '').split('/');
-      const appName = componentes.shift() || payload?.appName || 'controlInterno';
-      const fileName = decodeURIComponent((componentes.join('/') || rawValue.split('/').pop()).split('?')[0]);
-      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName))}/${encodeURIComponent(fileName)}`;
-    }
-    return rawValue;
-  }
-
-  if (rawValue.startsWith('/')) {
-    if (rawValue.includes('/uploads/')) {
-      const partes = rawValue.split('/uploads/');
-      const componentes = (partes[1] || '').split('/');
-      const appName = componentes.shift() || payload?.appName || 'controlInterno';
-      const fileName = decodeURIComponent((componentes.join('/') || rawValue.split('/').pop()).split('?')[0]);
-      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName))}/${encodeURIComponent(fileName)}`;
-    }
-    return `https://repos.termalessantarosa.com.co${rawValue}`;
-  }
-
-  const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
+  // Extraemos únicamente el nombre del archivo o hash
   const fileName = decodeURIComponent(rawValue.split('/').pop().split('?')[0]);
-  return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(appName)}/${encodeURIComponent(fileName)}`;
+  const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
+
+  // Retornamos la ruta directa a la carpeta donde el servidor aloja las cargas
+  return `https://repos.termalessantarosa.com.co/uploads/${encodeURIComponent(appName)}/${encodeURIComponent(fileName)}`;
 };
 
 export const apiService = {
