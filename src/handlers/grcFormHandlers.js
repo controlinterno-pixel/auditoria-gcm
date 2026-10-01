@@ -506,6 +506,15 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       
       const evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
       const correosNotificacionOut = String(formData.get('correosNotificacionInput') || '').trim();
+      const anexosMultiplesRaw = formData.get('anexosMultiples') || '[]';
+      let anexosMultiplesOut = [];
+      try {
+        const parsed = JSON.parse(String(anexosMultiplesRaw));
+        anexosMultiplesOut = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        anexosMultiplesOut = [];
+      }
+      const actaSocializacionUrlOut = formData.get('actaSocializacionUrlInput') || anexosMultiplesOut[0]?.url || editInformeAuditoria?.actaSocializacionUrl || '';
       const tsActual = new Date().toLocaleString();
       let updated; let refConsecutivoFinal = '';
       let idInformeGuardado = editInformeAuditoria?.id || null;
@@ -524,7 +533,9 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No', 
           socializadoCon: formData.get('socializadoCon') || editInformeAuditoria.socializadoCon || '', 
           evidenciaUrl: evidenciaUrlOut, 
-          actaSocializacionUrl: formData.get('actaSocializacionUrlInput') || editInformeAuditoria.actaSocializacionUrl || '', 
+          actaSocializacionUrl: actaSocializacionUrlOut,
+          anexos: anexosMultiplesOut,
+          anexosMultiples: anexosMultiplesOut,
           objetivo: formData.get('objetivo') || editInformeAuditoria.objetivo || '', 
           alcance: formData.get('alcance') || editInformeAuditoria.alcance || '', 
           conclusion: formData.get('conclusion') || editInformeAuditoria.conclusion || '', 
@@ -558,7 +569,9 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           socializado: formData.get('socializado') || 'No', 
           socializadoCon: formData.get('socializadoCon') || '', 
           evidenciaUrl: evidenciaUrlOut, 
-          actaSocializacionUrl: formData.get('actaSocializacionUrlInput') || '', 
+          actaSocializacionUrl: actaSocializacionUrlOut,
+          anexos: anexosMultiplesOut,
+          anexosMultiples: anexosMultiplesOut,
           objetivo: formData.get('objetivo') || '', 
           alcance: formData.get('alcance') || '', 
           conclusion: formData.get('conclusion') || '', 

@@ -938,7 +938,7 @@ const handleFileUpload = async (e, type) => {
                 <div className="text-slate-300 text-3xl">☁️</div>
               </div>
 
-<input type="hidden" name="evidenciaUrl" value={archivoSubidoUrl} />
+<input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl} />
               {/* Enviamos los anexos como JSON string para el nuevo flujo */}
               <input type="hidden" name="anexosMultiples" value={JSON.stringify(anexosMultiples)} />
               {/* 🛡️ SOPORTE LEGACY: Evita que el componente padre crashee buscando los campos viejos */}
