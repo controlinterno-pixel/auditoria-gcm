@@ -118,7 +118,7 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
 
   const rawValue = rawCandidate.trim();
 
-  // Extraemos únicamente el nombre del archivo o hash encriptado
+  // Extraemos únicamente el nombre del archivo o hash
   const fileName = decodeURIComponent(rawValue.split('/').pop().split('?')[0]);
   const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
 
@@ -217,20 +217,26 @@ export const apiService = {
           };
         }
 
-        xhr.onload = () => {
+xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText);
               
-              // 1. Buscamos el nombre encriptado (UUID) en todas las propiedades posibles del backend
-              const nombreUnico = data.file?.filename || data.fileName || data.filename || data.file?.fileName || data.file?.name;
+              // 🔍 INSPECTOR DE DIAGNÓSTICO
+              console.group('🔍 [DIAGNÓSTICO CARGA DE ARCHIVO]');
+              console.log('1. Respuesta cruda del servidor (NestJS):', data);
               
-              // 2. Resolvemos la URL garantizando que siempre usemos el nombre encriptado
+              const nombreUnico = data.file?.filename || data.fileName || data.filename || data.file?.fileName || data.file?.name;
+              console.log('2. Nombre/Hash detectado para el archivo:', nombreUnico || '❌ NO SE ENCONTRÓ HASH');
+
               const urlAbsoluta = resolveArchivoUrl({
                 appName: data.appName || appName,
                 url: data.url || data.path,
               }, nombreUnico || archivoPreparado.name);
               
+              console.log('3. URL construida para visualización/descarga:', urlAbsoluta);
+              console.groupEnd();
+
               resolve({ 
                 success: true, 
                 url: urlAbsoluta,
@@ -240,10 +246,12 @@ export const apiService = {
                 fileName: data.file?.originalname || data.originalName || archivoPreparado.name 
               });
               return;
-            } catch {
+            } catch (err) {
+              console.error('❌ Error al procesar respuesta del servidor:', err);
               resolve({ success: true, url: '', appName, fileName: archivoPreparado.name });
             }
           } else {
+            // Manejo de errores 400 o 500 (este se mantiene intacto)
             let detalleError = 'Falló la carga del archivo';
             try {
               const errorJson = JSON.parse(xhr.responseText);
