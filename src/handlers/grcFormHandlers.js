@@ -517,6 +517,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       }
       const actaSocializacionUrlOut = formData.get('actaSocializacionUrlInput') || anexosMultiplesOut[0]?.url || editInformeAuditoria?.actaSocializacionUrl || '';
       const tsActual = new Date().toLocaleString();
+      const horaActual = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
       let updated; let refConsecutivoFinal = '';
       let idInformeGuardado = editInformeAuditoria?.id || null;
 
@@ -629,6 +630,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           actaSocializacionUrl: actaSocializacionUrlOut,
           anexos: anexosMultiplesOut,
           anexosMultiples: anexosMultiplesOut,
+          hora: horaActual,
+          fechaHora: tsActual,
           objetivo: formData.get('objetivo') || '', 
           alcance: formData.get('alcance') || '', 
           conclusion: formData.get('conclusion') || '', 
@@ -643,7 +646,9 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           img4Desc: formData.get('img4Desc') || '', 
           correoEnviadoA: '',
           fechaCorreoEnviado: '',
-          historialCambios: [{ fecha: tsActual, usuario: user?.email || 'Sistema', accion: 'Informe creado' }]
+          historialCambios: [],
+          hora: horaActual,
+          fechaHora: tsActual,
         };
         idInformeGuardado = nuevoId;
         updated = [nuevo, ...safeInformes];

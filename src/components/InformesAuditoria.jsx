@@ -245,6 +245,12 @@ export default function InformesAuditoria({
         setDraftInforme(draftInicial);
         setDraftHistory([draftInicial]);
 
+        const participantesIniciales = (editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '')
+          .split(',')
+          .map(item => item.trim())
+          .filter(Boolean);
+
+        setParticipantesMultiples(participantesIniciales);
         setArchivoSubidoUrl(urlInfValida);
         setArchivoSubidoNombre(decodeName(urlInfValida));
         setAnexosMultiples(fusionarAdjuntosUnicos([], anexosCargados));
@@ -1681,7 +1687,9 @@ const handleFileUpload = async (e, type) => {
                             <div className="text-[10px] text-slate-500 font-bold mt-0.5 mb-1.5">↳ {inf.subproceso}</div>
                           )}
                           <div className="font-bold text-slate-900 text-sm leading-tight mt-1">{inf.titulo}</div>
-                          <div className="text-[9px] text-slate-400 font-medium mt-1">Emitido el: {inf.fecha}</div>
+                          <div className="text-[9px] text-slate-400 font-medium mt-1">
+                            Emitido el: {inf.fecha}{inf.hora ? ` a las ${inf.hora}` : ''}
+                          </div>
                           <div className="flex items-center gap-2 mt-2 flex-wrap">
                             <span className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full">
                               {contarCambios(inf)} cambios
