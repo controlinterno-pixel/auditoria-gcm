@@ -1,4 +1,5 @@
 // src/services/apiService.js - Cliente HTTP Centralizado para la API Serverless GRC
+import { secureLogger } from './secureLogger.js';
 
 /**
  * Helper privado para ejecutar peticiones HTTP estandarizadas a la API.
@@ -78,6 +79,34 @@ const sanitizarNombreArchivo = (nombre = '') => {
     .toLowerCase();
 
   return base || 'archivo';
+};
+
+const enmascararNombreArchivo = (nombre = '') => {
+  const valor = String(nombre || '').trim();
+  if (!valor) return 'archivo';
+
+  const extension = valor.includes('.') ? `.${valor.split('.').pop()}` : '';
+  const base = valor.replace(new RegExp(`${extension.replace('.', '\.')}$`), '');
+
+  if (base.length <= 4) return '***';
+  return `${base.slice(0, 2)}***${base.slice(-2)}${extension}`;
+};
+
+const enmascararUrl = (url = '') => {
+  if (!url) return '[sin-url]';
+  try {
+    const parsed = new URL(url);
+    return `${parsed.origin}/[ruta-redactada]`;
+  } catch {
+    return '[url-redactada]';
+  }
+};
+
+const generarRequestId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID().slice(0, 8);
+  }
+  return `req-${Date.now().toString(36)}`;
 };
 
 const prepararArchivoAntesDeSubir = async (archivo) => {
@@ -231,22 +260,25 @@ xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText);
-              
-              // 🔍 INSPECTOR DE DIAGNÓSTICO
-              console.group('🔍 [DIAGNÓSTICO CARGA DE ARCHIVO]');
-              console.log('1. Respuesta cruda del servidor (NestJS):', data);
-              
-              const nombreUnico = data.file?.filename || data.fileName || data.filename || data.file?.fileName || data.file?.name;
-              console.log('2. Nombre/Hash detectado para el archivo:', nombreUnico || '❌ NO SE ENCONTRÓ HASH');
 
-             const urlAbsoluta = resolveArchivoUrl({
+              const nombreUnico = data.file?.filename || data.fileName || data.filename || data.file?.fileName || data.file?.name;
+              const urlAbsoluta = resolveArchivoUrl({
                 appName: data.appName || appName,
                 url: data.url || data.path,
                 filename: nombreUnico,
               }, nombreUnico || archivoPreparado.name);
-              
-              console.log('3. URL construida para visualización/descarga:', urlAbsoluta);
-              console.groupEnd();
+
+              if (import.meta.env.DEV) {
+                const requestId = generarRequestId();
+                secureLogger.debug('[UPLOAD] Archivo procesado', {
+                  requestId,
+                  appName: data.appName || appName,
+                  fileNameMasked: enmascararNombreArchivo(data.file?.originalname || data.originalName || archivoPreparado.name),
+                  hashMasked: nombreUnico ? enmascararNombreArchivo(nombreUnico) : '[sin-hash]',
+                  urlMasked: enmascararUrl(urlAbsoluta),
+                  status: xhr.status,
+                });
+              }
 
               resolve({ 
                 success: true, 
@@ -254,12 +286,13 @@ xhr.onload = () => {
                 path: urlAbsoluta,
                 filePath: urlAbsoluta,
                 appName: data.appName || appName, 
-                fileName: data.file?.originalname || data.originalName || archivoPreparado.name,
-                rawData: data
+                fileName: data.file?.originalname || data.originalName || archivoPreparado.name
               });
               return;
             } catch (err) {
-              console.error('❌ Error al procesar respuesta del servidor:', err);
+              if (import.meta.env.DEV) {
+                secureLogger.error('[UPLOAD] Error al procesar respuesta del servidor', { message: err?.message || 'error' });
+              }
               resolve({ success: true, url: '', appName, fileName: archivoPreparado.name });
             }
           } else {
@@ -283,7 +316,7 @@ xhr.onload = () => {
         xhr.send(formData);
       });
     } catch (error) {
-      console.error('🔴 Error en carga binaria a Termales:', error);
+      secureLogger.error('🔴 Error en carga binaria a Termales:', error);
       throw error;
     }
   }
