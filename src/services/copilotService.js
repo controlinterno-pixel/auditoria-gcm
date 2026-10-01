@@ -1,5 +1,7 @@
 // src/services/copilotService.js
 import { apiService } from './apiService';
+import { secureLogger } from './secureLogger.js';
+
 export const sugerirTextoConIA = async (tipoTarget, setIsThinking, showNotification) => {
   let textoBase = "";
   let inputDestino = null;
@@ -42,7 +44,7 @@ export const sugerirTextoConIA = async (tipoTarget, setIsThinking, showNotificat
       showNotification("¡Sugerencia ejecutiva insertada con éxito!");
     }
   } catch (error) {
-    console.error("Error conectando al Asistente IA:", error);
+    secureLogger.error('Error conectando al Asistente IA:', { message: error?.message || 'error' });
     showNotification("Error conectando con el servidor de auditoría.", "error");
   } finally {
     setIsThinking(false);
@@ -69,7 +71,7 @@ export const analizarEvidenciaDocumento = async (evidenciaUrl, contextoItem, tip
     });
 
   } catch (error) {
-    console.error(error);
+    secureLogger.error('Error al procesar la evidencia en el servidor:', { message: error?.message || 'error', evidenceUrlMasked: evidenciaUrl ? evidenciaUrl.replace(/.(?=.{8,}$)/g, '*') : '[sin-url]' });
     showNotification("Error al procesar la evidencia en el servidor.", "error");
   } finally {
     setIsThinking(false);

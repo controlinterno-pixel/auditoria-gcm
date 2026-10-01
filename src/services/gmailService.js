@@ -1,3 +1,5 @@
+import { secureLogger } from './secureLogger.js';
+
 const GOOGLE_CLIENT_ID = typeof import.meta !== 'undefined' ? (import.meta.env?.VITE_GOOGLE_CLIENT_ID || '') : '';
 const GOOGLE_OAUTH_SCOPE = 'openid email https://www.googleapis.com/auth/gmail.send';
 
@@ -114,7 +116,7 @@ export const prepararAutorizacionGmail = async (userEmail, showNotification) => 
     await requestGmailSession(userEmail);
     return true;
   } catch (error) {
-    console.error('Error autenticando Gmail para el envío:', error);
+    secureLogger.error('Error autenticando Gmail para el envío:', { message: error?.message || 'error' });
     showNotification?.(error.message || 'No se pudo autenticar la cuenta de Gmail.', 'error');
     return false;
   }
@@ -213,7 +215,7 @@ export const enviarCorreoGmail = async (emailParams, userEmail, showNotification
     showNotification?.(`Correo enviado desde ${session.email}.`, 'success');
     return true;
   } catch (error) {
-    console.error('Error enviando correo mediante Gmail OAuth:', error);
+    secureLogger.error('Error enviando correo mediante Gmail OAuth:', { message: error?.message || 'error' });
     showNotification?.(error.message || 'No se pudo enviar el correo desde Gmail.', 'error');
     return false;
   }

@@ -5,6 +5,7 @@
 
 import { storage } from './firebase.js';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { secureLogger } from './secureLogger.js';
 
 /**
  * Sube un archivo a Firebase Storage y retorna su URL pública de descarga.
@@ -33,7 +34,7 @@ export const subirArchivoStorage = (file, { appName = 'controlInterno', onProgre
         if (typeof onProgress === 'function') onProgress(progress);
       },
       (error) => {
-        console.error('Error subiendo a Firebase Storage:', error);
+        secureLogger.error('Error subiendo a Firebase Storage:', { message: error?.message || 'error', fileNameMasked: file?.name ? file.name.slice(0, 2) + '***' + file.name.slice(-2) : '[sin-nombre]' });
         reject(new Error(`Error al subir el archivo: ${error.message}`));
       },
       async () => {

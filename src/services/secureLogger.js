@@ -64,4 +64,18 @@ export const secureLogger = {
     const redactedArgs = args.map((arg) => redactObject(arg));
     console.error(...redactedArgs);
   },
+  installGlobal: () => {
+    if (typeof window === 'undefined') return;
+
+    const methods = ['log', 'info', 'warn', 'error', 'debug'];
+    for (const method of methods) {
+      const original = console[method]?.bind(console);
+      if (!original) continue;
+
+      console[method] = (...args) => {
+        const redactedArgs = args.map((arg) => redactObject(arg));
+        original(...redactedArgs);
+      };
+    }
+  },
 };
