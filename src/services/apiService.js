@@ -1,7 +1,5 @@
 // src/services/apiService.js - Cliente HTTP Centralizado para la API Serverless GRC
 
-import { subirArchivoStorage } from './uploadService';
-
 /**
  * Helper privado para ejecutar peticiones HTTP estandarizadas a la API.
  */
@@ -69,6 +67,52 @@ const comprimirImagen = (file, maxWidth = 1000, quality = 0.6) => {
       };
     };
   });
+};
+
+const subirPorServidor = async (archivo, appName, onProgress) => {
+  const reader = new FileReader();
+  const dataUrl = await new Promise((resolve, reject) => {
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo para subirlo por la API interna.'));
+    reader.readAsDataURL(archivo);
+  });
+
+  if (typeof onProgress === 'function') onProgress(35);
+
+  const response = await fetch('/api/grc/upload', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      fileName: archivo.name,
+      fileType: archivo.type || 'application/octet-stream',
+      fileBase64: dataUrl,
+      appName,
+    }),
+  });
+
+  const responseText = await response.text();
+  let payload = null;
+  try {
+    payload = responseText ? JSON.parse(responseText) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok || !payload?.success || !payload?.url || !/^https?:\/\//i.test(payload.url)) {
+    const message = payload?.message || payload?.error || responseText || 'La API interna rechazó la subida del archivo.';
+    throw new Error(message);
+  }
+
+  if (typeof onProgress === 'function') onProgress(100);
+
+  return {
+    url: payload.url,
+    fileName: payload.fileName || archivo.name,
+    appName: payload.appName || appName,
+  };
 };
 
 export const apiService = {
@@ -179,7 +223,7 @@ export const apiService = {
               }
 
               try {
-                const fallback = await subirArchivoStorage(archivo, { appName, onProgress });
+                const fallback = await subirPorServidor(archivo, appName, onProgress);
                 resolve({
                   success: true,
                   url: fallback.url,
@@ -198,10 +242,10 @@ export const apiService = {
               }
 
               try {
-                const fallback = await subirArchivoStorage(archivo, { appName, onProgress });
+                const fallback = await subirPorServidor(archivo, appName, onProgress);
                 resolve({ success: true, url: fallback.url, appName: fallback.appName || appName, fileName: fallback.fileName || archivo.name });
               } catch (fallbackError) {
-                reject(new Error(fallbackError.message || 'La subida no devolvió una URL válida y el fallback a Firebase Storage falló.'));
+                reject(new Error(fallbackError.message || 'La subida no devolvió una URL válida y el fallback a la API interna falló.'));
               }
             }
           } else {
@@ -219,10 +263,10 @@ export const apiService = {
 
         xhr.onerror = async () => {
           try {
-            const fallback = await subirArchivoStorage(archivo, { appName, onProgress });
+            const fallback = await subirPorServidor(archivo, appName, onProgress);
             resolve({ success: true, url: fallback.url, appName: fallback.appName || appName, fileName: fallback.fileName || archivo.name });
           } catch (fallbackError) {
-            reject(new Error(fallbackError.message || 'Error de conexión con el repositorio de Termales y fallback a Firebase Storage'));
+            reject(new Error(fallbackError.message || 'Error de conexión con el repositorio de Termales y fallback a la API interna'));
           }
         };
         xhr.send(formData);
