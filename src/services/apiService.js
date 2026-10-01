@@ -120,10 +120,9 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
 
   // Extraemos únicamente el nombre del archivo o hash
   const fileName = decodeURIComponent(rawValue.split('/').pop().split('?')[0]);
-  const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
 
-  // Retornamos la ruta directa a la carpeta donde el servidor aloja las cargas
-  return `https://repos.termalessantarosa.com.co/uploads/${encodeURIComponent(appName)}/${encodeURIComponent(fileName)}`;
+  // Ruta pública servida directamente por Nginx en el VPS
+  return `https://control.termalessantarosa.com.co/docs/${encodeURIComponent(fileName)}`;
 };
 
 export const apiService = {
@@ -229,9 +228,10 @@ xhr.onload = () => {
               const nombreUnico = data.file?.filename || data.fileName || data.filename || data.file?.fileName || data.file?.name;
               console.log('2. Nombre/Hash detectado para el archivo:', nombreUnico || '❌ NO SE ENCONTRÓ HASH');
 
-              const urlAbsoluta = resolveArchivoUrl({
+             const urlAbsoluta = resolveArchivoUrl({
                 appName: data.appName || appName,
                 url: data.url || data.path,
+                filename: nombreUnico,
               }, nombreUnico || archivoPreparado.name);
               
               console.log('3. URL construida para visualización/descarga:', urlAbsoluta);
@@ -243,7 +243,8 @@ xhr.onload = () => {
                 path: urlAbsoluta,
                 filePath: urlAbsoluta,
                 appName: data.appName || appName, 
-                fileName: data.file?.originalname || data.originalName || archivoPreparado.name 
+                fileName: data.file?.originalname || data.originalName || archivoPreparado.name,
+                rawData: data
               });
               return;
             } catch (err) {
