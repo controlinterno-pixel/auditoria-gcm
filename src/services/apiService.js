@@ -101,6 +101,50 @@ const prepararArchivoAntesDeSubir = async (archivo) => {
   return archivo;
 };
 
+const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
+  const candidates = [
+    payload?.url,
+    payload?.path,
+    payload?.file?.url,
+    payload?.file?.path,
+    payload?.filename,
+    payload?.fileName,
+    payload?.file?.filename,
+    fallbackFileName,
+  ];
+
+  const rawCandidate = candidates.find((value) => typeof value === 'string' && value.trim() !== '');
+  if (!rawCandidate) return '';
+
+  const rawValue = rawCandidate.trim();
+
+  if (/^https?:\/\//i.test(rawValue)) {
+    if (rawValue.includes('/uploads/')) {
+      const partes = rawValue.split('/uploads/');
+      const componentes = (partes[1] || '').split('/');
+      const appName = componentes.shift() || payload?.appName || 'controlInterno';
+      const fileName = decodeURIComponent((componentes.join('/') || rawValue.split('/').pop()).split('?')[0]);
+      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName).toLowerCase())}/${encodeURIComponent(fileName)}`;
+    }
+    return rawValue;
+  }
+
+  if (rawValue.startsWith('/')) {
+    if (rawValue.includes('/uploads/')) {
+      const partes = rawValue.split('/uploads/');
+      const componentes = (partes[1] || '').split('/');
+      const appName = componentes.shift() || payload?.appName || 'controlInterno';
+      const fileName = decodeURIComponent((componentes.join('/') || rawValue.split('/').pop()).split('?')[0]);
+      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName).toLowerCase())}/${encodeURIComponent(fileName)}`;
+    }
+    return `https://repos.termalessantarosa.com.co${rawValue}`;
+  }
+
+  const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
+  const fileName = decodeURIComponent(rawValue.split('/').pop().split('?')[0]);
+  return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(appName.toLowerCase())}/${encodeURIComponent(fileName)}`;
+};
+
 export const apiService = {
   // 🔑 AUTENTICACIÓN Y SESIÓN
   checkSession: () => request('/api/auth/me'),
@@ -157,6 +201,8 @@ export const apiService = {
     body: payload
   }),
 
+  resolveArchivoUrl,
+
   // 📁 CARGA BINARIA DE EVIDENCIAS EN FORM-DATA (OPTIMIZADO NESTJS + SOPORTE PROGRESO)
   subirEvidencia: async (archivo, metadata = {}, onProgress = null) => {
     try {
@@ -199,12 +245,16 @@ xhr.onload = () => {
               const nombreUnico = data.file?.filename || data.fileName || data.filename;
               
               if (nombreUnico) {
-                  // 2. Construimos la URL absoluta apuntando a la carpeta física real (/uploads/)
-                  const urlAbsoluta = `https://repos.termalessantarosa.com.co/uploads/${appName}/${nombreUnico}`;
+                  const urlAbsoluta = resolveArchivoUrl({
+                    appName: data.appName || appName,
+                    fileName: data.file?.originalname || data.originalName || archivoPreparado.name,
+                    file: { filename: nombreUnico },
+                    url: data.url || data.path,
+                  }, nombreUnico);
                   
                   resolve({ 
                     success: true, 
-                    url: urlAbsoluta, 
+                    url: urlAbsoluta,
                     appName: data.appName || appName, 
                     fileName: data.file?.originalname || data.originalName || archivoPreparado.name 
                   });

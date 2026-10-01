@@ -54,7 +54,12 @@ export default function Comites({
       else setUploadProgressActa(50);
 
       const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
-      const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
+      const urlFinal = apiService.resolveArchivoUrl({
+        appName: data?.appName || 'controlInterno',
+        fileName: data?.fileName || data?.filename || '',
+        url: data?.url,
+        file: data?.file,
+      }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
 
       if (type === 'presentacion') {
         setPresentacionSubidaUrl(urlFinal);

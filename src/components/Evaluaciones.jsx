@@ -88,7 +88,12 @@ export default function Evaluaciones({
         apiService.subirEvidencia(file, payloadMeta)
       );
       
-      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
+      const urlFinal = apiService.resolveArchivoUrl({
+        appName: data?.appName || 'controlInterno',
+        fileName: data?.fileName || data?.filename || '',
+        url: data?.url,
+        file: data?.file,
+      }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
       setEvidenciaUrlForm(urlFinal);
       setEvidenciaUrl(urlFinal);
     } catch (err) {

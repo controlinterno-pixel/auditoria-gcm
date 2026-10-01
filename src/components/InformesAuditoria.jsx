@@ -154,15 +154,31 @@ export default function InformesAuditoria({
 // 🌐 Reconstruir ruta absoluta al Repositorio de Termales
   const obtenerUrlAbsoluta = (ruta) => {
     if (!ruta || ruta === '#' || ruta.trim() === '') return null;
-    
-    // Si ya trae el dominio completo, la dejamos pasar intacta
-    if (ruta.startsWith('http://') || ruta.startsWith('https://')) return ruta;
-    
-    // Apuntamos a la carpeta física real descubierta (/uploads/controlInterno)
-    const baseUrl = 'https://repos.termalessantarosa.com.co/uploads/controlInterno';
-    const rutaLimpia = ruta.startsWith('/') ? ruta : `/${ruta}`;
-    
-    return `${baseUrl}${rutaLimpia}`;
+
+    const valor = ruta.trim();
+
+    if (valor.startsWith('http://') || valor.startsWith('https://')) {
+      const url = new URL(valor);
+      if (url.pathname.includes('/uploads/')) {
+        const partes = url.pathname.split('/uploads/');
+        const componentes = (partes[1] || '').split('/');
+        const appName = componentes.shift() || 'controlInterno';
+        const fileName = decodeURIComponent((componentes.join('/') || url.pathname.split('/').pop()).split('?')[0]);
+        return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName).toLowerCase())}/${encodeURIComponent(fileName)}`;
+      }
+      return valor;
+    }
+
+    const rutaLimpia = valor.startsWith('/') ? valor : `/${valor}`;
+    if (rutaLimpia.includes('/uploads/')) {
+      const partes = rutaLimpia.split('/uploads/');
+      const componentes = (partes[1] || '').split('/');
+      const appName = componentes.shift() || 'controlInterno';
+      const fileName = decodeURIComponent((componentes.join('/') || rutaLimpia.split('/').pop()).split('?')[0]);
+      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName).toLowerCase())}/${encodeURIComponent(fileName)}`;
+    }
+
+    return `https://repos.termalessantarosa.com.co${rutaLimpia}`;
   };
 
 // 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante

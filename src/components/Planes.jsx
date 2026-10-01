@@ -666,7 +666,12 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
     try {
       setUploadProgress(50);
       const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' });
-      const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
+      const urlFinal = apiService.resolveArchivoUrl({
+        appName: data?.appName || 'controlInterno',
+        fileName: data?.fileName || data?.filename || '',
+        url: data?.url,
+        file: data?.file,
+      }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
       
       const arrayEvidencias = Array.isArray(evidenciasActuales) ? evidenciasActuales : (evidenciasActuales ? [evidenciasActuales] : []);
       handleUpdateActivityField(hallazgoId, index, 'evidenciaUrl', [...arrayEvidencias, urlFinal]);

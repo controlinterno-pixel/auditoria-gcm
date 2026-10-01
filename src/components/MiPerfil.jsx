@@ -88,7 +88,12 @@ const [notificacionesActivas, setNotificacionesActivas] = useState(true);
 
     try {
       const data = await apiService.subirEvidencia(fileToUpload, { appName: 'controlInterno' });
-      const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
+      const urlFinal = apiService.resolveArchivoUrl({
+        appName: data?.appName || 'controlInterno',
+        fileName: data?.fileName || data?.filename || '',
+        url: data?.url,
+        file: data?.file,
+      }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
       
       setPhotoURL(urlFinal); // Guardamos la URL pública (enlace real)
       showNotification('Imagen subida temporalmente. Clic en Guardar para aplicar.', 'info');

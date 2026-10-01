@@ -120,7 +120,12 @@ export default function Hallazgos({
     try {
       setUploadProgress(50);
       const data = await apiService.subirEvidencia(originalFile, { appName: 'controlInterno' });
-      const urlFinal = data?.url || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName || 'controlInterno'}/${data.fileName}`;
+      const urlFinal = apiService.resolveArchivoUrl({
+        appName: data?.appName || 'controlInterno',
+        fileName: data?.fileName || data?.filename || '',
+        url: data?.url,
+        file: data?.file,
+      }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
       setArchivoSubidoUrl(urlFinal); setIsUploading(false); setUploadProgress(100);
       alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
     } catch (err) {

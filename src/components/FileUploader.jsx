@@ -79,8 +79,13 @@ export default function FileUploader({
         })
       );
 
-      const urlFinal = `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${data.appName}/${data.fileName}`;
-      onUploadSuccess(urlFinal);
+      const urlFinal = apiService.resolveArchivoUrl({
+        appName: data?.appName || 'controlInterno',
+        fileName: data?.fileName || data?.filename || '',
+        url: data?.url,
+        file: data?.file,
+      });
+      onUploadSuccess(urlFinal || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`);
       triggerToast("🎉 ¡Soporte subido exitosamente al servidor!", "success");
     } catch (err) {
       console.error("Error al subir archivo a la bóveda:", err);
