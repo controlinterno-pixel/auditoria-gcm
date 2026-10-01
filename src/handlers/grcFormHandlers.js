@@ -524,6 +524,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
         const historialPrevio = Array.isArray(editInformeAuditoria.historialCambios) ? editInformeAuditoria.historialCambios : [];
         const motivo = String(formData.get('motivoCambio') || '').trim();
         const accionCambio = motivo ? `Actualización del informe — ${motivo}` : 'Actualización del informe';
+        const versionActual = historialPrevio.length + 1;
         const mod = { 
           ...editInformeAuditoria, 
           titulo: tituloVal, 
@@ -555,7 +556,19 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           fechaCorreoEnviado: editInformeAuditoria.fechaCorreoEnviado || '',
           historialCambios: [
             ...historialPrevio,
-            { fecha: tsActual, usuario: user?.email || 'Sistema', accion: accionCambio }
+            {
+              fecha: tsActual,
+              usuario: user?.email || 'Sistema',
+              accion: accionCambio,
+              motivo: motivo || 'Actualización del registro',
+              version: versionActual,
+              detalle: {
+                proceso: procesoVal,
+                subproceso: subprocesoVal,
+                socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No',
+                correoEnviadoA: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || ''
+              }
+            }
           ]
         };
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf); 

@@ -155,6 +155,7 @@ export default function InformesAuditoria({
   const [motivoCambio, setMotivoCambio] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [historialExpandido, setHistorialExpandido] = useState(true);
+  const [historialVersionOpen, setHistorialVersionOpen] = useState({});
   const [draftHistory, setDraftHistory] = useState([]);
   const [draftInforme, setDraftInforme] = useState({
     titulo: '',
@@ -243,7 +244,7 @@ export default function InformesAuditoria({
 
         setArchivoSubidoUrl(urlInfValida);
         setArchivoSubidoNombre(decodeName(urlInfValida));
-        setAnexosMultiples(anexosCargados);
+        setAnexosMultiples(fusionarAdjuntosUnicos([], anexosCargados));
         setMotivoCambio('');
         setIsDirty(false);
         setHistorialExpandido(true);
@@ -331,6 +332,16 @@ export default function InformesAuditoria({
     return nombreOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9.\-_]/g, "").toLowerCase();
   };
 
+  const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
+    const map = new Map();
+    [...listaActual, ...nuevos].forEach((item) => {
+      if (!item || !item.url) return;
+      const clave = `${item.url}|${item.nombre || ''}`;
+      if (!map.has(clave)) map.set(clave, item);
+    });
+    return [...map.values()];
+  };
+
   // 🖼️ Utilidad para comprimir imágenes
   const compressImage = (file, maxWidth, maxHeight, quality) => {
     return new Promise((resolve, reject) => {
@@ -414,8 +425,8 @@ const handleFileUpload = async (e, type) => {
           const resultado = await procesarYSubirArchivo(originalFiles[i], onProgress);
           nuevosAnexos.push(resultado);
         }
-        setAnexosMultiples(prev => [...prev, ...nuevosAnexos]);
-        alert("🎉 ¡Anexos guardados con éxito!");
+        setAnexosMultiples(prev => fusionarAdjuntosUnicos(prev, nuevosAnexos));
+        alert("🎉 ¡Anexos guardados con éxito! Los documentos anteriores se conservaron.");
       } catch (err) {
         alert(`⚠️ Error al subir anexos:\n${err.message}`);
       } finally {
@@ -1265,18 +1276,64 @@ const handleFileUpload = async (e, type) => {
                       <p className="text-[10px] text-slate-500 italic">Aún no hay cambios registrados para este informe.</p>
                     ) : historialExpandido ? (
                       <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                        {[...historialActual].reverse().map((log, index) => (
-                          <div key={`${log.fecha}-${index}`} className="relative border border-slate-200 bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all">
-                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-orange-400 rounded-l-xl" />
-                            <div className="pl-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">{log.fecha || 'Sin fecha'}</span>
-                                <span className="text-[9px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">{log.usuario || 'Sistema'}</span>
+                        {[...historialActual].reverse().map((log, index) => {
+                          const versionKey = `${log.fecha || 'sin-fecha'}-${index}`;
+                          const isOpen = Boolean(historialVersionOpen[versionKey]);
+                          return (
+                            <div key={versionKey} className="relative border border-slate-200 bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all">
+                              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-orange-400 rounded-l-xl" />
+                              <div className="pl-3 space-y-1.5">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">{log.fecha || 'Sin fecha'}</span>
+                                  <span className="text-[9px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
+                                    {typeof log.version !== 'undefined' ? `Versión ${log.version}` : `Cambio ${index + 1}`}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <p className="text-[10px] font-bold text-slate-800 leading-relaxed">{log.accion || 'Cambio registrado'}</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setHistorialVersionOpen(prev => ({ ...prev, [versionKey]: !prev[versionKey] }))}
+                                    className="text-[9px] font-black uppercase tracking-wider text-slate-600 hover:text-slate-900"
+                                  >
+                                    {isOpen ? 'Ocultar detalle' : 'Ver detalle'}
+                                  </button>
+                                </div>
+                                {log.motivo && (
+                                  <p className="text-[9px] text-slate-600 leading-relaxed bg-orange-50 border border-orange-100 rounded-lg px-2 py-1">
+                                    <span className="font-black uppercase tracking-wider text-orange-700">Motivo:</span> {log.motivo}
+                                  </p>
+                                )}
+
+                                {isOpen && (
+                                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-[9px] text-slate-700 space-y-1.5">
+                                    <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Usuario:</span><span>{log.usuario || 'Sistema'}</span></div>
+                                    <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Fecha:</span><span>{log.fecha || 'Sin fecha'}</span></div>
+                                    {typeof log.version !== 'undefined' && (
+                                      <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Versión:</span><span>{log.version}</span></div>
+                                    )}
+                                    {log.detalle && typeof log.detalle === 'object' && (
+                                      <>
+                                        {log.detalle.proceso && (
+                                          <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Proceso:</span><span>{log.detalle.proceso}</span></div>
+                                        )}
+                                        {log.detalle.subproceso && (
+                                          <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Subproceso:</span><span>{log.detalle.subproceso}</span></div>
+                                        )}
+                                        {log.detalle.socializado && (
+                                          <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Socializado:</span><span>{log.detalle.socializado}</span></div>
+                                        )}
+                                        {log.detalle.correoEnviadoA && (
+                                          <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Correo:</span><span className="truncate max-w-[180px]" title={log.detalle.correoEnviadoA}>{log.detalle.correoEnviadoA}</span></div>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                              <p className="mt-1.5 text-[10px] font-bold text-slate-800 leading-relaxed">{log.accion || 'Cambio registrado'}</p>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-[10px] text-slate-500 italic">Historial oculto. Haz clic en “Abrir” para revisarlo.</p>
@@ -1288,6 +1345,9 @@ const handleFileUpload = async (e, type) => {
               {/* ARCHIVO 1: INFORME PRINCIPAL */}
               <div className="bg-white border-2 border-dashed border-emerald-300 p-5 rounded-2xl text-center relative hover:border-emerald-500 transition-all flex flex-col items-center justify-center min-h-[170px] shadow-sm">
                 <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-emerald-600 tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">📄 Documento Principal</span>
+                <div className="absolute top-3 right-4 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                  {archivoSubidoUrl ? '1 principal' : 'Sin principal'}
+                </div>
                 {cargandoInforme ? (
                   <div className="space-y-3 w-full mt-4 px-4">
                     <div className="text-3xl animate-bounce">🚀</div>
@@ -1311,7 +1371,11 @@ const handleFileUpload = async (e, type) => {
                       </button>
                       <label className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🔄</span><span>Reemplazar</span>
-                        <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => handleFileUpload(e, 'informe')} />
+                        <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => {
+                          const confirmar = window.confirm('¿Deseas reemplazar este documento principal? Los anexos ya cargados se conservarán.');
+                          if (confirmar) handleFileUpload(e, 'informe');
+                          else e.target.value = '';
+                        }} />
                       </label>
                       <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Seguro de quitar este adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>🗑️</span><span>Eliminar</span>
@@ -1331,6 +1395,9 @@ const handleFileUpload = async (e, type) => {
               {/* ARCHIVOS 2: ANEXOS Y ACTAS MÚLTIPLES */}
               <div className="bg-white border-2 border-dashed border-purple-300 p-5 rounded-2xl relative hover:border-purple-500 transition-all flex flex-col items-center justify-start min-h-[170px] shadow-sm">
                  <span className="absolute top-3 left-4 text-[9px] font-black uppercase text-purple-600 tracking-widest bg-purple-50 px-2 py-0.5 rounded border border-purple-100">🤝 Actas y Anexos</span>
+                 <div className="absolute top-3 right-4 bg-purple-100 text-purple-700 border border-purple-200 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider">
+                  {anexosMultiples.length} adjuntos
+                 </div>
                 
                 {cargandoAnexo ? (
                   <div className="space-y-3 w-full mt-8 px-4 text-center">
@@ -1361,16 +1428,21 @@ const handleFileUpload = async (e, type) => {
                     <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-2">
                       <div className="text-3xl opacity-50 group-hover:scale-110 transition-transform">➕</div>
                       <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Añadir Archivos</p>
-                      {/* Atributo 'multiple' añadido aquí */}
                       <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx, .xlsx" onChange={(e) => handleFileUpload(e, 'acta')} />
                     </label>
+                    <p className="mt-2 text-[9px] text-slate-500 text-center font-medium bg-purple-50 border border-purple-100 rounded-lg px-2 py-1.5">
+                      Los anexos anteriores se conservan y se suman con los nuevos.
+                    </p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* BOTÓN DE GUARDAR / SUBMIT */}
             <div className="md:col-span-4 flex justify-end pt-4">
+              <div className="mr-auto flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-700 shadow-sm">
+                <span>Total adjuntos:</span>
+                <span className="bg-white border border-slate-200 rounded-full px-2 py-0.5 text-slate-900">{(archivoSubidoUrl ? 1 : 0) + anexosMultiples.length}</span>
+              </div>
               <button 
                 type="submit" 
                 disabled={isSubmitting || cargandoInforme || cargandoAnexo} 
