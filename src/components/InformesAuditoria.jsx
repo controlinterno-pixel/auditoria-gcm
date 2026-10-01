@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { renderHistorialSummary } from '../utils/historialCambios.js';
 import { 
   MAPA_PROCESOS, 
   CARGOS_EMPRESA 
@@ -155,7 +156,9 @@ export default function InformesAuditoria({
   const [motivoCambio, setMotivoCambio] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [historialExpandido, setHistorialExpandido] = useState(true);
+  const [historialCompacto, setHistorialCompacto] = useState(true);
   const [historialVersionOpen, setHistorialVersionOpen] = useState({});
+  const [restoreConfirm, setRestoreConfirm] = useState(null);
   const [draftHistory, setDraftHistory] = useState([]);
   const [draftInforme, setDraftInforme] = useState({
     titulo: '',
@@ -514,8 +517,96 @@ const handleFileUpload = async (e, type) => {
     setIsDirty(false);
   };
 
+  const restaurarVersionHistorial = (log) => {
+    const snapshot = log?.detalle?.snapshot || log?.snapshot || {};
+    const versionResumen = typeof log?.version !== 'undefined' ? `Versión ${log.version}` : 'esta versión';
+
+    if (!snapshot || Object.keys(snapshot).length === 0) {
+      window.alert('Esta versión no tiene una instantánea guardada para restaurar.');
+      return;
+    }
+
+    setRestoreConfirm({ log, versionResumen, snapshot });
+  };
+
+  const confirmarRestauracionVersion = () => {
+    if (!restoreConfirm) return;
+    const { log, versionResumen, snapshot } = restoreConfirm;
+
+    const siguiente = {
+      titulo: snapshot.titulo || draftInforme.titulo || '',
+      proceso: snapshot.proceso || draftInforme.proceso || '',
+      subproceso: snapshot.subproceso || draftInforme.subproceso || 'General',
+      tipoFuente: draftInforme.tipoFuente || '',
+      detalleFuente: draftInforme.detalleFuente || '',
+      fecha: snapshot.fecha || draftInforme.fecha || '',
+      elaboradoPor: snapshot.elaboradoPor || draftInforme.elaboradoPor || '',
+      revisadoPor: snapshot.revisadoPor || draftInforme.revisadoPor || '',
+      aprobadoPor: snapshot.aprobadoPor || draftInforme.aprobadoPor || '',
+      socializado: snapshot.socializado || draftInforme.socializado || 'No',
+      fechaSocializacion: snapshot.fechaSocializacion || draftInforme.fechaSocializacion || '',
+      participantes: snapshot.participantes || draftInforme.participantes || '',
+      correosNotificacionInput: snapshot.correosNotificacionInput || draftInforme.correosNotificacionInput || '',
+    };
+
+    const anexosRestaurados = Array.isArray(snapshot.anexosMultiples)
+      ? snapshot.anexosMultiples
+      : Array.isArray(snapshot.anexos)
+        ? snapshot.anexos
+        : [];
+
+    const participantesRestaurados = String(siguiente.participantes || '')
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    setDraftInforme(siguiente);
+    setArchivoSubidoUrl(snapshot.evidenciaUrl || '');
+    setArchivoSubidoNombre(snapshot.evidenciaUrl ? decodeURIComponent((snapshot.evidenciaUrl.split('/').pop() || '').split('?')[0] || 'Archivo') : '');
+    setAnexosMultiples(anexosRestaurados);
+    setParticipantesMultiples(participantesRestaurados);
+    setMotivoCambio(`Restauración desde ${versionResumen}`);
+    setIsDirty(true);
+    setRestoreConfirm(null);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {restoreConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-xl">⚠️</div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Confirmación</p>
+                <h3 className="text-lg font-black text-slate-900">Restaurar versión</h3>
+              </div>
+            </div>
+            <p className="text-sm text-slate-700 leading-6">
+              ¿Deseas restaurar <span className="font-black text-slate-900">{restoreConfirm.versionResumen}</span> y reemplazar el estado actual del informe?
+            </p>
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 leading-5">
+              Se volverá a ese estado guardado con los archivos y datos de esa versión.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRestoreConfirm(null)}
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-700 hover:border-slate-400"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarRestauracionVersion}
+                className="rounded-full bg-[#0A3B32] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-[#0b4a3f]"
+              >
+                Restaurar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* 📋 CABECERA PRINCIPAL CON BANNER DE IMAGEN ESTILO PREMIUM */}
       <div 
@@ -1262,13 +1353,22 @@ const handleFileUpload = async (e, type) => {
                         <span className="bg-slate-900 text-white text-[9px] font-black rounded-full px-2.5 py-1 uppercase tracking-widest shadow-sm">
                           {historialActual.length} registros
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setHistorialExpandido(prev => !prev)}
-                          className="bg-white border border-slate-200 text-[9px] font-black uppercase tracking-widest text-slate-700 hover:border-slate-300 hover:text-slate-900 rounded-full px-2.5 py-1.5 shadow-sm transition-all"
-                        >
-                          {historialExpandido ? 'Cerrar' : 'Abrir'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setHistorialCompacto(prev => !prev)}
+                            className="bg-white border border-slate-200 text-[9px] font-black uppercase tracking-widest text-slate-700 hover:border-slate-300 hover:text-slate-900 rounded-full px-2.5 py-1.5 shadow-sm transition-all"
+                          >
+                            {historialCompacto ? 'Detallado' : 'Compacto'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHistorialExpandido(prev => !prev)}
+                            className="bg-white border border-slate-200 text-[9px] font-black uppercase tracking-widest text-slate-700 hover:border-slate-300 hover:text-slate-900 rounded-full px-2.5 py-1.5 shadow-sm transition-all"
+                          >
+                            {historialExpandido ? 'Cerrar' : 'Abrir'}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -1279,6 +1379,7 @@ const handleFileUpload = async (e, type) => {
                         {[...historialActual].reverse().map((log, index) => {
                           const versionKey = `${log.fecha || 'sin-fecha'}-${index}`;
                           const isOpen = Boolean(historialVersionOpen[versionKey]);
+                          const resumenCorto = renderHistorialSummary(log.detalle || {});
                           return (
                             <div key={versionKey} className="relative border border-slate-200 bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all">
                               <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-orange-400 rounded-l-xl" />
@@ -1299,37 +1400,90 @@ const handleFileUpload = async (e, type) => {
                                     {isOpen ? 'Ocultar detalle' : 'Ver detalle'}
                                   </button>
                                 </div>
-                                {log.motivo && (
-                                  <p className="text-[9px] text-slate-600 leading-relaxed bg-orange-50 border border-orange-100 rounded-lg px-2 py-1">
-                                    <span className="font-black uppercase tracking-wider text-orange-700">Motivo:</span> {log.motivo}
+                                {historialCompacto && !isOpen ? (
+                                  <p className="text-[9px] text-slate-600 leading-relaxed bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+                                    <span className="font-black uppercase tracking-wider text-slate-500">Resumen:</span> {resumenCorto}
                                   </p>
+                                ) : (
+                                  <>
+                                    {log.motivo && (
+                                      <p className="text-[9px] text-slate-600 leading-relaxed bg-orange-50 border border-orange-100 rounded-lg px-2 py-1">
+                                        <span className="font-black uppercase tracking-wider text-orange-700">Motivo:</span> {log.motivo}
+                                      </p>
+                                    )}
+                                  </>
                                 )}
 
-                                {isOpen && (
-                                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-[9px] text-slate-700 space-y-1.5">
-                                    <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Usuario:</span><span>{log.usuario || 'Sistema'}</span></div>
-                                    <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Fecha:</span><span>{log.fecha || 'Sin fecha'}</span></div>
-                                    {typeof log.version !== 'undefined' && (
-                                      <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Versión:</span><span>{log.version}</span></div>
-                                    )}
-                                    {log.detalle && typeof log.detalle === 'object' && (
-                                      <>
-                                        {log.detalle.proceso && (
-                                          <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Proceso:</span><span>{log.detalle.proceso}</span></div>
-                                        )}
-                                        {log.detalle.subproceso && (
-                                          <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Subproceso:</span><span>{log.detalle.subproceso}</span></div>
-                                        )}
-                                        {log.detalle.socializado && (
-                                          <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Socializado:</span><span>{log.detalle.socializado}</span></div>
-                                        )}
-                                        {log.detalle.correoEnviadoA && (
-                                          <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Correo:</span><span className="truncate max-w-[180px]" title={log.detalle.correoEnviadoA}>{log.detalle.correoEnviadoA}</span></div>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                )}
+                                <div className="mt-2 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => restaurarVersionHistorial(log)}
+                                    className="text-[8px] font-black uppercase tracking-wider text-white bg-[#0A3B32] hover:bg-[#0b4a3f] rounded-full px-2.5 py-1.5 shadow-sm transition-all"
+                                  >
+                                    Restaurar esta versión
+                                  </button>
+                                </div>
+
+                                {isOpen && (() => {
+                                  const detalle = log.detalle && typeof log.detalle === 'object' ? log.detalle : {};
+                                  const campos = Array.isArray(detalle.campos) ? detalle.campos : [];
+                                  const archivos = Array.isArray(detalle.archivos) ? detalle.archivos : [];
+                                  const resumen = renderHistorialSummary(detalle);
+                                  return (
+                                    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-[9px] text-slate-700 space-y-2">
+                                      <div className="rounded-lg border border-teal-200 bg-teal-50 px-2 py-1.5 text-[9px] text-slate-700">
+                                        <span className="font-black uppercase tracking-wider text-teal-700">Cambio:</span> {resumen}
+                                      </div>
+                                      <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Usuario:</span><span>{log.usuario || 'Sistema'}</span></div>
+                                      <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Fecha:</span><span>{log.fecha || 'Sin fecha'}</span></div>
+                                      {typeof log.version !== 'undefined' && (
+                                        <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Versión:</span><span>{log.version}</span></div>
+                                      )}
+                                      {campos.length > 0 && (
+                                        <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                                          <div className="font-black uppercase tracking-wider text-slate-500 mb-1">Campos actualizados</div>
+                                          <ul className="space-y-1">
+                                            {campos.slice(0, 5).map((campo, idx) => (
+                                              <li key={`${campo.campo || idx}`} className="flex justify-between gap-2">
+                                                <span className="font-bold text-slate-600">{campo.label}</span>
+                                                <span className="text-right text-slate-700 break-all">{campo.antes} → {campo.ahora}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {archivos.length > 0 && (
+                                        <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                                          <div className="font-black uppercase tracking-wider text-slate-500 mb-1">Archivos en esta versión</div>
+                                          <ul className="space-y-1">
+                                            {archivos.map((archivo, idx) => (
+                                              <li key={`${archivo.url || idx}`} className="flex justify-between gap-2">
+                                                <span className="font-bold text-slate-600">{archivo.tipo || 'Archivo'}</span>
+                                                <span className="text-right text-slate-700 break-all max-w-[180px]" title={archivo.nombre}>{archivo.nombre}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      {log.detalle && typeof log.detalle === 'object' && (
+                                        <>
+                                          {log.detalle.proceso && (
+                                            <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Proceso:</span><span>{log.detalle.proceso}</span></div>
+                                          )}
+                                          {log.detalle.subproceso && (
+                                            <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Subproceso:</span><span>{log.detalle.subproceso}</span></div>
+                                          )}
+                                          {log.detalle.socializado && (
+                                            <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Socializado:</span><span>{log.detalle.socializado}</span></div>
+                                          )}
+                                          {log.detalle.correoEnviadoA && (
+                                            <div className="flex justify-between gap-3"><span className="font-black uppercase tracking-wider text-slate-500">Correo:</span><span className="truncate max-w-[180px]" title={log.detalle.correoEnviadoA}>{log.detalle.correoEnviadoA}</span></div>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             </div>
                           );

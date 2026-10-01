@@ -1,4 +1,5 @@
 // src/handlers/grcFormHandlers.js
+import { buildHistorialDetalle } from '../utils/historialCambios.js';
 
 export const createFormHandlers = ({
   user,
@@ -525,6 +526,24 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
         const motivo = String(formData.get('motivoCambio') || '').trim();
         const accionCambio = motivo ? `Actualización del informe — ${motivo}` : 'Actualización del informe';
         const versionActual = historialPrevio.length + 1;
+        const detalleCambio = buildHistorialDetalle({
+          anterior: editInformeAuditoria,
+          actual: {
+            titulo: tituloVal,
+            proceso: procesoVal,
+            subproceso: subprocesoVal,
+            fecha: formData.get('fecha') || editInformeAuditoria.fecha,
+            elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '',
+            revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '',
+            aprobadoPor: formData.get('aprobadoPor') || formData.get('approvedPor') || editInformeAuditoria.aprobadoPor || '',
+            socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No',
+            evidenciaUrl: evidenciaUrlOut,
+            anexosMultiples: anexosMultiplesOut,
+            correoEnviadoA: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || '',
+          },
+          motivo,
+          correosNotificacionOut,
+        });
         const mod = { 
           ...editInformeAuditoria, 
           titulo: tituloVal, 
@@ -563,10 +582,28 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
               motivo: motivo || 'Actualización del registro',
               version: versionActual,
               detalle: {
+                ...detalleCambio,
                 proceso: procesoVal,
                 subproceso: subprocesoVal,
                 socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No',
-                correoEnviadoA: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || ''
+                correoEnviadoA: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || '',
+                archivos: detalleCambio.archivos,
+                snapshot: {
+                  titulo: tituloVal,
+                  proceso: procesoVal,
+                  subproceso: subprocesoVal,
+                  fecha: formData.get('fecha') || editInformeAuditoria.fecha,
+                  elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '',
+                  revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '',
+                  aprobadoPor: formData.get('aprobadoPor') || formData.get('approvedPor') || editInformeAuditoria.aprobadoPor || '',
+                  socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No',
+                  fechaSocializacion: formData.get('fechaSocializacion') || editInformeAuditoria.fechaSocializacion || '',
+                  participantes: formData.get('participantes') || editInformeAuditoria.participantes || '',
+                  correosNotificacionInput: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || '',
+                  evidenciaUrl: evidenciaUrlOut,
+                  anexosMultiples: anexosMultiplesOut,
+                  anexos: anexosMultiplesOut,
+                }
               }
             }
           ]
