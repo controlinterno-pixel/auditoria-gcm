@@ -521,6 +521,9 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
 
       if (editInformeAuditoria) {
         refConsecutivoFinal = editInformeAuditoria.ref;
+        const historialPrevio = Array.isArray(editInformeAuditoria.historialCambios) ? editInformeAuditoria.historialCambios : [];
+        const motivo = String(formData.get('motivoCambio') || '').trim();
+        const accionCambio = motivo ? `Actualización del informe — ${motivo}` : 'Actualización del informe';
         const mod = { 
           ...editInformeAuditoria, 
           titulo: tituloVal, 
@@ -549,7 +552,11 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           img4Url: formData.get('img4Url') || editInformeAuditoria.img4Url || '', 
           img4Desc: formData.get('img4Desc') || editInformeAuditoria.img4Desc || '', 
           correoEnviadoA: editInformeAuditoria.correoEnviadoA || '',
-          fechaCorreoEnviado: editInformeAuditoria.fechaCorreoEnviado || ''
+          fechaCorreoEnviado: editInformeAuditoria.fechaCorreoEnviado || '',
+          historialCambios: [
+            ...historialPrevio,
+            { fecha: tsActual, usuario: user?.email || 'Sistema', accion: accionCambio }
+          ]
         };
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf); 
       } else {
@@ -585,7 +592,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           img4Url: formData.get('img4Url') || '', 
           img4Desc: formData.get('img4Desc') || '', 
           correoEnviadoA: '',
-          fechaCorreoEnviado: ''
+          fechaCorreoEnviado: '',
+          historialCambios: [{ fecha: tsActual, usuario: user?.email || 'Sistema', accion: 'Informe creado' }]
         };
         idInformeGuardado = nuevoId;
         updated = [nuevo, ...safeInformes];

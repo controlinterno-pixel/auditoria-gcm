@@ -53,8 +53,10 @@ export default function InformesAuditoria({
   
   // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
   const handleCrearNuevoInforme = () => {
-    setEditInformeAuditoria(null); 
-    setVistaActiva('nuevo');
+    confirmarSalidaSinGuardar(() => {
+      setEditInformeAuditoria(null);
+      setVistaActiva('nuevo');
+    });
   };
 
   // 🎛️ ESTADOS DEL PANEL LATERAL
@@ -151,6 +153,24 @@ export default function InformesAuditoria({
   const [cargandoAnexo, setCargandoAnexo] = useState(false);
   const [progresoAnexo, setProgresoAnexo] = useState(0);
   const [motivoCambio, setMotivoCambio] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
+  const [historialExpandido, setHistorialExpandido] = useState(true);
+  const [draftHistory, setDraftHistory] = useState([]);
+  const [draftInforme, setDraftInforme] = useState({
+    titulo: '',
+    proceso: '',
+    subproceso: 'General',
+    tipoFuente: '',
+    detalleFuente: '',
+    fecha: '',
+    elaboradoPor: '',
+    revisadoPor: '',
+    aprobadoPor: '',
+    socializado: 'No',
+    fechaSocializacion: '',
+    participantes: '',
+    correosNotificacionInput: '',
+  });
 // 🌐 Reconstruir ruta absoluta al Repositorio de Termales
   const obtenerUrlAbsoluta = (ruta) => {
     if (!ruta || ruta === '#' || ruta.trim() === '') return null;
@@ -202,10 +222,31 @@ export default function InformesAuditoria({
           anexosCargados = [{ url: editInformeAuditoria.actaSocializacionUrl, nombre: decodeName(editInformeAuditoria.actaSocializacionUrl) }];
         }
 
+        const draftInicial = {
+          titulo: editInformeAuditoria.titulo || '',
+          proceso: editInformeAuditoria.proceso || editInformeAuditoria.macroproceso || '',
+          subproceso: editInformeAuditoria.subproceso || 'General',
+          tipoFuente: editInformeAuditoria.tipoFuente || '',
+          detalleFuente: editInformeAuditoria.detalleFuente || '',
+          fecha: editInformeAuditoria.fecha || '',
+          elaboradoPor: editInformeAuditoria.elaboradoPor || '',
+          revisadoPor: editInformeAuditoria.revisadoPor || '',
+          aprobadoPor: editInformeAuditoria.aprobadoPor || '',
+          socializado: editInformeAuditoria.socializado || 'No',
+          fechaSocializacion: editInformeAuditoria.fechaSocializacion || editInformeAuditoria.fecha_socializacion || editInformeAuditoria.fechaSoc || '',
+          participantes: editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '',
+          correosNotificacionInput: editInformeAuditoria.correoEnviadoA || '',
+        };
+
+        setDraftInforme(draftInicial);
+        setDraftHistory([draftInicial]);
+
         setArchivoSubidoUrl(urlInfValida);
         setArchivoSubidoNombre(decodeName(urlInfValida));
         setAnexosMultiples(anexosCargados);
-        setMotivoCambio(''); // Obligamos a justificar la nueva edición
+        setMotivoCambio('');
+        setIsDirty(false);
+        setHistorialExpandido(true);
       } catch (error) {
         console.error("Error leyendo datos del informe:", error);
       }
@@ -214,8 +255,77 @@ export default function InformesAuditoria({
       setArchivoSubidoNombre('');
       setAnexosMultiples([]);
       setMotivoCambio('');
+      const draftVacio = {
+        titulo: '',
+        proceso: '',
+        subproceso: 'General',
+        tipoFuente: '',
+        detalleFuente: '',
+        fecha: '',
+        elaboradoPor: '',
+        revisadoPor: '',
+        aprobadoPor: '',
+        socializado: 'No',
+        fechaSocializacion: '',
+        participantes: '',
+        correosNotificacionInput: '',
+      };
+      setDraftInforme(draftVacio);
+      setDraftHistory([draftVacio]);
+      setIsDirty(false);
+      setHistorialExpandido(true);
     }
   }, [editInformeAuditoria]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+      return '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  const confirmarSalidaSinGuardar = (callback) => {
+    if (!isDirty) {
+      callback();
+      return;
+    }
+
+    const confirmado = window.confirm('Tienes cambios sin guardar. ¿Deseas salir sin guardar?');
+    if (confirmado) {
+      callback();
+    }
+  };
+
+  const registrarCambioBorrador = (siguienteDraft) => {
+    setDraftHistory(prev => {
+      const ultimo = prev[prev.length - 1];
+      const serialActual = JSON.stringify(siguienteDraft);
+      const serialAnterior = ultimo ? JSON.stringify(ultimo) : null;
+
+      if (serialAnterior === serialActual) {
+        return prev;
+      }
+
+      return [...prev, siguienteDraft].slice(-12);
+    });
+  };
+
+  const deshacerUltimoCambio = () => {
+    if (draftHistory.length <= 1) {
+      setIsDirty(false);
+      return;
+    }
+
+    const anterior = draftHistory[draftHistory.length - 2];
+    setDraftInforme(anterior);
+    setDraftHistory(prev => prev.slice(0, -1));
+    setIsDirty(true);
+  };
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
     return nombreOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9.\-_]/g, "").toLowerCase();
@@ -322,13 +432,76 @@ const handleFileUpload = async (e, type) => {
     setArchivoSubidoNombre('');
     setAnexosMultiples([]);
     setMotivoCambio('');
+    setIsDirty(false);
     setFormResetKey(Date.now());
     setVistaActiva('dashboard');
+  };
+
+  const cambiarVista = (nuevaVista) => {
+    if (nuevaVista === vistaActiva) return;
+    confirmarSalidaSinGuardar(() => {
+      setVistaActiva(nuevaVista);
+    });
   };
 
   // Extraer años y responsables únicos para los selects
   const aniosDisponibles = [...new Set(safeInformes.map(i => i.fecha?.split('-')[0]).filter(Boolean))].sort().reverse();
   const responsablesDisponibles = [...new Set(safeInformes.map(i => i.elaboradoPor).filter(Boolean))].sort();
+
+  const historialActual = Array.isArray(editInformeAuditoria?.historialCambios)
+    ? editInformeAuditoria.historialCambios
+    : [];
+
+  const ultimoCambio = historialActual.length > 0 ? historialActual[historialActual.length - 1] : null;
+
+  const contarCambios = (item) => Array.isArray(item?.historialCambios) ? item.historialCambios.length : 0;
+
+  const restaurarCambiosNoGuardados = () => {
+    if (!editInformeAuditoria) return;
+
+    const dbUrlInf = editInformeAuditoria.evidenciaUrl || editInformeAuditoria.evidenciaUrlInput || editInformeAuditoria.archivoUrl || '';
+    const urlInfValida = (dbUrlInf === '#' || dbUrlInf.trim() === '') ? '' : dbUrlInf;
+    const decodeName = (url) => {
+      if (!url) return '';
+      try { return decodeURIComponent(url.split('/').pop().split('?')[0]); }
+      catch { return 'Archivo_Adjunto'; }
+    };
+
+    let anexosCargados = [];
+    if (editInformeAuditoria.anexos && Array.isArray(editInformeAuditoria.anexos)) {
+      anexosCargados = editInformeAuditoria.anexos;
+    } else if (editInformeAuditoria.actaSocializacionUrl && editInformeAuditoria.actaSocializacionUrl !== '#') {
+      anexosCargados = [{ url: editInformeAuditoria.actaSocializacionUrl, nombre: decodeName(editInformeAuditoria.actaSocializacionUrl) }];
+    }
+
+    const participantesIniciales = (editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '')
+      .split(',')
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    setDraftInforme({
+      titulo: editInformeAuditoria.titulo || '',
+      proceso: editInformeAuditoria.proceso || editInformeAuditoria.macroproceso || '',
+      subproceso: editInformeAuditoria.subproceso || 'General',
+      tipoFuente: editInformeAuditoria.tipoFuente || '',
+      detalleFuente: editInformeAuditoria.detalleFuente || '',
+      fecha: editInformeAuditoria.fecha || '',
+      elaboradoPor: editInformeAuditoria.elaboradoPor || '',
+      revisadoPor: editInformeAuditoria.revisadoPor || '',
+      aprobadoPor: editInformeAuditoria.aprobadoPor || '',
+      socializado: editInformeAuditoria.socializado || 'No',
+      fechaSocializacion: editInformeAuditoria.fechaSocializacion || editInformeAuditoria.fecha_socializacion || editInformeAuditoria.fechaSoc || '',
+      participantes: editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '',
+      correosNotificacionInput: editInformeAuditoria.correoEnviadoA || '',
+    });
+
+    setArchivoSubidoUrl(urlInfValida);
+    setArchivoSubidoNombre(decodeName(urlInfValida));
+    setAnexosMultiples(anexosCargados);
+    setParticipantesMultiples(participantesIniciales);
+    setMotivoCambio('');
+    setIsDirty(false);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -377,8 +550,8 @@ const handleFileUpload = async (e, type) => {
 
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
-          <button onClick={() => setVistaActiva('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
+          <button onClick={() => cambiarVista('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
+          <button onClick={() => cambiarVista('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
           
           {isAdmin && (
             <button onClick={handleCrearNuevoInforme} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}>
@@ -681,11 +854,26 @@ const handleFileUpload = async (e, type) => {
       {vistaActiva === 'nuevo' && isAdmin && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           
-          <div className="flex justify-between items-center border-b pb-4">
+          <div className="flex justify-between items-center border-b pb-4 gap-3">
             <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest flex items-center">
               <span className="text-xl mr-3 bg-emerald-50 p-2 rounded-lg">{editInformeAuditoria ? '✏️' : '➕'}</span>
               {editInformeAuditoria ? `Editando Flujo de Informe: ${editInformeAuditoria.ref}` : 'ARCHIVAR, RADICAR Y DISTRIBUIR NUEVO INFORME'}
             </h3>
+            {editInformeAuditoria && (
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                <span className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-sm">
+                  {historialActual.length} cambios registrados
+                </span>
+                <button
+                  type="button"
+                  onClick={deshacerUltimoCambio}
+                  disabled={draftHistory.length <= 1}
+                  className="bg-orange-100 text-orange-700 border border-orange-200 hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm transition-all"
+                >
+                  ↩️ Deshacer último cambio ({Math.max(draftHistory.length - 1, 0)})
+                </button>
+              </div>
+            )}
           </div>
 
        <form 
@@ -694,10 +882,13 @@ const handleFileUpload = async (e, type) => {
               const guardado = await handleInformeAuditoriaSubmit(e);
               if (!guardado) return;
               
+              setIsDirty(false);
               handleResetForm();
               if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
               setVistaActiva('dashboard'); 
             }} 
+            onInputCapture={() => setIsDirty(true)}
+            onChangeCapture={() => setIsDirty(true)}
             className="space-y-6 text-xs"
           >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -776,7 +967,13 @@ const handleFileUpload = async (e, type) => {
                 <label className="font-bold text-gray-600 block mb-1.5">Título del Informe Formal</label>
                 <input 
                   name="titulo" 
-                  defaultValue={editInformeAuditoria?.titulo || ''} 
+                  value={draftInforme.titulo} 
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, titulo: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                  }}
                   required 
                   placeholder="Ej: Informe de Accidente en Planta" 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm" 
@@ -788,16 +985,25 @@ const handleFileUpload = async (e, type) => {
                  <select
                    name="proceso"
                    required
-                   value={macroprocesoForm}
+                   value={draftInforme.proceso || macroprocesoForm}
                    onChange={(e) => {
                      const nuevoMacro = e.target.value;
+                     const siguiente = { ...draftInforme, proceso: nuevoMacro };
+                     setDraftInforme(siguiente);
+                     registrarCambioBorrador(siguiente);
+                     setIsDirty(true);
                      setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
                      
-                     // Lógica arquitectónica: Autoseleccionar si solo existe 1 subproceso (Ej: "General")
                      const subprocesosAsociados = MAPA_PROCESOS[nuevoMacro] || [];
                      if (subprocesosAsociados.length === 1) {
+                       const siguienteSub = { ...siguiente, subproceso: subprocesosAsociados[0] };
+                       setDraftInforme(siguienteSub);
+                       registrarCambioBorrador(siguienteSub);
                        setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesosAsociados[0] }));
                      } else {
+                       const siguienteSub = { ...siguiente, subproceso: '' };
+                       setDraftInforme(siguienteSub);
+                       registrarCambioBorrador(siguienteSub);
                        setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
                      }
                    }}
@@ -813,8 +1019,14 @@ const handleFileUpload = async (e, type) => {
                  <label className="font-bold text-gray-600 block mb-1.5">↳ Subproceso</label>
                  <select 
                    name="subproceso" 
-                   value={subprocesoForm} 
-                   onChange={(e) => setSubprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }))}
+                   value={draftInforme.subproceso || subprocesoForm || 'General'} 
+                   onChange={(e) => {
+                     const siguiente = { ...draftInforme, subproceso: e.target.value };
+                     setDraftInforme(siguiente);
+                     registrarCambioBorrador(siguiente);
+                     setIsDirty(true);
+                     setSubprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }));
+                   }}
                    required 
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50"
                    disabled={
@@ -833,7 +1045,13 @@ const handleFileUpload = async (e, type) => {
                 <input 
                   name="fecha" 
                   type="date" 
-                  defaultValue={editInformeAuditoria?.fecha || ''} 
+                  value={draftInforme.fecha} 
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, fecha: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                  }}
                   required 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm" 
                 />
@@ -843,7 +1061,13 @@ const handleFileUpload = async (e, type) => {
                 <label className="font-bold text-gray-600 block mb-1.5">✍️ Elaborado Por (Cargo)</label>
                 <select 
                   name="elaboradoPor" 
-                  defaultValue={editInformeAuditoria?.elaboradoPor || ''} 
+                  value={draftInforme.elaboradoPor} 
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, elaboradoPor: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                  }}
                   required 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium text-slate-800 shadow-sm cursor-pointer"
                 >
@@ -856,7 +1080,13 @@ const handleFileUpload = async (e, type) => {
                 <label className="font-bold text-gray-600 block mb-1.5">🔍 Revisado Por (Cargo)</label>
                 <select 
                   name="revisadoPor" 
-                  defaultValue={editInformeAuditoria?.revisadoPor || ''} 
+                  value={draftInforme.revisadoPor} 
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, revisadoPor: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                  }}
                   required 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800"
                 >
@@ -869,7 +1099,13 @@ const handleFileUpload = async (e, type) => {
                 <label className="font-bold text-gray-600 block mb-1.5">🔒 Aprobado Por (Cargo)</label>
                 <select 
                   name="aprobadoPor" 
-                  defaultValue={editInformeAuditoria?.aprobadoPor || ''} 
+                  value={draftInforme.aprobadoPor} 
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, aprobadoPor: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                  }}
                   required 
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800"
                 >
@@ -882,8 +1118,14 @@ const handleFileUpload = async (e, type) => {
                 <label className="font-bold text-gray-600 block mb-1.5">📢 ¿Fue Socializado?</label>
                 <select 
                   name="socializado" 
-                  value={socializadoForm} 
-                  onChange={(e) => setSocializadoFormState(prev => ({ ...prev, [idEdicion]: e.target.value }))}
+                  value={draftInforme.socializado || socializadoForm} 
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, socializado: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                    setSocializadoFormState(prev => ({ ...prev, [idEdicion]: e.target.value }));
+                  }}
                   className="w-full border rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm cursor-pointer"
                 >
                   <option value="No">No</option>
@@ -898,8 +1140,14 @@ const handleFileUpload = async (e, type) => {
                   key={`fecha-soc-${idEdicion}-${socializadoForm}-${editInformeAuditoria?.id || 'nuevo'}`}
                   name="fechaSocializacion" 
                   type="date" 
-                  disabled={socializadoForm !== 'Sí'}
-                  defaultValue={socializadoForm === 'Sí' ? (editInformeAuditoria?.fechaSocializacion || editInformeAuditoria?.fecha_socializacion || editInformeAuditoria?.fechaSoc || '') : ''} 
+                  disabled={draftInforme.socializado !== 'Sí' && socializadoForm !== 'Sí'}
+                  value={draftInforme.fechaSocializacion || ''}
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, fechaSocializacion: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                  }}
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed transition-all" 
                 />
               </div>
@@ -977,19 +1225,63 @@ const handleFileUpload = async (e, type) => {
 
               {/* 🛑 CONTROL DE CAMBIOS: Solo visible al editar */}
               {editInformeAuditoria && (
-                <div className="md:col-span-2 mb-4 bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-xl shadow-sm animate-in fade-in">
-                  <label className="font-black text-orange-900 block mb-1.5 uppercase tracking-widest text-[10px]">
-                    📝 Motivo de la Edición (Control de Cambios / Obligatorio)
-                  </label>
-                  <textarea 
-                    name="motivoCambio"
-                    required
-                    value={motivoCambio}
-                    onChange={(e) => setMotivoCambio(e.target.value)}
-                    placeholder="Justifique técnicamente qué está modificando en este informe para dejar trazabilidad..."
-                    className="w-full border border-orange-300 rounded-lg p-2 focus:ring-2 focus:ring-orange-500 outline-none text-xs font-medium bg-white"
-                    rows="2"
-                  />
+                <div className="md:col-span-2 mb-4 space-y-3">
+                  <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-xl shadow-sm animate-in fade-in">
+                    <label className="font-black text-orange-900 block mb-1.5 uppercase tracking-widest text-[10px]">
+                      📝 Motivo de la Edición (Control de Cambios / Obligatorio)
+                    </label>
+                    <textarea 
+                      name="motivoCambio"
+                      required
+                      value={motivoCambio}
+                      onChange={(e) => setMotivoCambio(e.target.value)}
+                      placeholder="Justifique técnicamente qué está modificando en este informe para dejar trazabilidad..."
+                      className="w-full border border-orange-300 rounded-lg p-2 focus:ring-2 focus:ring-orange-500 outline-none text-xs font-medium bg-white"
+                      rows="2"
+                    />
+                  </div>
+
+                  <div className="bg-gradient-to-br from-slate-50 via-white to-orange-50 border border-slate-200 rounded-2xl p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+                    <div className="flex items-center justify-between mb-3 gap-3 border-b border-slate-200 pb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-slate-900 text-white rounded-lg w-8 h-8 flex items-center justify-center text-[12px] shadow-sm">🕘</div>
+                        <span className="font-black text-slate-700 uppercase tracking-widest text-[10px]">Historial de cambios</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-slate-900 text-white text-[9px] font-black rounded-full px-2.5 py-1 uppercase tracking-widest shadow-sm">
+                          {historialActual.length} registros
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setHistorialExpandido(prev => !prev)}
+                          className="bg-white border border-slate-200 text-[9px] font-black uppercase tracking-widest text-slate-700 hover:border-slate-300 hover:text-slate-900 rounded-full px-2.5 py-1.5 shadow-sm transition-all"
+                        >
+                          {historialExpandido ? 'Cerrar' : 'Abrir'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {historialActual.length === 0 ? (
+                      <p className="text-[10px] text-slate-500 italic">Aún no hay cambios registrados para este informe.</p>
+                    ) : historialExpandido ? (
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {[...historialActual].reverse().map((log, index) => (
+                          <div key={`${log.fecha}-${index}`} className="relative border border-slate-200 bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-all">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-orange-400 rounded-l-xl" />
+                            <div className="pl-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">{log.fecha || 'Sin fecha'}</span>
+                                <span className="text-[9px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">{log.usuario || 'Sistema'}</span>
+                              </div>
+                              <p className="mt-1.5 text-[10px] font-bold text-slate-800 leading-relaxed">{log.accion || 'Cambio registrado'}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-500 italic">Historial oculto. Haz clic en “Abrir” para revisarlo.</p>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1164,6 +1456,16 @@ const handleFileUpload = async (e, type) => {
                           )}
                           <div className="font-bold text-slate-900 text-sm leading-tight mt-1">{inf.titulo}</div>
                           <div className="text-[9px] text-slate-400 font-medium mt-1">Emitido el: {inf.fecha}</div>
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
+                            <span className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-full">
+                              {contarCambios(inf)} cambios
+                            </span>
+                            {contarCambios(inf) > 0 && (
+                              <span className="text-[9px] font-bold text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1">
+                                {Array.isArray(inf.historialCambios) ? inf.historialCambios[inf.historialCambios.length - 1].accion : 'Sin acciones'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="p-4">
                           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1 text-[10px] font-medium text-slate-600">
