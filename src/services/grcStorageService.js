@@ -23,9 +23,11 @@ export const saveToCloud = async (partialData, showNotification) => {
     traverseAndSanitize(sanitizedData);
 
     await apiService.saveGrcData(sanitizedData);
+    return true;
   } catch (error) {
     console.error('❌ Error de sincronización segura:', error);
     if (showNotification) showNotification('Error guardando en el servidor GRC.', 'error');
+    return false;
   }
 };
 

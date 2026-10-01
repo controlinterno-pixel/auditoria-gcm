@@ -16,7 +16,17 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const { ref_consecutivo, destinatarios, asunto, titulo, evidenciaUrl, appName } = req.body || {};
+    const { ref_consecutivo, destinatarios, asunto, titulo, evidenciaUrl, anexosMultiples, appName } = req.body || {};
+
+    // 🛠️ PARSEO SEGURO DE ANEXOS: Convierte el string JSON del frontend a un Array de objetos
+    let anexosArray = [];
+    if (anexosMultiples) {
+      try {
+        anexosArray = typeof anexosMultiples === 'string' ? JSON.parse(anexosMultiples) : anexosMultiples;
+      } catch (e) {
+        logger.error("Error parseando anexosMultiples en el correo:", e);
+      }
+    }
 
     if (!destinatarios || (typeof destinatarios !== 'string' && !Array.isArray(destinatarios))) {
       return sendError(res, 'Faltan destinatarios válidos para el envío de la notificación.', 400);
@@ -57,7 +67,20 @@ export default async function handler(req, res) {
 
             ${evidenciaUrl ? `
               <div style="text-align: center; margin: 25px 0;">
-                <a href="${evidenciaUrl}" target="_blank" style="background-color: #0055ff; color: white; padding: 12px 24px; text-decoration: none; font-size: 12px; font-weight: bold; border-radius: 8px; display: inline-block;">📄 Abrir Documento Adjunto</a>
+                <a href="${evidenciaUrl}" target="_blank" style="background-color: #0A3B32; color: white; padding: 12px 24px; text-decoration: none; font-size: 12px; font-weight: bold; border-radius: 8px; display: inline-block; border: 1px solid #062620;">📄 Ver Informe Principal</a>
+              </div>
+            ` : ''}
+
+            ${anexosArray.length > 0 ? `
+              <div style="margin: 20px 0; padding-top: 20px; border-top: 1px dashed #cbd5e1;">
+                <p style="font-size: 12px; font-weight: bold; color: #475569; margin-bottom: 12px;">📎 Actas y Anexos Adicionales:</p>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  ${anexosArray.map(anexo => `
+                    <a href="${anexo.url}" target="_blank" style="display: block; background-color: #f8fafc; border: 1px solid #e2e8f0; color: #3b82f6; padding: 10px 14px; text-decoration: none; font-size: 11px; border-radius: 6px; font-weight: bold;">
+                      ⬇️ ${anexo.nombre}
+                    </a>
+                  `).join('')}
+                </div>
               </div>
             ` : ''}
 

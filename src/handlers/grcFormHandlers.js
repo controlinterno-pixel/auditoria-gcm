@@ -497,6 +497,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       const correosNotificacionOut = String(formData.get('correosNotificacionInput') || '').trim();
       const tsActual = new Date().toLocaleString();
       let updated; let refConsecutivoFinal = '';
+      let idInformeGuardado = editInformeAuditoria?.id || null;
 
       if (editInformeAuditoria) {
         refConsecutivoFinal = editInformeAuditoria.ref;
@@ -525,16 +526,16 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           img3Desc: formData.get('img3Desc') || editInformeAuditoria.img3Desc || '', 
           img4Url: formData.get('img4Url') || editInformeAuditoria.img4Url || '', 
           img4Desc: formData.get('img4Desc') || editInformeAuditoria.img4Desc || '', 
-          correoEnviadoA: correosNotificacionOut !== '' ? correosNotificacionOut : (editInformeAuditoria.correoEnviadoA || ''), 
-          fechaCorreoEnviado: correosNotificacionOut !== '' ? tsActual : (editInformeAuditoria.fechaCorreoEnviado || '') 
+          correoEnviadoA: editInformeAuditoria.correoEnviadoA || '',
+          fechaCorreoEnviado: editInformeAuditoria.fechaCorreoEnviado || ''
         };
         updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf); 
-        setEditInformeAuditoria(null);
       } else {
         const ultimo = Math.max(...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)), 0);
         refConsecutivoFinal = `INF-2026-${String(ultimo + 1).padStart(3, '0')}`;
+        const nuevoId = crypto.randomUUID();
         const nuevo = { 
-          id: crypto.randomUUID(), 
+          id: nuevoId,
           ref: refConsecutivoFinal, 
           titulo: tituloVal, 
           proceso: procesoVal, 
@@ -559,17 +560,55 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           img3Desc: formData.get('img3Desc') || '', 
           img4Url: formData.get('img4Url') || '', 
           img4Desc: formData.get('img4Desc') || '', 
-          correoEnviadoA: correosNotificacionOut, 
-          fechaCorreoEnviado: correosNotificacionOut !== '' ? tsActual : '' 
+          correoEnviadoA: '',
+          fechaCorreoEnviado: ''
         };
+        idInformeGuardado = nuevoId;
         updated = [nuevo, ...safeInformes];
       }
+
+      const guardado = await saveToCloud({ informesAuditoria: updated });
+      if (!guardado) return false;
+
+      setInformesAuditoria(updated);
+      if (editInformeAuditoria) setEditInformeAuditoria(null);
+      showNotification("Informe guardado.");
+
       if (correosNotificacionOut !== '') {
-        await ejecutarDespachoGmailApi({ ref_consecutivo: refConsecutivoFinal, titulo_informe: limpiarTildesParaCorreo(`Radicacion de Informe: ${tituloVal}`), proceso_auditado: limpiarTildesParaCorreo(procesoVal), enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app', destinatarios: correosNotificacionOut });
+        let correoEnviado = false;
+        try {
+          correoEnviado = await ejecutarDespachoGmailApi({
+            ref_consecutivo: refConsecutivoFinal,
+            asunto: `[GRC Termales] Radicación de Informe ${refConsecutivoFinal}`,
+            titulo: limpiarTildesParaCorreo(tituloVal),
+            evidenciaUrl: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
+            anexosMultiples: formData.get('anexosMultiples') || '[]',
+            destinatarios: correosNotificacionOut
+          });
+        } catch (error) {
+          console.error('Error enviando correo del informe ya guardado:', error);
+          showNotification("El informe se guardó, pero no se pudo enviar el correo.", "error");
+        }
+
+        if (correoEnviado) {
+          const informesConCorreo = updated.map(informe => informe.id === idInformeGuardado ? {
+            ...informe,
+            correoEnviadoA: correosNotificacionOut,
+            fechaCorreoEnviado: tsActual
+          } : informe);
+          const correoRegistrado = await saveToCloud({ informesAuditoria: informesConCorreo });
+          if (correoRegistrado) {
+            setInformesAuditoria(informesConCorreo);
+          } else {
+            showNotification("El informe y el correo se enviaron, pero no se pudo registrar el envío.", "error");
+          }
+        }
       }
-  setInformesAuditoria(updated); await saveToCloud({ informesAuditoria: updated }); e.target.reset(); showNotification("Informe guardado.");
+      e.target.reset();
+      return true;
     } catch {
       showNotification("Error al procesar el informe.", "error");
+      return false;
     } finally {
       setIsSubmitting(false);
     }    

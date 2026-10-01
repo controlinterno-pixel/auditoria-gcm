@@ -661,10 +661,9 @@ const handleFileUpload = async (e, type) => {
        <form 
             key={editInformeAuditoria?.ref || 'form-nuevo'} 
             onSubmit={async (e) => { 
-              // 1. Ejecuta y ESPERA que termine el proceso de backend y envío de correos
-              await handleInformeAuditoriaSubmit(e); 
+              const guardado = await handleInformeAuditoriaSubmit(e);
+              if (!guardado) return;
               
-              // 2. Limpieza determinista (solo ocurre si lo anterior tuvo éxito, sin setTimeout)
               handleResetForm();
               if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
               setVistaActiva('dashboard'); 
@@ -940,8 +939,11 @@ const handleFileUpload = async (e, type) => {
               </div>
 
 <input type="hidden" name="evidenciaUrl" value={archivoSubidoUrl} />
-              {/* Enviamos los anexos como JSON string para que el backend lo parsee */}
+              {/* Enviamos los anexos como JSON string para el nuevo flujo */}
               <input type="hidden" name="anexosMultiples" value={JSON.stringify(anexosMultiples)} />
+              {/* 🛡️ SOPORTE LEGACY: Evita que el componente padre crashee buscando los campos viejos */}
+              <input type="hidden" name="actaSocializacionUrl" value={anexosMultiples.length > 0 ? anexosMultiples[0].url : ''} />
+              <input type="hidden" name="actaSocializacionUrlInput" value={anexosMultiples.length > 0 ? anexosMultiples[0].url : ''} />
 
               {/* 🛑 CONTROL DE CAMBIOS: Solo visible al editar */}
               {editInformeAuditoria && (
