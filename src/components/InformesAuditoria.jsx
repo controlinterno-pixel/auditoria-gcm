@@ -152,6 +152,15 @@ export default function InformesAuditoria({
   const [progresoAnexo, setProgresoAnexo] = useState(0);
   const [motivoCambio, setMotivoCambio] = useState('');
 
+  // 🌐 Reconstruir ruta absoluta al Repositorio de Termales
+  const obtenerUrlAbsoluta = (ruta) => {
+    if (!ruta || ruta === '#' || ruta.trim() === '') return null;
+    if (ruta.startsWith('http://') || ruta.startsWith('https://')) return ruta;
+    const baseUrl = 'https://repos.termalessantarosa.com.co';
+    const rutaLimpia = ruta.startsWith('/') ? ruta : `/${ruta}`;
+    return `${baseUrl}${rutaLimpia}`;
+  };
+
 // 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante
   useEffect(() => {
     if (editInformeAuditoria) {
@@ -984,7 +993,7 @@ const handleFileUpload = async (e, type) => {
                       📎 {archivoSubidoNombre || 'Informe_Adjunto.pdf'}
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                      <button type="button" onClick={(e) => { e.preventDefault(); window.open(archivoSubidoUrl, '_blank'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
+                    <button type="button" onClick={(e) => { e.preventDefault(); window.open(obtenerUrlAbsoluta(archivoSubidoUrl), '_blank'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
                         <span>👁️</span><span>Ver PDF</span>
                       </button>
                       <label className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
@@ -1028,7 +1037,7 @@ const handleFileUpload = async (e, type) => {
                               📎 {anexo.nombre}
                             </p>
                             <div className="flex gap-1">
-                              <button type="button" onClick={(e) => { e.preventDefault(); window.open(anexo.url, '_blank'); }} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-md transition-colors" title="Ver PDF">👁️</button>
+                            <button type="button" onClick={(e) => { e.preventDefault(); window.open(obtenerUrlAbsoluta(anexo.url), '_blank'); }} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-md transition-colors" title="Ver PDF">👁️</button>
                               <button type="button" onClick={(e) => { e.preventDefault(); setAnexosMultiples(prev => prev.filter((_, i) => i !== index)); }} className="text-red-500 hover:bg-red-100 p-1.5 rounded-md transition-colors" title="Eliminar">🗑️</button>
                             </div>
                           </div>
@@ -1184,7 +1193,7 @@ const handleFileUpload = async (e, type) => {
                                 return;
                               }
                               
-                              window.open(urlValida, '_blank', 'noopener,noreferrer');
+                              window.open(obtenerUrlAbsoluta(urlValida), '_blank', 'noopener,noreferrer');
                             }} 
                             className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full cursor-pointer"
                           >
@@ -1200,8 +1209,8 @@ const handleFileUpload = async (e, type) => {
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    window.open(urlActa, '_blank', 'noopener,noreferrer');
-                                  }} 
+                                    window.open(obtenerUrlAbsoluta(urlActa), '_blank', 'noopener,noreferrer');
+                                  }}
                                   className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full cursor-pointer mt-1"
                                 >
                                   <span>🤝</span><span>Ver Acta Socialización</span>
