@@ -118,7 +118,7 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
 
   const rawValue = rawCandidate.trim();
 
-  // Extraemos únicamente el nombre del archivo o hash
+  // Extraemos únicamente el nombre del archivo o hash encriptado
   const fileName = decodeURIComponent(rawValue.split('/').pop().split('?')[0]);
   const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
 
@@ -217,7 +217,7 @@ export const apiService = {
           };
         }
 
-xhr.onload = () => {
+        xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText);
@@ -244,7 +244,6 @@ xhr.onload = () => {
               resolve({ success: true, url: '', appName, fileName: archivoPreparado.name });
             }
           } else {
-            // Manejo de errores 400 o 500 (este se mantiene intacto)
             let detalleError = 'Falló la carga del archivo';
             try {
               const errorJson = JSON.parse(xhr.responseText);
