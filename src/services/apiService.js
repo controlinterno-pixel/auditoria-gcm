@@ -1,5 +1,7 @@
 // src/services/apiService.js - Cliente HTTP Centralizado para la API Serverless GRC
 
+import { subirArchivoStorage } from './uploadService';
+
 /**
  * Helper privado para ejecutar peticiones HTTP estandarizadas a la API.
  */
@@ -127,31 +129,25 @@ export const apiService = {
 
   // 📁 CARGA BINARIA DE EVIDENCIAS EN FORM-DATA (OPTIMIZADO NESTJS + SOPORTE PROGRESO)
   subirEvidencia: (archivo, metadata = {}, onProgress = null) => {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         const formData = new FormData();
         const appName = metadata.appName || 'controlInterno';
         const fileFieldName = metadata.fieldName || 'file';
 
-        // 1. ⚠️ CRÍTICO: 'appName' y metadatos DEBEN ir PRIMERO antes del archivo
         formData.append('appName', appName);
-
         Object.keys(metadata).forEach(key => {
           if (key !== 'fieldName' && key !== 'appName') {
             formData.append(key, metadata[key]);
           }
         });
-
-        // 2. El archivo se agrega AL FINAL del FormData
         formData.append(fileFieldName, archivo);
 
-        // 3. 'appName' en la URL por compatibilidad con validadores Query de NestJS
         const urlConQuery = `https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${encodeURIComponent(appName)}`;
 
         const xhr = new XMLHttpRequest();
         xhr.open('POST', urlConQuery, true);
 
-        // 📊 Notificador de progreso en tiempo real para la interfaz
         if (xhr.upload && typeof onProgress === 'function') {
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
@@ -161,21 +157,52 @@ export const apiService = {
           };
         }
 
-       xhr.onload = () => {
+        xhr.onload = async () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText);
-              // Búsqueda exhaustiva de la URL devuelta por Termales
               const urlExtraida = data.url || data.path || data.filePath || data.fileUrl || data.location || (data.file && (data.file.path || data.file.url)) || (typeof data === 'string' ? data : '');
-              
-              resolve({
-                success: true,
-                url: urlExtraida,
-                appName: data.appName || appName,
-                fileName: data.fileName || archivo.name
-              });
+              const urlValida = typeof urlExtraida === 'string' ? urlExtraida.trim() : '';
+
+              if (urlValida && /^https?:\/\//i.test(urlValida)) {
+                resolve({
+                  success: true,
+                  url: urlValida,
+                  appName: data.appName || appName,
+                  fileName: data.fileName || archivo.name
+                });
+                return;
+              }
+
+              if (urlValida && !/^https?:\/\//i.test(urlValida)) {
+                console.warn('La respuesta del repositorio devolvió un nombre de archivo sin URL válida. Se reintenta con Firebase Storage como fallback seguro.');
+              }
+
+              try {
+                const fallback = await subirArchivoStorage(archivo, { appName, onProgress });
+                resolve({
+                  success: true,
+                  url: fallback.url,
+                  appName: fallback.appName || appName,
+                  fileName: fallback.fileName || archivo.name
+                });
+              } catch (fallbackError) {
+                reject(new Error(fallbackError.message || 'No se pudo generar una URL válida para el archivo adjunto.'));
+              }
+              return;
             } catch {
-              resolve({ success: true, url: xhr.responseText });
+              const responseText = typeof xhr.responseText === 'string' ? xhr.responseText.trim() : '';
+              if (responseText && /^https?:\/\//i.test(responseText)) {
+                resolve({ success: true, url: responseText, appName, fileName: archivo.name });
+                return;
+              }
+
+              try {
+                const fallback = await subirArchivoStorage(archivo, { appName, onProgress });
+                resolve({ success: true, url: fallback.url, appName: fallback.appName || appName, fileName: fallback.fileName || archivo.name });
+              } catch (fallbackError) {
+                reject(new Error(fallbackError.message || 'La subida no devolvió una URL válida y el fallback a Firebase Storage falló.'));
+              }
             }
           } else {
             let detalleError = 'Falló la carga del archivo';
@@ -190,11 +217,18 @@ export const apiService = {
           }
         };
 
-        xhr.onerror = () => reject(new Error('Error de conexión con el repositorio de Termales'));
+        xhr.onerror = async () => {
+          try {
+            const fallback = await subirArchivoStorage(archivo, { appName, onProgress });
+            resolve({ success: true, url: fallback.url, appName: fallback.appName || appName, fileName: fallback.fileName || archivo.name });
+          } catch (fallbackError) {
+            reject(new Error(fallbackError.message || 'Error de conexión con el repositorio de Termales y fallback a Firebase Storage'));
+          }
+        };
         xhr.send(formData);
 
       } catch (error) {
-        console.error("🔴 Error en carga binaria a Termales:", error);
+        console.error('🔴 Error en carga binaria a Termales:', error);
         reject(error);
       }
     });
