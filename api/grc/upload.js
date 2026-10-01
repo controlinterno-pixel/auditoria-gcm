@@ -14,7 +14,16 @@ export const config = {
 };
 
 const EXTENSIONES_PERMITIDAS = ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'docx'];
-const MAX_BASE64_LENGTH = 10 * 1024 * 1024; // Límite de 10MB en Base64
+const MAX_BASE64_LENGTH = 7 * 1024 * 1024; // Límite de 7MB en Base64 para evitar 413 en Termales
+
+const sanitizarNombreArchivo = (nombre = '') => {
+  return String(nombre || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .toLowerCase();
+};
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -33,45 +42,48 @@ export default async function handler(req, res) {
       return sendError(res, 'Falta la información del archivo o el nombre es inválido.', 400);
     }
 
-    if (fileBase64.length > MAX_BASE64_LENGTH) {
-      return sendError(res, 'El archivo excede el tamaño máximo permitido.', 413);
+    const nombreSeguro = sanitizarNombreArchivo(fileName);
+    if (!nombreSeguro) {
+      return sendError(res, 'El nombre del archivo no es válido para el repositorio corporativo.', 400);
     }
 
-    const ext = fileName.split('.').pop().toLowerCase().trim();
+    if (fileBase64.length > MAX_BASE64_LENGTH) {
+      return sendError(res, 'El archivo excede el tamaño máximo permitido para el repositorio corporativo.', 413);
+    }
+
+    const ext = nombreSeguro.split('.').pop().toLowerCase().trim();
     if (!EXTENSIONES_PERMITIDAS.includes(ext)) {
       return sendError(res, `Formato de archivo .${ext} no permitido por políticas de seguridad GRC.`, 400);
     }
 
-    // 🚀 RESTAURADO: Enviamos el JSON exacto que el servidor de Termales espera
     const response = await fetch('https://repos.termalessantarosa.com.co/api/archivos/upload?appName=controlInterno', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        fileName,
-        fileType,
+        fileName: nombreSeguro,
+        fileType: fileType || 'application/octet-stream',
         fileData: fileBase64,
         subidoPor: user.email,
         appName: appName || 'controlInterno'
       })
     });
 
-    // 🛡️ Extraer la respuesta real del servidor de Termales si falla
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error('Fallo en servidor Termales', { status: response.status, errorText });
+      logger.error('Fallo en servidor Termales', { status: response.status, fileName: nombreSeguro, usuario: user.email, errorText });
       return sendError(res, `Servidor Destino Rechazado (HTTP ${response.status}): ${errorText}`, response.status);
     }
 
     const data = await response.json();
-    logger.info('Evidencia subida con éxito', { fileName, usuario: user.email, appName });
+    logger.info('Evidencia subida con éxito', { fileName: nombreSeguro, usuario: user.email, appName });
 
     return sendSuccess(res, {
       success: true,
       url: data.url || data.path || '',
-      appName: data.appName || 'controlInterno',
-      fileName: data.fileName || fileName,
+      appName: data.appName || appName || 'controlInterno',
+      fileName: data.fileName || nombreSeguro,
       message: 'Evidencia validada y almacenada con éxito.'
     });
 

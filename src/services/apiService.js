@@ -69,50 +69,36 @@ const comprimirImagen = (file, maxWidth = 1000, quality = 0.6) => {
   });
 };
 
-const subirPorServidor = async (archivo, appName, onProgress) => {
-  const reader = new FileReader();
-  const dataUrl = await new Promise((resolve, reject) => {
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('No se pudo leer el archivo para subirlo por la API interna.'));
-    reader.readAsDataURL(archivo);
-  });
+const sanitizarNombreArchivo = (nombre = '') => {
+  const base = String(nombre || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .toLowerCase();
 
-  if (typeof onProgress === 'function') onProgress(35);
+  return base || 'archivo';
+};
 
-  const response = await fetch('/api/grc/upload', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      fileName: archivo.name,
-      fileType: archivo.type || 'application/octet-stream',
-      fileBase64: dataUrl,
-      appName,
-    }),
-  });
+const prepararArchivoAntesDeSubir = async (archivo) => {
+  const MAX_FILE_SIZE = 7 * 1024 * 1024;
 
-  const responseText = await response.text();
-  let payload = null;
-  try {
-    payload = responseText ? JSON.parse(responseText) : null;
-  } catch {
-    payload = null;
+  if (archivo.size > MAX_FILE_SIZE) {
+    if (archivo.type?.startsWith('image/')) {
+      const dataUrlComprimida = await comprimirImagen(archivo, 1200, 0.6);
+      const blob = await fetch(dataUrlComprimida).then((res) => res.blob());
+      return new File([blob], sanitizarNombreArchivo(archivo.name), { type: 'image/jpeg' });
+    }
+
+    throw new Error('El archivo supera el límite de 7 MB permitido por el repositorio corporativo.');
   }
 
-  if (!response.ok || !payload?.success || !payload?.url || !/^https?:\/\//i.test(payload.url)) {
-    const message = payload?.message || payload?.error || responseText || 'La API interna rechazó la subida del archivo.';
-    throw new Error(message);
+  const nombreSanitizado = sanitizarNombreArchivo(archivo.name);
+  if (nombreSanitizado !== archivo.name) {
+    return new File([archivo], nombreSanitizado, { type: archivo.type || 'application/octet-stream' });
   }
 
-  if (typeof onProgress === 'function') onProgress(100);
-
-  return {
-    url: payload.url,
-    fileName: payload.fileName || archivo.name,
-    appName: payload.appName || appName,
-  };
+  return archivo;
 };
 
 export const apiService = {
@@ -172,23 +158,26 @@ export const apiService = {
   }),
 
   // 📁 CARGA BINARIA DE EVIDENCIAS EN FORM-DATA (OPTIMIZADO NESTJS + SOPORTE PROGRESO)
-  subirEvidencia: (archivo, metadata = {}, onProgress = null) => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const formData = new FormData();
-        const appName = metadata.appName || 'controlInterno';
-        const fileFieldName = metadata.fieldName || 'file';
+  subirEvidencia: async (archivo, metadata = {}, onProgress = null) => {
+    try {
+      const appName = metadata.appName || 'controlInterno';
+      const fileFieldName = metadata.fieldName || 'file';
+      const archivoPreparado = await prepararArchivoAntesDeSubir(archivo);
 
-        formData.append('appName', appName);
-        Object.keys(metadata).forEach(key => {
-          if (key !== 'fieldName' && key !== 'appName') {
-            formData.append(key, metadata[key]);
-          }
-        });
-        formData.append(fileFieldName, archivo);
+      const formData = new FormData();
+      formData.append('appName', appName);
 
-        const urlConQuery = `https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${encodeURIComponent(appName)}`;
+      Object.keys(metadata).forEach((key) => {
+        if (key !== 'fieldName' && key !== 'appName') {
+          formData.append(key, metadata[key]);
+        }
+      });
 
+      formData.append(fileFieldName, archivoPreparado, sanitizarNombreArchivo(archivoPreparado.name));
+
+      const urlConQuery = `https://repos.termalessantarosa.com.co/api/archivos/upload?appName=${encodeURIComponent(appName)}`;
+
+      return await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', urlConQuery, true);
 
@@ -201,7 +190,7 @@ export const apiService = {
           };
         }
 
-        xhr.onload = async () => {
+        xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText);
@@ -209,44 +198,20 @@ export const apiService = {
               const urlValida = typeof urlExtraida === 'string' ? urlExtraida.trim() : '';
 
               if (urlValida && /^https?:\/\//i.test(urlValida)) {
-                resolve({
-                  success: true,
-                  url: urlValida,
-                  appName: data.appName || appName,
-                  fileName: data.fileName || archivo.name
-                });
+                resolve({ success: true, url: urlValida, appName: data.appName || appName, fileName: data.fileName || archivoPreparado.name });
                 return;
               }
 
-              if (urlValida && !/^https?:\/\//i.test(urlValida)) {
-                console.warn('La respuesta del repositorio devolvió un nombre de archivo sin URL válida. Se reintenta con Firebase Storage como fallback seguro.');
-              }
-
-              try {
-                const fallback = await subirPorServidor(archivo, appName, onProgress);
-                resolve({
-                  success: true,
-                  url: fallback.url,
-                  appName: fallback.appName || appName,
-                  fileName: fallback.fileName || archivo.name
-                });
-              } catch (fallbackError) {
-                reject(new Error(fallbackError.message || 'No se pudo generar una URL válida para el archivo adjunto.'));
-              }
+              reject(new Error('El repositorio respondió sin una URL válida para el archivo.'));
               return;
             } catch {
               const responseText = typeof xhr.responseText === 'string' ? xhr.responseText.trim() : '';
               if (responseText && /^https?:\/\//i.test(responseText)) {
-                resolve({ success: true, url: responseText, appName, fileName: archivo.name });
+                resolve({ success: true, url: responseText, appName, fileName: archivoPreparado.name });
                 return;
               }
 
-              try {
-                const fallback = await subirPorServidor(archivo, appName, onProgress);
-                resolve({ success: true, url: fallback.url, appName: fallback.appName || appName, fileName: fallback.fileName || archivo.name });
-              } catch (fallbackError) {
-                reject(new Error(fallbackError.message || 'La subida no devolvió una URL válida y el fallback a la API interna falló.'));
-              }
+              reject(new Error('La respuesta del repositorio no contiene una URL válida.'));
             }
           } else {
             let detalleError = 'Falló la carga del archivo';
@@ -261,20 +226,15 @@ export const apiService = {
           }
         };
 
-        xhr.onerror = async () => {
-          try {
-            const fallback = await subirPorServidor(archivo, appName, onProgress);
-            resolve({ success: true, url: fallback.url, appName: fallback.appName || appName, fileName: fallback.fileName || archivo.name });
-          } catch (fallbackError) {
-            reject(new Error(fallbackError.message || 'Error de conexión con el repositorio de Termales y fallback a la API interna'));
-          }
+        xhr.onerror = () => {
+          reject(new Error('Error de conexión con el repositorio corporativo.'));
         };
-        xhr.send(formData);
 
-      } catch (error) {
-        console.error('🔴 Error en carga binaria a Termales:', error);
-        reject(error);
-      }
-    });
+        xhr.send(formData);
+      });
+    } catch (error) {
+      console.error('🔴 Error en carga binaria a Termales:', error);
+      throw error;
+    }
   }
 };
