@@ -155,14 +155,14 @@ export default function InformesAuditoria({
   const obtenerUrlAbsoluta = (ruta) => {
     if (!ruta || ruta === '#' || ruta.trim() === '') return null;
     
-    // Si ya trae el dominio completo (ej. archivos antiguos), la dejamos pasar intacta
+    // Si ya trae el dominio completo, la dejamos pasar intacta
     if (ruta.startsWith('http://') || ruta.startsWith('https://')) return ruta;
     
-    // Limpiamos la ruta por si el backend mandó un slash inicial
-    const rutaLimpia = ruta.startsWith('/') ? ruta.substring(1) : ruta;
+    // Apuntamos a la carpeta física real descubierta (/uploads/controlInterno)
+    const baseUrl = 'https://repos.termalessantarosa.com.co/uploads/controlInterno';
+    const rutaLimpia = ruta.startsWith('/') ? ruta : `/${ruta}`;
     
-    // 🎯 AJUSTE: Apuntamos directamente al controlador raíz de archivos en NestJS
-    return `https://repos.termalessantarosa.com.co/api/archivos/${rutaLimpia}`;
+    return `${baseUrl}${rutaLimpia}`;
   };
 
 // 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante
@@ -258,9 +258,6 @@ const handleFileUpload = async (e, type) => {
       const file = new File([fileToUpload], nombreLimpio, { type: fileToUpload.type });
       
       const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' }, onProgressCallback);
-      
-      // 🕵️ TRUCO DE DESARROLLADOR: Mostrar lo que el backend realmente responde
-      alert("🕵️ RESPUESTA CRUDA DEL SERVIDOR:\n\n" + JSON.stringify(data, null, 2));
       
       const urlFinal = data?.url || data?.path || data?.filePath || (typeof data === 'string' ? data : file.name);
       return { url: urlFinal, nombre: file.name };

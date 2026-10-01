@@ -190,46 +190,30 @@ export const apiService = {
           };
         }
 
-        xhr.onload = () => {
+xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText);
               
-              // 1. Búsqueda profunda de la URL en la respuesta del backend
-              let urlExtraida = data.url || data.path || data.filePath || data.fileUrl || data.location;
-              if (!urlExtraida && data.file) {
-                 urlExtraida = data.file.url || data.file.path || data.file.location;
-              }
-              if (!urlExtraida && data.data) {
-                 urlExtraida = data.data.url || data.data.path || data.data.location || (typeof data.data === 'string' ? data.data : null);
-              }
-
-              // 2. Si fue exitoso pero no encontramos la URL explícitamente, igual aprobamos
-              if (!urlExtraida) {
-                  resolve({ success: true, url: '', rawData: data, appName, fileName: archivoPreparado.name });
+              // 1. Extraemos el nombre único encriptado que NestJS/Multer asignó al archivo
+              const nombreUnico = data.file?.filename || data.fileName || data.filename;
+              
+              if (nombreUnico) {
+                  // 2. Construimos la URL absoluta apuntando a la carpeta física real (/uploads/)
+                  const urlAbsoluta = `https://repos.termalessantarosa.com.co/uploads/${appName}/${nombreUnico}`;
+                  
+                  resolve({ 
+                    success: true, 
+                    url: urlAbsoluta, 
+                    appName: data.appName || appName, 
+                    fileName: data.file?.originalname || data.originalName || archivoPreparado.name 
+                  });
                   return;
               }
 
-              const urlValida = typeof urlExtraida === 'string' ? urlExtraida.trim() : '';
-
-              // 3. Aprobamos cualquier URL válida (incluso si es relativa como "/uploads/archivo.pdf")
-              if (urlValida) {
-                resolve({ success: true, url: urlValida, appName: data.appName || appName, fileName: data.fileName || archivoPreparado.name });
-                return;
-              }
-
-              // Fallback final de éxito
+              // Fallback
               resolve({ success: true, url: '', rawData: data, appName, fileName: archivoPreparado.name });
-              return;
-
             } catch {
-              // Si no es un JSON, pero el servidor respondió OK, leemos el texto plano
-              const responseText = typeof xhr.responseText === 'string' ? xhr.responseText.trim() : '';
-              if (responseText) {
-                 resolve({ success: true, url: responseText, appName, fileName: archivoPreparado.name });
-                 return;
-              }
-              // Éxito total sin cuerpo de respuesta
               resolve({ success: true, url: '', appName, fileName: archivoPreparado.name });
             }
           } else {
