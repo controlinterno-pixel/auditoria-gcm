@@ -9,8 +9,8 @@ const result = apiService.resolveArchivoUrl({
 
 assert.equal(
   result,
-  'https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlinterno/650744ce-7f6c-435e-bb34-82da48fa7a0d.pdf',
-  'Debe construir la URL de descarga válida usando la API del repositorio y no una ruta física inexistente.'
+  'https://repos.termalessantarosa.com.co/api/archivos/auditoria/controlInterno/650744ce-7f6c-435e-bb34-82da48fa7a0d.pdf',
+  'Debe conservar el nombre exacto del appName y no forzarlo a minúsculas, porque el repositorio distingue mayúsculas.'
 );
 
 console.log('urlResolver.test.js: OK');

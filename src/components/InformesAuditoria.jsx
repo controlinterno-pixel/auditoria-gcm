@@ -164,7 +164,7 @@ export default function InformesAuditoria({
         const componentes = (partes[1] || '').split('/');
         const appName = componentes.shift() || 'controlInterno';
         const fileName = decodeURIComponent((componentes.join('/') || url.pathname.split('/').pop()).split('?')[0]);
-        return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName).toLowerCase())}/${encodeURIComponent(fileName)}`;
+        return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName))}/${encodeURIComponent(fileName)}`;
       }
       return valor;
     }
@@ -175,7 +175,7 @@ export default function InformesAuditoria({
       const componentes = (partes[1] || '').split('/');
       const appName = componentes.shift() || 'controlInterno';
       const fileName = decodeURIComponent((componentes.join('/') || rutaLimpia.split('/').pop()).split('?')[0]);
-      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName).toLowerCase())}/${encodeURIComponent(fileName)}`;
+      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName))}/${encodeURIComponent(fileName)}`;
     }
 
     return `https://repos.termalessantarosa.com.co${rutaLimpia}`;

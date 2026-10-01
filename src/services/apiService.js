@@ -124,7 +124,7 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
       const componentes = (partes[1] || '').split('/');
       const appName = componentes.shift() || payload?.appName || 'controlInterno';
       const fileName = decodeURIComponent((componentes.join('/') || rawValue.split('/').pop()).split('?')[0]);
-      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName).toLowerCase())}/${encodeURIComponent(fileName)}`;
+      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName))}/${encodeURIComponent(fileName)}`;
     }
     return rawValue;
   }
@@ -135,14 +135,14 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
       const componentes = (partes[1] || '').split('/');
       const appName = componentes.shift() || payload?.appName || 'controlInterno';
       const fileName = decodeURIComponent((componentes.join('/') || rawValue.split('/').pop()).split('?')[0]);
-      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName).toLowerCase())}/${encodeURIComponent(fileName)}`;
+      return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(String(appName))}/${encodeURIComponent(fileName)}`;
     }
     return `https://repos.termalessantarosa.com.co${rawValue}`;
   }
 
   const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
   const fileName = decodeURIComponent(rawValue.split('/').pop().split('?')[0]);
-  return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(appName.toLowerCase())}/${encodeURIComponent(fileName)}`;
+  return `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${encodeURIComponent(appName)}/${encodeURIComponent(fileName)}`;
 };
 
 export const apiService = {
