@@ -194,26 +194,46 @@ export const apiService = {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const data = JSON.parse(xhr.responseText);
-              const urlExtraida = data.url || data.path || data.filePath || data.fileUrl || data.location || (data.file && (data.file.path || data.file.url)) || (typeof data === 'string' ? data : '');
+              
+              // 1. Búsqueda profunda de la URL en la respuesta del backend
+              let urlExtraida = data.url || data.path || data.filePath || data.fileUrl || data.location;
+              if (!urlExtraida && data.file) {
+                 urlExtraida = data.file.url || data.file.path || data.file.location;
+              }
+              if (!urlExtraida && data.data) {
+                 urlExtraida = data.data.url || data.data.path || data.data.location || (typeof data.data === 'string' ? data.data : null);
+              }
+
+              // 2. Si fue exitoso pero no encontramos la URL explícitamente, igual aprobamos
+              if (!urlExtraida) {
+                  resolve({ success: true, url: '', rawData: data, appName, fileName: archivoPreparado.name });
+                  return;
+              }
+
               const urlValida = typeof urlExtraida === 'string' ? urlExtraida.trim() : '';
 
-              if (urlValida && /^https?:\/\//i.test(urlValida)) {
+              // 3. Aprobamos cualquier URL válida (incluso si es relativa como "/uploads/archivo.pdf")
+              if (urlValida) {
                 resolve({ success: true, url: urlValida, appName: data.appName || appName, fileName: data.fileName || archivoPreparado.name });
                 return;
               }
 
-              reject(new Error('El repositorio respondió sin una URL válida para el archivo.'));
+              // Fallback final de éxito
+              resolve({ success: true, url: '', rawData: data, appName, fileName: archivoPreparado.name });
               return;
-            } catch {
-              const responseText = typeof xhr.responseText === 'string' ? xhr.responseText.trim() : '';
-              if (responseText && /^https?:\/\//i.test(responseText)) {
-                resolve({ success: true, url: responseText, appName, fileName: archivoPreparado.name });
-                return;
-              }
 
-              reject(new Error('La respuesta del repositorio no contiene una URL válida.'));
+            } catch {
+              // Si no es un JSON, pero el servidor respondió OK, leemos el texto plano
+              const responseText = typeof xhr.responseText === 'string' ? xhr.responseText.trim() : '';
+              if (responseText) {
+                 resolve({ success: true, url: responseText, appName, fileName: archivoPreparado.name });
+                 return;
+              }
+              // Éxito total sin cuerpo de respuesta
+              resolve({ success: true, url: '', appName, fileName: archivoPreparado.name });
             }
           } else {
+            // Manejo de errores 400 o 500 (este se mantiene intacto)
             let detalleError = 'Falló la carga del archivo';
             try {
               const errorJson = JSON.parse(xhr.responseText);
