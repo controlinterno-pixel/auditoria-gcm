@@ -29,6 +29,7 @@ export default function Planes({
   editPlan,
   setEditPlan,
   ejecutarDespachoGmailApi,
+  prepararEnvioGmail,
   scrollToForm,
   handleDeleteItem,
   applyFilters,
@@ -432,36 +433,48 @@ const diccionarioCorreos = {
       }
     });
 
-    setPlanes(updatedPlanesList);
+    if (
+      enviarNotificaciones &&
+      (notificacionesRadicadas.length > 0 || notificacionesRevision100.length > 0) &&
+      prepararEnvioGmail &&
+      !(await prepararEnvioGmail())
+    ) return;
+
+    let guardado;
     if (hallazgosModificados && setHallazgos) {
-      setHallazgos(updatedHallazgos);
-      await saveToCloud({ planes: updatedPlanesList, hallazgos: updatedHallazgos });
+      guardado = await saveToCloud({ planes: updatedPlanesList, hallazgos: updatedHallazgos });
     } else {
-      await saveToCloud({ planes: updatedPlanesList });
+      guardado = await saveToCloud({ planes: updatedPlanesList });
     }
+    if (!guardado) return;
+    setPlanes(updatedPlanesList);
+    if (hallazgosModificados && setHallazgos) setHallazgos(updatedHallazgos);
 
   // ... código anterior (saveToCloud) ...
 
     // 📧 NOTIFICACIÓN 1: RADICACIÓN EXITOSA (Para el Jefe y el Auditor)
     // 👉 AGREGA "enviarNotificaciones &&" AQUÍ:
+      let todasNotificacionesEnviadas = true;
     if (enviarNotificaciones && notificacionesRadicadas.length > 0 && ejecutarDespachoGmailApi) {
       for (const plan of notificacionesRadicadas) {
-        await ejecutarDespachoGmailApi({
+          const correoResponsableEnviado = await ejecutarDespachoGmailApi({
           ref_consecutivo: `PLAN-${plan.id}`,
           titulo_informe: `Plan de Accion Radicado Exitosamente`,
           proceso_auditado: `Su plan de accion correctivo ha sido registrado exitosamente en el sistema de auditoria GCM.`,
           enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: plan.correoResponsable
         });
+          if (!correoResponsableEnviado) todasNotificacionesEnviadas = false;
 
 const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
-        await ejecutarDespachoGmailApi({
+          const correoAuditorEnviado = await ejecutarDespachoGmailApi({
           ref_consecutivo: `PLAN-${plan.id}`,
           titulo_informe: `Nuevo Plan de Accion Asignado`,
           proceso_auditado: `Un lider de area ha radicado o actualizado un plan de accion bajo su cargo.`,
           enlace_pdf: 'https://auditoria-gcm.vercel.app',
           destinatarios: correoAuditor
         });
+          if (!correoAuditorEnviado) todasNotificacionesEnviadas = false;
       }
     }
 
@@ -470,17 +483,20 @@ const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || (import.meta.e
     if (enviarNotificaciones && notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
       for (const act of notificacionesRevision100) {
 const correoAuditor = diccionarioCorreos[act.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
-        await ejecutarDespachoGmailApi({
+        const correoRevisionEnviado = await ejecutarDespachoGmailApi({
           ref_consecutivo: `REVISION-100`,
           titulo_informe: `Verificar soportes cargados al 100 por ciento para proceder con el cierre`,
           proceso_auditado: `Plan de accion completado por el auditado y listo para evaluar.`,
           enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: correoAuditor
         });
+        if (!correoRevisionEnviado) todasNotificacionesEnviadas = false;
       }
     }
 
-    alert("🎉 ¡Matriz guardada con éxito! Se despacharon las notificaciones de radicación y las alertas correspondientes.");
+    alert(todasNotificacionesEnviadas
+      ? "🎉 ¡Matriz guardada y notificaciones enviadas!"
+      : "La matriz se guardó, pero no se pudieron enviar todas las notificaciones.");
     // 👉 AQUÍ: Le inyectamos directamente los arreglos con la data recién calculada
     handleInformeChange(formInformeId, updatedPlanesList, updatedHallazgos);
   };

@@ -31,7 +31,7 @@ import Navbar from './components/Navbar';
 import SidebarNavigation from './components/SidebarNavigation';
 import MiPerfil from './components/MiPerfil';
 
-import { enviarCorreoGmail } from './services/gmailService';
+import { enviarCorreoGmail, prepararAutorizacionGmail } from './services/gmailService';
 import { useGrcData } from './hooks/useGrcData';
 import { useGrcUI } from './hooks/useGrcUI';
 import { useGrcPeriodFilters } from './hooks/useGrcPeriodFilters';
@@ -189,6 +189,7 @@ const saveToCloud = useCallback(async (partialData) => syncCloud(partialData, sh
   const forceUpdateCronograma = async () => { if (window.confirm("¿Deseas cargar los 20 procesos del Plan Anual?")) { await saveToCloud({ cronograma: defaultCronograma }); showNotification("¡Plan Anual actualizado!", "success"); } };
   const analizarEvidenciaIA = (evidenciaUrl, contextoItem, tipoItem) => analizarEvidenciaDocumento(evidenciaUrl, contextoItem, tipoItem, setIsThinking, showNotification, setAiModal);
 const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(emailParams, user?.email, showNotification), [user?.email, showNotification]);
+const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.email, showNotification), [user?.email, showNotification]);
   const {
     handleRiesgoSubmit, handleHallazgoSubmit, handlePlanSubmit, handleAprobarCierrePlan,
     handleEvaluacionSubmit, handleComiteSubmit, handleIncidenteSubmit, handleCronogramaSubmit,
@@ -198,13 +199,13 @@ const ejecutarDespachoGmailApi = useCallback((emailParams) => enviarCorreoGmail(
     editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
     setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes, setCronograma, setMonitoreo, setInformesAuditoria,
     setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
-    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, ejecutarDespachoGmailApi, defaultMeses
+    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses
   }), [
     user, isAdmin, safeRiesgos, safeHallazgos, safePlanes, safeEvaluaciones, safeComites, safeIncidentes, safeCronograma, safeMonitoreo, informesAuditoria,
     editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
     setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes, setCronograma, setMonitoreo, setInformesAuditoria,
     setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
-    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, ejecutarDespachoGmailApi, defaultMeses
+    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses
   ]);
 
 // 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
@@ -488,7 +489,7 @@ return (
                 
                 {subTabPlanes === 'planes' && (
                   <Planes 
-                    ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin}
+                    ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} prepararEnvioGmail={prepararEnvioGmail} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
                     FilterInput={FilterInput} pFiltrados={pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}
@@ -504,16 +505,21 @@ return (
                         const logTrazabilidad = { fecha: ts, usuario: user?.email || 'Usuario', accion: `Fase de Gobernanza actualizada a: ${nuevoEstadoWorkflow}` };
                         const planActual = safePlanes.find(p => p.id === id);
                         if (!planActual) return;
+                        if (nuevoEstadoWorkflow === 'En Revisión' && !(await prepararEnvioGmail())) return;
                         const planModificado = { ...planActual, estadoWorkflow: nuevoEstadoWorkflow, historialCambios: [...(planActual.historialCambios || []), logTrazabilidad] };
                         const updatedList = safePlanes.map(p => p.id === id ? planModificado : p);
+                        const guardado = await saveToCloud({ planes: updatedList });
+                        if (!guardado) return;
                         setPlanes(updatedList);
-                        await saveToCloud({ planes: updatedList });
                         setEditPlan(planModificado);
                         setFormResetKey(Date.now());
                         if (nuevoEstadoWorkflow === 'En Revisión') {
                         const correoGestor = auth.currentUser?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "admin@termales.com.co";
-                          await ejecutarDespachoGmailApi({ ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: 'https://auditoria-gcm.vercel.app', destinatarios: correoGestor });
-                          showNotification("Plan enviado a revisión y administrador notificado.");
+                          const correoEnviado = await ejecutarDespachoGmailApi({ ref_consecutivo: `PLAN-${id}`, titulo_informe: 'Plan de Acción Publicado Listo para Validación', proceso_auditado: planModificado.accion.substring(0, 50) + '...', enlace_pdf: 'https://auditoria-gcm.vercel.app', destinatarios: correoGestor });
+                          showNotification(
+                            correoEnviado ? "Plan enviado a revisión y administrador notificado." : "Plan enviado a revisión, pero no se pudo enviar el correo.",
+                            correoEnviado ? "success" : "error"
+                          );
                         } else {
                           showNotification(`Fase del plan actualizada a: ${nuevoEstadoWorkflow}`);
                         }

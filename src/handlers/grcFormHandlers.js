@@ -45,6 +45,7 @@ export const createFormHandlers = ({
   showNotification,
   setIsSubmitting,
   setFormResetKey,
+  prepararEnvioGmail,
   ejecutarDespachoGmailApi,
   defaultMeses
 }) => {
@@ -253,19 +254,24 @@ export const createFormHandlers = ({
       updatedList = [...safePlanes, nuevo];
     }
 
-    setPlanes(updatedList); 
-    await saveToCloud({ planes: updatedList }); 
+    if (dispararCorreo && auditorNotificar && prepararEnvioGmail && !(await prepararEnvioGmail())) return;
+    const guardado = await saveToCloud({ planes: updatedList });
+    if (!guardado) return;
+    setPlanes(updatedList);
 
     if (dispararCorreo && auditorNotificar) {
         const destinatarioDinamico = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "admin@ejemplo.com";
-        await ejecutarDespachoGmailApi({ 
+        const correoEnviado = await ejecutarDespachoGmailApi({
           ref_consecutivo: `APROBACION-100`, 
           titulo_informe: 'Verificar soportes cargados al 100% para proceder con el cierre',
           proceso_auditado: 'Plan de acción pendiente por aprobar', 
           enlace_pdf: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app', 
           destinatarios: destinatarioDinamico 
         });
-        showNotification("Avance guardado. Se notificó al auditor.", "success");
+        showNotification(
+          correoEnviado ? "Avance guardado y auditor notificado." : "Avance guardado, pero no se pudo enviar el correo.",
+          correoEnviado ? "success" : "error"
+        );
     } else {
         showNotification("Progreso del plan guardado correctamente.");
     }
@@ -274,6 +280,7 @@ export const createFormHandlers = ({
 
   const handleAprobarCierrePlan = async (plan) => {
     if (!window.confirm("¿Aprobar evidencias y cerrar definitivamente este plan y su hallazgo vinculado?")) return;
+    if (prepararEnvioGmail && !(await prepararEnvioGmail())) return;
     const ts = new Date().toLocaleString();
     const fechaCierreStr = new Date().toISOString().split('T')[0];
     const planModificado = { ...plan, estado: 'Cerrado', estadoWorkflow: 'Cerrado', progreso: 100, fechaCierre: fechaCierreStr, historialCambios: [...(plan.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: '✅ Plan aprobado y cerrado por el Auditor' }] };
@@ -283,21 +290,25 @@ export const createFormHandlers = ({
     if (hallazgoPadre) {
         const hallazgoModificado = { ...hallazgoPadre, estado: 'Cerrado', fechaCierre: fechaCierreStr, historialCambios: [...(hallazgoPadre.historialCambios || []), { fecha: ts, usuario: user?.email || 'Sistema', accion: '✅ Hallazgo cerrado' }] };
         updatedHallazgos = safeHallazgos.map(h => h.id === hallazgoPadre.id ? hallazgoModificado : h);
-        setHallazgos(updatedHallazgos);
     }
-    setPlanes(updatedPlanes);
-    await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
+      const guardado = await saveToCloud({ planes: updatedPlanes, hallazgos: updatedHallazgos });
+      if (!guardado) return;
+      if (hallazgoPadre) setHallazgos(updatedHallazgos);
+      setPlanes(updatedPlanes);
     
 const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com";
-    await ejecutarDespachoGmailApi({ 
+    const correoEnviado = await ejecutarDespachoGmailApi({
       ref_consecutivo: `CIERRE-PLAN-${plan.id}`,
       titulo_informe: '✅ Plan de Acción y Hallazgo Cerrados con Éxito', 
       proceso_auditado: plan.accion.substring(0, 50) + '...', 
       enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app', 
       destinatarios: plan.correoResponsable || correoCentral 
     });
-    
-    showNotification("¡Ciclo cerrado exitosamente!", "success");
+
+    showNotification(
+      correoEnviado ? "Ciclo cerrado y responsable notificado." : "Ciclo cerrado, pero no se pudo enviar el correo.",
+      correoEnviado ? "success" : "error"
+    );
   };
 
   const handleEvaluacionSubmit = async (e) => {
@@ -566,6 +577,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
         idInformeGuardado = nuevoId;
         updated = [nuevo, ...safeInformes];
       }
+
+      if (correosNotificacionOut && prepararEnvioGmail && !(await prepararEnvioGmail())) return false;
 
       const guardado = await saveToCloud({ informesAuditoria: updated });
       if (!guardado) return false;
