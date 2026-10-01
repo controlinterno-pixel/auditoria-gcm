@@ -258,6 +258,10 @@ const handleFileUpload = async (e, type) => {
       const file = new File([fileToUpload], nombreLimpio, { type: fileToUpload.type });
       
       const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' }, onProgressCallback);
+      
+      // 🕵️ TRUCO DE DESARROLLADOR: Mostrar lo que el backend realmente responde
+      alert("🕵️ RESPUESTA CRUDA DEL SERVIDOR:\n\n" + JSON.stringify(data, null, 2));
+      
       const urlFinal = data?.url || data?.path || data?.filePath || (typeof data === 'string' ? data : file.name);
       return { url: urlFinal, nombre: file.name };
     };
