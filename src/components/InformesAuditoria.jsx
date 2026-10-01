@@ -151,22 +151,18 @@ export default function InformesAuditoria({
   const [cargandoAnexo, setCargandoAnexo] = useState(false);
   const [progresoAnexo, setProgresoAnexo] = useState(0);
   const [motivoCambio, setMotivoCambio] = useState('');
-
-  // 🌐 Reconstruir ruta absoluta al Repositorio de Termales
+// 🌐 Reconstruir ruta absoluta al Repositorio de Termales
   const obtenerUrlAbsoluta = (ruta) => {
     if (!ruta || ruta === '#' || ruta.trim() === '') return null;
     
-    // Si ya trae el dominio, la dejamos pasar intacta
+    // Si ya trae el dominio completo (ej. archivos antiguos), la dejamos pasar intacta
     if (ruta.startsWith('http://') || ruta.startsWith('https://')) return ruta;
     
-    // AQUÍ ESTÁ LA MAGIA: Apuntamos a la carpeta exacta donde NestJS sirve los archivos de esta app
-    const baseUrl = 'https://repos.termalessantarosa.com.co/api/archivos/controlInterno';
+    // Limpiamos la ruta por si el backend mandó un slash inicial
+    const rutaLimpia = ruta.startsWith('/') ? ruta.substring(1) : ruta;
     
-    // Aseguramos que la ruta empiece con "/" para concatenar bien
-    const rutaLimpia = ruta.startsWith('/') ? ruta : `/${ruta}`;
-    
-    // Resultado: https://repos.../api/archivos/controlInterno/archivo.pdf
-    return `${baseUrl}${rutaLimpia}`;
+    // 🎯 AJUSTE: Apuntamos directamente al controlador raíz de archivos en NestJS
+    return `https://repos.termalessantarosa.com.co/api/archivos/${rutaLimpia}`;
   };
 
 // 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante
