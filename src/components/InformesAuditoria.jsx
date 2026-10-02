@@ -1100,8 +1100,7 @@ const handleFileUpload = async (e, type) => {
               </div>
             )}
           </div>
-
-       <form 
+<form 
             key={editInformeAuditoria?.ref || 'form-nuevo'} 
             onSubmit={async (e) => { 
               const guardado = await handleInformeAuditoriaSubmit(e);
@@ -1112,8 +1111,6 @@ const handleFileUpload = async (e, type) => {
               if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
               setVistaActiva('dashboard'); 
             }} 
-            onInputCapture={() => setIsDirty(true)}
-            onChangeCapture={() => setIsDirty(true)}
             className="space-y-6 text-xs"
           >
           {modoVistaCompleta && (
@@ -1200,6 +1197,7 @@ const handleFileUpload = async (e, type) => {
                       defaultValue={editInformeAuditoria?.programaId || ''}
                       onChange={(e) => {
                         const prog = safeProgramas.find(p => String(p.id) === String(e.target.value));
+                        setIsDirty(true);
                         if (prog) {
                            setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: prog.proceso || '' }));
                            setSubprocesoForm(prev => ({ ...prev, [idEdicion]: prog.subproceso || 'General' }));
@@ -1455,8 +1453,9 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                     type="button" 
                     onClick={() => { 
                       if(participanteTemp && !participantesMultiples.includes(participanteTemp)) {
-                        setParticipantesMultiples([...participantesMultiples, participanteTemp]); 
-                      }
+  setParticipantesMultiples([...participantesMultiples, participanteTemp]); 
+  setIsDirty(true);
+}
                       setParticipanteTemp(''); 
                     }} 
                     className="bg-[#0A3B32] text-white px-5 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
