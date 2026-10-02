@@ -117,7 +117,9 @@ export default function ModalNuevaFuente({
 
     onAddNorma?.(norma);
     setIsDirty(true);
-    setFormData((prev) => ({ ...prev, norma }));
+    
+    // Forzamos el cambio inmediato en el select
+    setFormData((prev) => ({ ...prev, norma: norma }));
     setNuevaNorma('');
   };
 
@@ -218,14 +220,20 @@ export default function ModalNuevaFuente({
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Código / Referencia</label>
                     <input name="codigo" type="text" value={formData.codigo} readOnly className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 bg-slate-50 outline-none" />
                   </div>
-                  <div>
+                 <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Norma / Referencia *</label>
                     <div className="flex gap-2">
-                      <select disabled={isReadOnly} name="norma" value={formData.norma} onChange={handleNormaChange} className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
-                      {normasDisponibles.map((norma) => (
-                        <option key={norma} value={norma}>{norma}</option>
-                      ))}
-                      <option value="__nueva__">Otra / Crear nueva norma</option>
+                      <select 
+                        disabled={isReadOnly} 
+                        name="norma" 
+                        value={normasDisponibles.includes(formData.norma) ? formData.norma : '__nueva__'} 
+                        onChange={handleNormaChange} 
+                        className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {normasDisponibles.map((n) => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                        <option value="__nueva__">Otra / Crear nueva norma</option>
                       </select>
                       {!isReadOnly && formData.norma !== '__nueva__' && !NORMAS_PREDETERMINADAS.includes(formData.norma) && (
                         <button type="button" onClick={handleDeleteNorma} className="px-3 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100" title="Eliminar norma seleccionada">

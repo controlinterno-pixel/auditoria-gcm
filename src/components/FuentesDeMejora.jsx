@@ -63,6 +63,11 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
   };
 
   const handleSaveFuente = (data) => {
+    // Si la norma que viene en data.norma no está en las normas disponibles, la forzamos a agregarla
+    if (data.norma && !normasDisponibles.includes(data.norma)) {
+      handleAddNorma(data.norma);
+    }
+
     const identificador = data.codigo || data.id;
     const fuentesActualizadas = fuenteSeleccionada
       ? fuentesActuales.map((fuente) => (
