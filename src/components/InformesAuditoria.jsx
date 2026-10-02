@@ -40,7 +40,6 @@ export default function InformesAuditoria({
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
   const [socializadoFormState, setSocializadoFormState] = useState(null);
-  const [fuenteMejoraSeleccionada, setFuenteMejoraSeleccionada] = useState('');
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
@@ -56,11 +55,18 @@ export default function InformesAuditoria({
   
   // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
   const handleCrearNuevoInforme = () => {
-    confirmarSalidaSinGuardar(() => {
+    const abrirNuevoInforme = () => {
       setEditInformeAuditoria(null);
       setModoVistaCompleta(false);
       setVistaActiva('nuevo');
-    });
+    };
+
+    if (vistaActiva !== 'nuevo') {
+      abrirNuevoInforme();
+      return;
+    }
+
+    confirmarSalidaSinGuardar(abrirNuevoInforme);
   };
 
   // 🎛️ ESTADOS DEL PANEL LATERAL
@@ -282,7 +288,6 @@ export default function InformesAuditoria({
         };
 
         setDraftInforme(draftInicial);
-        setFuenteMejoraSeleccionada(String(draftInicial.tipoFuente || ''));
         setDraftHistory([draftInicial]);
 
         const participantesIniciales = (editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '')
@@ -321,7 +326,6 @@ export default function InformesAuditoria({
         correosNotificacionInput: '',
       };
       setDraftInforme(draftVacio);
-      setFuenteMejoraSeleccionada('');
       setDraftHistory([draftVacio]);
       setIsDirty(false);
       setHistorialExpandido(true);
@@ -350,6 +354,7 @@ export default function InformesAuditoria({
       mensaje: 'Tienes cambios sin guardar. ¿Deseas salir sin guardar?',
       onConfirm: () => {
         setConfirmacionSalida(null);
+        setIsDirty(false);
         callback();
       },
       onCancel: () => setConfirmacionSalida(null),
@@ -505,6 +510,12 @@ const handleFileUpload = async (e, type) => {
 
   const cambiarVista = (nuevaVista) => {
     if (nuevaVista === vistaActiva) return;
+
+    if (vistaActiva !== 'nuevo') {
+      setVistaActiva(nuevaVista);
+      return;
+    }
+
     confirmarSalidaSinGuardar(() => {
       setVistaActiva(nuevaVista);
     });
@@ -623,7 +634,7 @@ const handleFileUpload = async (e, type) => {
   };
 
   const handleFuenteMejoraChange = (event) => {
-    const seleccion = String(event.currentTarget.value || '');
+    const seleccion = String(event.target.value || '');
     const fuenteDB = fuentesMejoraDisponibles.find(
       fuente => String(fuente.codigo || fuente.id) === String(seleccion)
     );
@@ -638,7 +649,6 @@ const handleFileUpload = async (e, type) => {
       subproceso: nuevoSub,
     };
 
-    setFuenteMejoraSeleccionada(seleccion);
     setDraftInforme(siguienteDraft);
     registrarCambioBorrador(siguienteDraft);
     setIsDirty(true);
@@ -1157,14 +1167,14 @@ const handleFileUpload = async (e, type) => {
               <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2 space-y-4">
                 <div>
                   <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📍 Fuente de Mejora (Obligatorio)</label>
-                  <select
-                    name="tipoFuente"
-                    required
-                    value={fuenteMejoraSeleccionada}
-                    onChange={handleFuenteMejoraChange}
-                    className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-                    disabled={modoVistaCompleta}
-                  >
+            <select
+              name="tipoFuente"
+              required
+              value={draftInforme.tipoFuente || ''}
+              onChange={handleFuenteMejoraChange}
+              className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+              disabled={modoVistaCompleta}
+                              >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
                     {fuentesMejoraDisponibles.length > 0 && (
                       <optgroup label="Desde Módulo Fuentes de Mejora">
