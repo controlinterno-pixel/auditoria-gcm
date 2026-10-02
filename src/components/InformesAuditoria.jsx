@@ -280,6 +280,7 @@ export default function InformesAuditoria({
         };
 
         setDraftInforme(draftInicial);
+        setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: draftInicial.tipoFuente || '' }));
         setDraftHistory([draftInicial]);
 
         const participantesIniciales = (editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '')
@@ -585,8 +586,8 @@ const handleFileUpload = async (e, type) => {
       titulo: snapshot.titulo || draftInforme.titulo || '',
       proceso: snapshot.proceso || draftInforme.proceso || '',
       subproceso: snapshot.subproceso || draftInforme.subproceso || 'General',
-      tipoFuente: draftInforme.tipoFuente || '',
-      detalleFuente: draftInforme.detalleFuente || '',
+      tipoFuente: snapshot.tipoFuente || draftInforme.tipoFuente || '',
+      detalleFuente: snapshot.detalleFuente || draftInforme.detalleFuente || '',
       fecha: snapshot.fecha || draftInforme.fecha || '',
       elaboradoPor: snapshot.elaboradoPor || draftInforme.elaboradoPor || '',
       revisadoPor: snapshot.revisadoPor || draftInforme.revisadoPor || '',
@@ -1182,7 +1183,13 @@ const handleFileUpload = async (e, type) => {
                     <input
                       name="detalleFuente"
                       required
-                      defaultValue={editInformeAuditoria?.detalleFuente || ''}
+                      value={draftInforme.detalleFuente || ''}
+                      onChange={(e) => {
+                        const siguiente = { ...draftInforme, detalleFuente: e.target.value };
+                        setDraftInforme(siguiente);
+                        registrarCambioBorrador(siguiente);
+                        setIsDirty(true);
+                      }}
                       placeholder={`Especifique el origen relacionado a: ${tipoFuenteForm}`}
                       className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                       disabled={modoVistaCompleta}
@@ -1442,7 +1449,20 @@ const handleFileUpload = async (e, type) => {
             
             <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl shadow-inner mt-4">
               <label className="font-black text-blue-900 block mb-2 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
-<input name="correosNotificacionInput" type="text" placeholder="Ej: usuario1@empresa.com, usuario2@empresa.com (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed" disabled={modoVistaCompleta} />
+<input
+  name="correosNotificacionInput"
+  type="text"
+  value={draftInforme.correosNotificacionInput || ''}
+  onChange={(e) => {
+    const siguiente = { ...draftInforme, correosNotificacionInput: e.target.value };
+    setDraftInforme(siguiente);
+    registrarCambioBorrador(siguiente);
+    setIsDirty(true);
+  }}
+  placeholder="Ej: usuario1@empresa.com, usuario2@empresa.com (Separa los correos por comas)"
+  className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+  disabled={modoVistaCompleta}
+/>
               <p className="text-[10px] text-blue-600 mt-2 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
             </div>
 

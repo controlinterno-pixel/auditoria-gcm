@@ -2,6 +2,8 @@ const ETIQUETAS = {
   titulo: 'Título',
   proceso: 'Proceso',
   subproceso: 'Subproceso',
+  tipoFuente: 'Fuente',
+  detalleFuente: 'Detalle de la fuente',
   fecha: 'Fecha',
   elaboradoPor: 'Elaborado por',
   revisadoPor: 'Revisado por',
@@ -60,7 +62,7 @@ const extraerArchivosVersion = (actual = {}) => {
 
 export function buildHistorialDetalle({ anterior = {}, actual = {}, motivo = '', correosNotificacionOut = '' }) {
   const campos = [];
-  const claves = ['titulo', 'proceso', 'subproceso', 'fecha', 'elaboradoPor', 'revisadoPor', 'aprobadoPor', 'socializado', 'evidenciaUrl', 'correoEnviadoA'];
+  const claves = ['titulo', 'proceso', 'subproceso', 'tipoFuente', 'detalleFuente', 'fecha', 'elaboradoPor', 'revisadoPor', 'aprobadoPor', 'socializado', 'evidenciaUrl', 'correoEnviadoA'];
 
   claves.forEach((campo) => {
     const valorAnterior = anterior?.[campo];

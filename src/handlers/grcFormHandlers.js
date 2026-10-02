@@ -506,7 +506,9 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || 'General';
       
       const evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
-      const correosNotificacionOut = String(formData.get('correosNotificacionInput') || '').trim();
+      const tipoFuenteOut = String(formData.get('tipoFuente') || editInformeAuditoria?.tipoFuente || '').trim();
+      const detalleFuenteOut = String(formData.get('detalleFuente') || editInformeAuditoria?.detalleFuente || '').trim();
+      const correosNotificacionOut = String(formData.get('correosNotificacionInput') || editInformeAuditoria?.correoEnviadoA || '').trim();
       const anexosMultiplesRaw = formData.get('anexosMultiples') || '[]';
       let anexosMultiplesOut = [];
       try {
@@ -533,6 +535,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
             titulo: tituloVal,
             proceso: procesoVal,
             subproceso: subprocesoVal,
+            tipoFuente: tipoFuenteOut,
+            detalleFuente: detalleFuenteOut,
             fecha: formData.get('fecha') || editInformeAuditoria.fecha,
             elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '',
             revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '',
@@ -550,6 +554,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           titulo: tituloVal, 
           proceso: procesoVal, 
           subproceso: subprocesoVal, 
+          tipoFuente: tipoFuenteOut || editInformeAuditoria.tipoFuente || '',
+          detalleFuente: detalleFuenteOut || editInformeAuditoria.detalleFuente || '',
           fecha: formData.get('fecha') || editInformeAuditoria.fecha, 
           elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '', 
           revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '', 
@@ -572,7 +578,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           img3Desc: formData.get('img3Desc') || editInformeAuditoria.img3Desc || '', 
           img4Url: formData.get('img4Url') || editInformeAuditoria.img4Url || '', 
           img4Desc: formData.get('img4Desc') || editInformeAuditoria.img4Desc || '', 
-          correoEnviadoA: editInformeAuditoria.correoEnviadoA || '',
+          correoEnviadoA: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || '',
           fechaCorreoEnviado: editInformeAuditoria.fechaCorreoEnviado || '',
           historialCambios: [
             ...historialPrevio,
@@ -593,6 +599,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
                   titulo: tituloVal,
                   proceso: procesoVal,
                   subproceso: subprocesoVal,
+                  tipoFuente: tipoFuenteOut || editInformeAuditoria.tipoFuente || '',
+                  detalleFuente: detalleFuenteOut || editInformeAuditoria.detalleFuente || '',
                   fecha: formData.get('fecha') || editInformeAuditoria.fecha,
                   elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '',
                   revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '',
@@ -620,6 +628,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           titulo: tituloVal, 
           proceso: procesoVal, 
           subproceso: subprocesoVal, 
+          tipoFuente: tipoFuenteOut,
+          detalleFuente: detalleFuenteOut,
           fecha: formData.get('fecha') || new Date().toISOString().split('T')[0], 
           elaboradoPor: formData.get('elaboradoPor') || '', 
           revisadoPor: formData.get('revisadoPor') || '', 
@@ -644,7 +654,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           img3Desc: formData.get('img3Desc') || '', 
           img4Url: formData.get('img4Url') || '', 
           img4Desc: formData.get('img4Desc') || '', 
-          correoEnviadoA: '',
+          correoEnviadoA: correosNotificacionOut || '',
           fechaCorreoEnviado: '',
           historialCambios: [],
           hora: horaActual,
