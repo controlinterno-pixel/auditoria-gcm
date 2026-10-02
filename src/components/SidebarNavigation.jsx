@@ -163,11 +163,16 @@ export default function SidebarNavigation({
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'hallazgos' && !isCollapsed ? 'max-h-60 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
               {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('informes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'informes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Informes Emitidos</button>}
+              
+              {/* ✨ NUEVO BOTÓN: FUENTES DE MEJORA */}
+              {isAdmin && <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('fuentes_mejora'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'fuentes_mejora' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Módulo de Fuentes</button>}
+
               <button onClick={() => { setActiveTab('resultados_tab'); setSubTabResultados('hallazgos'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'resultados_tab' && subTabResultados === 'hallazgos' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Hallazgos Registrados</button>
               <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('incidentes'); }} className={`text-left pl-4 py-2 text-[11px] font-semibold rounded-r-lg ${activeTab === 'planes_tab' && subTabPlanes === 'incidentes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>Eventos de Pérdida</button>
             </div>
           </div>
         </div>
+
 
         {/* 5. PLANES DE ACCIÓN */}
         <div className="flex flex-col">

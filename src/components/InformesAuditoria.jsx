@@ -1120,17 +1120,37 @@ const handleFileUpload = async (e, type) => {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
 
-             {/* 🛡️ FUENTE DE MEJORA Y VINCULACIÓN OBLIGATORIA */}
+             {/* 🛡️ FUENTE DE MEJORA Y VINCULACIÓN DINÁMICA */}
               <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2 space-y-4">
                 <div>
                   <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📍 Fuente de Mejora (Obligatorio)</label>
-                 <select
+                  <select
                     name="tipoFuente"
                     required
                     value={tipoFuenteForm}
                     onChange={(e) => {
-                      setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: e.target.value }));
-                      if (e.target.value !== 'Programa de Auditoría') {
+                      const seleccion = e.target.value;
+                      setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: seleccion }));
+                      
+                      // LOGICA DE AUTOCOMPLETADO
+                      const fuentesAsociadas = {
+                        'AUD-001': 'Evaluar el cumplimiento del SGC en procesos críticos.',
+                        'AUD-002': 'Verificar cumplimiento ambiental y gestión de residuos.',
+                        'AUD-003': 'Analizar quejas y oportunidades de mejora en atención.',
+                        'AUD-004': 'Revisión de condiciones laborales y riesgos asociados.',
+                        'AUD-005': 'Evaluar controles anticorrupción y ética organizacional.'
+                      };
+
+                      if (fuentesAsociadas[seleccion]) {
+                         const siguiente = { ...draftInforme, detalleFuente: fuentesAsociadas[seleccion] };
+                         setDraftInforme(siguiente);
+                         setIsDirty(true);
+                      } else {
+                         const siguiente = { ...draftInforme, detalleFuente: '' };
+                         setDraftInforme(siguiente);
+                      }
+
+                      if (seleccion !== 'Programa de Auditoría') {
                         setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
                         setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
                       }
@@ -1139,13 +1159,17 @@ const handleFileUpload = async (e, type) => {
                     disabled={modoVistaCompleta}
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
-                    <option value="Programa de Auditoría">Programa de Auditoría</option>
-                    <option value="Auditoría">Auditoría</option>
-                    <option value="Cliente">Cliente</option>
-                    <option value="Accidente">Accidente</option>
-                    <option value="Indicador">Indicador</option>
-                    <option value="Iniciativa">Iniciativa</option>
-                    <option value="Otra">Otra</option>
+                    <optgroup label="Desde Módulo Fuentes de Mejora">
+                      <option value="AUD-001">[AUD-001] ISO 9001:2015 - Juan Pérez</option>
+                      <option value="AUD-002">[AUD-002] ISO 14001:2015 - ICONTEC</option>
+                      <option value="AUD-003">[AUD-003] PQR (Cliente) - Diana Vargas</option>
+                      <option value="AUD-004">[AUD-004] ISO 45001:2018 - Carlos Ramírez</option>
+                      <option value="AUD-005">[AUD-005] ISO 37001:2016 - Laura Martínez</option>
+                    </optgroup>
+                    <optgroup label="Otras Fuentes Manuales">
+                      <option value="Programa de Auditoría">Programa de Auditoría (Heredado)</option>
+                      <option value="Otra">Otra Fuente Externa</option>
+                    </optgroup>
                   </select>
                 </div>
 
@@ -1177,9 +1201,9 @@ const handleFileUpload = async (e, type) => {
                   </div>
                 )}
 
-              {tipoFuenteForm && tipoFuenteForm !== 'Programa de Auditoría' && (
+                {tipoFuenteForm && tipoFuenteForm !== 'Programa de Auditoría' && (
                   <div className="animate-in fade-in duration-300 border-t border-emerald-200 pt-3">
-                    <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📝 Detalle de la Fuente ({tipoFuenteForm})</label>
+                    <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📝 Detalle de la Fuente (Vinculación Automática)</label>
                     <input
                       name="detalleFuente"
                       required
@@ -1190,13 +1214,13 @@ const handleFileUpload = async (e, type) => {
                         registrarCambioBorrador(siguiente);
                         setIsDirty(true);
                       }}
-                      placeholder={`Especifique el origen relacionado a: ${tipoFuenteForm}`}
+                      placeholder="El alcance u objetivo se llenará automáticamente al seleccionar la fuente..."
                       className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                       disabled={modoVistaCompleta}
                     />
-                    <p className="text-xs text-emerald-700 mt-2 font-semibold">Debe especificar manualmente la fuente - informes de auditoría, PQRs, accidentes de trabajo e iniciativas de proceso, entre otros.</p>
+                    <p className="text-[10px] text-emerald-700 mt-2 font-semibold">El campo Detalle se sincroniza con el Alcance de la auditoría seleccionada en el módulo de Fuentes de Mejora.</p>
                   </div>
-                )} 
+                )}
               </div>
 
               <div className="md:col-span-2">
@@ -1383,7 +1407,6 @@ const handleFileUpload = async (e, type) => {
                   key={`fecha-soc-${idEdicion}-${socializadoForm}-${editInformeAuditoria?.id || 'nuevo'}`}
                   name="fechaSocializacion" 
                   type="date" 
-                  disabled={draftInforme.socializado !== 'Sí' && socializadoForm !== 'Sí'}
                   value={draftInforme.fechaSocializacion || ''}
                   onChange={(e) => {
                     const siguiente = { ...draftInforme, fechaSocializacion: e.target.value };
@@ -1392,7 +1415,7 @@ const handleFileUpload = async (e, type) => {
                     setIsDirty(true);
                   }}
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed transition-all" 
-                  disabled={modoVistaCompleta}
+                  disabled={modoVistaCompleta || (draftInforme.socializado !== 'Sí' && socializadoForm !== 'Sí')}
                 />
               </div>
 

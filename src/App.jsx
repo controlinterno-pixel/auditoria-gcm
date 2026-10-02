@@ -17,6 +17,7 @@ import AuditorIA from './components/AuditorIA';
 
 // 🚀 Carga perezosa (Lazy Loading) de módulos secundarios/pesados
 const InformesAuditoria = lazy(() => import('./components/InformesAuditoria'));
+const FuentesDeMejora = lazy(() => import('./components/FuentesDeMejora'));
 const Comites = lazy(() => import('./components/Comites'));
 const ConceptMapper = lazy(() => import('./components/AuditoriaAutomatizada/ConceptMapper'));
 const DashboardEjecutivo = lazy(() => import('./components/DashboardEjecutivo'));
@@ -479,7 +480,11 @@ return (
                     scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters} FilterInput={FilterInput}
                     safeHallazgos={safeHallazgos} safePlanes={safePlanes} formatSafeDate={formatSafeDate}
                   />
-                )}  
+                )}
+              {/* ✨ PANTALLA DE FUENTES DE MEJORA */}
+              {subTabResultados === 'fuentes_mejora' && isAdmin && (
+                  <FuentesDeMejora isAdmin={isAdmin} />
+              )}
               </div>
             )}
 
