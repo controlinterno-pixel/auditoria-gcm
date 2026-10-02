@@ -80,7 +80,8 @@ export default function ModalNuevaFuente({
   const subprocesosDisponibles = formData.macroproceso
     ? MAPA_PROCESOS[formData.macroproceso] || []
     : [];
-  const subprocesoDeshabilitado = isReadOnly || subprocesosDisponibles.length === 0;
+  // Se bloquea si solo hay 1 o 0 opciones, para que el usuario no tenga que interactuar con él
+  const subprocesoDeshabilitado = isReadOnly || !formData.macroproceso || subprocesosDisponibles.length <= 1;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -94,12 +95,19 @@ export default function ModalNuevaFuente({
   };
 
   const handleMacroprocesoChange = (e) => {
+    const nuevoMacro = e.target.value;
     setIsDirty(true);
+
+    // Lógica de Autocompletado Inteligente
+    const subAsociados = MAPA_PROCESOS[nuevoMacro] || [];
+    const nuevoSub = subAsociados.length === 1 ? subAsociados[0] : '';
+    const nuevoProceso = nuevoSub ? `${nuevoMacro} / ${nuevoSub}` : '';
+
     setFormData((prev) => ({
       ...prev,
-      macroproceso: e.target.value,
-      subproceso: '',
-      proceso: '',
+      macroproceso: nuevoMacro,
+      subproceso: nuevoSub,
+      proceso: nuevoProceso,
     }));
   };
 
@@ -342,9 +350,9 @@ export default function ModalNuevaFuente({
                   </div>
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Subproceso *</label>
-                    <select disabled={subprocesoDeshabilitado} name="subproceso" value={formData.subproceso} onChange={handleSubprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
+                    <select disabled={subprocesoDeshabilitado} name="subproceso" value={formData.subproceso} onChange={handleSubprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-500">
                       <option value="">
-                        {subprocesosDisponibles.length === 0 ? '⚙️ No hay subprocesos disponibles' : '⚙️ Seleccione un subproceso'}
+                        {!formData.macroproceso ? '⚙️ Esperando macroproceso...' : (subprocesosDisponibles.length <= 1 ? '⚙️ Aplica a nivel general' : '⚙️ Seleccione un subproceso')}
                       </option>
                       {subprocesosDisponibles.map((subproceso) => (
                         <option key={subproceso} value={subproceso}>{subproceso}</option>
