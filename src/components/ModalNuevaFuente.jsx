@@ -11,6 +11,9 @@ export default function ModalNuevaFuente({
   normasDisponibles = NORMAS_PREDETERMINADAS,
   onAddNorma,
   onDeleteNorma,
+  // ✨ NUEVAS PROPS: Para editar o ver
+  fuenteEdicion = null,
+  isReadOnly = false,
 }) {
   const [step, setStep] = useState(1);
   const [nuevaNorma, setNuevaNorma] = useState('');
@@ -19,8 +22,8 @@ export default function ModalNuevaFuente({
     tipoFuente: 'Auditoría Interna',
     codigo: codigoInicial,
     norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
-    fecha: '2026-03-12',
-    responsable: CARGOS_EMPRESA[0],
+    fecha: new Date().toISOString().split('T')[0],
+    responsable: CARGOS_EMPRESA[0] || '',
     estado: 'Borrador',
     descripcion: '',
     alcance: '',
@@ -30,20 +33,33 @@ export default function ModalNuevaFuente({
     origen: 'interno',
   });
 
+  // ✨ LÓGICA DE INICIALIZACIÓN MÁGICA (VISTA, EDICIÓN O CREACIÓN)
   useEffect(() => {
     if (isOpen) {
       setStep(1);
       setNuevaNorma('');
       setIsDirty(false);
-      setFormData((prev) => ({
-        ...prev,
-        codigo: codigoInicial,
-        macroproceso: '',
-        subproceso: '',
-        proceso: '',
-      }));
+      
+      if (fuenteEdicion) {
+        setFormData(fuenteEdicion); // Carga datos al Editar/Ver
+      } else {
+        setFormData({
+          tipoFuente: 'Auditoría Interna',
+          codigo: codigoInicial,
+          norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
+          fecha: new Date().toISOString().split('T')[0],
+          responsable: CARGOS_EMPRESA[0] || '',
+          estado: 'Borrador',
+          descripcion: '',
+          alcance: '',
+          macroproceso: '',
+          subproceso: '',
+          proceso: '',
+          origen: 'interno',
+        });
+      }
     }
-  }, [codigoInicial, isOpen]);
+  }, [isOpen, fuenteEdicion, codigoInicial, normasDisponibles]);
 
   useEffect(() => {
     if (!isOpen || !isDirty) return undefined;
@@ -112,7 +128,7 @@ export default function ModalNuevaFuente({
   };
 
   const handleClose = () => {
-    if (isDirty && !window.confirm('¿Seguro que quieres salir sin guardar la nueva fuente?')) return;
+    if (isDirty && !isReadOnly && !window.confirm('¿Seguro que quieres salir sin guardar los cambios?')) return;
     setIsDirty(false);
     onClose();
   };
@@ -142,8 +158,12 @@ export default function ModalNuevaFuente({
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-800">Nueva Fuente de Mejora</h2>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">Registra un nuevo origen para la gestión de mejora continua.</p>
+              <h2 className="text-lg font-black text-slate-800">
+                {isReadOnly ? 'Detalle de la Fuente' : (fuenteEdicion ? 'Editar Fuente de Mejora' : 'Nueva Fuente de Mejora')}
+              </h2>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                {isReadOnly ? 'Consulta de información registrada.' : 'Registra un nuevo origen para la gestión de mejora continua.'}
+              </p>
             </div>
           </div>
           <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
@@ -179,7 +199,7 @@ export default function ModalNuevaFuente({
                 <div className="grid grid-cols-2 gap-5">
                   <div className="col-span-2">
                     <label className="text-[11px] font-black text-blue-900 uppercase tracking-wider block mb-2">Tipo de Fuente *</label>
-                    <select name="tipoFuente" value={formData.tipoFuente} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm">
+                    <select disabled={isReadOnly} name="tipoFuente" value={formData.tipoFuente} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
                       <option value="Auditoría Interna">🎯 Auditoría Interna</option>
                       <option value="Auditoría Externa">🏢 Auditoría Externa</option>
                       <option value="PQR">💬 PQR</option>
@@ -196,19 +216,19 @@ export default function ModalNuevaFuente({
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Norma / Referencia *</label>
                     <div className="flex gap-2">
-                      <select name="norma" value={formData.norma} onChange={handleNormaChange} className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
+                      <select disabled={isReadOnly} name="norma" value={formData.norma} onChange={handleNormaChange} className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
                       {normasDisponibles.map((norma) => (
                         <option key={norma} value={norma}>{norma}</option>
                       ))}
                       <option value="__nueva__">Otra / Crear nueva norma</option>
                       </select>
-                      {formData.norma !== '__nueva__' && !NORMAS_PREDETERMINADAS.includes(formData.norma) && (
+                      {!isReadOnly && formData.norma !== '__nueva__' && !NORMAS_PREDETERMINADAS.includes(formData.norma) && (
                         <button type="button" onClick={handleDeleteNorma} className="px-3 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100" title="Eliminar norma seleccionada">
                           Eliminar
                         </button>
                       )}
                     </div>
-                    {formData.norma === '__nueva__' && (
+                    {!isReadOnly && formData.norma === '__nueva__' && (
                       <div className="flex gap-2 mt-2">
                         <input
                           type="text"
@@ -232,11 +252,12 @@ export default function ModalNuevaFuente({
                 <div className="grid grid-cols-3 gap-5">
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Fecha de Registro *</label>
-                    <input name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm" />
+                    <input disabled={isReadOnly} name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400" />
                   </div>
                   <div className="col-span-2">
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Responsable / Cargo *</label>
-                    <select name="responsable" value={formData.responsable} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
+                    <select disabled={isReadOnly} name="responsable" value={formData.responsable} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
+                      <option value="">-- Seleccionar --</option>
                       {CARGOS_EMPRESA.map((cargo) => (
                         <option key={cargo} value={cargo}>{cargo}</option>
                       ))}
@@ -244,14 +265,16 @@ export default function ModalNuevaFuente({
                   </div>
                   <div className="col-span-3">
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Estado *</label>
-                    <select name="estado" value={formData.estado} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
+                    <select disabled={isReadOnly} name="estado" value={formData.estado} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
                       <option value="Borrador">🟠 Borrador</option>
+                      <option value="En seguimiento">🟡 En seguimiento</option>
                       <option value="Activa">🟢 Activa</option>
+                      <option value="Cerrada">🔴 Cerrada</option>
                     </select>
                   </div>
                   <div className="col-span-3">
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Descripción de la Fuente *</label>
-                    <textarea name="descripcion" rows="4" value={formData.descripcion} onChange={handleInputChange} placeholder="Describa de manera clara y precisa el origen de la fuente de mejora..." className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm resize-none"></textarea>
+                    <textarea disabled={isReadOnly} name="descripcion" rows="4" value={formData.descripcion} onChange={handleInputChange} placeholder="Describa de manera clara y precisa el origen de la fuente de mejora..." className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm resize-none disabled:bg-slate-100 disabled:text-slate-500"></textarea>
                     <div className="text-right text-[10px] font-bold text-slate-400 mt-1">{formData.descripcion.length}/2000</div>
                   </div>
                 </div>
@@ -263,12 +286,12 @@ export default function ModalNuevaFuente({
                 <div className="grid grid-cols-2 gap-5">
                   <div className="col-span-2">
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Objetivo / Alcance</label>
-                    <textarea name="alcance" rows="3" value={formData.alcance} onChange={handleInputChange} placeholder="Indique el objetivo de la fuente y el alcance (procesos, áreas, sedes, etc.)." className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm resize-none"></textarea>
+                    <textarea disabled={isReadOnly} name="alcance" rows="3" value={formData.alcance} onChange={handleInputChange} placeholder="Indique el objetivo de la fuente y el alcance (procesos, áreas, sedes, etc.)." className="w-full border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 shadow-sm resize-none disabled:bg-slate-100 disabled:text-slate-500"></textarea>
                     <div className="text-right text-[10px] font-bold text-slate-400 mt-1">{formData.alcance.length}/1000</div>
                   </div>
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Macroproceso *</label>
-                    <select name="macroproceso" value={formData.macroproceso} onChange={handleMacroprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
+                    <select disabled={isReadOnly} name="macroproceso" value={formData.macroproceso} onChange={handleMacroprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
                       <option value="">⚙️ Seleccione un macroproceso</option>
                       {Object.keys(MAPA_PROCESOS).map((macroproceso) => (
                         <option key={macroproceso} value={macroproceso}>{macroproceso}</option>
@@ -277,7 +300,7 @@ export default function ModalNuevaFuente({
                   </div>
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Subproceso *</label>
-                    <select name="subproceso" value={formData.subproceso} onChange={handleSubprocesoChange} disabled={!formData.macroproceso} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
+                    <select disabled={isReadOnly} name="subproceso" value={formData.subproceso} onChange={handleSubprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
                       <option value="">⚙️ Seleccione un subproceso</option>
                       {(MAPA_PROCESOS[formData.macroproceso] || []).map((subproceso) => (
                         <option key={subproceso} value={subproceso}>{subproceso}</option>
@@ -288,12 +311,12 @@ export default function ModalNuevaFuente({
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Origen *</label>
                     <div className="flex items-center gap-4 h-[46px] px-2">
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="origen" value="interno" checked={formData.origen === 'interno'} onChange={handleInputChange} className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500" />
-                        <span className="text-xs font-bold text-slate-700">Módulo interno</span>
+                        <input disabled={isReadOnly} type="radio" name="origen" value="interno" checked={formData.origen === 'interno'} onChange={handleInputChange} className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500 disabled:opacity-50" />
+                        <span className={`text-xs font-bold ${isReadOnly ? 'text-slate-400' : 'text-slate-700'}`}>Módulo interno</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="origen" value="externo" checked={formData.origen === 'externo'} onChange={handleInputChange} className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500" />
-                        <span className="text-xs font-bold text-slate-700">Fuente externa</span>
+                        <input disabled={isReadOnly} type="radio" name="origen" value="externo" checked={formData.origen === 'externo'} onChange={handleInputChange} className="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500 disabled:opacity-50" />
+                        <span className={`text-xs font-bold ${isReadOnly ? 'text-slate-400' : 'text-slate-700'}`}>Fuente externa</span>
                       </label>
                     </div>
                   </div>
@@ -341,14 +364,18 @@ export default function ModalNuevaFuente({
                 <span className="text-slate-400 mt-0.5">👤</span>
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Responsable</p>
-                  <p className="text-sm font-bold text-slate-800">{formData.responsable || '---'}</p>
+                  <p className="text-sm font-bold text-slate-800 leading-tight">{formData.responsable || '---'}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-slate-400 mt-0.5">🏷️</span>
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Estado</p>
-                  <span className="inline-block bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black px-2 py-0.5 rounded mt-1">
+                  <span className={`inline-block border text-[10px] font-black px-2 py-0.5 rounded mt-1 ${
+                    formData.estado === 'Activa' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
+                    formData.estado === 'Cerrada' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
+                    'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
                     {formData.estado}
                   </span>
                 </div>
@@ -372,20 +399,25 @@ export default function ModalNuevaFuente({
           </div>
           <div className="flex items-center gap-3">
             <button onClick={handleClose} className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors">
-              Cancelar
+              {isReadOnly ? 'Volver' : 'Cancelar'}
             </button>
             {step > 1 && (
               <button onClick={handlePrev} className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
                 Anterior
               </button>
             )}
+            
             {step < 3 ? (
               <button onClick={handleNext} className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/30">
                 Siguiente
               </button>
+            ) : isReadOnly ? (
+              <button onClick={handleClose} className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 transition-colors shadow-sm flex items-center gap-2">
+                Cerrar Vista 👁️
+              </button>
             ) : (
               <button onClick={handleSubmit} className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/30 flex items-center gap-2">
-                <span>Crear Fuente</span> <span className="text-lg leading-none">🚀</span>
+                <span>{fuenteEdicion ? 'Guardar Cambios' : 'Crear Fuente'}</span> <span className="text-lg leading-none">{fuenteEdicion ? '💾' : '🚀'}</span>
               </button>
             )}
           </div>

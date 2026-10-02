@@ -1,15 +1,7 @@
 import { useState } from 'react';
 import ModalNuevaFuente from './ModalNuevaFuente';
 
-// Datos de prueba basados exactamente en tu captura de diseño
-const datosIniciales = [
-  { id: 'AUD-001', tipoNorma: 'ISO 9001', fecha: '12/03/2026', auditor: 'Juan Pérez', rol: 'Líder GH', alcance: 'Evaluar el cumplimiento del SGC en procesos críticos.', estado: 'Activa', color: 'bg-blue-500' },
-  { id: 'AUD-002', tipoNorma: 'ISO 14001', fecha: '05/02/2026', auditor: 'ICONTEC', rol: 'Auditor Externo', alcance: 'Verificar cumplimiento ambiental y gestión de residuos.', estado: 'Cerrada', color: 'bg-emerald-500' },
-  { id: 'AUD-003', tipoNorma: 'PQR (Cliente)', fecha: '20/03/2026', auditor: 'Diana Vargas', rol: 'Servicio al Cliente', alcance: 'Analizar quejas y oportunidades de mejora en atención.', estado: 'Activa', color: 'bg-orange-500' },
-  { id: 'AUD-004', tipoNorma: 'ISO 45001', fecha: '15/04/2026', auditor: 'Carlos Ramírez', rol: 'Seguridad y Salud', alcance: 'Revisión de condiciones laborales y riesgos asociados.', estado: 'En seguimiento', color: 'bg-indigo-500' },
-  { id: 'AUD-005', tipoNorma: 'ISO 37001', fecha: '10/05/2026', auditor: 'Laura Martínez', rol: 'Compliance', alcance: 'Evaluar controles anticorrupción y ética organizacional.', estado: 'Cerrada', color: 'bg-teal-500' },
-];
-
+// Eliminamos los datos iniciales estáticos para que empiece vacío.
 const normasIniciales = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
 
 const obtenerSiguienteCodigo = (fuentes) => {
@@ -24,11 +16,30 @@ const obtenerSiguienteCodigo = (fuentes) => {
   return `FA-${String(siguiente).padStart(3, '0')}`;
 };
 
-export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
+export default function FuentesDeMejora({ isAdmin, fuentes = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fuentesActuales, setFuentesActuales] = useState(fuentes);
   const [normasDisponibles, setNormasDisponibles] = useState(normasIniciales);
+  
+  // ✨ ESTADOS PARA VISTA/EDICIÓN
+  const [fuenteSeleccionada, setFuenteSeleccionada] = useState(null);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+
+  // 📈 KPIs DINÁMICOS EN BASE AL ESTADO
+  const totalFuentes = fuentesActuales.length;
+  const activas = fuentesActuales.filter(f => f.estado === 'Activa').length;
+  const borradores = fuentesActuales.filter(f => f.estado === 'Borrador').length;
+  const cerradas = fuentesActuales.filter(f => f.estado === 'Cerrada').length;
+  const seguimiento = fuentesActuales.filter(f => f.estado === 'En seguimiento').length;
+  
+  // Agrupación para la dona de "Normas"
+  const conteoNormas = fuentesActuales.reduce((acc, f) => {
+    acc[f.tipoNorma || f.norma] = (acc[f.tipoNorma || f.norma] || 0) + 1;
+    return acc;
+  }, {});
+  const normasArray = Object.entries(conteoNormas).sort((a,b) => b[1] - a[1]);
+  const coloresDona = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-teal-500', 'bg-orange-500'];
 
   const handleAddNorma = (norma) => {
     setNormasDisponibles((prev) => (
@@ -96,8 +107,12 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
           <button 
-            onClick={() => setIsModalOpen(true)} // ✨ AÑADIR ONCLICK AQUÍ
-            className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent flex items-center"
+            onClick={() => {
+              setFuenteSeleccionada(null);
+              setIsReadOnly(false);
+              setIsModalOpen(true);
+            }}
+            className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent flex items-center hover:scale-105"
           >
             <span className="mr-2">➕</span> Nueva Fuente
           </button>
@@ -139,7 +154,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
         </div>
       </div>
 
-      {/* 3. CONTENIDO PRINCIPAL (GRID CLARO) */}
+{/* 3. CONTENIDO PRINCIPAL (GRID CLARO) */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
         {/* TABLA IZQUIERDA (Ocupa 3 columnas) */}
@@ -149,37 +164,39 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
               <thead>
                 <tr className="bg-slate-900 text-[10px] uppercase font-black tracking-widest text-white border-b border-slate-200">
                   <th className="p-4 w-10 text-center"><input type="checkbox" className="rounded border-slate-400" /></th>
-                  <th className="p-4">ID</th>
-                  <th className="p-4">Tipo de Norma</th>
-                  <th className="p-4">Fecha Auditoría</th>
-                  <th className="p-4">Auditor / Equipo</th>
+                  <th className="p-4">Código</th>
+                  <th className="p-4">Norma / Referencia</th>
+                  <th className="p-4">Fecha</th>
+                  <th className="p-4">Responsable</th>
                   <th className="p-4">Objetivos / Alcance</th>
                   <th className="p-4">Estado</th>
                   <th className="p-4 text-center">Acciones</th>
                 </tr>
               </thead>
               <tbody className="text-xs font-medium text-slate-700 divide-y divide-slate-100">
-                {fuentesActuales.map((f, i) => (
-                  <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                {fuentesActuales.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="p-12 text-center text-slate-400 italic font-bold">No hay fuentes creadas. Presiona "+ Nueva Fuente" para empezar.</td>
+                  </tr>
+                ) : fuentesActuales.map((f, i) => (
+                  <tr key={f.codigo || f.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
-                    <td className="p-4 font-black text-slate-800 bg-slate-50/50">{f.id}</td>
+                    <td className="p-4 font-black text-slate-800 bg-slate-50/50">{f.codigo || f.id}</td>
                     <td className="p-4">
-                      <span className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${f.color}`}></span>
-                        <span className="font-bold border border-slate-200 bg-white px-2 py-0.5 rounded-md text-[10px] shadow-sm">{f.tipoNorma}</span>
-                      </span>
+                      <span className="font-bold border border-slate-200 bg-white px-2 py-0.5 rounded-md text-[10px] shadow-sm">{f.norma || f.tipoNorma}</span>
                     </td>
                     <td className="p-4 font-bold text-slate-600">{f.fecha}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-700 border border-slate-200">{f.auditor.split(' ').map(n=>n[0]).join('')}</div>
-                        <div>
-                          <p className="text-slate-800 font-bold text-[11px]">{f.auditor}</p>
-                          <p className="text-[9px] text-slate-500 font-medium">{f.rol}</p>
+                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-700 border border-slate-200">
+                          {(f.responsable || f.auditor || '').split(' ').map(n=>n[0]).join('').substring(0,2)}
                         </div>
+                        <p className="text-slate-800 font-bold text-[11px] truncate w-32" title={f.responsable || f.auditor}>
+                          {f.responsable || f.auditor}
+                        </p>
                       </div>
                     </td>
-                    <td className="p-4 text-[11px] font-bold text-slate-600 w-64 leading-tight">{f.alcance}</td>
+                    <td className="p-4 text-[11px] font-bold text-slate-600 w-64 leading-tight truncate" title={f.alcance || f.descripcion}>{f.alcance || f.descripcion}</td>
                     <td className="p-4">
                       <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 w-max border ${f.estado === 'Activa' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : f.estado === 'Cerrada' ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${f.estado === 'Activa' ? 'bg-emerald-500' : f.estado === 'Cerrada' ? 'bg-rose-500' : 'bg-amber-500'}`}></span>
@@ -187,9 +204,9 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
                       </span>
                     </td>
                     <td className="p-4 text-center space-x-2 text-slate-400">
-                      <button className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors">👁️</button>
-                      <button className="text-orange-500 hover:bg-orange-50 p-1.5 rounded-lg transition-colors">✏️</button>
-                      <button className="text-slate-400 hover:bg-slate-100 p-1.5 rounded-lg transition-colors">⋮</button>
+                      <button onClick={() => { setFuenteSeleccionada(f); setIsReadOnly(true); setIsModalOpen(true); }} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Ver información completa">👁️</button>
+                      <button onClick={() => { setFuenteSeleccionada(f); setIsReadOnly(false); setIsModalOpen(true); }} className="text-orange-500 hover:bg-orange-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Editar">✏️</button>
+                      <button onClick={() => { if(window.confirm(`¿Seguro de eliminar la fuente ${f.codigo || f.id}?`)) setFuentesActuales(prev => prev.filter(item => (item.codigo || item.id) !== (f.codigo || f.id))); }} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Eliminar">🗑️</button>
                     </td>
                   </tr>
                 ))}
@@ -197,65 +214,65 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
             </table>
           </div>
           <div className="bg-slate-50 p-4 flex items-center justify-between border-t border-slate-200 text-[10px] font-bold text-slate-500">
-            <span>Mostrando 1 - 5 de 24 auditorías</span>
-            <div className="flex gap-1">
-              <button className="px-2 py-1 rounded border border-slate-200 hover:bg-slate-200">&lt;</button>
-              <button className="px-2 py-1 bg-slate-900 text-white rounded">1</button>
-              <button className="px-2 py-1 rounded border border-slate-200 hover:bg-slate-200">2</button>
-              <button className="px-2 py-1 rounded border border-slate-200 hover:bg-slate-200">3</button>
-              <button className="px-2 py-1 rounded border border-slate-200 hover:bg-slate-200">&gt;</button>
-            </div>
+            <span>Mostrando {fuentesActuales.length} fuentes de mejora</span>
           </div>
         </div>
 
-        {/* PANELES LATERALES DERECHOS (Estilo Claro) */}
+        {/* PANELES LATERALES DERECHOS (Dinámicos al estado) */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Panel 1: Gráfica de Dona */}
+          {/* Panel 1: Gráfica de Dona Dinámica */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">Distribución por Norma</h3>
             <div className="flex flex-col items-center justify-center gap-6">
-              {/* Círculo de dona simulado */}
-              <div className="relative w-32 h-32 rounded-full border-[12px] border-slate-100 flex items-center justify-center border-t-orange-500 border-r-blue-500 border-b-emerald-500 border-l-purple-500 shadow-inner">
+              <div className="relative w-32 h-32 rounded-full border-[12px] border-slate-100 flex items-center justify-center border-t-blue-500 border-r-emerald-500 border-b-purple-500 border-l-orange-500 shadow-inner">
                 <div className="text-center">
-                  <span className="block text-3xl font-black text-slate-800 leading-none">24</span>
-                  <span className="block text-[8px] text-slate-400 uppercase tracking-widest mt-1">Auditorías</span>
+                  <span className="block text-3xl font-black text-slate-800 leading-none">{totalFuentes}</span>
+                  <span className="block text-[8px] text-slate-400 uppercase tracking-widest mt-1">Fuentes</span>
                 </div>
               </div>
               
-              <div className="w-full space-y-3 text-[10px] font-bold">
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-blue-500 rounded-full shadow-sm"></span> ISO 9001</span><span className="text-slate-800">6 <span className="text-slate-400 font-medium ml-1">(25%)</span></span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-emerald-500 rounded-full shadow-sm"></span> ISO 14001</span><span className="text-slate-800">5 <span className="text-slate-400 font-medium ml-1">(21%)</span></span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-purple-500 rounded-full shadow-sm"></span> ISO 45001</span><span className="text-slate-800">4 <span className="text-slate-400 font-medium ml-1">(17%)</span></span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-teal-500 rounded-full shadow-sm"></span> ISO 37001</span><span className="text-slate-800">3 <span className="text-slate-400 font-medium ml-1">(12%)</span></span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-orange-500 rounded-full shadow-sm"></span> PQR (Cliente)</span><span className="text-slate-800">3 <span className="text-slate-400 font-medium ml-1">(12%)</span></span></div>
+              <div className="w-full space-y-3 text-[10px] font-bold max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                {normasArray.length === 0 ? (
+                  <p className="text-center text-slate-400 italic">No hay normas registradas.</p>
+                ) : (
+                  normasArray.map(([norma, count], idx) => (
+                    <div key={norma} className="flex justify-between items-center">
+                      <span className="flex items-center gap-2 text-slate-600 truncate" title={norma}>
+                        <span className={`w-2 h-2 ${coloresDona[idx % coloresDona.length]} rounded-full shadow-sm shrink-0`}></span> 
+                        <span className="truncate w-24">{norma}</span>
+                      </span>
+                      <span className="text-slate-800 shrink-0">{count} <span className="text-slate-400 font-medium ml-1">({Math.round((count/totalFuentes)*100)}%)</span></span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
 
-          {/* Panel 2: Barras de Progreso */}
+          {/* Panel 2: Barras de Progreso Dinámicas */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">Resumen de Estado</h3>
             <div className="space-y-5">
               <div>
                 <div className="flex justify-between text-[10px] mb-1.5 font-bold">
                   <span className="text-slate-600">Activas</span>
-                  <span className="text-slate-800">75% <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-1">18</span></span>
+                  <span className="text-slate-800">{totalFuentes > 0 ? Math.round((activas/totalFuentes)*100) : 0}% <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-1">{activas}</span></span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="bg-emerald-500 h-full w-[75%] rounded-full"></div></div>
+                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{ width: `${totalFuentes > 0 ? (activas/totalFuentes)*100 : 0}%` }}></div></div>
               </div>
               <div>
                 <div className="flex justify-between text-[10px] mb-1.5 font-bold">
-                  <span className="text-slate-600">En seguimiento</span>
-                  <span className="text-slate-800">17% <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded ml-1">4</span></span>
+                  <span className="text-slate-600">Borradores / Seguimiento</span>
+                  <span className="text-slate-800">{totalFuentes > 0 ? Math.round(((borradores+seguimiento)/totalFuentes)*100) : 0}% <span className="text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded ml-1">{borradores+seguimiento}</span></span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="bg-amber-500 h-full w-[17%] rounded-full"></div></div>
+                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="bg-amber-500 h-full rounded-full transition-all duration-500" style={{ width: `${totalFuentes > 0 ? ((borradores+seguimiento)/totalFuentes)*100 : 0}%` }}></div></div>
               </div>
               <div>
                 <div className="flex justify-between text-[10px] mb-1.5 font-bold">
                   <span className="text-slate-600">Cerradas</span>
-                  <span className="text-slate-800">8% <span className="text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded ml-1">2</span></span>
+                  <span className="text-slate-800">{totalFuentes > 0 ? Math.round((cerradas/totalFuentes)*100) : 0}% <span className="text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded ml-1">{cerradas}</span></span>
                 </div>
-                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="bg-rose-500 h-full w-[8%] rounded-full"></div></div>
+                <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden"><div className="bg-rose-500 h-full rounded-full transition-all duration-500" style={{ width: `${totalFuentes > 0 ? (cerradas/totalFuentes)*100 : 0}%` }}></div></div>
               </div>
             </div>
           </div>
@@ -311,15 +328,25 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
 
         </div>
       </div>
-{/* ✨ RENDERIZAR EL MODAL */}
+{/* ✨ RENDERIZAR EL MODAL DINÁMICO */}
       <ModalNuevaFuente 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={handleSaveFuente}
+        onClose={() => setIsModalOpen(false)}
+        fuenteEdicion={fuenteSeleccionada}
+        isReadOnly={isReadOnly}
         codigoInicial={obtenerSiguienteCodigo(fuentesActuales)}
         normasDisponibles={normasDisponibles}
         onAddNorma={handleAddNorma}
         onDeleteNorma={handleDeleteNorma}
+        onSave={(data) => {
+          if (fuenteSeleccionada) {
+            // Editando una existente
+            setFuentesActuales(prev => prev.map(f => (f.codigo || f.id) === data.codigo ? data : f));
+          } else {
+            // Guardando una nueva
+            setFuentesActuales(prev => [data, ...prev]);
+          }
+        }} 
       />
     </div>
   );
