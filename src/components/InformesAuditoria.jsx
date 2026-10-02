@@ -1129,27 +1129,21 @@ const handleFileUpload = async (e, type) => {
                   <select
                     name="tipoFuente"
                     required
-                    value={draftInforme.tipoFuente || ''}
+                    value={tipoFuenteForm}
                     onChange={(e) => {
                       const seleccion = e.target.value;
                       
-                      // 💡 SOLUCIÓN DEFINITIVA: Leemos directo de la memoria global del navegador
-                      // Esto evita que si "fuentesMejoraDisponibles" no ha llegado por props, falle la búsqueda.
-                      const arrayBuscado = window.fuentesMejoraDB || fuentesMejoraDisponibles || [];
-                      const fuenteDB = arrayBuscado.find(f => (f.codigo || f.id) === seleccion);
+                      const fuenteDB = fuentesMejoraDisponibles.find(f => (f.codigo || f.id) === seleccion);
                       
                       const detalleFuente = fuenteDB?.alcance || fuenteDB?.descripcion || '';
-
-                      setDraftInforme(prev => {
-                        const newState = {
-                          ...prev,
-                          tipoFuente: seleccion,
-                          detalleFuente: detalleFuente,
-                        };
-                        registrarCambioBorrador(newState);
-                        return newState;
-                      });
+                      const siguienteDraft = {
+                        ...draftInforme,
+                        tipoFuente: seleccion,
+                        detalleFuente,
+                      };
                       
+                      setDraftInforme(siguienteDraft);
+                      registrarCambioBorrador(siguienteDraft);
                       setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: seleccion }));
                       setIsDirty(true);
 
@@ -1162,9 +1156,9 @@ const handleFileUpload = async (e, type) => {
                     disabled={modoVistaCompleta}
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
-                    {((window.fuentesMejoraDB && window.fuentesMejoraDB.length > 0) || fuentesMejoraDisponibles.length > 0) && (
+                    {fuentesMejoraDisponibles.length > 0 && (
                       <optgroup label="Desde Módulo Fuentes de Mejora">
-                        {(window.fuentesMejoraDB || fuentesMejoraDisponibles).filter(f => f.estado !== 'Cerrada').map(f => (
+                        {fuentesMejoraDisponibles.filter(f => f.estado !== 'Cerrada').map(f => (
                           <option key={f.codigo || f.id} value={f.codigo || f.id}>
                             [{f.codigo || f.id}] {f.norma || f.tipoNorma} - {f.responsable || f.auditor || 'Sin Responsable'}
                           </option>
