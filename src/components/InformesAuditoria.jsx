@@ -1178,7 +1178,7 @@ const handleFileUpload = async (e, type) => {
                   </select>
                 </div>
 
-                {tipoFuenteForm === 'Programa de Auditoría' && (
+               {draftInforme.tipoFuente === 'Programa de Auditoría' && (
                   <div className="animate-in fade-in duration-300 border-t border-emerald-200 pt-3">
                     <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📋 Vincular Programa de Auditoría Aprobado</label>
                     <select
@@ -1205,8 +1205,7 @@ const handleFileUpload = async (e, type) => {
                     <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">El sistema autocompletará el Macroproceso y Subproceso auditado.</p>
                   </div>
                 )}
-
-                {tipoFuenteForm && tipoFuenteForm !== 'Programa de Auditoría' && (
+{draftInforme.tipoFuente && draftInforme.tipoFuente !== 'Programa de Auditoría' && (
                   <div className="animate-in fade-in duration-300 border-t border-emerald-200 pt-3">
                     <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📝 Detalle de la Fuente (Vinculación Automática)</label>
                     <input
@@ -1274,8 +1273,8 @@ const handleFileUpload = async (e, type) => {
                      }
                    }}
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-                   disabled={tipoFuenteForm === 'Programa de Auditoría' || modoVistaCompleta}
-                 >
+disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompleta}
+>
                    <option value="">-- Seleccionar --</option>
                    {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
                  </select>
@@ -1297,7 +1296,7 @@ const handleFileUpload = async (e, type) => {
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                    disabled={
                      !macroprocesoForm || 
-                     tipoFuenteForm === 'Programa de Auditoría' || 
+                     draftInforme.tipoFuente === 'Programa de Auditoría' || 
                      (MAPA_PROCESOS[macroprocesoForm]?.length <= 1) ||
                      modoVistaCompleta
                    }
