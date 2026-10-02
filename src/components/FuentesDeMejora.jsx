@@ -4,6 +4,14 @@ import ModalNuevaFuente from './ModalNuevaFuente';
 // Eliminamos los datos iniciales estáticos para que empiece vacío.
 const normasIniciales = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
 
+const fechaComparable = (fecha) => {
+  const valor = String(fecha || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+
+  const partes = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return partes ? `${partes[3]}-${partes[2]}-${partes[1]}` : valor;
+};
+
 const obtenerSiguienteCodigo = (fuentes) => {
   const consecutivos = fuentes.flatMap((fuente) => {
     const valores = [fuente.codigo, fuente.id];
@@ -18,6 +26,10 @@ const obtenerSiguienteCodigo = (fuentes) => {
 
 export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filtroNorma, setFiltroNorma] = useState('TODOS');
+  const [filtroEstado, setFiltroEstado] = useState('TODOS');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fuentesActuales, setFuentesActuales] = useState(fuentes);
   
@@ -54,6 +66,34 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
   }, {});
   const normasArray = Object.entries(conteoNormas).sort((a,b) => b[1] - a[1]);
   const coloresDona = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-teal-500', 'bg-orange-500'];
+
+  const fuentesFiltradas = fuentesActuales.filter((fuente) => {
+    const textoBusqueda = [
+      fuente.codigo,
+      fuente.id,
+      fuente.norma,
+      fuente.tipoNorma,
+      fuente.tipoFuente,
+      fuente.responsable,
+      fuente.auditor,
+      fuente.rol,
+      fuente.alcance,
+      fuente.descripcion,
+      fuente.macroproceso,
+      fuente.subproceso,
+      fuente.proceso,
+    ].filter(Boolean).join(' ').toLowerCase();
+    const norma = fuente.norma || fuente.tipoNorma || '';
+    const fecha = fechaComparable(fuente.fecha);
+
+    return (
+      (!searchTerm.trim() || textoBusqueda.includes(searchTerm.trim().toLowerCase())) &&
+      (filtroNorma === 'TODOS' || norma === filtroNorma) &&
+      (filtroEstado === 'TODOS' || fuente.estado === filtroEstado) &&
+      (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
+      (!fechaHasta || (fecha && fecha <= fechaHasta))
+    );
+  });
 
   const handleAddNorma = (norma) => {
     setNormasDisponibles((prev) => (
@@ -159,21 +199,30 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
         <div className="flex items-center gap-3">
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1">Norma / Estándar</span>
-            <select className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
-              <option>Todos</option>
+            <select value={filtroNorma} onChange={(e) => setFiltroNorma(e.target.value)} className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
+              <option value="TODOS">Todos</option>
+              {[...new Set([...normasDisponibles, ...normasArray.map(([norma]) => norma)])].map((norma) => (
+                <option key={norma} value={norma}>{norma}</option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1">Estado</span>
-            <select className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
-              <option>Todos</option>
+            <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 outline-none cursor-pointer focus:border-[#0A3B32] shadow-sm">
+              <option value="TODOS">Todos</option>
+              <option value="Activa">Activa</option>
+              <option value="Borrador">Borrador</option>
+              <option value="En seguimiento">En seguimiento</option>
+              <option value="Cerrada">Cerrada</option>
             </select>
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1 ml-1">Fecha de auditoría</span>
-            <button className="bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg py-2.5 px-3 flex items-center gap-2 shadow-sm hover:bg-slate-50">
-              <span>📅</span> Desde - Hasta <span>↕️</span>
-            </button>
+            <div className="flex items-center gap-1">
+              <input type="date" aria-label="Fecha desde" value={fechaDesde} onChange={(e) => setFechaDesde(e.target.value)} className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2.5 px-2 outline-none focus:border-[#0A3B32] shadow-sm" />
+              <span className="text-slate-400 text-xs">-</span>
+              <input type="date" aria-label="Fecha hasta" value={fechaHasta} onChange={(e) => setFechaHasta(e.target.value)} className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2.5 px-2 outline-none focus:border-[#0A3B32] shadow-sm" />
+            </div>
           </div>
         </div>
       </div>
@@ -198,11 +247,11 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
                 </tr>
               </thead>
               <tbody className="text-xs font-medium text-slate-700 divide-y divide-slate-100">
-                {fuentesActuales.length === 0 ? (
+                {fuentesFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="p-12 text-center text-slate-400 italic font-bold">No hay fuentes creadas. Presiona "+ Nueva Fuente" para empezar.</td>
+                    <td colSpan="8" className="p-12 text-center text-slate-400 italic font-bold">{fuentesActuales.length === 0 ? 'No hay fuentes creadas. Presiona "+ Nueva Fuente" para empezar.' : 'No hay fuentes que coincidan con los filtros seleccionados.'}</td>
                   </tr>
-                ) : fuentesActuales.map((f, i) => (
+                ) : fuentesFiltradas.map((f, i) => (
                   <tr key={f.codigo || f.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
                     <td className="p-4 font-black text-slate-800 bg-slate-50/50">{f.codigo || f.id}</td>
@@ -238,7 +287,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
             </table>
           </div>
           <div className="bg-slate-50 p-4 flex items-center justify-between border-t border-slate-200 text-[10px] font-bold text-slate-500">
-            <span>Mostrando {fuentesActuales.length} fuentes de mejora</span>
+            <span>Mostrando {fuentesFiltradas.length} de {fuentesActuales.length} fuentes de mejora</span>
           </div>
         </div>
 
