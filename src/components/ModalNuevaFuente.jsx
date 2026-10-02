@@ -24,7 +24,7 @@ export default function ModalNuevaFuente({
     codigo: codigoInicial,
     norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
     fecha: new Date().toISOString().split('T')[0],
-    responsable: CARGOS_EMPRESA[0] || '',
+    responsable: '', // ✨ Dejado en blanco para forzar selección
     estado: 'Borrador',
     descripcion: '',
     alcance: '',
@@ -50,7 +50,7 @@ export default function ModalNuevaFuente({
           codigo: codigoInicial,
           norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
           fecha: new Date().toISOString().split('T')[0],
-          responsable: CARGOS_EMPRESA[0] || '',
+          responsable: '', // ✨ Dejado en blanco al limpiar formulario
           estado: 'Borrador',
           descripcion: '',
           alcance: '',
@@ -154,8 +154,22 @@ export default function ModalNuevaFuente({
   const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
   const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
   const handleSubmit = () => {
+    // 🛡️ Validación básica antes de guardar
+    if (!formData.tipoFuente || !formData.norma || !formData.fecha || !formData.responsable || !formData.descripcion || !formData.macroproceso) {
+      alert("⚠️ Faltan campos obligatorios por diligenciar. Por favor, revisa el formulario.");
+      return;
+    }
+
     setIsDirty(false);
     onSave(formData);
+    
+    // ✨ Notificación de éxito
+    if (fuenteEdicion) {
+      alert(`✅ ¡Cambios en la fuente ${formData.codigo} guardados exitosamente!`);
+    } else {
+      alert(`✅ ¡Nueva fuente ${formData.codigo} creada y radicada con éxito!`);
+    }
+    
     onClose();
   };
 
