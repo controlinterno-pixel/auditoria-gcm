@@ -40,6 +40,7 @@ export default function InformesAuditoria({
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
   const [socializadoFormState, setSocializadoFormState] = useState(null);
+  const [fuenteMejoraSeleccionada, setFuenteMejoraSeleccionada] = useState('');
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
@@ -281,6 +282,7 @@ export default function InformesAuditoria({
         };
 
         setDraftInforme(draftInicial);
+        setFuenteMejoraSeleccionada(String(draftInicial.tipoFuente || ''));
         setDraftHistory([draftInicial]);
 
         const participantesIniciales = (editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '')
@@ -319,6 +321,7 @@ export default function InformesAuditoria({
         correosNotificacionInput: '',
       };
       setDraftInforme(draftVacio);
+      setFuenteMejoraSeleccionada('');
       setDraftHistory([draftVacio]);
       setIsDirty(false);
       setHistorialExpandido(true);
@@ -620,7 +623,7 @@ const handleFileUpload = async (e, type) => {
   };
 
   const handleFuenteMejoraChange = (event) => {
-    const seleccion = event.currentTarget.value;
+    const seleccion = String(event.currentTarget.value || '');
     const fuenteDB = fuentesMejoraDisponibles.find(
       fuente => String(fuente.codigo || fuente.id) === String(seleccion)
     );
@@ -635,6 +638,7 @@ const handleFileUpload = async (e, type) => {
       subproceso: nuevoSub,
     };
 
+    setFuenteMejoraSeleccionada(seleccion);
     setDraftInforme(siguienteDraft);
     registrarCambioBorrador(siguienteDraft);
     setIsDirty(true);
@@ -1156,9 +1160,8 @@ const handleFileUpload = async (e, type) => {
                   <select
                     name="tipoFuente"
                     required
-                    value={draftInforme.tipoFuente || ''} // 💡 Única fuente de verdad
+                    value={fuenteMejoraSeleccionada}
                     onChange={handleFuenteMejoraChange}
-                    onInput={handleFuenteMejoraChange}
                     className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                     disabled={modoVistaCompleta}
                   >
@@ -1166,7 +1169,7 @@ const handleFileUpload = async (e, type) => {
                     {fuentesMejoraDisponibles.length > 0 && (
                       <optgroup label="Desde Módulo Fuentes de Mejora">
                         {fuentesMejoraDisponibles.filter(f => f.estado !== 'Cerrada').map(f => (
-                          <option key={f.codigo || f.id} value={f.codigo || f.id}>
+                          <option key={f.codigo || f.id} value={String(f.codigo || f.id)}>
                             [{f.codigo || f.id}] {f.norma || f.tipoNorma} - {f.responsable || f.auditor || 'Sin Responsable'}
                           </option>
                         ))}
