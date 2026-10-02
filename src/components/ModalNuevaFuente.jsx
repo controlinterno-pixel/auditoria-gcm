@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CARGOS_EMPRESA } from '../constants/diccionariosGRC';
+import { CARGOS_EMPRESA, MAPA_PROCESOS } from '../constants/diccionariosGRC';
 
 const NORMAS_PREDETERMINADAS = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
 
@@ -22,6 +22,8 @@ export default function ModalNuevaFuente({
     estado: 'Borrador',
     descripcion: '',
     alcance: '',
+    macroproceso: '',
+    subproceso: '',
     proceso: '',
     origen: 'interno',
   });
@@ -30,7 +32,13 @@ export default function ModalNuevaFuente({
     if (isOpen) {
       setStep(1);
       setNuevaNorma('');
-      setFormData((prev) => ({ ...prev, codigo: codigoInicial }));
+      setFormData((prev) => ({
+        ...prev,
+        codigo: codigoInicial,
+        macroproceso: '',
+        subproceso: '',
+        proceso: '',
+      }));
     }
   }, [codigoInicial, isOpen]);
 
@@ -43,6 +51,24 @@ export default function ModalNuevaFuente({
 
   const handleNormaChange = (e) => {
     setFormData((prev) => ({ ...prev, norma: e.target.value }));
+  };
+
+  const handleMacroprocesoChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      macroproceso: e.target.value,
+      subproceso: '',
+      proceso: '',
+    }));
+  };
+
+  const handleSubprocesoChange = (e) => {
+    const subproceso = e.target.value;
+    setFormData((prev) => ({
+      ...prev,
+      subproceso,
+      proceso: subproceso ? `${prev.macroproceso} / ${subproceso}` : '',
+    }));
   };
 
   const handleAddNorma = () => {
@@ -196,11 +222,21 @@ export default function ModalNuevaFuente({
                     <div className="text-right text-[10px] font-bold text-slate-400 mt-1">{formData.alcance.length}/1000</div>
                   </div>
                   <div>
-                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Proceso / Área relacionada *</label>
-                    <select name="proceso" value={formData.proceso} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
-                      <option value="">⚙️ Seleccione un proceso o área</option>
-                      <option value="Gestión Humana">Gestión Humana</option>
-                      <option value="Operaciones">Operaciones</option>
+                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Macroproceso *</label>
+                    <select name="macroproceso" value={formData.macroproceso} onChange={handleMacroprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
+                      <option value="">⚙️ Seleccione un macroproceso</option>
+                      {Object.keys(MAPA_PROCESOS).map((macroproceso) => (
+                        <option key={macroproceso} value={macroproceso}>{macroproceso}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Subproceso *</label>
+                    <select name="subproceso" value={formData.subproceso} onChange={handleSubprocesoChange} disabled={!formData.macroproceso} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
+                      <option value="">⚙️ Seleccione un subproceso</option>
+                      {(MAPA_PROCESOS[formData.macroproceso] || []).map((subproceso) => (
+                        <option key={subproceso} value={subproceso}>{subproceso}</option>
+                      ))}
                     </select>
                   </div>
                   <div>

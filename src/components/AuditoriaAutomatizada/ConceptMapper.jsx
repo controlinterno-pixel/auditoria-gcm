@@ -810,6 +810,7 @@ if (empleado.usoHistoricoAnterior) {
 
 <div className={pestanaActiva === 'HISTORICO' ? 'block' : 'hidden'}>
   <DashboardHistorico
+    listaBasesBD={listaHistoricosBD}
     onDatosHistoricosCargados={recibirNominaHistoricaCargada}
     hayDatosNominaCargada={Boolean(datosExcel?.length)}
     onAuditarPeriodosGuardados={handleAuditSavedPeriodsIntegral}

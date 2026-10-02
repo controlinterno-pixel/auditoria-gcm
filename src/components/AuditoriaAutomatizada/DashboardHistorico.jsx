@@ -149,6 +149,7 @@ const coincideFiltroTurno = (horario, filtro) =>
   filtro === 'TODOS' || obtenerGrupoTurno(horario) === filtro;
 
 const DashboardHistorico = ({
+  listaBasesBD = [],
   onDatosHistoricosCargados,
   hayDatosNominaCargada = false,
   onAuditarPeriodosGuardados,
@@ -161,6 +162,13 @@ const DashboardHistorico = ({
   const [isExporting, setIsExporting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [listaBases, setListaBases] = useState([]);
+
+  // Escuchar cuando el padre actualiza las bases y sincronizarlas
+  useEffect(() => {
+    if (listaBasesBD && listaBasesBD.length > 0) {
+      setListaBases(listaBasesBD);
+    }
+  }, [listaBasesBD]);
   const motor360Pendiente = React.useRef(false);
   const [busquedaMotorIntegral, setBusquedaMotorIntegral] = useState('');
   const [filtroMotorIntegral, setFiltroMotorIntegral] = useState('TODOS');
@@ -230,11 +238,11 @@ const [busquedaListaComparacion, setBusquedaListaComparacion] = useState('');
 
   const [listaMarcacionesBD, setListaMarcacionesBD] = useState([]);
 
- useEffect(() => {
-    // 1. Cargar bases de Nómina
-    obtenerListaHistoricos().then(data => {
-      setListaBases(data);
-    });
+useEffect(() => {
+    // Si el padre no pasó bases (por si acaso), hacemos una carga de respaldo
+    if (!listaBasesBD || listaBasesBD.length === 0) {
+      obtenerListaHistoricos().then(data => setListaBases(data));
+    }
 
     // 2. Cargar histórico de Marcaciones Biométricas desde la NUBE (Firebase)
     cargarMarcacionesDeLaNube().then(dataNube => {
