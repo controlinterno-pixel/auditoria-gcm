@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ModalNuevaFuente from './ModalNuevaFuente';
 
 // Datos de prueba basados exactamente en tu captura de diseño
 const datosIniciales = [
@@ -12,6 +13,8 @@ const datosIniciales = [
 export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
   const [searchTerm, setSearchTerm] = useState('');
   
+  // ✨ AÑADIR ESTE ESTADO
+  const [isModalOpen, setIsModalOpen] = useState(false);
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
@@ -44,11 +47,13 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
 
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          <button className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent flex items-center">
+          <button 
+            onClick={() => setIsModalOpen(true)} // ✨ AÑADIR ONCLICK AQUÍ
+            className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent flex items-center"
+          >
             <span className="mr-2">➕</span> Nueva Fuente
           </button>
         </div>
-      </div>
 
       {/* 2. BARRA DE HERRAMIENTAS Y FILTROS */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -257,7 +262,16 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
 
         </div>
       </div>
-
+{/* ✨ RENDERIZAR EL MODAL */}
+      <ModalNuevaFuente 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSave={(data) => {
+          console.log("Fuente Creada:", data);
+          alert("Fuente creada con éxito (simulado)");
+        }} 
+      />
     </div>
+     </div>
   );
 }
