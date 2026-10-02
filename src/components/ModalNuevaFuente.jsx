@@ -75,6 +75,11 @@ export default function ModalNuevaFuente({
 
   if (!isOpen) return null;
 
+  const subprocesosDisponibles = formData.macroproceso
+    ? MAPA_PROCESOS[formData.macroproceso] || []
+    : [];
+  const subprocesoDeshabilitado = isReadOnly || subprocesosDisponibles.length === 0;
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setIsDirty(true);
@@ -300,9 +305,11 @@ export default function ModalNuevaFuente({
                   </div>
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Subproceso *</label>
-                    <select disabled={isReadOnly} name="subproceso" value={formData.subproceso} onChange={handleSubprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
-                      <option value="">⚙️ Seleccione un subproceso</option>
-                      {(MAPA_PROCESOS[formData.macroproceso] || []).map((subproceso) => (
+                    <select disabled={subprocesoDeshabilitado} name="subproceso" value={formData.subproceso} onChange={handleSubprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
+                      <option value="">
+                        {subprocesosDisponibles.length === 0 ? '⚙️ No hay subprocesos disponibles' : '⚙️ Seleccione un subproceso'}
+                      </option>
+                      {subprocesosDisponibles.map((subproceso) => (
                         <option key={subproceso} value={subproceso}>{subproceso}</option>
                       ))}
                     </select>
