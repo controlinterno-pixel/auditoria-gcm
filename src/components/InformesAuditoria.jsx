@@ -27,7 +27,8 @@ export default function InformesAuditoria({
   scrollToForm, 
   handleDeleteItem, 
   applyFilters, 
-  FilterInput
+  FilterInput,
+  fuentesMejora = []
 }) {
 
   // 🏢 CONTROL DE CARGOS MÚLTIPLES EN SOCIALIZACIÓN
@@ -47,6 +48,7 @@ export default function InformesAuditoria({
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
   const socializadoForm = socializadoFormState?.[idEdicion] ?? (editInformeAuditoria?.socializado || 'No');
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
+  const fuentesMejoraDisponibles = Array.isArray(fuentesMejora) ? fuentesMejora : [];
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
@@ -1133,18 +1135,15 @@ const handleFileUpload = async (e, type) => {
                       setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: seleccion }));
                       
                       // LOGICA DE AUTOCOMPLETADO REAL DESDE LAS FUENTES CREADAS EN LA DB
-                      const fuenteDB = window.fuentesMejoraDB?.find(f => (f.codigo || f.id) === seleccion);
+                      const fuenteDB = fuentesMejoraDisponibles.find(f => (f.codigo || f.id) === seleccion);
+                      const detalleFuente = fuenteDB?.alcance || fuenteDB?.descripcion || '';
 
-                      if (fuenteDB) {
-                         // Si existe, extraemos su alcance o descripción dinámicamente
-                         const siguiente = { ...draftInforme, detalleFuente: fuenteDB.alcance || fuenteDB.descripcion || '' };
-                         setDraftInforme(siguiente);
-                         setIsDirty(true);
-                      } else {
-                         // Si seleccionó otra cosa, vaciamos el campo detalle
-                         const siguiente = { ...draftInforme, detalleFuente: '' };
-                         setDraftInforme(siguiente);
-                      }
+                      setDraftInforme(prev => ({
+                        ...prev,
+                        tipoFuente: seleccion,
+                        detalleFuente,
+                      }));
+                      setIsDirty(true);
 
                       if (seleccion !== 'Programa de Auditoría') {
                         setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
@@ -1155,9 +1154,9 @@ const handleFileUpload = async (e, type) => {
                     disabled={modoVistaCompleta}
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
-                    {window.fuentesMejoraDB && window.fuentesMejoraDB.length > 0 && (
+                    {fuentesMejoraDisponibles.length > 0 && (
                       <optgroup label="Desde Módulo Fuentes de Mejora">
-                        {window.fuentesMejoraDB.filter(f => f.estado !== 'Cerrada').map(f => (
+                        {fuentesMejoraDisponibles.filter(f => f.estado !== 'Cerrada').map(f => (
                           <option key={f.codigo || f.id} value={f.codigo || f.id}>
                             [{f.codigo || f.id}] {f.norma || f.tipoNorma} - {f.responsable || f.auditor || 'Sin Responsable'}
                           </option>
@@ -1166,7 +1165,6 @@ const handleFileUpload = async (e, type) => {
                     )}
                     <optgroup label="Otras Fuentes Manuales">
                       <option value="Programa de Auditoría">Programa de Auditoría (Heredado)</option>
-                      <option value="Otra">Otra Fuente Externa</option>
                     </optgroup>
                   </select>
                 </div>

@@ -472,6 +472,7 @@ return (
               {subTabResultados === 'informes' && isAdmin && (
                   <InformesAuditoria 
                     informesAuditoria={informesAuditoria} 
+                    fuentesMejora={fuentesMejora}
                     safeProgramas={safeProgramas}
                     setInformesAuditoria={setInformesAuditoria} editInformeAuditoria={editInformeAuditoria}
                     setEditInformeAuditoria={setEditInformeAuditoria} isAdmin={isAdmin} user={user} searchTerm={searchTerm} setSearchTerm={setSearchTerm}

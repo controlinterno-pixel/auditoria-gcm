@@ -37,11 +37,6 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
   const [fuenteSeleccionada, setFuenteSeleccionada] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
 
-  // 🔌 CONEXIÓN GLOBAL: Sincroniza las fuentes en tiempo real para que el módulo de Informes las detecte
-  useEffect(() => {
-    window.fuentesMejoraDB = fuentesActuales;
-  }, [fuentesActuales]);
-
   // 🧠 MEMORIA FOTOGRÁFICA: Leemos todas las normas que ya existen en las fuentes creadas
   const [normasDisponibles, setNormasDisponibles] = useState(() => {
     const normasDB = (Array.isArray(fuentes) ? fuentes : []).map(f => f.tipoNorma || f.norma).filter(Boolean);
