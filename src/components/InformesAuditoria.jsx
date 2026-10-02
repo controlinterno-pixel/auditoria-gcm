@@ -1120,7 +1120,7 @@ const handleFileUpload = async (e, type) => {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
 
-             {/* 🛡️ FUENTE DE MEJORA Y VINCULACIÓN DINÁMICA */}
+{/* 🛡️ FUENTE DE MEJORA Y VINCULACIÓN DINÁMICA */}
               <div className="md:col-span-4 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-sm mb-2 space-y-4">
                 <div>
                   <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📍 Fuente de Mejora (Obligatorio)</label>
@@ -1132,20 +1132,16 @@ const handleFileUpload = async (e, type) => {
                       const seleccion = e.target.value;
                       setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: seleccion }));
                       
-                      // LOGICA DE AUTOCOMPLETADO
-                      const fuentesAsociadas = {
-                        'AUD-001': 'Evaluar el cumplimiento del SGC en procesos críticos.',
-                        'AUD-002': 'Verificar cumplimiento ambiental y gestión de residuos.',
-                        'AUD-003': 'Analizar quejas y oportunidades de mejora en atención.',
-                        'AUD-004': 'Revisión de condiciones laborales y riesgos asociados.',
-                        'AUD-005': 'Evaluar controles anticorrupción y ética organizacional.'
-                      };
+                      // LOGICA DE AUTOCOMPLETADO REAL DESDE LAS FUENTES CREADAS EN LA DB
+                      const fuenteDB = window.fuentesMejoraDB?.find(f => (f.codigo || f.id) === seleccion);
 
-                      if (fuentesAsociadas[seleccion]) {
-                         const siguiente = { ...draftInforme, detalleFuente: fuentesAsociadas[seleccion] };
+                      if (fuenteDB) {
+                         // Si existe, extraemos su alcance o descripción dinámicamente
+                         const siguiente = { ...draftInforme, detalleFuente: fuenteDB.alcance || fuenteDB.descripcion || '' };
                          setDraftInforme(siguiente);
                          setIsDirty(true);
                       } else {
+                         // Si seleccionó otra cosa, vaciamos el campo detalle
                          const siguiente = { ...draftInforme, detalleFuente: '' };
                          setDraftInforme(siguiente);
                       }
@@ -1159,13 +1155,15 @@ const handleFileUpload = async (e, type) => {
                     disabled={modoVistaCompleta}
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
-                    <optgroup label="Desde Fuente de mejora">
-                      <option value="AUD-001">[AUD-001] ISO 9001:2015 - Juan Pérez</option>
-                      <option value="AUD-002">[AUD-002] ISO 14001:2015 - ICONTEC</option>
-                      <option value="AUD-003">[AUD-003] PQR (Cliente) - Diana Vargas</option>
-                      <option value="AUD-004">[AUD-004] ISO 45001:2018 - Carlos Ramírez</option>
-                      <option value="AUD-005">[AUD-005] ISO 37001:2016 - Laura Martínez</option>
-                    </optgroup>
+                    {window.fuentesMejoraDB && window.fuentesMejoraDB.length > 0 && (
+                      <optgroup label="Desde Módulo Fuentes de Mejora">
+                        {window.fuentesMejoraDB.filter(f => f.estado !== 'Cerrada').map(f => (
+                          <option key={f.codigo || f.id} value={f.codigo || f.id}>
+                            [{f.codigo || f.id}] {f.norma || f.tipoNorma} - {f.responsable || f.auditor || 'Sin Responsable'}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                     <optgroup label="Otras Fuentes Manuales">
                       <option value="Programa de Auditoría">Programa de Auditoría (Heredado)</option>
                       <option value="Otra">Otra Fuente Externa</option>
