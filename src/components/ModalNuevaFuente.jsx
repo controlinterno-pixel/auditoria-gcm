@@ -18,6 +18,7 @@ export default function ModalNuevaFuente({
   const [step, setStep] = useState(1);
   const [nuevaNorma, setNuevaNorma] = useState('');
   const [isDirty, setIsDirty] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [formData, setFormData] = useState({
     tipoFuente: 'Auditoría Interna',
     codigo: codigoInicial,
@@ -39,6 +40,7 @@ export default function ModalNuevaFuente({
       setStep(1);
       setNuevaNorma('');
       setIsDirty(false);
+      setShowExitConfirm(false);
       
       if (fuenteEdicion) {
         setFormData(fuenteEdicion); // Carga datos al Editar/Ver
@@ -135,7 +137,16 @@ export default function ModalNuevaFuente({
   };
 
   const handleClose = () => {
-    if (!isReadOnly && !window.confirm('¿Seguro que quieres salir sin guardar la nueva fuente?')) return;
+    if (!isReadOnly) {
+      setShowExitConfirm(true);
+      return;
+    }
+    setIsDirty(false);
+    onClose();
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitConfirm(false);
     setIsDirty(false);
     onClose();
   };
@@ -443,6 +454,28 @@ export default function ModalNuevaFuente({
         </div>
 
       </div>
+
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-xl">⚠️</div>
+              <div>
+                <h3 className="text-base font-black text-slate-800">¿Salir sin guardar?</h3>
+                <p className="mt-1 text-sm text-slate-500">Los datos de esta nueva fuente se perderán si cierras el formulario.</p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowExitConfirm(false)} className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100">
+                Continuar editando
+              </button>
+              <button type="button" onClick={handleConfirmExit} className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-black text-white hover:bg-rose-700">
+                Salir sin guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
