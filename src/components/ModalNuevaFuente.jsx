@@ -118,7 +118,7 @@ export default function ModalNuevaFuente({
     onAddNorma?.(norma);
     setIsDirty(true);
     
-    // Forzamos el cambio inmediato en el select
+    // Forzamos la actualización del formulario para que seleccione la norma recién creada
     setFormData((prev) => ({ ...prev, norma: norma }));
     setNuevaNorma('');
   };
@@ -135,7 +135,7 @@ export default function ModalNuevaFuente({
   };
 
   const handleClose = () => {
-    if (isDirty && !isReadOnly && !window.confirm('¿Seguro que quieres salir sin guardar los cambios?')) return;
+    if (!isReadOnly && !window.confirm('¿Seguro que quieres salir sin guardar la nueva fuente?')) return;
     setIsDirty(false);
     onClose();
   };
@@ -226,10 +226,14 @@ export default function ModalNuevaFuente({
                       <select 
                         disabled={isReadOnly} 
                         name="norma" 
-                        value={formData.norma === '__nueva__' ? '__nueva__' : (normasDisponibles.includes(formData.norma) ? formData.norma : normasDisponibles[0])} 
+                        value={formData.norma} 
                         onChange={handleNormaChange} 
                         className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400"
                       >
+                        {/* 💡 MAGIA: Forzamos renderizar la norma si fue recién agregada y React aún no actualiza normasDisponibles */}
+                        {!normasDisponibles.includes(formData.norma) && formData.norma !== '__nueva__' && (
+                          <option value={formData.norma}>{formData.norma}</option>
+                        )}
                         {normasDisponibles.map((n) => (
                           <option key={n} value={n}>{n}</option>
                         ))}
