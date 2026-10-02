@@ -1133,13 +1133,17 @@ const handleFileUpload = async (e, type) => {
                     onChange={(e) => {
                       const seleccion = e.target.value;
                       
-                      const fuenteDB = fuentesMejoraDisponibles.find(f => (f.codigo || f.id) === seleccion);
-                      
+                      const fuenteDB = fuentesMejoraDisponibles.find(f => String(f.codigo || f.id) === String(seleccion));
                       const detalleFuente = fuenteDB?.alcance || fuenteDB?.descripcion || '';
+                      const macroprocesoFuente = fuenteDB?.macroproceso || fuenteDB?.proceso || '';
+                      const subprocesoFuente = fuenteDB?.subproceso || 'General';
                       const siguienteDraft = {
                         ...draftInforme,
                         tipoFuente: seleccion,
                         detalleFuente,
+                        proceso: macroprocesoFuente,
+                        macroproceso: macroprocesoFuente,
+                        subproceso: subprocesoFuente,
                       };
                       
                       setDraftInforme(siguienteDraft);
@@ -1147,7 +1151,10 @@ const handleFileUpload = async (e, type) => {
                       setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: seleccion }));
                       setIsDirty(true);
 
-                      if (seleccion !== 'Programa de Auditoría') {
+                      if (fuenteDB) {
+                        setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: macroprocesoFuente }));
+                        setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesoFuente }));
+                      } else if (seleccion === 'Programa de Auditoría') {
                         setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
                         setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
                       }
