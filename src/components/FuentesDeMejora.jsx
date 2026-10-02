@@ -54,6 +54,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
             <span className="mr-2">➕</span> Nueva Fuente
           </button>
         </div>
+      </div>
 
       {/* 2. BARRA DE HERRAMIENTAS Y FILTROS */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -272,6 +273,5 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
         }} 
       />
     </div>
-     </div>
   );
 }
