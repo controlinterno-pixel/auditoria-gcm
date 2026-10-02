@@ -102,7 +102,7 @@ export default function App() {
     setIncidentes, setEvaluaciones,
     cronograma, setCronograma, setMonitoreo,
     informesAuditoria, setInformesAuditoria, setComites,
-    setProgramas,
+    setProgramas, fuentesMejora, setFuentesMejora,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();
@@ -483,7 +483,15 @@ return (
                 )}
               {/* ✨ PANTALLA DE FUENTE DE MEJORA */}
               {subTabResultados === 'fuentes_mejora' && isAdmin && (
-                  <FuentesDeMejora isAdmin={isAdmin} />
+                  <FuentesDeMejora
+                    isAdmin={isAdmin}
+                    fuentes={fuentesMejora}
+                    onSaveFuentes={async (fuentesActualizadas) => {
+                      setFuentesMejora(fuentesActualizadas);
+                      const guardado = await saveToCloud({ fuentesMejora: fuentesActualizadas });
+                      if (!guardado) showNotification('No se pudieron guardar las fuentes de mejora.', 'error');
+                    }}
+                  />
               )}
               </div>
             )}

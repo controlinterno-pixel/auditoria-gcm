@@ -28,6 +28,7 @@ export function useGrcData() {
   const [comites, setComites] = useState([]);
   const [programas, setProgramas] = useState([]);
   const [auditoresLista, setAuditoresLista] = useState([]);
+  const [fuentesMejora, setFuentesMejora] = useState([]);
 
   // 1. Estado y validación de perfil/rol de usuario
   useEffect(() => {
@@ -117,6 +118,7 @@ const data = await apiService.getGrcData();
         setComites(data.comites || []);
         setProgramas(data.programas || []);
         setAuditoresLista(data.auditoresLista || []);
+        setFuentesMejora(data.fuentesMejora || []);
         
       } catch (error) {
         console.error("🔥 Error de seguridad/red obteniendo datos:", error);
@@ -159,6 +161,7 @@ const data = await apiService.getGrcData();
     comites, setComites,
     programas, setProgramas,
     auditoresLista, setAuditoresLista,
+    fuentesMejora, setFuentesMejora,
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   };

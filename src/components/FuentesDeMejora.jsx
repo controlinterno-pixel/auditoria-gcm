@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import ModalNuevaFuente from './ModalNuevaFuente';
 
 // Eliminamos los datos iniciales estáticos para que empiece vacío.
@@ -16,7 +16,7 @@ const obtenerSiguienteCodigo = (fuentes) => {
   return `FA-${String(siguiente).padStart(3, '0')}`;
 };
 
-export default function FuentesDeMejora({ isAdmin, fuentes = [] }) {
+export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fuentesActuales, setFuentesActuales] = useState(fuentes);
@@ -25,6 +25,10 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [] }) {
   // ✨ ESTADOS PARA VISTA/EDICIÓN
   const [fuenteSeleccionada, setFuenteSeleccionada] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
+
+  useEffect(() => {
+    setFuentesActuales(Array.isArray(fuentes) ? fuentes : []);
+  }, [fuentes]);
 
   // 📈 KPIs DINÁMICOS EN BASE AL ESTADO
   const totalFuentes = fuentesActuales.length;
@@ -53,25 +57,30 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [] }) {
     setNormasDisponibles((prev) => prev.filter((existente) => existente !== norma));
   };
 
+  const actualizarFuentes = (fuentesActualizadas) => {
+    setFuentesActuales(fuentesActualizadas);
+    onSaveFuentes?.(fuentesActualizadas);
+  };
+
   const handleSaveFuente = (data) => {
-    const responsable = data.responsable.split(' (');
-    setFuentesActuales((prev) => [
-      ...prev,
-      {
-        id: data.codigo,
-        tipoNorma: data.norma,
-        fecha: data.fecha,
-        auditor: responsable[0],
-        rol: responsable[1]?.replace(')', '') || '',
-        alcance: data.alcance || data.descripcion,
-        macroproceso: data.macroproceso,
-        subproceso: data.subproceso,
-        proceso: data.proceso,
-        estado: data.estado,
-        color: 'bg-blue-500',
-      },
-    ]);
+    const identificador = data.codigo || data.id;
+    const fuentesActualizadas = fuenteSeleccionada
+      ? fuentesActuales.map((fuente) => (
+          (fuente.codigo || fuente.id) === identificador ? data : fuente
+        ))
+      : [data, ...fuentesActuales];
+
+    actualizarFuentes(fuentesActualizadas);
+    setFuenteSeleccionada(null);
     setIsModalOpen(false);
+  };
+
+  const handleDeleteFuente = (fuente) => {
+    if (!window.confirm(`¿Seguro de eliminar la fuente ${fuente.codigo || fuente.id}?`)) return;
+
+    actualizarFuentes(fuentesActuales.filter((item) => (
+      (item.codigo || item.id) !== (fuente.codigo || fuente.id)
+    )));
   };
 
   return (
@@ -206,7 +215,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [] }) {
                     <td className="p-4 text-center space-x-2 text-slate-400">
                       <button onClick={() => { setFuenteSeleccionada(f); setIsReadOnly(true); setIsModalOpen(true); }} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Ver información completa">👁️</button>
                       <button onClick={() => { setFuenteSeleccionada(f); setIsReadOnly(false); setIsModalOpen(true); }} className="text-orange-500 hover:bg-orange-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Editar">✏️</button>
-                      <button onClick={() => { if(window.confirm(`¿Seguro de eliminar la fuente ${f.codigo || f.id}?`)) setFuentesActuales(prev => prev.filter(item => (item.codigo || item.id) !== (f.codigo || f.id))); }} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Eliminar">🗑️</button>
+                      <button onClick={() => handleDeleteFuente(f)} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Eliminar">🗑️</button>
                     </td>
                   </tr>
                 ))}
@@ -338,15 +347,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [] }) {
         normasDisponibles={normasDisponibles}
         onAddNorma={handleAddNorma}
         onDeleteNorma={handleDeleteNorma}
-        onSave={(data) => {
-          if (fuenteSeleccionada) {
-            // Editando una existente
-            setFuentesActuales(prev => prev.map(f => (f.codigo || f.id) === data.codigo ? data : f));
-          } else {
-            // Guardando una nueva
-            setFuentesActuales(prev => [data, ...prev]);
-          }
-        }} 
+        onSave={handleSaveFuente}
       />
     </div>
   );
