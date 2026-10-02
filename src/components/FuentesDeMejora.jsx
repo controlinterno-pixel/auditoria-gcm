@@ -33,7 +33,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
             </div>
             <div className="pt-1">
               <h2 className="text-3xl font-black text-white drop-shadow-md tracking-tight">
-                Fuentes de Mejora
+                Fuente de mejora
               </h2>
               <p className="text-[13px] text-slate-300 font-medium mt-1.5 leading-relaxed max-w-md">
                 Gestión centralizada de orígenes para auditorías y hallazgos.

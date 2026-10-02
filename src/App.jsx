@@ -481,7 +481,7 @@ return (
                     safeHallazgos={safeHallazgos} safePlanes={safePlanes} formatSafeDate={formatSafeDate}
                   />
                 )}
-              {/* ✨ PANTALLA DE FUENTES DE MEJORA */}
+              {/* ✨ PANTALLA DE FUENTE DE MEJORA */}
               {subTabResultados === 'fuentes_mejora' && isAdmin && (
                   <FuentesDeMejora isAdmin={isAdmin} />
               )}

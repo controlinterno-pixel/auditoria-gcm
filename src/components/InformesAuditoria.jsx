@@ -1159,7 +1159,7 @@ const handleFileUpload = async (e, type) => {
                     disabled={modoVistaCompleta}
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
-                    <optgroup label="Desde Módulo Fuentes de Mejora">
+                    <optgroup label="Desde Fuente de mejora">
                       <option value="AUD-001">[AUD-001] ISO 9001:2015 - Juan Pérez</option>
                       <option value="AUD-002">[AUD-002] ISO 14001:2015 - ICONTEC</option>
                       <option value="AUD-003">[AUD-003] PQR (Cliente) - Diana Vargas</option>
@@ -1218,7 +1218,7 @@ const handleFileUpload = async (e, type) => {
                       className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                       disabled={modoVistaCompleta}
                     />
-                    <p className="text-[10px] text-emerald-700 mt-2 font-semibold">El campo Detalle se sincroniza con el Alcance de la auditoría seleccionada en el módulo de Fuentes de Mejora.</p>
+                    <p className="text-[10px] text-emerald-700 mt-2 font-semibold">El campo Detalle se sincroniza con el Alcance de la auditoría seleccionada en el módulo Fuente de mejora.</p>
                   </div>
                 )}
               </div>
