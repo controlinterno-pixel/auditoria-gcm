@@ -20,14 +20,24 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fuentesActuales, setFuentesActuales] = useState(fuentes);
-  const [normasDisponibles, setNormasDisponibles] = useState(normasIniciales);
   
   // ✨ ESTADOS PARA VISTA/EDICIÓN
   const [fuenteSeleccionada, setFuenteSeleccionada] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
 
+  // 🧠 MEMORIA FOTOGRÁFICA: Leemos todas las normas que ya existen en las fuentes creadas
+  const [normasDisponibles, setNormasDisponibles] = useState(() => {
+    const normasDB = (Array.isArray(fuentes) ? fuentes : []).map(f => f.tipoNorma || f.norma).filter(Boolean);
+    return [...new Set([...normasIniciales, ...normasDB])];
+  });
+
   useEffect(() => {
-    setFuentesActuales(Array.isArray(fuentes) ? fuentes : []);
+    const arrFuentes = Array.isArray(fuentes) ? fuentes : [];
+    setFuentesActuales(arrFuentes);
+    
+    // Si llegan fuentes de la Base de Datos, extraemos sus normas automáticamente para no perderlas
+    const normasDB = arrFuentes.map(f => f.tipoNorma || f.norma).filter(Boolean);
+    setNormasDisponibles(prev => [...new Set([...prev, ...normasDB])]);
   }, [fuentes]);
 
   // 📈 KPIs DINÁMICOS EN BASE AL ESTADO

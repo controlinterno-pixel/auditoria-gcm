@@ -50,7 +50,7 @@ export default function ModalNuevaFuente({
           codigo: codigoInicial,
           norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
           fecha: new Date().toISOString().split('T')[0],
-          responsable: '', // ✨ Dejado en blanco al limpiar formulario
+          responsable: '', // ✨ Responsable vacío para forzar selección
           estado: 'Borrador',
           descripcion: '',
           alcance: '',
@@ -61,7 +61,10 @@ export default function ModalNuevaFuente({
         });
       }
     }
-  }, [isOpen, fuenteEdicion, codigoInicial, normasDisponibles]);
+    // 🛑 TRUCO CLAVE: Eliminamos "normasDisponibles" de las dependencias
+    // para evitar que el formulario se borre al agregar una norma nueva.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, fuenteEdicion]);
 
   useEffect(() => {
     if (!isOpen || !isDirty) return undefined;
