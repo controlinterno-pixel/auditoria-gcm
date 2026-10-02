@@ -206,6 +206,22 @@ export const apiService = {
     body: { partialData }
   }),
 
+  // 🗄️ HISTÓRICOS DE NÓMINA Y MARCACIONES
+  getHistorico: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/api/grc/historico${query ? `?${query}` : ''}`);
+  },
+
+  postHistorico: (payload) => request('/api/grc/historico', {
+    method: 'POST',
+    body: payload
+  }),
+
+  deleteHistorico: (payload) => request('/api/grc/historico', {
+    method: 'DELETE',
+    body: payload
+  }),
+
   // 🛡️ MATRICES DE RIESGO (ISO 31000 / E-GE-MAN-001)
   getRiesgos: () => request('/api/grc/riesgos'),
 
