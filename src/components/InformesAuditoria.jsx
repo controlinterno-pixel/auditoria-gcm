@@ -56,6 +56,7 @@ export default function InformesAuditoria({
   const handleCrearNuevoInforme = () => {
     confirmarSalidaSinGuardar(() => {
       setEditInformeAuditoria(null);
+      setModoVistaCompleta(false);
       setVistaActiva('nuevo');
     });
   };
@@ -155,10 +156,12 @@ export default function InformesAuditoria({
   const [progresoAnexo, setProgresoAnexo] = useState(0);
   const [motivoCambio, setMotivoCambio] = useState('');
   const [isDirty, setIsDirty] = useState(false);
+  const [modoVistaCompleta, setModoVistaCompleta] = useState(false);
   const [historialExpandido, setHistorialExpandido] = useState(true);
   const [historialCompacto, setHistorialCompacto] = useState(true);
   const [historialVersionOpen, setHistorialVersionOpen] = useState({});
   const [restoreConfirm, setRestoreConfirm] = useState(null);
+  const [confirmacionSalida, setConfirmacionSalida] = useState(null);
   const [draftHistory, setDraftHistory] = useState([]);
   const [draftInforme, setDraftInforme] = useState({
     titulo: '',
@@ -339,10 +342,14 @@ export default function InformesAuditoria({
       return;
     }
 
-    const confirmado = window.confirm('Tienes cambios sin guardar. ¿Deseas salir sin guardar?');
-    if (confirmado) {
-      callback();
-    }
+    setConfirmacionSalida({
+      mensaje: 'Tienes cambios sin guardar. ¿Deseas salir sin guardar?',
+      onConfirm: () => {
+        setConfirmacionSalida(null);
+        callback();
+      },
+      onCancel: () => setConfirmacionSalida(null),
+    });
   };
 
   const registrarCambioBorrador = (siguienteDraft) => {
@@ -487,6 +494,7 @@ const handleFileUpload = async (e, type) => {
     setAnexosMultiples([]);
     setMotivoCambio('');
     setIsDirty(false);
+    setModoVistaCompleta(false);
     setFormResetKey(Date.now());
     setVistaActiva('dashboard');
   };
@@ -642,6 +650,37 @@ const handleFileUpload = async (e, type) => {
                 className="rounded-full bg-[#0A3B32] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-[#0b4a3f]"
               >
                 Restaurar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmacionSalida && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-xl">⚠️</div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Advertencia</p>
+                <h3 className="text-lg font-black text-slate-900">Salir sin guardar</h3>
+              </div>
+            </div>
+            <p className="text-sm text-slate-700 leading-6">{confirmacionSalida.mensaje}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={confirmacionSalida.onCancel}
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-700 hover:border-slate-400"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmacionSalida.onConfirm}
+                className="rounded-full bg-red-600 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white hover:bg-red-700"
+              >
+                Salir sin guardar
               </button>
             </div>
           </div>
@@ -998,8 +1037,8 @@ const handleFileUpload = async (e, type) => {
           
           <div className="flex justify-between items-center border-b pb-4 gap-3">
             <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest flex items-center">
-              <span className="text-xl mr-3 bg-emerald-50 p-2 rounded-lg">{editInformeAuditoria ? '✏️' : '➕'}</span>
-              {editInformeAuditoria ? `Editando Flujo de Informe: ${editInformeAuditoria.ref}` : 'ARCHIVAR, RADICAR Y DISTRIBUIR NUEVO INFORME'}
+              <span className="text-xl mr-3 bg-emerald-50 p-2 rounded-lg">{modoVistaCompleta ? '👁️' : (editInformeAuditoria ? '✏️' : '➕')}</span>
+              {modoVistaCompleta ? `Información completa: ${editInformeAuditoria?.ref || 'Informe'}` : (editInformeAuditoria ? `Editando Flujo de Informe: ${editInformeAuditoria.ref}` : 'ARCHIVAR, RADICAR Y DISTRIBUIR NUEVO INFORME')}
             </h3>
             {editInformeAuditoria && (
               <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -1033,6 +1072,51 @@ const handleFileUpload = async (e, type) => {
             onChangeCapture={() => setIsDirty(true)}
             className="space-y-6 text-xs"
           >
+          {modoVistaCompleta && (
+            <>
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 font-bold flex items-center justify-between gap-3">
+                <span>Modo vista: esta información está guardada y no puede modificarse desde aquí.</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModoVistaCompleta(false);
+                    setIsDirty(false);
+                  }}
+                  className="rounded-full border border-sky-300 bg-white px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-sky-700 hover:bg-sky-100"
+                >
+                  Editar
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Título</div>
+                  <div className="mt-1 text-sm font-black text-slate-800 break-words">{draftInforme.titulo || 'Sin título'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Proceso</div>
+                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.proceso || 'Sin proceso'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Subproceso</div>
+                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.subproceso || 'General'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Fuente</div>
+                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.tipoFuente || 'No definida'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Fecha</div>
+                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.fecha || 'Sin fecha'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Socializado</div>
+                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.socializado || 'No'}</div>
+                </div>
+              </div>
+            </>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
 
              {/* 🛡️ FUENTE DE MEJORA Y VINCULACIÓN OBLIGATORIA */}
@@ -1050,7 +1134,8 @@ const handleFileUpload = async (e, type) => {
                         setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
                       }
                     }}
-                    className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer"
+                    className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                    disabled={modoVistaCompleta}
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
                     <option value="Programa de Auditoría">Programa de Auditoría</option>
@@ -1077,7 +1162,8 @@ const handleFileUpload = async (e, type) => {
                            setSubprocesoForm(prev => ({ ...prev, [idEdicion]: prog.subproceso || 'General' }));
                         }
                       }}
-                      className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer"
+                      className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                      disabled={modoVistaCompleta}
                     >
                       <option value="">-- Seleccione un Programa --</option>
                       {safeProgramas.filter(p => p.estado === 'Aprobado').map((p, idx) => (
@@ -1098,7 +1184,8 @@ const handleFileUpload = async (e, type) => {
                       required
                       defaultValue={editInformeAuditoria?.detalleFuente || ''}
                       placeholder={`Especifique el origen relacionado a: ${tipoFuenteForm}`}
-                      className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white"
+                      className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                      disabled={modoVistaCompleta}
                     />
                     <p className="text-xs text-emerald-700 mt-2 font-semibold">Debe especificar manualmente la fuente - informes de auditoría, PQRs, accidentes de trabajo e iniciativas de proceso, entre otros.</p>
                   </div>
@@ -1118,7 +1205,8 @@ const handleFileUpload = async (e, type) => {
                   }}
                   required 
                   placeholder="Ej: Informe de Accidente en Planta" 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm" 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  disabled={modoVistaCompleta}
                 />
               </div>
 
@@ -1149,8 +1237,8 @@ const handleFileUpload = async (e, type) => {
                        setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
                      }
                    }}
-                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50"
-                   disabled={tipoFuenteForm === 'Programa de Auditoría'}
+                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                   disabled={tipoFuenteForm === 'Programa de Auditoría' || modoVistaCompleta}
                  >
                    <option value="">-- Seleccionar --</option>
                    {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
@@ -1170,11 +1258,12 @@ const handleFileUpload = async (e, type) => {
                      setSubprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }));
                    }}
                    required 
-                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-50"
+                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                    disabled={
                      !macroprocesoForm || 
                      tipoFuenteForm === 'Programa de Auditoría' || 
-                     (MAPA_PROCESOS[macroprocesoForm]?.length <= 1)
+                     (MAPA_PROCESOS[macroprocesoForm]?.length <= 1) ||
+                     modoVistaCompleta
                    }
                  >
                    <option value="">-- Seleccionar --</option>
@@ -1195,7 +1284,8 @@ const handleFileUpload = async (e, type) => {
                     setIsDirty(true);
                   }}
                   required 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm" 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed" 
+                  disabled={modoVistaCompleta}
                 />
               </div>
 
@@ -1211,7 +1301,8 @@ const handleFileUpload = async (e, type) => {
                     setIsDirty(true);
                   }}
                   required 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium text-slate-800 shadow-sm cursor-pointer"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-medium text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  disabled={modoVistaCompleta}
                 >
                   <option value="">-- Seleccionar Cargo --</option>
                   {CARGOS_EMPRESA.map((cargo, i) => <option key={`elab-${i}`} value={cargo}>{cargo}</option>)}
@@ -1230,7 +1321,8 @@ const handleFileUpload = async (e, type) => {
                     setIsDirty(true);
                   }}
                   required 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  disabled={modoVistaCompleta}
                 >
                   <option value="">-- Seleccionar Cargo --</option>
                   {CARGOS_EMPRESA.map((cargo, i) => <option key={`rev-${i}`} value={cargo}>{cargo}</option>)}
@@ -1249,7 +1341,8 @@ const handleFileUpload = async (e, type) => {
                     setIsDirty(true);
                   }}
                   required 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  disabled={modoVistaCompleta}
                 >
                   <option value="">-- Seleccionar Cargo --</option>
                   {CARGOS_EMPRESA.map((cargo, i) => <option key={`apr-${i}`} value={cargo}>{cargo}</option>)}
@@ -1268,7 +1361,8 @@ const handleFileUpload = async (e, type) => {
                     setIsDirty(true);
                     setSocializadoFormState(prev => ({ ...prev, [idEdicion]: e.target.value }));
                   }}
-                  className="w-full border rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm cursor-pointer"
+                  className="w-full border rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  disabled={modoVistaCompleta}
                 >
                   <option value="No">No</option>
                   <option value="Sí">Sí</option>
@@ -1291,6 +1385,7 @@ const handleFileUpload = async (e, type) => {
                     setIsDirty(true);
                   }}
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed transition-all" 
+                  disabled={modoVistaCompleta}
                 />
               </div>
 
@@ -1301,7 +1396,8 @@ const handleFileUpload = async (e, type) => {
                 <select 
                     value={participanteTemp} 
                     onChange={(e) => setParticipanteTemp(e.target.value)} 
-                    className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 text-xs shadow-sm cursor-pointer"
+                    className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-700 text-xs shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                    disabled={modoVistaCompleta}
                   >
                     <option value="">-- Seleccionar Cargo Participante --</option>
                     {CARGOS_EMPRESA.map(cargo => (
@@ -1316,7 +1412,8 @@ const handleFileUpload = async (e, type) => {
                       }
                       setParticipanteTemp(''); 
                     }} 
-                    className="bg-[#0A3B32] text-white px-5 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm flex items-center"
+                    className="bg-[#0A3B32] text-white px-5 rounded-lg text-xs font-bold hover:bg-[#062620] shrink-0 transition-colors shadow-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={modoVistaCompleta}
                   >
                     ➕ Añadir
                   </button>
@@ -1330,7 +1427,8 @@ const handleFileUpload = async (e, type) => {
                       <button 
                         type="button" 
                         onClick={() => setParticipantesMultiples(participantesMultiples.filter(item => item !== cargo))} 
-                        className="ml-1.5 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors font-sans"
+                        className="ml-1.5 text-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors font-sans disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={modoVistaCompleta}
                       >
                         ✕
                       </button>
@@ -1344,7 +1442,7 @@ const handleFileUpload = async (e, type) => {
             
             <div className="bg-blue-50/50 border border-blue-200 p-5 rounded-2xl shadow-inner mt-4">
               <label className="font-black text-blue-900 block mb-2 uppercase tracking-wider text-[10px]">📧 DISTRIBUCIÓN POR CORREO ELECTRÓNICO (NOTIFICACIÓN INMEDIATA)</label>
-<input name="correosNotificacionInput" type="text" placeholder="Ej: usuario1@empresa.com, usuario2@empresa.com (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm" />
+<input name="correosNotificacionInput" type="text" placeholder="Ej: usuario1@empresa.com, usuario2@empresa.com (Separa los correos por comas)" className="w-full border border-blue-300 bg-white rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-slate-700 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed" disabled={modoVistaCompleta} />
               <p className="text-[10px] text-blue-600 mt-2 font-medium">Al guardar, el sistema enviará automáticamente una copia digitalizada del informe y su acta a los destinatarios configurados.</p>
             </div>
 
@@ -1656,18 +1754,21 @@ const handleFileUpload = async (e, type) => {
               </div>
             </div>
 
-            <div className="md:col-span-4 flex justify-end pt-4">
-              <div className="mr-auto flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-700 shadow-sm">
+            <div className="md:col-span-4 flex justify-between items-center gap-3 pt-4 flex-wrap">
+              <div className="flex items-center gap-2 bg-slate-100 border border-slate-200 rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-700 shadow-sm">
                 <span>Total adjuntos:</span>
                 <span className="bg-white border border-slate-200 rounded-full px-2 py-0.5 text-slate-900">{(archivoSubidoUrl ? 1 : 0) + anexosMultiples.length}</span>
               </div>
-              <button 
-                type="submit" 
-                disabled={isSubmitting || cargandoInforme || cargandoAnexo} 
-                className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${isSubmitting || cargandoInforme || cargandoAnexo ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
-              >
-                {isSubmitting ? '⏳ Procesando...' : cargandoInforme || cargandoAnexo ? 'Subiendo archivos...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN')}
-              </button>
+
+              <div className="flex items-center gap-2 ml-auto">
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting || cargandoInforme || cargandoAnexo || modoVistaCompleta} 
+                  className={`font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto text-center block text-sm ${modoVistaCompleta || isSubmitting || cargandoInforme || cargandoAnexo ? 'bg-slate-400 text-slate-100 cursor-not-allowed' : 'bg-[#0A3B32] hover:bg-[#062620] hover:scale-105 text-white cursor-pointer'}`}
+                >
+                  {modoVistaCompleta ? 'Modo solo lectura' : (isSubmitting ? '⏳ Procesando...' : cargandoInforme || cargandoAnexo ? 'Subiendo archivos...' : (editInformeAuditoria ? 'Guardar Cambios' : 'RADICAR Y ENVIAR DICTAMEN'))}
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -1836,7 +1937,9 @@ const handleFileUpload = async (e, type) => {
                           })()}
                           {isAdmin && (
                             <div className="flex justify-center items-center space-x-2 pt-2 border-t mt-2">
-                              <button type="button" onClick={() => { setEditInformeAuditoria(inf); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏️ Editar</button>
+                              <button type="button" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(false); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏️ Editar</button>
+                              <span className="text-slate-200">|</span>
+                              <button type="button" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-sky-600 hover:text-sky-700 text-xs font-bold">👁️ Ver info completa</button>
                               <span className="text-slate-200">|</span>
                               <button type="button" onClick={() => handleDeleteItem('informesAuditoria', inf.id)} className="text-slate-400 hover:text-red-600 text-xs font-bold">🗑️ Eliminar</button>
                             </div>
