@@ -205,6 +205,40 @@ export default function InformesAuditoria({
     return `https://repos.termalessantarosa.com.co${rutaLimpia}`;
   };
 
+  const abrirArchivo = (ruta, nombre = 'archivo') => {
+    const urlFinal = obtenerUrlAbsoluta(ruta);
+    if (!urlFinal) {
+      alert('⚠️ No hay archivo disponible para abrir.');
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = urlFinal;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.download = nombre;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const descargarArchivo = (ruta, nombre = 'archivo') => {
+    const urlFinal = obtenerUrlAbsoluta(ruta);
+    if (!urlFinal) {
+      alert('⚠️ No hay archivo disponible para descargar.');
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = urlFinal;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.download = nombre;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 // 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante
   useEffect(() => {
     if (editInformeAuditoria) {
@@ -1526,10 +1560,13 @@ const handleFileUpload = async (e, type) => {
                       📎 {archivoSubidoNombre || 'Informe_Adjunto.pdf'}
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                    <button type="button" onClick={(e) => { e.preventDefault(); window.open(obtenerUrlAbsoluta(archivoSubidoUrl), '_blank'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
-                        <span>👁️</span><span>Ver PDF</span>
+                      <button type="button" title="Ver documento principal" onClick={(e) => { e.preventDefault(); abrirArchivo(archivoSubidoUrl, archivoSubidoNombre || 'documento_principal.pdf'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
+                        <span>👁️</span><span>Ver</span>
                       </button>
-                      <label className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
+                      <button type="button" title="Descargar documento principal" onClick={(e) => { e.preventDefault(); descargarArchivo(archivoSubidoUrl, archivoSubidoNombre || 'documento_principal.pdf'); }} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
+                        <span>⬇️</span><span>Descargar</span>
+                      </button>
+                      <label title="Reemplazar documento principal" className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
                         <span>🔄</span><span>Reemplazar</span>
                         <input type="file" className="hidden" accept=".pdf, .docx" onChange={(e) => {
                           const confirmar = window.confirm('¿Deseas reemplazar este documento principal? Los anexos ya cargados se conservarán.');
@@ -1537,7 +1574,7 @@ const handleFileUpload = async (e, type) => {
                           else e.target.value = '';
                         }} />
                       </label>
-                      <button type="button" onClick={(e) => { e.preventDefault(); if (confirm("¿Seguro de quitar este adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center space-x-1 cursor-pointer">
+                      <button type="button" title="Eliminar documento principal" onClick={(e) => { e.preventDefault(); if (confirm("¿Seguro de quitar este adjunto?")) { setArchivoSubidoUrl(''); setArchivoSubidoNombre(''); } }} className="bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
                         <span>🗑️</span><span>Eliminar</span>
                       </button>
                     </div>
@@ -1572,13 +1609,14 @@ const handleFileUpload = async (e, type) => {
                     {anexosMultiples.length > 0 && (
                       <div className="flex flex-col gap-2 w-full max-h-32 overflow-y-auto pr-2">
                         {anexosMultiples.map((anexo, index) => (
-                          <div key={index} className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200 shadow-sm">
+                          <div key={index} className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border border-slate-200 shadow-sm hover:border-purple-200 hover:bg-purple-50/30 transition-all">
                             <p className="text-[10px] font-mono font-bold text-slate-700 truncate w-3/4" title={anexo.nombre}>
                               📎 {anexo.nombre}
                             </p>
                             <div className="flex gap-1">
-                            <button type="button" onClick={(e) => { e.preventDefault(); window.open(obtenerUrlAbsoluta(anexo.url), '_blank'); }} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-md transition-colors" title="Ver PDF">👁️</button>
-                              <button type="button" onClick={(e) => { e.preventDefault(); setAnexosMultiples(prev => prev.filter((_, i) => i !== index)); }} className="text-red-500 hover:bg-red-100 p-1.5 rounded-md transition-colors" title="Eliminar">🗑️</button>
+                              <button type="button" onClick={(e) => { e.preventDefault(); abrirArchivo(anexo.url, anexo.nombre || 'anexo.pdf'); }} className="text-blue-600 hover:bg-blue-100 p-1.5 rounded-lg transition-colors" title="Ver archivo">👁️</button>
+                              <button type="button" onClick={(e) => { e.preventDefault(); descargarArchivo(anexo.url, anexo.nombre || 'anexo.pdf'); }} className="text-emerald-600 hover:bg-emerald-100 p-1.5 rounded-lg transition-colors" title="Descargar archivo">⬇️</button>
+                              <button type="button" onClick={(e) => { e.preventDefault(); setAnexosMultiples(prev => prev.filter((_, i) => i !== index)); }} className="text-red-500 hover:bg-red-100 p-1.5 rounded-lg transition-colors" title="Eliminar">🗑️</button>
                             </div>
                           </div>
                         ))}
@@ -1750,7 +1788,7 @@ const handleFileUpload = async (e, type) => {
                                 return;
                               }
                               
-                              window.open(obtenerUrlAbsoluta(urlValida), '_blank', 'noopener,noreferrer');
+                              abrirArchivo(urlValida, inf.titulo ? `${inf.titulo}.pdf` : 'informe.pdf');
                             }} 
                             className="bg-blue-50 text-blue-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center space-x-1 border border-blue-100 shadow-sm transition-all w-full cursor-pointer"
                           >
@@ -1766,7 +1804,7 @@ const handleFileUpload = async (e, type) => {
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    window.open(obtenerUrlAbsoluta(urlActa), '_blank', 'noopener,noreferrer');
+                                    abrirArchivo(urlActa, inf.titulo ? `${inf.titulo}_acta.pdf` : 'acta_socializacion.pdf');
                                   }}
                                   className="bg-purple-50 text-purple-700 font-black px-3 py-2 rounded-xl text-[10px] hover:bg-purple-100 flex items-center justify-center space-x-1 border border-purple-100 shadow-sm transition-all w-full cursor-pointer mt-1"
                                 >
