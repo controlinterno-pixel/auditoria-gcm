@@ -1494,15 +1494,35 @@ const handleFileUpload = async (e, type) => {
                                       )}
                                       {archivos.length > 0 && (
                                         <div className="rounded-lg border border-slate-200 bg-white px-2 py-1.5">
-                                          <div className="font-black uppercase tracking-wider text-slate-500 mb-1">Archivos en esta versión</div>
-                                          <ul className="space-y-1">
+                                          <div className="font-black uppercase tracking-wider text-slate-500 mb-2">Archivos en esta versión</div>
+                                          <div className="space-y-2">
                                             {archivos.map((archivo, idx) => (
-                                              <li key={`${archivo.url || idx}`} className="flex justify-between gap-2">
-                                                <span className="font-bold text-slate-600">{archivo.tipo || 'Archivo'}</span>
-                                                <span className="text-right text-slate-700 break-all max-w-[180px]" title={archivo.nombre}>{archivo.nombre}</span>
-                                              </li>
+                                              <div key={`${archivo.url || idx}`} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                                <div className="min-w-0 flex-1">
+                                                  <div className="font-bold text-slate-600 text-[9px] uppercase tracking-wider">{archivo.tipo || 'Archivo'}</div>
+                                                  <div className="text-right text-slate-700 break-all max-w-[180px] text-[9px]" title={archivo.nombre}>{archivo.nombre}</div>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => { e.preventDefault(); descargarArchivo(archivo.url, archivo.nombre || 'archivo.pdf'); }}
+                                                    className="text-emerald-600 hover:bg-emerald-100 px-1.5 py-1 rounded-md text-[9px] font-black"
+                                                    title="Descargar archivo"
+                                                  >
+                                                    ⬇️
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => { e.preventDefault(); abrirArchivo(archivo.url, archivo.nombre || 'archivo.pdf'); }}
+                                                    className="text-blue-600 hover:bg-blue-100 px-1.5 py-1 rounded-md text-[9px] font-black"
+                                                    title="Ver archivo"
+                                                  >
+                                                    👁️
+                                                  </button>
+                                                </div>
+                                              </div>
                                             ))}
-                                          </ul>
+                                          </div>
                                         </div>
                                       )}
                                       {log.detalle && typeof log.detalle === 'object' && (
@@ -1560,11 +1580,11 @@ const handleFileUpload = async (e, type) => {
                       📎 {archivoSubidoNombre || 'Informe_Adjunto.pdf'}
                     </p>
                     <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1">
-                      <button type="button" title="Ver documento principal" onClick={(e) => { e.preventDefault(); abrirArchivo(archivoSubidoUrl, archivoSubidoNombre || 'documento_principal.pdf'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
-                        <span>👁️</span><span>Ver</span>
-                      </button>
                       <button type="button" title="Descargar documento principal" onClick={(e) => { e.preventDefault(); descargarArchivo(archivoSubidoUrl, archivoSubidoNombre || 'documento_principal.pdf'); }} className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
                         <span>⬇️</span><span>Descargar</span>
+                      </button>
+                      <button type="button" title="Ver documento principal" onClick={(e) => { e.preventDefault(); abrirArchivo(archivoSubidoUrl, archivoSubidoNombre || 'documento_principal.pdf'); }} className="bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
+                        <span>👁️</span><span>Ver</span>
                       </button>
                       <label title="Reemplazar documento principal" className="bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-[10px] font-black px-2.5 py-1.5 rounded-full shadow-sm transition-all flex items-center space-x-1 cursor-pointer hover:scale-[1.02]">
                         <span>🔄</span><span>Reemplazar</span>
