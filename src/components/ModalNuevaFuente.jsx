@@ -10,9 +10,11 @@ export default function ModalNuevaFuente({
   codigoInicial = 'FA-001',
   normasDisponibles = NORMAS_PREDETERMINADAS,
   onAddNorma,
+  onDeleteNorma,
 }) {
   const [step, setStep] = useState(1);
   const [nuevaNorma, setNuevaNorma] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
   const [formData, setFormData] = useState({
     tipoFuente: 'Auditoría Interna',
     codigo: codigoInicial,
@@ -32,6 +34,7 @@ export default function ModalNuevaFuente({
     if (isOpen) {
       setStep(1);
       setNuevaNorma('');
+      setIsDirty(false);
       setFormData((prev) => ({
         ...prev,
         codigo: codigoInicial,
@@ -42,18 +45,33 @@ export default function ModalNuevaFuente({
     }
   }, [codigoInicial, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || !isDirty) return undefined;
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty, isOpen]);
+
   if (!isOpen) return null;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    setIsDirty(true);
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleNormaChange = (e) => {
+    setIsDirty(true);
     setFormData((prev) => ({ ...prev, norma: e.target.value }));
   };
 
   const handleMacroprocesoChange = (e) => {
+    setIsDirty(true);
     setFormData((prev) => ({
       ...prev,
       macroproceso: e.target.value,
@@ -64,6 +82,7 @@ export default function ModalNuevaFuente({
 
   const handleSubprocesoChange = (e) => {
     const subproceso = e.target.value;
+    setIsDirty(true);
     setFormData((prev) => ({
       ...prev,
       subproceso,
@@ -76,13 +95,32 @@ export default function ModalNuevaFuente({
     if (!norma) return;
 
     onAddNorma?.(norma);
+    setIsDirty(true);
     setFormData((prev) => ({ ...prev, norma }));
     setNuevaNorma('');
+  };
+
+  const handleDeleteNorma = () => {
+    const normaEliminada = formData.norma;
+    const siguienteNorma = normasDisponibles.find((norma) => norma !== normaEliminada) || NORMAS_PREDETERMINADAS[0];
+
+    if (!window.confirm(`¿Seguro que quieres eliminar la norma "${normaEliminada}" de la lista?`)) return;
+
+    onDeleteNorma?.(normaEliminada);
+    setFormData((prev) => ({ ...prev, norma: siguienteNorma }));
+    setIsDirty(true);
+  };
+
+  const handleClose = () => {
+    if (isDirty && !window.confirm('¿Seguro que quieres salir sin guardar la nueva fuente?')) return;
+    setIsDirty(false);
+    onClose();
   };
 
   const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
   const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
   const handleSubmit = () => {
+    setIsDirty(false);
     onSave(formData);
     onClose();
   };
@@ -108,7 +146,7 @@ export default function ModalNuevaFuente({
               <p className="text-[11px] text-slate-500 font-medium mt-0.5">Registra un nuevo origen para la gestión de mejora continua.</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
+          <button onClick={handleClose} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -157,12 +195,19 @@ export default function ModalNuevaFuente({
                   </div>
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Norma / Referencia *</label>
-                    <select name="norma" value={formData.norma} onChange={handleNormaChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
+                    <div className="flex gap-2">
+                      <select name="norma" value={formData.norma} onChange={handleNormaChange} className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
                       {normasDisponibles.map((norma) => (
                         <option key={norma} value={norma}>{norma}</option>
                       ))}
                       <option value="__nueva__">Otra / Crear nueva norma</option>
-                    </select>
+                      </select>
+                      {formData.norma !== '__nueva__' && !NORMAS_PREDETERMINADAS.includes(formData.norma) && (
+                        <button type="button" onClick={handleDeleteNorma} className="px-3 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100" title="Eliminar norma seleccionada">
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
                     {formData.norma === '__nueva__' && (
                       <div className="flex gap-2 mt-2">
                         <input
@@ -326,7 +371,7 @@ export default function ModalNuevaFuente({
             Campos obligatorios: 6
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors">
+            <button onClick={handleClose} className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors">
               Cancelar
             </button>
             {step > 1 && (

@@ -38,6 +38,10 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
     ));
   };
 
+  const handleDeleteNorma = (norma) => {
+    setNormasDisponibles((prev) => prev.filter((existente) => existente !== norma));
+  };
+
   const handleSaveFuente = (data) => {
     const responsable = data.responsable.split(' (');
     setFuentesActuales((prev) => [
@@ -315,6 +319,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
         codigoInicial={obtenerSiguienteCodigo(fuentesActuales)}
         normasDisponibles={normasDisponibles}
         onAddNorma={handleAddNorma}
+        onDeleteNorma={handleDeleteNorma}
       />
     </div>
   );
