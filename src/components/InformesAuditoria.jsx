@@ -1129,20 +1129,27 @@ const handleFileUpload = async (e, type) => {
                   <select
                     name="tipoFuente"
                     required
-                    value={tipoFuenteForm}
+                    // 💡 MAGIA: Forzamos a que el value lea SIEMPRE de draftInforme para evitar desincronización
+                    value={draftInforme.tipoFuente || ''}
                     onChange={(e) => {
                       const seleccion = e.target.value;
-                      setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: seleccion }));
                       
                       // LOGICA DE AUTOCOMPLETADO REAL DESDE LAS FUENTES CREADAS EN LA DB
                       const fuenteDB = fuentesMejoraDisponibles.find(f => (f.codigo || f.id) === seleccion);
                       const detalleFuente = fuenteDB?.alcance || fuenteDB?.descripcion || '';
 
-                      setDraftInforme(prev => ({
-                        ...prev,
-                        tipoFuente: seleccion,
-                        detalleFuente,
-                      }));
+                      // Consolidamos TODAS las actualizaciones en un solo pase del estado
+                      setDraftInforme(prev => {
+                        const newState = {
+                          ...prev,
+                          tipoFuente: seleccion,
+                          detalleFuente,
+                        };
+                        registrarCambioBorrador(newState); // 👈 Disparamos el borrador con el nuevo estado exacto
+                        return newState;
+                      });
+                      
+                      setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: seleccion }));
                       setIsDirty(true);
 
                       if (seleccion !== 'Programa de Auditoría') {
