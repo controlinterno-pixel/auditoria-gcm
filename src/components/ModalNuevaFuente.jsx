@@ -226,7 +226,7 @@ export default function ModalNuevaFuente({
                       <select 
                         disabled={isReadOnly} 
                         name="norma" 
-                        value={normasDisponibles.includes(formData.norma) ? formData.norma : '__nueva__'} 
+                        value={formData.norma === '__nueva__' ? '__nueva__' : (normasDisponibles.includes(formData.norma) ? formData.norma : normasDisponibles[0])} 
                         onChange={handleNormaChange} 
                         className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400"
                       >
