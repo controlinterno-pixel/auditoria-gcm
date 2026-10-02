@@ -38,12 +38,12 @@ export default function InformesAuditoria({
   // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
-  const [tipoFuenteFormState, setTipoFuenteFormState] = useState(null);
+  const [tipoFuenteSeleccionada, setTipoFuenteSeleccionada] = useState('');
   const [socializadoFormState, setSocializadoFormState] = useState(null);
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
-  const tipoFuenteForm = tipoFuenteFormState?.[idEdicion] ?? (editInformeAuditoria?.tipoFuente || '');
+  const tipoFuenteForm = tipoFuenteSeleccionada;
   const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || '');
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
   const socializadoForm = socializadoFormState?.[idEdicion] ?? (editInformeAuditoria?.socializado || 'No');
@@ -282,7 +282,7 @@ export default function InformesAuditoria({
         };
 
         setDraftInforme(draftInicial);
-        setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: draftInicial.tipoFuente || '' }));
+        setTipoFuenteSeleccionada(draftInicial.tipoFuente || '');
         setDraftHistory([draftInicial]);
 
         const participantesIniciales = (editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '')
@@ -321,6 +321,7 @@ export default function InformesAuditoria({
         correosNotificacionInput: '',
       };
       setDraftInforme(draftVacio);
+      setTipoFuenteSeleccionada('');
       setDraftHistory([draftVacio]);
       setIsDirty(false);
       setHistorialExpandido(true);
@@ -1148,7 +1149,7 @@ const handleFileUpload = async (e, type) => {
                       
                       setDraftInforme(siguienteDraft);
                       registrarCambioBorrador(siguienteDraft);
-                      setTipoFuenteFormState(prev => ({ ...prev, [idEdicion]: seleccion }));
+                      setTipoFuenteSeleccionada(seleccion);
                       setIsDirty(true);
 
                       if (fuenteDB) {
