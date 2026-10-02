@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CARGOS_EMPRESA } from '../constants/diccionariosGRC';
 
 const NORMAS_PREDETERMINADAS = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
 
@@ -17,7 +18,7 @@ export default function ModalNuevaFuente({
     codigo: codigoInicial,
     norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
     fecha: '2026-03-12',
-    responsable: 'Juan Pérez (Líder GH)',
+    responsable: CARGOS_EMPRESA[0],
     estado: 'Borrador',
     descripcion: '',
     alcance: '',
@@ -163,10 +164,11 @@ export default function ModalNuevaFuente({
                     <input name="fecha" type="date" value={formData.fecha} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Responsable *</label>
+                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Responsable / Cargo *</label>
                     <select name="responsable" value={formData.responsable} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
-                      <option value="Juan Pérez (Líder GH)">Juan Pérez (Líder GH)</option>
-                      <option value="Diana Vargas (Servicio al Cliente)">Diana Vargas (Servicio al Cliente)</option>
+                      {CARGOS_EMPRESA.map((cargo) => (
+                        <option key={cargo} value={cargo}>{cargo}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="col-span-3">
