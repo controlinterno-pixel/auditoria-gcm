@@ -281,7 +281,6 @@ export default function InformesAuditoria({
         };
 
         setDraftInforme(draftInicial);
-        setTipoFuenteSeleccionada(draftInicial.tipoFuente || '');
         setDraftHistory([draftInicial]);
 
         const participantesIniciales = (editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '')
@@ -320,7 +319,6 @@ export default function InformesAuditoria({
         correosNotificacionInput: '',
       };
       setDraftInforme(draftVacio);
-      setTipoFuenteSeleccionada('');
       setDraftHistory([draftVacio]);
       setIsDirty(false);
       setHistorialExpandido(true);
