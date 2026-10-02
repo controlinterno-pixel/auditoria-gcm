@@ -3,18 +3,59 @@ import ModalNuevaFuente from './ModalNuevaFuente';
 
 // Datos de prueba basados exactamente en tu captura de diseño
 const datosIniciales = [
-  { id: 'AUD-001', tipoNorma: 'ISO 9001:2015', fecha: '12/03/2026', auditor: 'Juan Pérez', rol: 'Líder GH', alcance: 'Evaluar el cumplimiento del SGC en procesos críticos.', estado: 'Activa', color: 'bg-blue-500' },
-  { id: 'AUD-002', tipoNorma: 'ISO 14001:2015', fecha: '05/02/2026', auditor: 'ICONTEC', rol: 'Auditor Externo', alcance: 'Verificar cumplimiento ambiental y gestión de residuos.', estado: 'Cerrada', color: 'bg-emerald-500' },
+  { id: 'AUD-001', tipoNorma: 'ISO 9001', fecha: '12/03/2026', auditor: 'Juan Pérez', rol: 'Líder GH', alcance: 'Evaluar el cumplimiento del SGC en procesos críticos.', estado: 'Activa', color: 'bg-blue-500' },
+  { id: 'AUD-002', tipoNorma: 'ISO 14001', fecha: '05/02/2026', auditor: 'ICONTEC', rol: 'Auditor Externo', alcance: 'Verificar cumplimiento ambiental y gestión de residuos.', estado: 'Cerrada', color: 'bg-emerald-500' },
   { id: 'AUD-003', tipoNorma: 'PQR (Cliente)', fecha: '20/03/2026', auditor: 'Diana Vargas', rol: 'Servicio al Cliente', alcance: 'Analizar quejas y oportunidades de mejora en atención.', estado: 'Activa', color: 'bg-orange-500' },
-  { id: 'AUD-004', tipoNorma: 'ISO 45001:2018', fecha: '15/04/2026', auditor: 'Carlos Ramírez', rol: 'Seguridad y Salud', alcance: 'Revisión de condiciones laborales y riesgos asociados.', estado: 'En seguimiento', color: 'bg-indigo-500' },
-  { id: 'AUD-005', tipoNorma: 'ISO 37001:2016', fecha: '10/05/2026', auditor: 'Laura Martínez', rol: 'Compliance', alcance: 'Evaluar controles anticorrupción y ética organizacional.', estado: 'Cerrada', color: 'bg-teal-500' },
+  { id: 'AUD-004', tipoNorma: 'ISO 45001', fecha: '15/04/2026', auditor: 'Carlos Ramírez', rol: 'Seguridad y Salud', alcance: 'Revisión de condiciones laborales y riesgos asociados.', estado: 'En seguimiento', color: 'bg-indigo-500' },
+  { id: 'AUD-005', tipoNorma: 'ISO 37001', fecha: '10/05/2026', auditor: 'Laura Martínez', rol: 'Compliance', alcance: 'Evaluar controles anticorrupción y ética organizacional.', estado: 'Cerrada', color: 'bg-teal-500' },
 ];
+
+const normasIniciales = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
+
+const obtenerSiguienteCodigo = (fuentes) => {
+  const consecutivos = fuentes.flatMap((fuente) => {
+    const valores = [fuente.codigo, fuente.id];
+    return valores.flatMap((valor) => {
+      const coincidencia = String(valor || '').match(/(\d+)$/);
+      return coincidencia ? [Number(coincidencia[1])] : [];
+    });
+  });
+  const siguiente = Math.max(0, ...consecutivos) + 1;
+  return `FA-${String(siguiente).padStart(3, '0')}`;
+};
 
 export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // ✨ AÑADIR ESTE ESTADO
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [fuentesActuales, setFuentesActuales] = useState(fuentes);
+  const [normasDisponibles, setNormasDisponibles] = useState(normasIniciales);
+
+  const handleAddNorma = (norma) => {
+    setNormasDisponibles((prev) => (
+      prev.some((existente) => existente.toLowerCase() === norma.toLowerCase())
+        ? prev
+        : [...prev, norma]
+    ));
+  };
+
+  const handleSaveFuente = (data) => {
+    const responsable = data.responsable.split(' (');
+    setFuentesActuales((prev) => [
+      ...prev,
+      {
+        id: data.codigo,
+        tipoNorma: data.norma,
+        fecha: data.fecha,
+        auditor: responsable[0],
+        rol: responsable[1]?.replace(')', '') || '',
+        alcance: data.alcance || data.descripcion,
+        estado: data.estado,
+        color: 'bg-blue-500',
+      },
+    ]);
+    setIsModalOpen(false);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       
@@ -111,7 +152,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
                 </tr>
               </thead>
               <tbody className="text-xs font-medium text-slate-700 divide-y divide-slate-100">
-                {fuentes.map((f, i) => (
+                {fuentesActuales.map((f, i) => (
                   <tr key={i} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
                     <td className="p-4 font-black text-slate-800 bg-slate-50/50">{f.id}</td>
@@ -175,10 +216,10 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
               </div>
               
               <div className="w-full space-y-3 text-[10px] font-bold">
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-blue-500 rounded-full shadow-sm"></span> ISO 9001:2015</span><span className="text-slate-800">6 <span className="text-slate-400 font-medium ml-1">(25%)</span></span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-emerald-500 rounded-full shadow-sm"></span> ISO 14001:2015</span><span className="text-slate-800">5 <span className="text-slate-400 font-medium ml-1">(21%)</span></span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-purple-500 rounded-full shadow-sm"></span> ISO 45001:2018</span><span className="text-slate-800">4 <span className="text-slate-400 font-medium ml-1">(17%)</span></span></div>
-                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-teal-500 rounded-full shadow-sm"></span> ISO 37001:2016</span><span className="text-slate-800">3 <span className="text-slate-400 font-medium ml-1">(12%)</span></span></div>
+                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-blue-500 rounded-full shadow-sm"></span> ISO 9001</span><span className="text-slate-800">6 <span className="text-slate-400 font-medium ml-1">(25%)</span></span></div>
+                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-emerald-500 rounded-full shadow-sm"></span> ISO 14001</span><span className="text-slate-800">5 <span className="text-slate-400 font-medium ml-1">(21%)</span></span></div>
+                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-purple-500 rounded-full shadow-sm"></span> ISO 45001</span><span className="text-slate-800">4 <span className="text-slate-400 font-medium ml-1">(17%)</span></span></div>
+                <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-teal-500 rounded-full shadow-sm"></span> ISO 37001</span><span className="text-slate-800">3 <span className="text-slate-400 font-medium ml-1">(12%)</span></span></div>
                 <div className="flex justify-between items-center"><span className="flex items-center gap-2 text-slate-600"><span className="w-2 h-2 bg-orange-500 rounded-full shadow-sm"></span> PQR (Cliente)</span><span className="text-slate-800">3 <span className="text-slate-400 font-medium ml-1">(12%)</span></span></div>
               </div>
             </div>
@@ -267,10 +308,10 @@ export default function FuentesDeMejora({ isAdmin, fuentes = datosIniciales }) {
       <ModalNuevaFuente 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onSave={(data) => {
-          console.log("Fuente Creada:", data);
-          alert("Fuente creada con éxito (simulado)");
-        }} 
+        onSave={handleSaveFuente}
+        codigoInicial={obtenerSiguienteCodigo(fuentesActuales)}
+        normasDisponibles={normasDisponibles}
+        onAddNorma={handleAddNorma}
       />
     </div>
   );

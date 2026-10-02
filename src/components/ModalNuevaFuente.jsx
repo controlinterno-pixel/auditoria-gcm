@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-export default function ModalNuevaFuente({ isOpen, onClose, onSave }) {
+const NORMAS_PREDETERMINADAS = ['ISO 9001', 'ISO 14001', 'ISO 45001'];
+
+export default function ModalNuevaFuente({
+  isOpen,
+  onClose,
+  onSave,
+  codigoInicial = 'FA-001',
+  normasDisponibles = NORMAS_PREDETERMINADAS,
+  onAddNorma,
+}) {
   const [step, setStep] = useState(1);
+  const [nuevaNorma, setNuevaNorma] = useState('');
   const [formData, setFormData] = useState({
     tipoFuente: 'Auditoría Interna',
-    codigo: 'FA-006',
-    norma: 'ISO 9001:2015',
+    codigo: codigoInicial,
+    norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
     fecha: '2026-03-12',
     responsable: 'Juan Pérez (Líder GH)',
     estado: 'Borrador',
@@ -15,11 +25,32 @@ export default function ModalNuevaFuente({ isOpen, onClose, onSave }) {
     origen: 'interno',
   });
 
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1);
+      setNuevaNorma('');
+      setFormData((prev) => ({ ...prev, codigo: codigoInicial }));
+    }
+  }, [codigoInicial, isOpen]);
+
   if (!isOpen) return null;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleNormaChange = (e) => {
+    setFormData((prev) => ({ ...prev, norma: e.target.value }));
+  };
+
+  const handleAddNorma = () => {
+    const norma = nuevaNorma.trim();
+    if (!norma) return;
+
+    onAddNorma?.(norma);
+    setFormData((prev) => ({ ...prev, norma }));
+    setNuevaNorma('');
   };
 
   const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
@@ -95,15 +126,30 @@ export default function ModalNuevaFuente({ isOpen, onClose, onSave }) {
                   </div>
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Código / Referencia</label>
-                    <input name="codigo" type="text" value={formData.codigo} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm" />
+                    <input name="codigo" type="text" value={formData.codigo} readOnly className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 bg-slate-50 outline-none" />
                   </div>
                   <div>
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Norma / Referencia *</label>
-                    <select name="norma" value={formData.norma} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
-                      <option value="ISO 9001:2015">ISO 9001:2015</option>
-                      <option value="ISO 14001:2015">ISO 14001:2015</option>
-                      <option value="ISO 45001:2018">ISO 45001:2018</option>
+                    <select name="norma" value={formData.norma} onChange={handleNormaChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm">
+                      {normasDisponibles.map((norma) => (
+                        <option key={norma} value={norma}>{norma}</option>
+                      ))}
+                      <option value="__nueva__">Otra / Crear nueva norma</option>
                     </select>
+                    {formData.norma === '__nueva__' && (
+                      <div className="flex gap-2 mt-2">
+                        <input
+                          type="text"
+                          value={nuevaNorma}
+                          onChange={(e) => setNuevaNorma(e.target.value)}
+                          placeholder="Ej. ISO 31000"
+                          className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm"
+                        />
+                        <button type="button" onClick={handleAddNorma} className="px-3 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700">
+                          Agregar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
