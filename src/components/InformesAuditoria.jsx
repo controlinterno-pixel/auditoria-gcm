@@ -36,14 +36,13 @@ export default function InformesAuditoria({
   const [participanteTemp, setParticipanteTemp] = useState('');
 
   // 🌟 ESTADOS TEMPORALES PARA EL FORMULARIO
+  // (Eliminamos estados redundantes que causaban desfases en los selects)
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
-  const [tipoFuenteSeleccionada, setTipoFuenteSeleccionada] = useState('');
   const [socializadoFormState, setSocializadoFormState] = useState(null);
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
-  const tipoFuenteForm = tipoFuenteSeleccionada;
   const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || '');
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
   const socializadoForm = socializadoFormState?.[idEdicion] ?? (editInformeAuditoria?.socializado || 'No');
@@ -1130,31 +1129,33 @@ const handleFileUpload = async (e, type) => {
                   <select
                     name="tipoFuente"
                     required
-                    value={tipoFuenteForm}
+                    value={draftInforme.tipoFuente || ''} // 💡 Única fuente de verdad
                     onChange={(e) => {
                       const seleccion = e.target.value;
                       
-                      const fuenteDB = fuentesMejoraDisponibles.find(f => String(f.codigo || f.id) === String(seleccion));
+                      const arrayBuscado = window.fuentesMejoraDB || fuentesMejoraDisponibles || [];
+                      const fuenteDB = arrayBuscado.find(f => (f.codigo || f.id) === seleccion);
                       const detalleFuente = fuenteDB?.alcance || fuenteDB?.descripcion || '';
-                      const macroprocesoFuente = fuenteDB?.macroproceso || fuenteDB?.proceso || '';
-                      const subprocesoFuente = fuenteDB?.subproceso || 'General';
-                      const siguienteDraft = {
+                      
+                      const nuevoMacro = fuenteDB?.macroproceso || fuenteDB?.proceso || '';
+                      const nuevoSub = fuenteDB?.subproceso || 'General';
+
+                      const newState = {
                         ...draftInforme,
                         tipoFuente: seleccion,
-                        detalleFuente,
-                        proceso: macroprocesoFuente,
-                        macroproceso: macroprocesoFuente,
-                        subproceso: subprocesoFuente,
+                        detalleFuente: detalleFuente,
+                        proceso: nuevoMacro,
+                        macroproceso: nuevoMacro,
+                        subproceso: nuevoSub
                       };
-                      
-                      setDraftInforme(siguienteDraft);
-                      registrarCambioBorrador(siguienteDraft);
-                      setTipoFuenteSeleccionada(seleccion);
+
+                      setDraftInforme(newState); // 👈 Actualiza todo al instante
+                      registrarCambioBorrador(newState);
                       setIsDirty(true);
 
                       if (fuenteDB) {
-                        setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: macroprocesoFuente }));
-                        setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesoFuente }));
+                        setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
+                        setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoSub }));
                       } else if (seleccion === 'Programa de Auditoría') {
                         setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
                         setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
@@ -1164,9 +1165,9 @@ const handleFileUpload = async (e, type) => {
                     disabled={modoVistaCompleta}
                   >
                     <option value="">-- Seleccione la Fuente que origina el informe --</option>
-                    {fuentesMejoraDisponibles.length > 0 && (
+                    {((window.fuentesMejoraDB && window.fuentesMejoraDB.length > 0) || fuentesMejoraDisponibles.length > 0) && (
                       <optgroup label="Desde Módulo Fuentes de Mejora">
-                        {fuentesMejoraDisponibles.filter(f => f.estado !== 'Cerrada').map(f => (
+                        {(window.fuentesMejoraDB || fuentesMejoraDisponibles).filter(f => f.estado !== 'Cerrada').map(f => (
                           <option key={f.codigo || f.id} value={f.codigo || f.id}>
                             [{f.codigo || f.id}] {f.norma || f.tipoNorma} - {f.responsable || f.auditor || 'Sin Responsable'}
                           </option>
