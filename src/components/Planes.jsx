@@ -1555,7 +1555,7 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
                                 />
                               </div>
                               <div className="md:col-span-2">
-                                <label className="font-bold text-blue-600 block mb-0.5">✉️ Correo del Auditor</label>
+                                <label className="font-bold text-blue-600 block mb-0.5">✉️ Correo del Auditor de Seguimiento</label>
                                 <input 
                                   type="email" 
                                   value={act.correoAuditor || 'Sin correo'} 

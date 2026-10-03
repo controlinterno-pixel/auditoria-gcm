@@ -53,6 +53,7 @@ export default function Hallazgos({
   const [procesoFormState, setProcesoFormState] = useState({});
   const [subprocesoFormState, setSubprocesoFormState] = useState({});
   const [informeOrigenSeleccionado, setInformeOrigenSeleccionado] = useState('');
+  const [metodologiaCausa, setMetodologiaCausa] = useState('5 Porqués'); // ✨ NUEVO: Estado para Análisis de Causa
   const [autoFillData] = useState(() => {
     if (typeof window === 'undefined') return null;
     try {
@@ -79,8 +80,9 @@ export default function Hallazgos({
   const setProcesoForm = (val) => setProcesoFormState(prev => ({ ...prev, [idEdicion]: val }));
   const setSubprocesoForm = (val) => setSubprocesoFormState(prev => ({ ...prev, [idEdicion]: val }));
 
-  useEffect(() => {
+useEffect(() => {
     setInformeOrigenSeleccionado(String(editHallazgo?.idInforme || autoFillData?.idInforme || ''));
+    setMetodologiaCausa(editHallazgo?.metodologiaCausa || autoFillData?.metodologiaCausa || '5 Porqués'); // ✨ Sincronizar al editar
   }, [editHallazgo]);
 
   const sedesMultiples = sedesState[idEdicion] ?? (editHallazgo?.sede
@@ -782,8 +784,58 @@ export default function Hallazgos({
 
             <div className="md:col-span-4">
               <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
-<textarea name="titulo" defaultValue={editHallazgo?.titulo || autoFillData?.titulo || ''} required rows="5" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner" />
+              <textarea name="titulo" defaultValue={editHallazgo?.titulo || autoFillData?.titulo || ''} required rows="4" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner" />
             </div>            
+
+            {/* ✨ NUEVA SECCIÓN: ANÁLISIS DE CAUSAS RAÍZ */}
+            <div className="md:col-span-4 bg-amber-50/60 p-5 rounded-2xl border border-amber-200 shadow-inner mt-1 mb-2">
+              <div className="flex flex-col md:flex-row gap-5 mb-4">
+                <div className="w-full md:w-1/3">
+                  <label className="font-black text-amber-900 block mb-1.5 uppercase tracking-widest text-[10px]">
+                    🧠 Metodología de Causa Raíz
+                  </label>
+                  <select 
+                    name="metodologiaCausa" 
+                    value={metodologiaCausa}
+                    onChange={(e) => setMetodologiaCausa(e.target.value)}
+                    className="w-full border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-amber-600 outline-none font-bold text-slate-800 shadow-sm cursor-pointer"
+                  >
+                    <option value="5 Porqués">Los 5 Porqués (ISO 9001)</option>
+                    <option value="Ishikawa">Diagrama de Ishikawa (6M)</option>
+                    <option value="Bow-Tie">Análisis Bow-Tie (Riesgos)</option>
+                    <option value="Árbol de Fallas">Árbol de Fallas (FTA)</option>
+                    <option value="Análisis Directo">Análisis Directo / Empírico</option>
+                  </select>
+                </div>
+                <div className="w-full md:w-2/3 flex items-center">
+                   <p className="text-[10px] text-amber-800 font-medium leading-relaxed bg-amber-100/50 p-3 rounded-xl border border-amber-200/60">
+                     {metodologiaCausa === '5 Porqués' && "Recomendado por ISO 9001 para problemas lineales. Pregunte '¿Por qué?' de forma iterativa hasta llegar a la falla sistémica."}
+                     {metodologiaCausa === 'Ishikawa' && "Recomendado para procesos complejos. Categorice en: Mano de obra, Maquinaria, Métodos, Materiales, Medición y Medio ambiente."}
+                     {metodologiaCausa === 'Bow-Tie' && "Estándar Big Four (ISO 31000). Mapee las causas (lado preventivo), el evento principal, y las consecuencias (lado mitigador)."}
+                     {metodologiaCausa === 'Árbol de Fallas' && "Recomendado para fallas técnicas o de TI. Analice mediante compuertas lógicas (Y/O) las vulnerabilidades del sistema."}
+                     {metodologiaCausa === 'Análisis Directo' && "Útil para desviaciones simples o administrativas donde la causa es evidente y no requiere herramientas avanzadas."}
+                   </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-amber-900 block mb-1">Desarrollo del Análisis *</label>
+                <textarea 
+                  name="analisisCausa" 
+                  defaultValue={editHallazgo?.analisisCausa || autoFillData?.analisisCausa || ''} 
+                  required 
+                  rows="6" 
+                  placeholder={
+                    metodologiaCausa === '5 Porqués' ? "1. ¿Por qué ocurrió la falla?\n2. ¿Por qué se dio la condición anterior?\n3. ¿Por qué falló el control preventivo?\n4. ¿Por qué el proceso lo permitió?\n5. Causa Raíz Sistémica:" :
+                    metodologiaCausa === 'Ishikawa' ? "Mano de Obra:\nMétodos:\nMaquinaria:\nMateriales:\nMedición:\nMedio Ambiente:\n\n=> Conclusión de Causa Raíz:" :
+                    metodologiaCausa === 'Bow-Tie' ? "Amenazas/Causas (Fallas Preventivas):\n\nEvento Principal (El Hallazgo):\n\nConsecuencias (Fallas Mitigadoras):" :
+                    metodologiaCausa === 'Árbol de Fallas' ? "Condición Inicial:\nFalla 1 (Y/O):\nFalla 2 (Y/O):\n\n=> Evento Cúspide:" :
+                    "Describa detalladamente la causa raíz del hallazgo..."
+                  }
+                  className="w-full border border-amber-300 rounded-xl p-3 focus:ring-2 focus:ring-amber-600 outline-none font-medium resize-y shadow-inner bg-white placeholder-slate-400" 
+                />
+              </div>
+            </div>
             
             <div className="md:col-span-4 bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-inner mt-2">
               <div className="border-b pb-2 border-slate-200 flex justify-between items-center mb-4">
