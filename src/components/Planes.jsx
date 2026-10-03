@@ -361,16 +361,17 @@ const diccionarioCorreos = {
         }
 
         const planData = {
-  id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
-  idHallazgo: parseInt(hallazgoId),
-  accion: act.accion,
-  sede: act.sede || '', 
-  responsable: act.responsable,
-  correoResponsable: act.correoResponsable.trim(),
-  auditorAsignado: act.auditorAsignado,
-  progreso: progresoEntero,
-  fechaInicio: act.fechaInicio || '',
-  fecha: act.fecha || '',
+          id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
+          idHallazgo: parseInt(hallazgoId),
+          accion: act.accion,
+          sede: act.sede || '', 
+          responsable: act.responsable,
+          correoResponsable: act.correoResponsable.trim(),
+          auditorAsignado: act.auditorAsignado,
+          correoAuditor: act.correoAuditor,
+          progreso: progresoEntero,
+          fechaInicio: act.fechaInicio || '',
+          fecha: act.fecha || '',
   evidenciaUrl: act.evidenciaUrl || '',
   estadoWorkflow: workflowCalculado,
   estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
@@ -466,7 +467,7 @@ const diccionarioCorreos = {
         });
           if (!correoResponsableEnviado) todasNotificacionesEnviadas = false;
 
-const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
+const correoAuditor = plan.correoAuditor || diccionarioCorreos[plan.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
           const correoAuditorEnviado = await ejecutarDespachoGmailApi({
           ref_consecutivo: `PLAN-${plan.id}`,
           titulo_informe: `Nuevo Plan de Accion Asignado`,
@@ -482,7 +483,7 @@ const correoAuditor = diccionarioCorreos[plan.auditorAsignado] || (import.meta.e
     // 👉 AGREGA "enviarNotificaciones &&" AQUÍ:
     if (enviarNotificaciones && notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
       for (const act of notificacionesRevision100) {
-const correoAuditor = diccionarioCorreos[act.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
+const correoAuditor = act.correoAuditor || diccionarioCorreos[act.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
         const correoRevisionEnviado = await ejecutarDespachoGmailApi({
           ref_consecutivo: `REVISION-100`,
           titulo_informe: `Verificar soportes cargados al 100 por ciento para proceder con el cierre`,
@@ -683,13 +684,17 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
     }
   };
 // 🧠 MODIFICADO: JALA AUTOMÁTICAMENTE CARGO Y AUDITOR DESDE EL HALLAZGO (Y ACEPTA DATOS FRESCOS)
-  const handleInformeChange = useCallback((informeId, customPlanes = null, customHallazgos = null) => {
+const handleInformeChange = useCallback((informeId, customPlanes = null, customHallazgos = null) => {
     setFormInformeId(informeId);
     if (!informeId) { setMatrixState({}); return; }
 
-    // 👉 Novedad: Usamos los datos recién guardados si se los pasamos, si no, usamos el estado normal
     const currentPlanes = customPlanes || safePlanes;
     const currentHallazgos = customHallazgos || safeHallazgos;
+
+    // ✨ ARQUITECTURA: Extraemos los datos del auditor directamente del Informe Padre
+    const informeBase = informesAuditoria.find(inf => String(inf.id) === String(informeId));
+    const auditorHeredado = informeBase?.auditorResponsable || '';
+    const correoAuditorHeredado = informeBase?.correoAuditor || '';
 
     const reportFindings = currentHallazgos.filter(h => String(h.idInforme) === String(informeId));
     const newState = {};
@@ -702,7 +707,8 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
             ...p, 
             correoConfirmacion: p.correoResponsable,
             responsable: p.responsable || h.responsable || '',
-            auditorAsignado: p.auditorAsignado || h.auditor || ''
+            auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
+            correoAuditor: p.correoAuditor || correoAuditorHeredado
           })) 
         };
       } else {
@@ -713,7 +719,8 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
             accion: '', 
             sede: h.sede || '', 
             responsable: h.responsable || '',
-            auditorAsignado: h.auditor || '', 
+            auditorAsignado: auditorHeredado || h.auditor || '', 
+            correoAuditor: correoAuditorHeredado,
             fechaInicio: '', 
             fecha: '', 
             progreso: 0, 
@@ -724,7 +731,7 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
       }
     });
     setMatrixState(newState);
-  }, [safePlanes, safeHallazgos]);
+  }, [safePlanes, safeHallazgos, informesAuditoria]);
   // ⚡ MEJORA UX: Carga automáticamente la matriz del informe al dar clic en "Gestionar" desde el historial
   useEffect(() => {
     if (editPlan) {
@@ -770,8 +777,10 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
   };
 
   // 🧠 MODIFICADO: MANTIENE LA CONSISTENCIA DE HERENCIA SI AGREGAN MÁS ACTIVIDADES
-  const handleAddActivity = (hallazgoId) => {
+ const handleAddActivity = (hallazgoId) => {
     const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(hallazgoId));
+    const informeBase = informesAuditoria.find(inf => String(inf.id) === String(formInformeId));
+    
     setMatrixState(prev => ({
       ...prev,
       [hallazgoId]: {
@@ -780,8 +789,9 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
           id: 'new-' + Math.random(), 
           accion: '', 
           sede: hallazgoBase?.sede || '', 
-          responsable: hallazgoBase?.responsable || '', // 👈 HERENCIA AUTOMÁTICA
-          auditorAsignado: hallazgoBase?.auditor || '', // 👈 HERENCIA AUTOMÁTICA
+          responsable: hallazgoBase?.responsable || '',
+          auditorAsignado: informeBase?.auditorResponsable || hallazgoBase?.auditor || '',
+          correoAuditor: informeBase?.correoAuditor || '',
           fechaInicio: '', 
           fecha: '', 
           progreso: 0, 
@@ -1533,13 +1543,24 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
                               })()}
                               {/* --- FIN SECTOR MÚLTIPLE --- */}
                               
-                              {/* CAMPO C: AUDITOR RESPONSABLE - COMPLETAMENTE BLOQUEADO EN MODO LECTURA */}
+                              {/* ✨ CAMPO C: AUDITOR Y CORREO - HEREDADOS Y BLOQUEADOS */}
                               <div className="md:col-span-2">
-                                <label className="font-bold text-blue-600 block mb-0.5">🛡️ Auditor Responsable (Bloqueado)</label>
+                                <label className="font-bold text-blue-600 block mb-0.5">🛡️ Auditor de Seguimiento</label>
                                 <input 
                                   type="text" 
-                                  value={act.auditorAsignado || ''} 
+                                  value={act.auditorAsignado || 'No asignado'} 
                                   disabled 
+                                  title="Este dato se hereda automáticamente del Informe de Auditoría"
+                                  className="w-full border border-blue-200 p-2 rounded-lg font-black text-blue-900 bg-blue-50/50 cursor-not-allowed shadow-inner" 
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="font-bold text-blue-600 block mb-0.5">✉️ Correo del Auditor</label>
+                                <input 
+                                  type="email" 
+                                  value={act.correoAuditor || 'Sin correo'} 
+                                  disabled 
+                                  title="Este dato se hereda automáticamente del Informe de Auditoría"
                                   className="w-full border border-blue-200 p-2 rounded-lg font-black text-blue-900 bg-blue-50/50 cursor-not-allowed shadow-inner" 
                                 />
                               </div>
