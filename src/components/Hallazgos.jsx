@@ -697,7 +697,27 @@ export default function Hallazgos({
             {/* ================= FILA 2: ORIGEN Y CONTEXTO JERÁRQUICO (2 + 1 + 1 = 4) ================= */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
-              <select name="idInforme" value={informeOrigenSeleccionado} onChange={(e) => setInformeOrigenState(prev => ({ ...prev, [idEdicion]: e.target.value }))} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+              <select 
+                name="idInforme" 
+                value={informeOrigenSeleccionado} 
+                onChange={(e) => {
+                  const idInfSeleccionado = e.target.value;
+                  // 1. Actualizar el estado del informe origen seleccionado
+                  setInformeOrigenState(prev => ({ ...prev, [idEdicion]: idInfSeleccionado }));
+
+                  // 2. Buscar el informe en la lista maestra para auto-completar Proceso y Subproceso
+                  const infEncontrado = informesAuditoria.find(inf => String(inf.id) === String(idInfSeleccionado));
+                  if (infEncontrado) {
+                    const macroAuto = infEncontrado.macroproceso || infEncontrado.proceso || '';
+                    const subAuto = infEncontrado.subproceso || 'General';
+
+                    setProcesoFormState(prev => ({ ...prev, [idEdicion]: macroAuto }));
+                    setSubprocesoFormState(prev => ({ ...prev, [idEdicion]: subAuto }));
+                  }
+                }} 
+                required 
+                className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700"
+              >
                 <option value="">-- Seleccione el Informe Radicado --</option>
                 {informesAuditoria.map((inf) => (
                   <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
