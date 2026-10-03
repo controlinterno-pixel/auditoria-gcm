@@ -1080,11 +1080,29 @@ export default function Hallazgos({
                                     )}
                                   </td>
                                   <td className="p-3">
-                                    <div className="text-[10px] space-y-0.5 bg-slate-50 p-2 rounded border">
-                                      <div><span className="font-bold text-slate-400 uppercase text-[8px]">Auditor:</span> <span className="font-bold text-slate-700">{h.auditor || 'N/A'}</span></div>
-                                      <div><span className="font-bold text-slate-400 uppercase text-[8px]">Dueño:</span> <span className="font-bold text-slate-700">{h.responsable}</span></div>
-                                    </div>
-                                  </td>
+  <div className="text-[10px] space-y-0.5 bg-slate-50 p-2 rounded border">
+    {/* Extrae auditor y correo prioritariamente del Informe Origen, o en su defecto del Hallazgo */}
+    {(() => {
+      const auditorNombre = informeBase?.auditorResponsable || informeBase?.auditor || informeBase?.auditorLider || h.auditor || 'N/A';
+      const auditorCorreo = informeBase?.correoAuditor || informeBase?.correoAuditorResponsable || informeBase?.correo_auditor || h.correoAuditor || '';
+      return (
+        <div>
+          <span className="font-bold text-slate-400 uppercase text-[8px]">Auditor:</span>{' '}
+          <span className="font-black text-slate-800">{auditorNombre}</span>
+          {auditorCorreo && (
+            <span className="block text-[9px] text-slate-500 font-mono font-medium truncate" title={auditorCorreo}>
+              ✉️ {auditorCorreo}
+            </span>
+          )}
+        </div>
+      );
+    })()}
+    <div className="pt-0.5 border-t border-slate-200/60 mt-1">
+      <span className="font-bold text-slate-400 uppercase text-[8px]">Dueño:</span>{' '}
+      <span className="font-bold text-slate-700">{h.responsable}</span>
+    </div>
+  </div>
+</td>
                                   <td className="p-3 text-center">
                                     <span className={`px-2.5 py-0.5 rounded-full font-black text-[9px] uppercase tracking-widest inline-block mb-2 ${h.estado === 'Cerrado' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
                                       {h.estado}
