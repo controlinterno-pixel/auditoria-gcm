@@ -1425,7 +1425,7 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
               </div>
 
               <div className="md:col-span-2">
-                <label className="font-bold text-gray-600 block mb-1.5">✉️ Correo del Auditor Responsable</label>
+                <label className="font-bold text-gray-600 block mb-1.5">✉️ Correo del Auditor Responsable / Seguimiento</label>
                 <input 
                   type="email"
                   name="correoAuditor" 
