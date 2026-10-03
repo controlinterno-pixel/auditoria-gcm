@@ -281,6 +281,8 @@ export default function InformesAuditoria({
           elaboradoPor: editInformeAuditoria.elaboradoPor || '',
           revisadoPor: editInformeAuditoria.revisadoPor || '',
           aprobadoPor: editInformeAuditoria.aprobadoPor || '',
+          auditorResponsable: editInformeAuditoria.auditorResponsable || '',
+          correoAuditor: editInformeAuditoria.correoAuditor || '',
           socializado: editInformeAuditoria.socializado || 'No',
           fechaSocializacion: editInformeAuditoria.fechaSocializacion || editInformeAuditoria.fecha_socializacion || editInformeAuditoria.fechaSoc || '',
           participantes: editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '',
@@ -310,7 +312,7 @@ export default function InformesAuditoria({
       setArchivoSubidoNombre('');
       setAnexosMultiples([]);
       setMotivoCambio('');
-      const draftVacio = {
+     const draftVacio = {
         titulo: '',
         proceso: '',
         subproceso: 'General',
@@ -320,6 +322,8 @@ export default function InformesAuditoria({
         elaboradoPor: '',
         revisadoPor: '',
         aprobadoPor: '',
+        auditorResponsable: '',
+        correoAuditor: '',
         socializado: 'No',
         fechaSocializacion: '',
         participantes: '',
@@ -566,6 +570,8 @@ const handleFileUpload = async (e, type) => {
       elaboradoPor: editInformeAuditoria.elaboradoPor || '',
       revisadoPor: editInformeAuditoria.revisadoPor || '',
       aprobadoPor: editInformeAuditoria.aprobadoPor || '',
+      auditorResponsable: editInformeAuditoria.auditorResponsable || '',
+      correoAuditor: editInformeAuditoria.correoAuditor || '',
       socializado: editInformeAuditoria.socializado || 'No',
       fechaSocializacion: editInformeAuditoria.fechaSocializacion || editInformeAuditoria.fecha_socializacion || editInformeAuditoria.fechaSoc || '',
       participantes: editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '',
@@ -606,6 +612,8 @@ const handleFileUpload = async (e, type) => {
       elaboradoPor: snapshot.elaboradoPor || draftInforme.elaboradoPor || '',
       revisadoPor: snapshot.revisadoPor || draftInforme.revisadoPor || '',
       aprobadoPor: snapshot.aprobadoPor || draftInforme.aprobadoPor || '',
+      auditorResponsable: snapshot.auditorResponsable || draftInforme.auditorResponsable || '',
+      correoAuditor: snapshot.correoAuditor || draftInforme.correoAuditor || '',
       socializado: snapshot.socializado || draftInforme.socializado || 'No',
       fechaSocializacion: snapshot.fechaSocializacion || draftInforme.fechaSocializacion || '',
       participantes: snapshot.participantes || draftInforme.participantes || '',
@@ -1393,6 +1401,46 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                   <option value="">-- Seleccionar Cargo --</option>
                   {CARGOS_EMPRESA.map((cargo, i) => <option key={`apr-${i}`} value={cargo}>{cargo}</option>)}
                 </select>
+              </div>
+
+              {/* ✨ NUEVOS CAMPOS: AUDITOR RESPONSABLE Y CORREO */}
+              <div className="md:col-span-2">
+                <label className="font-bold text-gray-600 block mb-1.5">🛡️ Auditor Responsable / Seguimiento</label>
+                <select 
+                  name="auditorResponsable" 
+                  value={draftInforme.auditorResponsable || ''} 
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, auditorResponsable: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                  }}
+                  required 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  disabled={modoVistaCompleta}
+                >
+                  <option value="">-- Seleccionar Cargo --</option>
+                  {CARGOS_EMPRESA.map((cargo, i) => <option key={`auditor-${i}`} value={cargo}>{cargo}</option>)}
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="font-bold text-gray-600 block mb-1.5">✉️ Correo del Auditor Responsable</label>
+                <input 
+                  type="email"
+                  name="correoAuditor" 
+                  value={draftInforme.correoAuditor || ''} 
+                  onChange={(e) => {
+                    const siguiente = { ...draftInforme, correoAuditor: e.target.value };
+                    setDraftInforme(siguiente);
+                    registrarCambioBorrador(siguiente);
+                    setIsDirty(true);
+                  }}
+                  required 
+                  placeholder="Ej: auditor@empresa.com"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-medium text-slate-800 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  disabled={modoVistaCompleta}
+                />
               </div>
 
               <div className="md:col-span-1">
