@@ -115,7 +115,18 @@ export const createFormHandlers = ({
     const mesActual = defaultMeses[hoy.getMonth()];
     const anioActual = hoy.getFullYear();
 
-    let evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || '';
+    let evidenciasOut = [];
+    try {
+      const evidenciasRaw = JSON.parse(String(formData.get('evidenciasInput') || '[]'));
+      evidenciasOut = Array.isArray(evidenciasRaw) ? evidenciasRaw : [];
+    } catch {
+      evidenciasOut = [];
+    }
+    const evidenciaUrlOut = formData.get('evidenciaUrlInput') || editHallazgo?.evidenciaUrl || evidenciasOut[0]?.url || '';
+    if (evidenciasOut.length === 0 && evidenciaUrlOut) {
+      evidenciasOut = [{ url: evidenciaUrlOut, nombre: 'Evidencia anterior' }];
+    }
+    const normaReferenciaOut = formData.get('normaReferencia') || editHallazgo?.normaReferencia || '';
     const procesoVal = formData.get('proceso') || formData.get('Proceso') || 'Sin proceso';
     const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || 'General';
     
@@ -130,9 +141,11 @@ export const createFormHandlers = ({
         subproceso: subprocesoVal,
         responsable: formData.get('responsable'), 
         auditor: formData.get('auditor'), 
+        normaReferencia: normaReferenciaOut,
         titulo: formData.get('titulo'), 
         severidad: formData.get('severidad'), 
         evidenciaUrl: evidenciaUrlOut, 
+        evidencias: evidenciasOut,
         causa: formData.get('causa') || '', 
         claseObservacion: formData.get('claseObservacion') || 'Oportunidad de Mejora', 
         historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
@@ -149,6 +162,7 @@ export const createFormHandlers = ({
         subproceso: subprocesoVal,
         responsable: formData.get('responsable'), 
         auditor: formData.get('auditor'), 
+        normaReferencia: normaReferenciaOut,
         titulo: formData.get('titulo'), 
         severidad: formData.get('severidad'), 
         estado: 'Abierto', 
@@ -156,6 +170,7 @@ export const createFormHandlers = ({
         anio: anioActual, 
         mes: mesActual, 
         evidenciaUrl: evidenciaUrlOut, 
+        evidencias: evidenciasOut,
         causa: formData.get('causa') || '', 
         claseObservacion: formData.get('claseObservacion') || 'Oportunidad de Mejora', 
         historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] 

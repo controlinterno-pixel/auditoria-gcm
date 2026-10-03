@@ -454,6 +454,7 @@ return (
                     isAdmin={isAdmin} 
                     safeRiesgos={safeRiesgos} 
                     informesAuditoria={informesAuditoria} 
+                    fuentesMejora={fuentesMejora}
                     editHallazgo={editHallazgo} 
                     setEditHallazgo={setEditHallazgo}
                     handleHallazgoSubmit={handleHallazgoSubmit} 

@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 import { 
-  AUDITORES_OFICIALES, 
   MAPA_PROCESOS, 
-  CARGOS_POR_SEDE 
+  CARGOS_POR_SEDE,
+  CARGOS_EMPRESA
 } from '../constants/diccionariosGRC';
 
 export default function Hallazgos({
   isAdmin,
   safeRiesgos = [],
   informesAuditoria = [], 
+  fuentesMejora = [],
   editHallazgo,
   setEditHallazgo,
   handleHallazgoSubmit,
@@ -53,6 +54,7 @@ export default function Hallazgos({
   // 🌟 ESTADOS DERIVADOS DE MACRO Y SUBPROCESO
   const [procesoFormState, setProcesoFormState] = useState({});
   const [subprocesoFormState, setSubprocesoFormState] = useState({});
+  const [informeOrigenSeleccionado, setInformeOrigenSeleccionado] = useState('');
   const [autoFillData] = useState(() => {
     if (typeof window === 'undefined') return null;
     try {
@@ -71,11 +73,17 @@ export default function Hallazgos({
 
   const idEdicion = editHallazgo?.id || 'nuevo';
 
+  const fuentesMejoraDisponibles = Array.isArray(fuentesMejora) ? fuentesMejora : [];
+
   const procesoForm = procesoFormState[idEdicion] ?? (editHallazgo?.proceso || autoFillData?.proceso || '');
   const subprocesoForm = subprocesoFormState[idEdicion] ?? (editHallazgo?.subproceso || autoFillData?.subproceso || 'General');
 
   const setProcesoForm = (val) => setProcesoFormState(prev => ({ ...prev, [idEdicion]: val }));
   const setSubprocesoForm = (val) => setSubprocesoFormState(prev => ({ ...prev, [idEdicion]: val }));
+
+  useEffect(() => {
+    setInformeOrigenSeleccionado(String(editHallazgo?.idInforme || autoFillData?.idInforme || ''));
+  }, [editHallazgo]);
 
   const sedesMultiples = sedesState[idEdicion] ?? (editHallazgo?.sede
     ? (editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede])
@@ -88,8 +96,15 @@ export default function Hallazgos({
   const setSedesMultiples = (newSedes) => setSedesState(prev => ({ ...prev, [idEdicion]: newSedes }));
   const setResponsablesMultiples = (newResp) => setRespState(prev => ({ ...prev, [idEdicion]: newResp }));
 
-  // Consolidar todos los cargos de las sedes elegidas
-  const cargosDisponibles = sedesMultiples.flatMap(s => CARGOS_POR_SEDE[s] || []);
+  // Usar el mismo listado maestro de cargos que Informes de Auditoría
+  const cargosDisponibles = CARGOS_EMPRESA;
+  const subprocesosDisponibles = procesoForm ? MAPA_PROCESOS[procesoForm] || [] : [];
+  const subprocesoDeshabilitado = !procesoForm || subprocesosDisponibles.length === 0;
+  const informeOrigen = informesAuditoria.find(informe => String(informe.id) === String(informeOrigenSeleccionado));
+  const fuenteOrigen = fuentesMejoraDisponibles.find(fuente => (
+    String(fuente.codigo || fuente.id) === String(informeOrigen?.tipoFuente || '')
+  ));
+  const normaReferencia = fuenteOrigen?.norma || fuenteOrigen?.tipoNorma || informeOrigen?.norma || '';
 
   // 🧠 GENERADOR DE ID AUTOMÁTICO
   const anioActual = new Date().getFullYear();
@@ -102,31 +117,47 @@ export default function Hallazgos({
   // ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
+  const [archivosSubidos, setArchivosSubidos] = useState([]);
+
+  useEffect(() => {
+    const evidenciasGuardadas = Array.isArray(editHallazgo?.evidencias)
+      ? editHallazgo.evidencias
+      : editHallazgo?.evidenciaUrl
+        ? [{ url: editHallazgo.evidenciaUrl, nombre: 'Evidencia anterior' }]
+        : [];
+    setArchivosSubidos(evidenciasGuardadas);
+  }, [editHallazgo]);
 
  const handleFileUpload = async (e) => {
-    const originalFile = e.target.files[0];
-    if (!originalFile) return;
+    const archivos = Array.from(e.target.files || []);
+    if (archivos.length === 0) return;
 
     // 🛑 VALIDACIÓN DE PESO (MÁXIMO 7MB) PARA EVITAR ERROR 413
     const MAX_MB = 7;
-    if (originalFile.size > MAX_MB * 1024 * 1024) {
-      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo supera el límite máximo permitido por el servidor (${MAX_MB} MB).\nTu archivo pesa: ${(originalFile.size / (1024 * 1024)).toFixed(2)} MB.\n\nPor favor, comprime el PDF antes de subirlo.`);
+    const archivoPesado = archivos.find(archivo => archivo.size > MAX_MB * 1024 * 1024);
+    if (archivoPesado) {
+      alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo ${archivoPesado.name} supera el límite máximo permitido de ${MAX_MB} MB.`);
       e.target.value = '';
       return;
     }
 
     setIsUploading(true); setUploadProgress(20);
     try {
-      setUploadProgress(50);
-      const data = await apiService.subirEvidencia(originalFile, { appName: 'controlInterno' });
-      const urlFinal = apiService.resolveArchivoUrl({
-        appName: data?.appName || 'controlInterno',
-        fileName: data?.fileName || data?.filename || '',
-        url: data?.url,
-        file: data?.file,
-      }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
-      setArchivoSubidoUrl(urlFinal); setIsUploading(false); setUploadProgress(100);
+      const nuevasEvidencias = [];
+      for (let indice = 0; indice < archivos.length; indice += 1) {
+        const archivo = archivos[indice];
+        setUploadProgress(20 + Math.round((indice / archivos.length) * 70));
+        const data = await apiService.subirEvidencia(archivo, { appName: 'controlInterno' });
+        const urlFinal = apiService.resolveArchivoUrl({
+          appName: data?.appName || 'controlInterno',
+          fileName: data?.fileName || data?.filename || '',
+          url: data?.url,
+          file: data?.file,
+        }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
+        nuevasEvidencias.push({ url: urlFinal, nombre: archivo.name });
+      }
+      setArchivosSubidos(prev => [...prev, ...nuevasEvidencias]);
+      setIsUploading(false); setUploadProgress(100);
       alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
     } catch (err) {
       console.error(err); alert("Error al conectar con el servidor de archivos."); setIsUploading(false);
@@ -662,22 +693,27 @@ export default function Hallazgos({
             </div>
 
             <div className="md:col-span-2">
-              <label className="font-bold text-gray-600 block mb-1">Auditor Responsable</label>
-              <select name="auditor" defaultValue={editHallazgo?.auditor||''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
-                <option value="">-- Seleccione un Auditor --</option>
-                {AUDITORES_OFICIALES.map(aud => <option key={aud} value={aud}>{aud}</option>)}
+              <label className="font-bold text-gray-600 block mb-1">Responsable</label>
+              <select name="auditor" defaultValue={editHallazgo?.auditor || ''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+                <option value="">-- Seleccione un Cargo --</option>
+                {CARGOS_EMPRESA.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
               </select>
             </div>
             
             {/* ================= FILA 2: ORIGEN Y CONTEXTO JERÁRQUICO (2 + 1 + 1 = 4) ================= */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
-<select name="idInforme" defaultValue={editHallazgo?.idInforme || autoFillData?.idInforme || ''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+              <select name="idInforme" value={informeOrigenSeleccionado} onChange={(e) => setInformeOrigenSeleccionado(e.target.value)} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
                 <option value="">-- Seleccione el Informe Radicado --</option>
                 {informesAuditoria.map((inf) => (
                   <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
                 ))}
               </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="font-bold text-gray-600 block mb-1">Norma / Referencia *</label>
+              <input name="normaReferencia" value={normaReferencia} readOnly placeholder="Se completa desde la Fuente de Mejora" className="w-full border border-slate-200 bg-slate-100 text-slate-600 font-bold rounded-lg p-2 outline-none" />
             </div>
             
            {/* 🔍 MACROPROCESO / PROCESO */}
@@ -686,7 +722,12 @@ export default function Hallazgos({
                <select 
                  name="proceso" 
                  value={procesoForm} 
-                 onChange={(e) => { setProcesoForm(e.target.value); setSubprocesoForm('General'); }} 
+                 onChange={(e) => {
+                   const nuevoProceso = e.target.value;
+                   const subprocesos = MAPA_PROCESOS[nuevoProceso] || [];
+                   setProcesoForm(nuevoProceso);
+                   setSubprocesoForm(subprocesos.length === 1 ? subprocesos[0] : '');
+                 }} 
                  required 
                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700"
                >
@@ -704,10 +745,10 @@ export default function Hallazgos({
                  onChange={(e) => setSubprocesoForm(e.target.value)} 
                  required 
                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:opacity-50"
-                 disabled={!procesoForm}
+                 disabled={subprocesoDeshabilitado}
                >
                  <option value="">-- Seleccione --</option>
-                 {(MAPA_PROCESOS[procesoForm] || []).map(s => <option key={s} value={s}>{s}</option>)}
+                 {subprocesosDisponibles.map(s => <option key={s} value={s}>{s}</option>)}
                </select>
             </div>
 
@@ -786,7 +827,8 @@ export default function Hallazgos({
                 <div className="text-slate-300 text-3xl">☁️</div>
               </div>
 
-              <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || editHallazgo?.evidenciaUrl || ''} />
+              <input type="hidden" name="evidenciaUrlInput" value={archivosSubidos[0]?.url || ''} />
+              <input type="hidden" name="evidenciasInput" value={JSON.stringify(archivosSubidos)} />
 
               <div className="bg-white border-2 border-dashed border-rose-300 p-6 rounded-2xl text-center relative hover:border-rose-500 hover:bg-rose-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
                 {isUploading ? (
@@ -796,19 +838,26 @@ export default function Hallazgos({
                       <div className="bg-rose-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }}></div>
                     </div>
                   </div>
-                ) : archivoSubidoUrl || editHallazgo?.evidenciaUrl ? (
-                  <div className="space-y-2">
+                ) : archivosSubidos.length > 0 ? (
+                  <div className="space-y-3 w-full">
                     <div className="text-4xl text-rose-500">✅</div>
-                    <a href={archivoSubidoUrl || editHallazgo?.evidenciaUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline bg-blue-50 px-3 py-1 rounded-md">Ver Soporte Subido</a>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {archivosSubidos.map((evidencia, indice) => (
+                        <div key={`${evidencia.url}-${indice}`} className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 border border-blue-100">
+                          <a href={evidencia.url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline">{evidencia.nombre || `Evidencia ${indice + 1}`}</a>
+                          <button type="button" onClick={() => setArchivosSubidos(prev => prev.filter((_, posicion) => posicion !== indice))} className="text-rose-500 font-black" title="Quitar evidencia">×</button>
+                        </div>
+                      ))}
+                    </div>
                     <label className="block mt-3 cursor-pointer text-slate-400 hover:text-rose-600 text-[9px] font-bold uppercase tracking-wider transition-colors underline">
-                      Reemplazar Archivo <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
+                      Agregar más evidencias <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
                     </label>
                   </div>
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
                     <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
                     <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-rose-100 group-hover:text-rose-700 transition-colors">Seleccionar Archivo PDF o Imagen</p>
-                    <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
+                    <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
                   </label>
                 )}
               </div>
