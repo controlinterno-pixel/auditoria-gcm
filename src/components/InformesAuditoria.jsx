@@ -1402,29 +1402,18 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 </select>
               </div>
 
-{/* ✨ NUEVOS CAMPOS: AUDITOR RESPONSABLE Y CORREO (AUTOCOMPLETADO LIGADO) */}
+{/* ✨ NUEVOS CAMPOS: AUDITOR RESPONSABLE Y CORREO (LIGADO A CARGOS) */}
               <div className="md:col-span-2">
-                <label className="font-bold text-gray-600 block mb-1.5">🛡️ Auditor Responsable / Seguimiento</label>
+                <label className="font-bold text-gray-600 block mb-1.5">🛡 Auditor Responsable / Seguimiento (Cargo)</label>
                 <select 
                   name="auditorResponsable" 
                   value={draftInforme.auditorResponsable || ''} 
                   onChange={(e) => {
-                    const auditor = e.target.value;
-                    
-                    // 🧠 DICCIONARIO: Mapeo exacto para prevenir errores de tipeo (Ajustar a correos reales)
-                    const correosAuditores = {
-                      "Rodolfo González": "rodolfo.gonzalez@empresa.com",
-                      "Yehison Pineda": "yehison.pineda@empresa.com",
-                      "Angelica Hernandez": "angelica.hernandez@empresa.com",
-                      "Luz Angela Chico": "luz.chico@empresa.com"
-                    };
-                    
-                    const correoAutomatico = correosAuditores[auditor] || '';
-
+                    const cargoAuditor = e.target.value;
                     const siguiente = { 
                       ...draftInforme, 
-                      auditorResponsable: auditor,
-                      correoAuditor: correoAutomatico // Inyección dinámica
+                      auditorResponsable: cargoAuditor
+                      // Ya no borramos el correo si cambias de cargo
                     };
                     
                     setDraftInforme(siguiente);
@@ -1453,7 +1442,7 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                     setIsDirty(true);
                   }}
                   required 
-                  placeholder="Ej: auditor@empresa.com"
+                  placeholder="Ej: auditoria@empresa.com"
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-black text-slate-800 bg-slate-50 shadow-inner disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors"
                   disabled={modoVistaCompleta}
                 />

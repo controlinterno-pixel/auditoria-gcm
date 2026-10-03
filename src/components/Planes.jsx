@@ -1814,12 +1814,11 @@ if (existingActivities.length > 0) {
                       ))}
                     </select>
 
-                    <select value={columnFilters['auditorAsignado'] || ''} onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-blue-50 font-black text-blue-800 shadow-sm cursor-pointer">
+                    <select value={columnFilters['auditorAsignado'] || ''} onChange={(e) => handleColFilterChange('auditorAsignado', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-blue-50 font-black text-blue-800 shadow-sm cursor-pointer max-w-[150px] truncate">
                       <option value="">🛡️ Todos los Auditores</option>
-                      <option value="Rodolfo González">Rodolfo González</option>
-                      <option value="Yehison Pineda">Yehison Pineda</option>
-                      <option value="Angelica Hernandez">Angelica Hernandez</option>
-                      <option value="Luz Angela Chico">Luz Angela Chico</option>
+                      {[...new Set(planesEnriquecidos.map(p => p.auditorAsignado).filter(Boolean))].sort().map(aud => (
+                        <option key={aud} value={aud}>{aud}</option>
+                      ))}
                     </select>
                     <select value={columnFilters['estadoWorkflow'] || ''} onChange={(e) => handleColFilterChange('estadoWorkflow', e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-2 bg-amber-50 font-black text-amber-800 shadow-sm cursor-pointer">
                       <option value="">📋 Todas las Fases</option>
