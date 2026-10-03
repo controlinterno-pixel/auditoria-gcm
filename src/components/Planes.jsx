@@ -372,12 +372,12 @@ const diccionarioCorreos = {
           progreso: progresoEntero,
           fechaInicio: act.fechaInicio || '',
           fecha: act.fecha || '',
-  evidenciaUrl: act.evidenciaUrl || '',
-  estadoWorkflow: workflowCalculado,
-  estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
-  anio: act.fecha ? Number(act.fecha.split('-')[0]) : 2026,
-  mes: act.fecha ? act.fecha.split('-')[1] : "Junio"
-};
+          evidenciaUrl: act.evidenciaUrl || '',
+          estadoWorkflow: workflowCalculado,
+          estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
+          anio: act.fecha ? Number(act.fecha.split('-')[0]) : 2026,
+          mes: act.fecha ? act.fecha.split('-')[1] : "Junio"
+        };
         if (isNew) {
           planData.historialCambios = [{ fecha: ts, usuario: 'Auditor', accion: 'Actividad registrada en matriz masiva' }];
           updatedPlanesList.push(planData);
