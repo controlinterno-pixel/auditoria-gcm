@@ -1,4 +1,4 @@
-const fs = require('fs');
+/* global Buffer, console */
 const https = require('https');
 
 async function testLimit(sizeBytes) {

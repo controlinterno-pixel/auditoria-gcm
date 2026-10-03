@@ -16,8 +16,7 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-    const { ref_consecutivo, destinatarios, asunto, titulo, evidenciaUrl, anexosMultiples, appName } = req.body || {};
-
+const { ref_consecutivo, destinatarios, asunto, titulo, evidenciaUrl, anexosMultiples } = req.body || {};
     // 🛠️ PARSEO SEGURO DE ANEXOS: Convierte el string JSON del frontend a un Array de objetos
     let anexosArray = [];
     if (anexosMultiples) {

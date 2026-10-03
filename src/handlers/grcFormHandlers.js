@@ -115,7 +115,7 @@ export const createFormHandlers = ({
     const mesActual = defaultMeses[hoy.getMonth()];
     const anioActual = hoy.getFullYear();
 
-    let evidenciasOut = [];
+    let evidenciasOut;
     try {
       const evidenciasRaw = JSON.parse(String(formData.get('evidenciasInput') || '[]'));
       evidenciasOut = Array.isArray(evidenciasRaw) ? evidenciasRaw : [];
@@ -672,8 +672,6 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           correoEnviadoA: correosNotificacionOut || '',
           fechaCorreoEnviado: '',
           historialCambios: [],
-          hora: horaActual,
-          fechaHora: tsActual,
         };
         idInformeGuardado = nuevoId;
         updated = [nuevo, ...safeInformes];
