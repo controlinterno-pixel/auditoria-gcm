@@ -1566,11 +1566,11 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
                               </div>
 
                               <div className="md:col-span-3">
-                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo Responsable</label>
+                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo Responsable de la accion</label>
                                 <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
                               </div>
                               <div className="md:col-span-3">
-                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar Correo</label>
+                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar Correo del responsable de la accion</label>
                                 <input type="email" value={act.correoConfirmacion || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} className="w-full border p-2 rounded-lg bg-purple-50 focus:bg-white" required />
                               </div>
                               <div className="md:col-span-1">

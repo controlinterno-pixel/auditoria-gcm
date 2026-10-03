@@ -1403,14 +1403,31 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 </select>
               </div>
 
-              {/* ✨ NUEVOS CAMPOS: AUDITOR RESPONSABLE Y CORREO */}
+{/* ✨ NUEVOS CAMPOS: AUDITOR RESPONSABLE Y CORREO (AUTOCOMPLETADO LIGADO) */}
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 block mb-1.5">🛡️ Auditor Responsable / Seguimiento</label>
                 <select 
                   name="auditorResponsable" 
                   value={draftInforme.auditorResponsable || ''} 
                   onChange={(e) => {
-                    const siguiente = { ...draftInforme, auditorResponsable: e.target.value };
+                    const auditor = e.target.value;
+                    
+                    // 🧠 DICCIONARIO: Mapeo exacto para prevenir errores de tipeo (Ajustar a correos reales)
+                    const correosAuditores = {
+                      "Rodolfo González": "rodolfo.gonzalez@empresa.com",
+                      "Yehison Pineda": "yehison.pineda@empresa.com",
+                      "Angelica Hernandez": "angelica.hernandez@empresa.com",
+                      "Luz Angela Chico": "luz.chico@empresa.com"
+                    };
+                    
+                    const correoAutomatico = correosAuditores[auditor] || '';
+
+                    const siguiente = { 
+                      ...draftInforme, 
+                      auditorResponsable: auditor,
+                      correoAuditor: correoAutomatico // Inyección dinámica
+                    };
+                    
                     setDraftInforme(siguiente);
                     registrarCambioBorrador(siguiente);
                     setIsDirty(true);
@@ -1419,7 +1436,7 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                   disabled={modoVistaCompleta}
                 >
-                  <option value="">-- Seleccionar Cargo --</option>
+                  <option value="">-- Seleccionar Auditor --</option>
                   {CARGOS_EMPRESA.map((cargo, i) => <option key={`auditor-${i}`} value={cargo}>{cargo}</option>)}
                 </select>
               </div>
@@ -1438,7 +1455,7 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                   }}
                   required 
                   placeholder="Ej: auditor@empresa.com"
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-medium text-slate-800 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-black text-slate-800 bg-slate-50 shadow-inner disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors"
                   disabled={modoVistaCompleta}
                 />
               </div>
