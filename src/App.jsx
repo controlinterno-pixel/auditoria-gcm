@@ -64,6 +64,25 @@ export default function App() {
   // 🛡️ ESTADO DE BLOQUEO: Previene la "condición de carrera" al recargar con F5
   const [authInitialized, setAuthInitialized] = useState(false);
 
+  // 🛡️ BARRERA DE CONTENCIÓN: Captura errores de importación dinámica (Chunk 404 Vercel)
+  useEffect(() => {
+    const handlePreloadError = (event) => {
+      event.preventDefault();
+      const hasReloaded = sessionStorage.getItem('chunk_reload_retry');
+      if (!hasReloaded) {
+        sessionStorage.setItem('chunk_reload_retry', 'true');
+        window.location.reload();
+      } else {
+        sessionStorage.removeItem('chunk_reload_retry');
+      }
+    };
+
+    window.addEventListener('vite:preload-error', handlePreloadError);
+    return () => {
+      window.removeEventListener('vite:preload-error', handlePreloadError);
+    };
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, () => {
       setAuthInitialized(true); // Libera el renderizado solo cuando Firebase confirma la sesión

@@ -280,7 +280,15 @@ export default function Hallazgos({
           <button onClick={() => setVistaActiva('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
           
           {isAdmin && (
-            <button onClick={() => { setEditHallazgo(null); setVistaActiva('nuevo'); }} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}>
+            <button 
+              type="button"
+              onClick={() => { 
+                setEditHallazgo(null); 
+                setEsSoloLectura(false); 
+                setVistaActiva('nuevo'); 
+              }} 
+              className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}
+            >
               <span className="mr-2">➕</span> Nuevo Hallazgo
             </button>
           )}
@@ -691,7 +699,7 @@ export default function Hallazgos({
 
             <div className="md:col-span-1">
               <label className="font-bold text-gray-600 block mb-1">Clase de Observación</label>
-<select name="claseObservacion" defaultValue={editHallazgo?.claseObservacion || autoFillData?.claseObservacion || 'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700">
+<select name="claseObservacion" disabled={esSoloLectura} defaultValue={editHallazgo?.claseObservacion || autoFillData?.claseObservacion || 'Hallazgo'} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-medium text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed">
                 <option value="Hallazgo">Hallazgo</option>
                 <option value="No Conformidad">No Conformidad</option>
                 <option value="Oportunidad de Mejora">Oportunidad de Mejora</option>
@@ -701,7 +709,7 @@ export default function Hallazgos({
 
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Responsable</label>
-              <select name="responsable" defaultValue={editHallazgo?.responsable || ''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+<select name="responsable" disabled={esSoloLectura} defaultValue={editHallazgo?.responsable || ''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed">
                 <option value="">-- Seleccione un Cargo --</option>
                 {CARGOS_EMPRESA.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
               </select>
@@ -711,8 +719,9 @@ export default function Hallazgos({
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
               <select 
-                name="idInforme" 
-                value={informeOrigenSeleccionado} 
+  name="idInforme" 
+  disabled={esSoloLectura}
+  value={informeOrigenSeleccionado}
                 onChange={(e) => {
                   const idInfSeleccionado = e.target.value;
                   // 1. Actualizar el estado del informe origen seleccionado
@@ -747,8 +756,9 @@ export default function Hallazgos({
             <div className="md:col-span-1">
                <label className="font-bold text-gray-600 block mb-1">Proceso / Macroproceso</label>
                <select 
-                 name="proceso" 
-                 value={procesoForm} 
+  name="proceso" 
+  disabled={esSoloLectura}
+  value={procesoForm}
                  onChange={(e) => {
                    const nuevoProceso = e.target.value;
                    const subprocesos = MAPA_PROCESOS[nuevoProceso] || [];
@@ -767,13 +777,13 @@ export default function Hallazgos({
             <div className="md:col-span-1">
                <label className="font-bold text-gray-600 block mb-1">Subproceso</label>
                <select 
-                 name="subproceso" 
-                 value={subprocesoForm} 
-                 onChange={(e) => setSubprocesoForm(e.target.value)} 
-                 required 
-                 className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:opacity-50"
-                 disabled={subprocesoDeshabilitado}
-               >
+  name="subproceso" 
+  value={subprocesoForm} 
+  onChange={(e) => setSubprocesoForm(e.target.value)} 
+  required 
+  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+  disabled={subprocesoDeshabilitado || esSoloLectura}
+>
                  <option value="">-- Seleccione --</option>
                  {subprocesosDisponibles.map(s => <option key={s} value={s}>{s}</option>)}
                </select>
@@ -808,7 +818,7 @@ export default function Hallazgos({
                 <label className="font-black text-red-800 block mb-1 uppercase tracking-widest text-[10px]">⚠️ Nivel de Severidad</label>
                 <p className="text-[9px] text-red-600 font-medium">Clasificación del riesgo asociado a esta desviación.</p>
               </div>
-<select name="severidad" defaultValue={editHallazgo?.severidad || autoFillData?.severidad || 'Medio'} className="border border-red-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-800 w-48 shadow-sm">
+<select name="severidad" disabled={esSoloLectura} defaultValue={editHallazgo?.severidad || autoFillData?.severidad || 'Medio'} className="border border-red-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-red-800 w-48 shadow-sm disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed">
                 <option value="Crítico">Crítico</option>
                 <option value="Alto">Alto</option>
                 <option value="Medio">Medio</option>
@@ -818,7 +828,7 @@ export default function Hallazgos({
 
             <div className="md:col-span-4">
               <label className="font-bold text-gray-600 block mb-1">Título / Descripción de la Falla</label>
-              <textarea name="titulo" defaultValue={editHallazgo?.titulo || autoFillData?.titulo || ''} required rows="4" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner" />
+<textarea name="titulo" disabled={esSoloLectura} defaultValue={editHallazgo?.titulo || autoFillData?.titulo || ''} required rows="4" placeholder="Describa el hallazgo detalladamente..." className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-red-500 outline-none font-medium resize-y shadow-inner disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed" />
             </div>            
 
             {/* ✨ NUEVA SECCIÓN: ANÁLISIS DE CAUSAS RAÍZ */}
@@ -829,11 +839,12 @@ export default function Hallazgos({
                     🧠 Metodología de Causa Raíz
                   </label>
                   <select 
-                    name="metodologiaCausa" 
-                    value={metodologiaCausa}
-                    onChange={(e) => setMetodologiaCausaState(prev => ({ ...prev, [idEdicion]: e.target.value }))}
-                    className="w-full border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-amber-600 outline-none font-bold text-slate-800 shadow-sm cursor-pointer"
-                  >
+  name="metodologiaCausa" 
+  disabled={esSoloLectura}
+  value={metodologiaCausa}
+  onChange={(e) => setMetodologiaCausaState(prev => ({ ...prev, [idEdicion]: e.target.value }))}
+  className="w-full border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-amber-600 outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+>
                     <option value="5 Porqués">Los 5 Porqués (ISO 9001)</option>
                     <option value="Ishikawa">Diagrama de Ishikawa (6M)</option>
                     <option value="Bow-Tie">Análisis Bow-Tie (Riesgos)</option>
@@ -854,20 +865,21 @@ export default function Hallazgos({
 
               <div>
                 <label className="font-bold text-amber-900 block mb-1">Desarrollo del Análisis *</label>
-                <textarea 
-                  name="analisisCausa" 
-                  defaultValue={editHallazgo?.analisisCausa || autoFillData?.analisisCausa || ''} 
-                  required 
-                  rows="6" 
-                  placeholder={
-                    metodologiaCausa === '5 Porqués' ? "1. ¿Por qué ocurrió la falla?\n2. ¿Por qué se dio la condición anterior?\n3. ¿Por qué falló el control preventivo?\n4. ¿Por qué el proceso lo permitió?\n5. Causa Raíz Sistémica:" :
-                    metodologiaCausa === 'Ishikawa' ? "Mano de Obra:\nMétodos:\nMaquinaria:\nMateriales:\nMedición:\nMedio Ambiente:\n\n=> Conclusión de Causa Raíz:" :
-                    metodologiaCausa === 'Bow-Tie' ? "Amenazas/Causas (Fallas Preventivas):\n\nEvento Principal (El Hallazgo):\n\nConsecuencias (Fallas Mitigadoras):" :
-                    metodologiaCausa === 'Árbol de Fallas' ? "Condición Inicial:\nFalla 1 (Y/O):\nFalla 2 (Y/O):\n\n=> Evento Cúspide:" :
-                    "Describa detalladamente la causa raíz del hallazgo..."
-                  }
-                  className="w-full border border-amber-300 rounded-xl p-3 focus:ring-2 focus:ring-amber-600 outline-none font-medium resize-y shadow-inner bg-white placeholder-slate-400" 
-                />
+                 <textarea 
+  name="analisisCausa" 
+  disabled={esSoloLectura}
+  defaultValue={editHallazgo?.analisisCausa || autoFillData?.analisisCausa || ''} 
+  required 
+  rows="6" 
+  placeholder={
+    metodologiaCausa === '5 Porqués' ? "1. ¿Por qué ocurrió la falla?\n2. ¿Por qué se dio la condición anterior?\n3. ¿Por qué falló el control preventivo?\n4. ¿Por qué el proceso lo permitió?\n5. Causa Raíz Sistémica:" :
+    metodologiaCausa === 'Ishikawa' ? "Mano de Obra:\nMétodos:\nMaquinaria:\nMateriales:\nMedición:\nMedio Ambiente:\n\n=> Conclusión de Causa Raíz:" :
+    metodologiaCausa === 'Bow-Tie' ? "Amenazas/Causas (Fallas Preventivas):\n\nEvento Principal (El Hallazgo):\n\nConsecuencias (Fallas Mitigadoras):" :
+    metodologiaCausa === 'Árbol de Fallas' ? "Condición Inicial:\nFalla 1 (Y/O):\nFalla 2 (Y/O):\n\n=> Evento Cúspide:" :
+    "Describa detalladamente la causa raíz del hallazgo..."
+  }
+  className="w-full border border-amber-300 rounded-xl p-3 focus:ring-2 focus:ring-amber-600 outline-none font-medium resize-y shadow-inner bg-white placeholder-slate-400 disabled:bg-slate-100 disabled:text-slate-600 disabled:cursor-not-allowed"
+/>
               </div>
             </div>
             
@@ -916,17 +928,20 @@ export default function Hallazgos({
               </div>
             </div>
             
-            <div className="md:col-span-4 flex justify-end items-end pt-4">
+           <div className="md:col-span-4 flex justify-end items-end pt-4">
               {esSoloLectura ? (
                 <button 
                   type="button" 
-                  onClick={() => setVistaActiva('historial')}
-                  className="bg-slate-700 hover:bg-slate-800 text-white font-black uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-md transition-all"
+                  onClick={() => {
+                    setEsSoloLectura(false);
+                    setVistaActiva('historial');
+                  }}
+                  className="bg-slate-700 hover:bg-slate-800 text-white font-black uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-md transition-all cursor-pointer"
                 >
                   ↩️ Volver al Historial
                 </button>
               ) : (
-                <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto hover:scale-105">
+                <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto hover:scale-105 cursor-pointer">
                   {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
                 </button>
               )}
