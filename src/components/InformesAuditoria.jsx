@@ -289,8 +289,8 @@ export default function InformesAuditoria({
           elaboradoPor: editInformeAuditoria.elaboradoPor || '',
           revisadoPor: editInformeAuditoria.revisadoPor || '',
           aprobadoPor: editInformeAuditoria.aprobadoPor || '',
-          auditorResponsable: editInformeAuditoria.auditorResponsable || '',
-          correoAuditor: editInformeAuditoria.correoAuditor || '',
+          auditorResponsable: editInformeAuditoria.auditorResponsable || editInformeAuditoria.auditor || editInformeAuditoria.auditorLider || editInformeAuditoria.auditor_responsable || '',
+          correoAuditor: editInformeAuditoria.correoAuditor || editInformeAuditoria.correoAuditorResponsable || editInformeAuditoria.correo_auditor || editInformeAuditoria.correoAuditorSeguimiento || '',
           socializado: editInformeAuditoria.socializado || 'No',
           fechaSocializacion: editInformeAuditoria.fechaSocializacion || editInformeAuditoria.fecha_socializacion || editInformeAuditoria.fechaSoc || '',
           participantes: editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '',
@@ -569,8 +569,8 @@ const handleFileUpload = async (e, type) => {
       elaboradoPor: editInformeAuditoria.elaboradoPor || '',
       revisadoPor: editInformeAuditoria.revisadoPor || '',
       aprobadoPor: editInformeAuditoria.aprobadoPor || '',
-      auditorResponsable: editInformeAuditoria.auditorResponsable || '',
-      correoAuditor: editInformeAuditoria.correoAuditor || '',
+      auditorResponsable: editInformeAuditoria.auditorResponsable || editInformeAuditoria.auditor || editInformeAuditoria.auditorLider || editInformeAuditoria.auditor_responsable || '',
+      correoAuditor: editInformeAuditoria.correoAuditor || editInformeAuditoria.correoAuditorResponsable || editInformeAuditoria.correo_auditor || editInformeAuditoria.correoAuditorSeguimiento || '',
       socializado: editInformeAuditoria.socializado || 'No',
       fechaSocializacion: editInformeAuditoria.fechaSocializacion || editInformeAuditoria.fecha_socializacion || editInformeAuditoria.fechaSoc || '',
       participantes: editInformeAuditoria.participantes || editInformeAuditoria.socializadoCon || '',
@@ -1402,7 +1402,7 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 </select>
               </div>
 
-{/* ✨ NUEVOS CAMPOS: AUDITOR RESPONSABLE Y CORREO (LIGADO A CARGOS) */}
+{/* ✨ NUEVOS CAMPOS: AUDITOR RESPONSABLE Y CORREO CON INPUTS OCULTOS DE RESPALDO */}
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 block mb-1.5">🛡 Auditor Responsable / Seguimiento (Cargo)</label>
                 <select 
@@ -1413,7 +1413,6 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                     const siguiente = { 
                       ...draftInforme, 
                       auditorResponsable: cargoAuditor
-                      // Ya no borramos el correo si cambias de cargo
                     };
                     
                     setDraftInforme(siguiente);
@@ -1427,10 +1426,12 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                   <option value="">-- Seleccionar Auditor --</option>
                   {CARGOS_EMPRESA.map((cargo, i) => <option key={`auditor-${i}`} value={cargo}>{cargo}</option>)}
                 </select>
+                <input type="hidden" name="auditor" value={draftInforme.auditorResponsable || ''} />
+                <input type="hidden" name="auditorLider" value={draftInforme.auditorResponsable || ''} />
               </div>
 
               <div className="md:col-span-2">
-                <label className="font-bold text-gray-600 block mb-1.5">✉️ Correo del Auditor Responsable / Seguimiento</label>
+                <label className="font-bold text-gray-600 block mb-1.5">✉️️ Correo del Auditor Responsable / Seguimiento</label>
                 <input 
                   type="email"
                   name="correoAuditor" 
@@ -1446,6 +1447,8 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-black text-slate-800 bg-slate-50 shadow-inner disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors"
                   disabled={modoVistaCompleta}
                 />
+                <input type="hidden" name="correoAuditorResponsable" value={draftInforme.correoAuditor || ''} />
+                <input type="hidden" name="correo_auditor" value={draftInforme.correoAuditor || ''} />
               </div>
 
               <div className="md:col-span-1">
