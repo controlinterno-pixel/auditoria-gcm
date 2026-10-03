@@ -440,26 +440,27 @@ const handleFileUpload = async (e, type) => {
     const originalFiles = Array.from(e.target.files);
     if (originalFiles.length === 0) return;
 
-    const MAX_MB = 7;
+    // Límite amplio para evitar bloqueos en el frontend
+    const MAX_MB = 25;
 
     const procesarYSubirArchivo = async (originalFile, onProgressCallback) => {
       let fileToUpload = originalFile;
-      if (fileToUpload.type.startsWith('image/')) {
+      if (fileToUpload.type?.startsWith('image/')) {
         try { fileToUpload = await compressImage(fileToUpload, 1280, 1280, 0.7); } 
         catch (err) { console.error("Error comprimiendo imagen:", err); }
       }
 
       if (fileToUpload.size > MAX_MB * 1024 * 1024) {
-        throw new Error(`El archivo ${fileToUpload.name} supera el límite (${MAX_MB} MB).`);
+        throw new Error(`El archivo ${fileToUpload.name} supera el límite de ${MAX_MB} MB. Por favor comprímelo antes de subirlo.`);
       }
 
       const nombreLimpio = sanitizarNombreArchivo(fileToUpload.name);
-      const file = new File([fileToUpload], nombreLimpio, { type: fileToUpload.type });
+      const file = new File([fileToUpload], nombreLimpio, { type: fileToUpload.type || 'application/pdf' });
       
       const data = await apiService.subirEvidencia(file, { appName: 'controlInterno' }, onProgressCallback);
       
       const urlFinal = data?.url || data?.path || data?.filePath || (typeof data === 'string' ? data : file.name);
-      return { url: urlFinal, nombre: file.name };
+      return { url: urlFinal, nombre: originalFile.name };
     };
 
     if (type === 'informe') {
@@ -470,7 +471,7 @@ const handleFileUpload = async (e, type) => {
         const resultado = await procesarYSubirArchivo(originalFiles[0], setProgresoInforme);
         setArchivoSubidoUrl(resultado.url);
         setArchivoSubidoNombre(resultado.nombre);
-        alert("🎉 ¡Informe guardado con éxito!");
+        alert("🎉 ¡Informe adjuntado exitosamente!");
       } catch (err) {
         setUploadError(err.message);
         alert(`⚠️ No se pudo subir:\n${err.message}`);
@@ -488,17 +489,16 @@ const handleFileUpload = async (e, type) => {
           nuevosAnexos.push(resultado);
         }
         setAnexosMultiples(prev => fusionarAdjuntosUnicos(prev, nuevosAnexos));
-        alert("🎉 ¡Anexos guardados con éxito! Los documentos anteriores se conservaron.");
+        alert("🎉 ¡Anexos guardados con éxito!");
       } catch (err) {
-        alert(`⚠️ Error al subir anexos:\n${err.message}`);
+        alert(`⚠️️ Error al subir anexos:\n${err.message}`);
       } finally {
         setCargandoAnexo(false);
         setProgresoAnexo(0);
-        e.target.value = ''; // Limpiar el input
+        e.target.value = '';
       }
     }
   };
-
   const handleResetForm = () => {
     setEditInformeAuditoria(null); 
     setArchivoSubidoUrl(''); 

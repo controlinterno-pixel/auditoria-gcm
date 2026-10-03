@@ -126,8 +126,8 @@ export default function Hallazgos({
     const archivos = Array.from(e.target.files || []);
     if (archivos.length === 0) return;
 
-    // 🛑 VALIDACIÓN DE PESO (MÁXIMO 7MB) PARA EVITAR ERROR 413
-    const MAX_MB = 7;
+    // Límite unificado a 25 MB
+    const MAX_MB = 25;
     const archivoPesado = archivos.find(archivo => archivo.size > MAX_MB * 1024 * 1024);
     if (archivoPesado) {
       alert(`🛑 ERROR DE TAMAÑO\n\nEl archivo ${archivoPesado.name} supera el límite máximo permitido de ${MAX_MB} MB.`);

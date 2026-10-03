@@ -125,7 +125,8 @@ const generarRequestId = () => {
 };
 
 const prepararArchivoAntesDeSubir = async (archivo) => {
-  const MAX_FILE_SIZE = 7 * 1024 * 1024;
+  // Ampliado a 25 MB para soportar informes institucionales y planes escaneados sin rebotes
+  const MAX_FILE_SIZE = 25 * 1024 * 1024;
 
   if (archivo.size > MAX_FILE_SIZE) {
     if (archivo.type?.startsWith('image/')) {
@@ -134,7 +135,7 @@ const prepararArchivoAntesDeSubir = async (archivo) => {
       return new File([blob], sanitizarNombreArchivo(archivo.name), { type: 'image/jpeg' });
     }
 
-    throw new Error('El archivo supera el límite de 7 MB permitido por el repositorio corporativo.');
+    throw new Error('El archivo supera el límite de 25 MB permitido por el repositorio corporativo.');
   }
 
   const nombreSanitizado = sanitizarNombreArchivo(archivo.name);
