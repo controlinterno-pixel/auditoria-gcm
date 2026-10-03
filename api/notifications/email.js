@@ -16,7 +16,11 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
-const { ref_consecutivo, destinatarios, asunto, titulo, evidenciaUrl, anexosMultiples } = req.body || {};
+const { ref_consecutivo, destinatarios, asunto, titulo, titulo_informe, proceso_auditado, evidenciaUrl, anexosMultiples } = req.body || {};
+    
+    const tituloFinal = titulo_informe || titulo || 'Notificación de Auditoría GRC';
+    const mensajeContexto = proceso_auditado || 'Se ha registrado una actualización en la plataforma que requiere su atención.';
+
     // 🛠️ PARSEO SEGURO DE ANEXOS: Convierte el string JSON del frontend a un Array de objetos
     let anexosArray = [];
     if (anexosMultiples) {
@@ -33,21 +37,21 @@ const { ref_consecutivo, destinatarios, asunto, titulo, evidenciaUrl, anexosMult
 
     const listaDestinatarios = Array.isArray(destinatarios) ? destinatarios.join(', ') : destinatarios;
 
-    // ⚡ Configuración del servidor de correo (Lee variables de entorno de Vercel)
+    // ⚡ Configuración del servidor de correo
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: process.env.SMTP_SECURE !== 'false', // true para puerto 465
+      secure: process.env.SMTP_SECURE !== 'false',
       auth: {
-        user: process.env.SMTP_USER, // Ej: auditoria@termalessantarosa.com.co o cuenta Gmail
-        pass: process.env.SMTP_PASS  // Contraseña de aplicación
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS 
       }
     });
 
     const mailOptions = {
       from: `"Sistema GRC Termales" <${process.env.SMTP_USER || 'no-reply@termales.com.co'}>`,
       to: listaDestinatarios,
-      subject: asunto || `[GRC Termales] Notificación Dictamen de Auditoría ${ref_consecutivo || ''}`,
+      subject: asunto || `[GRC Termales] Notificación Acción ${ref_consecutivo || ''}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; color: #1e293b;">
           <div style="background-color: #0A3B32; padding: 20px; text-align: center; color: white;">
@@ -55,12 +59,12 @@ const { ref_consecutivo, destinatarios, asunto, titulo, evidenciaUrl, anexosMult
             <p style="margin: 5px 0 0 0; font-size: 12px; opacity: 0.8;">Sistema de Gestión Integral & Control Interno</p>
           </div>
           <div style="padding: 24px;">
-            <p style="font-size: 14px; margin-top: 0;">Estimado(a) Líder / Responsable,</p>
-            <p style="font-size: 13px; line-height: 1.5;">Se ha emitido y radicado formalmente un nuevo dictamen de auditoría en la plataforma GRC:</p>
+            <p style="font-size: 14px; margin-top: 0;">Estimado(a) Equipo,</p>
+            <p style="font-size: 13px; line-height: 1.5;">${mensajeContexto}</p>
             
             <div style="background-color: #f8fafc; border-left: 4px solid #0A3B32; padding: 12px 16px; margin: 20px 0; border-radius: 4px;">
-              <p style="margin: 4px 0; font-size: 12px;"><b>Consecutivo:</b> ${ref_consecutivo || 'INF-2026'}</p>
-              <p style="margin: 4px 0; font-size: 12px;"><b>Título:</b> ${titulo || 'Informe de Auditoría'}</p>
+              <p style="margin: 4px 0; font-size: 12px;"><b>Código Registro:</b> ${ref_consecutivo || 'N/A'}</p>
+              <p style="margin: 4px 0; font-size: 12px;"><b>Trámite / Título:</b> ${tituloFinal}</p>
               <p style="margin: 4px 0; font-size: 12px;"><b>Generado por:</b> ${user.email}</p>
             </div>
 

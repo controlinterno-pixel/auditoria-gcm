@@ -351,13 +351,16 @@ const diccionarioCorreos = {
         const isNew = String(act.id).startsWith('new-');
         const progresoEntero = Math.min(Math.max(parseInt(act.progreso || 0), 0), 100);
         
-        let workflowCalculado = act.estadoWorkflow || 'Borrador';
+       let workflowCalculado = act.estadoWorkflow || 'Pendiente Revisión Jefatura';
 
-        if (progresoEntero === 100 && workflowCalculado !== 'Cerrado' && workflowCalculado !== 'En Revisión') {
-          workflowCalculado = 'En Revisión';
+        // LÓGICA DE MÁQUINA DE ESTADOS 3 NIVELES
+        if (isNew) {
+          workflowCalculado = 'Pendiente Revisión Jefatura';
+        } else if (progresoEntero === 100 && workflowCalculado === 'En Ejecución') {
+          workflowCalculado = 'En Revisión (100%)';
           notificacionesRevision100.push(act);
-        } else if (progresoEntero < 100 && workflowCalculado === 'En Revisión') {
-          workflowCalculado = 'Borrador';
+        } else if (progresoEntero < 100 && workflowCalculado === 'En Revisión (100%)') {
+          workflowCalculado = 'En Ejecución';
         }
 
         const planData = {
@@ -367,6 +370,8 @@ const diccionarioCorreos = {
           sede: act.sede || '', 
           responsable: act.responsable,
           correoResponsable: act.correoResponsable.trim(),
+          revisor: act.revisor,
+          correoRevisor: act.correoRevisor.trim(),
           auditorAsignado: act.auditorAsignado,
           correoAuditor: act.correoAuditor,
           progreso: progresoEntero,
@@ -458,43 +463,41 @@ const diccionarioCorreos = {
 
   // ... código anterior (saveToCloud) ...
 
-    // 📧 NOTIFICACIÓN 1: RADICACIÓN EXITOSA (Para el Jefe y el Auditor)
-    // 👉 AGREGA "enviarNotificaciones &&" AQUÍ:
-      let todasNotificacionesEnviadas = true;
+   // 📧 NOTIFICACIÓN 1: CREACIÓN - CASCADA AL REVISOR
+    let todasNotificacionesEnviadas = true;
     if (enviarNotificaciones && notificacionesRadicadas.length > 0 && ejecutarDespachoGmailApi) {
       for (const plan of notificacionesRadicadas) {
-          const correoResponsableEnviado = await ejecutarDespachoGmailApi({
-          ref_consecutivo: `PLAN-${plan.id}`,
-          titulo_informe: `Plan de Accion Radicado Exitosamente`,
-          proceso_auditado: `Su plan de accion correctivo ha sido registrado exitosamente en el sistema de auditoria GCM.`,
+        // 1A. Avisar a quien elabora que la tarea quedó guardada
+        await ejecutarDespachoGmailApi({
+          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+          titulo_informe: `[Paso 1/3] Acción Creada - Pendiente de Revisión`,
+          proceso_auditado: `Has elaborado el plan de acción: "${plan.accion}". Actualmente se encuentra en estado 'Pendiente Revisión Jefatura' a cargo de ${plan.revisor}.`,
           enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
           destinatarios: plan.correoResponsable
         });
-          if (!correoResponsableEnviado) todasNotificacionesEnviadas = false;
 
-const correoAuditor = plan.correoAuditor || diccionarioCorreos[plan.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
-          const correoAuditorEnviado = await ejecutarDespachoGmailApi({
-          ref_consecutivo: `PLAN-${plan.id}`,
-          titulo_informe: `Nuevo Plan de Accion Asignado`,
-          proceso_auditado: `Un lider de area ha radicado o actualizado un plan de accion bajo su cargo.`,
+        // 1B. Notificar AL REVISOR que tiene una tarea esperando su Visto Bueno
+        const correoRevisorEnviado = await ejecutarDespachoGmailApi({
+          ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+          titulo_informe: `⏳ ACCIÓN REQUERIDA: Revisar Plan de Acción`,
+          proceso_auditado: `El responsable ${plan.responsable} ha creado el plan: "${plan.accion}". Ingrese al sistema GRC para APROBAR este diseño y remitirlo al Auditor de seguimiento.`,
           enlace_pdf: 'https://auditoria-gcm.vercel.app',
-          destinatarios: correoAuditor
+          destinatarios: plan.correoRevisor
         });
-          if (!correoAuditorEnviado) todasNotificacionesEnviadas = false;
+        if (!correoRevisorEnviado) todasNotificacionesEnviadas = false;
       }
     }
 
-// 📧 NOTIFICACIÓN 2: ALERTA DE TRABAJO AL 100% PARA EL AUDITOR
-    // 👉 AGREGA "enviarNotificaciones &&" AQUÍ:
+    // 📧 NOTIFICACIÓN 2: ALERTA DE TRABAJO AL 100% PARA EL AUDITOR
     if (enviarNotificaciones && notificacionesRevision100.length > 0 && ejecutarDespachoGmailApi) {
       for (const act of notificacionesRevision100) {
-const correoAuditor = act.correoAuditor || diccionarioCorreos[act.auditorAsignado] || (import.meta.env.VITE_CORREO_ADMIN_DEFAULT || "controlinterno@empresa.com");
+        const correoAuditorTarget = act.correoAuditor || diccionarioCorreos[act.auditorAsignado] || correoAdminDefault;
         const correoRevisionEnviado = await ejecutarDespachoGmailApi({
-          ref_consecutivo: `REVISION-100`,
-          titulo_informe: `Verificar soportes cargados al 100 por ciento para proceder con el cierre`,
-          proceso_auditado: `Plan de accion completado por el auditado y listo para evaluar.`,
+          ref_consecutivo: `PLA-${String(act.id).slice(-4)}`,
+          titulo_informe: `Verificar evidencias al 100% para cierre`,
+          proceso_auditado: `El plan de acción completó su ejecución al 100%. Ingrese a la plataforma para aprobar las evidencias y proceder al Cierre Formal.`,
           enlace_pdf: act.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
-          destinatarios: correoAuditor
+          destinatarios: correoAuditorTarget
         });
         if (!correoRevisionEnviado) todasNotificacionesEnviadas = false;
       }
@@ -705,13 +708,15 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
     const newState = {};
     reportFindings.forEach(h => {
       const existingActivities = currentPlanes.filter(p => p.idHallazgo === h.id);
-      if (existingActivities.length > 0) {
+if (existingActivities.length > 0) {
         newState[h.id] = { 
           aplica: true, 
           actividades: existingActivities.map(p => ({ 
             ...p, 
             correoConfirmacion: p.correoResponsable,
             responsable: p.responsable || h.responsable || '',
+            revisor: p.revisor || '',
+            correoRevisor: p.correoRevisor || '',
             auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
             correoAuditor: p.correoAuditor || correoAuditorHeredado
           })) 
@@ -724,19 +729,21 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
             accion: '', 
             sede: h.sede || '', 
             responsable: h.responsable || '',
+            revisor: '',
+            correoRevisor: '',
             auditorAsignado: auditorHeredado || h.auditor || '', 
             correoAuditor: correoAuditorHeredado,
             fechaInicio: '', 
-                fecha: '', 
-                progreso: 0, 
-                evidenciaUrl: '', 
-                estadoWorkflow: 'Borrador',
-                tipoAccion: 'Acción Correctiva',
-                matrizRiesgos: 'No aplica',
-                matrizAspectos: 'No aplica',
-                matrizPeligros: 'No aplica',
-                matrizLegal: 'No aplica'
-              }]
+            fecha: '', 
+            progreso: 0, 
+            evidenciaUrl: '', 
+            estadoWorkflow: 'Pendiente Revisión Jefatura',
+            tipoAccion: 'Acción Correctiva',
+            matrizRiesgos: 'No aplica',
+            matrizAspectos: 'No aplica',
+            matrizPeligros: 'No aplica',
+            matrizLegal: 'No aplica'
+          }]
         };
       }
     });
@@ -795,18 +802,20 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
       ...prev,
       [hallazgoId]: {
         ...prev[hallazgoId],
-        actividades: [...prev[hallazgoId].actividades, { 
+       actividades: [...prev[hallazgoId].actividades, { 
           id: 'new-' + Math.random(), 
           accion: '', 
           sede: hallazgoBase?.sede || '', 
           responsable: hallazgoBase?.responsable || '',
+          revisor: '',
+          correoRevisor: '',
           auditorAsignado: informeBase?.auditorResponsable || hallazgoBase?.auditor || '',
           correoAuditor: informeBase?.correoAuditor || '',
           fechaInicio: '', 
           fecha: '', 
           progreso: 0, 
           evidenciaUrl: '', 
-          estadoWorkflow: 'Borrador',
+          estadoWorkflow: 'Pendiente Revisión Jefatura',
           tipoAccion: 'Acción Correctiva',
           matrizRiesgos: 'No aplica',
           matrizAspectos: 'No aplica',
@@ -1598,13 +1607,25 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
                                 />
                               </div>
 
+                              {/* ROLES DE EJECUCIÓN Y REVISIÓN */}
                               <div className="md:col-span-3">
-                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo Responsable de la accion</label>
-                                <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
+                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo de quien EJECUTA (Responsable)</label>
+                                <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} placeholder="Correo del que elabora/ejecuta" className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
                               </div>
                               <div className="md:col-span-3">
-                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar Correo del responsable de la accion</label>
+                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar correo de quien Ejecuta</label>
                                 <input type="email" value={act.correoConfirmacion || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} className="w-full border p-2 rounded-lg bg-purple-50 focus:bg-white" required />
+                              </div>
+                              <div className="md:col-span-3">
+                                <label className="font-bold text-amber-600 block mb-0.5">👀 Quien REVISA la Acción (Cargo)</label>
+                                <select value={act.revisor || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'revisor', e.target.value)} className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white cursor-pointer shadow-sm outline-none" required>
+                                  <option value="">-- Asignar Revisor --</option>
+                                  {Object.keys(CARGOS_POR_SEDE).flatMap(k => CARGOS_POR_SEDE[k]).sort().map(cargo => <option key={`rev-${cargo}`} value={cargo}>{cargo}</option>)}
+                                </select>
+                              </div>
+                              <div className="md:col-span-3">
+                                <label className="font-bold text-amber-600 block mb-0.5">✉️ Correo del Revisor</label>
+                                <input type="email" value={act.correoRevisor || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoRevisor', e.target.value)} placeholder="Correo de Jefatura que aprueba" className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white shadow-sm outline-none" required/>
                               </div>
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Avance ({act.progreso}%)</label>
@@ -1949,32 +1970,105 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
                                     <ProgressBar progress={p.progreso} />
                                   </td>
                                   <td className="p-3 text-center flex flex-col space-y-1 items-center justify-center">
-                                    <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-amber-100 text-amber-800 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full">Gestionar</button>
-                                    
-                                   {p.estadoWorkflow === 'En Revisión' && (
+                                    <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-200 transition-colors">✏️ Gestionar</button>
+
+                                    {/* BOTÓN REVISOR */}
+                                    {p.estadoWorkflow === 'Pendiente Revisión Jefatura' && (
                                       <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                        <button type="button" onClick={() => {
-                                          if(window.confirm("¿Aprobar evidencia y CERRAR este plan definitivamente?")) {
+                                        <button type="button" onClick={async () => {
+                                          if(window.confirm("¿Como REVISOR, aprueba el diseño de este plan y notifica al Auditor para la aprobación final?")) {
                                             const ts = new Date().toLocaleString();
-                                            const mod = { ...p, estadoWorkflow: 'Cerrado', estado: 'Cerrado', progreso: 100, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Evidencias aprobadas. Plan CERRADO.' }] };
+                                            const mod = { ...p, estadoWorkflow: 'Pendiente Aprobación Auditor', historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Revisor', accion: '✅ Diseño revisado y aprobado por Jefatura.' }] };
                                             const updated = safePlanes.map(x => x.id === p.id ? mod : x);
-                                            setPlanes(updated); saveToCloud({ planes: updated }); alert("Plan Cerrado.");
+                                            setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                            
+                                            if (ejecutarDespachoGmailApi && p.correoAuditor) {
+                                              await ejecutarDespachoGmailApi({
+                                                ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                titulo_informe: `[Paso 2/3] ACCIÓN REQUERIDA: Aprobación de Auditoría`,
+                                                proceso_auditado: `El plan de acción: "${p.accion}" superó la revisión técnica de Jefatura. Requiere su Visto Bueno como Auditor para ACTIVARLO y que inicie su ejecución.`,
+                                                enlace_pdf: 'https://auditoria-gcm.vercel.app',
+                                                destinatarios: p.correoAuditor
+                                              });
+                                            }
+                                            alert("Aprobado y Auditor notificado.");
                                           }
-                                        }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✓ Aprobar Evidencia</button>
-                                        
-                                        <button type="button" onClick={() => {
-                                          const r = prompt("Motivo del rechazo de la evidencia:");
-                                          if(r) {
-                                            const ts = new Date().toLocaleString();
-                                            const mod = { ...p, estadoWorkflow: 'Borrador', progreso: 90, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: `❌ Evidencia rechazada. Motivo: ${r}` }] };
-                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
-                                            setPlanes(updated); saveToCloud({ planes: updated }); alert("Rechazo enviado.");
-                                          }
-                                        }} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1 rounded text-[9px] uppercase tracking-wider transition-all shadow-sm">✕ Rechazar Evidencia</button>
+                                        }} className="bg-amber-500 hover:bg-amber-600 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">👀 Aprobar Revisión</button>
                                       </div>
                                     )}
 
-                                    {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 font-bold px-2 py-1 rounded text-[10px] w-full mt-1">Eliminar</button>}
+                                    {/* BOTÓN ACTIVACIÓN AUDITOR */}
+                                    {p.estadoWorkflow === 'Pendiente Aprobación Auditor' && isAdmin && (
+                                      <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
+                                        <button type="button" onClick={async () => {
+                                          if(window.confirm("¿Como AUDITOR, aprueba este plan para que inicie su ejecución formal?")) {
+                                            const ts = new Date().toLocaleString();
+                                            const mod = { ...p, estadoWorkflow: 'En Ejecución', historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Plan ACTIVO. Aprobado por Auditoría.' }] };
+                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
+                                            setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                            
+                                            if (ejecutarDespachoGmailApi) {
+                                              await ejecutarDespachoGmailApi({
+                                                ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                titulo_informe: `[Paso 3/3] Plan de Acción ACTIVO`,
+                                                proceso_auditado: `El Auditor ha dado Visto Bueno a la acción: "${p.accion}". El plan se encuentra ACTIVO (En Ejecución). Ya puede reportar evidencias en la plataforma.`,
+                                                enlace_pdf: 'https://auditoria-gcm.vercel.app',
+                                                destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
+                                              });
+                                            }
+                                            alert("Plan Activado y equipo notificado.");
+                                          }
+                                        }} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">🛡️ Aprobar (Activar)</button>
+                                      </div>
+                                    )}
+
+                                    {/* BOTÓN CIERRE 100% */}
+                                    {p.estadoWorkflow === 'En Revisión (100%)' && isAdmin && (
+                                      <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
+                                        <button type="button" onClick={async () => {
+                                          if(window.confirm("¿Aprobar las evidencias cargadas y CERRAR este plan de acción definitivamente?")) {
+                                            const ts = new Date().toLocaleString();
+                                            const mod = { ...p, estadoWorkflow: 'Cerrado', estado: 'Cerrado', progreso: 100, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Evidencias aprobadas. Plan CERRADO.' }] };
+                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
+                                            setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                            
+                                            if (ejecutarDespachoGmailApi) {
+                                              await ejecutarDespachoGmailApi({
+                                                ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                titulo_informe: `🏁 Plan de Acción CERRADO EXITOSAMENTE`,
+                                                proceso_auditado: `Auditoría ha validado las evidencias al 100% de la acción: "${p.accion}". El ciclo de mejora ha finalizado.`,
+                                                enlace_pdf: 'https://auditoria-gcm.vercel.app',
+                                                destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
+                                              });
+                                            }
+                                            alert("Plan Cerrado y responsables notificados.");
+                                          }
+                                        }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">✓ Aprobar Cierre</button>
+                                        
+                                        <button type="button" onClick={async () => {
+                                          const r = prompt("Ingrese el motivo de rechazo de la evidencia:");
+                                          if(r) {
+                                            const ts = new Date().toLocaleString();
+                                            const mod = { ...p, estadoWorkflow: 'En Ejecución', progreso: 90, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: `❌ Evidencia rechazada. Motivo: ${r}` }] };
+                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
+                                            setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                            
+                                            if (ejecutarDespachoGmailApi) {
+                                              await ejecutarDespachoGmailApi({
+                                                ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                titulo_informe: `❌ Evidencia Rechazada`,
+                                                proceso_auditado: `El Auditor rechazó los soportes de la acción: "${p.accion}". Motivo: ${r}. El avance regresa a 90% (En Ejecución) para su corrección.`,
+                                                enlace_pdf: 'https://auditoria-gcm.vercel.app',
+                                                destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
+                                              });
+                                            }
+                                            alert("Rechazo aplicado y notificado.");
+                                          }
+                                        }} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">✕ Rechazar Evidencia</button>
+                                      </div>
+                                    )}
+
+                                    {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 hover:bg-red-100 font-bold px-2 py-1 rounded text-[10px] w-full mt-1 border border-red-200">🗑️ Eliminar</button>}
                                   </td>
                                 </tr>
                               ))}
