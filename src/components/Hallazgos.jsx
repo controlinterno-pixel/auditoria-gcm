@@ -47,9 +47,7 @@ export default function Hallazgos({
 
   // 🏢 ESTADOS Y LÓGICA DERIVADA PARA FORMULARIO DE EDICIÓN
   const [sedeTemp, setSedeTemp] = useState('');
-  const [responsableTemp, setResponsableTemp] = useState('');
   const [sedesState, setSedesState] = useState({});
-  const [respState, setRespState] = useState({});
 
   // 🌟 ESTADOS DERIVADOS DE MACRO Y SUBPROCESO
   const [procesoFormState, setProcesoFormState] = useState({});
@@ -89,15 +87,8 @@ export default function Hallazgos({
     ? (editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede])
     : ['Administrativos']);
 
-  const responsablesMultiples = respState[idEdicion] ?? (editHallazgo?.responsable
-    ? (editHallazgo.responsable.includes(',') ? editHallazgo.responsable.split(',').map(r => r.trim()) : [editHallazgo.responsable])
-    : []);
-
   const setSedesMultiples = (newSedes) => setSedesState(prev => ({ ...prev, [idEdicion]: newSedes }));
-  const setResponsablesMultiples = (newResp) => setRespState(prev => ({ ...prev, [idEdicion]: newResp }));
 
-  // Usar el mismo listado maestro de cargos que Informes de Auditoría
-  const cargosDisponibles = CARGOS_EMPRESA;
   const subprocesosDisponibles = procesoForm ? MAPA_PROCESOS[procesoForm] || [] : [];
   const subprocesoDeshabilitado = !procesoForm || subprocesosDisponibles.length === 0;
   const informeOrigen = informesAuditoria.find(informe => String(informe.id) === String(informeOrigenSeleccionado));
@@ -694,7 +685,7 @@ export default function Hallazgos({
 
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Responsable</label>
-              <select name="auditor" defaultValue={editHallazgo?.auditor || ''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+              <select name="responsable" defaultValue={editHallazgo?.responsable || ''} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
                 <option value="">-- Seleccione un Cargo --</option>
                 {CARGOS_EMPRESA.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
               </select>
@@ -775,30 +766,6 @@ export default function Hallazgos({
               <input type="hidden" name="sede" value={sedesMultiples.join(', ')} />
             </div>
 
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
-              <label className="font-bold text-gray-600 block mb-1">Responsables del Proceso (Cargos)</label>
-              <div className="flex gap-2 mb-2">
-                <select value={responsableTemp} onChange={(e) => setResponsableTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
-                  <option value="">-- Escoger de las sedes seleccionadas --</option>
-                  {cargosDisponibles.map(cargo => (
-                    <option key={cargo} value={cargo} disabled={responsablesMultiples.includes(cargo)}>{cargo}</option>
-                    ))}
-                </select>
-              <button type="button" onClick={() => { if(responsableTemp && !responsablesMultiples.includes(responsableTemp)) setSubprocesoFormState(prev => ({ ...prev, [`${idEdicion}-resp`]: [...responsablesMultiples, responsableTemp].join(', ') })); setResponsableTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
-              </div>
-              
-              <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
-                {responsablesMultiples.length === 0 && <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ningún responsable añadido...</span>}
-                {responsablesMultiples.map(r => (
-                  <span key={r} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
-                    {r} 
-                    <button type="button" onClick={() => setResponsablesMultiples(responsablesMultiples.filter(item => item !== r))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
-                  </span>
-                ))}
-              </div>
-              <input type="hidden" name="responsable" value={responsablesMultiples.join(', ')} />
-            </div>
-
             {/* ================= BLOQUES ANCHOS COMPLETOS ================= */}
             <div className="md:col-span-4 bg-red-50/50 p-4 rounded-xl border border-red-100 flex items-center justify-between">
               <div>
@@ -822,7 +789,7 @@ export default function Hallazgos({
               <div className="border-b pb-2 border-slate-200 flex justify-between items-center mb-4">
                 <div>
                   <label className="font-black text-slate-700 uppercase tracking-widest text-[11px]">Evidencia del Hallazgo</label>
-                  <p className="text-[9px] text-slate-500 font-medium">Sube el soporte (PDF o Imagen). Se guardará en el repositorio oficial.</p>
+                  <p className="text-[9px] text-slate-500 font-medium">Puedes seleccionar uno o varios soportes (PDF o Imagen). Se guardarán en el repositorio oficial.</p>
                 </div>
                 <div className="text-slate-300 text-3xl">☁️</div>
               </div>
