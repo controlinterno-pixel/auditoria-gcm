@@ -1479,23 +1479,27 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 </select>
               </div>
 
-              {/* ✨ CAMPO CONDICIONADO: Fecha de Socialización */}
+             {/* ✨ CAMPO CORREGIDO: Fecha de Socialización */}
               <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">🗓️ Fecha Socialización</label>
                 <input 
-                  key={`fecha-soc-${idEdicion}-${socializadoForm}-${editInformeAuditoria?.id || 'nuevo'}`}
+                  key={`fecha-soc-${idEdicion}-${draftInforme.socializado}-${editInformeAuditoria?.id || 'nuevo'}`}
                   name="fechaSocializacion" 
                   type="date" 
                   value={draftInforme.fechaSocializacion || ''}
                   onChange={(e) => {
-                    const siguiente = { ...draftInforme, fechaSocializacion: e.target.value };
+                    const nuevaFecha = e.target.value;
+                    const siguiente = { ...draftInforme, fechaSocializacion: nuevaFecha };
                     setDraftInforme(siguiente);
                     registrarCambioBorrador(siguiente);
                     setIsDirty(true);
                   }}
                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed transition-all" 
-                  disabled={modoVistaCompleta || (draftInforme.socializado !== 'Sí' && socializadoForm !== 'Sí')}
+                  disabled={modoVistaCompleta || draftInforme.socializado !== 'Sí'}
                 />
+                {/* Inputs de respaldo para retrocompatibilidad con la base de datos */}
+                <input type="hidden" name="fecha_socializacion" value={draftInforme.fechaSocializacion || ''} />
+                <input type="hidden" name="fechaSoc" value={draftInforme.fechaSocializacion || ''} />
               </div>
 
               {/* ⚠️ Nota: Se redujo a md:col-span-2 para mantener la cuadrícula simétrica */}
@@ -1579,10 +1583,13 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 <div className="text-slate-300 text-3xl">☁️</div>
               </div>
 
-<input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl} />
-              {/* Enviamos los anexos como JSON string para el nuevo flujo */}
+{/* 👇 Mapeo completo para asegurar que la URL del PDF nunca se pierda */}
+              <input type="hidden" name="evidenciaUrl" value={archivoSubidoUrl || ''} />
+              <input type="hidden" name="evidenciaUrlInput" value={archivoSubidoUrl || ''} />
+              <input type="hidden" name="archivoUrl" value={archivoSubidoUrl || ''} />
+              
+              {/* Anexos y Actas Multiples */}
               <input type="hidden" name="anexosMultiples" value={JSON.stringify(anexosMultiples)} />
-              {/* 🛡️ SOPORTE LEGACY: Evita que el componente padre crashee buscando los campos viejos */}
               <input type="hidden" name="actaSocializacionUrl" value={anexosMultiples.length > 0 ? anexosMultiples[0].url : ''} />
               <input type="hidden" name="actaSocializacionUrlInput" value={anexosMultiples.length > 0 ? anexosMultiples[0].url : ''} />
 
