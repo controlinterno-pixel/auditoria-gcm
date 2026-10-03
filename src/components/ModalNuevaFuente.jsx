@@ -37,6 +37,8 @@ export default function ModalNuevaFuente({
   // ✨ LÓGICA DE INICIALIZACIÓN MÁGICA (VISTA, EDICIÓN O CREACIÓN)
   useEffect(() => {
     if (isOpen) {
+      // El modal se reutiliza para creación y edición; reiniciar su estado al abrirlo es intencional.
+      /* eslint-disable react-hooks/set-state-in-effect */
       setStep(1);
       setNuevaNorma('');
       setIsDirty(false);
@@ -60,6 +62,7 @@ export default function ModalNuevaFuente({
           origen: 'interno',
         });
       }
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
     // 🛑 TRUCO CLAVE: Eliminamos "normasDisponibles" de las dependencias
     // para evitar que el formulario se borre al agregar una norma nueva.

@@ -166,6 +166,8 @@ const DashboardHistorico = ({
   // Escuchar cuando el padre actualiza las bases y sincronizarlas
   useEffect(() => {
     if (listaBasesBD && listaBasesBD.length > 0) {
+      // Sincroniza las bases recibidas por props con el estado local de respaldo.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setListaBases(listaBasesBD);
     }
   }, [listaBasesBD]);
@@ -251,7 +253,7 @@ useEffect(() => {
 
     // 3. Obtener listado de archivos de marcaciones subidos
     obtenerListaMarcaciones().then(data => setListaMarcacionesBD(data));
-  }, []);
+  }, [listaBasesBD]);
 
   // Función para eliminar archivo de marcaciones de la nube
   const handleEliminarMarcaciones = async (id) => {

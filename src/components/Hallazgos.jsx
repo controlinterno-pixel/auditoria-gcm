@@ -52,8 +52,8 @@ export default function Hallazgos({
   // 🌟 ESTADOS DERIVADOS DE MACRO Y SUBPROCESO
   const [procesoFormState, setProcesoFormState] = useState({});
   const [subprocesoFormState, setSubprocesoFormState] = useState({});
-  const [informeOrigenSeleccionado, setInformeOrigenSeleccionado] = useState('');
-  const [metodologiaCausa, setMetodologiaCausa] = useState('5 Porqués'); // ✨ NUEVO: Estado para Análisis de Causa
+  const [informeOrigenState, setInformeOrigenState] = useState({});
+  const [metodologiaCausaState, setMetodologiaCausaState] = useState({});
   const [autoFillData] = useState(() => {
     if (typeof window === 'undefined') return null;
     try {
@@ -73,17 +73,14 @@ export default function Hallazgos({
   const idEdicion = editHallazgo?.id || 'nuevo';
 
   const fuentesMejoraDisponibles = Array.isArray(fuentesMejora) ? fuentesMejora : [];
+  const informeOrigenSeleccionado = informeOrigenState[idEdicion] ?? String(editHallazgo?.idInforme || autoFillData?.idInforme || '');
+  const metodologiaCausa = metodologiaCausaState[idEdicion] ?? (editHallazgo?.metodologiaCausa || autoFillData?.metodologiaCausa || '5 Porqués');
 
   const procesoForm = procesoFormState[idEdicion] ?? (editHallazgo?.proceso || autoFillData?.proceso || '');
   const subprocesoForm = subprocesoFormState[idEdicion] ?? (editHallazgo?.subproceso || autoFillData?.subproceso || 'General');
 
   const setProcesoForm = (val) => setProcesoFormState(prev => ({ ...prev, [idEdicion]: val }));
   const setSubprocesoForm = (val) => setSubprocesoFormState(prev => ({ ...prev, [idEdicion]: val }));
-
-useEffect(() => {
-    setInformeOrigenSeleccionado(String(editHallazgo?.idInforme || autoFillData?.idInforme || ''));
-    setMetodologiaCausa(editHallazgo?.metodologiaCausa || autoFillData?.metodologiaCausa || '5 Porqués'); // ✨ Sincronizar al editar
-  }, [editHallazgo]);
 
   const sedesMultiples = sedesState[idEdicion] ?? (editHallazgo?.sede
     ? (editHallazgo.sede.includes(',') ? editHallazgo.sede.split(',').map(s => s.trim()) : [editHallazgo.sede])
@@ -110,16 +107,20 @@ useEffect(() => {
   // ☁️ MOTOR DE SUBIDA DE EVIDENCIAS A LA API DE TERMALES
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [archivosSubidos, setArchivosSubidos] = useState([]);
-
-  useEffect(() => {
-    const evidenciasGuardadas = Array.isArray(editHallazgo?.evidencias)
-      ? editHallazgo.evidencias
-      : editHallazgo?.evidenciaUrl
-        ? [{ url: editHallazgo.evidenciaUrl, nombre: 'Evidencia anterior' }]
-        : [];
-    setArchivosSubidos(evidenciasGuardadas);
-  }, [editHallazgo]);
+  const [archivosSubidosState, setArchivosSubidosState] = useState({});
+  const evidenciasIniciales = Array.isArray(editHallazgo?.evidencias)
+    ? editHallazgo.evidencias
+    : editHallazgo?.evidenciaUrl
+      ? [{ url: editHallazgo.evidenciaUrl, nombre: 'Evidencia anterior' }]
+      : [];
+  const archivosSubidos = archivosSubidosState[idEdicion] ?? evidenciasIniciales;
+  const actualizarArchivosSubidos = (actualizador) => {
+    setArchivosSubidosState(prev => {
+      const actuales = prev[idEdicion] ?? evidenciasIniciales;
+      const siguientes = typeof actualizador === 'function' ? actualizador(actuales) : actualizador;
+      return { ...prev, [idEdicion]: siguientes };
+    });
+  };
 
  const handleFileUpload = async (e) => {
     const archivos = Array.from(e.target.files || []);
@@ -149,7 +150,7 @@ useEffect(() => {
         }) || `https://repos.termalessantarosa.com.co/api/archivos/auditoria/${(data?.appName || 'controlInterno').toLowerCase()}/${encodeURIComponent(data?.fileName || 'archivo')}`;
         nuevasEvidencias.push({ url: urlFinal, nombre: archivo.name });
       }
-      setArchivosSubidos(prev => [...prev, ...nuevasEvidencias]);
+      actualizarArchivosSubidos(prev => [...prev, ...nuevasEvidencias]);
       setIsUploading(false); setUploadProgress(100);
       alert("🎉 ¡Evidencia guardada con éxito en el servidor de Termales!");
     } catch (err) {
@@ -696,7 +697,7 @@ useEffect(() => {
             {/* ================= FILA 2: ORIGEN Y CONTEXTO JERÁRQUICO (2 + 1 + 1 = 4) ================= */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
-              <select name="idInforme" value={informeOrigenSeleccionado} onChange={(e) => setInformeOrigenSeleccionado(e.target.value)} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+              <select name="idInforme" value={informeOrigenSeleccionado} onChange={(e) => setInformeOrigenState(prev => ({ ...prev, [idEdicion]: e.target.value }))} required className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
                 <option value="">-- Seleccione el Informe Radicado --</option>
                 {informesAuditoria.map((inf) => (
                   <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo}</option>
@@ -797,7 +798,7 @@ useEffect(() => {
                   <select 
                     name="metodologiaCausa" 
                     value={metodologiaCausa}
-                    onChange={(e) => setMetodologiaCausa(e.target.value)}
+                    onChange={(e) => setMetodologiaCausaState(prev => ({ ...prev, [idEdicion]: e.target.value }))}
                     className="w-full border border-amber-300 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-amber-600 outline-none font-bold text-slate-800 shadow-sm cursor-pointer"
                   >
                     <option value="5 Porqués">Los 5 Porqués (ISO 9001)</option>
@@ -864,7 +865,7 @@ useEffect(() => {
                       {archivosSubidos.map((evidencia, indice) => (
                         <div key={`${evidencia.url}-${indice}`} className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 border border-blue-100">
                           <a href={evidencia.url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline">{evidencia.nombre || `Evidencia ${indice + 1}`}</a>
-                          <button type="button" onClick={() => setArchivosSubidos(prev => prev.filter((_, posicion) => posicion !== indice))} className="text-rose-500 font-black" title="Quitar evidencia">×</button>
+                          <button type="button" onClick={() => actualizarArchivosSubidos(prev => prev.filter((_, posicion) => posicion !== indice))} className="text-rose-500 font-black" title="Quitar evidencia">×</button>
                         </div>
                       ))}
                     </div>

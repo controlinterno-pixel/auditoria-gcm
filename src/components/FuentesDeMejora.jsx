@@ -24,7 +24,7 @@ const obtenerSiguienteCodigo = (fuentes) => {
   return `FA-${String(siguiente).padStart(3, '0')}`;
 };
 
-export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }) {
+export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSaveFuentes }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroNorma, setFiltroNorma] = useState('TODOS');
   const [filtroEstado, setFiltroEstado] = useState('TODOS');
@@ -45,6 +45,8 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
 
   useEffect(() => {
     const arrFuentes = Array.isArray(fuentes) ? fuentes : [];
+    // La lista llega de la nube después del primer render y debe hidratar el estado local.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFuentesActuales(arrFuentes);
     
     // Si llegan fuentes de la Base de Datos, extraemos sus normas automáticamente para no perderlas
@@ -251,7 +253,7 @@ export default function FuentesDeMejora({ isAdmin, fuentes = [], onSaveFuentes }
                   <tr>
                     <td colSpan="8" className="p-12 text-center text-slate-400 italic font-bold">{fuentesActuales.length === 0 ? 'No hay fuentes creadas. Presiona "+ Nueva Fuente" para empezar.' : 'No hay fuentes que coincidan con los filtros seleccionados.'}</td>
                   </tr>
-                ) : fuentesFiltradas.map((f, i) => (
+                ) : fuentesFiltradas.map((f, _i) => (
                   <tr key={f.codigo || f.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
                     <td className="p-4 font-black text-slate-800 bg-slate-50/50">{f.codigo || f.id}</td>

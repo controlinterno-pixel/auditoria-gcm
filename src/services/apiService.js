@@ -101,7 +101,7 @@ const enmascararNombreArchivo = (nombre = '') => {
   if (!valor) return 'archivo';
 
   const extension = valor.includes('.') ? `.${valor.split('.').pop()}` : '';
-  const base = valor.replace(new RegExp(`${extension.replace('.', '\.')}$`), '');
+  const base = valor.replace(new RegExp(`${extension.replace('.', '[.]')}$`), '');
 
   if (base.length <= 4) return '***';
   return `${base.slice(0, 2)}***${base.slice(-2)}${extension}`;
@@ -163,7 +163,7 @@ const resolveArchivoUrl = (payload = {}, fallbackFileName = '') => {
   const rawValue = rawCandidate.trim();
   const appName = String(payload?.appName || 'controlInterno').trim() || 'controlInterno';
 
-  let fileName = '';
+  let fileName;
   try {
     const stripped = rawValue.split('?')[0].split('#')[0];
     fileName = decodeURIComponent(stripped.split('/').pop() || '');
@@ -328,7 +328,7 @@ xhr.onload = () => {
             }
           } else {
             // Manejo de errores 400 o 500 (este se mantiene intacto)
-            let detalleError = 'Falló la carga del archivo';
+            let detalleError;
             try {
               const errorJson = JSON.parse(xhr.responseText);
               detalleError = errorJson.message || errorJson.error || JSON.stringify(errorJson);

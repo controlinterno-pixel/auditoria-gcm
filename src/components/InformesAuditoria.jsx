@@ -5,10 +5,17 @@ import {
   CARGOS_EMPRESA 
 } from '../constants/diccionariosGRC';
 
-// 1. Importamos la arquitectura centralizada
-import { useDataFetching } from '../hooks/useDataFetching';
 import { apiService } from '../services/apiService';
-import { subirArchivoStorage } from '../services/uploadService';
+
+const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
+  const map = new Map();
+  [...listaActual, ...nuevos].forEach((item) => {
+    if (!item || !item.url) return;
+    const clave = `${item.url}|${item.nombre || ''}`;
+    if (!map.has(clave)) map.set(clave, item);
+  });
+  return [...map.values()];
+};
 
 export default function InformesAuditoria({ 
   informesAuditoria, 
@@ -252,6 +259,7 @@ export default function InformesAuditoria({
 
 // 🔄 CARGA MAESTRA GARANTIZADA: Lee la BD al instante
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     if (editInformeAuditoria) {
       try {
         const dbUrlInf = editInformeAuditoria.evidenciaUrl || editInformeAuditoria.evidenciaUrlInput || editInformeAuditoria.archivoUrl || '';
@@ -260,7 +268,7 @@ export default function InformesAuditoria({
         const decodeName = (url) => {
           if (!url) return '';
           try { return decodeURIComponent(url.split('/').pop().split('?')[0]); } 
-          catch(e) { return 'Archivo_Adjunto'; }
+          catch { return 'Archivo_Adjunto'; }
         };
 
         // Soporte Legacy: Convertir acta vieja al nuevo formato de array o cargar array existente
@@ -334,6 +342,7 @@ export default function InformesAuditoria({
       setIsDirty(false);
       setHistorialExpandido(true);
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [editInformeAuditoria]);
 
   useEffect(() => {
@@ -393,16 +402,6 @@ export default function InformesAuditoria({
   // 🧹 Utilidad para limpiar nombres de archivos
   const sanitizarNombreArchivo = (nombreOriginal) => {
     return nombreOriginal.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "_").replace(/[^a-zA-Z0-9.\-_]/g, "").toLowerCase();
-  };
-
-  const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
-    const map = new Map();
-    [...listaActual, ...nuevos].forEach((item) => {
-      if (!item || !item.url) return;
-      const clave = `${item.url}|${item.nombre || ''}`;
-      if (!map.has(clave)) map.set(clave, item);
-    });
-    return [...map.values()];
   };
 
   // 🖼️ Utilidad para comprimir imágenes
@@ -533,11 +532,11 @@ const handleFileUpload = async (e, type) => {
     ? editInformeAuditoria.historialCambios
     : [];
 
-  const ultimoCambio = historialActual.length > 0 ? historialActual[historialActual.length - 1] : null;
+  const _ultimoCambio = historialActual.length > 0 ? historialActual[historialActual.length - 1] : null;
 
   const contarCambios = (item) => Array.isArray(item?.historialCambios) ? item.historialCambios.length : 0;
 
-  const restaurarCambiosNoGuardados = () => {
+  const _restaurarCambiosNoGuardados = () => {
     if (!editInformeAuditoria) return;
 
     const dbUrlInf = editInformeAuditoria.evidenciaUrl || editInformeAuditoria.evidenciaUrlInput || editInformeAuditoria.archivoUrl || '';
@@ -600,7 +599,7 @@ const handleFileUpload = async (e, type) => {
 
   const confirmarRestauracionVersion = () => {
     if (!restoreConfirm) return;
-    const { log, versionResumen, snapshot } = restoreConfirm;
+    const { log: _log, versionResumen, snapshot } = restoreConfirm;
 
     const siguiente = {
       titulo: snapshot.titulo || draftInforme.titulo || '',
