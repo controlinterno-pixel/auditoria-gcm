@@ -793,11 +793,23 @@ export default function Hallazgos({
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Sedes Afectadas</label>
               <div className="flex gap-2 mb-2">
-                <select value={sedeTemp} onChange={(e) => setSedeTemp(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700">
+                <select 
+                  value={sedeTemp} 
+                  onChange={(e) => setSedeTemp(e.target.value)} 
+                  disabled={esSoloLectura}
+                  className="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-red-500 outline-none font-bold text-slate-700 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                >
                   <option value="">-- Escoger Sede --</option>
                   {Object.keys(CARGOS_POR_SEDE).map(s => <option key={s} value={s} disabled={sedesMultiples.includes(s)}>{s}</option>)}
                 </select>
-              <button type="button" onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setProcesoFormState(prev => ({ ...prev, [`${idEdicion}-sede`]: [...sedesMultiples, sedeTemp].join(', ') })); setSedeTemp(''); }} className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm">➕ Añadir</button>
+                <button 
+                  type="button" 
+                  onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setProcesoFormState(prev => ({ ...prev, [`${idEdicion}-sede`]: [...sedesMultiples, sedeTemp].join(', ') })); setSedeTemp(''); }} 
+                  disabled={esSoloLectura}
+                  className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ➕ Añadir
+                </button>
               </div>
               
               <div className="flex flex-wrap gap-2 mt-2 min-h-[40px] p-2 bg-white border border-dashed border-slate-300 rounded-lg items-center">
@@ -805,7 +817,9 @@ export default function Hallazgos({
                 {sedesMultiples.map(s => (
                   <span key={s} className="bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md text-[10px] font-bold flex items-center shadow-sm">
                     {s} 
-                    <button type="button" onClick={() => setSedesMultiples(sedesMultiples.filter(item => item !== s))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                    {!esSoloLectura && (
+                      <button type="button" onClick={() => setSedesMultiples(sedesMultiples.filter(item => item !== s))} className="ml-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -895,7 +909,7 @@ export default function Hallazgos({
               <input type="hidden" name="evidenciaUrlInput" value={archivosSubidos[0]?.url || ''} />
               <input type="hidden" name="evidenciasInput" value={JSON.stringify(archivosSubidos)} />
 
-              <div className="bg-white border-2 border-dashed border-rose-300 p-6 rounded-2xl text-center relative hover:border-rose-500 hover:bg-rose-50/50 transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm">
+              <div className={`bg-white border-2 border-dashed ${esSoloLectura ? 'border-slate-200' : 'border-rose-300 hover:border-rose-500 hover:bg-rose-50/50'} p-6 rounded-2xl text-center relative transition-all flex flex-col items-center justify-center min-h-[160px] shadow-sm`}>
                 {isUploading ? (
                   <div className="space-y-3 w-full">
                     <div className="text-3xl animate-bounce">🚀</div>
@@ -910,20 +924,37 @@ export default function Hallazgos({
                       {archivosSubidos.map((evidencia, indice) => (
                         <div key={`${evidencia.url}-${indice}`} className="flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-1.5 border border-blue-100">
                           <a href={evidencia.url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 font-bold hover:underline">{evidencia.nombre || `Evidencia ${indice + 1}`}</a>
-                          <button type="button" onClick={() => actualizarArchivosSubidos(prev => prev.filter((_, posicion) => posicion !== indice))} className="text-rose-500 font-black" title="Quitar evidencia">×</button>
+                          
+                          {/* Oculta la "X" para borrar evidencia si es solo lectura */}
+                          {!esSoloLectura && (
+                            <button type="button" onClick={() => actualizarArchivosSubidos(prev => prev.filter((_, posicion) => posicion !== indice))} className="text-rose-500 font-black" title="Quitar evidencia">×</button>
+                          )}
                         </div>
                       ))}
                     </div>
-                    <label className="block mt-3 cursor-pointer text-slate-400 hover:text-rose-600 text-[9px] font-bold uppercase tracking-wider transition-colors underline">
-                      Agregar más evidencias <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
-                    </label>
+                    
+                    {/* Oculta la opción de añadir más archivos si es solo lectura */}
+                    {!esSoloLectura && (
+                      <label className="block mt-3 cursor-pointer text-slate-400 hover:text-rose-600 text-[9px] font-bold uppercase tracking-wider transition-colors underline">
+                        Agregar más evidencias <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
+                      </label>
+                    )}
                   </div>
                 ) : (
-                  <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
-                    <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-rose-100 group-hover:text-rose-700 transition-colors">Seleccionar Archivo PDF o Imagen</p>
-                    <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
-                  </label>
+                  esSoloLectura ? (
+                    /* Vista de estado vacío en SOLO LECTURA */
+                    <div className="flex flex-col items-center space-y-2 opacity-60">
+                      <div className="text-4xl">📂</div>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg">Sin evidencias adjuntas</p>
+                    </div>
+                  ) : (
+                    /* Vista para SUBIR archivo cuando SÍ se puede editar */
+                    <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full">
+                      <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
+                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-rose-100 group-hover:text-rose-700 transition-colors">Seleccionar Archivo PDF o Imagen</p>
+                      <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx" onChange={handleFileUpload} />
+                    </label>
+                  )
                 )}
               </div>
             </div>
