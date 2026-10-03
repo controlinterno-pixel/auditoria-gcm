@@ -1079,27 +1079,42 @@ export default function Hallazgos({
                                       <div className="mt-2 text-[8px] text-slate-400 font-medium italic border border-dashed border-slate-200 inline-block px-1.5 py-0.5 rounded bg-slate-50">🚫 Sin evidencia</div>
                                     )}
                                   </td>
-                                  <td className="p-3">
-  <div className="text-[10px] space-y-0.5 bg-slate-50 p-2 rounded border">
-    {/* Extrae auditor y correo prioritariamente del Informe Origen, o en su defecto del Hallazgo */}
+<td className="p-3">
+  <div className="text-[10px] space-y-1 bg-slate-50 p-2 rounded-xl border border-slate-200/80 shadow-sm">
     {(() => {
-      const auditorNombre = informeBase?.auditorResponsable || informeBase?.auditor || informeBase?.auditorLider || h.auditor || 'N/A';
-      const auditorCorreo = informeBase?.correoAuditor || informeBase?.correoAuditorResponsable || informeBase?.correo_auditor || h.correoAuditor || '';
+      // Priorizar la referencia directa del acordeón actual (informeBase) y fallback seguro con coerción de tipos
+      const infPadre = (informeBase && String(informeBase.id) === String(idInf)) 
+        ? informeBase 
+        : informesAuditoria.find(inf => String(inf.id) === String(h.idInforme) || String(inf.id) === String(idInf));
+
+      // Mapeo exhaustivo de campos legacy y actuales del informe y del hallazgo
+      const auditorCargo = infPadre?.auditorResponsable || infPadre?.auditor || infPadre?.auditorLider || h.auditorResponsable || h.auditor || 'N/A';
+      const auditorEmail = infPadre?.correoAuditor || infPadre?.correoAuditorResponsable || infPadre?.correo_auditor || h.correoAuditor || h.correo_auditor || '';
+
       return (
         <div>
-          <span className="font-bold text-slate-400 uppercase text-[8px]">Auditor:</span>{' '}
-          <span className="font-black text-slate-800">{auditorNombre}</span>
-          {auditorCorreo && (
-            <span className="block text-[9px] text-slate-500 font-mono font-medium truncate" title={auditorCorreo}>
-              ✉️ {auditorCorreo}
-            </span>
+          <div className="flex items-center gap-1">
+            <span className="font-bold text-slate-400 uppercase text-[8px]">Auditor:</span>
+            <span className="font-black text-slate-800 break-words">{auditorCargo}</span>
+          </div>
+          {auditorEmail ? (
+            <a 
+              href={`mailto:${auditorEmail}`}
+              className="block text-[9px] text-blue-600 hover:underline font-mono font-semibold truncate mt-0.5" 
+              title={auditorEmail}
+            >
+              ✉️ {auditorEmail}
+            </a>
+          ) : (
+            <span className="block text-[8px] text-slate-400 italic mt-0.5">Sin correo registrado</span>
           )}
         </div>
       );
     })()}
-    <div className="pt-0.5 border-t border-slate-200/60 mt-1">
-      <span className="font-bold text-slate-400 uppercase text-[8px]">Dueño:</span>{' '}
-      <span className="font-bold text-slate-700">{h.responsable}</span>
+
+    <div className="pt-1 border-t border-slate-200/60 flex items-center gap-1">
+      <span className="font-bold text-slate-400 uppercase text-[8px]">Dueño:</span>
+      <span className="font-bold text-slate-700 break-words">{h.responsable || 'Sin Asignar'}</span>
     </div>
   </div>
 </td>
