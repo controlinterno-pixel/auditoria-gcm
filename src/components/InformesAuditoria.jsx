@@ -1136,7 +1136,7 @@ const handleFileUpload = async (e, type) => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                   <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Título</div>
                   <div className="mt-1 text-sm font-black text-slate-800 break-words">{draftInforme.titulo || 'Sin título'}</div>
@@ -1156,6 +1156,14 @@ const handleFileUpload = async (e, type) => {
                 <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                   <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Fecha</div>
                   <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.fecha || 'Sin fecha'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Auditor Responsable</div>
+                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.auditorResponsable || 'Sin asignar'}</div>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Correo Auditor</div>
+                  <div className="mt-1 text-sm font-bold text-slate-800 break-all">{draftInforme.correoAuditor || 'Sin correo'}</div>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
                   <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Socializado</div>
