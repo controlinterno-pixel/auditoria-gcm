@@ -377,6 +377,7 @@ const diccionarioCorreos = {
           estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
           anio: act.fecha ? Number(act.fecha.split('-')[0]) : 2026,
           mes: act.fecha ? act.fecha.split('-')[1] : "Junio",
+          tipoAccion: act.tipoAccion || 'Acción Correctiva',
           matrizRiesgos: act.matrizRiesgos || 'No aplica',
           matrizAspectos: act.matrizAspectos || 'No aplica',
           matrizPeligros: act.matrizPeligros || 'No aplica',
@@ -726,15 +727,16 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
             auditorAsignado: auditorHeredado || h.auditor || '', 
             correoAuditor: correoAuditorHeredado,
             fechaInicio: '', 
-            fecha: '', 
-            progreso: 0, 
-            evidenciaUrl: '', 
-            estadoWorkflow: 'Borrador',
-            matrizRiesgos: 'No aplica',
-            matrizAspectos: 'No aplica',
-            matrizPeligros: 'No aplica',
-            matrizLegal: 'No aplica'
-          }]
+                fecha: '', 
+                progreso: 0, 
+                evidenciaUrl: '', 
+                estadoWorkflow: 'Borrador',
+                tipoAccion: 'Acción Correctiva',
+                matrizRiesgos: 'No aplica',
+                matrizAspectos: 'No aplica',
+                matrizPeligros: 'No aplica',
+                matrizLegal: 'No aplica'
+              }]
         };
       }
     });
@@ -805,10 +807,11 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
           progreso: 0, 
           evidenciaUrl: '', 
           estadoWorkflow: 'Borrador',
-            matrizRiesgos: 'No aplica',
-            matrizAspectos: 'No aplica',
-            matrizPeligros: 'No aplica',
-            matrizLegal: 'No aplica'
+          tipoAccion: 'Acción Correctiva',
+          matrizRiesgos: 'No aplica',
+          matrizAspectos: 'No aplica',
+          matrizPeligros: 'No aplica',
+          matrizLegal: 'No aplica'
         }]
       }
     }));
@@ -1466,15 +1469,33 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
                               
-                              {/* CAMPO A: ACCION CORRECTIVA (EXPANDIDO) */}
-                              <div className="md:col-span-6">
-                                <label className="font-bold text-gray-500 block mb-1">Acción Correctiva / Remedial</label>
+                             {/* CAMPO A1: TIPO DE ACCIÓN (NUEVO - 2 COLUMNAS) */}
+                              <div className="md:col-span-2">
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="font-bold text-[#0A3B32] block">Tipo de Acción</label>
+                                  <span className="text-slate-400 text-[10px] cursor-help" title="Clasificación metodológica de la acción a tomar">❔</span>
+                                </div>
+                                <select 
+                                  value={act.tipoAccion || 'Acción Correctiva'} 
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'tipoAccion', e.target.value)} 
+                                  className="w-full border border-emerald-200 p-2.5 rounded-lg font-bold text-emerald-800 bg-[#f0fdf4] focus:bg-white shadow-sm outline-none focus:border-[#0A3B32] cursor-pointer"
+                                >
+                                  <option value="Contención">Contención (Corrección Inmediata)</option>
+                                  <option value="Acción Correctiva">Acción Correctiva (Ataca Causa Raíz)</option>
+                                  <option value="Acción Preventiva">Acción Preventiva (Mitiga Riesgos)</option>
+                                  <option value="Iniciativa de Mejora">Iniciativa de Mejora Continua</option>
+                                </select>
+                              </div>
+
+                              {/* CAMPO A2: DESCRIPCIÓN (AJUSTADO A 4 COLUMNAS) */}
+                              <div className="md:col-span-4">
+                                <label className="font-bold text-gray-500 block mb-1">Descripción de la Tarea / Actividad</label>
                                 <textarea 
                                   value={act.accion} 
                                   onChange={(e) => handleUpdateActivityField(h.id, index, 'accion', e.target.value)} 
-                                  className="w-full border border-slate-300 p-3 rounded-lg font-medium bg-slate-50 focus:bg-white text-slate-800 resize-y shadow-sm outline-none focus:border-[#0A3B32]" 
-                                  rows="3"
-                                  placeholder="Describa la acción correctiva detalladamente..."
+                                  className="w-full border border-slate-300 p-2.5 rounded-lg font-medium bg-slate-50 focus:bg-white text-slate-800 resize-y shadow-sm outline-none focus:border-[#0A3B32]" 
+                                  rows="2"
+                                  placeholder="Describa la acción detalladamente..."
                                   required 
                                 />
                               </div>
