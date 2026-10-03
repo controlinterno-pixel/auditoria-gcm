@@ -49,6 +49,9 @@ export default function Hallazgos({
   const [sedeTemp, setSedeTemp] = useState('');
   const [sedesState, setSedesState] = useState({});
 
+  // 👁️ ESTADO DE MODO SOLO LECTURA (VISTA CONSULTA)
+  const [esSoloLectura, setEsSoloLectura] = useState(false);
+
   // 🌟 ESTADOS DERIVADOS DE MACRO Y SUBPROCESO
   const [procesoFormState, setProcesoFormState] = useState({});
   const [subprocesoFormState, setSubprocesoFormState] = useState({});
@@ -660,9 +663,19 @@ export default function Hallazgos({
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           <div className="flex justify-between items-center border-b pb-4">
             <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest flex items-center">
-              <span className="text-xl mr-3 bg-red-50 p-2 rounded-lg">{editHallazgo ? '✏️' : '➕'}</span>
-              {editHallazgo ? `Editando Hallazgo: ${editHallazgo.ref}` : 'DOCUMENTAR NUEVA DESVIACIÓN'}
+              <span className="text-xl mr-3 bg-red-50 p-2 rounded-lg">
+                {esSoloLectura ? '👁️' : (editHallazgo ? '✏️' : '➕')}
+              </span>
+              {esSoloLectura 
+                ? `Consulta Detallada: ${editHallazgo?.ref || ''}` 
+                : (editHallazgo ? `Editando Hallazgo: ${editHallazgo.ref}` : 'DOCUMENTAR NUEVA DESVIACIÓN')
+              }
             </h3>
+            {esSoloLectura && (
+              <span className="bg-amber-100 text-amber-800 border border-amber-300 font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-wider">
+                🔒 Modo Solo Lectura
+              </span>
+            )}
           </div>
 
           <form onSubmit={(e) => { handleHallazgoSubmit(e); setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
@@ -904,9 +917,19 @@ export default function Hallazgos({
             </div>
             
             <div className="md:col-span-4 flex justify-end items-end pt-4">
-              <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto hover:scale-105">
-                {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
-              </button>
+              {esSoloLectura ? (
+                <button 
+                  type="button" 
+                  onClick={() => setVistaActiva('historial')}
+                  className="bg-slate-700 hover:bg-slate-800 text-white font-black uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-md transition-all"
+                >
+                  ↩️ Volver al Historial
+                </button>
+              ) : (
+                <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto hover:scale-105">
+                  {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -1123,7 +1146,34 @@ export default function Hallazgos({
                                       {h.estado}
                                     </span>
                                     <div className="flex justify-center items-center space-x-2 text-[10px] border-t border-slate-100 pt-1.5 mt-1">
-                                    <button onClick={() => {setEditHallazgo(h); setVistaActiva('nuevo'); if (typeof setFormResetKey === 'function') setFormResetKey(Date.now()); scrollToForm();}} className="text-blue-600 hover:underline font-bold">✏️ Editar</button>
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          setEditHallazgo(h);
+                                          setEsSoloLectura(true);
+                                          setVistaActiva('nuevo');
+                                          if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
+                                          scrollToForm();
+                                        }} 
+                                        className="text-slate-600 hover:text-slate-900 hover:underline font-bold"
+                                        title="Ver detalles sin modificar"
+                                      >
+                                        👁️ Ver
+                                      </button>
+                                      <span className="text-slate-200">|</span>
+                                      <button 
+                                        type="button"
+                                        onClick={() => {
+                                          setEditHallazgo(h);
+                                          setEsSoloLectura(false);
+                                          setVistaActiva('nuevo');
+                                          if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
+                                          scrollToForm();
+                                        }} 
+                                        className="text-blue-600 hover:underline font-bold"
+                                      >
+                                        ✏️ Editar
+                                      </button>
                                       <span className="text-slate-300">|</span>
 {(() => {
                                         const riesgoExistente = safeRiesgos?.find(r => String(r.idHallazgoOrigen) === String(h.id));
