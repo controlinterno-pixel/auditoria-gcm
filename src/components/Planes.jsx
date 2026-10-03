@@ -1658,7 +1658,9 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
           return acc;
         }, {});
 
-        const listaInformesIds = Object.keys(planesPorInforme);
+        // ✨ FIX ARQUITECTÓNICO: Incluir también informes que tienen Hallazgos pero AÚN NO tienen planes creados
+        const informesConHallazgos = safeHallazgos.map(h => String(h.idInforme));
+        const listaInformesIds = [...new Set([...Object.keys(planesPorInforme), ...informesConHallazgos])].filter(id => id && id !== 'undefined' && id !== 'null');
 
         return (
           <div className="space-y-4 animate-in slide-in-from-left-8 duration-500">
@@ -1729,7 +1731,7 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
             ) : (
               <div className="space-y-3">
                 {listaInformesIds.map(idInf => {
-                  const planesDelInforme = planesPorInforme[idInf];
+                  const planesDelInforme = planesPorInforme[idInf] || []; // ✨ Salvaguarda para informes sin planes
                   const informeBase = informesAuditoria.find(inf => String(inf.id) === String(idInf));
                   
                  // Mapear trazabilidad del informe padre
@@ -1815,7 +1817,28 @@ const handleFileUpload = async (e, hallazgoId, index, evidenciasActuales = []) =
                               </tr>
                             </thead>
                             <tbody className="divide-y text-slate-700 bg-white">
-                              {planesDelInforme.map((p, pIdx) => (
+                              {planesDelInforme.length === 0 ? (
+                                <tr>
+                                  <td colSpan="6" className="p-8 text-center bg-slate-50/50">
+                                    <div className="flex flex-col items-center justify-center space-y-3">
+                                      <span className="text-3xl">⚠️</span>
+                                      <p className="text-slate-500 font-bold text-xs">Este informe tiene hallazgos, pero aún no se ha diseñado su matriz de planes de acción.</p>
+                                      {isAdmin && (
+                                        <button
+                                          onClick={() => {
+                                            handleInformeChange(String(idInf));
+                                            setVistaActiva('nuevo');
+                                            scrollToForm();
+                                          }}
+                                          className="mt-2 bg-[#0A3B32] hover:bg-[#062620] text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-md transition-all flex items-center gap-2"
+                                        >
+                                          <span>📝</span> Diligenciar Matriz Ahora
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : planesDelInforme.map((p, pIdx) => (
                                 <tr key={`h-child-plan-${p.id}-${pIdx}`} className="hover:bg-slate-50/60 transition-colors">
                                   <td className="p-3 font-mono font-black text-slate-900">PLA-{p.id.toString().slice(-4)}</td>
                                   <td className="p-3">
