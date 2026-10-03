@@ -46,13 +46,11 @@ export default function InformesAuditoria({
   // (Eliminamos estados redundantes que causaban desfases en los selects)
   const [macroprocesoFormState, setMacroprocesoForm] = useState(null);
   const [subprocesoFormState, setSubprocesoForm] = useState(null);
-  const [socializadoFormState, setSocializadoFormState] = useState(null);
 
   // Derivamos de editInformeAuditoria en el render cuando no haya interacción manual del usuario
   const idEdicion = editInformeAuditoria?.id || 'nuevo';
   const macroprocesoForm = macroprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.macroproceso || editInformeAuditoria?.proceso || '');
   const subprocesoForm = subprocesoFormState?.[idEdicion] ?? (editInformeAuditoria?.subproceso || 'General');
-  const socializadoForm = socializadoFormState?.[idEdicion] ?? (editInformeAuditoria?.socializado || 'No');
   const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
   const fuentesMejoraDisponibles = Array.isArray(fuentesMejora) ? fuentesMejora : [];
 
@@ -1410,25 +1408,21 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 </select>
               </div>
 
-{/* ✨ NUEVOS CAMPOS: AUDITOR RESPONSABLE Y CORREO CON INPUTS OCULTOS DE RESPALDO */}
+{/* AUDITOR RESPONSABLE Y CORREO CON RESPALDO DE CAMPOS COMPATIBLES */}
               <div className="md:col-span-2">
                 <label className="font-bold text-gray-600 block mb-1.5">🛡 Auditor Responsable / Seguimiento (Cargo)</label>
                 <select 
                   name="auditorResponsable" 
                   value={draftInforme.auditorResponsable || ''} 
                   onChange={(e) => {
-                    const cargoAuditor = e.target.value;
-                    const siguiente = { 
-                      ...draftInforme, 
-                      auditorResponsable: cargoAuditor
-                    };
-                    
+                    const valor = e.target.value;
+                    const siguiente = { ...draftInforme, auditorResponsable: valor };
                     setDraftInforme(siguiente);
                     registrarCambioBorrador(siguiente);
                     setIsDirty(true);
                   }}
                   required 
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none w-full shadow-sm cursor-pointer text-slate-800 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-500"
                   disabled={modoVistaCompleta}
                 >
                   <option value="">-- Seleccionar Auditor --</option>
@@ -1439,20 +1433,21 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
               </div>
 
               <div className="md:col-span-2">
-                <label className="font-bold text-gray-600 block mb-1.5">✉️️ Correo del Auditor Responsable / Seguimiento</label>
+                <label className="font-bold text-gray-600 block mb-1.5">✉ Correo del Auditor Responsable</label>
                 <input 
                   type="email"
                   name="correoAuditor" 
                   value={draftInforme.correoAuditor || ''} 
                   onChange={(e) => {
-                    const siguiente = { ...draftInforme, correoAuditor: e.target.value };
+                    const valor = e.target.value;
+                    const siguiente = { ...draftInforme, correoAuditor: valor };
                     setDraftInforme(siguiente);
                     registrarCambioBorrador(siguiente);
                     setIsDirty(true);
                   }}
                   required 
-                  placeholder="Ej: auditoria@empresa.com"
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-black text-slate-800 bg-slate-50 shadow-inner disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors"
+                  placeholder="auditoria@empresa.com"
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 bg-white shadow-sm disabled:bg-slate-100 disabled:text-slate-500"
                   disabled={modoVistaCompleta}
                 />
                 <input type="hidden" name="correoAuditorResponsable" value={draftInforme.correoAuditor || ''} />
@@ -1463,15 +1458,19 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 <label className="font-bold text-gray-600 block mb-1.5">📢 ¿Fue Socializado?</label>
                 <select 
                   name="socializado" 
-                  value={draftInforme.socializado || socializadoForm} 
+                  value={draftInforme.socializado || 'No'} 
                   onChange={(e) => {
-                    const siguiente = { ...draftInforme, socializado: e.target.value };
+                    const valor = e.target.value;
+                    const siguiente = { 
+                      ...draftInforme, 
+                      socializado: valor,
+                      fechaSocializacion: valor === 'No' ? '' : draftInforme.fechaSocializacion
+                    };
                     setDraftInforme(siguiente);
                     registrarCambioBorrador(siguiente);
                     setIsDirty(true);
-                    setSocializadoFormState(prev => ({ ...prev, [idEdicion]: e.target.value }));
                   }}
-                  className="w-full border rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  className="w-full border rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-[#0A3B32] outline-none font-bold text-slate-800 shadow-sm disabled:bg-slate-100"
                   disabled={modoVistaCompleta}
                 >
                   <option value="No">No</option>
@@ -1479,25 +1478,22 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 </select>
               </div>
 
-             {/* ✨ CAMPO CORREGIDO: Fecha de Socialización */}
               <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">🗓️ Fecha Socialización</label>
                 <input 
-                  key={`fecha-soc-${idEdicion}-${draftInforme.socializado}-${editInformeAuditoria?.id || 'nuevo'}`}
                   name="fechaSocializacion" 
                   type="date" 
                   value={draftInforme.fechaSocializacion || ''}
                   onChange={(e) => {
-                    const nuevaFecha = e.target.value;
-                    const siguiente = { ...draftInforme, fechaSocializacion: nuevaFecha };
+                    const valor = e.target.value;
+                    const siguiente = { ...draftInforme, fechaSocializacion: valor };
                     setDraftInforme(siguiente);
                     registrarCambioBorrador(siguiente);
                     setIsDirty(true);
                   }}
-                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:cursor-not-allowed transition-all" 
+                  className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm disabled:bg-slate-100 disabled:text-slate-400" 
                   disabled={modoVistaCompleta || draftInforme.socializado !== 'Sí'}
                 />
-                {/* Inputs de respaldo para retrocompatibilidad con la base de datos */}
                 <input type="hidden" name="fecha_socializacion" value={draftInforme.fechaSocializacion || ''} />
                 <input type="hidden" name="fechaSoc" value={draftInforme.fechaSocializacion || ''} />
               </div>

@@ -520,6 +520,11 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       const procesoVal = formData.get('proceso') || formData.get('Proceso') || 'Sin proceso';
       const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || 'General';
       
+      // Extracción robusta con fallbacks para evitar pérdidas de datos legacy o desincronización
+      const auditorResponsableOut = String(formData.get('auditorResponsable') || formData.get('auditor') || editInformeAuditoria?.auditorResponsable || '').trim();
+      const correoAuditorOut = String(formData.get('correoAuditor') || formData.get('correoAuditorResponsable') || editInformeAuditoria?.correoAuditor || '').trim();
+      const fechaSocializacionOut = String(formData.get('fechaSocializacion') || formData.get('fecha_socializacion') || editInformeAuditoria?.fechaSocializacion || '').trim();
+
       const evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
       const tipoFuenteOut = String(formData.get('tipoFuente') || editInformeAuditoria?.tipoFuente || '').trim();
       const detalleFuenteOut = String(formData.get('detalleFuente') || editInformeAuditoria?.detalleFuente || '').trim();
@@ -564,7 +569,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           motivo,
           correosNotificacionOut,
         });
-        const mod = { 
+       const mod = { 
           ...editInformeAuditoria, 
           titulo: tituloVal, 
           proceso: procesoVal, 
@@ -575,9 +580,15 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '', 
           revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '', 
           aprobadoPor: formData.get('aprobadoPor') || formData.get('approvedPor') || editInformeAuditoria.aprobadoPor || '', 
+          auditorResponsable: auditorResponsableOut,
+          auditor: auditorResponsableOut,
+          correoAuditor: correoAuditorOut,
+          correoAuditorResponsable: correoAuditorOut,
           socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No', 
+          fechaSocializacion: fechaSocializacionOut,
+          fecha_socializacion: fechaSocializacionOut,
           socializadoCon: formData.get('socializadoCon') || editInformeAuditoria.socializadoCon || '', 
-          evidenciaUrl: evidenciaUrlOut, 
+          evidenciaUrl: evidenciaUrlOut,
           actaSocializacionUrl: actaSocializacionUrlOut,
           anexos: anexosMultiplesOut,
           anexosMultiples: anexosMultiplesOut,
@@ -649,8 +660,14 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           elaboradoPor: formData.get('elaboradoPor') || '', 
           revisadoPor: formData.get('revisadoPor') || '', 
           aprobadoPor: formData.get('aprobadoPor') || '', 
+          auditorResponsable: auditorResponsableOut,
+          auditor: auditorResponsableOut,
+          correoAuditor: correoAuditorOut,
+          correoAuditorResponsable: correoAuditorOut,
           socializado: formData.get('socializado') || 'No', 
-          socializadoCon: formData.get('socializadoCon') || '', 
+          fechaSocializacion: fechaSocializacionOut,
+          fecha_socializacion: fechaSocializacionOut,
+          socializadoCon: formData.get('socializadoCon') || '',
           evidenciaUrl: evidenciaUrlOut, 
           actaSocializacionUrl: actaSocializacionUrlOut,
           anexos: anexosMultiplesOut,
