@@ -376,7 +376,11 @@ const diccionarioCorreos = {
           estadoWorkflow: workflowCalculado,
           estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
           anio: act.fecha ? Number(act.fecha.split('-')[0]) : 2026,
-          mes: act.fecha ? act.fecha.split('-')[1] : "Junio"
+          mes: act.fecha ? act.fecha.split('-')[1] : "Junio",
+          matrizRiesgos: act.matrizRiesgos || 'No aplica',
+          matrizAspectos: act.matrizAspectos || 'No aplica',
+          matrizPeligros: act.matrizPeligros || 'No aplica',
+          matrizLegal: act.matrizLegal || 'No aplica'
         };
         if (isNew) {
           planData.historialCambios = [{ fecha: ts, usuario: 'Auditor', accion: 'Actividad registrada en matriz masiva' }];
@@ -725,7 +729,11 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
             fecha: '', 
             progreso: 0, 
             evidenciaUrl: '', 
-            estadoWorkflow: 'Borrador' 
+            estadoWorkflow: 'Borrador',
+            matrizRiesgos: 'No aplica',
+            matrizAspectos: 'No aplica',
+            matrizPeligros: 'No aplica',
+            matrizLegal: 'No aplica'
           }]
         };
       }
@@ -796,7 +804,11 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
           fecha: '', 
           progreso: 0, 
           evidenciaUrl: '', 
-          estadoWorkflow: 'Borrador' 
+          estadoWorkflow: 'Borrador',
+            matrizRiesgos: 'No aplica',
+            matrizAspectos: 'No aplica',
+            matrizPeligros: 'No aplica',
+            matrizLegal: 'No aplica'
         }]
       }
     }));
@@ -1624,6 +1636,43 @@ const handleInformeChange = useCallback((informeId, customPlanes = null, customH
                                   <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx, .xlsx, .zip" onChange={(e) => handleFileUpload(e, h.id, index, act.evidenciaUrl)} />
                                 </label>
                               </div>
+
+                              {/* ✨ NUEVO: SECCIÓN DE IMPACTO EN MATRICES */}
+                              <div className="md:col-span-6 bg-[#f8fafa] border border-slate-200 p-4 rounded-xl shadow-sm mt-1">
+                                <label className="font-black text-[#0A3B32] block mb-3 text-[10px] uppercase tracking-widest">¿Esta acción actualiza alguna de estas matrices?</label>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                  <div>
+                                    <label className="font-bold text-slate-500 block mb-1 text-[10px]">Matriz de riesgos (ISO 9001)</label>
+                                    <select value={act.matrizRiesgos || 'No aplica'} onChange={(e) => handleUpdateActivityField(h.id, index, 'matrizRiesgos', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg bg-white text-[11px] font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32] outline-none cursor-pointer">
+                                      <option value="No aplica">No aplica</option>
+                                      <option value="Sí aplica">Sí aplica</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="font-bold text-slate-500 block mb-1 text-[10px]">Aspectos e impactos (ISO 14001)</label>
+                                    <select value={act.matrizAspectos || 'No aplica'} onChange={(e) => handleUpdateActivityField(h.id, index, 'matrizAspectos', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg bg-white text-[11px] font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32] outline-none cursor-pointer">
+                                      <option value="No aplica">No aplica</option>
+                                      <option value="Sí aplica">Sí aplica</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="font-bold text-slate-500 block mb-1 text-[10px]">Peligros y riesgos SST (ISO 45001)</label>
+                                    <select value={act.matrizPeligros || 'No aplica'} onChange={(e) => handleUpdateActivityField(h.id, index, 'matrizPeligros', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg bg-white text-[11px] font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32] outline-none cursor-pointer">
+                                      <option value="No aplica">No aplica</option>
+                                      <option value="Sí aplica">Sí aplica</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="font-bold text-slate-500 block mb-1 text-[10px]">Matriz de requisitos legales</label>
+                                    <select value={act.matrizLegal || 'No aplica'} onChange={(e) => handleUpdateActivityField(h.id, index, 'matrizLegal', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg bg-white text-[11px] font-bold text-slate-700 focus:ring-2 focus:ring-[#0A3B32] outline-none cursor-pointer">
+                                      <option value="No aplica">No aplica</option>
+                                      <option value="Sí aplica">Sí aplica</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              </div>
+                              {/* --- FIN NUEVA SECCIÓN --- */}
+
                             </div>
                           </div>
                         ))}
