@@ -37,10 +37,25 @@ export default function ModalNuevaFuente({
 
     if (!fuenteEdicion) return valoresIniciales;
 
+    const procesoGuardado = String(fuenteEdicion.proceso || '').split('/').map(parte => parte.trim());
+    const macroprocesoGuardado = fuenteEdicion.macroproceso || (
+      MAPA_PROCESOS[procesoGuardado[0]] ? procesoGuardado[0] : ''
+    );
     const normaGuardada = fuenteEdicion.norma ?? fuenteEdicion.tipoNorma ?? valoresIniciales.norma;
+    const fechaRaw = String(fuenteEdicion.fecha || fuenteEdicion.fechaRegistro || fuenteEdicion.fechaAuditoria || valoresIniciales.fecha);
+    const fechaPartes = fechaRaw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
     return {
       ...valoresIniciales,
       ...fuenteEdicion,
+      tipoFuente: fuenteEdicion.tipoFuente || fuenteEdicion.tipo || valoresIniciales.tipoFuente,
+      fecha: fechaPartes ? `${fechaPartes[3]}-${fechaPartes[2]}-${fechaPartes[1]}` : fechaRaw.slice(0, 10),
+      responsable: fuenteEdicion.responsable || fuenteEdicion.auditor || fuenteEdicion.responsableCargo || '',
+      estado: fuenteEdicion.estado || fuenteEdicion.status || valoresIniciales.estado,
+      descripcion: fuenteEdicion.descripcion || fuenteEdicion.descripcionFuente || fuenteEdicion.detalleFuente || fuenteEdicion.detalle || '',
+      alcance: fuenteEdicion.alcance || fuenteEdicion.objetivo || fuenteEdicion.objetivosAlcance || '',
+      macroproceso: macroprocesoGuardado,
+      subproceso: fuenteEdicion.subproceso || procesoGuardado.slice(1).join(' / '),
       norma: Array.isArray(normaGuardada) ? normaGuardada : normaGuardada ? [normaGuardada] : [],
     };
   });
@@ -238,6 +253,7 @@ export default function ModalNuevaFuente({
                   <div className="col-span-2">
                     <label className="text-[11px] font-black text-blue-900 uppercase tracking-wider block mb-2">Tipo de Fuente *</label>
                     <select disabled={isReadOnly} name="tipoFuente" value={formData.tipoFuente} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
+                      {formData.tipoFuente && !['Auditoría Interna', 'Auditoría Externa', 'PQR', 'Indicador de Gestión', 'Incidente', 'Riesgo', 'Otra Fuente'].includes(formData.tipoFuente) && <option value={formData.tipoFuente}>{formData.tipoFuente}</option>}
                       <option value="Auditoría Interna">🎯 Auditoría Interna</option>
                       <option value="Auditoría Externa">🏢 Auditoría Externa</option>
                       <option value="PQR">💬 PQR</option>
@@ -324,6 +340,7 @@ export default function ModalNuevaFuente({
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Responsable / Cargo *</label>
                     <select disabled={isReadOnly} name="responsable" value={formData.responsable} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
                       <option value="">-- Seleccionar --</option>
+                      {formData.responsable && !CARGOS_EMPRESA.includes(formData.responsable) && <option value={formData.responsable}>{formData.responsable}</option>}
                       {CARGOS_EMPRESA.map((cargo) => (
                         <option key={cargo} value={cargo}>{cargo}</option>
                       ))}
@@ -332,6 +349,7 @@ export default function ModalNuevaFuente({
                   <div className="col-span-3">
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Estado *</label>
                     <select disabled={isReadOnly} name="estado" value={formData.estado} onChange={handleInputChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
+                      {formData.estado && !['Borrador', 'En seguimiento', 'Activa', 'Cerrada'].includes(formData.estado) && <option value={formData.estado}>{formData.estado}</option>}
                       <option value="Borrador">🟠 Borrador</option>
                       <option value="En seguimiento">🟡 En seguimiento</option>
                       <option value="Activa">🟢 Activa</option>
@@ -359,6 +377,7 @@ export default function ModalNuevaFuente({
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Macroproceso *</label>
                     <select disabled={isReadOnly} name="macroproceso" value={formData.macroproceso} onChange={handleMacroprocesoChange} className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400">
                       <option value="">⚙️ Seleccione un macroproceso</option>
+                      {formData.macroproceso && !MAPA_PROCESOS[formData.macroproceso] && <option value={formData.macroproceso}>{formData.macroproceso}</option>}
                       {Object.keys(MAPA_PROCESOS).map((macroproceso) => (
                         <option key={macroproceso} value={macroproceso}>{macroproceso}</option>
                       ))}
@@ -370,6 +389,7 @@ export default function ModalNuevaFuente({
                       <option value="">
                         {!formData.macroproceso ? '⚙️ Esperando macroproceso...' : (subprocesosDisponibles.length <= 1 ? '⚙️ Aplica a nivel general' : '⚙️ Seleccione un subproceso')}
                       </option>
+                      {formData.subproceso && !subprocesosDisponibles.includes(formData.subproceso) && <option value={formData.subproceso}>{formData.subproceso}</option>}
                       {subprocesosDisponibles.map((subproceso) => (
                         <option key={subproceso} value={subproceso}>{subproceso}</option>
                       ))}
