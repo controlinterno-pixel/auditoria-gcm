@@ -19,12 +19,13 @@ const sanitizeServerMessage = (message) => {
   return safe || 'Error del servidor.';
 };
 
-async function request(endpoint, options = {}) {
+async function request(endpoint, options = {}, reintentosMaximos = 3) {
   const defaultHeaders = {
     'Content-Type': 'application/json',
   };
 
-  const config = {
+  // Preparamos la configuración base (sin la señal de aborto, porque esa cambia en cada intento)
+  const configBase = {
     method: 'GET',
     credentials: 'include', // 🔒 OBLIGATORIO: Transmite cookies HttpOnly (grc_session)
     ...options,
@@ -34,25 +35,68 @@ async function request(endpoint, options = {}) {
     },
   };
 
-  if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
-    config.body = JSON.stringify(config.body);
+  if (configBase.body && typeof configBase.body === 'object' && !(configBase.body instanceof FormData)) {
+    configBase.body = JSON.stringify(configBase.body);
   }
 
-  const response = await fetch(endpoint, config);
+  // 🔄 CICLO DE REINTENTOS SILENCIOSOS
+  for (let intento = 1; intento <= reintentosMaximos; intento++) {
+    
+    // El temporizador (Timeout) se crea fresco para cada intento (15 segundos)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); 
 
-  let data = null;
-  try {
-    data = await response.json();
-  } catch {
-    // Si la respuesta no es un JSON válido o viene vacía, data permanece como null
+    const config = { ...configBase, signal: controller.signal };
+
+    try {
+      const response = await fetch(endpoint, config);
+      clearTimeout(timeoutId); // Llegó a tiempo, apagamos la alarma
+
+      let data = null;
+      try {
+        data = await response.json();
+      } catch {
+        // Si no es JSON válido o viene vacío
+      }
+
+      if (!response.ok) {
+        const rawMessage = data?.error || data?.message || data?.details || `Error HTTP ${response.status}`;
+        const errorMessage = sanitizeServerMessage(rawMessage);
+        
+        // 🛑 Si el error es 400-499 (error de validación, ej. "Usuario incorrecto"), NO reintentamos.
+        if (response.status >= 400 && response.status < 500) {
+          throw new Error(errorMessage);
+        }
+        
+        // ⚠️ Si es 500+ (se cayó el servidor), forzamos el error para que el "catch" lo intente de nuevo.
+        throw new Error(`ServerError: ${errorMessage}`);
+      }
+
+      return data; // ✅ Éxito total. Entregamos los datos y salimos.
+
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      // Si fue un error de validación (como contraseña incorrecta), lo mostramos de inmediato.
+      if (error.message && !error.message.includes('ServerError') && error.name !== 'AbortError' && error.name !== 'TypeError') {
+        throw error; 
+      }
+
+      // Si ya gastamos los 3 intentos, nos rendimos y le avisamos al cliente de forma amable.
+      if (intento === reintentosMaximos) {
+        if (error.name === 'AbortError') {
+          throw new Error('El servidor tardó más de lo esperado en responder. Por favor, revisa tu conexión a internet e intenta de nuevo.', { cause: error });
+        }
+        throw new Error('La conexión es inestable en este momento. Revisa tu red o intenta más tarde.', { cause: error });
+      }
+
+      // ⏳ EXPONENTIAL BACKOFF: Si falló pero nos quedan intentos, hacemos una pequeña pausa (1s, 2s...)
+      const tiempoDeEspera = intento * 1000;
+      console.warn(`⚠️ Interrupción detectada. Reintentando conexión de forma silenciosa en ${tiempoDeEspera/1000}s... (Intento ${intento}/${reintentosMaximos})`);
+      
+      await new Promise(resolve => setTimeout(resolve, tiempoDeEspera));
+    }
   }
-
-  if (!response.ok) {
-    const rawMessage = data?.error || data?.message || data?.details || `Error HTTP ${response.status}`;
-    throw new Error(sanitizeServerMessage(rawMessage));
-  }
-
-  return data;
 }
 
 // 🖼️ Helper privado: Comprime imágenes en el navegador antes de convertirlas a Base64
@@ -279,6 +323,14 @@ export const apiService = {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', urlConQuery, true);
 
+        // 👇 NUEVO: Tiempo máximo de espera para archivos (60 segundos)
+        xhr.timeout = 60000; 
+
+        // 👇 NUEVO: Qué hacer si se acaba el tiempo
+        xhr.ontimeout = () => {
+          reject(new Error('La subida de archivo tardó demasiado (Timeout). Puede que el archivo sea muy pesado o la conexión a Internet sea inestable. Por favor, reintenta.'));
+        };
+
         if (xhr.upload && typeof onProgress === 'function') {
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
@@ -342,7 +394,7 @@ xhr.onload = () => {
         };
 
         xhr.onerror = () => {
-          reject(new Error('Error de conexión con el repositorio corporativo.'));
+          reject(new Error('Error de conexión con el repositorio corporativo. Verifica tu conexión a internet o intenta de nuevo en unos minutos.'));
         };
 
         xhr.send(formData);
