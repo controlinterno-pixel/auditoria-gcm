@@ -124,10 +124,28 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     else if (planesMatch.length > 0) seleccionarPlan(planesMatch[0]);
     else alert(`❌ No se encontraron coincidencias para: ${busquedaRapida}`);
   };
+
   // 🧭 PESTAÑAS DE CONTROL SUPERIOR
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [informePlanesExpandido, setInformePlanesExpandido] = useState(null);
+
+  // ✨ NUEVA FUNCIÓN: Protege contra salidas accidentales al cambiar de pestaña
+  const cambiarVistaSegura = (nuevaVista) => {
+    if (nuevaVista === vistaActiva) return; // Si ya está ahí, no hace nada
+
+    // Si está en el formulario ('nuevo') y hay un informe cargado
+    if (vistaActiva === 'nuevo' && formInformeId) {
+      if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
+        setFormInformeId(''); // Limpiamos la matriz
+        setMatrixState({});
+        setVistaActiva(nuevaVista); // Permitimos la salida
+      }
+    } else {
+      // Si no está en el formulario, cambia de vista libremente
+      setVistaActiva(nuevaVista);
+    }
+  };
 
   // 🎛️ ESTADOS FILTROS AVANZADOS DASHBOARD
   const [agruparPor, setAgruparPor] = useState('Año');
@@ -1032,11 +1050,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                 )}
               </div>
             )}
-          </div>
+         </div>
           {/* 👉 AQUÍ TERMINA LA BARRA DE BÚSQUEDA RÁPIDA */}
 
-          <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
-          <button onClick={() => setVistaActiva('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Matriz</button>
+          <button onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
+          <button onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Matriz</button>
           
           {/* Oculto temporalmente el botón "Nuevo Plan" ya que la creación es automática por Hallazgo */}
           {/* isAdmin && (
