@@ -38,6 +38,12 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [logSeleccionado, setLogSeleccionado] = useState(null);
+  
+  // ✨ FILTROS REALES PARA EL HISTORIAL DE CAMBIOS
+  const [histFiltroFuente, setHistFiltroFuente] = useState('Todas');
+  const [histFiltroAccion, setHistFiltroAccion] = useState('Todas');
+  const [histFiltroUsuario, setHistFiltroUsuario] = useState('Todos');
+  const [histSearch, setHistSearch] = useState('');
 
   // 🧠 MEMORIA FOTOGRÁFICA: Leemos todas las normas que ya existen en las fuentes creadas
   const [normasDisponibles, setNormasDisponibles] = useState(() => {
@@ -482,8 +488,8 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
 
       {/* 🚀 VISTA 2: HISTORIAL DE CAMBIOS (DISEÑO EXACTO A LA IMAGEN) */}
       {vistaActiva === 'historial' && (() => {
-        // Extraer historial real de la base de datos de fuentes
-        const historialCompleto = fuentesActuales.flatMap(f => {
+        // Extraer historial real de la base de datos de fuentes (Todos los registros brutos)
+        const historialBase = fuentesActuales.flatMap(f => {
           const logs = Array.isArray(f.historialCambios) ? f.historialCambios : [];
           return logs.map((log, index) => ({
             ...log,
@@ -492,8 +498,29 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
             fuenteNombre: Array.isArray(f.norma) ? f.norma.join(', ') : (f.norma || f.tipoNorma || f.tipoFuente || 'Fuente sin nombre'),
             fuenteTipo: f.tipoFuente || 'Auditoría Interna'
           }));
+        });
+
+        // Opciones únicas extraídas de los datos reales para llenar los Selects
+        const opcionesFuentes = [...new Set(historialBase.map(l => l.fuenteNombre))].filter(Boolean);
+        const opcionesUsuarios = [...new Set(historialBase.map(l => l.usuario))].filter(Boolean);
+
+        // Aplicamos los filtros seleccionados
+        const historialCompleto = historialBase.filter(log => {
+          const matchFuente = histFiltroFuente === 'Todas' || log.fuenteNombre === histFiltroFuente;
+          const matchUsuario = histFiltroUsuario === 'Todos' || log.usuario === histFiltroUsuario;
+          
+          const accionLower = String(log.accion || '').toLowerCase();
+          const matchAccion = histFiltroAccion === 'Todas' 
+            ? true 
+            : histFiltroAccion === 'Creación' ? (accionLower.includes('crea') || accionLower.includes('inicial'))
+            : histFiltroAccion === 'Eliminación' ? accionLower.includes('elimin')
+            : (accionLower.includes('actualiza') || accionLower.includes('edit'));
+            
+          const searchStr = `${log.fuenteNombre} ${log.motivo} ${log.accion} ${log.usuario} ${log.fuenteRef}`.toLowerCase();
+          const matchSearch = !histSearch.trim() || searchStr.includes(histSearch.toLowerCase());
+
+          return matchFuente && matchUsuario && matchAccion && matchSearch;
         }).sort((a, b) => {
-          // Ordenar del más reciente al más antiguo
           const fechaA = new Date(a.timestamp || a.fecha || 0).getTime();
           const fechaB = new Date(b.timestamp || b.fecha || 0).getTime();
           return fechaB - fechaA;
@@ -531,24 +558,27 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
                     </div>
                  </div>
 
-                 {/* Barra de Filtros */}
+                 {/* Barra de Filtros Reales */}
                  <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-                    <select className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer">
-                      <option>Todas las fuentes</option>
+                    <select value={histFiltroFuente} onChange={(e) => setHistFiltroFuente(e.target.value)} className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer max-w-[150px] truncate">
+                      <option value="Todas">Todas las fuentes</option>
+                      {opcionesFuentes.map(f => <option key={f} value={f}>{f}</option>)}
                     </select>
-                    <select className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer">
-                      <option>Todas las acciones</option>
-                      <option>Creación</option>
-                      <option>Actualización</option>
-                      <option>Eliminación</option>
+                    <select value={histFiltroAccion} onChange={(e) => setHistFiltroAccion(e.target.value)} className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer">
+                      <option value="Todas">Todas las acciones</option>
+                      <option value="Creación">Creación</option>
+                      <option value="Actualización">Actualización</option>
+                      <option value="Eliminación">Eliminación</option>
                     </select>
-                    <select className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer">
-                      <option>Usuario</option>
+                    <select value={histFiltroUsuario} onChange={(e) => setHistFiltroUsuario(e.target.value)} className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer max-w-[150px] truncate">
+                      <option value="Todos">Todos los usuarios</option>
+                      {opcionesUsuarios.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                     <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shadow-inner">
                        <span className="text-slate-400">🔍</span>
-                       <input type="text" placeholder="Buscar por fuente, descripción o usuario..." className="w-full bg-transparent text-[10px] font-bold outline-none text-slate-700"/>
+                       <input type="text" value={histSearch} onChange={(e) => setHistSearch(e.target.value)} placeholder="Buscar por fuente, descripción o usuario..." className="w-full bg-transparent text-[10px] font-bold outline-none text-slate-700"/>
                     </div>
+                    <button onClick={() => { setHistFiltroFuente('Todas'); setHistFiltroAccion('Todas'); setHistFiltroUsuario('Todos'); setHistSearch(''); }} className="bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 px-3 py-2 rounded-lg text-[10px] font-bold transition-colors">Limpiar</button>
                  </div>
 
                  {/* Tabla Estilo Big Four */}
@@ -698,12 +728,12 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
                         </div>
                       </div>
 
-                      {/* Descripción del Cambio */}
+{/* Descripción de la Acción */}
                       <div>
-                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Descripción del cambio</p>
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Acción del sistema</p>
                         <div className="bg-blue-50/50 border border-blue-100 p-3.5 rounded-xl shadow-inner">
-                          <p className="text-[11px] font-medium text-blue-900 leading-relaxed">
-                            {logSeleccionado.motivo || logSeleccionado.accion || 'Actualización general de los datos de la fuente para cumplir con los estándares GRC corporativos.'}
+                          <p className="text-[11px] font-bold text-blue-900 leading-relaxed">
+                            {logSeleccionado.accion}
                           </p>
                         </div>
                       </div>
@@ -713,58 +743,47 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Usuario responsable</p>
                         <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                           <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm">
-                            {logSeleccionado.usuario ? logSeleccionado.usuario.substring(0,2).toUpperCase() : 'YP'}
+                            {logSeleccionado.usuario ? logSeleccionado.usuario.substring(0,2).toUpperCase() : 'US'}
                           </div>
-                          <div>
-                            <p className="font-bold text-slate-800 text-[11px]">{logSeleccionado.usuario || 'Yehison Pineda'}</p>
-                            <p className="text-[9px] text-slate-400 font-medium">Auditor Líder</p>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-800 text-[11px] truncate">{logSeleccionado.usuario || 'Sistema GRC'}</p>
+                            <p className="text-[9px] text-slate-400 font-medium truncate">Sesión autenticada</p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Motivo / Justificación */}
+                      {/* Motivo / Justificación Real */}
                       <div>
-                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Motivo / Justificación</p>
-                        <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 p-3 rounded-xl shadow-sm">
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Detalles de la Operación</p>
+                        <div className="flex items-start gap-2 bg-slate-50 border border-slate-200 p-3 rounded-xl shadow-sm">
                           <span className="text-blue-500 text-sm mt-0.5">ℹ️</span>
-                          <p className="text-[10px] font-medium text-blue-900 leading-relaxed">
-                            La fuente fue gestionada a través del módulo central para asegurar la trazabilidad requerida en el proceso de mejora continua.
+                          <p className="text-[10px] font-medium text-slate-700 leading-relaxed">
+                            {logSeleccionado.motivo || 'No se registró un motivo detallado para este evento.'}
                           </p>
                         </div>
                       </div>
 
-                      {/* Elementos afectados (Simulados para el diseño) */}
+                      {/* Detalles Técnicos Reales */}
                       <div>
-                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 border-b border-slate-100 pb-1">Elementos afectados</p>
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-3">
-                            <span className="bg-slate-100 p-1.5 rounded border border-slate-200 text-slate-500 text-xs">📄</span>
-                            <div>
-                              <p className="text-[10px] font-bold text-slate-700">Informes asociados</p>
-                              <p className="text-[9px] text-slate-400">0 informes modificados</p>
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 border-b border-slate-100 pb-1">Información Técnica</p>
+                        <div className="space-y-3 bg-white p-3 rounded-xl border border-slate-100">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 text-xs">🆔</span>
+                              <p className="text-[10px] font-bold text-slate-600">ID de Registro</p>
                             </div>
+                            <p className="text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">{logSeleccionado.fuenteRef}</p>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="bg-slate-100 p-1.5 rounded border border-slate-200 text-slate-500 text-xs">❗</span>
-                            <div>
-                              <p className="text-[10px] font-bold text-slate-700">Hallazgos asociados</p>
-                              <p className="text-[9px] text-slate-400">0 hallazgos en seguimiento</p>
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 text-xs">⏱️</span>
+                              <p className="text-[10px] font-bold text-slate-600">Timestamp</p>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="bg-slate-100 p-1.5 rounded border border-slate-200 text-slate-500 text-xs">📋</span>
-                            <div>
-                              <p className="text-[10px] font-bold text-slate-700">Planes de acción asociados</p>
-                              <p className="text-[9px] text-slate-400">0 planes activos</p>
-                            </div>
+                            <p className="text-[9px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200 truncate max-w-[120px]" title={logSeleccionado.timestamp || logSeleccionado.fecha}>
+                              {logSeleccionado.timestamp || logSeleccionado.fecha}
+                            </p>
                           </div>
                         </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-slate-100 text-center">
-                        <button className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center justify-center w-full gap-1">
-                          Ver detalles completos <span>↗</span>
-                        </button>
                       </div>
 
                     </div>
