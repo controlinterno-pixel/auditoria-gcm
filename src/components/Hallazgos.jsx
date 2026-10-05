@@ -32,6 +32,22 @@ export default function Hallazgos({
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [informeHistorialExpandido, setInformeHistorialExpandido] = useState(null);
 
+  // ✨ NUEVA FUNCIÓN DE UX: Previene salir por accidente si hay cambios
+  const cambiarVistaSegura = (nuevaVista) => {
+    if (nuevaVista === vistaActiva) return; // Si hace clic en la misma pestaña, ignoramos
+
+    // Verificamos si estamos en el formulario ('nuevo') y NO estamos en modo solo lectura
+    if (vistaActiva === 'nuevo' && !esSoloLectura) {
+      const confirma = window.confirm("¿Estás seguro de que deseas salir sin guardar? Perderás todos los datos que hayas ingresado en el hallazgo.");
+      if (confirma) {
+        setVistaActiva(nuevaVista);
+      }
+    } else {
+      // Si está en el dashboard, historial, o en modo solo lectura, navega sin preguntar
+      setVistaActiva(nuevaVista);
+    }
+  };
+
   // 🎛️ ESTADOS DEL PANEL LATERAL (DASHBOARD)
   const [agruparPor, setAgruparPor] = useState('Año'); 
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
@@ -276,16 +292,24 @@ export default function Hallazgos({
 
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
-          <button onClick={() => setVistaActiva('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
+          <button onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
+          <button onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
           
           {isAdmin && (
             <button 
               type="button"
               onClick={() => { 
-                setEditHallazgo(null); 
-                setEsSoloLectura(false); 
-                setVistaActiva('nuevo'); 
+                // Protegemos si presiona "Nuevo Hallazgo" mientras ya estaba escribiendo uno
+                if (vistaActiva === 'nuevo' && !esSoloLectura) {
+                  if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Perderás los datos de este hallazgo para crear uno nuevo.")) {
+                    setEditHallazgo(null); 
+                    setEsSoloLectura(false); 
+                  }
+                } else {
+                  setEditHallazgo(null); 
+                  setEsSoloLectura(false); 
+                  setVistaActiva('nuevo'); 
+                }
               }} 
               className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}
             >
@@ -959,7 +983,7 @@ export default function Hallazgos({
               </div>
             </div>
             
-           <div className="md:col-span-4 flex justify-end items-end pt-4">
+          <div className="md:col-span-4 flex flex-col md:flex-row justify-end items-center gap-3 pt-4">
               {esSoloLectura ? (
                 <button 
                   type="button" 
@@ -967,14 +991,30 @@ export default function Hallazgos({
                     setEsSoloLectura(false);
                     setVistaActiva('historial');
                   }}
-                  className="bg-slate-700 hover:bg-slate-800 text-white font-black uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-md transition-all cursor-pointer"
+                  className="bg-slate-700 hover:bg-slate-800 text-white font-black uppercase tracking-widest px-8 py-3.5 rounded-xl shadow-md transition-all cursor-pointer w-full md:w-auto"
                 >
                   ↩️ Volver al Historial
                 </button>
               ) : (
-                <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto hover:scale-105 cursor-pointer">
-                  {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
-                </button>
+                <>
+                  {/* ✨ NUEVO BOTÓN: Salir sin guardar */}
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Perderás todos los datos ingresados en el hallazgo.")) {
+                        setEditHallazgo(null);
+                        setVistaActiva('dashboard');
+                      }
+                    }}
+                    className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-3.5 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all w-full md:w-auto"
+                  >
+                    ❌ Salir sin guardar
+                  </button>
+
+                  <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest px-10 py-3.5 rounded-xl shadow-lg transition-all w-full md:w-auto hover:scale-105 cursor-pointer">
+                    {editHallazgo ? '💾 Guardar Cambios' : '➕ REGISTRAR HALLAZGO'}
+                  </button>
+                </>
               )}
             </div>
           </form>

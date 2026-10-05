@@ -1886,7 +1886,19 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                 <span className="bg-white border border-slate-200 rounded-full px-2 py-0.5 text-slate-900">{(archivoSubidoUrl ? 1 : 0) + anexosMultiples.length}</span>
               </div>
 
-              <div className="flex items-center gap-2 ml-auto">
+              <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto ml-auto">
+                
+                {/* ✨ NUEVO BOTÓN: Salir sin guardar */}
+                {!modoVistaCompleta && (
+                  <button 
+                    type="button" 
+                    onClick={() => cambiarVista('dashboard')}
+                    className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-3.5 rounded-xl font-black uppercase tracking-widest text-sm shadow-sm transition-all w-full md:w-auto"
+                  >
+                    ❌ Salir sin guardar
+                  </button>
+                )}
+
                 <button 
                   type="submit" 
                   disabled={isSubmitting || cargandoInforme || cargandoAnexo || modoVistaCompleta} 
