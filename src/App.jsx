@@ -15,12 +15,26 @@ import PlanAnual from './components/PlanAnual';
 import ProgramasAuditoria from './components/ProgramasAuditoria'; 
 import AuditorIA from './components/AuditorIA';
 
+// 🔄 Helper: si un chunk falla (deployment reciente), recarga la página una vez para obtener los assets frescos
+const lazyWithReload = (importFn) =>
+  lazy(() =>
+    importFn().catch((err) => {
+      const reloadKey = `chunk_reload_${Date.now()}`;
+      if (!sessionStorage.getItem('chunk_reload_attempted')) {
+        sessionStorage.setItem('chunk_reload_attempted', reloadKey);
+        window.location.reload();
+        return new Promise(() => {}); // Mantiene la promesa pendiente mientras recarga
+      }
+      throw err; // Si ya se intentó recargar, deja que el ErrorBoundary lo maneje
+    })
+  );
+
 // 🚀 Carga perezosa (Lazy Loading) de módulos secundarios/pesados
-const InformesAuditoria = lazy(() => import('./components/InformesAuditoria'));
-const FuentesDeMejora = lazy(() => import('./components/FuentesDeMejora'));
-const Comites = lazy(() => import('./components/Comites'));
-const ConceptMapper = lazy(() => import('./components/AuditoriaAutomatizada/ConceptMapper'));
-const DashboardEjecutivo = lazy(() => import('./components/DashboardEjecutivo'));
+const InformesAuditoria = lazyWithReload(() => import('./components/InformesAuditoria'));
+const FuentesDeMejora = lazyWithReload(() => import('./components/FuentesDeMejora'));
+const Comites = lazyWithReload(() => import('./components/Comites'));
+const ConceptMapper = lazyWithReload(() => import('./components/AuditoriaAutomatizada/ConceptMapper'));
+const DashboardEjecutivo = lazyWithReload(() => import('./components/DashboardEjecutivo'));
 import MiEspacio from './components/MiEspacio';
 import ModalIA from './components/ModalIA';
 import ModalDetalleGrafico from './components/ModalDetalleGrafico';
