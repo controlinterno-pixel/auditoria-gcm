@@ -81,11 +81,13 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
   const coloresDona = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-teal-500', 'bg-orange-500'];
 
   const fuentesFiltradas = fuentesActuales.filter((fuente) => {
+    // Convertimos de forma segura las normas a un texto plano para poder buscarlas
+    const normasEnTexto = Array.isArray(fuente.norma) ? fuente.norma.join(' ') : (fuente.norma || fuente.tipoNorma || '');
+    
     const textoBusqueda = [
       fuente.codigo,
       fuente.id,
-      fuente.norma,
-      fuente.tipoNorma,
+      normasEnTexto,
       fuente.tipoFuente,
       fuente.responsable,
       fuente.auditor,
@@ -111,12 +113,18 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
       );
     });
 
-  const handleAddNorma = (norma) => {
-    setNormasDisponibles((prev) => (
-      prev.some((existente) => existente.toLowerCase() === norma.toLowerCase())
-        ? prev
-        : [...prev, norma]
-    ));
+  const handleAddNorma = (normaInput) => {
+    // Nos aseguramos de extraer un string válido, incluso si nos envían un arreglo
+    const normaValida = Array.isArray(normaInput) ? normaInput[0] : normaInput;
+    if (!normaValida || typeof normaValida !== 'string') return;
+
+    setNormasDisponibles((prev) => {
+      // Usamos .toLowerCase() de forma segura solo sobre strings
+      if (prev.some((existente) => String(existente).toLowerCase() === normaValida.toLowerCase())) {
+        return prev;
+      }
+      return [...prev, normaValida];
+    });
   };
 
   const actualizarFuentes = (fuentesActualizadas) => {
@@ -125,9 +133,14 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
   };
 
   const handleSaveFuente = (data) => {
-    // Si la norma que viene en data.norma no está en las normas disponibles, la forzamos a agregarla
-    if (data.norma && !normasDisponibles.includes(data.norma)) {
-      handleAddNorma(data.norma);
+    // Garantizamos el registro de cualquier norma nueva ingresada (ahora manejando arreglos)
+    if (data.norma) {
+      const normasAProcesar = Array.isArray(data.norma) ? data.norma : [data.norma];
+      normasAProcesar.forEach(n => {
+        if (!normasDisponibles.includes(n)) {
+          handleAddNorma(n);
+        }
+      });
     }
 
     const identificador = data.codigo || data.id;
