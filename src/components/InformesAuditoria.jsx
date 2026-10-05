@@ -58,6 +58,9 @@ export default function InformesAuditoria({
   const [vistaActiva, setVistaActiva] = useState('dashboard');
   const [agruparPor, setAgruparPor] = useState('Proceso');
   
+  // ✨ NUEVO ESTADO: Controla el modal de vista de detalle único (Imagen 2)
+  const [informeDetalleModal, setInformeDetalleModal] = useState(null);
+
   // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
   const handleCrearNuevoInforme = () => {
     const abrirNuevoInforme = () => {
@@ -79,6 +82,7 @@ export default function InformesAuditoria({
   const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
   const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
+  const [dashFiltroFuente, setDashFiltroFuente] = useState('Todas'); // ✨ NUEVO ESTADO PARA EL FILTRO DE PILLS
 
   // ⏳ ESTADOS LOCALES PARA FILTROS DE HISTORIAL
   const [filtroAnio, setFiltroAnio] = useState('');
@@ -106,12 +110,28 @@ export default function InformesAuditoria({
     return true;
   });
 
-  // 1. Filtrar los datos del Dashboard según el menú lateral
+  // 1. Filtrar los datos del Dashboard según el menú lateral y las pastillas (Pills)
   const informesDashboard = informesEnriquecidos.filter(inf => {
     if (dashFiltroAnio !== 'Todos' && inf.fecha?.split('-')[0] !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && inf.procesoLimpio !== dashFiltroProceso) return false;
     if (dashFiltroSubproceso !== 'Todos' && inf.subproceso !== dashFiltroSubproceso) return false; 
     if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
+    
+    // ✨ NUEVA CONDICIÓN: Filtrar por Fuente de Mejora (usando el nombre normalizado o el texto original)
+    if (dashFiltroFuente !== 'Todas') {
+      // Necesitamos recrear la lógica que asocia el informe con su nombre de grupo
+      const referencia = String(inf.tipoFuente || 'Auditoría Interna').trim();
+      const refNormalizada = referencia.toLowerCase();
+      const fuenteReal = fuentesMejoraDisponibles.find(f => 
+        String(f.codigo || '').toLowerCase() === refNormalizada || 
+        String(f.id || '').toLowerCase() === refNormalizada
+      );
+      
+      const nombreGrupoInforme = fuenteReal ? (fuenteReal.norma || fuenteReal.tipoNorma || fuenteReal.tipoFuente || 'Fuente sin norma') : referencia;
+      
+      if (nombreGrupoInforme !== dashFiltroFuente) return false;
+    }
+    
     return true;
   });
 
@@ -882,19 +902,34 @@ const handleFileUpload = async (e, type) => {
               </div>
             </div>
 
-            {/* 2. FUENTES DE INFORME (PILLS) */}
+           {/* 2. FUENTES DE INFORME (PILLS INTERACTIVOS) */}
             <div className="space-y-3">
               <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Fuentes de Informe</h3>
               <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                <div className="bg-blue-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-3 shrink-0 shadow-md shadow-blue-500/20 cursor-pointer">
+                
+                {/* Botón "Todas" */}
+                <div 
+                  onClick={() => setDashFiltroFuente('Todas')}
+                  className={`px-5 py-2.5 rounded-xl flex items-center gap-3 shrink-0 cursor-pointer transition-all shadow-sm ${
+                    dashFiltroFuente === 'Todas' 
+                      ? 'bg-blue-600 text-white shadow-blue-500/30' 
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
                   <span className="text-sm">⊞</span>
                   <span className="text-[11px] font-bold">Todas</span>
-                  <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-md">({totalInformes})</span>
+                  {/* Este contador siempre muestra el total de informes sin importar los filtros de la tabla */}
+                  <span className={`${dashFiltroFuente === 'Todas' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'} text-[10px] font-black px-2 py-0.5 rounded-md`}>({informesEnriquecidos.length})</span>
                 </div>
+
+                {/* Lista de Pastillas Dinámicas */}
                 {fuentesArray.map((fuenteAgrupada, idx) => {
+                  const isActive = dashFiltroFuente === fuenteAgrupada.nombre;
+                  
                   const detalle = fuenteAgrupada.fuentes.length > 1
                     ? `${fuenteAgrupada.fuentes.length} fuentes vinculadas`
                     : fuenteAgrupada.fuentes[0]?.macroproceso || fuenteAgrupada.fuentes[0]?.proceso || '';
+                  
                   const title = fuenteAgrupada.fuentes.length > 0
                     ? fuenteAgrupada.fuentes.map(fuente => [
                         fuente.codigo || fuente.id,
@@ -904,13 +939,22 @@ const handleFileUpload = async (e, type) => {
                     : `${fuenteAgrupada.nombre}: no se encontró la fuente original`;
 
                   return (
-                  <div key={fuenteAgrupada.clave} title={title} className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl flex items-center gap-3 shrink-0 hover:bg-slate-50 cursor-pointer shadow-sm transition-colors max-w-[280px]">
+                  <div 
+                    key={fuenteAgrupada.clave} 
+                    title={title} 
+                    onClick={() => setDashFiltroFuente(fuenteAgrupada.nombre)}
+                    className={`px-4 py-2.5 rounded-xl flex items-center gap-3 shrink-0 cursor-pointer transition-all shadow-sm max-w-[280px] ${
+                      isActive 
+                        ? 'bg-blue-50 border-blue-500 text-blue-900 ring-1 ring-blue-500' 
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
                     <span className="text-sm">{iconosArray[idx % iconosArray.length]}</span>
                     <span className="min-w-0 flex flex-col">
-                      <span className="text-[11px] font-bold truncate">{fuenteAgrupada.nombre}</span>
-                      <span className="text-[9px] text-slate-400 truncate">{detalle}</span>
+                      <span className={`text-[11px] font-bold truncate ${isActive ? 'text-blue-800' : ''}`}>{fuenteAgrupada.nombre}</span>
+                      <span className={`text-[9px] truncate ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>{detalle}</span>
                     </span>
-                    <span className="text-slate-400 text-[10px] font-bold">({fuenteAgrupada.cantidad})</span>
+                    <span className={`${isActive ? 'bg-blue-200 text-blue-800' : 'bg-slate-100 text-slate-500'} text-[10px] font-bold px-1.5 py-0.5 rounded`}>({fuenteAgrupada.cantidad})</span>
                   </div>
                   );
                 })}
@@ -970,7 +1014,7 @@ const handleFileUpload = async (e, type) => {
                 <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                      <thead className="bg-white border-b border-slate-200 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    <thead className="bg-white border-b border-slate-200 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                         <tr>
                           <th className="p-4 w-10 text-center"><input type="checkbox" className="rounded border-slate-300" /></th>
                           <th className="p-4 w-32">Consecutivo</th>
@@ -978,15 +1022,13 @@ const handleFileUpload = async (e, type) => {
                           <th className="p-4">Fuente</th>
                           <th className="p-4">Proceso</th>
                           <th className="p-4 text-center">Fecha</th>
-                          <th className="p-4 text-center">Trazabilidad</th>
                           <th className="p-4 text-center">Socialización</th>
                           <th className="p-4 text-center">Estado</th>
-                          <th className="p-4 text-center w-24">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-[11px] font-medium text-slate-600">
                         {informesDashboard.length === 0 ? (
-                          <tr><td colSpan="10" className="p-12 text-center text-slate-400 font-bold italic">No hay informes para los filtros seleccionados.</td></tr>
+                          <tr><td colSpan="8" className="p-12 text-center text-slate-400 font-bold italic">No hay informes para los filtros seleccionados.</td></tr>
                         ) : (
                           applyFilters(informesDashboard, searchTerm, columnFilters).slice(0, 10).map(inf => {
                             const referenciaInforme = normalizarReferencia(inf.tipoFuente || 'Auditoría Interna');
@@ -996,10 +1038,10 @@ const handleFileUpload = async (e, type) => {
                             const colorClass = ['text-blue-600 bg-blue-50 border-blue-200', 'text-purple-600 bg-purple-50 border-purple-200', 'text-emerald-600 bg-emerald-50 border-emerald-200', 'text-amber-600 bg-amber-50 border-amber-200', 'text-rose-600 bg-rose-50 border-rose-200', 'text-cyan-600 bg-cyan-50 border-cyan-200'][iconIndex % 6];
                             
                             return (
-                              <tr key={inf.id} className="hover:bg-slate-50/50 transition-colors group">
-                                <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
+                              <tr key={inf.id} className="hover:bg-slate-50/50 transition-colors group cursor-pointer" onClick={() => setInformeDetalleModal(inf)}>
+                                <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" onClick={e => e.stopPropagation()} /></td>
                                 <td className="p-4 font-mono font-black text-slate-800">
-                                  <span className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }}>
+                                  <span className="hover:text-blue-600 transition-colors">
                                     {inf.ref}
                                   </span>
                                 </td>
@@ -1014,11 +1056,8 @@ const handleFileUpload = async (e, type) => {
                                 <td className="p-4 text-slate-500 font-bold truncate max-w-[120px]" title={inf.procesoLimpio}>{inf.procesoLimpio}</td>
                                 <td className="p-4 text-center text-slate-500 font-bold">{inf.fecha}</td>
                                 <td className="p-4 text-center">
-                                  <span className="text-blue-600 font-bold text-[10px] flex items-center justify-center gap-1 cursor-help" title="Con evidencia adjunta">🔗 Trazable</span>
-                                </td>
-                                <td className="p-4 text-center">
                                   <span className={`font-bold text-[10px] flex items-center justify-center gap-1 ${inf.socializado === 'Sí' ? 'text-emerald-600' : 'text-amber-500'}`}>
-                                    <span>{inf.socializado === 'Sí' ? '👥' : '⚠️️'}</span>
+                                    <span>{inf.socializado === 'Sí' ? '👥' : '⚠'}</span>
                                     {inf.socializado === 'Sí' ? 'Completada' : 'Pendiente'}
                                   </span>
                                 </td>
@@ -1026,10 +1065,6 @@ const handleFileUpload = async (e, type) => {
                                   <span className="text-emerald-600 font-bold text-[10px] flex items-center justify-center gap-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Activo
                                   </span>
-                                </td>
-                                <td className="p-4 text-center text-slate-400 font-bold text-lg space-x-2">
-                                  <button onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }} className="hover:text-blue-600 transition-colors" title="Ver Informe">👁️</button>
-                                  <button className="hover:text-slate-700 transition-colors" title="Más opciones">⋮</button>
                                 </td>
                               </tr>
                             )
@@ -2181,10 +2216,162 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                         </td>
                       </tr>
                     ))
-                  )}
+                 )}
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✨ MODAL DE DETALLE ÚNICO DEL INFORME (IMAGEN 2) */}
+      {informeDetalleModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-6 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95">
+            
+            {/* Cabecera Oscura */}
+            <div className="bg-[#0f172a] text-white flex text-[10px] font-black uppercase tracking-widest border-b border-slate-700">
+              <div className="p-4 w-40 border-r border-slate-700">Consecutivo</div>
+              <div className="p-4 flex-1 border-r border-slate-700">Proceso / Título</div>
+              <div className="p-4 w-64 text-center border-r border-slate-700">Trazabilidad de Firmas</div>
+              <div className="p-4 w-56 text-center border-r border-slate-700">Socialización e Impacto</div>
+              <div className="p-4 w-48 text-center">Documentos Custodiados</div>
+            </div>
+
+            {/* Fila de Datos */}
+            <div className="flex bg-white items-stretch">
+              {/* Consecutivo */}
+              <div className="p-5 w-40 flex items-center">
+                <span className="text-sm font-black font-mono text-slate-800 break-words">{informeDetalleModal.ref}</span>
+              </div>
+              
+              {/* Proceso y Título */}
+              <div className="p-5 flex-1 flex flex-col justify-center">
+                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-black rounded uppercase text-[9px] tracking-wider w-max mb-2">
+                  {informeDetalleModal.procesoLimpio}
+                </span>
+                <h3 className="font-bold text-slate-800 text-sm leading-tight mb-1">{informeDetalleModal.titulo}</h3>
+                <p className="text-[9px] text-slate-400 font-medium">Emitido el: {informeDetalleModal.fecha}</p>
+                <div className="mt-3">
+                  <span className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">
+                    {contarCambios(informeDetalleModal)} cambios
+                  </span>
+                </div>
+              </div>
+
+              {/* Trazabilidad (Firmas) */}
+              <div className="p-5 w-64 flex items-center justify-center border-l border-slate-100">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 w-full space-y-2 text-[9px] font-medium text-slate-600">
+                  <div className="truncate"><span className="text-orange-400 mr-1">✍️</span><span className="text-slate-400 font-bold mr-1">ELABORÓ:</span> <span className="font-black text-slate-800" title={informeDetalleModal.elaboradoPor}>{informeDetalleModal.elaboradoPor}</span></div>
+                  <div className="truncate"><span className="text-blue-400 mr-1">🔍</span><span className="text-slate-400 font-bold mr-1">REVISÓ:</span> <span className="font-black text-slate-800" title={informeDetalleModal.revisadoPor}>{informeDetalleModal.revisadoPor}</span></div>
+                  <div className="truncate"><span className="text-amber-500 mr-1">🔒</span><span className="text-slate-400 font-bold mr-1">APROBÓ:</span> <span className="font-black text-slate-800" title={informeDetalleModal.aprobadoPor}>{informeDetalleModal.aprobadoPor}</span></div>
+                </div>
+              </div>
+
+              {/* Socialización e Impacto */}
+              <div className="p-5 w-56 flex flex-col justify-center items-center gap-3 border-l border-slate-100">
+                <span className={`px-4 py-1 rounded-full font-black text-[10px] uppercase tracking-widest border shadow-sm ${informeDetalleModal.socializado === 'Sí' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                  📢 Socializado: {informeDetalleModal.socializado || 'No'}
+                </span>
+                
+                {informeDetalleModal.socializado === 'Sí' && (
+                  <div className="text-[9px] text-slate-500 font-bold bg-white px-2 py-1 rounded border border-slate-200 w-full text-center truncate" title={informeDetalleModal.participantes || informeDetalleModal.socializadoCon}>
+                    <span className="text-slate-400 font-normal">Cargos:</span> {informeDetalleModal.participantes || informeDetalleModal.socializadoCon}
+                  </div>
+                )}
+                
+                {informeDetalleModal.correoEnviadoA && (
+                  <span className="bg-emerald-50 px-3 py-1 rounded font-black text-[9px] uppercase text-emerald-700 border border-emerald-200 shadow-sm flex items-center gap-1.5">
+                    <span>📧</span> Notificado al Líder
+                  </span>
+                )}
+              </div>
+
+              {/* Documentos Custodiados & Botones de Acción */}
+              <div className="p-5 w-48 flex flex-col justify-center gap-3 border-l border-slate-100 bg-slate-50/50">
+                <button 
+                  onClick={() => {
+                    const urlValida = informeDetalleModal.evidenciaUrl || informeDetalleModal.evidenciaUrlInput || informeDetalleModal.archivoUrl || informeDetalleModal.url || informeDetalleModal.path;
+                    if (!urlValida || urlValida === '#' || urlValida.trim() === '') return alert("⚠️ Este informe no tiene un PDF asignado.");
+                    abrirArchivo(urlValida, informeDetalleModal.titulo ? `${informeDetalleModal.titulo}.pdf` : 'informe.pdf');
+                  }}
+                  className="bg-blue-50 text-blue-700 font-black px-4 py-2.5 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center gap-2 border border-blue-200 shadow-sm transition-all w-full"
+                >
+                  <span>📄</span><span>Ver Informe Final</span>
+                </button>
+                
+                {(() => {
+                  const urlActa = informeDetalleModal.actaSocializacionUrl || informeDetalleModal.actaSocializacionUrlInput || informeDetalleModal.actaUrl;
+                  if (urlActa && urlActa !== '#') {
+                    return (
+                      <button 
+                        onClick={() => abrirArchivo(urlActa, informeDetalleModal.titulo ? `${informeDetalleModal.titulo}_acta.pdf` : 'acta_socializacion.pdf')}
+                        className="bg-white border border-slate-200 border-dashed text-slate-600 font-black px-4 py-2 rounded-xl text-[9px] hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-all w-full"
+                      >
+                        <span>🤝</span><span>Ver Acta</span>
+                      </button>
+                    );
+                  }
+                  return <div className="text-[9px] text-slate-400 italic bg-white py-2 rounded-xl border border-dashed border-slate-200 text-center">Sin Acta Cargada</div>;
+                })()}
+
+                {isAdmin && (
+                  <div className="flex justify-center items-center gap-4 pt-3 border-t border-slate-200 w-full">
+                    <button 
+                      onClick={() => { 
+                        setEditInformeAuditoria(informeDetalleModal); 
+                        setModoVistaCompleta(false); 
+                        cambiarVistaSegura('nuevo'); 
+                        setFormResetKey(Date.now()); 
+                        setInformeDetalleModal(null); // Cerramos el modal
+                        scrollToForm(); 
+                      }} 
+                      className="text-orange-500 hover:text-orange-700 flex flex-col items-center gap-1 transition-colors"
+                    >
+                      <span className="text-sm">✏️</span>
+                      <span className="text-[9px] font-black uppercase">Editar</span>
+                    </button>
+                    
+                    <button 
+                      onClick={() => { 
+                        setEditInformeAuditoria(informeDetalleModal); 
+                        setModoVistaCompleta(true); 
+                        cambiarVistaSegura('nuevo'); 
+                        setFormResetKey(Date.now()); 
+                        setInformeDetalleModal(null); // Cerramos el modal
+                        scrollToForm(); 
+                      }} 
+                      className="text-slate-500 hover:text-slate-800 flex flex-col items-center gap-1 transition-colors"
+                    >
+                      <span className="text-sm">👁️</span>
+                      <span className="text-[9px] font-black uppercase text-center leading-none">Ver info<br/>completa</span>
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        handleDeleteItem('informesAuditoria', informeDetalleModal.id);
+                        setInformeDetalleModal(null);
+                      }} 
+                      className="text-slate-300 hover:text-red-500 flex flex-col items-center gap-1 transition-colors"
+                    >
+                      <span className="text-sm">🗑️</span>
+                      <span className="text-[9px] font-black uppercase">Eliminar</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer Modal */}
+            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
+              <button 
+                onClick={() => setInformeDetalleModal(null)}
+                className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
+              >
+                Cerrar vista
+              </button>
+            </div>
+
           </div>
         </div>
       )}
