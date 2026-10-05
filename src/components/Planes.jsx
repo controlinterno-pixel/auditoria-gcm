@@ -49,7 +49,8 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [busquedaRapida, setBusquedaRapida] = useState('');
   const [generandoPdfId, setGenerandoPdfId] = useState(null); // 👈 ¡Faltaba declarar este estado!
   const [evalDetalleModal, setEvalDetalleModal] = useState(null);
-
+const [motivoCambio, setMotivoCambio] = useState('');
+  const [historialModal, setHistorialModal] = useState({ activo: false, plan: null });
   const handleDescargarPdfConLoader = async (idInf, refInforme) => {
     if (generandoPdfId) return; // Evita clics dobles
     try {
@@ -392,15 +393,40 @@ const diccionarioCorreos = {
           planData.historialCambios = [{ fecha: ts, usuario: 'Auditor', accion: 'Actividad registrada en matriz masiva' }];
           updatedPlanesList.push(planData);
           notificacionesRadicadas.push(planData);
-        } else {
+       } else {
           const idx = updatedPlanesList.findIndex(p => p.id === Number(act.id));
           if (idx !== -1) {
-            planData.historialCambios = [...(updatedPlanesList[idx].historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: 'Actividad modificada en matriz' }];
-            if (progresoEntero === 100 && updatedPlanesList[idx].progreso < 100) {
+            const originalPlan = updatedPlanesList[idx];
+            
+            // 🔍 MOTOR DE DETECCIÓN DE CAMBIOS (AUDIT TRAIL)
+            const detalleCambios = [];
+            if (originalPlan.accion !== planData.accion) detalleCambios.push({ campo: 'Descripción', antes: originalPlan.accion, despues: planData.accion });
+            if (originalPlan.progreso !== planData.progreso) detalleCambios.push({ campo: 'Avance', antes: `${originalPlan.progreso}%`, despues: `${planData.progreso}%` });
+            if (originalPlan.fecha !== planData.fecha) detalleCambios.push({ campo: 'Fecha Límite', antes: originalPlan.fecha || 'N/A', despues: planData.fecha });
+            if (originalPlan.responsable !== planData.responsable) detalleCambios.push({ campo: 'Responsable', antes: originalPlan.responsable || 'N/A', despues: planData.responsable });
+            if (originalPlan.revisor !== planData.revisor) detalleCambios.push({ campo: 'Revisor', antes: originalPlan.revisor || 'N/A', despues: planData.revisor });
+            if (originalPlan.estadoWorkflow !== planData.estadoWorkflow) detalleCambios.push({ campo: 'Fase/Estado', antes: originalPlan.estadoWorkflow, despues: planData.estadoWorkflow });
+
+            let nuevoHistorial = [...(originalPlan.historialCambios || [])];
+            
+            if (detalleCambios.length > 0) {
+              nuevoHistorial.push({
+                fecha: ts,
+                usuario: 'Auditor',
+                accion: 'Modificación de parámetros',
+                motivo: motivoCambio || 'Actualización de rutina',
+                detalleCambios: detalleCambios
+              });
+            }
+
+            planData.historialCambios = nuevoHistorial;
+            
+            if (progresoEntero === 100 && originalPlan.progreso < 100) {
               notificacionesRevision100.push(planData);
             }
             updatedPlanesList[idx] = planData;
-            notificacionesRadicadas.push(planData); // ✨ Corregido: Se añade a notificaciones para que siempre avise al guardar
+            
+            if (detalleCambios.length > 0) notificacionesRadicadas.push(planData);
           }
         }
       });
@@ -503,10 +529,10 @@ const diccionarioCorreos = {
       }
     }
 
-    alert(todasNotificacionesEnviadas
+  alert(todasNotificacionesEnviadas
       ? "🎉 ¡Matriz guardada y notificaciones enviadas!"
       : "La matriz se guardó, pero no se pudieron enviar todas las notificaciones.");
-    // 👉 AQUÍ: Le inyectamos directamente los arreglos con la data recién calculada
+          setMotivoCambio('');
     handleInformeChange(formInformeId, updatedPlanesList, updatedHallazgos);
   };
 
@@ -1462,6 +1488,17 @@ if (existingActivities.length > 0) {
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
+                                {/* ✨ NUEVO BOTÓN DE HISTORIAL */}
+                                {!String(act.id).startsWith('new-') && (
+                                  <button 
+                                    type="button" 
+                                    onClick={() => setHistorialModal({ activo: true, plan: act })}
+                                    className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                                    title="Ver el historial de modificaciones"
+                                  >
+                                    <span>📜</span> Historial
+                                  </button>
+                                )}
                                 <button 
                                   type="submit" 
                                   className="bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
@@ -1737,8 +1774,25 @@ if (existingActivities.length > 0) {
                   </div>
                 );       
               })}
+             {/* ✨ SECCIÓN DE JUSTIFICACIÓN DE CAMBIOS (AUDIT TRAIL) */}
+             <div className="bg-orange-50 border-l-4 border-orange-500 p-5 rounded-r-2xl shadow-sm mt-6 mb-4">
+               <label className="font-black text-orange-900 block mb-2 uppercase tracking-widest text-[10px] flex items-center gap-2">
+                 <span>📝</span> Motivo de la Modificación (Audit Trail)
+               </label>
+               <p className="text-[10px] text-orange-700 mb-3 font-medium">
+                 Si está editando acciones existentes, justifique el cambio. El sistema detectará y registrará automáticamente qué campos fueron modificados (valor anterior vs nuevo).
+               </p>
+               <textarea 
+                 value={motivoCambio}
+                 onChange={(e) => setMotivoCambio(e.target.value)}
+                 placeholder="Ej: Se amplía la fecha límite por validación de recursos de gerencia..."
+                 className="w-full border border-orange-300 rounded-xl p-3 focus:ring-2 focus:ring-orange-500 outline-none text-xs font-bold text-slate-700 bg-white shadow-inner"
+                 rows="2"
+               />
+             </div>
+
              {/* 👉 PÉGALO EXACTAMENTE AQUÍ REEMPLAZANDO EL ANTERIOR */}
-              <div className="pt-4 border-t flex flex-col md:flex-row justify-end items-center gap-4">
+             <div className="pt-4 border-t flex flex-col md:flex-row justify-end items-center gap-4">
                 <label className="flex items-center gap-2 cursor-pointer text-[10px] font-bold text-slate-600 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 transition-all hover:bg-slate-100 shadow-sm">
                   <input 
                     type="checkbox" 
@@ -1749,9 +1803,30 @@ if (existingActivities.length > 0) {
                   <span>📧 Enviar correos de notificación</span>
                 </label>
                 
-                <button type="submit" className="bg-[#004d40] hover:bg-[#003d33] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all">
-                  💾 Guardar Matriz y Sincronizar Estados
-                </button>
+                {/* Nuevo contenedor para agrupar los botones de acción */}
+                <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+                  
+                  {/* Botón de Salir sin Guardar */}
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if(window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
+                        setFormInformeId(''); // Limpia la selección del informe
+                        setMatrixState({}); // Limpia los datos digitados
+                        setVistaActiva('dashboard'); // Regresa al inicio
+                      }
+                    }}
+                    className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all w-full md:w-auto"
+                  >
+                    ❌ Salir sin guardar
+                  </button>
+                  
+                  {/* Botón Original de Guardar */}
+                  <button type="submit" className="bg-[#004d40] hover:bg-[#003d33] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all w-full md:w-auto">
+                    💾 Guardar Matriz y Sincronizar
+                  </button>
+
+                </div>
               </div>
             </form>
           )}
@@ -2783,6 +2858,100 @@ if (existingActivities.length > 0) {
           </div>
         </div>
       )}  
+
+      {/* 📜 MODAL DE HISTORIAL DE CAMBIOS (ESTILO AUDIT TRAIL) */}
+      {historialModal.activo && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[10000] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95">
+            
+            <div className="bg-slate-900 p-5 flex justify-between items-center text-white shrink-0">
+              <div>
+                <h4 className="font-black text-sm flex items-center gap-2 uppercase tracking-widest">
+                  <span>📜</span> Audit Trail / Historial de Trazabilidad
+                </h4>
+                <p className="text-slate-400 text-[10px] font-bold mt-1">
+                  PLA-{historialModal.plan?.id?.toString().slice(-4)} | Control de Cambios Estricto
+                </p>
+              </div>
+              <button onClick={() => setHistorialModal({ activo: false, plan: null })} className="text-slate-400 hover:text-white font-black text-xl px-2 cursor-pointer">✕</button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50">
+              <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm mb-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Acción / Tarea Actual</p>
+                <p className="text-xs font-bold text-slate-800">{historialModal.plan?.accion}</p>
+              </div>
+
+              {(!historialModal.plan?.historialCambios || historialModal.plan.historialCambios.length === 0) ? (
+                <div className="text-center p-8">
+                  <span className="text-4xl opacity-50">📂</span>
+                  <p className="text-slate-500 font-bold text-xs mt-3">No hay historial registrado para esta actividad.</p>
+                </div>
+              ) : (
+                <div className="relative border-l-2 border-slate-200 ml-4 space-y-6 pb-4">
+                  {[...historialModal.plan.historialCambios].reverse().map((log, idx) => (
+                    <div key={idx} className="relative pl-6">
+                      <div className="absolute -left-[9px] top-1 w-4 h-4 rounded-full bg-white border-4 border-slate-800 shadow-sm"></div>
+                      
+                      <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-slate-300 transition-colors">
+                        <div className="flex justify-between items-start gap-4 mb-2">
+                          <div>
+                            <span className="bg-slate-100 text-slate-700 border border-slate-200 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">
+                              {log.accion}
+                            </span>
+                            <p className="text-[10px] text-slate-500 font-bold mt-1.5 flex items-center gap-1">
+                              <span>👤 {log.usuario || 'Auditor GCM'}</span>
+                              <span>•</span>
+                              <span>📅 {log.fecha}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {log.motivo && (
+                          <div className="mt-3 bg-orange-50 border border-orange-100 rounded-lg p-2.5">
+                            <span className="text-[9px] font-black text-orange-800 uppercase tracking-widest block mb-1">Justificación del Cambio:</span>
+                            <p className="text-xs text-orange-900 font-medium italic">"{log.motivo}"</p>
+                          </div>
+                        )}
+
+                        {log.detalleCambios && log.detalleCambios.length > 0 && (
+                          <div className="mt-3">
+                            <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">Campos Modificados:</span>
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                              <table className="w-full text-left text-[10px]">
+                                <thead className="bg-slate-100 text-slate-500">
+                                  <tr>
+                                    <th className="px-3 py-1.5 font-bold w-1/3">Campo</th>
+                                    <th className="px-3 py-1.5 font-bold w-1/3 text-rose-600">Valor Anterior</th>
+                                    <th className="px-3 py-1.5 font-bold w-1/3 text-emerald-600">Nuevo Valor</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {log.detalleCambios.map((c, i) => (
+                                    <tr key={i}>
+                                      <td className="px-3 py-2 font-bold text-slate-700">{c.campo}</td>
+                                      <td className="px-3 py-2 text-slate-500 line-through bg-rose-50/30">{c.antes || '(Vacío)'}</td>
+                                      <td className="px-3 py-2 font-bold text-slate-800 bg-emerald-50/30">{c.despues || '(Vacío)'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-white border-t border-slate-200 p-4 flex justify-end shrink-0">
+              <button onClick={() => setHistorialModal({ activo: false, plan: null })} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest shadow-sm transition-all">Cerrar Historial</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
