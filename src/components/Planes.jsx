@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 
-import { CARGOS_POR_SEDE } from '../constants/diccionariosGRC';
+import { CARGOS_POR_SEDE, CARGOS_EMPRESA } from '../constants/diccionariosGRC';
 import { exportarA_PDF } from '../utils/pdfUtils';
 import { apiService } from '../services/apiService';
 
@@ -1585,19 +1585,19 @@ if (existingActivities.length > 0) {
                               })()}
                               {/* --- FIN SECTOR MÚLTIPLE --- */}
                               
-                              {/* ✨ CAMPO C: AUDITOR Y CORREO - HEREDADOS Y BLOQUEADOS */}
+{/* ✨ CAMPO C: AUDITOR Y CORREO - HEREDADOS Y BLOQUEADOS */}
+<div className="md:col-span-2">
+  <label className="font-bold text-blue-600 block mb-0.5">🛡️ Auditor de Seguimiento (APROBADOR)</label>
+  <input 
+    type="text" 
+    value={act.auditorAsignado || 'No asignado'} 
+    disabled 
+    title="Este dato se hereda automáticamente del Informe de Auditoría"
+    className="w-full border border-blue-200 p-2 rounded-lg font-black text-blue-900 bg-blue-50/50 cursor-not-allowed shadow-inner" 
+  />
+</div>
                               <div className="md:col-span-2">
-                                <label className="font-bold text-blue-600 block mb-0.5">🛡️ Auditor de Seguimiento</label>
-                                <input 
-                                  type="text" 
-                                  value={act.auditorAsignado || 'No asignado'} 
-                                  disabled 
-                                  title="Este dato se hereda automáticamente del Informe de Auditoría"
-                                  className="w-full border border-blue-200 p-2 rounded-lg font-black text-blue-900 bg-blue-50/50 cursor-not-allowed shadow-inner" 
-                                />
-                              </div>
-                              <div className="md:col-span-2">
-                                <label className="font-bold text-blue-600 block mb-0.5">✉️ Correo del Auditor de Seguimiento</label>
+<label className="font-bold text-blue-600 block mb-0.5">✉️ Correo del Auditor de Seguimiento (APROBADOR)</label>
                                 <input 
                                   type="email" 
                                   value={act.correoAuditor || 'Sin correo'} 
@@ -1619,9 +1619,9 @@ if (existingActivities.length > 0) {
                               <div className="md:col-span-3">
                                 <label className="font-bold text-amber-600 block mb-0.5">👀 Quien REVISA la Acción (Cargo)</label>
                                 <select value={act.revisor || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'revisor', e.target.value)} className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white cursor-pointer shadow-sm outline-none" required>
-                                  <option value="">-- Asignar Revisor --</option>
-                                  {Object.keys(CARGOS_POR_SEDE).flatMap(k => CARGOS_POR_SEDE[k]).sort().map(cargo => <option key={`rev-${cargo}`} value={cargo}>{cargo}</option>)}
-                                </select>
+   <option value="">-- Asignar Revisor --</option>
+  {CARGOS_EMPRESA.map((cargo, i) => <option key={`rev-${i}`} value={cargo}>{cargo}</option>)}
+</select>
                               </div>
                               <div className="md:col-span-3">
                                 <label className="font-bold text-amber-600 block mb-0.5">✉️ Correo del Revisor</label>
