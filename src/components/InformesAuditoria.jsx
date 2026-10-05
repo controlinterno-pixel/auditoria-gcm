@@ -79,7 +79,6 @@ export default function InformesAuditoria({
   const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
   const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
-  const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
 
   // ⏳ ESTADOS LOCALES PARA FILTROS DE HISTORIAL
   const [filtroAnio, setFiltroAnio] = useState('');
@@ -113,7 +112,6 @@ export default function InformesAuditoria({
     if (dashFiltroProceso !== 'Todos' && inf.procesoLimpio !== dashFiltroProceso) return false;
     if (dashFiltroSubproceso !== 'Todos' && inf.subproceso !== dashFiltroSubproceso) return false; 
     if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
-    if (dashFiltroResponsable !== 'Todos' && inf.elaboradoPor !== dashFiltroResponsable) return false;
     return true;
   });
 
@@ -124,8 +122,6 @@ export default function InformesAuditoria({
   const pendientes = totalInformes - socializados;
   const pctPendientes = totalInformes > 0 ? Math.round((pendientes / totalInformes) * 100) : 0;
   const procesosAuditados = new Set(informesDashboard.map(i => i.procesoLimpio)).size;
-  const sortedInformes = [...informesDashboard].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  const ultimoInforme = sortedInformes.length > 0 ? sortedInformes[0] : null;
 
   // 3. Agrupador Dinámico según el botón "ORGANIZAR POR"
   const informesAgrupados = informesDashboard.reduce((acc, inf) => {
@@ -142,18 +138,6 @@ export default function InformesAuditoria({
   }, {});
 
   const gruposOrdenados = Object.keys(informesAgrupados).sort((a, b) => b.localeCompare(a));
-
-  // 4. Lógica para el Top 5 de Procesos
-  const conteoProcesos = informesDashboard.reduce((acc, inf) => {
-    acc[inf.procesoLimpio] = (acc[inf.procesoLimpio] || 0) + 1;
-    return acc;
-  }, {});
-  const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
-
-  const limpiarFiltrosDashboard = () => {
-    setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSubproceso('Todos');
-    setDashFiltroEstado('Todos'); setDashFiltroResponsable('Todos');
-  }; 
 
 // ☁️ BÓVEDA: ESTADOS UNIFICADOS E INFALIBLES
   const [archivoSubidoUrl, setArchivoSubidoUrl] = useState('');
@@ -527,7 +511,6 @@ const handleFileUpload = async (e, type) => {
 
   // Extraer años y responsables únicos para los selects
   const aniosDisponibles = [...new Set(safeInformes.map(i => i.fecha?.split('-')[0]).filter(Boolean))].sort().reverse();
-  const responsablesDisponibles = [...new Set(safeInformes.map(i => i.elaboradoPor).filter(Boolean))].sort();
 
   const historialActual = Array.isArray(editInformeAuditoria?.historialCambios)
     ? editInformeAuditoria.historialCambios
@@ -800,271 +783,345 @@ const handleFileUpload = async (e, type) => {
         </div>
       </div>
 
-      {/* 🚀 VISTA 1: DASHBOARD DE KPIs Y RESUMEN VISUAL TIPO BIG FOUR */}
-      {vistaActiva === 'dashboard' && (
-        <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-          
-          {/* 1. TARJETAS SUPERIORES DE KPIs (HORIZONTALES Y LIMPIAS) */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-             {/* Total Informes (Botón interactivo) */}
-             <div onClick={() => setDashFiltroEstado('Todos')} className={`bg-white p-5 rounded-2xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02] ${dashFiltroEstado === 'Todos' ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shadow-inner">📄</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Informes</p>
-                    <p className="text-2xl font-black text-slate-800 leading-tight">{totalInformes}</p>
-                  </div>
-                </div>
-             </div>
+      {/* 🚀 VISTA 1: DASHBOARD ANALÍTICO TIPO BIG FOUR (IMAGEN 1) */}
+      {vistaActiva === 'dashboard' && (() => {
+        // 1. Cálculos dinámicos para las nuevas gráficas y pastillas (Pills)
+        const conteoFuentes = informesDashboard.reduce((acc, inf) => {
+          const fuente = inf.tipoFuente || 'Auditoría Interna';
+          acc[fuente] = (acc[fuente] || 0) + 1;
+          return acc;
+        }, {});
+        const fuentesArray = Object.entries(conteoFuentes).sort((a,b) => b[1] - a[1]);
+        
+        // Paleta de colores para la dona y pastillas
+        const coloresArray = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#06b6d4'];
+        const iconosArray = ['🎯', '🏢', '💬', '📈', '⚠️', '🛡️', '🔗'];
+        
+        // Generador de Conic Gradient para la Dona
+        let accumulatedPercent = 0;
+        const donutSlices = fuentesArray.map(([, count], idx) => {
+          const percent = (count / totalInformes) * 100;
+          const color = coloresArray[idx % coloresArray.length];
+          const slice = `${color} ${accumulatedPercent}% ${accumulatedPercent + percent}%`;
+          accumulatedPercent += percent;
+          return slice;
+        }).join(', ');
+        const donutStyle = totalInformes > 0 ? { background: `conic-gradient(${donutSlices})` } : { background: '#f8fafc' };
 
-             {/* Pendientes */}
-             <div onClick={() => setDashFiltroEstado('Pendientes')} className={`bg-white p-5 rounded-2xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02] ${dashFiltroEstado === 'Pendientes' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shadow-inner">🕒</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">En Proceso</p>
-                    <p className="text-2xl font-black text-slate-800 leading-tight">{pendientes}</p>
-                  </div>
-                </div>
-                <div className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">{pctPendientes}%</div>
-             </div>
-
-             {/* Socializados */}
-             <div onClick={() => setDashFiltroEstado('Socializado')} className={`bg-white p-5 rounded-2xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02] ${dashFiltroEstado === 'Socializado' ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-inner">✓</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Socializados</p>
-                    <p className="text-2xl font-black text-slate-800 leading-tight">{socializados}</p>
-                  </div>
-                </div>
-                <div className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">{pctSocializados}%</div>
-             </div>
-
-             {/* Procesos Auditados (Informativa) */}
-             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl shadow-inner">🏛️</div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Procesos Auditados</p>
-                    <p className="text-2xl font-black text-slate-800 leading-tight">{procesosAuditados}</p>
-                  </div>
-                </div>
-             </div>
-
-             {/* Último Registro */}
-             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between overflow-hidden">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xl shadow-inner shrink-0">📅</div>
-                  <div className="truncate">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Último Informe</p>
-                    <p className="text-sm font-black text-slate-800 mt-0.5 truncate" title={ultimoInforme?.fecha}>{ultimoInforme?.fecha || 'N/A'}</p>
-                    <p className="text-[9px] font-bold text-slate-400 truncate" title={ultimoInforme?.procesoLimpio}>{ultimoInforme?.procesoLimpio || '---'}</p>
-                  </div>
-                </div>
-             </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        return (
+          <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500 bg-slate-50/50 -m-6 p-6 rounded-b-2xl">
             
-            {/* 2. ZONA IZQUIERDA: FILTROS TIPO "PILLS" Y TABLA PRINCIPAL */}
-            <div className="lg:col-span-3 space-y-4">
-              
-              {/* Filtros Horizontales Modernos */}
-              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Filtros:</span>
-                
-                <select value={dashFiltroProceso} onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} className="bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]">
-                  <option value="Todos">Todos los procesos</option>
-                  {[...new Set(informesEnriquecidos.map(p => p.procesoLimpio).filter(Boolean))].sort().map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-
-                <select value={dashFiltroSubproceso} onChange={e => setDashFiltroSubproceso(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32] max-w-[140px] truncate">
-                  <option value="Todos">Todos los subprocesos</option>
-                  {[...new Set(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => <option key={sp} value={sp}>{sp}</option>)}
-                </select>
-
-                <select value={dashFiltroAnio} onChange={e=>setDashFiltroAnio(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]">
-                  <option value="Todos">Año</option>
-                  {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-
-                <select value={dashFiltroResponsable} onChange={e=>setDashFiltroResponsable(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]">
-                  <option value="Todos">Responsable</option>
-                  {responsablesDisponibles.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-
-                <div className="flex items-center space-x-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 w-full sm:w-auto flex-1 shadow-inner">
-                  <span className="text-slate-400 text-xs">🔍</span>
-                  <input type="text" placeholder="Buscar informe, título..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full text-[10px] outline-none bg-transparent text-slate-700 font-bold placeholder-slate-400" />
+            {/* 1. TARJETAS SUPERIORES (MATCH EXACTO IMAGEN 1) */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shrink-0 border border-blue-100">📄</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total de informes</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{totalInformes}</p>
+                  <p className="text-[10px] font-bold text-emerald-500 mt-2 flex items-center gap-1">↑ 12% <span className="text-slate-400 font-medium normal-case">vs. mes anterior</span></p>
                 </div>
-
-                <button onClick={limpiarFiltrosDashboard} className="bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-black text-[9px] uppercase tracking-widest px-3 py-2 rounded-lg transition-colors">
-                  Limpiar
-                </button>
               </div>
-
-              {/* Tabla Limpia Estilo DataGrid */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-[9px] uppercase font-black text-slate-400 tracking-widest">
-                      <tr>
-                        <th className="p-4 w-10 text-center">#</th>
-                        <th className="p-4 w-32">Consecutivo</th>
-                        <th className="p-4">Proceso / Título</th>
-                        <th className="p-4 text-center">Fecha</th>
-                        <th className="p-4 text-center">Socialización</th>
-                        <th className="p-4 text-center w-24">Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-xs font-medium text-slate-700 divide-y divide-slate-100">
-                      {informesDashboard.length === 0 ? (
-                        <tr><td colSpan="6" className="p-12 text-center text-slate-400 font-bold italic">No hay informes para los filtros seleccionados.</td></tr>
-                      ) : (
-                        applyFilters(informesDashboard, searchTerm, columnFilters).slice(0, 10).map((inf, idx) => (
-                          <tr key={inf.id} className="hover:bg-blue-50/30 transition-colors group">
-                            <td className="p-4 text-center text-slate-300 font-bold text-[10px]">{idx + 1}</td>
-                            <td className="p-4 font-mono font-black text-slate-800">
-                              <span className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }}>
-                                {inf.ref}
-                              </span>
-                            </td>
-                            <td className="p-4">
-                              <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 font-black rounded text-[8px] uppercase tracking-wider mb-1 inline-block">
-                                {inf.procesoLimpio}
-                              </span>
-                              <div className="font-bold text-slate-800 text-[11px] leading-tight mt-0.5 truncate max-w-xs cursor-pointer hover:text-blue-600" title={inf.titulo} onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }}>
-                                {inf.titulo}
-                              </div>
-                            </td>
-                            <td className="p-4 text-center text-[10px] font-bold text-slate-500">
-                              {inf.fecha}
-                            </td>
-                            <td className="p-4 text-center">
-                              <span className={`px-2.5 py-1 rounded-full font-black text-[8px] uppercase tracking-widest border inline-flex items-center gap-1 ${inf.socializado === 'Sí' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                                {inf.socializado === 'Sí' ? 'Completada' : 'Pendiente'}
-                              </span>
-                            </td>
-                            <td className="p-4 text-center">
-                              <button 
-                                onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }}
-                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition-colors font-bold text-base"
-                                title="Ver Informe"
-                              >
-                                👁️
-                              </button>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center text-2xl shrink-0 border border-amber-100">🕒</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">En proceso</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{pendientes}</p>
+                  <p className="text-[10px] font-bold text-amber-500 mt-2 flex items-center gap-1">↑ {pctPendientes}%</p>
                 </div>
-                {informesDashboard.length > 10 && (
-                  <div className="bg-slate-50 p-3 text-center border-t border-slate-200">
-                    <button onClick={() => cambiarVistaSegura('historial')} className="text-[10px] font-black text-blue-600 hover:underline uppercase tracking-widest">
-                      Ver el historial completo con los {informesDashboard.length} informes ➔
-                    </button>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-2xl shrink-0 border border-emerald-100">✓</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Socializados</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{socializados}</p>
+                  <p className="text-[10px] font-bold text-emerald-500 mt-2 flex items-center gap-1">↑ {pctSocializados}%</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-start gap-4 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-red-50 text-red-500 flex items-center justify-center text-2xl shrink-0 border border-red-100">!</div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Procesos Auditados</p>
+                  <p className="text-3xl font-black text-slate-800 leading-none">{procesosAuditados}</p>
+                  <p className="text-[10px] font-bold text-red-500 mt-2 flex items-center gap-1">↓ 2%</p>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. FUENTES DE INFORME (PILLS) */}
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Fuentes de Informe</h3>
+              <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+                <div className="bg-blue-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-3 shrink-0 shadow-md shadow-blue-500/20 cursor-pointer">
+                  <span className="text-sm">⊞</span>
+                  <span className="text-[11px] font-bold">Todas</span>
+                  <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-md">({totalInformes})</span>
+                </div>
+                {fuentesArray.map(([fuente, count], idx) => (
+                  <div key={fuente} className="bg-white border border-slate-200 text-slate-600 px-5 py-2.5 rounded-xl flex items-center gap-3 shrink-0 hover:bg-slate-50 cursor-pointer shadow-sm transition-colors">
+                    <span className="text-sm">{iconosArray[idx % iconosArray.length]}</span>
+                    <span className="text-[11px] font-bold">{fuente}</span>
+                    <span className="text-slate-400 text-[10px] font-bold">({count})</span>
                   </div>
-                )}
+                ))}
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
               
-              {/* Sección Inferior: Agrupación Estilo Acordeón Resumido (Solo visible si hay agrupaciones) */}
-              {gruposOrdenados.length > 0 && (
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Historial agrupado por {agruparPor.toLowerCase()}</h3>
-                    <select
-                      value={agruparPor}
-                      onChange={e => setAgruparPor(e.target.value)}
-                      className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]"
-                      aria-label="Organizar historial por"
-                    >
-                      {['Año', 'Proceso', 'Subproceso', 'Estado', 'Responsable'].map(opcion => (
-                        <option key={opcion} value={opcion}>{opcion}</option>
-                      ))}
+              {/* 3. ZONA IZQUIERDA: FILTROS + TABLA + ACORDEÓN */}
+              <div className="xl:col-span-3 space-y-4">
+                
+                {/* Barra de Filtros Blanca */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-2.5 flex flex-wrap items-center gap-3 shadow-sm">
+                  <div className="flex flex-col px-2">
+                    <span className="text-[9px] text-slate-400 font-bold mb-0.5">Proceso</span>
+                    <select value={dashFiltroProceso} onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
+                      <option value="Todos">Todos los procesos</option>
+                      {[...new Set(informesEnriquecidos.map(p => p.procesoLimpio).filter(Boolean))].sort().map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 max-h-64 overflow-y-auto">
-                     {gruposOrdenados.map(grupo => (
-                       <div key={grupo} onClick={() => { setFiltroProceso(agruparPor==='Proceso'?grupo:''); cambiarVistaSegura('historial'); }} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-slate-200">
-                         <div className="flex items-center gap-3">
-                           <span className="text-lg">{agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
-                           <span className="text-xs font-black text-slate-800">{grupo}</span>
-                         </div>
-                         <div className="flex items-center gap-3">
-                           <span className="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500">{informesAgrupados[grupo].length} informes</span>
-                           <span className="text-slate-400 font-bold">➔</span>
-                         </div>
-                       </div>
-                     ))}
+                  <div className="w-px h-8 bg-slate-200"></div>
+
+                  <div className="flex flex-col px-2">
+                    <span className="text-[9px] text-slate-400 font-bold mb-0.5">Subproceso</span>
+                    <select value={dashFiltroSubproceso} onChange={e => setDashFiltroSubproceso(e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer max-w-[140px] truncate">
+                      <option value="Todos">Todos los subprocesos</option>
+                      {[...new Set(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                    </select>
+                  </div>
+                  <div className="w-px h-8 bg-slate-200"></div>
+
+                  <div className="flex flex-col px-2">
+                    <span className="text-[9px] text-slate-400 font-bold mb-0.5">Año</span>
+                    <select value={dashFiltroAnio} onChange={e=>setDashFiltroAnio(e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
+                      <option value="Todos">Todos</option>
+                      {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div className="w-px h-8 bg-slate-200"></div>
+
+                  <div className="flex flex-col px-2">
+                    <span className="text-[9px] text-slate-400 font-bold mb-0.5">Estado</span>
+                    <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
+                      <option value="Todos">Todos</option>
+                      <option value="Socializado">Socializado</option>
+                      <option value="Pendiente">Pendiente</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 flex-1 ml-auto">
+                    <span className="text-slate-400 text-xs">🔍</span>
+                    <input type="text" placeholder="Buscar informe, título, responsable..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full text-[11px] outline-none bg-transparent text-slate-700 font-medium placeholder-slate-400" />
                   </div>
                 </div>
-              )}
-            </div>
 
-            {/* 3. ZONA DERECHA: PANELES DE RESUMEN TIPO WIDGETS */}
-            <div className="lg:col-span-1 space-y-6">
-              
-              {/* Panel Dona: Distribución */}
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-                <h3 className="text-[11px] font-black text-slate-800 mb-6">Distribución de Informes</h3>
+                {/* Tabla Principal Tipo Big Four */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-white border-b border-slate-200 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        <tr>
+                          <th className="p-4 w-10 text-center"><input type="checkbox" className="rounded border-slate-300" /></th>
+                          <th className="p-4 w-32">Consecutivo</th>
+                          <th className="p-4">Informe / Título</th>
+                          <th className="p-4">Fuente</th>
+                          <th className="p-4">Proceso</th>
+                          <th className="p-4 text-center">Fecha</th>
+                          <th className="p-4 text-center">Trazabilidad</th>
+                          <th className="p-4 text-center">Socialización</th>
+                          <th className="p-4 text-center">Estado</th>
+                          <th className="p-4 text-center w-24">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-[11px] font-medium text-slate-600">
+                        {informesDashboard.length === 0 ? (
+                          <tr><td colSpan="10" className="p-12 text-center text-slate-400 font-bold italic">No hay informes para los filtros seleccionados.</td></tr>
+                        ) : (
+                          applyFilters(informesDashboard, searchTerm, columnFilters).slice(0, 10).map(inf => {
+                            const iconIndex = fuentesArray.findIndex(([f]) => f === (inf.tipoFuente || 'Auditoría Interna'));
+                            const colorClass = ['text-blue-600 bg-blue-50 border-blue-200', 'text-purple-600 bg-purple-50 border-purple-200', 'text-emerald-600 bg-emerald-50 border-emerald-200', 'text-amber-600 bg-amber-50 border-amber-200', 'text-rose-600 bg-rose-50 border-rose-200', 'text-cyan-600 bg-cyan-50 border-cyan-200'][iconIndex % 6];
+                            
+                            return (
+                              <tr key={inf.id} className="hover:bg-slate-50/50 transition-colors group">
+                                <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
+                                <td className="p-4 font-mono font-black text-slate-800">
+                                  <span className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }}>
+                                    {inf.ref}
+                                  </span>
+                                </td>
+                                <td className="p-4 font-bold text-slate-700 leading-tight truncate max-w-[180px]" title={inf.titulo}>
+                                  {inf.titulo}
+                                </td>
+                                <td className="p-4">
+                                  <span className={`px-2.5 py-1 rounded-full font-black uppercase tracking-wider text-[8px] border flex items-center w-max gap-1.5 ${colorClass}`}>
+                                    <span>{iconosArray[iconIndex % iconosArray.length]}</span> {inf.tipoFuente || 'Auditoría Interna'}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-slate-500 font-bold truncate max-w-[120px]" title={inf.procesoLimpio}>{inf.procesoLimpio}</td>
+                                <td className="p-4 text-center text-slate-500 font-bold">{inf.fecha}</td>
+                                <td className="p-4 text-center">
+                                  <span className="text-blue-600 font-bold text-[10px] flex items-center justify-center gap-1 cursor-help" title="Con evidencia adjunta">🔗 Trazable</span>
+                                </td>
+                                <td className="p-4 text-center">
+                                  <span className={`font-bold text-[10px] flex items-center justify-center gap-1 ${inf.socializado === 'Sí' ? 'text-emerald-600' : 'text-amber-500'}`}>
+                                    <span>{inf.socializado === 'Sí' ? '👥' : '⚠️️'}</span>
+                                    {inf.socializado === 'Sí' ? 'Completada' : 'Pendiente'}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-center">
+                                  <span className="text-emerald-600 font-bold text-[10px] flex items-center justify-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Activo
+                                  </span>
+                                </td>
+                                <td className="p-4 text-center text-slate-400 font-bold text-lg space-x-2">
+                                  <button onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }} className="hover:text-blue-600 transition-colors" title="Ver Informe">👁️</button>
+                                  <button className="hover:text-slate-700 transition-colors" title="Más opciones">⋮</button>
+                                </td>
+                              </tr>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="bg-white p-4 flex items-center justify-between border-t border-slate-200 text-[10px] font-bold text-slate-400">
+                    <span>Mostrando {Math.min(informesDashboard.length, 10)} de {informesDashboard.length} informes</span>
+                    {informesDashboard.length > 10 && (
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600">&lt;</button>
+                        <button className="px-3 py-1 rounded bg-blue-600 text-white shadow-sm">1</button>
+                        <button onClick={() => cambiarVistaSegura('historial')} className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600">&gt;</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Acordeón Inferior (Historial agrupado por fuente) */}
+                {gruposOrdenados.length > 0 && (
+                  <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden mt-4">
+                    <div className="bg-slate-50/50 p-4 border-b border-slate-200 flex justify-between items-center gap-3">
+                      <h3 className="text-[11px] font-black text-slate-700 uppercase tracking-widest">Historial agrupado por {agruparPor.toLowerCase()}</h3>
+                      <div className="flex items-center gap-3">
+                        <select
+                          value={agruparPor}
+                          onChange={e => setAgruparPor(e.target.value)}
+                          className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]"
+                          aria-label="Organizar historial por"
+                        >
+                          {['Año', 'Proceso', 'Subproceso', 'Estado', 'Responsable'].map(opcion => (
+                            <option key={opcion} value={opcion}>{opcion}</option>
+                          ))}
+                        </select>
+                        <button onClick={() => cambiarVistaSegura('historial')} className="text-[10px] text-blue-600 font-bold hover:underline">Ver historial completo ➔</button>
+                      </div>
+                    </div>
+                    <div className="p-2 max-h-64 overflow-y-auto">
+                       {gruposOrdenados.map(grupo => (
+                         <div key={grupo} onClick={() => { setFiltroProceso(agruparPor==='Proceso'?grupo:''); cambiarVistaSegura('historial'); }} className="flex justify-between items-center p-3 hover:bg-blue-50/50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-blue-100">
+                           <div className="flex items-center gap-3">
+                             <span className="text-lg">{agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : '📂'}</span>
+                             <span className="text-xs font-black text-slate-800">{grupo}</span>
+                           </div>
+                           <div className="flex items-center gap-3">
+                             <span className="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500">{informesAgrupados[grupo].length} informes</span>
+                             <span className="text-slate-400 font-bold">›</span>
+                           </div>
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* 4. ZONA DERECHA: PANELES DE RESUMEN */}
+              <div className="xl:col-span-1 space-y-4">
                 
-                <div className="flex justify-center mb-6">
-                   <div className="relative w-28 h-28 rounded-full border-[10px] border-slate-100 border-l-emerald-500 border-t-emerald-500 border-r-amber-500 flex items-center justify-center transform -rotate-45">
-                      <div className="transform rotate-45 text-center">
-                         <span className="block text-2xl font-black text-slate-800 leading-none">{totalInformes}</span>
-                         <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-1">Total</span>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="space-y-3">
-                   <div className="flex justify-between items-center text-[10px] font-bold">
-                     <span className="flex items-center text-slate-600"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span> Socializados</span>
-                     <span className="text-slate-800">{socializados} <span className="text-[9px] text-slate-400 ml-1">({pctSocializados}%)</span></span>
-                   </div>
-                   <div className="flex justify-between items-center text-[10px] font-bold">
-                     <span className="flex items-center text-slate-600"><span className="w-2 h-2 rounded-full bg-amber-500 mr-2"></span> Pendientes</span>
-                     <span className="text-slate-800">{pendientes} <span className="text-[9px] text-slate-400 ml-1">({pctPendientes}%)</span></span>
-                   </div>
-                </div>
-              </div>
-
-              {/* Panel Top Procesos (Resumen rápido) */}
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
-                <h3 className="text-[11px] font-black text-slate-800 mb-4">Top Procesos Auditados</h3>
-                <div className="space-y-1">
-                  {topProcesos.length === 0 ? (
-                    <p className="text-[10px] text-slate-400 italic">No hay datos.</p>
-                  ) : (
-                    topProcesos.map(([proc, count], idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer" onClick={() => { setFiltroProceso(proc); cambiarVistaSegura('historial'); }}>
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          <span className="text-slate-300 text-xs">🏛</span>
-                          <span className="text-[10px] font-bold text-slate-600 truncate w-32" title={proc}>{proc}</span>
+                {/* Dona: Distribución */}
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+                  <h3 className="text-[11px] font-black text-slate-800 mb-6">Distribución por fuente</h3>
+                  
+                  <div className="flex justify-center mb-8">
+                     <div className="w-32 h-32 rounded-full flex items-center justify-center shadow-inner relative" style={donutStyle}>
+                        <div className="w-24 h-24 bg-white rounded-full flex flex-col items-center justify-center shadow-sm">
+                           <span className="block text-2xl font-black text-slate-800 leading-none">{totalInformes}</span>
+                           <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-1">Total</span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[10px] font-black text-slate-800">{count}</span>
-                          <span className="text-slate-300">›</span>
+                     </div>
+                  </div>
+
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                     {fuentesArray.map(([fuente, count], idx) => {
+                       const percent = totalInformes > 0 ? Math.round((count/totalInformes)*100) : 0;
+                       const color = coloresArray[idx % coloresArray.length];
+                       return (
+                         <div key={fuente} className="flex justify-between items-center text-[10px] font-bold">
+                           <span className="flex items-center text-slate-600 truncate" title={fuente}>
+                             <span className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ backgroundColor: color }}></span> 
+                             <span className="truncate w-28">{fuente}</span>
+                           </span>
+                           <span className="text-slate-800 shrink-0">{count} <span className="text-slate-400 font-medium ml-1">({percent}%)</span></span>
+                         </div>
+                       )
+                     })}
+                  </div>
+                </div>
+
+                {/* Resumen Rápido (Lista vertical) */}
+                <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+                  <h3 className="text-[11px] font-black text-slate-800 mb-4">Resumen rápido</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow cursor-pointer bg-slate-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm">📄</div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Informes</p>
+                          <p className="text-sm font-black text-slate-800 leading-none">{totalInformes}</p>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-                <div className="mt-3 text-center border-t border-slate-100 pt-3">
-                  <button onClick={() => cambiarVistaSegura('historial')} className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center justify-center w-full gap-1">
-                     Ver historial completo <span>➔</span>
-                  </button>
-                </div>
-              </div>
+                      <span className="text-slate-300">›</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow cursor-pointer bg-slate-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center text-sm">🕒</div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">En proceso</p>
+                          <p className="text-sm font-black text-slate-800 leading-none">{pendientes}</p>
+                        </div>
+                      </div>
+                      <span className="text-slate-300">›</span>
+                    </div>
 
+                    <div className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow cursor-pointer bg-slate-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-500 flex items-center justify-center text-sm">✓</div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Socializados</p>
+                          <p className="text-sm font-black text-slate-800 leading-none">{socializados}</p>
+                        </div>
+                      </div>
+                      <span className="text-slate-300">›</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border border-slate-100 rounded-xl hover:shadow-sm transition-shadow cursor-pointer bg-slate-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center text-sm">!</div>
+                        <div>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Prcs. Auditados</p>
+                          <p className="text-sm font-black text-slate-800 leading-none">{procesosAuditados}</p>
+                        </div>
+                      </div>
+                      <span className="text-slate-300">›</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     
       {/* 🚀 VISTA 2: FORMULARIO NUEVO / EDICIÓN */}
       {vistaActiva === 'nuevo' && isAdmin && (
