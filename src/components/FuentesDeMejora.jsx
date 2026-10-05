@@ -33,9 +33,11 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [fuentesActuales, setFuentesActuales] = useState(fuentes);
   
-  // ✨ ESTADOS PARA VISTA/EDICIÓN
+  // ✨ ESTADOS PARA VISTA/EDICIÓN Y NAVEGACIÓN
   const [fuenteSeleccionada, setFuenteSeleccionada] = useState(null);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [vistaActiva, setVistaActiva] = useState('dashboard');
+  const [logSeleccionado, setLogSeleccionado] = useState(null);
 
   // 🧠 MEMORIA FOTOGRÁFICA: Leemos todas las normas que ya existen en las fuentes creadas
   const [normasDisponibles, setNormasDisponibles] = useState(() => {
@@ -180,21 +182,27 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
 
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+          <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-[#0a1e3f]/60 text-slate-300 border-slate-600 hover:bg-[#0a1e3f] hover:text-white'}`}>📊 Resumen Visual</button>
+          <button onClick={() => setVistaActiva('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-[#0a1e3f]/60 text-slate-300 border-slate-600 hover:bg-[#0a1e3f] hover:text-white'}`}>📜 Historial de Cambios</button>
+          
           <button 
             onClick={() => {
               setFuenteSeleccionada(null);
               setIsReadOnly(false);
               setIsModalOpen(true);
             }}
-            className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent flex items-center hover:scale-105"
+            className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900 shadow-lg flex items-center hover:scale-105"
           >
             <span className="mr-2">➕</span> Nueva Fuente
           </button>
         </div>
       </div>
 
-      {/* 2. BARRA DE HERRAMIENTAS Y FILTROS */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+      {/* 🚀 VISTA 1: DASHBOARD (RESUMEN VISUAL) */}
+      {vistaActiva === 'dashboard' && (
+        <>
+          {/* 2. BARRA DE HERRAMIENTAS Y FILTROS */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex-1 min-w-[300px] relative">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
           <input 
@@ -413,10 +421,313 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
             </div>
           </div>
 
-        </div>
+       </div>
       </div>
+      </>
+      )}
+
+      {/* 🚀 VISTA 2: HISTORIAL DE CAMBIOS (DISEÑO EXACTO A LA IMAGEN) */}
+      {vistaActiva === 'historial' && (() => {
+        // Extraer historial real de la base de datos de fuentes
+        const historialCompleto = fuentesActuales.flatMap(f => {
+          const logs = Array.isArray(f.historialCambios) ? f.historialCambios : [];
+          return logs.map((log, index) => ({
+            ...log,
+            idObj: `${f.codigo || f.id}-${index}`,
+            fuenteRef: f.codigo || f.id,
+            fuenteNombre: Array.isArray(f.norma) ? f.norma.join(', ') : (f.norma || f.tipoNorma || f.tipoFuente || 'Fuente sin nombre'),
+            fuenteTipo: f.tipoFuente || 'Auditoría Interna'
+          }));
+        }).sort((a, b) => {
+          // Ordenar del más reciente al más antiguo
+          const fechaA = new Date(a.fecha || 0).getTime();
+          const fechaB = new Date(b.fecha || 0).getTime();
+          return fechaB - fechaA;
+        });
+
+        const primerLog = historialCompleto.length > 0 ? historialCompleto[0] : null;
+        if (!logSeleccionado && primerLog) setLogSeleccionado(primerLog);
+
+        return (
+          <div className="flex flex-col lg:flex-row gap-6 animate-in slide-in-from-right-8 duration-500">
+             
+             {/* COLUMNA IZQUIERDA: TABLA Y FILTROS */}
+             <div className="flex-1 space-y-4">
+                 
+                 {/* Cabecera del Historial */}
+                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white p-6 rounded-2xl border border-slate-200 shadow-sm gap-4">
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center text-2xl shadow-md shrink-0">
+                          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                       </div>
+                       <div>
+                          <h2 className="text-xl font-black text-slate-800 tracking-tight">Historial de cambios</h2>
+                          <p className="text-[11px] font-medium text-slate-500 mt-0.5">Registro completo de modificaciones, eliminaciones y actualizaciones en las fuentes de informes.</p>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0">
+                       <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-slate-50">
+                         <span className="text-slate-400 text-sm">📅</span>
+                         <span className="text-[10px] font-bold text-slate-600">01/01/2026 - 31/12/2026</span>
+                       </div>
+                       <button className="flex flex-col items-center justify-center text-blue-600 hover:text-blue-800 transition-colors">
+                         <span className="text-lg">📥</span>
+                         <span className="text-[8px] font-black uppercase tracking-widest mt-0.5">Exportar historial</span>
+                       </button>
+                    </div>
+                 </div>
+
+                 {/* Barra de Filtros */}
+                 <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+                    <select className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer">
+                      <option>Todas las fuentes</option>
+                    </select>
+                    <select className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer">
+                      <option>Todas las acciones</option>
+                      <option>Creación</option>
+                      <option>Actualización</option>
+                      <option>Eliminación</option>
+                    </select>
+                    <select className="bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-600 px-3 py-2 rounded-lg outline-none cursor-pointer">
+                      <option>Usuario</option>
+                    </select>
+                    <div className="flex-1 min-w-[200px] flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shadow-inner">
+                       <span className="text-slate-400">🔍</span>
+                       <input type="text" placeholder="Buscar por fuente, descripción o usuario..." className="w-full bg-transparent text-[10px] font-bold outline-none text-slate-700"/>
+                    </div>
+                 </div>
+
+                 {/* Tabla Estilo Big Four */}
+                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50/80 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
+                          <tr>
+                            <th className="p-4 w-32">Fecha y Hora</th>
+                            <th className="p-4 w-48">Fuente</th>
+                            <th className="p-4 w-32">Acción</th>
+                            <th className="p-4">Descripción / Motivo</th>
+                            <th className="p-4 w-48">Usuario</th>
+                            <th className="p-4 text-center w-32">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-medium text-slate-600">
+                          {historialCompleto.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="p-12 text-center text-slate-400 font-bold italic">
+                                Aún no hay cambios registrados en el módulo de Fuentes de Mejora.
+                              </td>
+                            </tr>
+                          ) : (
+                            historialCompleto.map((log) => {
+                              const isSelected = logSeleccionado?.idObj === log.idObj;
+                              const esEliminacion = String(log.accion || '').toLowerCase().includes('elimin');
+                              const esCreacion = String(log.accion || '').toLowerCase().includes('crea');
+                              
+                              const pillColor = esEliminacion 
+                                ? 'bg-rose-50 text-rose-600 border-rose-200' 
+                                : esCreacion 
+                                  ? 'bg-orange-50 text-orange-600 border-orange-200' 
+                                  : 'bg-blue-50 text-blue-600 border-blue-200';
+                              
+                              const iconFuente = log.fuenteTipo === 'Riesgo' ? '🛡️' : log.fuenteTipo === 'Incidente' ? '⚠️' : log.fuenteTipo === 'Indicador de Gestión' ? '📈' : '📄';
+
+                              return (
+                                <tr 
+                                  key={log.idObj} 
+                                  onClick={() => setLogSeleccionado(log)}
+                                  className={`cursor-pointer transition-colors ${isSelected ? 'bg-blue-50/30' : 'hover:bg-slate-50'}`}
+                                >
+                                  <td className="p-4 align-top">
+                                    <span className="block font-bold text-slate-700">{log.fecha?.split(' ')[0] || 'N/A'}</span>
+                                    <span className="text-[10px] text-slate-400">{log.fecha?.split(' ')[1] || '---'}</span>
+                                  </td>
+                                  <td className="p-4 align-top">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xl bg-slate-100 p-1 rounded-lg shrink-0">{iconFuente}</span>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-slate-800 text-[11px] truncate" title={log.fuenteNombre}>{log.fuenteNombre}</p>
+                                        <p className="text-[9px] text-slate-400 truncate">{log.fuenteTipo}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="p-4 align-top">
+                                    <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border inline-flex items-center gap-1.5 ${pillColor}`}>
+                                      {esEliminacion ? '🗑️ Eliminación' : esCreacion ? '✨ Creación' : '✏️ Actualización'}
+                                    </span>
+                                  </td>
+                                  <td className="p-4 align-top text-[11px] leading-relaxed pr-6 text-slate-700">
+                                    {log.motivo || log.accion || 'Se realizó una actualización en el registro.'}
+                                  </td>
+                                  <td className="p-4 align-top">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm">
+                                        {log.usuario ? log.usuario.substring(0,2).toUpperCase() : 'YP'}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-slate-800 text-[11px] truncate">{log.usuario || 'Yehison Pineda'}</p>
+                                        <p className="text-[9px] text-slate-400 truncate">Auditor Líder</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="p-4 align-top text-center">
+                                    <span className="text-emerald-600 font-bold text-[10px] flex items-center justify-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Completado
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="bg-slate-50 p-4 flex items-center justify-between border-t border-slate-200 text-[10px] font-bold text-slate-400">
+                      <span>Mostrando {Math.min(historialCompleto.length, 10)} de {historialCompleto.length} cambios</span>
+                      {historialCompleto.length > 10 && (
+                        <div className="flex gap-2">
+                          <button className="px-3 py-1 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-600">&lt;</button>
+                          <button className="px-3 py-1 rounded bg-blue-600 text-white shadow-sm">1</button>
+                          <button className="px-3 py-1 rounded bg-white border border-slate-200 hover:bg-slate-100 text-slate-600">&gt;</button>
+                        </div>
+                      )}
+                    </div>
+                 </div>
+             </div>
+
+             {/* COLUMNA DERECHA: DETALLE LATERAL TIPO BIG FOUR */}
+             <div className="w-full lg:w-80 bg-white border border-slate-200 rounded-2xl shadow-sm p-6 h-fit sticky top-24 shrink-0 flex flex-col">
+                <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+                  <span className="text-blue-600 text-lg">ℹ️</span>
+                  <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest">Detalle del cambio</h3>
+                </div>
+
+                {logSeleccionado ? (() => {
+                  const esEliminacion = String(logSeleccionado.accion || '').toLowerCase().includes('elimin');
+                  const esCreacion = String(logSeleccionado.accion || '').toLowerCase().includes('crea');
+                  const pillColor = esEliminacion 
+                    ? 'text-rose-600 bg-rose-50 border-rose-200' 
+                    : esCreacion 
+                      ? 'text-orange-600 bg-orange-50 border-orange-200' 
+                      : 'text-blue-600 bg-blue-50 border-blue-200';
+                  
+                  return (
+                    <div className="space-y-6 flex-1">
+                      
+                      {/* Estado y Acción */}
+                      <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <span className={`px-3 py-1 rounded-lg font-black text-[9px] uppercase tracking-wider border shadow-sm ${pillColor}`}>
+                          {esEliminacion ? '🗑️ Eliminación' : esCreacion ? '✨ Creación' : '✏️ Actualización'}
+                        </span>
+                        <span className="text-emerald-600 font-bold text-[10px] flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Completado
+                        </span>
+                      </div>
+
+                      {/* Fuente y Fecha */}
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fuente</p>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs shadow-sm shrink-0 font-bold">
+                              {logSeleccionado.fuenteNombre.substring(0,2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate" title={logSeleccionado.fuenteNombre}>{logSeleccionado.fuenteNombre}</p>
+                              <p className="text-[9px] text-slate-400 truncate">{logSeleccionado.fuenteTipo}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Fecha y hora</p>
+                          <p className="text-[10px] font-bold text-slate-800">{logSeleccionado.fecha || 'N/A'}</p>
+                        </div>
+                      </div>
+
+                      {/* Descripción del Cambio */}
+                      <div>
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Descripción del cambio</p>
+                        <div className="bg-blue-50/50 border border-blue-100 p-3.5 rounded-xl shadow-inner">
+                          <p className="text-[11px] font-medium text-blue-900 leading-relaxed">
+                            {logSeleccionado.motivo || logSeleccionado.accion || 'Actualización general de los datos de la fuente para cumplir con los estándares GRC corporativos.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Usuario Responsable */}
+                      <div>
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Usuario responsable</p>
+                        <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm">
+                            {logSeleccionado.usuario ? logSeleccionado.usuario.substring(0,2).toUpperCase() : 'YP'}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-800 text-[11px]">{logSeleccionado.usuario || 'Yehison Pineda'}</p>
+                            <p className="text-[9px] text-slate-400 font-medium">Auditor Líder</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Motivo / Justificación */}
+                      <div>
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-2 border-b border-slate-100 pb-1">Motivo / Justificación</p>
+                        <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 p-3 rounded-xl shadow-sm">
+                          <span className="text-blue-500 text-sm mt-0.5">ℹ️</span>
+                          <p className="text-[10px] font-medium text-blue-900 leading-relaxed">
+                            La fuente fue gestionada a través del módulo central para asegurar la trazabilidad requerida en el proceso de mejora continua.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Elementos afectados (Simulados para el diseño) */}
+                      <div>
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 border-b border-slate-100 pb-1">Elementos afectados</p>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3">
+                            <span className="bg-slate-100 p-1.5 rounded border border-slate-200 text-slate-500 text-xs">📄</span>
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-700">Informes asociados</p>
+                              <p className="text-[9px] text-slate-400">0 informes modificados</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="bg-slate-100 p-1.5 rounded border border-slate-200 text-slate-500 text-xs">❗</span>
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-700">Hallazgos asociados</p>
+                              <p className="text-[9px] text-slate-400">0 hallazgos en seguimiento</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="bg-slate-100 p-1.5 rounded border border-slate-200 text-slate-500 text-xs">📋</span>
+                            <div>
+                              <p className="text-[10px] font-bold text-slate-700">Planes de acción asociados</p>
+                              <p className="text-[9px] text-slate-400">0 planes activos</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-100 text-center">
+                        <button className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline flex items-center justify-center w-full gap-1">
+                          Ver detalles completos <span>↗</span>
+                        </button>
+                      </div>
+
+                    </div>
+                  );
+                })() : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center space-y-3 opacity-50">
+                    <span className="text-5xl">📄</span>
+                    <p className="text-[11px] font-bold text-slate-500">Selecciona un registro de la tabla para ver sus detalles</p>
+                  </div>
+                )}
+             </div>
+          </div>
+        );
+      })()}
+
 {/* ✨ RENDERIZAR EL MODAL DINÁMICO */}
-      {isModalOpen && <ModalNuevaFuente 
+      <ModalNuevaFuente
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
         fuenteEdicion={fuenteSeleccionada}
@@ -425,7 +736,7 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
         normasDisponibles={normasDisponibles}
         onAddNorma={handleAddNorma}
         onSave={handleSaveFuente}
-      />}
+      />
     </div>
   );
 }
