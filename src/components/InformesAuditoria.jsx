@@ -56,7 +56,7 @@ export default function InformesAuditoria({
 
   // 🧭 ESTADOS DE NAVEGACIÓN (TABS Y ACORDEÓN)
   const [vistaActiva, setVistaActiva] = useState('dashboard');
-  const [grupoExpandido, setGrupoExpandido] = useState(null);
+  const [agruparPor, setAgruparPor] = useState('Proceso');
   
   // 🛑 LÓGICA DE CONTROL ACTUALIZADA: Permite crear informes desde otras fuentes
   const handleCrearNuevoInforme = () => {
@@ -75,7 +75,6 @@ export default function InformesAuditoria({
   };
 
   // 🎛️ ESTADOS DEL PANEL LATERAL
-  const [agruparPor, setAgruparPor] = useState('Año'); 
   const [dashFiltroAnio, setDashFiltroAnio] = useState('Todos');
   const [dashFiltroProceso, setDashFiltroProceso] = useState('Todos');
   const [dashFiltroSubproceso, setDashFiltroSubproceso] = useState('Todos');
@@ -505,11 +504,11 @@ const handleFileUpload = async (e, type) => {
     setMotivoCambio('');
     setIsDirty(false);
     setModoVistaCompleta(false);
-    setFormResetKey(Date.now());
+    setFormResetKey(prev => prev + 1);
     setVistaActiva('dashboard');
   };
 
-  const cambiarVista = (nuevaVista) => {
+ const cambiarVista = (nuevaVista) => {
     if (nuevaVista === vistaActiva) return;
 
     if (vistaActiva !== 'nuevo') {
@@ -520,6 +519,10 @@ const handleFileUpload = async (e, type) => {
     confirmarSalidaSinGuardar(() => {
       setVistaActiva(nuevaVista);
     });
+  };
+
+  const cambiarVistaSegura = (nuevaVista) => {
+    cambiarVista(nuevaVista); // Usamos la misma lógica de protección que ya tiene el archivo
   };
 
   // Extraer años y responsables únicos para los selects
@@ -797,289 +800,272 @@ const handleFileUpload = async (e, type) => {
         </div>
       </div>
 
-      {/* 🚀 VISTA 1: DASHBOARD DE KPIs CON MENÚ LATERAL */}
+      {/* 🚀 VISTA 1: DASHBOARD DE KPIs Y RESUMEN VISUAL TIPO BIG FOUR */}
       {vistaActiva === 'dashboard' && (
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-slate-300 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-xl shrink-0">📄</div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Total Informes</p>
-                   <p className="text-2xl font-black text-slate-800">{totalInformes}</p>
+          {/* 1. TARJETAS SUPERIORES DE KPIs (HORIZONTALES Y LIMPIAS) */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+             {/* Total Informes (Botón interactivo) */}
+             <div onClick={() => setDashFiltroEstado('Todos')} className={`bg-white p-5 rounded-2xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02] ${dashFiltroEstado === 'Todos' ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shadow-inner">📄</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Informes</p>
+                    <p className="text-2xl font-black text-slate-800 leading-tight">{totalInformes}</p>
+                  </div>
                 </div>
              </div>
-             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-emerald-300 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0">✅</div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Socializados</p>
-                   <div className="flex items-baseline space-x-2">
-                     <p className="text-2xl font-black text-slate-800">{socializados}</p>
-                     <p className="text-[10px] font-bold text-emerald-500">{pctSocializados}%</p>
-                   </div>
+
+             {/* Pendientes */}
+             <div onClick={() => setDashFiltroEstado('Pendientes')} className={`bg-white p-5 rounded-2xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02] ${dashFiltroEstado === 'Pendientes' ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-slate-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl shadow-inner">🕒</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">En Proceso</p>
+                    <p className="text-2xl font-black text-slate-800 leading-tight">{pendientes}</p>
+                  </div>
+                </div>
+                <div className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">{pctPendientes}%</div>
+             </div>
+
+             {/* Socializados */}
+             <div onClick={() => setDashFiltroEstado('Socializado')} className={`bg-white p-5 rounded-2xl border shadow-sm flex items-center justify-between cursor-pointer transition-all hover:scale-[1.02] ${dashFiltroEstado === 'Socializado' ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-inner">✓</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Socializados</p>
+                    <p className="text-2xl font-black text-slate-800 leading-tight">{socializados}</p>
+                  </div>
+                </div>
+                <div className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">{pctSocializados}%</div>
+             </div>
+
+             {/* Procesos Auditados (Informativa) */}
+             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl shadow-inner">🏛️</div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Procesos Auditados</p>
+                    <p className="text-2xl font-black text-slate-800 leading-tight">{procesosAuditados}</p>
+                  </div>
                 </div>
              </div>
-             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-orange-300 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center text-xl shrink-0">🕒</div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pendientes</p>
-                   <div className="flex items-baseline space-x-2">
-                     <p className="text-2xl font-black text-slate-800">{pendientes}</p>
-                     <p className="text-[10px] font-bold text-orange-500">{pctPendientes}%</p>
-                   </div>
-                </div>
-             </div>
-             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-blue-300 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xl shrink-0">🏛️</div>
-                <div>
-                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Procesos Auditados</p>
-                   <p className="text-2xl font-black text-slate-800">{procesosAuditados}</p>
-                </div>
-             </div>
-             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center space-x-4 hover:border-purple-300 transition-colors">
-                <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center text-xl shrink-0">📅</div>
-                <div className="overflow-hidden">
-                   <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Último Informe</p>
-                   <p className="text-[13px] font-black text-slate-800 truncate mt-1">{ultimoInforme ? ultimoInforme.fecha : '---'}</p>
-                   <p className="text-[9px] font-bold text-slate-400 truncate">{ultimoInforme ? ultimoInforme.procesoLimpio : 'Sin datos'}</p>
+
+             {/* Último Registro */}
+             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between overflow-hidden">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-xl shadow-inner shrink-0">📅</div>
+                  <div className="truncate">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Último Informe</p>
+                    <p className="text-sm font-black text-slate-800 mt-0.5 truncate" title={ultimoInforme?.fecha}>{ultimoInforme?.fecha || 'N/A'}</p>
+                    <p className="text-[9px] font-bold text-slate-400 truncate" title={ultimoInforme?.procesoLimpio}>{ultimoInforme?.procesoLimpio || '---'}</p>
+                  </div>
                 </div>
              </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-             
-             {/* 🎛️ MENÚ LATERAL DE ORGANIZACIÓN */}
-             <div className="lg:col-span-1 space-y-4">
-                <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm overflow-hidden">
-                  <div className="bg-[#f8fafa] p-4 border-b border-[#1A4B42]/10 flex items-center justify-between">
-                    <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest">ORGANIZAR POR</h3>
-                    <div className="w-6 h-6 rounded-full bg-[#1A4B42] text-white flex items-center justify-center text-[10px] font-bold">1</div>
-                  </div>
-                  <div className="p-2 space-y-1">
-                    {[
-                      { id: 'Año', label: 'Vista por Año', icon: '📊' },
-                      { id: 'Proceso', label: 'Vista por Proceso', icon: '🏛️' },
-                      { id: 'Subproceso', label: 'Vista por Subproceso', icon: '🗂️' }, // ✨ NUEVO BOTÓN
-                      { id: 'Estado', label: 'Vista por Estado', icon: '🚩' },
-                      { id: 'Responsable', label: 'Vista por Responsable', icon: '👤' }
-                    ].map(btn => (
-                      <button 
-                        key={btn.id}
-                        onClick={() => { setAgruparPor(btn.id); setGrupoExpandido(null); }}
-                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-3 ${agruparPor === btn.id ? 'bg-[#f0fdf4] text-[#0A3B32] shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}
-                      >
-                        <span className="text-sm grayscale opacity-70">{btn.icon}</span>
-                        <span>{btn.label}</span>
-                      </button>
-                    ))}
-                  </div>
+            
+            {/* 2. ZONA IZQUIERDA: FILTROS TIPO "PILLS" Y TABLA PRINCIPAL */}
+            <div className="lg:col-span-3 space-y-4">
+              
+              {/* Filtros Horizontales Modernos */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center gap-3">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-2">Filtros:</span>
+                
+                <select value={dashFiltroProceso} onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} className="bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]">
+                  <option value="Todos">Todos los procesos</option>
+                  {[...new Set(informesEnriquecidos.map(p => p.procesoLimpio).filter(Boolean))].sort().map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+
+                <select value={dashFiltroSubproceso} onChange={e => setDashFiltroSubproceso(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32] max-w-[140px] truncate">
+                  <option value="Todos">Todos los subprocesos</option>
+                  {[...new Set(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => <option key={sp} value={sp}>{sp}</option>)}
+                </select>
+
+                <select value={dashFiltroAnio} onChange={e=>setDashFiltroAnio(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]">
+                  <option value="Todos">Año</option>
+                  {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+
+                <select value={dashFiltroResponsable} onChange={e=>setDashFiltroResponsable(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]">
+                  <option value="Todos">Responsable</option>
+                  {responsablesDisponibles.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+
+                <div className="flex items-center space-x-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5 w-full sm:w-auto flex-1 shadow-inner">
+                  <span className="text-slate-400 text-xs">🔍</span>
+                  <input type="text" placeholder="Buscar informe, título..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full text-[10px] outline-none bg-transparent text-slate-700 font-bold placeholder-slate-400" />
                 </div>
 
-                <div className="bg-white rounded-2xl border border-[#1A4B42]/20 shadow-sm p-4 space-y-4">
-                  <h3 className="text-[10px] font-black text-[#1A4B42] uppercase tracking-widest border-b border-slate-100 pb-2">FILTROS</h3>
-                  
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Año</label>
-                    <select value={dashFiltroAnio} onChange={e=>setDashFiltroAnio(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
-                      <option value="Todos">Todos</option>
-                      {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Macroproceso</label>
-                    <select 
-                      value={dashFiltroProceso} 
-                      onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} 
-                      className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
-                    >
-                      <option value="Todos">Todos</option>
-                      {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                  </div>
+                <button onClick={limpiarFiltrosDashboard} className="bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 font-black text-[9px] uppercase tracking-widest px-3 py-2 rounded-lg transition-colors">
+                  Limpiar
+                </button>
+              </div>
 
-                  {/* ✨ NUEVO: SELECTOR DE SUBPROCESO DINÁMICO Y LIMPIO */}
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Subproceso</label>
-                    <select 
-                      value={dashFiltroSubproceso} 
-                      onChange={e => setDashFiltroSubproceso(e.target.value)} 
-                      className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]"
+              {/* Tabla Limpia Estilo DataGrid */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[9px] uppercase font-black text-slate-400 tracking-widest">
+                      <tr>
+                        <th className="p-4 w-10 text-center">#</th>
+                        <th className="p-4 w-32">Consecutivo</th>
+                        <th className="p-4">Proceso / Título</th>
+                        <th className="p-4 text-center">Fecha</th>
+                        <th className="p-4 text-center">Socialización</th>
+                        <th className="p-4 text-center w-24">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-xs font-medium text-slate-700 divide-y divide-slate-100">
+                      {informesDashboard.length === 0 ? (
+                        <tr><td colSpan="6" className="p-12 text-center text-slate-400 font-bold italic">No hay informes para los filtros seleccionados.</td></tr>
+                      ) : (
+                        applyFilters(informesDashboard, searchTerm, columnFilters).slice(0, 10).map((inf, idx) => (
+                          <tr key={inf.id} className="hover:bg-blue-50/30 transition-colors group">
+                            <td className="p-4 text-center text-slate-300 font-bold text-[10px]">{idx + 1}</td>
+                            <td className="p-4 font-mono font-black text-slate-800">
+                              <span className="cursor-pointer hover:text-blue-600 transition-colors" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }}>
+                                {inf.ref}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 font-black rounded text-[8px] uppercase tracking-wider mb-1 inline-block">
+                                {inf.procesoLimpio}
+                              </span>
+                              <div className="font-bold text-slate-800 text-[11px] leading-tight mt-0.5 truncate max-w-xs cursor-pointer hover:text-blue-600" title={inf.titulo} onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }}>
+                                {inf.titulo}
+                              </div>
+                            </td>
+                            <td className="p-4 text-center text-[10px] font-bold text-slate-500">
+                              {inf.fecha}
+                            </td>
+                            <td className="p-4 text-center">
+                              <span className={`px-2.5 py-1 rounded-full font-black text-[8px] uppercase tracking-widest border inline-flex items-center gap-1 ${inf.socializado === 'Sí' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                                {inf.socializado === 'Sí' ? 'Completada' : 'Pendiente'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-center">
+                              <button 
+                                onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); cambiarVistaSegura('nuevo'); scrollToForm(); }}
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded-lg transition-colors font-bold text-base"
+                                title="Ver Informe"
+                              >
+                                👁️
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {informesDashboard.length > 10 && (
+                  <div className="bg-slate-50 p-3 text-center border-t border-slate-200">
+                    <button onClick={() => cambiarVistaSegura('historial')} className="text-[10px] font-black text-blue-600 hover:underline uppercase tracking-widest">
+                      Ver el historial completo con los {informesDashboard.length} informes ➔
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Sección Inferior: Agrupación Estilo Acordeón Resumido (Solo visible si hay agrupaciones) */}
+              {gruposOrdenados.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Historial agrupado por {agruparPor.toLowerCase()}</h3>
+                    <select
+                      value={agruparPor}
+                      onChange={e => setAgruparPor(e.target.value)}
+                      className="bg-white border border-slate-200 text-slate-700 font-bold text-[10px] rounded-lg py-2 px-3 outline-none cursor-pointer focus:border-[#0A3B32]"
+                      aria-label="Organizar historial por"
                     >
-                      <option value="Todos">Todos</option>
-                      {[...new Set(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => (
-                        <option key={sp} value={sp}>{sp}</option>
+                      {['Año', 'Proceso', 'Subproceso', 'Estado', 'Responsable'].map(opcion => (
+                        <option key={opcion} value={opcion}>{opcion}</option>
                       ))}
                     </select>
                   </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Estado</label>                    <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
-                      <option value="Todos">Todos</option>
-                      <option value="Socializado">Socializado</option>
-                      <option value="Pendiente">Pendiente</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-500 mb-1 block">Responsable</label>
-                    <select value={dashFiltroResponsable} onChange={e=>setDashFiltroResponsable(e.target.value)} className="w-full text-xs border border-slate-200 rounded-lg p-2 font-bold text-slate-700 outline-none focus:border-[#0A3B32]">
-                      <option value="Todos">Todos</option>
-                      {responsablesDisponibles.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-
-                  <button onClick={limpiarFiltrosDashboard} className="w-full bg-[#f8fafa] hover:bg-slate-100 text-[#0A3B32] border border-[#1A4B42]/10 font-bold text-[10px] uppercase tracking-widest py-2.5 rounded-lg flex items-center justify-center space-x-2 transition-all">
-                    <span>Limpiar Filtros</span> <span>⚗️</span>
-                  </button>
-                </div>
-             </div>
-
-             {/* 🗂️ ACORDEONES */}
-             <div className="lg:col-span-2 space-y-4">
-               <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-slate-600 ml-2">
-                    <span>Agrupado por: <span className="text-[#0A3B32] bg-[#f0fdf4] px-2 py-1 rounded-md">{agruparPor}</span></span>
-                    <span className="text-slate-400 font-medium">({gruposOrdenados.length} grupos)</span>
-                  </div>
-               </div>
-
-               {informesDashboard.length === 0 ? (
-                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center text-slate-400 font-bold italic">
-                   No hay informes que coincidan con los filtros.
-                 </div>
-               ) : (
-                 gruposOrdenados.map(grupo => {
-                   const infs = informesAgrupados[grupo];
-                   const soc = infs.filter(i => i.socializado === 'Sí').length;
-                   const pend = infs.length - soc;
-                   const procs = new Set(infs.map(i => i.procesoLimpio)).size;
-                   const isExpanded = grupoExpandido === grupo;
-
-                   return (
-                     <div key={grupo} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
-                       <div onClick={() => setGrupoExpandido(isExpanded ? null : grupo)} className={`p-4 sm:p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors ${isExpanded ? 'border-b border-slate-100 bg-slate-50/50' : ''}`}>
-                         <div className="flex items-center space-x-3 flex-1 pr-4">
-                         <span className="text-xl shrink-0">{agruparPor === 'Año' ? '📅' : agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Subproceso' ? '🗂️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
-                           <h4 className="text-sm sm:text-base font-black text-slate-800 leading-tight">{grupo} <span className="text-slate-400 font-medium text-xs ml-1 whitespace-nowrap">({infs.length})</span></h4>
-                           {grupo === new Date().getFullYear().toString() && <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm shrink-0">Actual</span>}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-2 max-h-64 overflow-y-auto">
+                     {gruposOrdenados.map(grupo => (
+                       <div key={grupo} onClick={() => { setFiltroProceso(agruparPor==='Proceso'?grupo:''); cambiarVistaSegura('historial'); }} className="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-slate-200">
+                         <div className="flex items-center gap-3">
+                           <span className="text-lg">{agruparPor === 'Proceso' ? '🏛️' : agruparPor === 'Estado' ? '🚩' : '👤'}</span>
+                           <span className="text-xs font-black text-slate-800">{grupo}</span>
                          </div>
-                         {!isExpanded && (
-                           <div className="hidden md:flex items-center space-x-4 text-xs font-bold bg-white px-4 py-1.5 rounded-xl border border-slate-100 shadow-sm">
-                             <span className="text-emerald-600 flex items-center"><span className="mr-1.5 text-base">✅</span> {soc}</span>
-                             <span className="text-orange-500 flex items-center"><span className="mr-1.5 text-base">🕒</span> {pend}</span>
-                             <span className="text-slate-300 ml-4 border-l pl-4 font-black">▼</span>
-                           </div>
-                         )}
-                         {isExpanded && <span className="text-slate-400 font-black hidden md:block">▲</span>}
+                         <div className="flex items-center gap-3">
+                           <span className="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500">{informesAgrupados[grupo].length} informes</span>
+                           <span className="text-slate-400 font-bold">➔</span>
+                         </div>
                        </div>
+                     ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
-                       {isExpanded && (
-                         <div className="p-4 sm:p-6 bg-white animate-in slide-in-from-top-2 duration-300">
-                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 border-b border-slate-100 pb-6">
-                             <div className="text-center">
-                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Socializados</p>
-                               <p className="text-xl font-black text-emerald-600">{soc} <span className="text-[10px] font-bold text-emerald-400 ml-1">({Math.round((soc/infs.length)*100)}%)</span></p>
-                             </div>
-                             <div className="text-center border-l border-slate-100">
-                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Pendientes</p>
-                               <p className="text-xl font-black text-orange-500">{pend} <span className="text-[10px] font-bold text-orange-300 ml-1">({Math.round((pend/infs.length)*100)}%)</span></p>
-                             </div>
-                             <div className="text-center border-l border-slate-100 hidden md:block">
-                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Procesos</p>
-                               <p className="text-xl font-black text-slate-700">{procs}</p>
-                             </div>
-                             <div className="text-center border-l border-slate-100 hidden md:block">
-                               <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Última Emisión</p>
-                               <p className="text-sm font-black text-slate-700 mt-1.5">{infs.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha))[0]?.fecha}</p>
-                             </div>
-                           </div>
-
-                           <div className="space-y-2">
-                             {infs.slice(0, 5).map(inf => (
-                               <div key={inf.id} className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-xl transition-colors border border-transparent hover:border-slate-200">
-                                 <div className="flex items-center space-x-4 w-full md:w-1/2">
-                                   <div className={`w-1 h-10 rounded-full shrink-0 ${inf.socializado === 'Sí' ? 'bg-emerald-500' : 'bg-orange-500'}`}></div>
-                                   <div>
-                                     <p className="text-xs font-bold text-slate-800 leading-tight" title={inf.procesoLimpio}>{inf.procesoLimpio}</p>
-                                     <p className="text-[10px] text-slate-400 font-mono mt-0.5">{inf.ref}</p>
-                                   </div>
-                                 </div>
-                                 <div className="w-1/6 hidden lg:block">
-                                   <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${inf.socializado === 'Sí' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
-                                     {inf.socializado === 'Sí' ? 'Socializado' : 'Pendiente'}
-                                   </span>
-                                 </div>
-                                 <div className="w-1/4 hidden md:block text-[10px] font-bold text-slate-600 truncate">
-                                   <span className="text-slate-400 font-normal mr-1">Auditor:</span>{inf.elaboradoPor}
-                                 </div>
-                                 <div className="w-auto md:w-1/6 text-right text-[10px] font-bold text-slate-500">
-                                   {inf.fecha}
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                           
-                           {infs.length > 5 && (
-                             <div className="mt-5 text-center bg-slate-50 rounded-xl p-2 border border-slate-100">
-                               <button onClick={() => { setFiltroAnio(agruparPor==='Año'?grupo:''); setVistaActiva('historial'); }} className="text-[10px] font-black uppercase tracking-widest text-[#0A3B32] hover:underline flex items-center justify-center w-full">
-                                 Ver los {infs.length} informes <span className="ml-1 text-sm">➔</span>
-                               </button>
-                             </div>
-                           )}
-                         </div>
-                       )}
-                     </div>
-                   );
-                 })
-               )}
-             </div>
-             
-             {/* 🍩 RESUMEN VISUAL */}
-             <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 h-fit sticky top-24">
-                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">RESUMEN VISUAL</h3>
+            {/* 3. ZONA DERECHA: PANELES DE RESUMEN TIPO WIDGETS */}
+            <div className="lg:col-span-1 space-y-6">
+              
+              {/* Panel Dona: Distribución */}
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+                <h3 className="text-[11px] font-black text-slate-800 mb-6">Distribución de Informes</h3>
                 
-                <div className="flex items-center justify-center mb-8">
-                   <div className="relative w-36 h-36 rounded-full border-[14px] border-slate-100 border-l-emerald-500 border-t-emerald-500 border-r-orange-500 border-b-slate-200 flex items-center justify-center transform -rotate-45 shadow-inner">
+                <div className="flex justify-center mb-6">
+                   <div className="relative w-28 h-28 rounded-full border-[10px] border-slate-100 border-l-emerald-500 border-t-emerald-500 border-r-amber-500 flex items-center justify-center transform -rotate-45">
                       <div className="transform rotate-45 text-center">
-                         <span className="block text-3xl font-black text-slate-800 leading-none">{totalInformes}</span>
-                         <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Total</span>
+                         <span className="block text-2xl font-black text-slate-800 leading-none">{totalInformes}</span>
+                         <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-1">Total</span>
                       </div>
                    </div>
                 </div>
 
-                <div className="space-y-4 mb-8">
-                   <div className="flex justify-between items-center text-xs font-bold bg-emerald-50 p-2.5 rounded-xl border border-emerald-100">
-                     <span className="flex items-center text-emerald-900"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-2 shadow-sm"></span> Socializados</span>
-                     <span className="text-emerald-700 bg-white px-2 py-0.5 rounded shadow-sm">{socializados}</span>
+                <div className="space-y-3">
+                   <div className="flex justify-between items-center text-[10px] font-bold">
+                     <span className="flex items-center text-slate-600"><span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span> Socializados</span>
+                     <span className="text-slate-800">{socializados} <span className="text-[9px] text-slate-400 ml-1">({pctSocializados}%)</span></span>
                    </div>
-                   <div className="flex justify-between items-center text-xs font-bold bg-orange-50 p-2.5 rounded-xl border border-orange-100">
-                     <span className="flex items-center text-orange-900"><span className="w-2.5 h-2.5 rounded-full bg-orange-500 mr-2 shadow-sm"></span> Pendientes</span>
-                     <span className="text-orange-700 bg-white px-2 py-0.5 rounded shadow-sm">{pendientes}</span>
+                   <div className="flex justify-between items-center text-[10px] font-bold">
+                     <span className="flex items-center text-slate-600"><span className="w-2 h-2 rounded-full bg-amber-500 mr-2"></span> Pendientes</span>
+                     <span className="text-slate-800">{pendientes} <span className="text-[9px] text-slate-400 ml-1">({pctPendientes}%)</span></span>
                    </div>
                 </div>
+              </div>
 
-                {topProcesos.length > 0 && (
-                  <div className="border-t border-slate-100 pt-5">
-                    <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-4">Top Procesos Auditados</h3>
-                    <div className="space-y-3">
-                      {topProcesos.map(([proc, count], idx) => (
-                        <div key={idx} className="flex items-center text-[10px]">
-                          <span className="w-20 truncate text-slate-600 font-bold pr-2" title={proc}>{proc}</span>
-                          <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-[#0A3B32] h-full rounded-full" style={{width: `${(count/totalInformes)*100}%`}}></div>
-                          </div>
-                          <span className="w-6 text-right font-black text-slate-800">{count}</span>
+              {/* Panel Top Procesos (Resumen rápido) */}
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+                <h3 className="text-[11px] font-black text-slate-800 mb-4">Top Procesos Auditados</h3>
+                <div className="space-y-1">
+                  {topProcesos.length === 0 ? (
+                    <p className="text-[10px] text-slate-400 italic">No hay datos.</p>
+                  ) : (
+                    topProcesos.map(([proc, count], idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg cursor-pointer" onClick={() => { setFiltroProceso(proc); cambiarVistaSegura('historial'); }}>
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <span className="text-slate-300 text-xs">🏛</span>
+                          <span className="text-[10px] font-bold text-slate-600 truncate w-32" title={proc}>{proc}</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-             </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] font-black text-slate-800">{count}</span>
+                          <span className="text-slate-300">›</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <div className="mt-3 text-center border-t border-slate-100 pt-3">
+                  <button onClick={() => cambiarVistaSegura('historial')} className="text-[9px] font-black text-blue-600 uppercase tracking-widest flex items-center justify-center w-full gap-1">
+                     Ver historial completo <span>➔</span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
       )}
-
+    
       {/* 🚀 VISTA 2: FORMULARIO NUEVO / EDICIÓN */}
       {vistaActiva === 'nuevo' && isAdmin && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
@@ -1113,7 +1099,6 @@ const handleFileUpload = async (e, type) => {
               
               setIsDirty(false);
               handleResetForm();
-              if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
               setVistaActiva('dashboard'); 
             }} 
             className="space-y-6 text-xs"
