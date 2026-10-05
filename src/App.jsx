@@ -521,6 +521,7 @@ return (
                   <FuentesDeMejora
                     isAdmin={isAdmin}
                     fuentes={fuentesMejora}
+                    user={user}
                     onSaveFuentes={async (fuentesActualizadas) => {
                       setFuentesMejora(fuentesActualizadas);
                       const guardado = await saveToCloud({ fuentesMejora: fuentesActualizadas });

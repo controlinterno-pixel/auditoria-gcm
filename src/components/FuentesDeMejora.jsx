@@ -24,7 +24,7 @@ const obtenerSiguienteCodigo = (fuentes) => {
   return `FA-${String(siguiente).padStart(3, '0')}`;
 };
 
-export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSaveFuentes }) {
+export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSaveFuentes, user = null }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroNorma, setFiltroNorma] = useState('TODOS');
   const [filtroEstado, setFiltroEstado] = useState('TODOS');
@@ -143,14 +143,55 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
       });
     }
 
+    const camposAuditables = [
+      ['tipoFuente', 'Tipo de fuente'],
+      ['norma', 'Norma'],
+      ['fecha', 'Fecha'],
+      ['responsable', 'Responsable'],
+      ['estado', 'Estado'],
+      ['descripcion', 'Descripción'],
+      ['alcance', 'Alcance'],
+      ['macroproceso', 'Macroproceso'],
+      ['subproceso', 'Subproceso'],
+      ['proceso', 'Proceso'],
+      ['origen', 'Origen'],
+    ];
+    const camposModificados = fuenteSeleccionada
+      ? camposAuditables
+          .filter(([campo]) => JSON.stringify(fuenteSeleccionada[campo] ?? null) !== JSON.stringify(data[campo] ?? null))
+          .map(([, etiqueta]) => etiqueta)
+      : [];
+    const fechaEvento = new Date();
+    const logCambio = {
+      fecha: fechaEvento.toLocaleString('es-CO'),
+      timestamp: fechaEvento.toISOString(),
+      usuario: user?.email || user?.displayName || 'Usuario',
+      accion: fuenteSeleccionada ? 'Fuente actualizada' : 'Fuente creada',
+      motivo: fuenteSeleccionada
+        ? camposModificados.length > 0
+          ? `Campos actualizados: ${camposModificados.join(', ')}`
+          : 'Fuente guardada sin cambios detectables en sus campos.'
+        : 'Registro inicial de la fuente.',
+    };
+    const fuenteGuardada = {
+      ...data,
+      historialCambios: [...(fuenteSeleccionada?.historialCambios || []), logCambio],
+    };
     const identificador = data.codigo || data.id;
     const fuentesActualizadas = fuenteSeleccionada
       ? fuentesActuales.map((fuente) => (
-          (fuente.codigo || fuente.id) === identificador ? data : fuente
+          (fuente.codigo || fuente.id) === identificador ? fuenteGuardada : fuente
         ))
-      : [data, ...fuentesActuales];
+      : [fuenteGuardada, ...fuentesActuales];
 
     actualizarFuentes(fuentesActualizadas);
+    setLogSeleccionado({
+      ...logCambio,
+      idObj: `${identificador}-${(fuenteGuardada.historialCambios || []).length - 1}`,
+      fuenteRef: identificador,
+      fuenteNombre: Array.isArray(data.norma) ? data.norma.join(', ') : (data.norma || data.tipoNorma || data.tipoFuente || 'Fuente sin nombre'),
+      fuenteTipo: data.tipoFuente || 'Auditoría Interna',
+    });
     setFuenteSeleccionada(null);
     setIsModalOpen(false);
   };
@@ -453,8 +494,8 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
           }));
         }).sort((a, b) => {
           // Ordenar del más reciente al más antiguo
-          const fechaA = new Date(a.fecha || 0).getTime();
-          const fechaB = new Date(b.fecha || 0).getTime();
+          const fechaA = new Date(a.timestamp || a.fecha || 0).getTime();
+          const fechaB = new Date(b.timestamp || b.fecha || 0).getTime();
           return fechaB - fechaA;
         });
 
