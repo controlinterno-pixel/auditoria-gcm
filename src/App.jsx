@@ -523,9 +523,13 @@ return (
                     fuentes={fuentesMejora}
                     user={user}
                     onSaveFuentes={async (fuentesActualizadas) => {
-                      setFuentesMejora(fuentesActualizadas);
                       const guardado = await saveToCloud({ fuentesMejora: fuentesActualizadas });
-                      if (!guardado) showNotification('No se pudieron guardar las fuentes de mejora.', 'error');
+                      if (!guardado) {
+                        showNotification('No se pudieron guardar las fuentes de mejora.', 'error');
+                        return false;
+                      }
+                      setFuentesMejora(fuentesActualizadas);
+                      return true;
                     }}
                   />
               )}

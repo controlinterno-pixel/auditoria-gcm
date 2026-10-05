@@ -18,6 +18,7 @@ export default function ModalNuevaFuente({
   const [nuevaNorma, setNuevaNorma] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState(() => {
     const valoresIniciales = {
       tipoFuente: 'Auditoría Interna',
@@ -34,7 +35,14 @@ export default function ModalNuevaFuente({
       origen: 'interno',
     };
 
-    return fuenteEdicion ? { ...valoresIniciales, ...fuenteEdicion } : valoresIniciales;
+    if (!fuenteEdicion) return valoresIniciales;
+
+    const normaGuardada = fuenteEdicion.norma ?? fuenteEdicion.tipoNorma ?? valoresIniciales.norma;
+    return {
+      ...valoresIniciales,
+      ...fuenteEdicion,
+      norma: Array.isArray(normaGuardada) ? normaGuardada : normaGuardada ? [normaGuardada] : [],
+    };
   });
 
   useEffect(() => {
@@ -116,11 +124,15 @@ export default function ModalNuevaFuente({
     setIsDirty(true);
     
     // Forzamos la actualización del formulario para que seleccione la norma recién creada
-    setFormData((prev) => ({ ...prev, norma: norma }));
+    setFormData((prev) => {
+      const normasActuales = Array.isArray(prev.norma) ? prev.norma : (prev.norma ? [prev.norma] : []);
+      return { ...prev, norma: [...normasActuales, norma] };
+    });
     setNuevaNorma('');
   };
 
   const handleClose = () => {
+    if (isSaving) return;
     if (!isReadOnly) {
       setShowExitConfirm(true);
       return;
@@ -137,24 +149,34 @@ export default function ModalNuevaFuente({
 
   const handleNext = () => setStep((prev) => Math.min(prev + 1, 3));
   const handlePrev = () => setStep((prev) => Math.max(prev - 1, 1));
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (isSaving) return;
+
     // 🛡️ Validación básica antes de guardar
-    if (!formData.tipoFuente || !formData.norma || !formData.fecha || !formData.responsable || !formData.descripcion || !formData.macroproceso) {
+    const normasSeleccionadas = Array.isArray(formData.norma) ? formData.norma.filter(Boolean) : (formData.norma ? [formData.norma] : []);
+    if (!formData.tipoFuente || normasSeleccionadas.length === 0 || !formData.fecha || !formData.responsable || !formData.descripcion || !formData.macroproceso) {
       alert("⚠️ Faltan campos obligatorios por diligenciar. Por favor, revisa el formulario.");
       return;
     }
 
-    setIsDirty(false);
-    onSave(formData);
-    
-    // ✨ Notificación de éxito
-    if (fuenteEdicion) {
-      alert(`✅ ¡Cambios en la fuente ${formData.codigo} guardados exitosamente!`);
-    } else {
-      alert(`✅ ¡Nueva fuente ${formData.codigo} creada y radicada con éxito!`);
+    setIsSaving(true);
+    try {
+      const guardado = await onSave({ ...formData, norma: normasSeleccionadas });
+      if (guardado === false) return;
+
+      setIsDirty(false);
+      if (fuenteEdicion) {
+        alert(`✅ ¡Cambios en la fuente ${formData.codigo} guardados exitosamente!`);
+      } else {
+        alert(`✅ ¡Nueva fuente ${formData.codigo} creada y radicada con éxito!`);
+      }
+      onClose();
+    } catch (error) {
+      console.error('Error guardando fuente de mejora:', error);
+      alert('⚠️ No se pudo guardar la fuente. Tus cambios siguen en el formulario; inténtalo de nuevo.');
+    } finally {
+      setIsSaving(false);
     }
-    
-    onClose();
   };
 
   const steps = [
@@ -467,8 +489,8 @@ export default function ModalNuevaFuente({
                 Cerrar Vista 👁️
               </button>
             ) : (
-              <button onClick={handleSubmit} className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/30 flex items-center gap-2">
-                <span>{fuenteEdicion ? 'Guardar Cambios' : 'Crear Fuente'}</span> <span className="text-lg leading-none">{fuenteEdicion ? '💾' : '🚀'}</span>
+              <button onClick={handleSubmit} disabled={isSaving} className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/30 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                <span>{isSaving ? 'Guardando...' : fuenteEdicion ? 'Guardar Cambios' : 'Crear Fuente'}</span> <span className="text-lg leading-none">{fuenteEdicion ? '💾' : '🚀'}</span>
               </button>
             )}
           </div>

@@ -133,12 +133,17 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
     });
   };
 
-  const actualizarFuentes = (fuentesActualizadas) => {
+  const actualizarFuentes = async (fuentesActualizadas) => {
+    if (onSaveFuentes) {
+      const guardado = await onSaveFuentes(fuentesActualizadas);
+      if (guardado === false) return false;
+    }
+
     setFuentesActuales(fuentesActualizadas);
-    onSaveFuentes?.(fuentesActualizadas);
+    return true;
   };
 
-  const handleSaveFuente = (data) => {
+  const handleSaveFuente = async (data) => {
     // Garantizamos el registro de cualquier norma nueva ingresada (ahora manejando arreglos)
     if (data.norma) {
       const normasAProcesar = Array.isArray(data.norma) ? data.norma : [data.norma];
@@ -190,7 +195,9 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
         ))
       : [fuenteGuardada, ...fuentesActuales];
 
-    actualizarFuentes(fuentesActualizadas);
+    const guardado = await actualizarFuentes(fuentesActualizadas);
+    if (!guardado) return false;
+
     setLogSeleccionado({
       ...logCambio,
       idObj: `${identificador}-${(fuenteGuardada.historialCambios || []).length - 1}`,
@@ -198,8 +205,7 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
       fuenteNombre: Array.isArray(data.norma) ? data.norma.join(', ') : (data.norma || data.tipoNorma || data.tipoFuente || 'Fuente sin nombre'),
       fuenteTipo: data.tipoFuente || 'Auditoría Interna',
     });
-    setFuenteSeleccionada(null);
-    setIsModalOpen(false);
+    return true;
   };
 
   const handleDeleteFuente = (fuente) => {
@@ -499,6 +505,9 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
             fuenteTipo: f.tipoFuente || 'Auditoría Interna'
           }));
         });
+        if (logSeleccionado && !historialBase.some(log => log.idObj === logSeleccionado.idObj)) {
+          historialBase.push(logSeleccionado);
+        }
 
         // Opciones únicas extraídas de los datos reales para llenar los Selects
         const opcionesFuentes = [...new Set(historialBase.map(l => l.fuenteNombre))].filter(Boolean);
@@ -800,7 +809,8 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
       })()}
 
 {/* ✨ RENDERIZAR EL MODAL DINÁMICO */}
-      <ModalNuevaFuente
+      {isModalOpen && <ModalNuevaFuente
+        key={`${fuenteSeleccionada?.codigo || fuenteSeleccionada?.id || 'nueva'}-${isReadOnly ? 'lectura' : 'edicion'}`}
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
         fuenteEdicion={fuenteSeleccionada}
@@ -809,7 +819,7 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
         normasDisponibles={normasDisponibles}
         onAddNorma={handleAddNorma}
         onSave={handleSaveFuente}
-      />
+      />}
     </div>
   );
 }
