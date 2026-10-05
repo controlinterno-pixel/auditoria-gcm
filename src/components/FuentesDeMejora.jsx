@@ -173,19 +173,32 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
           .map(([, etiqueta]) => etiqueta)
       : [];
     const fechaEvento = new Date();
+    
+    // ✨ Usamos el motivo explícito ingresado por el usuario, o el automático si no hay
+    let motivoFinal = 'Registro inicial de la fuente.';
+    if (fuenteSeleccionada) {
+      if (data.motivoEdicion && data.motivoEdicion.trim() !== '') {
+        motivoFinal = data.motivoEdicion.trim();
+      } else if (camposModificados.length > 0) {
+        motivoFinal = `Campos actualizados: ${camposModificados.join(', ')}`;
+      } else {
+        motivoFinal = 'Fuente guardada sin cambios detectables en sus campos.';
+      }
+    }
+
     const logCambio = {
       fecha: fechaEvento.toLocaleString('es-CO'),
       timestamp: fechaEvento.toISOString(),
       usuario: user?.email || user?.displayName || 'Usuario',
-      accion: fuenteSeleccionada ? 'Fuente actualizada' : 'Fuente creada',
-      motivo: fuenteSeleccionada
-        ? camposModificados.length > 0
-          ? `Campos actualizados: ${camposModificados.join(', ')}`
-          : 'Fuente guardada sin cambios detectables en sus campos.'
-        : 'Registro inicial de la fuente.',
+      accion: fuenteSeleccionada ? 'Actualización' : 'Creación',
+      motivo: motivoFinal,
     };
+    
+    // Eliminamos el campo temporal motivoEdicion antes de guardar el objeto limpio en BD
+    const { motivoEdicion: _motivoEdicion, ...dataLimpia } = data;
+    
     const fuenteGuardada = {
-      ...data,
+      ...dataLimpia,
       historialCambios: [...(fuenteSeleccionada?.historialCambios || []), logCambio],
     };
     const identificador = data.codigo || data.id;

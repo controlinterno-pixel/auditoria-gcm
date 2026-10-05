@@ -33,6 +33,7 @@ export default function ModalNuevaFuente({
       subproceso: '',
       proceso: '',
       origen: 'interno',
+      motivoEdicion: '', // ✨ NUEVO CAMPO: Para capturar la justificación al editar
     };
 
     if (!fuenteEdicion) return valoresIniciales;
@@ -45,7 +46,7 @@ export default function ModalNuevaFuente({
     const fechaRaw = String(fuenteEdicion.fecha || fuenteEdicion.fechaRegistro || fuenteEdicion.fechaAuditoria || valoresIniciales.fecha);
     const fechaPartes = fechaRaw.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
 
-    return {
+   return {
       ...valoresIniciales,
       ...fuenteEdicion,
       tipoFuente: fuenteEdicion.tipoFuente || fuenteEdicion.tipo || valoresIniciales.tipoFuente,
@@ -57,6 +58,7 @@ export default function ModalNuevaFuente({
       macroproceso: macroprocesoGuardado,
       subproceso: fuenteEdicion.subproceso || procesoGuardado.slice(1).join(' / '),
       norma: Array.isArray(normaGuardada) ? normaGuardada : normaGuardada ? [normaGuardada] : [],
+      motivoEdicion: '', // ✨ Siempre forzamos a que esté vacío al abrir para escribir un nuevo motivo
     };
   });
 
@@ -171,6 +173,13 @@ export default function ModalNuevaFuente({
     const normasSeleccionadas = Array.isArray(formData.norma) ? formData.norma.filter(Boolean) : (formData.norma ? [formData.norma] : []);
     if (!formData.tipoFuente || normasSeleccionadas.length === 0 || !formData.fecha || !formData.responsable || !formData.descripcion || !formData.macroproceso) {
       alert("⚠️ Faltan campos obligatorios por diligenciar. Por favor, revisa el formulario.");
+      return;
+    }
+
+    // ✨ Validar que haya escrito un motivo de edición si modificó algo existente
+    if (fuenteEdicion && isDirty && (!formData.motivoEdicion || formData.motivoEdicion.trim().length < 5)) {
+      alert("⚠️ Has modificado este registro. Es obligatorio escribir una justificación válida del cambio en el paso 3 para mantener la trazabilidad.");
+      setStep(3); // Lo enviamos al paso 3 donde está el campo
       return;
     }
 
@@ -408,6 +417,27 @@ export default function ModalNuevaFuente({
                       </label>
                     </div>
                   </div>
+
+                  {/* ✨ NUEVO CAMPO: Motivo de Edición (Solo visible si es edición y hubo cambios) */}
+                  {fuenteEdicion && !isReadOnly && isDirty && (
+                    <div className="col-span-2 bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-xl mt-4 animate-in fade-in slide-in-from-bottom-2">
+                      <label className="text-[11px] font-black text-orange-900 uppercase tracking-wider block mb-2">
+                        📝 Justificación del Cambio (Audit Trail) *
+                      </label>
+                      <p className="text-[9px] text-orange-700 mb-2 font-medium">
+                        El sistema ha detectado modificaciones. Por favor, justifique el cambio para el registro histórico.
+                      </p>
+                      <textarea 
+                        name="motivoEdicion" 
+                        rows="2" 
+                        value={formData.motivoEdicion || ''} 
+                        onChange={(e) => setFormData((prev) => ({ ...prev, motivoEdicion: e.target.value }))} 
+                        placeholder="Ej: Se actualizó el responsable debido a cambios en la estructura organizacional..." 
+                        className="w-full border border-orange-200 rounded-xl p-3 text-sm font-medium text-slate-700 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 shadow-sm resize-none"
+                      ></textarea>
+                    </div>
+                  )}
+
                 </div>
               </div>
             )}
