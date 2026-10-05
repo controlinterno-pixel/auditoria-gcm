@@ -1211,6 +1211,83 @@ const handleFileUpload = async (e, type) => {
           </div>
         )
       })()}
+
+      {informeDetalleModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="informe-detalle-titulo"
+            className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 sm:p-6">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">{informeDetalleModal.ref || 'Informe de auditoría'}</p>
+                <h2 id="informe-detalle-titulo" className="mt-1 text-lg font-black text-slate-900 break-words">
+                  {informeDetalleModal.titulo || 'Sin título'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInformeDetalleModal(null)}
+                className="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-bold text-slate-500 hover:bg-slate-100"
+                aria-label="Cerrar detalle del informe"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2 sm:p-6">
+              {[
+                ['Fuente de mejora', informeDetalleModal.tipoFuente || 'No definida'],
+                ['Proceso', informeDetalleModal.procesoLimpio || informeDetalleModal.macroproceso || informeDetalleModal.proceso || 'Sin proceso'],
+                ['Subproceso', informeDetalleModal.subproceso || 'General'],
+                ['Fecha de emisión', informeDetalleModal.fecha || 'Sin fecha'],
+                ['Elaborado por', informeDetalleModal.elaboradoPor || 'Sin asignar'],
+                ['Revisado por', informeDetalleModal.revisadoPor || 'Sin asignar'],
+                ['Aprobado por', informeDetalleModal.aprobadoPor || 'Sin asignar'],
+                ['Auditor responsable', informeDetalleModal.auditorResponsable || informeDetalleModal.auditor || 'Sin asignar'],
+                ['Correo del auditor', informeDetalleModal.correoAuditor || informeDetalleModal.correoAuditorResponsable || 'Sin correo'],
+                ['Socializado', informeDetalleModal.socializado || 'No'],
+                ['Fecha de socialización', informeDetalleModal.fechaSocializacion || informeDetalleModal.fecha_socializacion || 'Sin fecha'],
+                ['Participantes', informeDetalleModal.participantes || informeDetalleModal.socializadoCon || 'Sin participantes'],
+                ['Detalle de la fuente', informeDetalleModal.detalleFuente || 'Sin detalle'],
+              ].map(([etiqueta, valor]) => (
+                <div key={etiqueta} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">{etiqueta}</p>
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-800">{valor}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-slate-200 p-5 sm:flex-row sm:justify-end sm:p-6">
+              <button
+                type="button"
+                onClick={() => setInformeDetalleModal(null)}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+              >
+                Cerrar
+              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditInformeAuditoria(informeDetalleModal);
+                    setModoVistaCompleta(false);
+                    setInformeDetalleModal(null);
+                    setVistaActiva('nuevo');
+                    setFormResetKey(Date.now());
+                    scrollToForm();
+                  }}
+                  className="rounded-xl bg-[#0A3B32] px-4 py-2.5 text-xs font-black text-white hover:bg-[#062620]"
+                >
+                  Editar informe
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     
       {/* 🚀 VISTA 2: FORMULARIO NUEVO / EDICIÓN */}
       {vistaActiva === 'nuevo' && isAdmin && (
@@ -1250,56 +1327,22 @@ const handleFileUpload = async (e, type) => {
             className="space-y-6 text-xs"
           >
           {modoVistaCompleta && (
-            <>
-              <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 font-bold flex items-center justify-between gap-3">
-                <span>Modo vista: esta información está guardada y no puede modificarse desde aquí.</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModoVistaCompleta(false);
-                    setIsDirty(false);
-                  }}
-                  className="rounded-full border border-sky-300 bg-white px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-sky-700 hover:bg-sky-100"
-                >
-                  Editar
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Título</div>
-                  <div className="mt-1 text-sm font-black text-slate-800 break-words">{draftInforme.titulo || 'Sin título'}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Proceso</div>
-                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.proceso || 'Sin proceso'}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Subproceso</div>
-                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.subproceso || 'General'}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Fuente</div>
-                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.tipoFuente || 'No definida'}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Fecha</div>
-                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.fecha || 'Sin fecha'}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Auditor Responsable</div>
-                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.auditorResponsable || 'Sin asignar'}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Correo Auditor</div>
-                  <div className="mt-1 text-sm font-bold text-slate-800 break-all">{draftInforme.correoAuditor || 'Sin correo'}</div>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                  <div className="text-[9px] font-black uppercase tracking-widest text-slate-500">Socializado</div>
-                  <div className="mt-1 text-sm font-bold text-slate-800">{draftInforme.socializado || 'No'}</div>
-                </div>
-              </div>
-            </>
+            <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 font-bold flex items-center justify-between gap-3 shadow-inner">
+              <span className="flex items-center gap-2">
+                <span className="text-lg">ℹ️</span> 
+                Modo lectura: Estás visualizando los detalles de este informe. Los campos están bloqueados.
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setModoVistaCompleta(false);
+                  setIsDirty(false);
+                }}
+                className="rounded-xl border border-sky-300 bg-white px-4 py-2 text-[10px] font-black uppercase tracking-widest text-sky-700 hover:bg-sky-100 shadow-sm transition-all flex items-center gap-1.5 hover:scale-105"
+              >
+                <span>✏️</span> Editar
+              </button>
+            </div>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
@@ -1954,6 +1997,11 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                       </button>
                     </div>
                   </div>
+                ) : modoVistaCompleta ? (
+                  <div className="flex flex-col items-center space-y-2 group w-full mt-4 opacity-50">
+                    <div className="text-4xl">📂</div>
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg">Sin documento principal</p>
+                  </div>
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-4">
                     <div className="text-4xl opacity-50 group-hover:scale-110 transition-transform">📂</div>
@@ -1998,14 +2046,18 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                       </div>
                     )}
                     
-                    <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-2">
-                      <div className="text-3xl opacity-50 group-hover:scale-110 transition-transform">➕</div>
-                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Añadir Archivos</p>
-                      <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx, .xlsx" onChange={(e) => handleFileUpload(e, 'acta')} />
-                    </label>
-                    <p className="mt-2 text-[9px] text-slate-500 text-center font-medium bg-purple-50 border border-purple-100 rounded-lg px-2 py-1.5">
-                      Los anexos anteriores se conservan y se suman con los nuevos.
-                    </p>
+                    {!modoVistaCompleta && (
+                      <>
+                        <label className="cursor-pointer flex flex-col items-center space-y-2 group w-full mt-2">
+                          <div className="text-3xl opacity-50 group-hover:scale-110 transition-transform">➕</div>
+                          <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest bg-slate-100 px-4 py-2 rounded-lg group-hover:bg-purple-100 group-hover:text-purple-700 transition-colors">Añadir Archivos</p>
+                          <input type="file" multiple className="hidden" accept=".pdf, .jpg, .png, .docx, .xlsx" onChange={(e) => handleFileUpload(e, 'acta')} />
+                        </label>
+                        <p className="mt-2 text-[9px] text-slate-500 text-center font-medium bg-purple-50 border border-purple-100 rounded-lg px-2 py-1.5">
+                          Los anexos anteriores se conservan y se suman con los nuevos.
+                        </p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -2216,162 +2268,10 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                         </td>
                       </tr>
                     ))
-                 )}
+)}
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ✨ MODAL DE DETALLE ÚNICO DEL INFORME (IMAGEN 2) */}
-      {informeDetalleModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-6 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95">
-            
-            {/* Cabecera Oscura */}
-            <div className="bg-[#0f172a] text-white flex text-[10px] font-black uppercase tracking-widest border-b border-slate-700">
-              <div className="p-4 w-40 border-r border-slate-700">Consecutivo</div>
-              <div className="p-4 flex-1 border-r border-slate-700">Proceso / Título</div>
-              <div className="p-4 w-64 text-center border-r border-slate-700">Trazabilidad de Firmas</div>
-              <div className="p-4 w-56 text-center border-r border-slate-700">Socialización e Impacto</div>
-              <div className="p-4 w-48 text-center">Documentos Custodiados</div>
-            </div>
-
-            {/* Fila de Datos */}
-            <div className="flex bg-white items-stretch">
-              {/* Consecutivo */}
-              <div className="p-5 w-40 flex items-center">
-                <span className="text-sm font-black font-mono text-slate-800 break-words">{informeDetalleModal.ref}</span>
-              </div>
-              
-              {/* Proceso y Título */}
-              <div className="p-5 flex-1 flex flex-col justify-center">
-                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-black rounded uppercase text-[9px] tracking-wider w-max mb-2">
-                  {informeDetalleModal.procesoLimpio}
-                </span>
-                <h3 className="font-bold text-slate-800 text-sm leading-tight mb-1">{informeDetalleModal.titulo}</h3>
-                <p className="text-[9px] text-slate-400 font-medium">Emitido el: {informeDetalleModal.fecha}</p>
-                <div className="mt-3">
-                  <span className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full">
-                    {contarCambios(informeDetalleModal)} cambios
-                  </span>
-                </div>
-              </div>
-
-              {/* Trazabilidad (Firmas) */}
-              <div className="p-5 w-64 flex items-center justify-center border-l border-slate-100">
-                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 w-full space-y-2 text-[9px] font-medium text-slate-600">
-                  <div className="truncate"><span className="text-orange-400 mr-1">✍️</span><span className="text-slate-400 font-bold mr-1">ELABORÓ:</span> <span className="font-black text-slate-800" title={informeDetalleModal.elaboradoPor}>{informeDetalleModal.elaboradoPor}</span></div>
-                  <div className="truncate"><span className="text-blue-400 mr-1">🔍</span><span className="text-slate-400 font-bold mr-1">REVISÓ:</span> <span className="font-black text-slate-800" title={informeDetalleModal.revisadoPor}>{informeDetalleModal.revisadoPor}</span></div>
-                  <div className="truncate"><span className="text-amber-500 mr-1">🔒</span><span className="text-slate-400 font-bold mr-1">APROBÓ:</span> <span className="font-black text-slate-800" title={informeDetalleModal.aprobadoPor}>{informeDetalleModal.aprobadoPor}</span></div>
-                </div>
-              </div>
-
-              {/* Socialización e Impacto */}
-              <div className="p-5 w-56 flex flex-col justify-center items-center gap-3 border-l border-slate-100">
-                <span className={`px-4 py-1 rounded-full font-black text-[10px] uppercase tracking-widest border shadow-sm ${informeDetalleModal.socializado === 'Sí' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                  📢 Socializado: {informeDetalleModal.socializado || 'No'}
-                </span>
-                
-                {informeDetalleModal.socializado === 'Sí' && (
-                  <div className="text-[9px] text-slate-500 font-bold bg-white px-2 py-1 rounded border border-slate-200 w-full text-center truncate" title={informeDetalleModal.participantes || informeDetalleModal.socializadoCon}>
-                    <span className="text-slate-400 font-normal">Cargos:</span> {informeDetalleModal.participantes || informeDetalleModal.socializadoCon}
-                  </div>
-                )}
-                
-                {informeDetalleModal.correoEnviadoA && (
-                  <span className="bg-emerald-50 px-3 py-1 rounded font-black text-[9px] uppercase text-emerald-700 border border-emerald-200 shadow-sm flex items-center gap-1.5">
-                    <span>📧</span> Notificado al Líder
-                  </span>
-                )}
-              </div>
-
-              {/* Documentos Custodiados & Botones de Acción */}
-              <div className="p-5 w-48 flex flex-col justify-center gap-3 border-l border-slate-100 bg-slate-50/50">
-                <button 
-                  onClick={() => {
-                    const urlValida = informeDetalleModal.evidenciaUrl || informeDetalleModal.evidenciaUrlInput || informeDetalleModal.archivoUrl || informeDetalleModal.url || informeDetalleModal.path;
-                    if (!urlValida || urlValida === '#' || urlValida.trim() === '') return alert("⚠️ Este informe no tiene un PDF asignado.");
-                    abrirArchivo(urlValida, informeDetalleModal.titulo ? `${informeDetalleModal.titulo}.pdf` : 'informe.pdf');
-                  }}
-                  className="bg-blue-50 text-blue-700 font-black px-4 py-2.5 rounded-xl text-[10px] hover:bg-blue-100 flex items-center justify-center gap-2 border border-blue-200 shadow-sm transition-all w-full"
-                >
-                  <span>📄</span><span>Ver Informe Final</span>
-                </button>
-                
-                {(() => {
-                  const urlActa = informeDetalleModal.actaSocializacionUrl || informeDetalleModal.actaSocializacionUrlInput || informeDetalleModal.actaUrl;
-                  if (urlActa && urlActa !== '#') {
-                    return (
-                      <button 
-                        onClick={() => abrirArchivo(urlActa, informeDetalleModal.titulo ? `${informeDetalleModal.titulo}_acta.pdf` : 'acta_socializacion.pdf')}
-                        className="bg-white border border-slate-200 border-dashed text-slate-600 font-black px-4 py-2 rounded-xl text-[9px] hover:bg-slate-50 flex items-center justify-center gap-1.5 transition-all w-full"
-                      >
-                        <span>🤝</span><span>Ver Acta</span>
-                      </button>
-                    );
-                  }
-                  return <div className="text-[9px] text-slate-400 italic bg-white py-2 rounded-xl border border-dashed border-slate-200 text-center">Sin Acta Cargada</div>;
-                })()}
-
-                {isAdmin && (
-                  <div className="flex justify-center items-center gap-4 pt-3 border-t border-slate-200 w-full">
-                    <button 
-                      onClick={() => { 
-                        setEditInformeAuditoria(informeDetalleModal); 
-                        setModoVistaCompleta(false); 
-                        cambiarVistaSegura('nuevo'); 
-                        setFormResetKey(Date.now()); 
-                        setInformeDetalleModal(null); // Cerramos el modal
-                        scrollToForm(); 
-                      }} 
-                      className="text-orange-500 hover:text-orange-700 flex flex-col items-center gap-1 transition-colors"
-                    >
-                      <span className="text-sm">✏️</span>
-                      <span className="text-[9px] font-black uppercase">Editar</span>
-                    </button>
-                    
-                    <button 
-                      onClick={() => { 
-                        setEditInformeAuditoria(informeDetalleModal); 
-                        setModoVistaCompleta(true); 
-                        cambiarVistaSegura('nuevo'); 
-                        setFormResetKey(Date.now()); 
-                        setInformeDetalleModal(null); // Cerramos el modal
-                        scrollToForm(); 
-                      }} 
-                      className="text-slate-500 hover:text-slate-800 flex flex-col items-center gap-1 transition-colors"
-                    >
-                      <span className="text-sm">👁️</span>
-                      <span className="text-[9px] font-black uppercase text-center leading-none">Ver info<br/>completa</span>
-                    </button>
-
-                    <button 
-                      onClick={() => {
-                        handleDeleteItem('informesAuditoria', informeDetalleModal.id);
-                        setInformeDetalleModal(null);
-                      }} 
-                      className="text-slate-300 hover:text-red-500 flex flex-col items-center gap-1 transition-colors"
-                    >
-                      <span className="text-sm">🗑️</span>
-                      <span className="text-[9px] font-black uppercase">Eliminar</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Footer Modal */}
-            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
-              <button 
-                onClick={() => setInformeDetalleModal(null)}
-                className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-all"
-              >
-                Cerrar vista
-              </button>
-            </div>
-
           </div>
         </div>
       )}
