@@ -786,30 +786,47 @@ const handleFileUpload = async (e, type) => {
       {/* 🚀 VISTA 1: DASHBOARD ANALÍTICO TIPO BIG FOUR (IMAGEN 1) */}
       {vistaActiva === 'dashboard' && (() => {
         // Relaciona la referencia guardada en cada informe con la fuente real del módulo.
+        const normalizarReferencia = referencia => String(referencia || '').trim().toLowerCase();
         const fuentesPorReferencia = new Map(
           fuentesMejoraDisponibles.flatMap(fuente =>
             [fuente.codigo, fuente.id]
               .filter(Boolean)
-              .map(referencia => [String(referencia).trim().toLowerCase(), fuente])
+              .map(referencia => [normalizarReferencia(referencia), fuente])
           )
         );
         const conteoFuentes = informesDashboard.reduce((acc, inf) => {
           const referencia = String(inf.tipoFuente || 'Auditoría Interna').trim();
-          const fuenteReal = fuentesPorReferencia.get(referencia.toLowerCase()) || null;
+          const fuenteReal = fuentesPorReferencia.get(normalizarReferencia(referencia)) || null;
+          const norma = fuenteReal?.norma || fuenteReal?.tipoNorma;
+          const nombreGrupo = fuenteReal ? norma || fuenteReal.tipoFuente || 'Fuente sin norma' : referencia;
           const clave = fuenteReal
-            ? String(fuenteReal.codigo || fuenteReal.id)
-            : `legacy:${referencia}`;
+            ? `norma:${normalizarReferencia(nombreGrupo)}`
+            : `legacy:${normalizarReferencia(referencia)}`;
           const fuenteAgrupada = acc.get(clave) || {
             clave,
-            referencia,
-            fuente: fuenteReal,
+            nombre: nombreGrupo,
+            referencias: new Set(),
+            fuentes: [],
             cantidad: 0,
           };
+          fuenteAgrupada.referencias.add(normalizarReferencia(referencia));
+          if (fuenteReal) {
+            [fuenteReal.codigo, fuenteReal.id].filter(Boolean).forEach(id =>
+              fuenteAgrupada.referencias.add(normalizarReferencia(id))
+            );
+            if (!fuenteAgrupada.fuentes.some(fuente =>
+              String(fuente.codigo || fuente.id) === String(fuenteReal.codigo || fuenteReal.id)
+            )) {
+              fuenteAgrupada.fuentes.push(fuenteReal);
+            }
+          }
           fuenteAgrupada.cantidad += 1;
           acc.set(clave, fuenteAgrupada);
           return acc;
         }, new Map());
-        const fuentesArray = [...conteoFuentes.values()].sort((a, b) => b.cantidad - a.cantidad);
+        const fuentesArray = [...conteoFuentes.values()].sort((a, b) =>
+          b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre)
+        );
         
         // Paleta de colores para la dona y pastillas
         const coloresArray = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#06b6d4'];
@@ -875,28 +892,22 @@ const handleFileUpload = async (e, type) => {
                   <span className="bg-white/20 text-white text-[10px] font-black px-2 py-0.5 rounded-md">({totalInformes})</span>
                 </div>
                 {fuentesArray.map((fuenteAgrupada, idx) => {
-                  const fuenteReal = fuenteAgrupada.fuente;
-                  const codigo = fuenteReal?.codigo || fuenteReal?.id || fuenteAgrupada.referencia;
-                  const detalle = fuenteReal
-                    ? [
-                        fuenteReal.norma || fuenteReal.tipoNorma,
-                        fuenteReal.macroproceso || fuenteReal.proceso,
-                      ].filter(Boolean).join(' · ')
-                    : 'Sin ficha de fuente vinculada';
-                  const title = fuenteReal
-                    ? [
-                        codigo,
-                        fuenteReal.norma || fuenteReal.tipoNorma,
-                        fuenteReal.responsable || fuenteReal.auditor,
-                        fuenteReal.alcance || fuenteReal.descripcion,
-                      ].filter(Boolean).join(' · ')
-                    : `${fuenteAgrupada.referencia}: no se encontró la fuente original`;
+                  const detalle = fuenteAgrupada.fuentes.length > 1
+                    ? `${fuenteAgrupada.fuentes.length} fuentes vinculadas`
+                    : fuenteAgrupada.fuentes[0]?.macroproceso || fuenteAgrupada.fuentes[0]?.proceso || '';
+                  const title = fuenteAgrupada.fuentes.length > 0
+                    ? fuenteAgrupada.fuentes.map(fuente => [
+                        fuente.codigo || fuente.id,
+                        fuente.responsable || fuente.auditor,
+                        fuente.alcance || fuente.descripcion,
+                      ].filter(Boolean).join(' · ')).join(' | ')
+                    : `${fuenteAgrupada.nombre}: no se encontró la fuente original`;
 
                   return (
                   <div key={fuenteAgrupada.clave} title={title} className="bg-white border border-slate-200 text-slate-600 px-4 py-2.5 rounded-xl flex items-center gap-3 shrink-0 hover:bg-slate-50 cursor-pointer shadow-sm transition-colors max-w-[280px]">
                     <span className="text-sm">{iconosArray[idx % iconosArray.length]}</span>
                     <span className="min-w-0 flex flex-col">
-                      <span className="text-[11px] font-bold truncate">{codigo}</span>
+                      <span className="text-[11px] font-bold truncate">{fuenteAgrupada.nombre}</span>
                       <span className="text-[9px] text-slate-400 truncate">{detalle}</span>
                     </span>
                     <span className="text-slate-400 text-[10px] font-bold">({fuenteAgrupada.cantidad})</span>
@@ -978,10 +989,9 @@ const handleFileUpload = async (e, type) => {
                           <tr><td colSpan="10" className="p-12 text-center text-slate-400 font-bold italic">No hay informes para los filtros seleccionados.</td></tr>
                         ) : (
                           applyFilters(informesDashboard, searchTerm, columnFilters).slice(0, 10).map(inf => {
-                            const referenciaInforme = String(inf.tipoFuente || 'Auditoría Interna').trim().toLowerCase();
+                            const referenciaInforme = normalizarReferencia(inf.tipoFuente || 'Auditoría Interna');
                             const iconIndex = fuentesArray.findIndex(fuente =>
-                              [fuente.referencia, fuente.fuente?.codigo, fuente.fuente?.id]
-                                .some(referencia => String(referencia || '').trim().toLowerCase() === referenciaInforme)
+                              fuente.referencias.has(referenciaInforme)
                             );
                             const colorClass = ['text-blue-600 bg-blue-50 border-blue-200', 'text-purple-600 bg-purple-50 border-purple-200', 'text-emerald-600 bg-emerald-50 border-emerald-200', 'text-amber-600 bg-amber-50 border-amber-200', 'text-rose-600 bg-rose-50 border-rose-200', 'text-cyan-600 bg-cyan-50 border-cyan-200'][iconIndex % 6];
                             
@@ -1096,18 +1106,13 @@ const handleFileUpload = async (e, type) => {
 
                   <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                      {fuentesArray.map((fuenteAgrupada, idx) => {
-                       const fuenteReal = fuenteAgrupada.fuente;
-                       const codigo = fuenteReal?.codigo || fuenteReal?.id || fuenteAgrupada.referencia;
-                       const detalle = fuenteReal
-                         ? [fuenteReal.norma || fuenteReal.tipoNorma, fuenteReal.macroproceso || fuenteReal.proceso].filter(Boolean).join(' · ')
-                         : 'Sin ficha de fuente vinculada';
                        const percent = totalInformes > 0 ? Math.round((fuenteAgrupada.cantidad / totalInformes) * 100) : 0;
                        const color = coloresArray[idx % coloresArray.length];
                        return (
                          <div key={fuenteAgrupada.clave} className="flex justify-between items-center text-[10px] font-bold">
-                           <span className="flex items-center text-slate-600 truncate" title={`${codigo} · ${detalle}`}>
+                           <span className="flex items-center text-slate-600 truncate" title={fuenteAgrupada.nombre}>
                              <span className="w-2 h-2 rounded-full mr-2 shrink-0" style={{ backgroundColor: color }}></span> 
-                             <span className="truncate w-28">{codigo}</span>
+                             <span className="truncate w-28">{fuenteAgrupada.nombre}</span>
                            </span>
                            <span className="text-slate-800 shrink-0">{fuenteAgrupada.cantidad} <span className="text-slate-400 font-medium ml-1">({percent}%)</span></span>
                          </div>
@@ -1287,7 +1292,7 @@ const handleFileUpload = async (e, type) => {
                       </optgroup>
                     )}
                     <optgroup label="Otras Fuentes Manuales">
-                      <option value="Programa de Auditoría">Programa de Auditoría (Heredado)</option>
+                      <option value="Programa de Auditoría">Programa de Auditoría</option>
                     </optgroup>
                   </select>
                 </div>

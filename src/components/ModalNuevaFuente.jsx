@@ -10,7 +10,6 @@ export default function ModalNuevaFuente({
   codigoInicial = 'FA-001',
   normasDisponibles = NORMAS_PREDETERMINADAS,
   onAddNorma,
-  onDeleteNorma,
   // ✨ NUEVAS PROPS: Para editar o ver
   fuenteEdicion = null,
   isReadOnly = false,
@@ -19,55 +18,24 @@ export default function ModalNuevaFuente({
   const [nuevaNorma, setNuevaNorma] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [formData, setFormData] = useState({
-    tipoFuente: 'Auditoría Interna',
-    codigo: codigoInicial,
-    norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
-    fecha: new Date().toISOString().split('T')[0],
-    responsable: '', // ✨ Dejado en blanco para forzar selección
-    estado: 'Borrador',
-    descripcion: '',
-    alcance: '',
-    macroproceso: '',
-    subproceso: '',
-    proceso: '',
-    origen: 'interno',
-  });
+  const [formData, setFormData] = useState(() => {
+    const valoresIniciales = {
+      tipoFuente: 'Auditoría Interna',
+      codigo: codigoInicial,
+      norma: [normasDisponibles[0] || NORMAS_PREDETERMINADAS[0]],
+      fecha: new Date().toISOString().split('T')[0],
+      responsable: '',
+      estado: 'Borrador',
+      descripcion: '',
+      alcance: '',
+      macroproceso: '',
+      subproceso: '',
+      proceso: '',
+      origen: 'interno',
+    };
 
-  // ✨ LÓGICA DE INICIALIZACIÓN MÁGICA (VISTA, EDICIÓN O CREACIÓN)
-  useEffect(() => {
-    if (isOpen) {
-      // El modal se reutiliza para creación y edición; reiniciar su estado al abrirlo es intencional.
-      /* eslint-disable react-hooks/set-state-in-effect */
-      setStep(1);
-      setNuevaNorma('');
-      setIsDirty(false);
-      setShowExitConfirm(false);
-      
-      if (fuenteEdicion) {
-        setFormData(fuenteEdicion); // Carga datos al Editar/Ver
-      } else {
-        setFormData({
-          tipoFuente: 'Auditoría Interna',
-          codigo: codigoInicial,
-          norma: normasDisponibles[0] || NORMAS_PREDETERMINADAS[0],
-          fecha: new Date().toISOString().split('T')[0],
-          responsable: '', // ✨ Responsable vacío para forzar selección
-          estado: 'Borrador',
-          descripcion: '',
-          alcance: '',
-          macroproceso: '',
-          subproceso: '',
-          proceso: '',
-          origen: 'interno',
-        });
-      }
-      /* eslint-enable react-hooks/set-state-in-effect */
-    }
-    // 🛑 TRUCO CLAVE: Eliminamos "normasDisponibles" de las dependencias
-    // para evitar que el formulario se borre al agregar una norma nueva.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, fuenteEdicion]);
+    return fuenteEdicion ? { ...valoresIniciales, ...fuenteEdicion } : valoresIniciales;
+  });
 
   useEffect(() => {
     if (!isOpen || !isDirty) return undefined;
@@ -83,10 +51,7 @@ export default function ModalNuevaFuente({
 
   if (!isOpen) return null;
 
-  const subprocesosDisponibles = formData.macroproceso
-    ? MAPA_PROCESOS[formData.macroproceso] || []
-    : [];
-  // Se bloquea si solo hay 1 o 0 opciones, para que el usuario no tenga que interactuar con él
+  const subprocesosDisponibles = formData.macroproceso ? MAPA_PROCESOS[formData.macroproceso] || [] : [];
   const subprocesoDeshabilitado = isReadOnly || !formData.macroproceso || subprocesosDisponibles.length <= 1;
 
   const handleInputChange = (e) => {
@@ -97,7 +62,23 @@ export default function ModalNuevaFuente({
 
   const handleNormaChange = (e) => {
     setIsDirty(true);
-    setFormData((prev) => ({ ...prev, norma: e.target.value }));
+    const selectedValue = e.target.value;
+    
+    if (selectedValue === '__nueva__' || !selectedValue) return;
+
+    setFormData((prev) => {
+      const normasActuales = Array.isArray(prev.norma) ? prev.norma : (prev.norma ? [prev.norma] : []);
+      if (normasActuales.includes(selectedValue)) return prev;
+      return { ...prev, norma: [...normasActuales, selectedValue] };
+    });
+  };
+
+  const removerNormaSeleccionada = (normaARemover) => {
+    setIsDirty(true);
+    setFormData((prev) => {
+      const normasActuales = Array.isArray(prev.norma) ? prev.norma : [];
+      return { ...prev, norma: normasActuales.filter(n => n !== normaARemover) };
+    });
   };
 
   const handleMacroprocesoChange = (e) => {
@@ -137,17 +118,6 @@ export default function ModalNuevaFuente({
     // Forzamos la actualización del formulario para que seleccione la norma recién creada
     setFormData((prev) => ({ ...prev, norma: norma }));
     setNuevaNorma('');
-  };
-
-  const handleDeleteNorma = () => {
-    const normaEliminada = formData.norma;
-    const siguienteNorma = normasDisponibles.find((norma) => norma !== normaEliminada) || NORMAS_PREDETERMINADAS[0];
-
-    if (!window.confirm(`¿Seguro que quieres eliminar la norma "${normaEliminada}" de la lista?`)) return;
-
-    onDeleteNorma?.(normaEliminada);
-    setFormData((prev) => ({ ...prev, norma: siguienteNorma }));
-    setIsDirty(true);
   };
 
   const handleClose = () => {
@@ -259,32 +229,47 @@ export default function ModalNuevaFuente({
                     <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Código / Referencia</label>
                     <input name="codigo" type="text" value={formData.codigo} readOnly className="w-full border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 bg-slate-50 outline-none" />
                   </div>
-                 <div>
-                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Norma / Referencia *</label>
-                    <div className="flex gap-2">
+                 <div className="row-span-2">
+                    <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-2">Norma(s) / Referencia(s) *</label>
+                    <div className="flex flex-col gap-2">
                       <select 
                         disabled={isReadOnly} 
-                        name="norma" 
-                        value={formData.norma} 
-                        onChange={handleNormaChange} 
-                        className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400"
+                        name="norma_select" 
+                        value="" 
+                        onChange={(e) => {
+                          if (e.target.value === '__nueva__') {
+                            setFormData(prev => ({ ...prev, _creandoNueva: true }));
+                          } else {
+                            handleNormaChange(e);
+                          }
+                        }} 
+                        className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer"
                       >
-                        {/* 💡 MAGIA: Forzamos renderizar la norma si fue recién agregada y React aún no actualiza normasDisponibles */}
-                        {!normasDisponibles.includes(formData.norma) && formData.norma !== '__nueva__' && (
-                          <option value={formData.norma}>{formData.norma}</option>
-                        )}
+                        <option value="">-- Añadir Norma a la Auditoría --</option>
                         {normasDisponibles.map((n) => (
-                          <option key={n} value={n}>{n}</option>
+                          <option key={n} value={n} disabled={(Array.isArray(formData.norma) ? formData.norma : [formData.norma]).includes(n)}>
+                            {n}
+                          </option>
                         ))}
-                        <option value="__nueva__">Otra / Crear nueva norma</option>
+                        <option value="__nueva__">➕ Otra / Crear nueva norma</option>
                       </select>
-                      {!isReadOnly && formData.norma !== '__nueva__' && !NORMAS_PREDETERMINADAS.includes(formData.norma) && (
-                        <button type="button" onClick={handleDeleteNorma} className="px-3 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 hover:bg-rose-100" title="Eliminar norma seleccionada">
-                          Eliminar
-                        </button>
-                      )}
+
+                      <div className="flex flex-wrap gap-2 mt-1 min-h-[40px] p-2 bg-slate-50 border border-slate-200 rounded-xl items-center shadow-inner">
+                        {(!formData.norma || (Array.isArray(formData.norma) && formData.norma.length === 0)) && (
+                          <span className="text-[10px] text-slate-400 italic font-medium w-full text-center">Ninguna norma seleccionada...</span>
+                        )}
+                        {(Array.isArray(formData.norma) ? formData.norma : (formData.norma ? [formData.norma] : [])).map(normaSeleccionada => (
+                          <span key={normaSeleccionada} className="bg-blue-100 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-lg text-[10px] font-black flex items-center shadow-sm">
+                            {normaSeleccionada}
+                            {!isReadOnly && (
+                              <button type="button" onClick={() => removerNormaSeleccionada(normaSeleccionada)} className="ml-2 text-blue-500 hover:text-blue-700 hover:bg-blue-200 rounded-full w-4 h-4 flex items-center justify-center transition-colors">✕</button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    {!isReadOnly && formData.norma === '__nueva__' && (
+                    
+                    {!isReadOnly && formData._creandoNueva && (
                       <div className="flex gap-2 mt-2">
                         <input
                           type="text"
@@ -293,8 +278,11 @@ export default function ModalNuevaFuente({
                           placeholder="Ej. ISO 31000"
                           className="min-w-0 flex-1 border border-slate-200 rounded-xl p-3 text-sm font-bold text-slate-700 outline-none focus:border-blue-500 shadow-sm"
                         />
-                        <button type="button" onClick={handleAddNorma} className="px-3 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700">
+                        <button type="button" onClick={() => { handleAddNorma(); setFormData(prev => ({...prev, _creandoNueva: false})); }} className="px-3 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700">
                           Agregar
+                        </button>
+                        <button type="button" onClick={() => setFormData(prev => ({...prev, _creandoNueva: false}))} className="px-3 rounded-xl text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200">
+                          Cancelar
                         </button>
                       </div>
                     )}
@@ -408,7 +396,12 @@ export default function ModalNuevaFuente({
                 <span className="text-slate-400 mt-0.5">⚖️</span>
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Norma / Referencia</p>
-                  <p className="text-sm font-bold text-slate-800">{formData.norma || '---'}</p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(Array.isArray(formData.norma) ? formData.norma : [formData.norma]).filter(Boolean).map(n => (
+                      <span key={n} className="text-[10px] font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded">{n}</span>
+                    ))}
+                    {(!formData.norma || formData.norma.length === 0) && <span className="text-sm font-bold text-slate-800">---</span>}
+                  </div>
                 </div>
               </div>
               <div className="flex items-start gap-3">

@@ -39,7 +39,10 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
 
   // 🧠 MEMORIA FOTOGRÁFICA: Leemos todas las normas que ya existen en las fuentes creadas
   const [normasDisponibles, setNormasDisponibles] = useState(() => {
-    const normasDB = (Array.isArray(fuentes) ? fuentes : []).map(f => f.tipoNorma || f.norma).filter(Boolean);
+    const normasDB = (Array.isArray(fuentes) ? fuentes : []).flatMap(f => {
+      const n = f.tipoNorma || f.norma;
+      return Array.isArray(n) ? n : [n];
+    }).filter(Boolean);
     return [...new Set([...normasIniciales, ...normasDB])];
   });
 
@@ -50,7 +53,10 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
     setFuentesActuales(arrFuentes);
     
     // Si llegan fuentes de la Base de Datos, extraemos sus normas automáticamente para no perderlas
-    const normasDB = arrFuentes.map(f => f.tipoNorma || f.norma).filter(Boolean);
+    const normasDB = arrFuentes.flatMap(f => {
+      const n = f.tipoNorma || f.norma;
+      return Array.isArray(n) ? n : [n];
+    }).filter(Boolean);
     setNormasDisponibles(prev => [...new Set([...prev, ...normasDB])]);
   }, [fuentes]);
 
@@ -61,9 +67,12 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
   const cerradas = fuentesActuales.filter(f => f.estado === 'Cerrada').length;
   const seguimiento = fuentesActuales.filter(f => f.estado === 'En seguimiento').length;
   
-  // Agrupación para la dona de "Normas"
+  // Agrupación para la dona de "Normas" (Soporta múltiples)
   const conteoNormas = fuentesActuales.reduce((acc, f) => {
-    acc[f.tipoNorma || f.norma] = (acc[f.tipoNorma || f.norma] || 0) + 1;
+    const normasFuente = Array.isArray(f.norma) ? f.norma : (f.norma ? [f.norma] : (f.tipoNorma ? [f.tipoNorma] : []));
+    normasFuente.forEach(n => {
+      acc[n] = (acc[n] || 0) + 1;
+    });
     return acc;
   }, {});
   const normasArray = Object.entries(conteoNormas).sort((a,b) => b[1] - a[1]);
@@ -84,18 +93,21 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
       fuente.macroproceso,
       fuente.subproceso,
       fuente.proceso,
-    ].filter(Boolean).join(' ').toLowerCase();
-    const norma = fuente.norma || fuente.tipoNorma || '';
-    const fecha = fechaComparable(fuente.fecha);
+   ].filter(Boolean).join(' ').toLowerCase();
+      
+      // Convertimos la norma siempre a un arreglo seguro para buscar
+      const normaCruda = fuente.norma || fuente.tipoNorma || [];
+      const normasArray = Array.isArray(normaCruda) ? normaCruda : [normaCruda];
+      const fecha = fechaComparable(fuente.fecha);
 
-    return (
-      (!searchTerm.trim() || textoBusqueda.includes(searchTerm.trim().toLowerCase())) &&
-      (filtroNorma === 'TODOS' || norma === filtroNorma) &&
-      (filtroEstado === 'TODOS' || fuente.estado === filtroEstado) &&
-      (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
-      (!fechaHasta || (fecha && fecha <= fechaHasta))
-    );
-  });
+      return (
+        (!searchTerm.trim() || textoBusqueda.includes(searchTerm.trim().toLowerCase())) &&
+        (filtroNorma === 'TODOS' || normasArray.includes(filtroNorma)) &&
+        (filtroEstado === 'TODOS' || fuente.estado === filtroEstado) &&
+        (!fechaDesde || (fecha && fecha >= fechaDesde)) &&
+        (!fechaHasta || (fecha && fecha <= fechaHasta))
+      );
+    });
 
   const handleAddNorma = (norma) => {
     setNormasDisponibles((prev) => (
@@ -103,10 +115,6 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
         ? prev
         : [...prev, norma]
     ));
-  };
-
-  const handleDeleteNorma = (norma) => {
-    setNormasDisponibles((prev) => prev.filter((existente) => existente !== norma));
   };
 
   const actualizarFuentes = (fuentesActualizadas) => {
@@ -258,7 +266,11 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
                     <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" /></td>
                     <td className="p-4 font-black text-slate-800 bg-slate-50/50">{f.codigo || f.id}</td>
                     <td className="p-4">
-                      <span className="font-bold border border-slate-200 bg-white px-2 py-0.5 rounded-md text-[10px] shadow-sm">{f.norma || f.tipoNorma}</span>
+                      <div className="flex flex-wrap gap-1">
+                        {(Array.isArray(f.norma) ? f.norma : (f.norma ? [f.norma] : (f.tipoNorma ? [f.tipoNorma] : []))).map((n, index) => (
+                          <span key={index} className="font-bold border border-slate-200 bg-white px-2 py-0.5 rounded-md text-[9px] shadow-sm">{n}</span>
+                        ))}
+                      </div>
                     </td>
                     <td className="p-4 font-bold text-slate-600">{f.fecha}</td>
                     <td className="p-4">
@@ -404,7 +416,7 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
         </div>
       </div>
 {/* ✨ RENDERIZAR EL MODAL DINÁMICO */}
-      <ModalNuevaFuente 
+      {isModalOpen && <ModalNuevaFuente 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
         fuenteEdicion={fuenteSeleccionada}
@@ -412,9 +424,8 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
         codigoInicial={obtenerSiguienteCodigo(fuentesActuales)}
         normasDisponibles={normasDisponibles}
         onAddNorma={handleAddNorma}
-        onDeleteNorma={handleDeleteNorma}
         onSave={handleSaveFuente}
-      />
+      />}
     </div>
   );
 }
