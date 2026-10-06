@@ -516,19 +516,30 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
     try {
       const safeInformes = Array.isArray(informesAuditoria) ? informesAuditoria : [];
       const formData = new FormData(e.target);
-      const tituloVal = formData.get('titulo') || 'Sin título';
-      const procesoVal = formData.get('proceso') || formData.get('Proceso') || 'Sin proceso';
-      const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || 'General';
       
-      // Extracción robusta con fallbacks para evitar pérdidas de datos legacy o desincronización
-      const auditorResponsableOut = String(formData.get('auditorResponsable') || formData.get('auditor') || editInformeAuditoria?.auditorResponsable || '').trim();
-      const correoAuditorOut = String(formData.get('correoAuditor') || formData.get('correoAuditorResponsable') || editInformeAuditoria?.correoAuditor || '').trim();
-      const fechaSocializacionOut = String(formData.get('fechaSocializacion') || formData.get('fecha_socializacion') || editInformeAuditoria?.fechaSocializacion || '').trim();
-
-      const evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
+      const tituloVal = formData.get('titulo') || editInformeAuditoria?.titulo || 'Sin título';
+      const procesoVal = formData.get('proceso') || formData.get('Proceso') || editInformeAuditoria?.proceso || editInformeAuditoria?.macroproceso || 'Sin proceso';
+      const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || editInformeAuditoria?.subproceso || 'General';
+      
+      const fechaVal = formData.get('fecha') || editInformeAuditoria?.fecha || new Date().toISOString().split('T')[0];
+      
       const tipoFuenteOut = String(formData.get('tipoFuente') || editInformeAuditoria?.tipoFuente || '').trim();
       const detalleFuenteOut = String(formData.get('detalleFuente') || editInformeAuditoria?.detalleFuente || '').trim();
+      
+      const elaboradoPorVal = formData.get('elaboradoPor') || editInformeAuditoria?.elaboradoPor || '';
+      const revisadoPorVal = formData.get('revisadoPor') || editInformeAuditoria?.revisadoPor || '';
+      const aprobadoPorVal = formData.get('aprobadoPor') || formData.get('approvedPor') || editInformeAuditoria?.aprobadoPor || '';
+      
+      const auditorResponsableOut = String(formData.get('auditorResponsable') || formData.get('auditor') || editInformeAuditoria?.auditorResponsable || '').trim();
+      const correoAuditorOut = String(formData.get('correoAuditor') || formData.get('correoAuditorResponsable') || editInformeAuditoria?.correoAuditor || '').trim();
+      
+      const socializadoVal = formData.get('socializado') || editInformeAuditoria?.socializado || 'No';
+      const fechaSocializacionOut = String(formData.get('fechaSocializacion') || formData.get('fecha_socializacion') || editInformeAuditoria?.fechaSocializacion || '').trim();
+      const participantesVal = formData.get('participantes') || formData.get('socializadoCon') || editInformeAuditoria?.participantes || editInformeAuditoria?.socializadoCon || '';
+
+      const evidenciaUrlOut = formData.get('evidenciaUrlInput') || editInformeAuditoria?.evidenciaUrl || '';
       const correosNotificacionOut = String(formData.get('correosNotificacionInput') || editInformeAuditoria?.correoEnviadoA || '').trim();
+      
       const anexosMultiplesRaw = formData.get('anexosMultiples') || '[]';
       let anexosMultiplesOut = [];
       try {
@@ -538,6 +549,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
         anexosMultiplesOut = [];
       }
       const actaSocializacionUrlOut = formData.get('actaSocializacionUrlInput') || anexosMultiplesOut[0]?.url || editInformeAuditoria?.actaSocializacionUrl || '';
+      
       const tsActual = new Date().toLocaleString();
       const horaActual = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
       let updated; let refConsecutivoFinal = '';
@@ -549,6 +561,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
         const motivo = String(formData.get('motivoCambio') || '').trim();
         const accionCambio = motivo ? `Actualización del informe — ${motivo}` : 'Actualización del informe';
         const versionActual = historialPrevio.length + 1;
+        
         const detalleCambio = buildHistorialDetalle({
           anterior: editInformeAuditoria,
           actual: {
@@ -557,55 +570,45 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
             subproceso: subprocesoVal,
             tipoFuente: tipoFuenteOut,
             detalleFuente: detalleFuenteOut,
-            fecha: formData.get('fecha') || editInformeAuditoria.fecha,
-            elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '',
-            revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '',
-            aprobadoPor: formData.get('aprobadoPor') || formData.get('approvedPor') || editInformeAuditoria.aprobadoPor || '',
-            socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No',
+            fecha: fechaVal,
+            elaboradoPor: elaboradoPorVal,
+            revisadoPor: revisadoPorVal,
+            aprobadoPor: aprobadoPorVal,
+            socializado: socializadoVal,
             evidenciaUrl: evidenciaUrlOut,
             anexosMultiples: anexosMultiplesOut,
-            correoEnviadoA: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || '',
+            correoEnviadoA: correosNotificacionOut,
           },
           motivo,
           correosNotificacionOut,
         });
+
        const mod = { 
           ...editInformeAuditoria, 
           titulo: tituloVal, 
           proceso: procesoVal, 
+          macroproceso: procesoVal, 
           subproceso: subprocesoVal, 
-          tipoFuente: tipoFuenteOut || editInformeAuditoria.tipoFuente || '',
-          detalleFuente: detalleFuenteOut || editInformeAuditoria.detalleFuente || '',
-          fecha: formData.get('fecha') || editInformeAuditoria.fecha, 
-          elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '', 
-          revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '', 
-          aprobadoPor: formData.get('aprobadoPor') || formData.get('approvedPor') || editInformeAuditoria.aprobadoPor || '', 
+          tipoFuente: tipoFuenteOut,
+          detalleFuente: detalleFuenteOut,
+          fecha: fechaVal, 
+          elaboradoPor: elaboradoPorVal, 
+          revisadoPor: revisadoPorVal, 
+          aprobadoPor: aprobadoPorVal, 
           auditorResponsable: auditorResponsableOut,
           auditor: auditorResponsableOut,
           correoAuditor: correoAuditorOut,
           correoAuditorResponsable: correoAuditorOut,
-          socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No', 
+          socializado: socializadoVal, 
           fechaSocializacion: fechaSocializacionOut,
           fecha_socializacion: fechaSocializacionOut,
-          socializadoCon: formData.get('socializadoCon') || editInformeAuditoria.socializadoCon || '', 
+          socializadoCon: participantesVal, 
+          participantes: participantesVal,
           evidenciaUrl: evidenciaUrlOut,
           actaSocializacionUrl: actaSocializacionUrlOut,
           anexos: anexosMultiplesOut,
           anexosMultiples: anexosMultiplesOut,
-          objetivo: formData.get('objetivo') || editInformeAuditoria.objetivo || '', 
-          alcance: formData.get('alcance') || editInformeAuditoria.alcance || '', 
-          conclusion: formData.get('conclusion') || editInformeAuditoria.conclusion || '', 
-          fortalezas: formData.get('fortalezas') || editInformeAuditoria.fortalezas || '', 
-          img1Url: formData.get('img1Url') || editInformeAuditoria.img1Url || '', 
-          img1Desc: formData.get('img1Desc') || editInformeAuditoria.img1Desc || '', 
-          img2Url: formData.get('img2Url') || editInformeAuditoria.img2Url || '', 
-          img2Desc: formData.get('img2Desc') || editInformeAuditoria.img2Desc || '', 
-          img3Url: formData.get('img3Url') || editInformeAuditoria.img3Url || '', 
-          img3Desc: formData.get('img3Desc') || editInformeAuditoria.img3Desc || '', 
-          img4Url: formData.get('img4Url') || editInformeAuditoria.img4Url || '', 
-          img4Desc: formData.get('img4Desc') || editInformeAuditoria.img4Desc || '', 
-          correoEnviadoA: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || '',
-          fechaCorreoEnviado: editInformeAuditoria.fechaCorreoEnviado || '',
+          correoEnviadoA: correosNotificacionOut,
           historialCambios: [
             ...historialPrevio,
             {
@@ -618,23 +621,23 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
                 ...detalleCambio,
                 proceso: procesoVal,
                 subproceso: subprocesoVal,
-                socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No',
-                correoEnviadoA: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || '',
+                socializado: socializadoVal,
+                correoEnviadoA: correosNotificacionOut,
                 archivos: detalleCambio.archivos,
                 snapshot: {
                   titulo: tituloVal,
                   proceso: procesoVal,
                   subproceso: subprocesoVal,
-                  tipoFuente: tipoFuenteOut || editInformeAuditoria.tipoFuente || '',
-                  detalleFuente: detalleFuenteOut || editInformeAuditoria.detalleFuente || '',
-                  fecha: formData.get('fecha') || editInformeAuditoria.fecha,
-                  elaboradoPor: formData.get('elaboradoPor') || editInformeAuditoria.elaboradoPor || '',
-                  revisadoPor: formData.get('revisadoPor') || editInformeAuditoria.revisadoPor || '',
-                  aprobadoPor: formData.get('aprobadoPor') || formData.get('approvedPor') || editInformeAuditoria.aprobadoPor || '',
-                  socializado: formData.get('socializado') || editInformeAuditoria.socializado || 'No',
-                  fechaSocializacion: formData.get('fechaSocializacion') || editInformeAuditoria.fechaSocializacion || '',
-                  participantes: formData.get('participantes') || editInformeAuditoria.participantes || '',
-                  correosNotificacionInput: correosNotificacionOut || editInformeAuditoria.correoEnviadoA || '',
+                  tipoFuente: tipoFuenteOut,
+                  detalleFuente: detalleFuenteOut,
+                  fecha: fechaVal,
+                  elaboradoPor: elaboradoPorVal,
+                  revisadoPor: revisadoPorVal,
+                  aprobadoPor: aprobadoPorVal,
+                  socializado: socializadoVal,
+                  fechaSocializacion: fechaSocializacionOut,
+                  participantes: participantesVal,
+                  correosNotificacionInput: correosNotificacionOut,
                   evidenciaUrl: evidenciaUrlOut,
                   anexosMultiples: anexosMultiplesOut,
                   anexos: anexosMultiplesOut,
@@ -643,7 +646,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
             }
           ]
         };
-        updated = safeInformes.map(inf => inf.id === editInformeAuditoria.id ? mod : inf); 
+        
+        updated = safeInformes.map(inf => String(inf.id) === String(editInformeAuditoria.id) ? mod : inf); 
       } else {
         const ultimo = Math.max(...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)), 0);
         refConsecutivoFinal = `INF-2026-${String(ultimo + 1).padStart(3, '0')}`;
@@ -653,40 +657,30 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           ref: refConsecutivoFinal, 
           titulo: tituloVal, 
           proceso: procesoVal, 
+          macroproceso: procesoVal,
           subproceso: subprocesoVal, 
           tipoFuente: tipoFuenteOut,
           detalleFuente: detalleFuenteOut,
-          fecha: formData.get('fecha') || new Date().toISOString().split('T')[0], 
-          elaboradoPor: formData.get('elaboradoPor') || '', 
-          revisadoPor: formData.get('revisadoPor') || '', 
-          aprobadoPor: formData.get('aprobadoPor') || '', 
+          fecha: fechaVal, 
+          elaboradoPor: elaboradoPorVal, 
+          revisadoPor: revisadoPorVal, 
+          aprobadoPor: aprobadoPorVal, 
           auditorResponsable: auditorResponsableOut,
           auditor: auditorResponsableOut,
           correoAuditor: correoAuditorOut,
           correoAuditorResponsable: correoAuditorOut,
-          socializado: formData.get('socializado') || 'No', 
+          socializado: socializadoVal, 
           fechaSocializacion: fechaSocializacionOut,
           fecha_socializacion: fechaSocializacionOut,
-          socializadoCon: formData.get('socializadoCon') || '',
+          socializadoCon: participantesVal,
+          participantes: participantesVal,
           evidenciaUrl: evidenciaUrlOut, 
           actaSocializacionUrl: actaSocializacionUrlOut,
           anexos: anexosMultiplesOut,
           anexosMultiples: anexosMultiplesOut,
           hora: horaActual,
           fechaHora: tsActual,
-          objetivo: formData.get('objetivo') || '', 
-          alcance: formData.get('alcance') || '', 
-          conclusion: formData.get('conclusion') || '', 
-          fortalezas: formData.get('fortalezas') || '', 
-          img1Url: formData.get('img1Url') || '', 
-          img1Desc: formData.get('img1Desc') || '', 
-          img2Url: formData.get('img2Url') || '', 
-          img2Desc: formData.get('img2Desc') || '', 
-          img3Url: formData.get('img3Url') || '', 
-          img3Desc: formData.get('img3Desc') || '', 
-          img4Url: formData.get('img4Url') || '', 
-          img4Desc: formData.get('img4Desc') || '', 
-          correoEnviadoA: correosNotificacionOut || '',
+          correoEnviadoA: correosNotificacionOut,
           fechaCorreoEnviado: '',
           historialCambios: [],
         };
@@ -701,7 +695,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
 
       setInformesAuditoria(updated);
       if (editInformeAuditoria) setEditInformeAuditoria(null);
-      showNotification("Informe guardado.");
+      showNotification("Informe guardado con éxito.", "success");
 
       if (correosNotificacionOut !== '') {
         let correoEnviado = false;
@@ -711,7 +705,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
             asunto: `[GRC Termales] Radicación de Informe ${refConsecutivoFinal}`,
             titulo: limpiarTildesParaCorreo(tituloVal),
             evidenciaUrl: evidenciaUrlOut || 'https://auditoria-gcm.vercel.app',
-            anexosMultiples: formData.get('anexosMultiples') || '[]',
+            anexosMultiples: anexosMultiplesRaw,
             destinatarios: correosNotificacionOut
           });
         } catch (error) {
@@ -720,7 +714,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
         }
 
         if (correoEnviado) {
-          const informesConCorreo = updated.map(informe => informe.id === idInformeGuardado ? {
+          const informesConCorreo = updated.map(informe => String(informe.id) === String(idInformeGuardado) ? {
             ...informe,
             correoEnviadoA: correosNotificacionOut,
             fechaCorreoEnviado: tsActual
@@ -735,7 +729,8 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       }
       e.target.reset();
       return true;
-    } catch {
+    } catch (err) {
+      console.error(err);
       showNotification("Error al procesar el informe.", "error");
       return false;
     } finally {

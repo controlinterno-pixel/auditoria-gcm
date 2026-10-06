@@ -382,25 +382,26 @@ const diccionarioCorreos = {
           workflowCalculado = 'En Ejecución';
         }
 
+        // 🛡️ Salvaguardas para extraer datos correctamente, asegurando que no queden valores en blanco que rompan el sistema.
         const planData = {
           id: isNew ? Date.now() + Math.floor(Math.random() * 10000) : Number(act.id),
           idHallazgo: parseInt(hallazgoId),
           accion: act.accion,
-          sede: act.sede || '', 
-          responsable: act.responsable,
-          correoResponsable: act.correoResponsable.trim(),
-          revisor: act.revisor,
-          correoRevisor: act.correoRevisor.trim(),
-          auditorAsignado: act.auditorAsignado,
-          correoAuditor: act.correoAuditor,
+          sede: act.sede || 'No especificada', 
+          responsable: act.responsable || 'Sin Asignar',
+          correoResponsable: (act.correoResponsable || '').trim(),
+          revisor: act.revisor || 'Sin Asignar',
+          correoRevisor: (act.correoRevisor || '').trim(),
+          auditorAsignado: act.auditorAsignado || 'Sin Asignar',
+          correoAuditor: (act.correoAuditor || '').trim(),
           progreso: progresoEntero,
-          fechaInicio: act.fechaInicio || '',
-          fecha: act.fecha || '',
+          fechaInicio: act.fechaInicio || null, // Mejor null que string vacío para fechas
+          fecha: act.fecha || null,
           evidenciaUrl: act.evidenciaUrl || '',
           estadoWorkflow: workflowCalculado,
           estado: workflowCalculado === 'Cerrado' ? 'Cerrado' : 'En Proceso',
-          anio: act.fecha ? Number(act.fecha.split('-')[0]) : 2026,
-          mes: act.fecha ? act.fecha.split('-')[1] : "Junio",
+          anio: act.fecha ? Number(act.fecha.split('-')[0]) : new Date().getFullYear(),
+          mes: act.fecha ? act.fecha.split('-')[1] : String(new Date().getMonth() + 1).padStart(2, '0'),
           tipoAccion: act.tipoAccion || 'Acción Correctiva',
           matrizRiesgos: act.matrizRiesgos || 'No aplica',
           matrizAspectos: act.matrizAspectos || 'No aplica',
