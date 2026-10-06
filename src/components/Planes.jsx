@@ -299,22 +299,35 @@ const handleNotificarPlan = (planId) => {
     e.preventDefault();
     if (!formInformeId) return;
 
-    let errorCorreos = false;
+    let errorCorreosEjecutor = false;
+    let errorCorreosRevisor = false;
+
     Object.keys(matrixState).forEach(hallazgoId => {
       const node = matrixState[hallazgoId];
       if (node.aplica) {
         node.actividades.forEach(act => {
           if (act.accion && act.accion.trim() !== '') {
-            if (!act.correoResponsable || act.correoResponsable.trim() === '') errorCorreos = true;
-            if (!act.correoConfirmacion || act.correoConfirmacion.trim() === '') errorCorreos = true;
-            if (act.correoResponsable.trim().toLowerCase() !== act.correoConfirmacion.trim().toLowerCase()) errorCorreos = true;
+            // Validar Ejecutor
+            const corrResp1 = (act.correoResponsable || '').trim().toLowerCase();
+            const corrResp2 = (act.correoConfirmacion || '').trim().toLowerCase();
+            if (!corrResp1 || !corrResp2 || corrResp1 !== corrResp2) errorCorreosEjecutor = true;
+
+            // Validar Revisor
+            const corrRev1 = (act.correoRevisor || '').trim().toLowerCase();
+            const corrRev2 = (act.correoRevisorConfirmacion || '').trim().toLowerCase();
+            if (!corrRev1 || !corrRev2 || corrRev1 !== corrRev2) errorCorreosRevisor = true;
           }
         });
       }
     });
 
-    if (errorCorreos) {
-      alert("❌ ALERTA: Los correos electrónicos del responsable no coinciden o están vacíos. Por favor verifique ambas casillas antes de guardar.");
+    if (errorCorreosEjecutor) {
+      alert("❌ ALERTA: Los correos electrónicos del EJECUTOR (Responsable) no coinciden o están vacíos. Por favor, verifique las casillas marcadas en rojo antes de guardar.");
+      return;
+    }
+
+    if (errorCorreosRevisor) {
+      alert("❌ ALERTA: Los correos electrónicos del REVISOR (Jefatura) no coinciden o están vacíos. Por favor, verifique las casillas marcadas en rojo antes de guardar.");
       return;
     }
 
@@ -1642,38 +1655,98 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 />
                               </div>
 
-                             {/* ROLES DE EJECUCIÓN Y REVISIÓN */}
-                              <div className="md:col-span-2">
-                                <label className="font-bold text-purple-700 block mb-0.5">👷 Quien EJECUTA la Acción (Cargo)</label>
-                                <select 
-                                  value={act.responsable || ''} 
-                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} 
-                                  className="w-full border border-purple-200 p-2 rounded-lg font-bold text-purple-900 bg-purple-50 focus:bg-white shadow-sm outline-none cursor-pointer" 
-                                  required
-                                >
-                                  <option value="">-- Asignar Ejecutor --</option>
-                                  {CARGOS_EMPRESA.map((cargo, i) => <option key={`resp-${i}`} value={cargo}>{cargo}</option>)}
-                                </select>
-                              </div>
-                              <div className="md:col-span-2">
-                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo de quien EJECUTA</label>
-                                <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} placeholder="Correo del responsable" className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
-                              </div>
-                              <div className="md:col-span-2">
-                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar correo</label>
-                                <input type="email" value={act.correoConfirmacion || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} placeholder="Confirme el correo" className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
-                              </div>
-                              <div className="md:col-span-3">
-                                <label className="font-bold text-amber-600 block mb-0.5">👀 Quien REVISA la Acción (Cargo)</label>
-                                <select value={act.revisor || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'revisor', e.target.value)} className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white cursor-pointer shadow-sm outline-none" required>
-   <option value="">-- Asignar Revisor --</option>
-  {CARGOS_EMPRESA.map((cargo, i) => <option key={`rev-${i}`} value={cargo}>{cargo}</option>)}
-</select>
-                              </div>
-                              <div className="md:col-span-3">
-                                <label className="font-bold text-amber-600 block mb-0.5">✉️ Correo del Revisor</label>
-                                <input type="email" value={act.correoRevisor || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoRevisor', e.target.value)} placeholder="Correo de Jefatura que aprueba" className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white shadow-sm outline-none" required/>
-                              </div>
+                            {/* ROLES DE EJECUCIÓN Y REVISIÓN CON VALIDACIÓN VISUAL */}
+                              {(() => {
+                                const correoEjecutor1 = (act.correoResponsable || '').trim().toLowerCase();
+                                const correoEjecutor2 = (act.correoConfirmacion || '').trim().toLowerCase();
+                                const ejecutorCoincide = correoEjecutor1 === correoEjecutor2;
+                                const mostrarAlertaEjecutor = correoEjecutor2.length > 0 && !ejecutorCoincide;
+
+                                const correoRevisor1 = (act.correoRevisor || '').trim().toLowerCase();
+                                const correoRevisor2 = (act.correoRevisorConfirmacion || '').trim().toLowerCase();
+                                const revisorCoincide = correoRevisor1 === correoRevisor2;
+                                const mostrarAlertaRevisor = correoRevisor2.length > 0 && !revisorCoincide;
+
+                                return (
+                                  <>
+                                    <div className="md:col-span-2">
+                                      <label className="font-bold text-purple-700 block mb-0.5">👷 Quien EJECUTA la Acción (Cargo)</label>
+                                      <select 
+                                        value={act.responsable || ''} 
+                                        onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} 
+                                        className="w-full border border-purple-200 p-2 rounded-lg font-bold text-purple-900 bg-purple-50 focus:bg-white shadow-sm outline-none cursor-pointer" 
+                                        required
+                                      >
+                                        <option value="">-- Asignar Ejecutor --</option>
+                                        {CARGOS_EMPRESA.map((cargo, i) => <option key={`resp-${i}`} value={cargo}>{cargo}</option>)}
+                                      </select>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                      <label className="font-bold text-purple-700 block mb-0.5">📧 Correo de quien EJECUTA</label>
+                                      <input 
+                                        type="email" 
+                                        value={act.correoResponsable || ''} 
+                                        onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} 
+                                        placeholder="Correo del responsable" 
+                                        className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white shadow-sm outline-none" 
+                                        required 
+                                      />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                      <label className="font-bold text-purple-700 block mb-0.5 flex justify-between">
+                                        <span>✓ Confirmar correo</span>
+                                        {mostrarAlertaEjecutor && <span className="text-red-500 font-black animate-pulse">NO COINCIDE</span>}
+                                      </label>
+                                      <input 
+                                        type="email" 
+                                        value={act.correoConfirmacion || ''} 
+                                        onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} 
+                                        placeholder="Confirme el correo" 
+                                        className={`w-full border p-2 rounded-lg shadow-sm outline-none transition-colors ${mostrarAlertaEjecutor ? 'border-red-500 bg-red-50 text-red-900 focus:ring-2 focus:ring-red-500' : 'border-purple-200 bg-purple-50 focus:bg-white focus:ring-2 focus:ring-purple-400'}`} 
+                                        required 
+                                      />
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                      <label className="font-bold text-amber-600 block mb-0.5">👀 Quien REVISA la Acción (Cargo)</label>
+                                      <select 
+                                        value={act.revisor || ''} 
+                                        onChange={(e) => handleUpdateActivityField(h.id, index, 'revisor', e.target.value)} 
+                                        className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white cursor-pointer shadow-sm outline-none" 
+                                        required
+                                      >
+                                         <option value="">-- Asignar Revisor --</option>
+                                        {CARGOS_EMPRESA.map((cargo, i) => <option key={`rev-${i}`} value={cargo}>{cargo}</option>)}
+                                      </select>
+                                    </div>
+                                    <div className="md:col-span-2">
+                                      <label className="font-bold text-amber-600 block mb-0.5">✉️ Correo del Revisor</label>
+                                      <input 
+                                        type="email" 
+                                        value={act.correoRevisor || ''} 
+                                        onChange={(e) => handleUpdateActivityField(h.id, index, 'correoRevisor', e.target.value)} 
+                                        placeholder="Correo de Jefatura" 
+                                        className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white shadow-sm outline-none" 
+                                        required
+                                      />
+                                    </div>
+                                    <div className="md:col-span-2">
+                                      <label className="font-bold text-amber-600 block mb-0.5 flex justify-between">
+                                        <span>✓ Confirmar correo Revisor</span>
+                                        {mostrarAlertaRevisor && <span className="text-red-500 font-black animate-pulse">NO COINCIDE</span>}
+                                      </label>
+                                      <input 
+                                        type="email" 
+                                        value={act.correoRevisorConfirmacion || ''} 
+                                        onChange={(e) => handleUpdateActivityField(h.id, index, 'correoRevisorConfirmacion', e.target.value)} 
+                                        placeholder="Confirme correo Jefatura" 
+                                        className={`w-full border p-2 rounded-lg font-bold shadow-sm outline-none transition-colors ${mostrarAlertaRevisor ? 'border-red-500 bg-red-50 text-red-900 focus:ring-2 focus:ring-red-500' : 'border-amber-200 bg-amber-50 focus:bg-white focus:ring-2 focus:ring-amber-400'}`} 
+                                        required
+                                      />
+                                    </div>
+                                  </>
+                                );
+                              })()}
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Avance ({act.progreso}%)</label>
                                 <input type="number" min="0" max="100" value={act.progreso} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50" />
