@@ -84,6 +84,17 @@ export default function InformesAuditoria({
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroFuente, setDashFiltroFuente] = useState('Todas'); // ✨ NUEVO ESTADO PARA EL FILTRO DE PILLS
 
+  // ✨ ESTADO Y LÓGICA DE PAGINACIÓN REAL
+  const [paginaActual, setPaginaActual] = useState(1);
+  const actualizarFiltroDashboard = (actualizarFiltro, valor) => {
+    actualizarFiltro(valor);
+    setPaginaActual(1);
+  };
+  const handleFiltroColumnaConPaginacion = (...args) => {
+    handleColFilterChange(...args);
+    setPaginaActual(1);
+  };
+
   // ⏳ ESTADOS LOCALES PARA FILTROS DE HISTORIAL
   const [filtroAnio, setFiltroAnio] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
@@ -134,6 +145,17 @@ export default function InformesAuditoria({
     
     return true;
   });
+
+  const informesFiltradosDashboard = applyFilters(informesDashboard, searchTerm, columnFilters);
+  const totalInformesFiltrados = informesFiltradosDashboard.length;
+  const totalPaginasDashboard = Math.max(1, Math.ceil(totalInformesFiltrados / 10));
+  const paginaActualDashboard = Math.min(paginaActual, totalPaginasDashboard);
+  const informesPaginadosDashboard = informesFiltradosDashboard.slice(
+    (paginaActualDashboard - 1) * 10,
+    paginaActualDashboard * 10
+  );
+  const indiceInicioDashboard = totalInformesFiltrados === 0 ? 0 : (paginaActualDashboard - 1) * 10 + 1;
+  const indiceFinDashboard = Math.min(paginaActualDashboard * 10, totalInformesFiltrados);
 
   // 2. Calcular KPIs basados en lo que está filtrado
   const totalInformes = informesDashboard.length;
@@ -909,7 +931,7 @@ const handleFileUpload = async (e, type) => {
                 
                 {/* Botón "Todas" */}
                 <div 
-                  onClick={() => setDashFiltroFuente('Todas')}
+                  onClick={() => actualizarFiltroDashboard(setDashFiltroFuente, 'Todas')}
                   className={`px-5 py-2.5 rounded-xl flex items-center gap-3 shrink-0 cursor-pointer transition-all shadow-sm ${
                     dashFiltroFuente === 'Todas' 
                       ? 'bg-blue-600 text-white shadow-blue-500/30' 
@@ -942,7 +964,7 @@ const handleFileUpload = async (e, type) => {
                   <div 
                     key={fuenteAgrupada.clave} 
                     title={title} 
-                    onClick={() => setDashFiltroFuente(fuenteAgrupada.nombre)}
+                    onClick={() => actualizarFiltroDashboard(setDashFiltroFuente, fuenteAgrupada.nombre)}
                     className={`px-4 py-2.5 rounded-xl flex items-center gap-3 shrink-0 cursor-pointer transition-all shadow-sm max-w-[280px] ${
                       isActive 
                         ? 'bg-blue-50 border-blue-500 text-blue-900 ring-1 ring-blue-500' 
@@ -970,7 +992,7 @@ const handleFileUpload = async (e, type) => {
                 <div className="bg-white border border-slate-200 rounded-2xl p-2.5 flex flex-wrap items-center gap-3 shadow-sm">
                   <div className="flex flex-col px-2">
                     <span className="text-[9px] text-slate-400 font-bold mb-0.5">Proceso</span>
-                    <select value={dashFiltroProceso} onChange={e => { setDashFiltroProceso(e.target.value); setDashFiltroSubproceso('Todos'); }} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
+                    <select value={dashFiltroProceso} onChange={e => { actualizarFiltroDashboard(setDashFiltroProceso, e.target.value); setDashFiltroSubproceso('Todos'); }} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
                       <option value="Todos">Todos los procesos</option>
                       {[...new Set(informesEnriquecidos.map(p => p.procesoLimpio).filter(Boolean))].sort().map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
@@ -979,7 +1001,7 @@ const handleFileUpload = async (e, type) => {
 
                   <div className="flex flex-col px-2">
                     <span className="text-[9px] text-slate-400 font-bold mb-0.5">Subproceso</span>
-                    <select value={dashFiltroSubproceso} onChange={e => setDashFiltroSubproceso(e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer max-w-[140px] truncate">
+                    <select value={dashFiltroSubproceso} onChange={e => actualizarFiltroDashboard(setDashFiltroSubproceso, e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer max-w-[140px] truncate">
                       <option value="Todos">Todos los subprocesos</option>
                       {[...new Set(dashFiltroProceso !== 'Todos' ? (MAPA_PROCESOS[dashFiltroProceso] || []) : Object.values(MAPA_PROCESOS).flat())].sort().map(sp => <option key={sp} value={sp}>{sp}</option>)}
                     </select>
@@ -988,7 +1010,7 @@ const handleFileUpload = async (e, type) => {
 
                   <div className="flex flex-col px-2">
                     <span className="text-[9px] text-slate-400 font-bold mb-0.5">Año</span>
-                    <select value={dashFiltroAnio} onChange={e=>setDashFiltroAnio(e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
+                    <select value={dashFiltroAnio} onChange={e => actualizarFiltroDashboard(setDashFiltroAnio, e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
                       <option value="Todos">Todos</option>
                       {aniosDisponibles.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
@@ -997,7 +1019,7 @@ const handleFileUpload = async (e, type) => {
 
                   <div className="flex flex-col px-2">
                     <span className="text-[9px] text-slate-400 font-bold mb-0.5">Estado</span>
-                    <select value={dashFiltroEstado} onChange={e=>setDashFiltroEstado(e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
+                    <select value={dashFiltroEstado} onChange={e => actualizarFiltroDashboard(setDashFiltroEstado, e.target.value)} className="bg-transparent text-slate-700 font-bold text-[11px] outline-none cursor-pointer">
                       <option value="Todos">Todos</option>
                       <option value="Socializado">Socializado</option>
                       <option value="Pendiente">Pendiente</option>
@@ -1006,7 +1028,7 @@ const handleFileUpload = async (e, type) => {
 
                   <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 flex-1 ml-auto">
                     <span className="text-slate-400 text-xs">🔍</span>
-                    <input type="text" placeholder="Buscar informe, título, responsable..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full text-[11px] outline-none bg-transparent text-slate-700 font-medium placeholder-slate-400" />
+                    <input type="text" placeholder="Buscar informe, título, responsable..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }} className="w-full text-[11px] outline-none bg-transparent text-slate-700 font-medium placeholder-slate-400" />
                   </div>
                 </div>
 
@@ -1026,31 +1048,25 @@ const handleFileUpload = async (e, type) => {
                           <th className="p-4 text-center">Estado</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 text-[11px] font-medium text-slate-600">
-                        {informesDashboard.length === 0 ? (
+<tbody className="divide-y divide-slate-100 text-[11px] font-medium text-slate-600">
+                        {informesFiltradosDashboard.length === 0 ? (
                           <tr><td colSpan="8" className="p-12 text-center text-slate-400 font-bold italic">No hay informes para los filtros seleccionados.</td></tr>
                         ) : (
-                          applyFilters(informesDashboard, searchTerm, columnFilters).slice(0, 10).map(inf => {
+                          informesPaginadosDashboard.map(inf => {
                             const referenciaInforme = normalizarReferencia(inf.tipoFuente || 'Auditoría Interna');
-                            const iconIndex = fuentesArray.findIndex(fuente =>
-                              fuente.referencias.has(referenciaInforme)
-                            );
-                            const colorClass = ['text-blue-600 bg-blue-50 border-blue-200', 'text-purple-600 bg-purple-50 border-purple-200', 'text-emerald-600 bg-emerald-50 border-emerald-200', 'text-amber-600 bg-amber-50 border-amber-200', 'text-rose-600 bg-rose-50 border-rose-200', 'text-cyan-600 bg-cyan-50 border-cyan-200'][iconIndex % 6];
+                            const iconIndex = fuentesArray.findIndex(fuente => fuente.referencias.has(referenciaInforme));
+                            const colorClass = ['text-blue-600 bg-blue-50 border-blue-200', 'text-purple-600 bg-purple-50 border-purple-200', 'text-emerald-600 bg-emerald-50 border-emerald-200', 'text-amber-600 bg-amber-50 border-amber-200', 'text-rose-600 bg-rose-50 border-rose-200', 'text-cyan-600 bg-cyan-50 border-cyan-200'][iconIndex % 6] || 'text-slate-600 bg-slate-50 border-slate-200';
                             
                             return (
                               <tr key={inf.id} className="hover:bg-slate-50/50 transition-colors group cursor-pointer" onClick={() => setInformeDetalleModal(inf)}>
                                 <td className="p-4 text-center"><input type="checkbox" className="rounded border-slate-300" onClick={e => e.stopPropagation()} /></td>
                                 <td className="p-4 font-mono font-black text-slate-800">
-                                  <span className="hover:text-blue-600 transition-colors">
-                                    {inf.ref}
-                                  </span>
+                                  <span className="hover:text-blue-600 transition-colors">{inf.ref}</span>
                                 </td>
-                                <td className="p-4 font-bold text-slate-700 leading-tight truncate max-w-[180px]" title={inf.titulo}>
-                                  {inf.titulo}
-                                </td>
+                                <td className="p-4 font-bold text-slate-700 leading-tight truncate max-w-[180px]" title={inf.titulo}>{inf.titulo}</td>
                                 <td className="p-4">
                                   <span className={`px-2.5 py-1 rounded-full font-black uppercase tracking-wider text-[8px] border flex items-center w-max gap-1.5 ${colorClass}`}>
-                                    <span>{iconosArray[iconIndex % iconosArray.length]}</span> {inf.tipoFuente || 'Auditoría Interna'}
+                                    <span>{iconosArray[iconIndex % iconosArray.length] || '📄'}</span> {inf.tipoFuente || 'Auditoría Interna'}
                                   </span>
                                 </td>
                                 <td className="p-4 text-slate-500 font-bold truncate max-w-[120px]" title={inf.procesoLimpio}>{inf.procesoLimpio}</td>
@@ -1067,19 +1083,33 @@ const handleFileUpload = async (e, type) => {
                                   </span>
                                 </td>
                               </tr>
-                            )
+                            );
                           })
                         )}
                       </tbody>
                     </table>
                   </div>
+                  
+                  {/* ✨ FOOTER CON PAGINACIÓN REAL */}
                   <div className="bg-white p-4 flex items-center justify-between border-t border-slate-200 text-[10px] font-bold text-slate-400">
-                    <span>Mostrando {Math.min(informesDashboard.length, 10)} de {informesDashboard.length} informes</span>
-                    {informesDashboard.length > 10 && (
+                    <span>Mostrando {indiceInicioDashboard} a {indiceFinDashboard} de {totalInformesFiltrados} informes</span>
+                    {totalPaginasDashboard > 1 && (
                       <div className="flex gap-2">
-                        <button className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600">&lt;</button>
-                        <button className="px-3 py-1 rounded bg-blue-600 text-white shadow-sm">1</button>
-                        <button onClick={() => cambiarVistaSegura('historial')} className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600">&gt;</button>
+                        <button
+                          onClick={() => setPaginaActual(Math.max(1, paginaActualDashboard - 1))}
+                          disabled={paginaActualDashboard === 1}
+                          className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          &lt; Ant
+                        </button>
+                        <span className="px-3 py-1 rounded bg-blue-600 text-white shadow-sm">Pág {paginaActualDashboard} de {totalPaginasDashboard}</span>
+                        <button
+                          onClick={() => setPaginaActual(Math.min(totalPaginasDashboard, paginaActualDashboard + 1))}
+                          disabled={paginaActualDashboard === totalPaginasDashboard}
+                          className="px-3 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Sig &gt;
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2144,7 +2174,7 @@ const handleFileUpload = async (e, type) => {
             </div>
             <div className="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-full md:w-64 shadow-inner">
               <span className="text-slate-400">🔍</span>
-              <input type="text" placeholder="Buscar informe..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full text-xs outline-none bg-transparent text-slate-700 font-bold placeholder-slate-400" />
+              <input type="text" placeholder="Buscar informe..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPaginaActual(1); }} className="w-full text-xs outline-none bg-transparent text-slate-700 font-bold placeholder-slate-400" />
             </div>
           </div>
 
@@ -2160,8 +2190,8 @@ const handleFileUpload = async (e, type) => {
                     <th className="p-4 text-center w-56">Documentos Custodiados</th>
                   </tr>
                   <tr className="bg-slate-100">
-                    <td className="p-2"><FilterInput colKey="ref" placeholder="Filtrar..." dark={false} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></td>
-                    <td className="p-2"><FilterInput colKey="proceso" placeholder="Filtrar proceso..." dark={false} columnFilters={columnFilters} handleColFilterChange={handleColFilterChange} /></td>
+                    <td className="p-2"><FilterInput colKey="ref" placeholder="Filtrar..." dark={false} columnFilters={columnFilters} handleColFilterChange={handleFiltroColumnaConPaginacion} /></td>
+                    <td className="p-2"><FilterInput colKey="proceso" placeholder="Filtrar proceso..." dark={false} columnFilters={columnFilters} handleColFilterChange={handleFiltroColumnaConPaginacion} /></td>
                     <td className="p-2"></td>
                     <td className="p-2"></td>
                     <td className="p-2 bg-slate-50"></td>
