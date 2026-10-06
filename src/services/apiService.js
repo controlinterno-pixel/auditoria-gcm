@@ -286,7 +286,7 @@ export const apiService = {
   }),
 
   // 🔎 ANÁLISIS FORENSE DE NÓMINA
-  ejecutarAnalisisForense: (listaBases) => request('/api/forense', {
+  ejecutarAnalisisForense: (listaBases) => request('/api/grc/forense', {
     method: 'POST',
     body: { listaBases }
   }),
