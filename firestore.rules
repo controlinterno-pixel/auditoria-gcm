@@ -16,20 +16,25 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
     }
 
-    // 👤 1. Usuarios: Permite lectura general y escritura propia BLINDANDO el campo 'rol'
+    // 👤 1. Usuarios: lectura del perfil propio y administración para usuarios admin.
     match /usuarios/{userId} {
-      allow read: if esUsuarioTermales();
+      allow read: if esAdmin() || (esUsuarioTermales() && request.auth.uid == userId);
       
-      // Creación inicial
+      // La creación propia conserva el rol básico y no permite asignar permisos o alcance.
       allow create: if esUsuarioTermales() 
         && request.auth.uid == userId 
-        && (!request.resource.data.keys().hasAny(['rol']) || request.resource.data.rol == 'lider');
+        && (!request.resource.data.keys().hasAny(['rol']) || request.resource.data.rol == 'lider')
+        && request.resource.data.keys().hasOnly([
+          'rol', 'nombreResponsable', 'nombre', 'correo', 'email', 'cargo'
+        ]);
 
-      // Edición: Si es el propio usuario, no puede alterar ni agregar el campo 'rol'
+      // La autogestión se limita a nombre/cargo; permisos y alcance quedan para admin.
       allow update: if esUsuarioTermales() && (
         esAdmin() || (
           request.auth.uid == userId 
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'nombreResponsable', 'cargo'
+          ])
         )
       );
 
