@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import { CARGOS_POR_SEDE, CARGOS_EMPRESA } from '../constants/diccionariosGRC';
@@ -26,6 +26,7 @@ const ProgressBar = ({ progress }) => {
 
 export default function Planes({
   isAdmin,
+  user = null,
   editPlan,
   setEditPlan,
   ejecutarDespachoGmailApi,
@@ -74,32 +75,41 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const numBuscado = digitosBuscados ? parseInt(digitosBuscados, 10) : null;
 
   // Calculamos las coincidencias en tiempo real
-  const informesMatch = textoBuscado.length > 0 ? informesAuditoria.filter(inf => {
-    if (inf.ref && inf.ref.toUpperCase().includes(textoBuscado)) return true;
-    if (inf.proceso && inf.proceso.toUpperCase().includes(textoBuscado)) return true; // 👈 Busca por proceso
-    if (inf.titulo && inf.titulo.toUpperCase().includes(textoBuscado)) return true;
-    if (numBuscado !== null && inf.ref) {
-      const numInf = parseInt(inf.ref.split('-').pop(), 10);
-      if (numInf === numBuscado) return true;
-    }
-    return false;
-  }) : [];
+  const hallazgosPorId = useMemo(
+    () => new Map(safeHallazgos.map(hallazgo => [hallazgo.id, hallazgo])),
+    [safeHallazgos]
+  );
 
-  const planesMatch = textoBuscado.length > 0 ? safePlanes.filter(p => {
-    const hallazgoAsociado = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
-    const procesoPlan = hallazgoAsociado.proceso || '';
+  const informesMatch = useMemo(() => {
+    if (textoBuscado.length === 0) return [];
+    return informesAuditoria.filter(inf => {
+      if (inf.ref && inf.ref.toUpperCase().includes(textoBuscado)) return true;
+      if (inf.proceso && inf.proceso.toUpperCase().includes(textoBuscado)) return true;
+      if (inf.titulo && inf.titulo.toUpperCase().includes(textoBuscado)) return true;
+      if (numBuscado !== null && inf.ref) {
+        const numInf = parseInt(inf.ref.split('-').pop(), 10);
+        if (numInf === numBuscado) return true;
+      }
+      return false;
+    });
+  }, [textoBuscado, numBuscado, informesAuditoria]);
 
-    const strId = p.id.toString();
-    if (digitosBuscados && strId.endsWith(digitosBuscados)) return true;
-    if (numBuscado !== null && strId.length >= 4) {
-       const ultimasCifras = parseInt(strId.slice(-4), 10);
-       if (ultimasCifras === numBuscado) return true;
-    }
-    if (numBuscado !== null && p.id === numBuscado) return true;
-    if (p.accion && p.accion.toUpperCase().includes(textoBuscado)) return true;
-    if (procesoPlan.toUpperCase().includes(textoBuscado)) return true; // 👈 Busca por proceso asociado
-    return false;
-  }).slice(0, 10) : []; // Mostramos máximo 10 planes para no saturar
+  const planesMatch = useMemo(() => {
+    if (textoBuscado.length === 0) return [];
+    return safePlanes.filter(p => {
+      const procesoPlan = hallazgosPorId.get(p.idHallazgo)?.proceso || '';
+      const strId = p.id.toString();
+      if (digitosBuscados && strId.endsWith(digitosBuscados)) return true;
+      if (numBuscado !== null && strId.length >= 4) {
+        const ultimasCifras = parseInt(strId.slice(-4), 10);
+        if (ultimasCifras === numBuscado) return true;
+      }
+      if (numBuscado !== null && p.id === numBuscado) return true;
+      if (p.accion && p.accion.toUpperCase().includes(textoBuscado)) return true;
+      if (procesoPlan.toUpperCase().includes(textoBuscado)) return true;
+      return false;
+    }).slice(0, 10);
+  }, [textoBuscado, digitosBuscados, numBuscado, safePlanes, hallazgosPorId]);
 
   const seleccionarInforme = (informe) => {
     setEditPlan(null);
@@ -175,14 +185,14 @@ const [, setUploadProgress] = useState(0);
 // =========================================================
   // 📊 MOTOR DE CÁLCULO ANALÍTICO (100% REACTIVO A FILTROS)
   // =========================================================
-  const planesEnriquecidos = safePlanes.map(p => {
-    const hallazgo = safeHallazgos.find(h => h.id === p.idHallazgo) || {};
-    const hoy = new Date();
-    // Normalizar a media noche para comparaciones justas
-    hoy.setHours(0,0,0,0);
-    const limite = p.fecha ? new Date(`${p.fecha}T00:00:00`) : null; 
-    const esVencido = p.progreso < 100 && limite && limite < hoy;
-    
+  const fechaActualInicioDia = new Date();
+  fechaActualInicioDia.setHours(0, 0, 0, 0);
+  const timestampInicioDia = fechaActualInicioDia.getTime();
+  const planesEnriquecidos = useMemo(() => safePlanes.map(p => {
+    const hallazgo = hallazgosPorId.get(p.idHallazgo) || {};
+    const limite = p.fecha ? new Date(`${p.fecha}T00:00:00`) : null;
+    const esVencido = p.progreso < 100 && limite && limite.getTime() < timestampInicioDia;
+
     return {
       ...p,
       idInforme: hallazgo.idInforme,
@@ -193,13 +203,12 @@ const [, setUploadProgress] = useState(0);
       esVencido,
       anioTexto: p.fecha ? p.fecha.split('-')[0] : 'Sin Fecha'
     };
-  });
+  }), [safePlanes, hallazgosPorId, timestampInicioDia]);
 // 🚨 Filtros para Banners de Alerta (Preventivos y Vencidos)
-  const planesEnAlerta = planesEnriquecidos.filter(p => {
+  const planesEnAlerta = useMemo(() => planesEnriquecidos.filter(p => {
     if (p.progreso === 100 || !p.fecha) return false;
     if (p.esVencido) return false; 
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
+    const hoy = new Date(timestampInicioDia);
     const limite = new Date(`${p.fecha}T00:00:00`);
     let diasFaltantes = 0;
     let tempDate = new Date(hoy);
@@ -208,9 +217,12 @@ const [, setUploadProgress] = useState(0);
       if (tempDate.getDay() !== 0 && tempDate.getDay() !== 6) diasFaltantes++;
     }
     return diasFaltantes >= 0 && diasFaltantes <= 2;
-  });
+  }), [planesEnriquecidos, timestampInicioDia]);
 
-const planesVencidosNotificables = planesEnriquecidos.filter(p => p.esVencido);
+  const planesVencidosNotificables = useMemo(
+    () => planesEnriquecidos.filter(p => p.esVencido),
+    [planesEnriquecidos]
+  );
 
 // 🕒 Registrar envío de recordatorio en la trazabilidad del plan
 const handleNotificarPlan = (planId) => {
@@ -232,17 +244,17 @@ const handleNotificarPlan = (planId) => {
   saveToCloud({ planes: updated });
 };
   // 1. Filtrado Base (Desde el menú lateral)
-  const planesFiltradosBase = planesEnriquecidos.filter(p => {
+  const planesFiltradosBase = useMemo(() => planesEnriquecidos.filter(p => {
     if (dashFiltroAnio !== 'Todos' && p.anioTexto !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && p.proceso !== dashFiltroProceso) return false;
     if (dashFiltroSubproceso !== 'Todos' && p.subproceso !== dashFiltroSubproceso) return false; 
     if (dashFiltroPrioridad !== 'Todos' && p.severidad !== dashFiltroPrioridad) return false;
     if (dashFiltroResponsable !== 'Todos' && p.responsable !== dashFiltroResponsable) return false;
     return true;
-  });
+  }), [planesEnriquecidos, dashFiltroAnio, dashFiltroProceso, dashFiltroSubproceso, dashFiltroPrioridad, dashFiltroResponsable]);
 
   // 2. Filtrado Final (Incluye el clic en las tarjetas de estado)
-  const planesDashboard = planesFiltradosBase.filter(p => {
+  const planesDashboard = useMemo(() => planesFiltradosBase.filter(p => {
     if (dashFiltroEstado !== 'Todos') {
       if (dashFiltroEstado === 'Cerrado' && p.progreso < 100) return false;
       if (dashFiltroEstado === 'Vencido' && !p.esVencido) return false;
@@ -250,7 +262,7 @@ const handleNotificarPlan = (planId) => {
       if (dashFiltroEstado === 'Pendiente' && (p.progreso > 0 || p.esVencido)) return false;
     }
     return true;
-  });
+  }), [planesFiltradosBase, dashFiltroEstado]);
 
   // 3. Cálculos Dinámicos de las Tarjetas (Basados en planesFiltradosBase para no desaparecer al hacer clic)
   const totalPlanesBase = planesFiltradosBase.length;
@@ -268,26 +280,34 @@ const handleNotificarPlan = (planId) => {
   const medios = planesDashboard.filter(p => p.severidad === 'Medio').length;
   // Agrupador Dinámico
  // Agrupador Dinámico
-  const planesAgrupados = planesDashboard.reduce((acc, p) => {
-    let key = 'Sin clasificar';
-    if (agruparPor === 'Año') key = p.anioTexto;
-    if (agruparPor === 'Proceso') key = p.proceso;
-    if (agruparPor === 'Subproceso') key = p.subproceso; 
-    if (agruparPor === 'Estado') key = p.progreso === 100 ? 'Cerrados' : p.esVencido ? 'Vencidos' : 'En Proceso';
-    if (agruparPor === 'Responsable') key = p.responsable;
-    if (agruparPor === 'Prioridad') key = p.severidad;
+  const { planesAgrupados, gruposOrdenados } = useMemo(() => {
+    const agrupados = planesDashboard.reduce((acc, p) => {
+      let key = 'Sin clasificar';
+      if (agruparPor === 'Año') key = p.anioTexto;
+      if (agruparPor === 'Proceso') key = p.proceso;
+      if (agruparPor === 'Subproceso') key = p.subproceso;
+      if (agruparPor === 'Estado') key = p.progreso === 100 ? 'Cerrados' : p.esVencido ? 'Vencidos' : 'En Proceso';
+      if (agruparPor === 'Responsable') key = p.responsable;
+      if (agruparPor === 'Prioridad') key = p.severidad;
 
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(p);
-    return acc;
-  }, {});
-  const gruposOrdenados = Object.keys(planesAgrupados).sort((a, b) => b.localeCompare(a));
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(p);
+      return acc;
+    }, {});
 
-  const conteoProcesos = planesDashboard.reduce((acc, p) => {
-    acc[p.proceso] = (acc[p.proceso] || 0) + 1;
-    return acc;
-  }, {});
-  const topProcesos = Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return {
+      planesAgrupados: agrupados,
+      gruposOrdenados: Object.keys(agrupados).sort((a, b) => b.localeCompare(a)),
+    };
+  }, [planesDashboard, agruparPor]);
+
+  const topProcesos = useMemo(() => {
+    const conteoProcesos = planesDashboard.reduce((acc, p) => {
+      acc[p.proceso] = (acc[p.proceso] || 0) + 1;
+      return acc;
+    }, {});
+    return Object.entries(conteoProcesos).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [planesDashboard]);
 
   const limpiarFiltrosDashboard = () => {
     setDashFiltroAnio('Todos'); setDashFiltroProceso('Todos'); setDashFiltroSubproceso('Todos'); setDashFiltroEstado('Todos');
@@ -2112,123 +2132,125 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                     <ProgressBar progress={p.progreso} />
                                   </td>
                                   <td className="p-3 text-center flex flex-col space-y-1.5 items-center justify-center">
-                                    <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-200 transition-colors shadow-sm">✏️ Modificar Matriz</button>
+                                    {/* 🛡️ REGLAS DE SEGURIDAD POR CORREO DEL USUARIO */}
+                                    {(() => {
+                                      const miCorreo = (user?.email || '').toLowerCase().trim();
+                                      const esEjecutor = miCorreo === (p.correoResponsable || '').toLowerCase().trim();
+                                      const esRevisor = miCorreo === (p.correoRevisor || '').toLowerCase().trim();
+                                      const esAuditor = miCorreo === (p.correoAuditor || '').toLowerCase().trim() || isAdmin;
 
-                                    {/* 👉 NUEVO BOTÓN: CONTROL DE CAMBIOS RÁPIDO */}
-                                    <button 
-                                      onClick={() => setModalCambioRapido({ activo: true, plan: p, nuevoAvance: p.progreso, nuevaFecha: p.fecha || '', motivo: '' })} 
-                                      className="bg-orange-50 text-orange-700 border border-orange-200 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-orange-100 transition-colors shadow-sm flex items-center justify-center gap-1"
-                                      title="Actualizar Avance o Fecha rápidamente"
-                                    >
-                                      <span>📝</span> Cambio Rápido
-                                    </button>
+                                      return (
+                                        <>
+                                          {/* BOTONES DEL EJECUTOR (Y Admin) - Pueden gestionar mientras no esté cerrado */}
+                                          {(esEjecutor || isAdmin) && p.estadoWorkflow !== 'Cerrado' && (
+                                            <>
+                                              <button onClick={() => { setEditPlan(p); setVistaActiva('nuevo'); scrollToForm(); }} className="bg-slate-100 text-slate-800 border border-slate-300 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-slate-200 transition-colors shadow-sm">✏️ Modificar Matriz</button>
+                                              
+                                              <button 
+                                                onClick={() => setModalCambioRapido({ activo: true, plan: p, nuevoAvance: p.progreso, nuevaFecha: p.fecha || '', motivo: '' })} 
+                                                className="bg-orange-50 text-orange-700 border border-orange-200 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-orange-100 transition-colors shadow-sm flex items-center justify-center gap-1"
+                                                title="Actualizar Avance o Fecha rápidamente"
+                                              >
+                                                <span>📝</span> Cambio Rápido
+                                              </button>
+                                            </>
+                                          )}
 
-                                    {/* 👉 NUEVO BOTÓN: VER HISTORIAL DE ESTA ACCIÓN */}
-                                    <button 
-                                      onClick={() => setHistorialModal({ activo: true, plan: p })} 
-                                      className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-indigo-100 transition-colors shadow-sm flex items-center justify-center gap-1"
-                                      title="Ver el historial de modificaciones (Audit Trail)"
-                                    >
-                                      <span>📜</span> Historial
-                                    </button>
+                                          {/* 👉 BOTÓN HISTORIAL (Visible para todos) */}
+                                          <button 
+                                            onClick={() => setHistorialModal({ activo: true, plan: p })} 
+                                            className="bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-indigo-100 transition-colors shadow-sm flex items-center justify-center gap-1"
+                                            title="Ver el historial de modificaciones (Audit Trail)"
+                                          >
+                                            <span>📜</span> Historial
+                                          </button>
 
-                                    {/* BOTÓN REVISOR */}
-                                    {p.estadoWorkflow === 'Pendiente Revisión Jefatura' && (
-                                      <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                        <button type="button" onClick={async () => {
-                                          if(window.confirm("¿Como REVISOR, aprueba el diseño de este plan y notifica al Auditor para la aprobación final?")) {
-                                            const ts = new Date().toLocaleString();
-                                            const mod = { ...p, estadoWorkflow: 'Pendiente Aprobación Auditor', historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Revisor', accion: '✅ Diseño revisado y aprobado por Jefatura.' }] };
-                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
-                                            setPlanes(updated); await saveToCloud({ planes: updated }); 
-                                            
-                                            if (ejecutarDespachoGmailApi && p.correoAuditor) {
-                                              await ejecutarDespachoGmailApi({
-                                                ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
-                                                titulo_informe: `[Paso 2/3] ACCIÓN REQUERIDA: Aprobación de Auditoría`,
-                                                proceso_auditado: `El plan de acción: "${p.accion}" superó la revisión técnica de Jefatura. Requiere su Visto Bueno como Auditor para ACTIVARLO y que inicie su ejecución.`,
-                                                enlace_pdf: 'https://auditoria-gcm.vercel.app',
-                                                destinatarios: p.correoAuditor
-                                              });
-                                            }
-                                            alert("Aprobado y Auditor notificado.");
-                                          }
-                                        }} className="bg-amber-500 hover:bg-amber-600 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">👀 Aprobar Revisión</button>
-                                      </div>
-                                    )}
+                                          {/* ========================================================================= */}
+                                          {/* NIVEL 1: REVISOR (Jefatura) -> Aprueba el diseño para que el ejecutor actúe */}
+                                          {/* ========================================================================= */}
+                                          {p.estadoWorkflow === 'Pendiente Revisión Jefatura' && (esRevisor || isAdmin) && (
+                                            <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
+                                              <button type="button" onClick={async () => {
+                                                if(window.confirm("¿Está usted de acuerdo que esta acción pase de estado borrador a estado ACTIVO para iniciar su ejecución?")) {
+                                                  const ts = new Date().toLocaleString();
+                                                  const mod = { ...p, estadoWorkflow: 'En Ejecución', historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Revisor', accion: '✅ Diseño aprobado por Jefatura. Plan ACTIVO para ejecución.' }] };
+                                                  const updated = safePlanes.map(x => x.id === p.id ? mod : x);
+                                                  setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                                  
+                                                  if (ejecutarDespachoGmailApi && p.correoResponsable) {
+                                                    await ejecutarDespachoGmailApi({
+                                                      ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                      titulo_informe: `Plan de Acción ACTIVO (Aprobado por Jefatura)`,
+                                                      proceso_auditado: `El Revisor ha dado su Visto Bueno al plan: "${p.accion}". Ya puede ingresar a la plataforma a gestionar sus evidencias y subir el avance.`,
+                                                      enlace_pdf: 'https://auditoria-gcm.vercel.app',
+                                                      destinatarios: p.correoResponsable
+                                                    });
+                                                  }
+                                                  alert("Plan activado correctamente. El ejecutor ha sido notificado.");
+                                                }
+                                              }} className="bg-amber-500 hover:bg-amber-600 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all animate-pulse shadow-amber-500/30">
+                                                👀 Aprobar Diseño
+                                              </button>
+                                            </div>
+                                          )}
 
-                                    {/* BOTÓN ACTIVACIÓN AUDITOR */}
-                                    {p.estadoWorkflow === 'Pendiente Aprobación Auditor' && isAdmin && (
-                                      <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                        <button type="button" onClick={async () => {
-                                          if(window.confirm("¿Como AUDITOR, aprueba este plan para que inicie su ejecución formal?")) {
-                                            const ts = new Date().toLocaleString();
-                                            const mod = { ...p, estadoWorkflow: 'En Ejecución', historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Plan ACTIVO. Aprobado por Auditoría.' }] };
-                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
-                                            setPlanes(updated); await saveToCloud({ planes: updated }); 
-                                            
-                                            if (ejecutarDespachoGmailApi) {
-                                              await ejecutarDespachoGmailApi({
-                                                ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
-                                                titulo_informe: `[Paso 3/3] Plan de Acción ACTIVO`,
-                                                proceso_auditado: `El Auditor ha dado Visto Bueno a la acción: "${p.accion}". El plan se encuentra ACTIVO (En Ejecución). Ya puede reportar evidencias en la plataforma.`,
-                                                enlace_pdf: 'https://auditoria-gcm.vercel.app',
-                                                destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
-                                              });
-                                            }
-                                            alert("Plan Activado y equipo notificado.");
-                                          }
-                                        }} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">🛡️ Aprobar (Activar)</button>
-                                      </div>
-                                    )}
+                                          {/* ========================================================================= */}
+                                          {/* NIVEL 3: AUDITOR -> Revisa el 100% y cierra o rechaza el plan             */}
+                                          {/* ========================================================================= */}
+                                          {p.estadoWorkflow === 'En Revisión (100%)' && esAuditor && (
+                                            <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
+                                              <button type="button" onClick={async () => {
+                                                if(window.confirm("¿Aprobar las evidencias cargadas y CERRAR este plan de acción definitivamente?")) {
+                                                  const ts = new Date().toLocaleString();
+                                                  const mod = { ...p, estadoWorkflow: 'Cerrado', estado: 'Cerrado', progreso: 100, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Evidencias aprobadas. Plan CERRADO.' }] };
+                                                  const updated = safePlanes.map(x => x.id === p.id ? mod : x);
+                                                  setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                                  
+                                                  if (ejecutarDespachoGmailApi) {
+                                                    await ejecutarDespachoGmailApi({
+                                                      ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                      titulo_informe: `🏁 Plan de Acción CERRADO EXITOSAMENTE`,
+                                                      proceso_auditado: `Auditoría ha validado las evidencias al 100% de la acción: "${p.accion}". El ciclo de mejora ha finalizado.`,
+                                                      enlace_pdf: 'https://auditoria-gcm.vercel.app',
+                                                      destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
+                                                    });
+                                                  }
+                                                  alert("Plan Cerrado y responsables notificados.");
+                                                }
+                                              }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all animate-pulse shadow-emerald-500/30">
+                                                ✓ Aprobar Cierre
+                                              </button>
+                                              
+                                              <button type="button" onClick={async () => {
+                                                const r = prompt("Ingrese el motivo de rechazo de la evidencia:");
+                                                if(r) {
+                                                  const ts = new Date().toLocaleString();
+                                                  const mod = { ...p, estadoWorkflow: 'En Ejecución', progreso: 90, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: `❌ Evidencia rechazada. Motivo: ${r}` }] };
+                                                  const updated = safePlanes.map(x => x.id === p.id ? mod : x);
+                                                  setPlanes(updated); await saveToCloud({ planes: updated }); 
+                                                  
+                                                  if (ejecutarDespachoGmailApi) {
+                                                    await ejecutarDespachoGmailApi({
+                                                      ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
+                                                      titulo_informe: `❌ Evidencia Rechazada`,
+                                                      proceso_auditado: `El Auditor rechazó los soportes de la acción: "${p.accion}". Motivo: ${r}. El avance regresa a 90% (En Ejecución) para su corrección.`,
+                                                      enlace_pdf: 'https://auditoria-gcm.vercel.app',
+                                                      destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
+                                                    });
+                                                  }
+                                                  alert("Rechazo aplicado y notificado al ejecutor.");
+                                                }
+                                              }} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">
+                                                ✕ Rechazar Evidencia
+                                              </button>
+                                            </div>
+                                          )}
 
-                                    {/* BOTÓN CIERRE 100% */}
-                                    {p.estadoWorkflow === 'En Revisión (100%)' && isAdmin && (
-                                      <div className="flex flex-col gap-1 w-full mt-1 pt-1 border-t border-slate-200">
-                                        <button type="button" onClick={async () => {
-                                          if(window.confirm("¿Aprobar las evidencias cargadas y CERRAR este plan de acción definitivamente?")) {
-                                            const ts = new Date().toLocaleString();
-                                            const mod = { ...p, estadoWorkflow: 'Cerrado', estado: 'Cerrado', progreso: 100, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: '✅ Evidencias aprobadas. Plan CERRADO.' }] };
-                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
-                                            setPlanes(updated); await saveToCloud({ planes: updated }); 
-                                            
-                                            if (ejecutarDespachoGmailApi) {
-                                              await ejecutarDespachoGmailApi({
-                                                ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
-                                                titulo_informe: `🏁 Plan de Acción CERRADO EXITOSAMENTE`,
-                                                proceso_auditado: `Auditoría ha validado las evidencias al 100% de la acción: "${p.accion}". El ciclo de mejora ha finalizado.`,
-                                                enlace_pdf: 'https://auditoria-gcm.vercel.app',
-                                                destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
-                                              });
-                                            }
-                                            alert("Plan Cerrado y responsables notificados.");
-                                          }
-                                        }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">✓ Aprobar Cierre</button>
-                                        
-                                        <button type="button" onClick={async () => {
-                                          const r = prompt("Ingrese el motivo de rechazo de la evidencia:");
-                                          if(r) {
-                                            const ts = new Date().toLocaleString();
-                                            const mod = { ...p, estadoWorkflow: 'En Ejecución', progreso: 90, historialCambios: [...(p.historialCambios || []), { fecha: ts, usuario: 'Auditor', accion: `❌ Evidencia rechazada. Motivo: ${r}` }] };
-                                            const updated = safePlanes.map(x => x.id === p.id ? mod : x);
-                                            setPlanes(updated); await saveToCloud({ planes: updated }); 
-                                            
-                                            if (ejecutarDespachoGmailApi) {
-                                              await ejecutarDespachoGmailApi({
-                                                ref_consecutivo: `PLA-${String(p.id).slice(-4)}`,
-                                                titulo_informe: `❌ Evidencia Rechazada`,
-                                                proceso_auditado: `El Auditor rechazó los soportes de la acción: "${p.accion}". Motivo: ${r}. El avance regresa a 90% (En Ejecución) para su corrección.`,
-                                                enlace_pdf: 'https://auditoria-gcm.vercel.app',
-                                                destinatarios: `${p.correoResponsable}, ${p.correoRevisor}`
-                                              });
-                                            }
-                                            alert("Rechazo aplicado y notificado.");
-                                          }
-                                        }} className="bg-rose-600 hover:bg-rose-700 text-white font-black px-2 py-1.5 rounded text-[9px] uppercase tracking-wider shadow-sm transition-all">✕ Rechazar Evidencia</button>
-                                      </div>
-                                    )}
-
-                                    {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 hover:bg-red-100 font-bold px-2 py-1 rounded text-[10px] w-full mt-1 border border-red-200">🗑️ Eliminar</button>}
+                                          {/* ELIMINAR (SOLO ADMIN) */}
+                                          {isAdmin && <button onClick={() => handleDeleteItem('planes', p.id)} className="bg-red-50 text-red-700 hover:bg-red-100 font-bold px-2 py-1 rounded text-[10px] w-full mt-1 border border-red-200 transition-colors">🗑️ Eliminar</button>}
+                                        </>
+                                      );
+                                    })()}
                                   </td>
                                 </tr>
                               ))}

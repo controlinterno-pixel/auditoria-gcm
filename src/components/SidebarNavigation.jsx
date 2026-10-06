@@ -16,11 +16,21 @@ export default function SidebarNavigation({
   setSubTabPlanes,
   subTabGobernanza,
   setSubTabGobernanza,
-  pendingPlansCount,
+  misTareasEjecucion = 0,
+  misTareasRevision = 0,
+  misTareasAprobacion = 0,
   isAdmin,
   user,
   handleLogout
 }) {
+  
+  // 🔔 CÁLCULO DE ALERTAS INTELIGENTES PARA EL MENÚ
+  const totalMisTareas = misTareasEjecucion + misTareasRevision + misTareasAprobacion;
+  const tieneAlertas = totalMisTareas > 0;
+  
+  // Si tengo tareas de ejecución (rojo, urgente), si son solo de revisión/aprobación (ámbar)
+  const colorAlerta = misTareasEjecucion > 0 ? 'bg-rose-500' : 'bg-amber-500';
+  const colorTexto = misTareasEjecucion > 0 ? 'text-rose-400' : 'text-amber-400';
   return (
     <div 
       className={`text-[#a3c2e0] flex flex-col shadow-[10px_0_20px_rgba(0,0,0,0.15)] z-50 border-r border-slate-800/80 ${isPresentationMode ? 'hidden' : 'flex'} relative transition-all duration-300 ease-in-out overflow-visible ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}`}
@@ -185,20 +195,47 @@ export default function SidebarNavigation({
             <div className="flex items-center gap-3 group relative">
               <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               <span className={`font-bold transition-all duration-300 whitespace-nowrap ${isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'}`}>Planes de Acción</span>
+              
+              {/* Tooltip cuando está colapsado */}
               {isCollapsed && <div className="absolute left-10 bg-[#0055ff] text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible z-50 shadow-md whitespace-nowrap">Planes de Acción</div>}
-              {isCollapsed && pendingPlansCount > 0 && <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black px-1 rounded-full">{pendingPlansCount}</span>}
+              
+              {/* ALERTA TITILANTE COLAPSADA */}
+              {isCollapsed && tieneAlertas && (
+                <span className={`absolute -top-1 -right-1 ${colorAlerta} text-white text-[8px] font-black px-1 rounded-full animate-pulse ring-2 ring-slate-900 shadow-md`}>
+                  {totalMisTareas}
+                </span>
+              )}
             </div>
+            
+            {/* ALERTA TITILANTE EXPANDIDA */}
             {!isCollapsed && (
               <div className="flex items-center gap-2 shrink-0">
-                {pendingPlansCount > 0 && <span className="bg-rose-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-md">{pendingPlansCount}</span>}
+                {tieneAlertas && (
+                  <span className={`${colorAlerta} text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-md animate-pulse border border-white/20`}>
+                    {totalMisTareas}
+                  </span>
+                )}
                 <svg className={`w-4 h-4 transition-transform duration-300 ${menuAbierto === 'planes' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
               </div>
             )}
           </button>
+
+          {/* SUB-MENÚ DE PLANES DE ACCIÓN (Desglosado para mayor claridad) */}
           <div className={`overflow-hidden transition-all duration-300 pl-11 ${menuAbierto === 'planes' && !isCollapsed ? 'max-h-40 opacity-100 mt-1 mb-2' : 'max-h-0 opacity-0'}`}>
             <div className="flex flex-col border-l-2 border-slate-800/80 space-y-1 py-1">
-              <button onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg flex justify-between ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}>
-                Seguimiento de Planes {!isCollapsed && pendingPlansCount > 0 && <span className="text-rose-400">({pendingPlansCount})</span>}
+              <button 
+                onClick={() => { setActiveTab('planes_tab'); setSubTabPlanes('planes'); }} 
+                className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg flex flex-col justify-center ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}
+              >
+                <span>Gestión de Planes</span>
+                {/* Desglose Sutil de Tareas */}
+                {!isCollapsed && tieneAlertas && (
+                  <span className={`text-[9px] mt-0.5 font-bold flex gap-2 ${colorTexto}`}>
+                    {misTareasEjecucion > 0 && <span>▶ Ejecutar: {misTareasEjecucion}</span>}
+                    {misTareasRevision > 0 && <span>👀 Revisar: {misTareasRevision}</span>}
+                    {misTareasAprobacion > 0 && <span>✓ Aprobar: {misTareasAprobacion}</span>}
+                  </span>
+                )}
               </button>
             </div>
           </div>

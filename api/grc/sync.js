@@ -15,31 +15,65 @@ function esRolAdministrador(rol) {
 }
 
 /**
- * Helper defensivo para RLS: Filtra colecciones evitando TypeErrors.
+ * Motor ABAC / RLS Avanzado: Filtra colecciones garantizando que el usuario solo vea
+ * lo que le corresponde por Correo, Cargo o Proceso.
  */
-function aplicarRLS(lista = [], keyProceso, keyResp, keyCorreoResp, userEmail, userName, userProcess) {
+function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
   if (!Array.isArray(lista)) return [];
+
+  const emailSafe = String(userEmail || '').toLowerCase().trim();
+  const cargoSafe = String(userCargo || '').toLowerCase().trim();
+  const processSafe = String(userProcess || '').toLowerCase().trim();
 
   return lista.filter(item => {
     if (!item || typeof item !== 'object') return false;
 
-    // 1. Validación por Correo Electrónico
-    if (keyCorreoResp && item[keyCorreoResp] && typeof item[keyCorreoResp] === 'string') {
-      if (item[keyCorreoResp].toLowerCase().trim() === userEmail) return true;
+    // =========================================================
+    // REGLA 1: Identidad (Correo Electrónico)
+    // Si mi correo está en algún campo clave de este registro, lo veo.
+    // =========================================================
+    if (emailSafe) {
+      const correosInvolucrados = [
+        item.correoResponsable, item.correo_responsable,
+        item.correoAuditor, item.correo_auditor, item.correoAuditorResponsable,
+        item.correoRevisor, item.correo_revisor,
+        item.correoEnviadoA
+      ].join(' ').toLowerCase();
+
+      if (correosInvolucrados.includes(emailSafe)) return true;
     }
 
-    // 2. Validación por Nombre de Responsable
-    if (keyResp && userName && item[keyResp] && typeof item[keyResp] === 'string') {
-      if (item[keyResp].toLowerCase().includes(userName)) return true;
+    // =========================================================
+    // REGLA 2: Estructural (Proceso / Subproceso)
+    // Si yo pertenezco a este proceso, veo todo lo que sucede aquí.
+    // =========================================================
+    if (processSafe) {
+      const procesoRegistro = String(item.proceso || item.macroproceso || '').toLowerCase();
+      const subprocesoRegistro = String(item.subproceso || '').toLowerCase();
+      
+      if (procesoRegistro.includes(processSafe) || subprocesoRegistro.includes(processSafe) || processSafe.includes(procesoRegistro)) {
+        return true;
+      }
     }
 
-    // 3. Validación por Proceso Asignado
-    if (keyProceso && userProcess && item[keyProceso]) {
-      const procItem = String(item[keyProceso]).trim().toLowerCase();
-      const procUser = String(userProcess).trim().toLowerCase();
-      if (procItem === procUser || procItem.includes(procUser)) return true;
+    // =========================================================
+    // REGLA 3: Operativo (Cargo Múltiple)
+    // Si mi cargo fue asignado a este registro (como responsable, revisor, etc.), lo veo.
+    // =========================================================
+    if (cargoSafe) {
+      const rolesInvolucrados = [
+        item.responsable,
+        item.auditor, item.auditorResponsable, item.auditorAsignado,
+        item.revisor,
+        item.elaboradoPor, item.revisadoPor, item.aprobadoPor,
+        item.participantes, item.socializadoCon
+      ].join(' ').toLowerCase();
+
+      // Buscamos si el cargo del usuario está contenido en la cadena de roles asignados
+      if (rolesInvolucrados.includes(cargoSafe)) return true;
     }
 
+    // Si no cumplió NINGUNA de las reglas de seguridad corporativa, se oculta el registro
     return false;
   });
 }
@@ -69,24 +103,36 @@ export default async function handler(req, res) {
 
       const data = dbDoc.data() || {};
 
-      // Administradores y Auditores acceden a la totalidad del documento
+      // Administradores y Auditores acceden a la totalidad de la base de datos
       if (isAdmin) {
         return sendSuccess(res, data);
       }
 
-      // Aplicación de RLS sanitizada para usuarios estándar
+      // Extracción segura del contexto del usuario autenticado
       const userEmail = String(user.email || '').toLowerCase().trim();
-      const userName = String(user.nombreResponsable || '').toLowerCase().trim();
-      const userProcess = user.procesoAsignado || user.proceso || null;
+      const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
+      const userProcess = String(user.procesoAsignado || user.proceso || user.area || '').toLowerCase().trim();
 
+      // Aplicación estricta de Row-Level Security (RLS) a las colecciones sensibles
       const filteredData = {
         ...data,
-        planes: aplicarRLS(data.planes, 'proceso', 'responsable', 'correoResponsable', userEmail, userName, userProcess),
-        hallazgos: aplicarRLS(data.hallazgos, 'proceso', 'responsable', null, userEmail, userName, userProcess),
-        riesgos: aplicarRLS(data.riesgos, 'proceso', 'responsable', null, userEmail, userName, userProcess),
-        evaluaciones: aplicarRLS(data.evaluaciones, 'proceso', null, null, userEmail, userName, userProcess)
+        // Colecciones Segurizadas
+        informesAuditoria: aplicarRLS(data.informesAuditoria, userEmail, userCargo, userProcess),
+        hallazgos: aplicarRLS(data.hallazgos, userEmail, userCargo, userProcess),
+        planes: aplicarRLS(data.planes, userEmail, userCargo, userProcess),
+        riesgos: aplicarRLS(data.riesgos, userEmail, userCargo, userProcess),
+        evaluaciones: aplicarRLS(data.evaluaciones, userEmail, userCargo, userProcess),
+        incidentes: aplicarRLS(data.incidentes, userEmail, userCargo, userProcess),
+        
+        // Colecciones Públicas o de Configuración (Accesibles en modo lectura para todos)
+        fuentesMejora: data.fuentesMejora || [],
+        programas: data.programas || [],
+        cronograma: data.cronograma || [],
+        comites: data.comites || [],
+        monitoreo: data.monitoreo || []
       };
 
+      logger.info('Datos entregados con políticas RLS/ABAC aplicadas.', { usuario: userEmail });
       return sendSuccess(res, filteredData);
     }
 

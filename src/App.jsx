@@ -242,8 +242,31 @@ const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.ema
     saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses
   ]);
 
-// 🔔 Calculador de notificaciones para la barra lateral (Planes en Revisión)
-  const pendingPlansCount = safePlanes.filter(p => p.estadoWorkflow === 'En Revisión').length;
+// 🔔 Calculador de notificaciones personalizadas para la barra lateral
+  const userEmailLower = user?.email?.toLowerCase() || '';
+
+  // 1. Tareas que el usuario debe EJECUTAR (Subir evidencias y avance)
+  const misTareasEjecucion = safePlanes.filter(p => {
+    const correoEjecutor = (p.correoResponsable || '').toLowerCase();
+    return correoEjecutor === userEmailLower && p.estadoWorkflow === 'En Ejecución';
+  }).length;
+
+  // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
+  const misTareasRevision = safePlanes.filter(p => {
+    const correoRevisor = (p.correoRevisor || '').toLowerCase();
+    // Consideramos que debe revisar tanto los nuevos (Pendiente Revisión Jefatura) 
+    // como los que ya están al 100% (En Revisión (100%)) antes de que pasen al auditor.
+    return correoRevisor === userEmailLower && 
+           (p.estadoWorkflow === 'Pendiente Revisión Jefatura' || p.estadoWorkflow === 'En Revisión (100%)');
+  }).length;
+
+  // 3. Tareas que el usuario debe APROBAR (Como Auditor)
+  const misTareasAprobacion = safePlanes.filter(p => {
+    const correoAuditor = (p.correoAuditor || '').toLowerCase();
+    return correoAuditor === userEmailLower && p.estadoWorkflow === 'Pendiente Aprobación Auditor';
+  }).length;
+
+  // El total de notificaciones para el usuario actual
   // 📜 Restablecer el scroll arriba del todo al cambiar de módulo o subpestaña (Garantizado)
   useEffect(() => {
     const resetScroll = () => {
@@ -321,11 +344,13 @@ return (
         setSubTabPlanes={setSubTabPlanes}
         subTabGobernanza={subTabGobernanza}
         setSubTabGobernanza={setSubTabGobernanza}
-        pendingPlansCount={pendingPlansCount}
+        misTareasEjecucion={misTareasEjecucion} // Nueva prop
+        misTareasRevision={misTareasRevision}   // Nueva prop
+        misTareasAprobacion={misTareasAprobacion} // Nueva prop
         isAdmin={isAdmin}
         user={user}
         handleLogout={handleLogout}
-      /> 
+      />
       
       <div className="flex-1 flex flex-col overflow-hidden relative">
 <Navbar 
@@ -542,7 +567,7 @@ return (
                 
                 {subTabPlanes === 'planes' && (
                   <Planes 
-                    ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} prepararEnvioGmail={prepararEnvioGmail} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin}
+                    ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} prepararEnvioGmail={prepararEnvioGmail} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} user={user}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
                     FilterInput={FilterInput} pFiltrados={pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}
