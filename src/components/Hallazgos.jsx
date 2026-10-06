@@ -60,7 +60,7 @@ export default function Hallazgos({
   // ⏳ ESTADOS LOCALES PARA FILTROS DE HISTORIAL
   const [filtroAnio, setFiltroAnio] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
-  const [filtroTipoFuente, setFiltroTipoFuente] = useState(''); // ✨ NUEVO: Estado para filtrar por Tipo de Fuente
+  const [filtroTipoFuente, setFiltroTipoFuente] = useState(''); // ✨ Estado para filtrar por Tipo de Fuente
 
   // 🏢 ESTADOS Y LÓGICA DERIVADA PARA FORMULARIO DE EDICIÓN
   const [sedeTemp, setSedeTemp] = useState('');
@@ -242,10 +242,10 @@ export default function Hallazgos({
     if (filtroAnio && h.anioReal !== filtroAnio) return false;
     if (filtroMes && h.fechaReal.split('-')[1] !== filtroMes) return false;
     
-    // ✨ NUEVO: Filtrado inteligente por Tipo de Fuente (Buscando en el informe de origen)
+    // ✨ Filtrado inteligente por Tipo de Fuente (Buscando en el informe de origen)
     if (filtroTipoFuente) {
       const informeOrigen = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
-      if (!informeOrigen) return false;
+      if (!informeOrigen) return false; // Si no hay informe base, no puede cumplir el filtro
       
       const referencia = String(informeOrigen.tipoFuente || 'Auditoría Interna').trim();
       const fuenteReal = fuentesMejoraDisponibles.find(f => 
@@ -260,10 +260,12 @@ export default function Hallazgos({
     return true;
   });
 
-  // Extraer las fuentes únicas disponibles para llenar el select desplegable
+  // Extraer las fuentes únicas disponibles dinámicamente
   const fuentesUnicasDisponibles = [...new Set(hallazgosEnriquecidos.map(h => {
     const informeOrigen = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
-    const referencia = String(informeOrigen?.tipoFuente || 'Auditoría Interna').trim();
+    if (!informeOrigen) return 'Auditoría Interna'; // Fallback de seguridad
+    
+    const referencia = String(informeOrigen.tipoFuente || 'Auditoría Interna').trim();
     const fuenteReal = fuentesMejoraDisponibles.find(f => 
       String(f.codigo || '').toLowerCase() === referencia.toLowerCase() || 
       String(f.id || '').toLowerCase() === referencia.toLowerCase()
@@ -1108,7 +1110,7 @@ export default function Hallazgos({
                     <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
                   </select>
 
-                  {/* ✨ NUEVO: FILTRO DESPLEGABLE POR TIPO DE FUENTE */}
+                  {/* ✨ FILTRO DESPLEGABLE POR TIPO DE FUENTE (Alineado con el diseño visual) */}
                   <select 
                     value={filtroTipoFuente} 
                     onChange={(e) => setFiltroTipoFuente(e.target.value)} 
@@ -1120,7 +1122,13 @@ export default function Hallazgos({
 
                  <div className="relative w-full sm:w-auto">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-                    <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-[10px] focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-56 shadow-sm font-bold" />
+                    <input 
+                      type="text" 
+                      placeholder="Búsqueda General..." 
+                      value={searchTerm} 
+                      onChange={(e) => setSearchTerm(e.target.value)} 
+                      className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-[10px] focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-56 shadow-sm font-bold" 
+                    />
                  </div>
                </div>
             </div>
