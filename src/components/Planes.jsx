@@ -1579,18 +1579,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 />
                               </div>
                               
-                              {/* --- INICIO SECTOR MÚLTIPLE: SEDE Y CARGOS --- */}
+{/* --- INICIO SECTOR MÚLTIPLE: SEDE --- */}
                               {(() => {
                                 const sedesActuales = act.sede ? act.sede.split(',').map(s => s.trim()).filter(Boolean) : [];
-                                const responsablesActuales = act.responsable ? act.responsable.split(',').map(r => r.trim()).filter(Boolean) : [];
-                                const cargosDisponibles = sedesActuales.length > 0 
-                                  ? [...new Set(sedesActuales.flatMap(s => CARGOS_POR_SEDE[s] || []))] 
-                                  : Object.keys(CARGOS_POR_SEDE).flatMap(k => CARGOS_POR_SEDE[k]);
 
                                 return (
                                   <>
                                     {/* CAMPO S1: SEDES MÚLTIPLES */}
-                                    <div className="md:col-span-1 bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-start">
+                                    <div className="md:col-span-2 bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-start">
                                       <label className="font-bold text-slate-700 block mb-1 text-[10px]">🏢 Sedes</label>
                                       <select 
                                         value="" 
@@ -1615,37 +1611,6 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                               const filtrado = sedesActuales.filter(item => item !== s).join(', ');
                                               handleUpdateActivityField(h.id, index, 'sede', filtrado);
                                             }} className="ml-1 text-indigo-400 hover:text-indigo-600 font-black">✕</button>
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-
-                                    {/* CAMPO B: CARGOS MÚLTIPLES */}
-                                    <div className="md:col-span-1 bg-slate-50 p-2 rounded-lg border border-slate-200 flex flex-col justify-start">
-                                      <label className="font-bold text-slate-700 block mb-1 text-[10px]">👔 Cargos (Dueños)</label>
-                                      <select 
-                                        value="" 
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          if(val && !responsablesActuales.includes(val)) {
-                                            const nuevosResp = [...responsablesActuales, val].join(', ');
-                                            handleUpdateActivityField(h.id, index, 'responsable', nuevosResp);
-                                          }
-                                        }} 
-                                        className="w-full border border-slate-300 p-1.5 rounded bg-white font-bold text-slate-800 cursor-pointer shadow-sm text-[10px] outline-none" 
-                                      >
-                                        <option value="">-- Añadir Cargo --</option>
-                                        {cargosDisponibles.sort().map(cargo => <option key={cargo} value={cargo} disabled={responsablesActuales.includes(cargo)}>{cargo}</option>)}
-                                      </select>
-                                      <div className="flex flex-wrap gap-1 mt-1.5">
-                                        {responsablesActuales.length === 0 && <span className="text-[9px] text-slate-400 italic">Ningún cargo...</span>}
-                                        {responsablesActuales.map(r => (
-                                          <span key={r} className="bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center shadow-sm">
-                                            <span className="truncate max-w-[80px]" title={r}>{r}</span>
-                                            <button type="button" onClick={() => {
-                                              const filtrado = responsablesActuales.filter(item => item !== r).join(', ');
-                                              handleUpdateActivityField(h.id, index, 'responsable', filtrado);
-                                            }} className="ml-1 text-sky-400 hover:text-sky-600 font-black">✕</button>
                                           </span>
                                         ))}
                                       </div>
@@ -1677,14 +1642,26 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 />
                               </div>
 
-                              {/* ROLES DE EJECUCIÓN Y REVISIÓN */}
-                              <div className="md:col-span-3">
-                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo de quien EJECUTA (Responsable)</label>
-                                <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} placeholder="Correo del que elabora/ejecuta" className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
+                             {/* ROLES DE EJECUCIÓN Y REVISIÓN */}
+                              <div className="md:col-span-2">
+                                <label className="font-bold text-purple-700 block mb-0.5">👷 Quien EJECUTA la Acción (Cargo)</label>
+                                <select 
+                                  value={act.responsable || ''} 
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} 
+                                  className="w-full border border-purple-200 p-2 rounded-lg font-bold text-purple-900 bg-purple-50 focus:bg-white shadow-sm outline-none cursor-pointer" 
+                                  required
+                                >
+                                  <option value="">-- Asignar Ejecutor --</option>
+                                  {CARGOS_EMPRESA.map((cargo, i) => <option key={`resp-${i}`} value={cargo}>{cargo}</option>)}
+                                </select>
                               </div>
-                              <div className="md:col-span-3">
-                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar correo de quien Ejecuta</label>
-                                <input type="email" value={act.correoConfirmacion || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} className="w-full border p-2 rounded-lg bg-purple-50 focus:bg-white" required />
+                              <div className="md:col-span-2">
+                                <label className="font-bold text-purple-700 block mb-0.5">📧 Correo de quien EJECUTA</label>
+                                <input type="email" value={act.correoResponsable || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} placeholder="Correo del responsable" className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="font-bold text-purple-700 block mb-0.5">✓ Confirmar correo</label>
+                                <input type="email" value={act.correoConfirmacion || ''} onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} placeholder="Confirme el correo" className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white" required />
                               </div>
                               <div className="md:col-span-3">
                                 <label className="font-bold text-amber-600 block mb-0.5">👀 Quien REVISA la Acción (Cargo)</label>
