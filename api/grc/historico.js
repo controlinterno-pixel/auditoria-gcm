@@ -30,6 +30,11 @@ export default async function handler(req, res) {
     // 📖 PETICIONES GET (LECTURA SEGURA Y PARALELIZADA)
     // =========================================================================
     if (method === 'GET') {
+      if (!isAdmin) {
+        logger.warn('Intento no autorizado de lectura de histórico', { usuario: user.email, rol: user.rol });
+        return sendError(res, 'Permisos insuficientes para consultar históricos de nómina o marcaciones.', 403);
+      }
+
       const { action, periodo, empresa } = req.query;
 
       // 1. Obtener lista de Nóminas

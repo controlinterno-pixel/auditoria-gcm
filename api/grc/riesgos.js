@@ -91,7 +91,11 @@ export default async function handler(req, res) {
       const isGlobalUser = ['admin', 'auditor', 'gerente'].includes(user.rol?.toLowerCase());
       let query = adminDb.collection('riesgos');
 
-      if (!isGlobalUser && user.procesoAsignado) {
+      if (!isGlobalUser && !user.procesoAsignado) {
+        return sendSuccess(res, { riesgos: [] });
+      }
+
+      if (!isGlobalUser) {
         query = query.where('proceso', '==', user.procesoAsignado);
       }
 
@@ -113,7 +117,10 @@ export default async function handler(req, res) {
 
       // Validación RLS para usuarios no administradores
       const isAdmin = ['admin', 'auditor'].includes(user.rol?.toLowerCase());
-      if (!isAdmin && user.procesoAsignado && proceso !== user.procesoAsignado) {
+      if (!isAdmin && !user.procesoAsignado) {
+        return sendError(res, 'No tiene un proceso asignado para modificar riesgos.', 403);
+      }
+      if (!isAdmin && proceso !== user.procesoAsignado) {
         return sendError(res, 'No tiene permisos para modificar riesgos de otro proceso.', 403);
       }
 
@@ -131,7 +138,21 @@ export default async function handler(req, res) {
         ultimaActualizacion: new Date().toISOString()
       };
 
-      await adminDb.collection('riesgos').doc(String(id)).set(documentoRiesgo, { merge: true });
+      const riesgoRef = adminDb.collection('riesgos').doc(String(id));
+      const guardado = await adminDb.runTransaction(async (transaction) => {
+        const riesgoExistente = await transaction.get(riesgoRef);
+        if (!isAdmin && riesgoExistente.exists && riesgoExistente.data()?.proceso !== user.procesoAsignado) {
+          return false;
+        }
+
+        transaction.set(riesgoRef, documentoRiesgo, { merge: true });
+        return true;
+      });
+
+      if (!guardado) {
+        logger.warn('Intento de modificar riesgo de otro proceso', { id, usuario: user.email, proceso });
+        return sendError(res, 'No tiene permisos para modificar riesgos de otro proceso.', 403);
+      }
 
       logger.info('Riesgo corporativo guardado en servidor', { id, usuario: user.email, nivelResidual: calculos.nivelResidual });
 

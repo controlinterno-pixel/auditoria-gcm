@@ -60,6 +60,12 @@ export default async function handler(req, res) {
     const user = await requireAuth(req, res);
     if (!user) return;
 
+    const rolesAutorizados = ['admin', 'administrador', 'auditor'];
+    if (!rolesAutorizados.includes(String(user.rol || '').toLowerCase().trim())) {
+      logger.warn('Intento no autorizado de análisis forense', { usuario: user.email, rol: user.rol });
+      return sendError(res, 'Permisos insuficientes para analizar información histórica de nómina.', 403);
+    }
+
     logger.info('Ejecutando procesamiento forense', { usuario: user.email });
     const { listaBases } = req.body || {};
 
