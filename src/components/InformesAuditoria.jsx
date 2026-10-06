@@ -534,21 +534,31 @@ const handleFileUpload = async (e, type) => {
     setVistaActiva('dashboard');
   };
 
- const cambiarVista = (nuevaVista) => {
-    if (nuevaVista === vistaActiva) return;
-
-    if (vistaActiva !== 'nuevo') {
-      setVistaActiva(nuevaVista);
+ // 🛡️ LÓGICA DE NAVEGACIÓN SEGURA UNIFICADA
+  const cambiarVistaSegura = (nuevaVista) => {
+    if (nuevaVista === vistaActiva) {
+      // Si el usuario hace clic en el mismo botón donde ya está, pero es "Nuevo Informe"
+      // preguntamos si quiere resetear el formulario. Si no, lo ignoramos.
+      if (nuevaVista === 'nuevo' && !modoVistaCompleta && editInformeAuditoria) {
+        if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Perderás los datos de este informe para crear uno nuevo.")) {
+          handleResetForm();
+          setVistaActiva('nuevo');
+        }
+      }
       return;
     }
 
-    confirmarSalidaSinGuardar(() => {
+    // Si estamos editando o creando, y no estamos en modo "solo lectura"
+    if (vistaActiva === 'nuevo' && !modoVistaCompleta && isDirty) {
+      confirmarSalidaSinGuardar(() => {
+        handleResetForm();
+        setVistaActiva(nuevaVista);
+      });
+    } else {
+      // Si estamos en dashboard, historial o modo solo lectura, navegamos libremente
+      handleResetForm();
       setVistaActiva(nuevaVista);
-    });
-  };
-
-  const cambiarVistaSegura = (nuevaVista) => {
-    cambiarVista(nuevaVista); // Usamos la misma lógica de protección que ya tiene el archivo
+    }
   };
 
   // Extraer años y responsables únicos para los selects
@@ -808,8 +818,8 @@ const handleFileUpload = async (e, type) => {
 
         {/* BOTONERA DERECHA */}
         <div className="relative z-20 flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          <button onClick={() => cambiarVista('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
-          <button onClick={() => cambiarVista('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
+          <button onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
+          <button onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
           
           {isAdmin && (
             <button onClick={handleCrearNuevoInforme} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}>
@@ -2120,7 +2130,7 @@ const handleFileUpload = async (e, type) => {
                 {!modoVistaCompleta && (
                   <button 
                     type="button" 
-                    onClick={() => cambiarVista('dashboard')}
+                    onClick={() => cambiarVistaSegura('dashboard')}
                     className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-3.5 rounded-xl font-black uppercase tracking-widest text-sm shadow-sm transition-all w-full md:w-auto"
                   >
                     ❌ Salir sin guardar
