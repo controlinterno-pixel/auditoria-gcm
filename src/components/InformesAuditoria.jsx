@@ -1375,20 +1375,29 @@ const handleFileUpload = async (e, type) => {
                   </select>
                 </div>
 
-               {draftInforme.tipoFuente === 'Programa de Auditoría' && (
+{draftInforme.tipoFuente === 'Programa de Auditoría' && (
                   <div className="animate-in fade-in duration-300 border-t border-emerald-200 pt-3">
                     <label className="font-black text-emerald-900 block mb-1.5 uppercase tracking-widest text-[10px]">📋 Vincular Programa de Auditoría Aprobado</label>
                     <select
-                      name="programaId"
+                      name="programaId_select"
                       required
-                      defaultValue={editInformeAuditoria?.programaId || ''}
+                      value={draftInforme.programaId || editInformeAuditoria?.programaId || ''}
                       onChange={(e) => {
-                        const prog = safeProgramas.find(p => String(p.id) === String(e.target.value));
+                        const val = e.target.value;
+                        const prog = safeProgramas.find(p => String(p.id) === String(val));
                         setIsDirty(true);
+                        
+                        const nuevoMacro = prog ? prog.proceso : '';
+                        const nuevoSub = prog ? (prog.subproceso || 'General') : 'General';
+                        
                         if (prog) {
-                           setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: prog.proceso || '' }));
-                           setSubprocesoForm(prev => ({ ...prev, [idEdicion]: prog.subproceso || 'General' }));
+                           setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
+                           setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoSub }));
                         }
+                        
+                        const siguiente = { ...draftInforme, programaId: val, proceso: nuevoMacro, subproceso: nuevoSub };
+                        setDraftInforme(siguiente);
+                        registrarCambioBorrador(siguiente);
                       }}
                       className="w-full border border-emerald-300 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 shadow-sm bg-white cursor-pointer disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
                       disabled={modoVistaCompleta}
@@ -1400,6 +1409,8 @@ const handleFileUpload = async (e, type) => {
                         </option>
                       ))}
                     </select>
+                    {/* 👇 ESTE INPUT OCULTO GARANTIZA QUE SE GUARDE EL PROGRAMA SIEMPRE */}
+                    <input type="hidden" name="programaId" value={draftInforme.programaId || editInformeAuditoria?.programaId || ''} />
                     <p className="text-[9px] text-emerald-700 mt-1.5 font-medium">El sistema autocompletará el Macroproceso y Subproceso auditado.</p>
                   </div>
                 )}
@@ -1446,7 +1457,7 @@ const handleFileUpload = async (e, type) => {
               <div className="md:col-span-1">
                  <label className="font-bold text-gray-600 block mb-1.5">🏛️ Macroproceso</label>
                  <select
-                   name="proceso"
+                   name="proceso_select"
                    required
                    value={draftInforme.proceso || macroprocesoForm}
                    onChange={(e) => {
@@ -1471,17 +1482,19 @@ const handleFileUpload = async (e, type) => {
                      }
                    }}
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompleta}
->
+                   disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompleta}
+                 >
                    <option value="">-- Seleccionar --</option>
                    {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
                  </select>
+                 {/* 👇 ESTE INPUT OCULTO GARANTIZA QUE SE GUARDE EL PROCESO AUNQUE ESTÉ BLOQUEADO */}
+                 <input type="hidden" name="proceso" value={draftInforme.proceso || macroprocesoForm || ''} />
               </div>
 
               <div className="md:col-span-1">
                  <label className="font-bold text-gray-600 block mb-1.5">↳ Subproceso</label>
                  <select 
-                   name="subproceso" 
+                   name="subproceso_select" 
                    value={draftInforme.subproceso || subprocesoForm || 'General'} 
                    onChange={(e) => {
                      const siguiente = { ...draftInforme, subproceso: e.target.value };
@@ -1502,7 +1515,9 @@ disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompl
                    <option value="">-- Seleccionar --</option>
                    {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(s => <option key={s} value={s}>{s}</option>)}
                  </select>
-              </div>  
+                 {/* 👇 ESTE INPUT OCULTO GARANTIZA QUE SE GUARDE EL SUBPROCESO AUNQUE ESTÉ BLOQUEADO */}
+                 <input type="hidden" name="subproceso" value={draftInforme.subproceso || subprocesoForm || 'General'} />
+              </div> 
 
                 <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>

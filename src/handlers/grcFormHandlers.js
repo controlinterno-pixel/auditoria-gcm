@@ -510,7 +510,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
     setMonitoreo(updatedList); await saveToCloud({ monitoreo: updatedList }); e.target.reset(); showNotification("Indicador actualizado.");
   };
 
-  const handleInformeAuditoriaSubmit = async (e) => {
+const handleInformeAuditoriaSubmit = async (e) => {
     e.preventDefault(); setIsSubmitting(true);
     const limpiarTildesParaCorreo = (texto) => texto ? texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "") : '';
     try {
@@ -520,7 +520,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
       const tituloVal = formData.get('titulo') || editInformeAuditoria?.titulo || 'Sin título';
       const procesoVal = formData.get('proceso') || formData.get('Proceso') || editInformeAuditoria?.proceso || editInformeAuditoria?.macroproceso || 'Sin proceso';
       const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || editInformeAuditoria?.subproceso || 'General';
-      
+      const programaIdVal = String(formData.get('programaId') || editInformeAuditoria?.programaId || '').trim();
       const fechaVal = formData.get('fecha') || editInformeAuditoria?.fecha || new Date().toISOString().split('T')[0];
       
       const tipoFuenteOut = String(formData.get('tipoFuente') || editInformeAuditoria?.tipoFuente || '').trim();
@@ -568,6 +568,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
             titulo: tituloVal,
             proceso: procesoVal,
             subproceso: subprocesoVal,
+            programaId: programaIdVal,
             tipoFuente: tipoFuenteOut,
             detalleFuente: detalleFuenteOut,
             fecha: fechaVal,
@@ -589,6 +590,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           proceso: procesoVal, 
           macroproceso: procesoVal, 
           subproceso: subprocesoVal, 
+          programaId: programaIdVal,
           tipoFuente: tipoFuenteOut,
           detalleFuente: detalleFuenteOut,
           fecha: fechaVal, 
@@ -628,6 +630,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
                   titulo: tituloVal,
                   proceso: procesoVal,
                   subproceso: subprocesoVal,
+                  programaId: programaIdVal,
                   tipoFuente: tipoFuenteOut,
                   detalleFuente: detalleFuenteOut,
                   fecha: fechaVal,
@@ -659,6 +662,7 @@ const correoCentral = user?.email || import.meta.env.VITE_CORREO_ADMIN_DEFAULT |
           proceso: procesoVal, 
           macroproceso: procesoVal,
           subproceso: subprocesoVal, 
+          programaId: programaIdVal,
           tipoFuente: tipoFuenteOut,
           detalleFuente: detalleFuenteOut,
           fecha: fechaVal, 
