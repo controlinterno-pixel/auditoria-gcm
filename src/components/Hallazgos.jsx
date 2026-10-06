@@ -57,9 +57,10 @@ export default function Hallazgos({
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
 
-  // ⏳ ESTADOS LOCALES PARA FILTROS DE FECHA (Historial)
+  // ⏳ ESTADOS LOCALES PARA FILTROS DE HISTORIAL
   const [filtroAnio, setFiltroAnio] = useState('');
   const [filtroMes, setFiltroMes] = useState('');
+  const [filtroTipoFuente, setFiltroTipoFuente] = useState(''); // ✨ NUEVO: Estado para filtrar por Tipo de Fuente
 
   // 🏢 ESTADOS Y LÓGICA DERIVADA PARA FORMULARIO DE EDICIÓN
   const [sedeTemp, setSedeTemp] = useState('');
@@ -240,8 +241,35 @@ export default function Hallazgos({
   const hallazgosFiltradosPorFecha = hallazgosEnriquecidos.filter(h => {
     if (filtroAnio && h.anioReal !== filtroAnio) return false;
     if (filtroMes && h.fechaReal.split('-')[1] !== filtroMes) return false;
+    
+    // ✨ NUEVO: Filtrado inteligente por Tipo de Fuente (Buscando en el informe de origen)
+    if (filtroTipoFuente) {
+      const informeOrigen = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
+      if (!informeOrigen) return false;
+      
+      const referencia = String(informeOrigen.tipoFuente || 'Auditoría Interna').trim();
+      const fuenteReal = fuentesMejoraDisponibles.find(f => 
+        String(f.codigo || '').toLowerCase() === referencia.toLowerCase() || 
+        String(f.id || '').toLowerCase() === referencia.toLowerCase()
+      );
+      
+      const nombreGrupo = fuenteReal ? (fuenteReal.norma || fuenteReal.tipoNorma || fuenteReal.tipoFuente || 'Fuente sin norma') : referencia;
+      if (nombreGrupo !== filtroTipoFuente) return false;
+    }
+    
     return true;
   });
+
+  // Extraer las fuentes únicas disponibles para llenar el select desplegable
+  const fuentesUnicasDisponibles = [...new Set(hallazgosEnriquecidos.map(h => {
+    const informeOrigen = informesAuditoria.find(inf => String(inf.id) === String(h.idInforme));
+    const referencia = String(informeOrigen?.tipoFuente || 'Auditoría Interna').trim();
+    const fuenteReal = fuentesMejoraDisponibles.find(f => 
+      String(f.codigo || '').toLowerCase() === referencia.toLowerCase() || 
+      String(f.id || '').toLowerCase() === referencia.toLowerCase()
+    );
+    return fuenteReal ? (fuenteReal.norma || fuenteReal.tipoNorma || fuenteReal.tipoFuente || 'Fuente sin norma') : referencia;
+  }))].sort();
 
   const aniosDisponibles = [...new Set(hallazgosEnriquecidos.map(h => h.anioReal).filter(a => a !== 'Sin Fecha'))].sort().reverse();
   
@@ -1072,7 +1100,7 @@ export default function Hallazgos({
                     {[2024, 2025, 2026, 2027, 2028, 2029, 2030].map(a => <option key={a} value={String(a)}>{a}</option>)}
                   </select>
 
-                  <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-xs py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
+                  <select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer">
                     <option value="">📆 Todos los Meses</option>
                     <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
                     <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
@@ -1080,9 +1108,19 @@ export default function Hallazgos({
                     <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
                   </select>
 
+                  {/* ✨ NUEVO: FILTRO DESPLEGABLE POR TIPO DE FUENTE */}
+                  <select 
+                    value={filtroTipoFuente} 
+                    onChange={(e) => setFiltroTipoFuente(e.target.value)} 
+                    className="border border-slate-300 rounded-lg text-[10px] py-1.5 px-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-red-500 shadow-sm cursor-pointer max-w-[160px] truncate"
+                  >
+                    <option value="">⊞ Todas las Fuentes</option>
+                    {fuentesUnicasDisponibles.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+
                  <div className="relative w-full sm:w-auto">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">🔍</span>
-                    <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-64 shadow-sm font-bold" />
+                    <input type="text" placeholder="Búsqueda General..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8 pr-4 py-1.5 border border-slate-300 rounded-lg text-[10px] focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-56 shadow-sm font-bold" />
                  </div>
                </div>
             </div>
