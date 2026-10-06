@@ -107,7 +107,7 @@ export const createFormHandlers = ({
     showNotification("Riesgo estructurado.");
   };
 
-  const handleHallazgoSubmit = async (e) => {
+ const handleHallazgoSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
@@ -130,6 +130,10 @@ export const createFormHandlers = ({
     const procesoVal = formData.get('proceso') || formData.get('Proceso') || 'Sin proceso';
     const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || 'General';
     
+    // ✨ Capturamos los nuevos campos
+    const tipoFuenteVal = formData.get('tipoFuente') || editHallazgo?.tipoFuente || '';
+    const detalleFuenteVal = formData.get('detalleFuente') || editHallazgo?.detalleFuente || '';
+
     let updated;
     if (editHallazgo) {
       const mod = { 
@@ -142,6 +146,8 @@ export const createFormHandlers = ({
         responsable: formData.get('responsable'), 
         auditor: formData.get('auditor') || editHallazgo?.auditor || '', 
         normaReferencia: normaReferenciaOut,
+        tipoFuente: tipoFuenteVal,        // ✨ Nuevo
+        detalleFuente: detalleFuenteVal,  // ✨ Nuevo
         titulo: formData.get('titulo'), 
         severidad: formData.get('severidad'), 
         evidenciaUrl: evidenciaUrlOut, 
@@ -163,6 +169,8 @@ export const createFormHandlers = ({
         responsable: formData.get('responsable'), 
         auditor: formData.get('auditor') || '', 
         normaReferencia: normaReferenciaOut,
+        tipoFuente: tipoFuenteVal,        // ✨ Nuevo
+        detalleFuente: detalleFuenteVal,  // ✨ Nuevo
         titulo: formData.get('titulo'), 
         severidad: formData.get('severidad'), 
         estado: 'Abierto', 
@@ -182,7 +190,6 @@ export const createFormHandlers = ({
     e.target.reset(); 
     showNotification("Hallazgo actualizado.");
   };
-
   const handlePlanSubmit = async (e) => {
     e.preventDefault(); 
     const formData = new FormData(e.target);

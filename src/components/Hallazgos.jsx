@@ -108,13 +108,17 @@ export default function Hallazgos({
 
   const setSedesMultiples = (newSedes) => setSedesState(prev => ({ ...prev, [idEdicion]: newSedes }));
 
-  const subprocesosDisponibles = procesoForm ? MAPA_PROCESOS[procesoForm] || [] : [];
+ const subprocesosDisponibles = procesoForm ? MAPA_PROCESOS[procesoForm] || [] : [];
   const subprocesoDeshabilitado = !procesoForm || subprocesosDisponibles.length === 0;
   const informeOrigen = informesAuditoria.find(informe => String(informe.id) === String(informeOrigenSeleccionado));
   const fuenteOrigen = fuentesMejoraDisponibles.find(fuente => (
     String(fuente.codigo || fuente.id) === String(informeOrigen?.tipoFuente || '')
   ));
   const normaReferencia = fuenteOrigen?.norma || fuenteOrigen?.tipoNorma || informeOrigen?.norma || '';
+
+  // ✨ NUEVO: Extracción de la Fuente de Mejora y su Detalle desde el Informe Origen
+  const tipoFuenteHallazgo = informeOrigen?.tipoFuente || editHallazgo?.tipoFuente || '';
+  const detalleFuenteHallazgo = informeOrigen?.detalleFuente || editHallazgo?.detalleFuente || '';
 
   // 🧠 GENERADOR DE ID AUTOMÁTICO
   const anioActual = new Date().getFullYear();
@@ -769,19 +773,17 @@ export default function Hallazgos({
               </select>
             </div>
             
-            {/* ================= FILA 2: ORIGEN Y CONTEXTO JERÁRQUICO (2 + 1 + 1 = 4) ================= */}
+{/* ================= FILA 2: ORIGEN Y CONTEXTO JERÁRQUICO ================= */}
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Informe de Auditoría Origen</label>
               <select 
-  name="idInforme" 
-  disabled={esSoloLectura}
-  value={informeOrigenSeleccionado}
+                name="idInforme" 
+                disabled={esSoloLectura}
+                value={informeOrigenSeleccionado}
                 onChange={(e) => {
                   const idInfSeleccionado = e.target.value;
-                  // 1. Actualizar el estado del informe origen seleccionado
                   setInformeOrigenState(prev => ({ ...prev, [idEdicion]: idInfSeleccionado }));
 
-                  // 2. Buscar el informe en la lista maestra para auto-completar Proceso y Subproceso
                   const infEncontrado = informesAuditoria.find(inf => String(inf.id) === String(idInfSeleccionado));
                   if (infEncontrado) {
                     const macroAuto = infEncontrado.macroproceso || infEncontrado.proceso || '';
@@ -803,7 +805,30 @@ export default function Hallazgos({
 
             <div className="md:col-span-2">
               <label className="font-bold text-gray-600 block mb-1">Norma / Referencia *</label>
-              <input name="normaReferencia" value={normaReferencia} readOnly placeholder="Se completa desde la Fuente de Mejora" className="w-full border border-slate-200 bg-slate-100 text-slate-600 font-bold rounded-lg p-2 outline-none" />
+              <input name="normaReferencia" value={normaReferencia} readOnly placeholder="Se completa desde el Informe" className="w-full border border-slate-200 bg-slate-100 text-slate-600 font-bold rounded-lg p-2 outline-none cursor-not-allowed" />
+            </div>
+
+            {/* ✨ NUEVAS CASILLAS HEREDADAS DEL INFORME */}
+            <div className="md:col-span-1">
+              <label className="font-bold text-emerald-700 block mb-1">Fuente de Mejora</label>
+              <input 
+                name="tipoFuente" 
+                value={tipoFuenteHallazgo} 
+                readOnly 
+                placeholder="Se hereda del informe..." 
+                className="w-full border border-emerald-200 bg-emerald-50 text-emerald-800 font-bold rounded-lg p-2 cursor-not-allowed outline-none shadow-inner" 
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="font-bold text-emerald-700 block mb-1">Detalle de la Fuente</label>
+              <input 
+                name="detalleFuente" 
+                value={detalleFuenteHallazgo} 
+                readOnly 
+                placeholder="Se hereda del informe..." 
+                className="w-full border border-emerald-200 bg-emerald-50 text-emerald-800 font-bold rounded-lg p-2 cursor-not-allowed outline-none shadow-inner" 
+              />
             </div>
             
            {/* 🔍 MACROPROCESO / PROCESO */}
