@@ -14,6 +14,7 @@ import Apetito from './components/Apetito';
 import PlanAnual from './components/PlanAnual';
 import ProgramasAuditoria from './components/ProgramasAuditoria'; 
 import AuditorIA from './components/AuditorIA';
+import InformesAuditoria from './components/InformesAuditoria';
 
 // 🔄 Helper: si un chunk falla (deployment reciente), recarga la página una vez para obtener los assets frescos
 const lazyWithReload = (importFn) =>
@@ -30,7 +31,6 @@ const lazyWithReload = (importFn) =>
   );
 
 // 🚀 Carga perezosa (Lazy Loading) de módulos secundarios/pesados
-const InformesAuditoria = lazyWithReload(() => import('./components/InformesAuditoria'));
 const FuentesDeMejora = lazyWithReload(() => import('./components/FuentesDeMejora'));
 const Comites = lazyWithReload(() => import('./components/Comites'));
 const ConceptMapper = lazyWithReload(() => import('./components/AuditoriaAutomatizada/ConceptMapper'));
