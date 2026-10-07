@@ -1046,17 +1046,15 @@ if (existingActivities.length > 0) {
   }, [safePlanes, safeHallazgos, informesAuditoria]);
   // ⚡ MEJORA UX: Carga automáticamente la matriz del informe al dar clic en "Gestionar" desde el historial
   useEffect(() => {
-    if (editPlan) {
-      const hallazgoBase = safeHallazgos.find(h => h.id === editPlan.idHallazgo);
-      if (hallazgoBase && hallazgoBase.idInforme) {
-        const idInfStr = String(hallazgoBase.idInforme);
-        const timer = setTimeout(() => {
-          handleInformeChange(idInfStr);
-        }, 0);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [editPlan, safeHallazgos, handleInformeChange]);
+    if (!editPlan || vistaActiva !== 'nuevo') return;
+    const hallazgoBase = safeHallazgos.find(h => String(h.id) === String(editPlan.idHallazgo));
+    if (!hallazgoBase?.idInforme || String(formInformeId) === String(hallazgoBase.idInforme)) return;
+
+    const timer = setTimeout(() => {
+      handleInformeChange(String(hallazgoBase.idInforme));
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [editPlan, safeHallazgos, handleInformeChange, formInformeId, vistaActiva]);
 
   const [modalNoAplica, setModalNoAplica] = useState({ activo: false, hallazgoId: null, justificacionTemporal: '' });
 
