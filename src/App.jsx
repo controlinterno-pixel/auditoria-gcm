@@ -82,6 +82,7 @@ const getInitialSidebarState = () => {
 
 export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(getInitialSidebarState);
+  const [detallePanelPlanes, setDetallePanelPlanes] = useState(null);
   
   // 🛡️ ESTADO DE BLOQUEO: Previene la "condición de carrera" al recargar con F5
   const [authInitialized, setAuthInitialized] = useState(false);
@@ -259,10 +260,11 @@ const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.ema
   const userEmailLower = user?.email?.toLowerCase() || '';
 
   // 1. Tareas que el usuario debe EJECUTAR (Subir evidencias y avance)
-  const misTareasEjecucion = safePlanes.filter(p => {
-    const correoEjecutor = (p.correoResponsable || '').toLowerCase();
-    return correoEjecutor === userEmailLower && p.estadoWorkflow === 'En Ejecución';
-  }).length;
+  const misPlanesEjecucion = safePlanes.filter(p => {
+    const correoEjecutor = (p.correoResponsable || '').trim().toLowerCase();
+    return correoEjecutor === userEmailLower.trim() && p.estadoWorkflow === 'En Ejecución';
+  });
+  const misTareasEjecucion = misPlanesEjecucion.length;
 
   // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
   const misTareasRevision = safePlanes.filter(p => {
@@ -360,6 +362,7 @@ return (
         misTareasEjecucion={misTareasEjecucion} // Nueva prop
         misTareasRevision={misTareasRevision}   // Nueva prop
         misTareasAprobacion={misTareasAprobacion} // Nueva prop
+        onSelectExecutionTasks={() => setDetallePanelPlanes('ejecucion')}
         isAdmin={isAdmin}
         puedeVerFuentesMejora={puedeVerFuentesMejora}
         user={user}
@@ -609,7 +612,7 @@ return (
                 
                 {subTabPlanes === 'planes' && (
                   <Planes 
-                    reviewReportId={reviewReportId} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user}
+                    reviewReportId={reviewReportId} detallePanelPlanes={detallePanelPlanes} setDetallePanelPlanes={setDetallePanelPlanes} misPlanesEjecucion={misPlanesEjecucion} ejecutarDespachoGmailApi={ejecutarDespachoGmailApi} prepararEnvioGmail={prepararEnvioGmail} showNotification={showNotification} handleAprobarCierrePlan={handleAprobarCierrePlan} isAdmin={isAdmin} puedeCrearPlanes={puedeCrearPlanes} user={user}
                     editPlan={editPlan} setEditPlan={setEditPlan} handlePlanSubmit={handlePlanSubmit} formResetKey={formResetKey}
                     setFormResetKey={setFormResetKey} scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters}
                     FilterInput={FilterInput} pFiltrados={pFiltrados} safeHallazgos={safeHallazgos} setHallazgos={setHallazgos}

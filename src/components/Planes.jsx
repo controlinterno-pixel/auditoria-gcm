@@ -54,6 +54,9 @@ export default function Planes({
   isAdmin,
   puedeCrearPlanes = false,
   reviewReportId = null,
+  detallePanelPlanes = null,
+  setDetallePanelPlanes = () => {},
+  misPlanesEjecucion = [],
   user = null,
   editPlan,
   setEditPlan,
@@ -198,7 +201,6 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroPrioridad, setDashFiltroPrioridad] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
-  const [detalleAlerta, setDetalleAlerta] = useState(null);
 
   // 🔌 MOTOR DE FORMULARIO MATRICIAL ORIGINAL
   const [formInformeId, setFormInformeId] = useState('');
@@ -400,8 +402,7 @@ const handleNotificarPlan = (planId) => {
             const informeBase = informesAuditoria.find(informe => String(informe.id) === String(formInformeId));
             const correoAuditorOriginal = planOriginal?.correoAuditor || informeBase?.correoAuditor || '';
             const cambioCorreoAuditor = planOriginal && (
-              normalizarCorreo(act.correoAuditor) !== normalizarCorreo(correoAuditorOriginal) ||
-              normalizarCorreo(act.correoAuditorConfirmacion) !== normalizarCorreo(correoAuditorOriginal)
+              normalizarCorreo(act.correoAuditor) !== normalizarCorreo(correoAuditorOriginal)
             );
 
             // Validar el correo del ejecutor cuando se crea o modifica.
@@ -415,8 +416,7 @@ const handleNotificarPlan = (planId) => {
             if ((validaCorreosCompletos || cambioCorreoRevisor) && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrRev1) || !corrRev2 || corrRev1 !== corrRev2)) errorCorreosRevisor = true;
 
             const corrAuditor1 = normalizarCorreo(act.correoAuditor);
-            const corrAuditor2 = normalizarCorreo(act.correoAuditorConfirmacion);
-            if (cambioCorreoAuditor && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrAuditor1) || !corrAuditor2 || corrAuditor1 !== corrAuditor2)) errorCorreoAuditor = true;
+            if (cambioCorreoAuditor && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrAuditor1)) errorCorreoAuditor = true;
           }
         });
       }
@@ -433,7 +433,7 @@ const handleNotificarPlan = (planId) => {
     }
 
     if (errorCorreoAuditor) {
-      alert("❌ ALERTA: El correo del AUDITOR no coincide con su confirmación. Verifique las casillas antes de guardar.");
+      alert("❌ ALERTA: Ingrese un correo válido para el auditor antes de guardar.");
       return;
     }
 
@@ -490,7 +490,6 @@ const handleNotificarPlan = (planId) => {
               const correoAuditorOriginal = planOriginal?.correoAuditor || informeBase?.correoAuditor || '';
               if (normalizarCorreo(act.correoAuditor) !== normalizarCorreo(correoAuditorOriginal)) {
                 cambiosCorreo.correoAuditor = (act.correoAuditor || '').trim();
-                cambiosCorreo.correoAuditorConfirmacion = (act.correoAuditorConfirmacion || '').trim();
               }
               return {
                 id: act.id,
@@ -1070,7 +1069,6 @@ if (existingActivities.length > 0) {
             correoRevisorConfirmacion: p.correoRevisor || '',
             auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
             correoAuditor: p.correoAuditor || correoAuditorHeredado,
-            correoAuditorConfirmacion: p.correoAuditor || correoAuditorHeredado
           })) 
         };
       } else {
@@ -1500,7 +1498,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           {planesVencidosNotificables.length > 0 && (
             <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-in slide-in-from-top-4 duration-500">
               <div>
-                <button type="button" onClick={() => setDetalleAlerta(prev => prev === 'vencidos' ? null : 'vencidos')} className="text-left rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600">
+                <button type="button" onClick={() => setDetallePanelPlanes(detallePanelPlanes === 'vencidos' ? null : 'vencidos')} className="text-left rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600">
                   <h3 className="text-red-800 font-black text-sm flex items-center gap-2">
                     <span>❌</span> ¡Urgente! Hay {planesVencidosNotificables.length} plan(es) de acción VENCIDOS.
                     <span className="ml-1 bg-red-600 text-white px-2 py-1 rounded-md text-[9px] uppercase">Ver {planesVencidosNotificables.length} planes</span>
@@ -1536,7 +1534,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           {planesEnAlerta.length > 0 && (
             <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-in slide-in-from-top-4 duration-500">
               <div>
-                <button type="button" onClick={() => setDetalleAlerta(prev => prev === 'proximos' ? null : 'proximos')} className="text-left rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-600">
+                <button type="button" onClick={() => setDetallePanelPlanes(detallePanelPlanes === 'proximos' ? null : 'proximos')} className="text-left rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-600">
                   <h3 className="text-orange-800 font-black text-sm flex items-center gap-2">
                     <span>⚠️</span> ¡Atención! {planesEnAlerta.length} plan(es) vence(n) en 2 días o menos.
                     <span className="ml-1 bg-orange-600 text-white px-2 py-1 rounded-md text-[9px] uppercase">Ver {planesEnAlerta.length} planes</span>
@@ -1858,33 +1856,39 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
             {/* 3. Columna derecha: detalle de alertas o distribución del portafolio */}
             <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 h-fit sticky top-24">
-              {detalleAlerta ? (() => {
-                const esVencido = detalleAlerta === 'vencidos';
-                const planesDetalle = esVencido ? planesVencidosNotificables : planesEnAlerta;
+              {detallePanelPlanes ? (() => {
+                const esEjecucion = detallePanelPlanes === 'ejecucion';
+                const esVencido = detallePanelPlanes === 'vencidos';
+                const planesDetalle = esEjecucion
+                  ? misPlanesEjecucion.map(plan => planesEnriquecidos.find(enriquecido => String(enriquecido.id) === String(plan.id)) || plan)
+                  : esVencido ? planesVencidosNotificables : planesEnAlerta;
                 return (
                   <>
-                    <div className={`flex items-start justify-between gap-3 border-b pb-3 mb-3 ${esVencido ? 'border-red-100' : 'border-orange-100'}`}>
+                    <div className={`flex items-start justify-between gap-3 border-b pb-3 mb-3 ${esVencido ? 'border-red-100' : esEjecucion ? 'border-blue-100' : 'border-orange-100'}`}>
                       <div>
-                        <h3 className={`text-xs font-black uppercase tracking-wide ${esVencido ? 'text-red-800' : 'text-orange-800'}`}>
-                          {esVencido ? 'Planes vencidos' : 'Próximos a vencer'}
+                        <h3 className={`text-xs font-black uppercase tracking-wide ${esVencido ? 'text-red-800' : esEjecucion ? 'text-blue-800' : 'text-orange-800'}`}>
+                          {esEjecucion ? 'Planes por ejecutar' : esVencido ? 'Planes vencidos' : 'Próximos a vencer'}
                         </h3>
-                        <p className="text-[10px] text-slate-500 mt-1">{planesDetalle.length} casos para revisar</p>
+                        <p className="text-[10px] text-slate-500 mt-1">
+                          {planesDetalle.length} {esEjecucion ? 'tareas por ejecutar' : 'casos para revisar'}
+                        </p>
                       </div>
-                      <button type="button" onClick={() => setDetalleAlerta(null)} aria-label="Cerrar detalle de alertas" className="text-slate-400 hover:text-slate-800 text-lg leading-none">×</button>
+                      <button type="button" onClick={() => setDetallePanelPlanes(null)} aria-label="Cerrar detalle de planes" className="text-slate-400 hover:text-slate-800 text-lg leading-none">×</button>
                     </div>
                     <div className="max-h-[62vh] overflow-y-auto space-y-2 pr-1">
                       {planesDetalle.map(plan => (
-                        <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido ? 'border-red-100 bg-red-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
+                        <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido ? 'border-red-100 bg-red-50/40' : esEjecucion ? 'border-blue-100 bg-blue-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
                           <div className="flex justify-between items-start gap-2">
                             <span className="font-mono text-[9px] font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>
-                            <span className={`text-[9px] font-black ${esVencido ? 'text-red-700' : 'text-orange-700'}`}>
-                              {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : `Vence ${plan.fecha || 'sin fecha'}`}
+                            <span className={`text-[9px] font-black ${esVencido ? 'text-red-700' : esEjecucion ? 'text-blue-700' : 'text-orange-700'}`}>
+                              {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : esEjecucion ? plan.estadoWorkflow : `Vence ${plan.fecha || 'sin fecha'}`}
                             </span>
                           </div>
                           <h4 className="text-xs font-black text-slate-800 mt-1.5 break-words">{plan.accion || 'Acción sin descripción'}</h4>
                           <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 mt-2 text-[10px] text-slate-600">
                             <dt className="font-bold">Proceso</dt><dd className="break-words">{plan.proceso || 'General'}{plan.sede ? ` · ${plan.sede}` : ''}</dd>
                             <dt className="font-bold">Ejecutor</dt><dd className="break-words">{plan.responsable || 'No asignado'}</dd>
+                            {esEjecucion && <><dt className="font-bold">Correo</dt><dd className="break-all">{plan.correoResponsable || 'No registrado'}</dd></>}
                             <dt className="font-bold">Avance</dt><dd>{Number(plan.progreso) || 0}%</dd>
                           </dl>
                           <button type="button" onClick={() => {
@@ -2138,24 +2142,6 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   className="w-full border border-blue-200 p-2 rounded-lg font-black text-blue-900 bg-blue-50/50 disabled:cursor-not-allowed shadow-inner" 
                                 />
                               </div>
-                              {puedeEditarCorreoAuditor && (
-                                <div className="md:col-span-2">
-                                  <label className="font-bold text-blue-600 block mb-0.5 flex justify-between">
-                                    <span>✓ Confirmar correo del Auditor</span>
-                                    {act.correoAuditorConfirmacion && String(act.correoAuditor || '').trim().toLowerCase() !== String(act.correoAuditorConfirmacion).trim().toLowerCase() && (
-                                      <span className="text-red-500 font-black animate-pulse">NO COINCIDE</span>
-                                    )}
-                                  </label>
-                                  <input
-                                    type="email"
-                                    value={act.correoAuditorConfirmacion || ''}
-                                    onChange={(e) => handleUpdateActivityField(h.id, index, 'correoAuditorConfirmacion', e.target.value)}
-                                    className="w-full border border-blue-200 p-2 rounded-lg font-bold bg-blue-50 focus:bg-white focus:ring-2 focus:ring-blue-400 shadow-sm outline-none"
-                                    placeholder="Confirme correo del auditor"
-                                  />
-                                </div>
-                              )}
-
                             {/* ROLES DE EJECUCIÓN Y REVISIÓN CON VALIDACIÓN VISUAL */}
                               {(() => {
                                 const correoEjecutor1 = (act.correoResponsable || '').trim().toLowerCase();

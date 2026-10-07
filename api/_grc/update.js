@@ -90,7 +90,7 @@ export default async function handler(req, res) {
 
           const actualizaCorreoResponsable = Object.hasOwn(peticion, 'correoResponsable') || Object.hasOwn(peticion, 'correoConfirmacion');
           const actualizaCorreoRevisor = Object.hasOwn(peticion, 'correoRevisor') || Object.hasOwn(peticion, 'correoRevisorConfirmacion');
-          const actualizaCorreoAuditor = Object.hasOwn(peticion, 'correoAuditor') || Object.hasOwn(peticion, 'correoAuditorConfirmacion');
+          const actualizaCorreoAuditor = Object.hasOwn(peticion, 'correoAuditor');
           if (actualizaCorreoResponsable) {
             const correoResponsable = String(peticion.correoResponsable ?? anterior.correoResponsable ?? '').trim();
             const correoConfirmacion = String(peticion.correoConfirmacion || '').trim();
@@ -107,8 +107,7 @@ export default async function handler(req, res) {
           }
           if (actualizaCorreoAuditor) {
             const correoAuditor = String(peticion.correoAuditor ?? anterior.correoAuditor ?? '').trim();
-            const correoAuditorConfirmacion = String(peticion.correoAuditorConfirmacion || '').trim();
-            if (!Object.hasOwn(peticion, 'correoAuditor') || !Object.hasOwn(peticion, 'correoAuditorConfirmacion') || !correoValido(correoAuditor) || normalizar(correoAuditor) !== normalizar(correoAuditorConfirmacion)) {
+            if (!correoValido(correoAuditor)) {
               return { error: 'invalid-auditor-email' };
             }
           }
@@ -237,7 +236,7 @@ export default async function handler(req, res) {
         'progress-forbidden': ['El avance solo se puede actualizar cuando el plan está en ejecución o en revisión de cierre.', 403],
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-reviewer-email': ['El correo del revisor debe ser válido y coincidir con su confirmación.', 400],
-        'invalid-auditor-email': ['El correo del auditor debe ser válido y coincidir con su confirmación.', 400],
+        'invalid-auditor-email': ['El correo del auditor debe ser válido.', 400],
         'hallazgo-not-found': ['El informe tiene un hallazgo que no está disponible.', 404],
         'hallazgo-forbidden': ['No tiene permiso para crear planes para este hallazgo.', 403],
         'invalid-email-confirmation': ['Los correos del ejecutor y revisor deben ser válidos y coincidir con sus confirmaciones.', 400],

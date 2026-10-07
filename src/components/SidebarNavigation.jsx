@@ -19,6 +19,7 @@ export default function SidebarNavigation({
   misTareasEjecucion = 0,
   misTareasRevision = 0,
   misTareasAprobacion = 0,
+  onSelectExecutionTasks = () => {},
   isAdmin,
   puedeVerFuentesMejora = false,
   user,
@@ -230,15 +231,28 @@ export default function SidebarNavigation({
                 className={`text-left pl-4 py-2 text-xs font-semibold rounded-r-lg flex flex-col justify-center ${activeTab === 'planes_tab' && subTabPlanes === 'planes' ? 'text-white bg-slate-800/40 border-l-2 border-[#0055ff] -ml-[2px]' : 'text-[#6b96c3] hover:text-white hover:bg-slate-800/30'}`}
               >
                 <span>Gestión de Planes</span>
-                {/* Desglose Sutil de Tareas */}
-                {!isCollapsed && tieneAlertas && (
-                  <span className={`text-[9px] mt-0.5 font-bold flex gap-2 ${colorTexto}`}>
-                    {misTareasEjecucion > 0 && <span>▶ Ejecutar: {misTareasEjecucion}</span>}
-                    {misTareasRevision > 0 && <span>👀 Revisar: {misTareasRevision}</span>}
-                    {misTareasAprobacion > 0 && <span>✓ Aprobar: {misTareasAprobacion}</span>}
-                  </span>
-                )}
               </button>
+              {!isCollapsed && misTareasEjecucion > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('planes_tab');
+                    setSubTabPlanes('planes');
+                    onSelectExecutionTasks();
+                  }}
+                  className={`ml-4 flex items-center justify-between rounded-r-lg border-l-2 border-rose-500/60 px-3 py-2 text-[10px] font-bold transition-colors ${colorTexto} hover:bg-rose-950/30`}
+                  aria-label={`Mostrar ${misTareasEjecucion} planes pendientes de ejecutar`}
+                >
+                  <span>▶ Ejecutar</span>
+                  <span className={`${colorAlerta} rounded-full px-1.5 py-0.5 text-[9px] font-black text-white`}>{misTareasEjecucion}</span>
+                </button>
+              )}
+              {!isCollapsed && (misTareasRevision > 0 || misTareasAprobacion > 0) && (
+                <div className={`ml-4 flex gap-2 px-3 text-[9px] font-bold ${colorTexto}`}>
+                  {misTareasRevision > 0 && <span>👀 Revisar: {misTareasRevision}</span>}
+                  {misTareasAprobacion > 0 && <span>✓ Aprobar: {misTareasAprobacion}</span>}
+                </div>
+              )}
             </div>
           </div>
         </div>
