@@ -27,7 +27,6 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, character 
   '"': '&quot;',
   "'": '&#39;'
 }[character]));
-
 const getRecipients = (recipients) => {
   const list = (Array.isArray(recipients) ? recipients : String(recipients || '').split(','))
     .map(email => String(email).trim())
