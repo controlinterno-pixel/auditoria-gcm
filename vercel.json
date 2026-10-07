@@ -4,6 +4,12 @@
       "NODE_OPTIONS": "--experimental-vm-modules"
     }
   },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
