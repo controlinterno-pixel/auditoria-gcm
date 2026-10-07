@@ -375,21 +375,46 @@ const handleNotificarPlan = (planId) => {
 
     let errorCorreosEjecutor = false;
     let errorCorreosRevisor = false;
+    let errorCorreoAuditor = false;
+    const normalizarCorreo = valor => String(valor || '').trim().toLowerCase();
 
     Object.keys(matrixState).forEach(hallazgoId => {
       const node = matrixState[hallazgoId];
       if (node.aplica) {
         node.actividades.forEach(act => {
-          if (act.accion && act.accion.trim() !== '' && (isAdmin || String(act.id).startsWith('new-'))) {
-            // Validar Ejecutor
-            const corrResp1 = (act.correoResponsable || '').trim().toLowerCase();
-            const corrResp2 = (act.correoConfirmacion || '').trim().toLowerCase();
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrResp1) || !corrResp2 || corrResp1 !== corrResp2) errorCorreosEjecutor = true;
+          const actividadNueva = String(act.id).startsWith('new-');
+          const planOriginal = actividadNueva ? null : safePlanes.find(plan => String(plan.id) === String(act.id));
+          const esPropietario = planOriginal && normalizarCorreo(planOriginal.correoResponsable) === normalizarCorreo(user?.email);
+          if (act.accion && act.accion.trim() !== '' && (isAdmin || actividadNueva || esPropietario)) {
+            const validaCorreosCompletos = isAdmin || actividadNueva;
+            const cambioCorreoEjecutor = planOriginal && (
+              normalizarCorreo(act.correoResponsable) !== normalizarCorreo(planOriginal.correoResponsable) ||
+              normalizarCorreo(act.correoConfirmacion) !== normalizarCorreo(planOriginal.correoResponsable)
+            );
+            const cambioCorreoRevisor = planOriginal && (
+              normalizarCorreo(act.correoRevisor) !== normalizarCorreo(planOriginal.correoRevisor) ||
+              normalizarCorreo(act.correoRevisorConfirmacion) !== normalizarCorreo(planOriginal.correoRevisor)
+            );
+            const informeBase = informesAuditoria.find(informe => String(informe.id) === String(formInformeId));
+            const correoAuditorOriginal = planOriginal?.correoAuditor || informeBase?.correoAuditor || '';
+            const cambioCorreoAuditor = planOriginal && (
+              normalizarCorreo(act.correoAuditor) !== normalizarCorreo(correoAuditorOriginal) ||
+              normalizarCorreo(act.correoAuditorConfirmacion) !== normalizarCorreo(correoAuditorOriginal)
+            );
 
-            // Validar Revisor
-            const corrRev1 = (act.correoRevisor || '').trim().toLowerCase();
-            const corrRev2 = (act.correoRevisorConfirmacion || '').trim().toLowerCase();
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrRev1) || !corrRev2 || corrRev1 !== corrRev2) errorCorreosRevisor = true;
+            // Validar el correo del ejecutor cuando se crea o modifica.
+            const corrResp1 = normalizarCorreo(act.correoResponsable);
+            const corrResp2 = normalizarCorreo(act.correoConfirmacion);
+            if ((validaCorreosCompletos || cambioCorreoEjecutor) && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrResp1) || !corrResp2 || corrResp1 !== corrResp2)) errorCorreosEjecutor = true;
+
+            // Validar el correo del revisor cuando se crea o modifica.
+            const corrRev1 = normalizarCorreo(act.correoRevisor);
+            const corrRev2 = normalizarCorreo(act.correoRevisorConfirmacion);
+            if ((validaCorreosCompletos || cambioCorreoRevisor) && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrRev1) || !corrRev2 || corrRev1 !== corrRev2)) errorCorreosRevisor = true;
+
+            const corrAuditor1 = normalizarCorreo(act.correoAuditor);
+            const corrAuditor2 = normalizarCorreo(act.correoAuditorConfirmacion);
+            if (cambioCorreoAuditor && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrAuditor1) || !corrAuditor2 || corrAuditor1 !== corrAuditor2)) errorCorreoAuditor = true;
           }
         });
       }
@@ -402,6 +427,11 @@ const handleNotificarPlan = (planId) => {
 
     if (errorCorreosRevisor) {
       alert("❌ ALERTA: Los correos electrónicos del REVISOR (Jefatura) no coinciden o están vacíos. Por favor, verifique las casillas marcadas en rojo antes de guardar.");
+      return;
+    }
+
+    if (errorCorreoAuditor) {
+      alert("❌ ALERTA: El correo del AUDITOR no coincide con su confirmación. Verifique las casillas antes de guardar.");
       return;
     }
 
@@ -440,22 +470,41 @@ const handleNotificarPlan = (planId) => {
             .filter(act => (
               !String(act.id).startsWith('new-') &&
               correoSesion &&
-              String(act.correoResponsable || '').trim().toLowerCase() === correoSesion &&
+              normalizarCorreo(safePlanes.find(plan => String(plan.id) === String(act.id))?.correoResponsable) === correoSesion &&
               act.accion?.trim()
             ))
-            .map(act => ({
-              id: act.id,
-              accion: act.accion.trim(),
-              sede: act.sede || 'No especificada',
-              fechaInicio: act.fechaInicio || null,
-              fecha: act.fecha || null,
-              evidenciaUrl: act.evidenciaUrl || '',
-              tipoAccion: act.tipoAccion || 'Acción Correctiva',
-              matrizRiesgos: act.matrizRiesgos || 'No aplica',
-              matrizAspectos: act.matrizAspectos || 'No aplica',
-              matrizPeligros: act.matrizPeligros || 'No aplica',
-              matrizLegal: act.matrizLegal || 'No aplica',
-            }))
+            .map(act => {
+              const planOriginal = safePlanes.find(plan => String(plan.id) === String(act.id));
+              const cambiosCorreo = {};
+              if (normalizarCorreo(act.correoResponsable) !== normalizarCorreo(planOriginal?.correoResponsable)) {
+                cambiosCorreo.correoResponsable = act.correoResponsable.trim();
+                cambiosCorreo.correoConfirmacion = (act.correoConfirmacion || '').trim();
+              }
+              if (normalizarCorreo(act.correoRevisor) !== normalizarCorreo(planOriginal?.correoRevisor)) {
+                cambiosCorreo.correoRevisor = act.correoRevisor.trim();
+                cambiosCorreo.correoRevisorConfirmacion = (act.correoRevisorConfirmacion || '').trim();
+              }
+              const informeBase = informesAuditoria.find(informe => String(informe.id) === String(formInformeId));
+              const correoAuditorOriginal = planOriginal?.correoAuditor || informeBase?.correoAuditor || '';
+              if (normalizarCorreo(act.correoAuditor) !== normalizarCorreo(correoAuditorOriginal)) {
+                cambiosCorreo.correoAuditor = (act.correoAuditor || '').trim();
+                cambiosCorreo.correoAuditorConfirmacion = (act.correoAuditorConfirmacion || '').trim();
+              }
+              return {
+                id: act.id,
+                accion: act.accion.trim(),
+                sede: act.sede || 'No especificada',
+                fechaInicio: act.fechaInicio || null,
+                fecha: act.fecha || null,
+                evidenciaUrl: act.evidenciaUrl || '',
+                tipoAccion: act.tipoAccion || 'Acción Correctiva',
+                matrizRiesgos: act.matrizRiesgos || 'No aplica',
+                matrizAspectos: act.matrizAspectos || 'No aplica',
+                matrizPeligros: act.matrizPeligros || 'No aplica',
+                matrizLegal: act.matrizLegal || 'No aplica',
+                ...cambiosCorreo,
+              };
+            })
           : []
       ));
 
@@ -962,7 +1011,8 @@ if (existingActivities.length > 0) {
             correoRevisor: p.correoRevisor || '',
             correoRevisorConfirmacion: p.correoRevisor || '',
             auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
-            correoAuditor: p.correoAuditor || correoAuditorHeredado
+            correoAuditor: p.correoAuditor || correoAuditorHeredado,
+            correoAuditorConfirmacion: p.correoAuditor || correoAuditorHeredado
           })) 
         };
       } else {
@@ -1829,6 +1879,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const esResponsableActividad = !actividadNueva && correoActual && String(act.correoResponsable || '').trim().toLowerCase() === correoActual;
   const puedeEditarActividad = isAdmin || actividadNueva || esResponsableActividad;
   const puedeEditarAsignacion = isAdmin || actividadNueva;
+  const puedeEditarCorreo = isAdmin || actividadNueva || esResponsableActividad;
+  const puedeEditarCorreoAuditor = !actividadNueva && (isAdmin || esResponsableActividad);
   return (
                           <fieldset key={`act-row-${index}`} disabled={!puedeEditarActividad} className="contents">
                           <div 
@@ -1949,12 +2001,30 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 <label className="font-bold text-blue-600 block mb-0.5">✉️ Correo del Auditor de Seguimiento (APROBADOR)</label>
                                 <input 
                                   type="email" 
-                                  value={act.correoAuditor || 'Sin correo'} 
-                                  disabled 
+                                  value={act.correoAuditor || ''} 
+                                  onChange={(e) => handleUpdateActivityField(h.id, index, 'correoAuditor', e.target.value)}
+                                  disabled={!puedeEditarCorreoAuditor}
                                   title="Este dato se hereda automáticamente del Informe de Auditoría"
-                                  className="w-full border border-blue-200 p-2 rounded-lg font-black text-blue-900 bg-blue-50/50 cursor-not-allowed shadow-inner" 
+                                  className="w-full border border-blue-200 p-2 rounded-lg font-black text-blue-900 bg-blue-50/50 disabled:cursor-not-allowed shadow-inner" 
                                 />
                               </div>
+                              {puedeEditarCorreoAuditor && (
+                                <div className="md:col-span-2">
+                                  <label className="font-bold text-blue-600 block mb-0.5 flex justify-between">
+                                    <span>✓ Confirmar correo del Auditor</span>
+                                    {act.correoAuditorConfirmacion && String(act.correoAuditor || '').trim().toLowerCase() !== String(act.correoAuditorConfirmacion).trim().toLowerCase() && (
+                                      <span className="text-red-500 font-black animate-pulse">NO COINCIDE</span>
+                                    )}
+                                  </label>
+                                  <input
+                                    type="email"
+                                    value={act.correoAuditorConfirmacion || ''}
+                                    onChange={(e) => handleUpdateActivityField(h.id, index, 'correoAuditorConfirmacion', e.target.value)}
+                                    className="w-full border border-blue-200 p-2 rounded-lg font-bold bg-blue-50 focus:bg-white focus:ring-2 focus:ring-blue-400 shadow-sm outline-none"
+                                    placeholder="Confirme correo del auditor"
+                                  />
+                                </div>
+                              )}
 
                             {/* ROLES DE EJECUCIÓN Y REVISIÓN CON VALIDACIÓN VISUAL */}
                               {(() => {
@@ -1989,7 +2059,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         type="email" 
                                         value={act.correoResponsable || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} 
-                                        disabled={!puedeEditarAsignacion}
+                                        disabled={!puedeEditarCorreo}
                                         placeholder="Correo del responsable" 
                                         className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white shadow-sm outline-none" 
                                         required 
@@ -2004,7 +2074,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         type="email" 
                                         value={act.correoConfirmacion || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} 
-                                        disabled={!puedeEditarAsignacion}
+                                        disabled={!puedeEditarCorreo}
                                         placeholder="Confirme el correo" 
                                         className={`w-full border p-2 rounded-lg shadow-sm outline-none transition-colors ${mostrarAlertaEjecutor ? 'border-red-500 bg-red-50 text-red-900 focus:ring-2 focus:ring-red-500' : 'border-purple-200 bg-purple-50 focus:bg-white focus:ring-2 focus:ring-purple-400'}`} 
                                         required 
@@ -2030,7 +2100,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         type="email" 
                                         value={act.correoRevisor || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'correoRevisor', e.target.value)} 
-                                        disabled={!puedeEditarAsignacion}
+                                        disabled={!puedeEditarCorreo}
                                         placeholder="Correo de Jefatura" 
                                         className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white shadow-sm outline-none" 
                                         required
@@ -2045,7 +2115,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         type="email" 
                                         value={act.correoRevisorConfirmacion || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'correoRevisorConfirmacion', e.target.value)} 
-                                        disabled={!puedeEditarAsignacion}
+                                        disabled={!puedeEditarCorreo}
                                         placeholder="Confirme correo Jefatura" 
                                         className={`w-full border p-2 rounded-lg font-bold shadow-sm outline-none transition-colors ${mostrarAlertaRevisor ? 'border-red-500 bg-red-50 text-red-900 focus:ring-2 focus:ring-red-500' : 'border-amber-200 bg-amber-50 focus:bg-white focus:ring-2 focus:ring-amber-400'}`} 
                                         required

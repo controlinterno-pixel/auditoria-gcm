@@ -15,6 +15,7 @@ const CAMPOS_EDITABLES = [
 const CAMPOS_EDITABLES_PLAN = [
   'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion',
   'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
+  'correoResponsable', 'correoRevisor', 'correoAuditor',
 ];
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const normalizar = valor => String(valor || '').trim().toLowerCase();
@@ -86,6 +87,31 @@ export default async function handler(req, res) {
           }
           idsActualizados.add(clave);
           if (!admin && normalizar(anterior.correoResponsable) !== usuarioEmail) return { error: 'not-owner' };
+
+          const actualizaCorreoResponsable = Object.hasOwn(peticion, 'correoResponsable') || Object.hasOwn(peticion, 'correoConfirmacion');
+          const actualizaCorreoRevisor = Object.hasOwn(peticion, 'correoRevisor') || Object.hasOwn(peticion, 'correoRevisorConfirmacion');
+          const actualizaCorreoAuditor = Object.hasOwn(peticion, 'correoAuditor') || Object.hasOwn(peticion, 'correoAuditorConfirmacion');
+          if (actualizaCorreoResponsable) {
+            const correoResponsable = String(peticion.correoResponsable ?? anterior.correoResponsable ?? '').trim();
+            const correoConfirmacion = String(peticion.correoConfirmacion || '').trim();
+            if (!Object.hasOwn(peticion, 'correoResponsable') || !Object.hasOwn(peticion, 'correoConfirmacion') || !correoValido(correoResponsable) || normalizar(correoResponsable) !== normalizar(correoConfirmacion)) {
+              return { error: 'invalid-executor-email' };
+            }
+          }
+          if (actualizaCorreoRevisor) {
+            const correoRevisor = String(peticion.correoRevisor ?? anterior.correoRevisor ?? '').trim();
+            const correoRevisorConfirmacion = String(peticion.correoRevisorConfirmacion || '').trim();
+            if (!Object.hasOwn(peticion, 'correoRevisor') || !Object.hasOwn(peticion, 'correoRevisorConfirmacion') || !correoValido(correoRevisor) || normalizar(correoRevisor) !== normalizar(correoRevisorConfirmacion)) {
+              return { error: 'invalid-reviewer-email' };
+            }
+          }
+          if (actualizaCorreoAuditor) {
+            const correoAuditor = String(peticion.correoAuditor ?? anterior.correoAuditor ?? '').trim();
+            const correoAuditorConfirmacion = String(peticion.correoAuditorConfirmacion || '').trim();
+            if (!Object.hasOwn(peticion, 'correoAuditor') || !Object.hasOwn(peticion, 'correoAuditorConfirmacion') || !correoValido(correoAuditor) || normalizar(correoAuditor) !== normalizar(correoAuditorConfirmacion)) {
+              return { error: 'invalid-auditor-email' };
+            }
+          }
 
           const cambios = Object.fromEntries(
             CAMPOS_EDITABLES_PLAN.filter(campo => Object.hasOwn(peticion, campo))
@@ -187,6 +213,9 @@ export default async function handler(req, res) {
         'plan-not-found': ['No se encontró una acción que se intentó editar.', 404],
         'not-owner': ['Solo puede editar acciones asignadas a su correo.', 403],
         'invalid-action': ['La descripción de la acción no puede quedar vacía.', 400],
+        'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
+        'invalid-reviewer-email': ['El correo del revisor debe ser válido y coincidir con su confirmación.', 400],
+        'invalid-auditor-email': ['El correo del auditor debe ser válido y coincidir con su confirmación.', 400],
         'hallazgo-not-found': ['El informe tiene un hallazgo que no está disponible.', 404],
         'hallazgo-forbidden': ['No tiene permiso para crear planes para este hallazgo.', 403],
         'invalid-email-confirmation': ['Los correos del ejecutor y revisor deben ser válidos y coincidir con sus confirmaciones.', 400],
