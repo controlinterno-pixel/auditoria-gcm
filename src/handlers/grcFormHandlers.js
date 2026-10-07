@@ -49,6 +49,7 @@ export const createFormHandlers = ({
   prepararEnvioGmail,
   ejecutarDespachoGmailApi,
   crearRegistroGrc,
+  actualizarInformeGrc,
   registrarCorreoInforme,
   defaultMeses
 }) => {
@@ -564,6 +565,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
       let updated; let refConsecutivoFinal = '';
       let idInformeGuardado = editInformeAuditoria?.id || null;
       let registroNuevo = null;
+      let registroEditado = null;
 
       if (editInformeAuditoria) {
         refConsecutivoFinal = editInformeAuditoria.ref;
@@ -659,6 +661,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
             }
           ]
         };
+        registroEditado = mod;
         
         updated = safeInformes.map(inf => String(inf.id) === String(editInformeAuditoria.id) ? mod : inf); 
       } else {
@@ -704,13 +707,14 @@ const handleInformeAuditoriaSubmit = async (e) => {
 
       if (correosNotificacionOut && prepararEnvioGmail && !(await prepararEnvioGmail())) return false;
 
-      if (!isAdmin && editInformeAuditoria) {
-        showNotification('Solo se permite crear informes con este permiso.', 'error');
-        return false;
-      }
-
       let guardado;
-      if (!isAdmin) {
+      if (!isAdmin && editInformeAuditoria) {
+        if (!registroEditado || typeof actualizarInformeGrc !== 'function') return false;
+        const respuesta = await actualizarInformeGrc(editInformeAuditoria.id, registroEditado, String(formData.get('motivoCambio') || '').trim());
+        if (!respuesta?.registro) return false;
+        updated = safeInformes.map(informe => String(informe.id) === String(editInformeAuditoria.id) ? respuesta.registro : informe);
+        guardado = true;
+      } else if (!isAdmin) {
         if (!registroNuevo || typeof crearRegistroGrc !== 'function') return false;
         const respuesta = await crearRegistroGrc('informesAuditoria', registroNuevo);
         if (!respuesta?.registro) return false;

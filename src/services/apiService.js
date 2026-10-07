@@ -256,6 +256,11 @@ export const apiService = {
     body: { coleccion, registro }
   }),
 
+  actualizarInformeGrc: (id, registro, motivo) => request('/api/grc/update', {
+    method: 'PUT',
+    body: { coleccion: 'informesAuditoria', id, registro, motivo }
+  }),
+
   registrarCorreoInforme: (id, destinatarios, fechaCorreoEnviado) => request('/api/grc/register-email', {
     method: 'POST',
     body: { id, destinatarios, fechaCorreoEnviado }

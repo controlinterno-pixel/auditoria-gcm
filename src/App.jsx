@@ -238,6 +238,7 @@ const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.ema
     setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
     saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses,
     crearRegistroGrc: apiService.crearRegistroGrc,
+    actualizarInformeGrc: apiService.actualizarInformeGrc,
     registrarCorreoInforme: apiService.registrarCorreoInforme
   }), [
     user, isAdmin, safeRiesgos, safeHallazgos, safePlanes, safeEvaluaciones, safeComites, safeIncidentes, safeCronograma, safeMonitoreo, informesAuditoria,
@@ -550,6 +551,7 @@ return (
                     handleColFilterChange={handleColFilterChange}
                     handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit} 
                     puedeCrearInformes={puedeCrearInformes}
+                    puedeEditarInformes={puedeCrearInformes}
                     isSubmitting={isSubmitting} 
                     setFormResetKey={setFormResetKey}
                     scrollToForm={scrollToForm} 
