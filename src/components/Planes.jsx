@@ -59,6 +59,7 @@ export default function Planes({
   setEditPlan,
   ejecutarDespachoGmailApi,
   prepararEnvioGmail,
+  showNotification = () => {},
   scrollToForm,
   handleDeleteItem,
   applyFilters,
@@ -1209,12 +1210,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
     setGuardandoDecisionRevision(true);
     try {
-      let correoPreparado = !prepararEnvioGmail;
+      let promesaPreparacionCorreo = null;
       if (prepararEnvioGmail) {
         try {
-          correoPreparado = await prepararEnvioGmail();
+          promesaPreparacionCorreo = prepararEnvioGmail();
         } catch {
-          correoPreparado = false;
+          promesaPreparacionCorreo = Promise.resolve(false);
         }
       }
       const respuesta = await apiService.decidirRevisionPlanes(
@@ -1231,37 +1232,52 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       const actualizadosPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
       setPlanes(prev => (Array.isArray(prev) ? prev : []).map(plan => actualizadosPorId.get(String(plan.id)) || plan));
 
-      let todasNotificacionesEnviadas = true;
-      if (ejecutarDespachoGmailApi && correoPreparado) {
+      setRevisionInformeId(null);
+      setMostrarMotivoCorreccion(false);
+      setMotivoCorreccion('');
+      setGuardandoDecisionRevision(false);
+      showNotification('Decisión guardada. Preparando notificación al ejecutor…', 'success');
+      void (async () => {
+        let todasNotificacionesEnviadas = true;
+        let correoPreparado = !prepararEnvioGmail;
+        if (promesaPreparacionCorreo) {
+          try {
+            correoPreparado = await promesaPreparacionCorreo;
+          } catch {
+            correoPreparado = false;
+          }
+        }
+        if (!ejecutarDespachoGmailApi || !correoPreparado) {
+          showNotification('La decisión se guardó, pero no se pudo preparar el envío de correo.', 'error');
+          return;
+        }
         for (const plan of planesActualizados) {
           if (!plan.correoResponsable) {
             todasNotificacionesEnviadas = false;
             continue;
           }
-          const enviado = await ejecutarDespachoGmailApi({
-            ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
-            asunto: decision === 'aprobar' ? 'Diseño del plan aprobado' : 'Corrección solicitada para el plan de acción',
-            titulo_informe: decision === 'aprobar' ? 'Diseño del plan aprobado' : 'El plan requiere correcciones',
-            proceso_auditado: decision === 'aprobar'
-              ? `El diseño de la acción "${plan.accion}" fue aprobado. Ya puede iniciar su ejecución.`
-              : `El diseño de la acción "${plan.accion}" requiere correcciones. Motivo del aprobador: ${motivoCorreccion.trim()}`,
-            enlace_pdf: window.location.origin,
-            destinatarios: plan.correoResponsable,
-          });
-          if (!enviado) todasNotificacionesEnviadas = false;
+          try {
+            const enviado = await ejecutarDespachoGmailApi({
+              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+              asunto: decision === 'aprobar' ? 'Diseño del plan aprobado' : 'Corrección solicitada para el plan de acción',
+              titulo_informe: decision === 'aprobar' ? 'Diseño del plan aprobado' : 'El plan requiere correcciones',
+              proceso_auditado: decision === 'aprobar'
+                ? `El diseño de la acción "${plan.accion}" fue aprobado. Ya puede iniciar su ejecución.`
+                : `El diseño de la acción "${plan.accion}" requiere correcciones. Motivo del aprobador: ${motivoCorreccion.trim()}`,
+              enlace_pdf: window.location.origin,
+              destinatarios: plan.correoResponsable,
+            });
+            if (!enviado) todasNotificacionesEnviadas = false;
+          } catch {
+            todasNotificacionesEnviadas = false;
+          }
         }
-      } else {
-        todasNotificacionesEnviadas = false;
-      }
-
-      setRevisionInformeId(null);
-      setMostrarMotivoCorreccion(false);
-      setMotivoCorreccion('');
-      alert(todasNotificacionesEnviadas
-        ? decision === 'aprobar'
-          ? 'Diseño aprobado y ejecutores notificados.'
-          : 'Corrección solicitada y ejecutores notificados.'
-        : 'La decisión se guardó, pero no se pudieron enviar todas las notificaciones.');
+        if (todasNotificacionesEnviadas) {
+          showNotification('Notificación enviada al ejecutor.', 'success');
+        } else {
+          showNotification('La decisión se guardó, pero no se pudieron enviar todas las notificaciones.', 'error');
+        }
+      })();
     } catch (error) {
       alert(error.message || 'No se pudo guardar la decisión de revisión.');
     } finally {
@@ -1883,6 +1899,11 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const puedeEditarCorreoAuditor = !actividadNueva && (isAdmin || esResponsableActividad);
   return (
                           <fieldset key={`act-row-${index}`} disabled={!puedeEditarActividad} className="contents">
+                          {!isAdmin && !actividadNueva && !esResponsableActividad && (
+                            <div role="note" className="md:col-span-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950">
+                              <strong>Edición bloqueada por correo:</strong> esta acción está asignada a {act.correoResponsable || 'un correo no registrado'}, pero tu sesión es {user?.email || 'un usuario sin correo'}. Solicita a un administrador que actualice el correo del ejecutor para que coincida con la cuenta con la que inicias sesión.
+                            </div>
+                          )}
                           <div 
                             className="bg-white border border-slate-200 border-l-[6px] border-l-[#0f172a] rounded-2xl p-5 pl-6 shadow-[0_8px_25px_-5px_rgba(15,23,42,0.08)] space-y-4 relative transition-all duration-500 hover:shadow-[0_12px_35px_-5px_rgba(15,23,42,0.12)]"
                           >
