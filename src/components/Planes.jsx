@@ -198,6 +198,7 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [dashFiltroEstado, setDashFiltroEstado] = useState('Todos');
   const [dashFiltroPrioridad, setDashFiltroPrioridad] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
+  const [detalleAlerta, setDetalleAlerta] = useState(null);
 
   // 🔌 MOTOR DE FORMULARIO MATRICIAL ORIGINAL
   const [formInformeId, setFormInformeId] = useState('');
@@ -1443,11 +1444,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           {planesVencidosNotificables.length > 0 && (
             <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-in slide-in-from-top-4 duration-500">
               <div>
-                <h3 className="text-red-800 font-black text-sm flex items-center gap-2">
-                  <span>❌</span> ¡Urgente! Hay {planesVencidosNotificables.length} plan(es) de acción VENCIDOS.
-                </h3>
+                <button type="button" onClick={() => setDetalleAlerta(prev => prev === 'vencidos' ? null : 'vencidos')} className="text-left rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-600">
+                  <h3 className="text-red-800 font-black text-sm flex items-center gap-2">
+                    <span>❌</span> ¡Urgente! Hay {planesVencidosNotificables.length} plan(es) de acción VENCIDOS.
+                    <span className="ml-1 bg-red-600 text-white px-2 py-1 rounded-md text-[9px] uppercase">Ver {planesVencidosNotificables.length} planes</span>
+                  </h3>
+                </button>
                 <p className="text-red-700 text-xs font-medium mt-1">
-                  Se requiere enviar recordatorio de atraso a los dueños del proceso.
+                  Se requiere enviar recordatorio de atraso a los dueños del proceso. Pulsa el título para ver el detalle a la derecha.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 w-full md:w-auto">
@@ -1476,11 +1480,14 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
           {planesEnAlerta.length > 0 && (
             <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-xl shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-in slide-in-from-top-4 duration-500">
               <div>
-                <h3 className="text-orange-800 font-black text-sm flex items-center gap-2">
-                  <span>⚠️</span> ¡Atención! {planesEnAlerta.length} plan(es) vence(n) en 2 días o menos.
-                </h3>
+                <button type="button" onClick={() => setDetalleAlerta(prev => prev === 'proximos' ? null : 'proximos')} className="text-left rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-orange-600">
+                  <h3 className="text-orange-800 font-black text-sm flex items-center gap-2">
+                    <span>⚠️</span> ¡Atención! {planesEnAlerta.length} plan(es) vence(n) en 2 días o menos.
+                    <span className="ml-1 bg-orange-600 text-white px-2 py-1 rounded-md text-[9px] uppercase">Ver {planesEnAlerta.length} planes</span>
+                  </h3>
+                </button>
                 <p className="text-orange-700 text-xs font-medium mt-1">
-                  Notifica a los responsables para evitar incumplimientos.
+                  Notifica a los responsables para evitar incumplimientos. Pulsa el título para ver el detalle a la derecha.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 w-full md:w-auto">
@@ -1793,8 +1800,51 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                )}
             </div>
 
-            {/* 3. Columna Derecha (Gráfico de Dona y Rankings) */}
-            <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 h-fit sticky top-24">
+            {/* 3. Columna derecha: detalle de alertas o distribución del portafolio */}
+            <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 h-fit sticky top-24">
+              {detalleAlerta ? (() => {
+                const esVencido = detalleAlerta === 'vencidos';
+                const planesDetalle = esVencido ? planesVencidosNotificables : planesEnAlerta;
+                return (
+                  <>
+                    <div className={`flex items-start justify-between gap-3 border-b pb-3 mb-3 ${esVencido ? 'border-red-100' : 'border-orange-100'}`}>
+                      <div>
+                        <h3 className={`text-xs font-black uppercase tracking-wide ${esVencido ? 'text-red-800' : 'text-orange-800'}`}>
+                          {esVencido ? 'Planes vencidos' : 'Próximos a vencer'}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 mt-1">{planesDetalle.length} casos para revisar</p>
+                      </div>
+                      <button type="button" onClick={() => setDetalleAlerta(null)} aria-label="Cerrar detalle de alertas" className="text-slate-400 hover:text-slate-800 text-lg leading-none">×</button>
+                    </div>
+                    <div className="max-h-[62vh] overflow-y-auto space-y-2 pr-1">
+                      {planesDetalle.map(plan => (
+                        <article key={`alert-detail-${plan.id}`} className={`border rounded-lg p-3 ${esVencido ? 'border-red-100 bg-red-50/40' : 'border-orange-100 bg-orange-50/40'}`}>
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-mono text-[9px] font-black text-slate-500">PLA-{String(plan.id).slice(-4)}</span>
+                            <span className={`text-[9px] font-black ${esVencido ? 'text-red-700' : 'text-orange-700'}`}>
+                              {esVencido ? `Venció ${plan.fecha || 'sin fecha'}` : `Vence ${plan.fecha || 'sin fecha'}`}
+                            </span>
+                          </div>
+                          <h4 className="text-xs font-black text-slate-800 mt-1.5 break-words">{plan.accion || 'Acción sin descripción'}</h4>
+                          <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 mt-2 text-[10px] text-slate-600">
+                            <dt className="font-bold">Proceso</dt><dd className="break-words">{plan.proceso || 'General'}{plan.sede ? ` · ${plan.sede}` : ''}</dd>
+                            <dt className="font-bold">Ejecutor</dt><dd className="break-words">{plan.responsable || 'No asignado'}</dd>
+                            <dt className="font-bold">Avance</dt><dd>{Number(plan.progreso) || 0}%</dd>
+                          </dl>
+                          <button type="button" onClick={() => {
+                            setEditPlan(plan);
+                            setVistaActiva('nuevo');
+                            scrollToForm();
+                          }} className="mt-2 text-[10px] font-black text-blue-700 hover:text-blue-900 underline underline-offset-2">
+                            Abrir matriz
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </>
+                );
+              })() : (
+                <>
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-6 border-b pb-2">Distribución por prioridad</h3>
                 <div className="flex items-center justify-center mb-6">
                    <div className="relative w-36 h-36 rounded-full border-[14px] border-emerald-500 border-l-red-500 border-t-red-500 border-r-orange-500 border-b-amber-500 flex items-center justify-center transform -rotate-45 shadow-inner">
@@ -1827,6 +1877,8 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     </div>
                   </div>
                 )}
+                </>
+              )}
             </div>
           </div>
         </div>
