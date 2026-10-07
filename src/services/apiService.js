@@ -261,6 +261,11 @@ export const apiService = {
     body: { coleccion: 'informesAuditoria', id, registro, motivo }
   }),
 
+  guardarMatrizPlanes: (registro) => request('/api/grc/update', {
+    method: 'PUT',
+    body: { coleccion: 'planes', registro }
+  }),
+
   registrarCorreoInforme: (id, destinatarios, fechaCorreoEnviado) => request('/api/grc/register-email', {
     method: 'POST',
     body: { id, destinatarios, fechaCorreoEnviado }

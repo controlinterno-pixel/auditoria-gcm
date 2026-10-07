@@ -12,8 +12,13 @@ const CAMPOS_EDITABLES = [
   'fecha_socializacion', 'socializadoCon', 'participantes', 'evidenciaUrl',
   'actaSocializacionUrl', 'anexos', 'anexosMultiples', 'correoEnviadoA',
 ];
+const CAMPOS_EDITABLES_PLAN = [
+  'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion',
+  'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
+];
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const normalizar = valor => String(valor || '').trim().toLowerCase();
+const correoValido = valor => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim());
 const obtenerProceso = registro => normalizar(
   registro?.macroproceso || String(registro?.proceso || '').split('/')[0]
 );
@@ -27,6 +32,166 @@ export default async function handler(req, res) {
     if (!user) return;
 
     const { coleccion, id, registro, motivo = '' } = req.body || {};
+    if (coleccion === 'planes') {
+      if (!registro || typeof registro !== 'object' || Array.isArray(registro)) {
+        return sendError(res, 'La matriz enviada no es válida.', 400);
+      }
+      if (JSON.stringify(registro).length > 500000) {
+        return sendError(res, 'La matriz excede el tamaño permitido.', 413);
+      }
+
+      const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
+      const perfil = perfilSnap.exists ? perfilSnap.data() : {};
+      const admin = ROLES_ADMIN.includes(normalizar(perfil.rol));
+      const permisos = Array.isArray(perfil.permisos) ? perfil.permisos : [];
+      if (!admin && !permisos.includes('sub_seguimiento_planes')) {
+        return sendError(res, 'No tiene permiso para gestionar planes de acción.', 403);
+      }
+
+      const idInforme = String(registro.idInforme || '');
+      const actualizaciones = Array.isArray(registro.actualizaciones) ? registro.actualizaciones : [];
+      const nuevas = Array.isArray(registro.nuevas) ? registro.nuevas : [];
+      if (!idInforme || actualizaciones.length + nuevas.length === 0 || actualizaciones.length + nuevas.length > 100) {
+        return sendError(res, 'La matriz debe incluir un informe y entre 1 y 100 cambios.', 400);
+      }
+      if (actualizaciones.some(plan => !plan?.id) || nuevas.some(plan => !plan?.idHallazgo)) {
+        return sendError(res, 'Cada actividad debe estar vinculada a un hallazgo.', 400);
+      }
+
+      const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
+      const resultado = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(workspaceRef);
+        if (!snapshot.exists) return { error: 'not-found' };
+        const data = snapshot.data() || {};
+        const planes = Array.isArray(data.planes) ? data.planes : [];
+        const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+        const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+        if (!informes.some(informe => String(informe.id) === idInforme)) return { error: 'report-not-found' };
+
+        const planesPorId = new Map(planes.map(plan => [String(plan.id), plan]));
+        const idsActualizados = new Set();
+        const ahora = new Date();
+        const usuarioEmail = normalizar(user.email);
+        const planesActualizados = [];
+
+        for (const peticion of actualizaciones) {
+          const clave = String(peticion.id);
+          const anterior = planesPorId.get(clave);
+          const hallazgoAnterior = anterior
+            ? hallazgos.find(hallazgo => String(hallazgo.id) === String(anterior.idHallazgo))
+            : null;
+          const idInformeAnterior = anterior?.idInforme || hallazgoAnterior?.idInforme;
+          if (!anterior || idsActualizados.has(clave) || String(idInformeAnterior) !== String(idInforme)) {
+            return { error: 'plan-not-found' };
+          }
+          idsActualizados.add(clave);
+          if (!admin && normalizar(anterior.correoResponsable) !== usuarioEmail) return { error: 'not-owner' };
+
+          const cambios = Object.fromEntries(
+            CAMPOS_EDITABLES_PLAN.filter(campo => Object.hasOwn(peticion, campo))
+              .map(campo => [campo, peticion[campo]])
+          );
+          if (Object.hasOwn(cambios, 'accion') && !normalizar(cambios.accion)) return { error: 'invalid-action' };
+
+          const camposCambiados = Object.keys(cambios).filter(campo => (
+            JSON.stringify(anterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
+          ));
+          const historial = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
+          planesActualizados.push({
+            ...anterior,
+            ...cambios,
+            id: anterior.id,
+            idHallazgo: anterior.idHallazgo,
+            idInforme: idInformeAnterior,
+            historialCambios: camposCambiados.length ? [
+              ...historial,
+              {
+                fecha: ahora.toLocaleString('es-CO'),
+                usuario: user.email,
+                accion: 'Acción de plan actualizada por su responsable',
+                detalleCambios: camposCambiados.map(campo => ({
+                  campo,
+                  antes: anterior[campo] ?? '',
+                  despues: cambios[campo] ?? '',
+                })),
+              },
+            ] : historial,
+          });
+        }
+
+        const procesoPerfil = normalizar(perfil.procesoAsignado || user.procesoAsignado);
+        const subprocesoPerfil = normalizar(perfil.subprocesoAsignado);
+        const planesNuevos = [];
+        let siguienteId = planes.reduce((maximo, plan) => Math.max(maximo, Number(plan?.id) || 0), 0) + 1;
+
+        for (const item of nuevas) {
+          const hallazgo = hallazgos.find(candidate => String(candidate.id) === String(item.idHallazgo));
+          if (!hallazgo || String(hallazgo.idInforme) !== idInforme) return { error: 'hallazgo-not-found' };
+          const procesoHallazgo = normalizar(hallazgo.macroproceso || String(hallazgo.proceso || '').split('/')[0]);
+          const subprocesoHallazgo = normalizar(hallazgo.subproceso);
+          const esCreadorHallazgo = normalizar(hallazgo.correoCreador || hallazgo.creadoPor) === usuarioEmail;
+          const perteneceProcesoAsignado = Boolean(
+            procesoPerfil && procesoHallazgo === procesoPerfil &&
+            (!subprocesoPerfil || subprocesoHallazgo === subprocesoPerfil)
+          );
+          if (!admin && !esCreadorHallazgo && !perteneceProcesoAsignado) return { error: 'hallazgo-forbidden' };
+
+          const correoResponsable = String(item.correoResponsable || '').trim();
+          const correoRevisor = String(item.correoRevisor || '').trim();
+          if (
+            !normalizar(item.accion) ||
+            !correoValido(correoResponsable) ||
+            !correoValido(correoRevisor) ||
+            normalizar(correoResponsable) !== normalizar(item.correoConfirmacion) ||
+            normalizar(correoRevisor) !== normalizar(item.correoRevisorConfirmacion)
+          ) return { error: 'invalid-email-confirmation' };
+
+          const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
+          planesNuevos.push({
+            ...datosPlan,
+            id: siguienteId++,
+            idInforme,
+            idHallazgo: hallazgo.id,
+            progreso: 0,
+            estadoWorkflow: 'Pendiente Revisión Jefatura',
+            estado: 'En Proceso',
+            creadoPor: user.email,
+            historialCambios: [{
+              fecha: ahora.toLocaleString('es-CO'),
+              usuario: user.email,
+              accion: 'Actividad registrada en matriz',
+            }],
+          });
+        }
+
+        const actualizadosPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
+        const listaActualizada = [
+          ...planesNuevos,
+          ...planes.map(plan => actualizadosPorId.get(String(plan.id)) || plan),
+        ];
+        transaction.set(workspaceRef, { planes: listaActualizada }, { merge: true });
+        return { planesActualizados, planesNuevos };
+      });
+
+      const errores = {
+        'not-found': ['No se encontró la matriz de planes.', 404],
+        'report-not-found': ['No se encontró el informe seleccionado.', 404],
+        'plan-not-found': ['No se encontró una acción que se intentó editar.', 404],
+        'not-owner': ['Solo puede editar acciones asignadas a su correo.', 403],
+        'invalid-action': ['La descripción de la acción no puede quedar vacía.', 400],
+        'hallazgo-not-found': ['El informe tiene un hallazgo que no está disponible.', 404],
+        'hallazgo-forbidden': ['No tiene permiso para crear planes para este hallazgo.', 403],
+        'invalid-email-confirmation': ['Los correos del ejecutor y revisor deben ser válidos y coincidir con sus confirmaciones.', 400],
+      };
+      if (resultado.error && errores[resultado.error]) {
+        const [mensaje, estado] = errores[resultado.error];
+        return sendError(res, mensaje, estado);
+      }
+
+      logger.info('Matriz de planes guardada', { informe: idInforme, usuario: user.email });
+      return sendSuccess(res, resultado);
+    }
+
     if (coleccion !== 'informesAuditoria' || !id) {
       return sendError(res, 'El informe indicado no es válido.', 400);
     }

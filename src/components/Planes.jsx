@@ -380,30 +380,62 @@ const handleNotificarPlan = (planId) => {
             }))
           : []
       ));
+      const correoSesion = String(user?.email || '').trim().toLowerCase();
+      const actividadesEditadas = Object.entries(matrixState).flatMap(([, node]) => (
+        node.aplica
+          ? node.actividades
+            .filter(act => (
+              !String(act.id).startsWith('new-') &&
+              correoSesion &&
+              String(act.correoResponsable || '').trim().toLowerCase() === correoSesion &&
+              act.accion?.trim()
+            ))
+            .map(act => ({
+              id: act.id,
+              accion: act.accion.trim(),
+              sede: act.sede || 'No especificada',
+              fechaInicio: act.fechaInicio || null,
+              fecha: act.fecha || null,
+              evidenciaUrl: act.evidenciaUrl || '',
+              tipoAccion: act.tipoAccion || 'Acción Correctiva',
+              matrizRiesgos: act.matrizRiesgos || 'No aplica',
+              matrizAspectos: act.matrizAspectos || 'No aplica',
+              matrizPeligros: act.matrizPeligros || 'No aplica',
+              matrizLegal: act.matrizLegal || 'No aplica',
+            }))
+          : []
+      ));
 
-      if (actividadesNuevas.length === 0) {
-        alert('Agrega al menos una actividad nueva antes de guardar la matriz.');
+      if (actividadesNuevas.length === 0 && actividadesEditadas.length === 0) {
+        alert('No hay actividades nuevas ni cambios en tus propias acciones para guardar.');
         return;
       }
 
-      if (enviarNotificaciones && prepararEnvioGmail && !(await prepararEnvioGmail())) return;
+      if (actividadesNuevas.length > 0 && enviarNotificaciones && prepararEnvioGmail && !(await prepararEnvioGmail())) return;
 
       try {
-        const respuesta = await apiService.crearRegistroGrc('planes', {
+        const respuesta = await apiService.guardarMatrizPlanes({
           idInforme: formInformeId,
-          items: actividadesNuevas,
+          nuevas: actividadesNuevas,
+          actualizaciones: actividadesEditadas,
         });
-        const planesCreados = Array.isArray(respuesta?.registros) ? respuesta.registros : [];
-        if (planesCreados.length === 0) {
+        const planesCreados = Array.isArray(respuesta?.planesNuevos) ? respuesta.planesNuevos : [];
+        const planesActualizados = Array.isArray(respuesta?.planesActualizados) ? respuesta.planesActualizados : [];
+        if (planesCreados.length + planesActualizados.length === 0) {
           alert('No se pudieron crear los planes de acción.');
           return;
         }
 
-        setPlanes(prev => [...planesCreados, ...(Array.isArray(prev) ? prev : [])]);
-        handleInformeChange(formInformeId, [...planesCreados, ...safePlanes], safeHallazgos);
+        const actualizacionesPorId = new Map(planesActualizados.map(plan => [String(plan.id), plan]));
+        const planesFinales = [
+          ...planesCreados,
+          ...safePlanes.map(plan => actualizacionesPorId.get(String(plan.id)) || plan),
+        ];
+        setPlanes(planesFinales);
+        handleInformeChange(formInformeId, planesFinales, safeHallazgos);
 
         let todasNotificacionesEnviadas = true;
-        if (enviarNotificaciones && ejecutarDespachoGmailApi) {
+        if (actividadesNuevas.length > 0 && enviarNotificaciones && ejecutarDespachoGmailApi) {
           for (const plan of planesCreados) {
             const correoEjecutorEnviado = await ejecutarDespachoGmailApi({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
@@ -426,9 +458,11 @@ const handleNotificarPlan = (planId) => {
         setFormInformeId('');
         setMatrixState({});
         setVistaActiva('historial');
-        alert(todasNotificacionesEnviadas
-          ? 'Planes creados y notificaciones enviadas.'
-          : 'Los planes se crearon, pero no se pudieron enviar todas las notificaciones.');
+        alert(actividadesNuevas.length === 0
+          ? 'Tus acciones se actualizaron correctamente.'
+          : todasNotificacionesEnviadas
+            ? 'Planes creados y notificaciones enviadas.'
+            : 'Los planes se crearon, pero no se pudieron enviar todas las notificaciones.');
       } catch (error) {
         alert(error.message || 'No se pudieron crear los planes de acción.');
       }
@@ -853,6 +887,7 @@ if (existingActivities.length > 0) {
             responsable: p.responsable || h.responsable || '',
             revisor: p.revisor || '',
             correoRevisor: p.correoRevisor || '',
+            correoRevisorConfirmacion: p.correoRevisor || '',
             auditorAsignado: p.auditorAsignado || auditorHeredado || h.auditor || '',
             correoAuditor: p.correoAuditor || correoAuditorHeredado
           })) 
@@ -1636,8 +1671,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                       <div className="space-y-4">
 {Array.isArray(node?.actividades) && node.actividades.map((act, index) => {
   const actividadNueva = String(act.id).startsWith('new-');
+  const correoActual = String(user?.email || '').trim().toLowerCase();
+  const esResponsableActividad = !actividadNueva && correoActual && String(act.correoResponsable || '').trim().toLowerCase() === correoActual;
+  const puedeEditarActividad = isAdmin || actividadNueva || esResponsableActividad;
+  const puedeEditarAsignacion = isAdmin || actividadNueva;
   return (
-                          <fieldset key={`act-row-${index}`} disabled={!isAdmin && !actividadNueva} className="contents">
+                          <fieldset key={`act-row-${index}`} disabled={!puedeEditarActividad} className="contents">
                           <div 
                             className="bg-white border border-slate-200 border-l-[6px] border-l-[#0f172a] rounded-2xl p-5 pl-6 shadow-[0_8px_25px_-5px_rgba(15,23,42,0.08)] space-y-4 relative transition-all duration-500 hover:shadow-[0_12px_35px_-5px_rgba(15,23,42,0.12)]"
                           >
@@ -1660,7 +1699,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 >
                                   <span>💾</span> Guardar
                                 </button>
-                                {node.actividades.length > 1 && (
+                                {node.actividades.length > 1 && (isAdmin || actividadNueva) && (
                                   <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-400 hover:text-red-600 hover:bg-red-50 font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors">
                                     🗑️ Quitar
                                   </button>
@@ -1782,6 +1821,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       <select 
                                         value={act.responsable || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'responsable', e.target.value)} 
+                                        disabled={!puedeEditarAsignacion}
                                         className="w-full border border-purple-200 p-2 rounded-lg font-bold text-purple-900 bg-purple-50 focus:bg-white shadow-sm outline-none cursor-pointer" 
                                         required
                                       >
@@ -1795,6 +1835,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         type="email" 
                                         value={act.correoResponsable || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'correoResponsable', e.target.value)} 
+                                        disabled={!puedeEditarAsignacion}
                                         placeholder="Correo del responsable" 
                                         className="w-full border border-purple-200 p-2 rounded-lg bg-purple-50 focus:bg-white shadow-sm outline-none" 
                                         required 
@@ -1809,6 +1850,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         type="email" 
                                         value={act.correoConfirmacion || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'correoConfirmacion', e.target.value)} 
+                                        disabled={!puedeEditarAsignacion}
                                         placeholder="Confirme el correo" 
                                         className={`w-full border p-2 rounded-lg shadow-sm outline-none transition-colors ${mostrarAlertaEjecutor ? 'border-red-500 bg-red-50 text-red-900 focus:ring-2 focus:ring-red-500' : 'border-purple-200 bg-purple-50 focus:bg-white focus:ring-2 focus:ring-purple-400'}`} 
                                         required 
@@ -1820,6 +1862,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                       <select 
                                         value={act.revisor || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'revisor', e.target.value)} 
+                                        disabled={!puedeEditarAsignacion}
                                         className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white cursor-pointer shadow-sm outline-none" 
                                         required
                                       >
@@ -1833,6 +1876,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         type="email" 
                                         value={act.correoRevisor || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'correoRevisor', e.target.value)} 
+                                        disabled={!puedeEditarAsignacion}
                                         placeholder="Correo de Jefatura" 
                                         className="w-full border border-amber-200 p-2 rounded-lg font-bold text-amber-900 bg-amber-50 focus:bg-white shadow-sm outline-none" 
                                         required
@@ -1847,6 +1891,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         type="email" 
                                         value={act.correoRevisorConfirmacion || ''} 
                                         onChange={(e) => handleUpdateActivityField(h.id, index, 'correoRevisorConfirmacion', e.target.value)} 
+                                        disabled={!puedeEditarAsignacion}
                                         placeholder="Confirme correo Jefatura" 
                                         className={`w-full border p-2 rounded-lg font-bold shadow-sm outline-none transition-colors ${mostrarAlertaRevisor ? 'border-red-500 bg-red-50 text-red-900 focus:ring-2 focus:ring-red-500' : 'border-amber-200 bg-amber-50 focus:bg-white focus:ring-2 focus:ring-amber-400'}`} 
                                         required
@@ -1857,7 +1902,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               })()}
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Avance ({act.progreso}%)</label>
-                                <input type="number" min="0" max="100" value={act.progreso} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50" />
+                                <input type="number" min="0" max="100" value={act.progreso} disabled={!isAdmin && !actividadNueva} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50 disabled:bg-slate-100 disabled:text-slate-500" />
                               </div>
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Fecha Inicio</label>
