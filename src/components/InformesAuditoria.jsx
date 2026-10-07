@@ -1329,10 +1329,9 @@ const handleFileUpload = async (e, type) => {
         </div>
       )}
     
-      {/* 🚀 VISTA 2: FORMULARIO NUEVO / EDICIÓN */}
-      {vistaActiva === 'nuevo' && isAdmin && (
+      {/* 🚀 VISTA 2: FORMULARIO NUEVO / EDICIÓN (O SOLO LECTURA PARA LÍDERES) */}
+      {vistaActiva === 'nuevo' && (isAdmin || modoVistaCompleta) && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
-          
           <div className="flex justify-between items-center border-b pb-4 gap-3">
             <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest flex items-center">
               <span className="text-xl mr-3 bg-emerald-50 p-2 rounded-lg">{modoVistaCompleta ? '👁️' : (editInformeAuditoria ? '✏️' : '➕')}</span>
@@ -2311,15 +2310,20 @@ const handleFileUpload = async (e, type) => {
                             }
                             return <div className="text-[9px] text-slate-400 italic bg-slate-50 py-1.5 rounded border border-dashed text-center mt-1">Sin Acta Cargada</div>;
                           })()}
-                          {isAdmin && (
-                            <div className="flex justify-center items-center space-x-2 pt-2 border-t mt-2">
-                              <button type="button" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(false); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏️ Editar</button>
-                              <span className="text-slate-200">|</span>
-                              <button type="button" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-sky-600 hover:text-sky-700 text-xs font-bold">👁️ Ver info completa</button>
-                              <span className="text-slate-200">|</span>
-                              <button type="button" onClick={() => handleDeleteItem('informesAuditoria', inf.id)} className="text-slate-400 hover:text-red-600 text-xs font-bold">🗑️ Eliminar</button>
-                            </div>
-                          )}
+                          <div className="flex justify-center items-center space-x-2 pt-2 border-t mt-2">
+                            {/* Botón de Ver visible para TODOS (Líderes y Admins) */}
+                            <button type="button" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(true); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-sky-600 hover:text-sky-700 text-xs font-bold">👁️ Ver info completa</button>
+                            
+                            {/* Botones de edición y borrado SOLO para ADMIN */}
+                            {isAdmin && (
+                              <>
+                                <span className="text-slate-200">|</span>
+                                <button type="button" onClick={() => { setEditInformeAuditoria(inf); setModoVistaCompleta(false); setVistaActiva('nuevo'); setFormResetKey(Date.now()); scrollToForm(); }} className="text-orange-500 hover:text-orange-700 text-xs font-bold">✏️ Editar</button>
+                                <span className="text-slate-200">|</span>
+                                <button type="button" onClick={() => handleDeleteItem('informesAuditoria', inf.id)} className="text-slate-400 hover:text-red-600 text-xs font-bold">🗑️ Eliminar</button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
