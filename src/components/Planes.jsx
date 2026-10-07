@@ -26,6 +26,7 @@ const ProgressBar = ({ progress }) => {
 
 export default function Planes({
   isAdmin,
+  puedeCrearPlanes = false,
   user = null,
   editPlan,
   setEditPlan,
@@ -326,7 +327,7 @@ const handleNotificarPlan = (planId) => {
       const node = matrixState[hallazgoId];
       if (node.aplica) {
         node.actividades.forEach(act => {
-          if (act.accion && act.accion.trim() !== '') {
+          if (act.accion && act.accion.trim() !== '' && (isAdmin || String(act.id).startsWith('new-'))) {
             // Validar Ejecutor
             const corrResp1 = (act.correoResponsable || '').trim().toLowerCase();
             const corrResp2 = (act.correoConfirmacion || '').trim().toLowerCase();
@@ -348,6 +349,84 @@ const handleNotificarPlan = (planId) => {
 
     if (errorCorreosRevisor) {
       alert("❌ ALERTA: Los correos electrónicos del REVISOR (Jefatura) no coinciden o están vacíos. Por favor, verifique las casillas marcadas en rojo antes de guardar.");
+      return;
+    }
+
+    if (!isAdmin) {
+      const actividadesNuevas = Object.entries(matrixState).flatMap(([hallazgoId, node]) => (
+        node.aplica
+          ? node.actividades
+            .filter(act => String(act.id).startsWith('new-') && act.accion?.trim())
+            .map(act => ({
+              idHallazgo: hallazgoId,
+              accion: act.accion.trim(),
+              sede: act.sede || 'No especificada',
+              responsable: act.responsable || 'Sin Asignar',
+              correoResponsable: (act.correoResponsable || '').trim(),
+              revisor: act.revisor || 'Sin Asignar',
+              correoRevisor: (act.correoRevisor || '').trim(),
+              auditorAsignado: act.auditorAsignado || '',
+              correoAuditor: (act.correoAuditor || '').trim(),
+              fechaInicio: act.fechaInicio || null,
+              fecha: act.fecha || null,
+              evidenciaUrl: act.evidenciaUrl || '',
+              tipoAccion: act.tipoAccion || 'Acción Correctiva',
+              matrizRiesgos: act.matrizRiesgos || 'No aplica',
+              matrizAspectos: act.matrizAspectos || 'No aplica',
+              matrizPeligros: act.matrizPeligros || 'No aplica',
+              matrizLegal: act.matrizLegal || 'No aplica',
+            }))
+          : []
+      ));
+
+      if (actividadesNuevas.length === 0) {
+        alert('Agrega al menos una actividad nueva antes de guardar la matriz.');
+        return;
+      }
+
+      if (enviarNotificaciones && prepararEnvioGmail && !(await prepararEnvioGmail())) return;
+
+      try {
+        const respuesta = await apiService.crearRegistroGrc('planes', {
+          idInforme: formInformeId,
+          items: actividadesNuevas,
+        });
+        const planesCreados = Array.isArray(respuesta?.registros) ? respuesta.registros : [];
+        if (planesCreados.length === 0) {
+          alert('No se pudieron crear los planes de acción.');
+          return;
+        }
+
+        setPlanes(prev => [...planesCreados, ...(Array.isArray(prev) ? prev : [])]);
+        handleInformeChange(formInformeId, [...planesCreados, ...safePlanes], safeHallazgos);
+
+        let todasNotificacionesEnviadas = true;
+        if (enviarNotificaciones && ejecutarDespachoGmailApi) {
+          for (const plan of planesCreados) {
+            const correoEjecutorEnviado = await ejecutarDespachoGmailApi({
+              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+              titulo_informe: 'Acción Creada - Pendiente de Revisión',
+              proceso_auditado: `Has elaborado el plan de acción: "${plan.accion}". Está pendiente de revisión por ${plan.revisor}.`,
+              enlace_pdf: plan.evidenciaUrl || 'https://auditoria-gcm.vercel.app',
+              destinatarios: plan.correoResponsable,
+            });
+            const correoRevisorEnviado = await ejecutarDespachoGmailApi({
+              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+              titulo_informe: 'Acción requerida: revisar Plan de Acción',
+              proceso_auditado: `El responsable ${plan.responsable} creó el plan "${plan.accion}". Ingrese a la plataforma para revisarlo.`,
+              enlace_pdf: 'https://auditoria-gcm.vercel.app',
+              destinatarios: plan.correoRevisor,
+            });
+            if (!correoEjecutorEnviado || !correoRevisorEnviado) todasNotificacionesEnviadas = false;
+          }
+        }
+
+        alert(todasNotificacionesEnviadas
+          ? 'Planes creados y notificaciones enviadas.'
+          : 'Los planes se crearon, pero no se pudieron enviar todas las notificaciones.');
+      } catch (error) {
+        alert(error.message || 'No se pudieron crear los planes de acción.');
+      }
       return;
     }
 
@@ -1540,17 +1619,21 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     </div>
     <h4 className="text-xs font-black text-slate-900 mt-2">{h.titulo}</h4>
   </div>
-                      <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
-                        <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
-                        <button type="button" onClick={() => handleToggleAplica(h.id, false)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>No Aplica</button>
-                      </div>
+                      {isAdmin && (
+                        <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
+                          <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
+                          <button type="button" onClick={() => handleToggleAplica(h.id, false)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>No Aplica</button>
+                        </div>
+                      )}
                     </div>
 
                     {node.aplica && (
                       <div className="space-y-4">
-{Array.isArray(node?.actividades) && node.actividades.map((act, index) => (
+{Array.isArray(node?.actividades) && node.actividades.map((act, index) => {
+  const actividadNueva = String(act.id).startsWith('new-');
+  return (
+                          <fieldset key={`act-row-${index}`} disabled={!isAdmin && !actividadNueva} className="contents">
                           <div 
-                            key={`act-row-${index}`} 
                             className="bg-white border border-slate-200 border-l-[6px] border-l-[#0f172a] rounded-2xl p-5 pl-6 shadow-[0_8px_25px_-5px_rgba(15,23,42,0.08)] space-y-4 relative transition-all duration-500 hover:shadow-[0_12px_35px_-5px_rgba(15,23,42,0.12)]"
                           >
                             {/* CABECERA SUTIL DE LA ACTIVIDAD */}
@@ -1857,7 +1940,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
 
                             </div>
                           </div>
-                        ))}
+                          </fieldset>
+  );
+})}
                 <button type="button" onClick={() => handleAddActivity(h.id)} className="bg-white border-2 border-dashed border-slate-300 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase">➕ Agregar Otra Actividad</button>
                       </div>
                     )}
@@ -2097,7 +2182,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                     <div className="flex flex-col items-center justify-center space-y-3">
                                       <span className="text-3xl">⚠️</span>
                                       <p className="text-slate-500 font-bold text-xs">Este informe tiene hallazgos, pero aún no se ha diseñado su matriz de planes de acción.</p>
-                                      {isAdmin && (
+                                      {(isAdmin || puedeCrearPlanes) && (
                                         <button
                                           onClick={() => {
                                             handleInformeChange(String(idInf));

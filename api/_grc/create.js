@@ -9,6 +9,7 @@ const COLECCIONES_PERMITIDAS = {
   informesAuditoria: 'sub_informes',
   fuentesMejora: 'sub_fuentes_mejora',
   hallazgos: 'sub_hallazgos',
+  planes: 'sub_seguimiento_planes',
 };
 
 const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
@@ -46,15 +47,23 @@ export default async function handler(req, res) {
     const procesoAsignado = normalizar(perfil.procesoAsignado || user.procesoAsignado);
     const subprocesoAsignado = normalizar(perfil.subprocesoAsignado);
     const procesoRegistro = normalizar(registro.macroproceso || String(registro.proceso || '').split('/')[0]);
-    if (!admin && coleccion !== 'hallazgos' && procesoAsignado && procesoRegistro !== procesoAsignado) {
+    if (!admin && coleccion !== 'hallazgos' && coleccion !== 'planes' && procesoAsignado && procesoRegistro !== procesoAsignado) {
       return sendError(res, 'El registro debe pertenecer al proceso asignado.', 403);
     }
-    if (!admin && coleccion !== 'hallazgos' && subprocesoAsignado && normalizar(registro.subproceso) !== subprocesoAsignado) {
+    if (!admin && coleccion !== 'hallazgos' && coleccion !== 'planes' && subprocesoAsignado && normalizar(registro.subproceso) !== subprocesoAsignado) {
       return sendError(res, 'El registro debe pertenecer al subproceso asignado.', 403);
     }
 
     if (coleccion === 'hallazgos' && (!normalizar(registro.titulo) || !normalizar(registro.idInforme) || !procesoRegistro)) {
       return sendError(res, 'El hallazgo requiere título, informe y proceso.', 400);
+    }
+    if (coleccion === 'planes' && (
+      !normalizar(registro.idInforme) ||
+      !Array.isArray(registro.items) ||
+      registro.items.length === 0 ||
+      registro.items.length > 100
+    )) {
+      return sendError(res, 'La matriz debe incluir entre 1 y 100 actividades nuevas y un informe.', 400);
     }
 
     const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
@@ -65,6 +74,56 @@ export default async function handler(req, res) {
       const ahora = new Date();
       const fechaIso = ahora.toISOString();
       let nuevoRegistro;
+
+      if (coleccion === 'planes') {
+        const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
+        const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
+        const informe = informes.find(item => String(item.id) === String(registro.idInforme));
+        if (!informe) return { error: 'informe-not-found' };
+
+        const items = [];
+        let siguienteId = registrosActuales.reduce((maximo, item) => Math.max(maximo, Number(item?.id) || 0), 0) + 1;
+        const email = normalizar(user.email);
+        const procesoPerfil = normalizar(perfil.procesoAsignado || user.procesoAsignado);
+        const subprocesoPerfil = normalizar(perfil.subprocesoAsignado);
+
+        for (const item of registro.items) {
+          const hallazgo = hallazgos.find(candidate => String(candidate.id) === String(item.idHallazgo));
+          if (!hallazgo || String(hallazgo.idInforme) !== String(registro.idInforme)) {
+            return { error: 'hallazgo-not-found' };
+          }
+
+          const procesoHallazgo = normalizar(hallazgo.macroproceso || String(hallazgo.proceso || '').split('/')[0]);
+          const subprocesoHallazgo = normalizar(hallazgo.subproceso);
+          const creadoPorUsuario = normalizar(hallazgo.correoCreador || hallazgo.creadoPor) === email;
+          const perteneceAlAlcance = Boolean(
+            procesoPerfil && procesoHallazgo === procesoPerfil &&
+            (!subprocesoPerfil || subprocesoHallazgo === subprocesoPerfil)
+          );
+          if (!admin && !creadoPorUsuario && !perteneceAlAlcance) {
+            return { error: 'hallazgo-forbidden' };
+          }
+          if (!normalizar(item.accion)) return { error: 'invalid-action' };
+
+          items.push({
+            ...item,
+            id: siguienteId++,
+            idHallazgo: hallazgo.id,
+            progreso: 0,
+            estadoWorkflow: 'Pendiente Revisión Jefatura',
+            estado: 'En Proceso',
+            creadoPor: user.email,
+            historialCambios: [{
+              fecha: ahora.toLocaleString('es-CO'),
+              usuario: user.email,
+              accion: 'Actividad registrada en matriz por el líder de proceso',
+            }],
+          });
+        }
+
+        transaction.set(workspaceRef, { planes: [...items, ...registrosActuales] }, { merge: true });
+        return { registros: items };
+      }
 
       if (coleccion === 'informesAuditoria') {
         const anio = ahora.getFullYear();
@@ -134,8 +193,17 @@ export default async function handler(req, res) {
     if (registroGuardado.error === 'informe-not-found') {
       return sendError(res, 'No se encontró el informe de origen.', 404);
     }
+    if (registroGuardado.error === 'hallazgo-not-found') {
+      return sendError(res, 'El informe contiene un hallazgo que no está disponible.', 404);
+    }
+    if (registroGuardado.error === 'hallazgo-forbidden') {
+      return sendError(res, 'Solo puede crear planes para hallazgos de sus informes o procesos asignados.', 403);
+    }
+    if (registroGuardado.error === 'invalid-action') {
+      return sendError(res, 'Cada plan debe tener una acción descrita.', 400);
+    }
     logger.info('Registro GRC creado', { coleccion, usuario: user.email, id: registroGuardado.id });
-    return sendSuccess(res, { registro: registroGuardado });
+    return sendSuccess(res, registroGuardado.registros ? { registros: registroGuardado.registros } : { registro: registroGuardado });
   } catch (error) {
     logger.error('Error creando registro GRC', error, { endpoint: req.url });
     return sendError(res, 'No se pudo crear el registro.', 500);
