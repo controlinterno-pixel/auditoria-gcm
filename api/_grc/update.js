@@ -13,7 +13,7 @@ const CAMPOS_EDITABLES = [
   'actaSocializacionUrl', 'anexos', 'anexosMultiples', 'correoEnviadoA',
 ];
 const CAMPOS_EDITABLES_PLAN = [
-  'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion',
+  'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion', 'progreso',
   'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
   'correoResponsable', 'correoRevisor', 'correoAuditor',
 ];
@@ -118,12 +118,27 @@ export default async function handler(req, res) {
               .map(campo => [campo, peticion[campo]])
           );
           if (Object.hasOwn(cambios, 'accion') && !normalizar(cambios.accion)) return { error: 'invalid-action' };
+          if (Object.hasOwn(cambios, 'progreso')) {
+            const progreso = Number(cambios.progreso);
+            if (!Number.isInteger(progreso) || progreso < 0 || progreso > 100) return { error: 'invalid-progress' };
+            cambios.progreso = progreso;
+          }
 
           const camposCambiados = Object.keys(cambios).filter(campo => (
             JSON.stringify(anterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
           ));
           if (camposCambiados.length === 0) continue;
-          const reenviaRevision = !admin && camposCambiados.length > 0;
+          const cambioProgreso = camposCambiados.includes('progreso');
+          const cambioDiseno = camposCambiados.some(campo => campo !== 'progreso');
+          if (!admin && cambioProgreso && !['En Ejecución', 'En Revisión (100%)'].includes(anterior.estadoWorkflow)) {
+            return { error: 'progress-forbidden' };
+          }
+          const reenviaRevision = !admin && cambioDiseno;
+          let estadoWorkflow = anterior.estadoWorkflow;
+          if (!admin && !reenviaRevision && cambioProgreso) {
+            if (cambios.progreso === 100) estadoWorkflow = 'En Revisión (100%)';
+            else if (anterior.estadoWorkflow === 'En Revisión (100%)') estadoWorkflow = 'En Ejecución';
+          }
           const historial = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
           planesActualizados.push({
             ...anterior,
@@ -131,6 +146,7 @@ export default async function handler(req, res) {
             id: anterior.id,
             idHallazgo: anterior.idHallazgo,
             idInforme: idInformeAnterior,
+            ...(!admin && cambioProgreso && !reenviaRevision ? { estadoWorkflow, estado: 'En Proceso' } : {}),
             ...(reenviaRevision ? {
               estadoWorkflow: 'Pendiente Revisión Jefatura',
               estado: 'En Proceso',
@@ -142,7 +158,11 @@ export default async function handler(req, res) {
                 usuario: user.email,
                 accion: reenviaRevision
                   ? 'Diseño corregido y reenviado a revisión por su responsable'
-                  : 'Acción de plan actualizada',
+                  : cambioProgreso
+                    ? estadoWorkflow === 'En Revisión (100%)'
+                      ? 'Ejecución al 100% enviada a revisión del auditor'
+                      : 'Avance de ejecución actualizado por su responsable'
+                    : 'Acción de plan actualizada',
                 detalleCambios: camposCambiados.map(campo => ({
                   campo,
                   antes: anterior[campo] ?? '',
@@ -213,6 +233,8 @@ export default async function handler(req, res) {
         'plan-not-found': ['No se encontró una acción que se intentó editar.', 404],
         'not-owner': ['Solo puede editar acciones asignadas a su correo.', 403],
         'invalid-action': ['La descripción de la acción no puede quedar vacía.', 400],
+        'invalid-progress': ['El avance debe ser un número entero entre 0 y 100.', 400],
+        'progress-forbidden': ['El avance solo se puede actualizar cuando el plan está en ejecución o en revisión de cierre.', 403],
         'invalid-executor-email': ['El correo del ejecutor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-reviewer-email': ['El correo del revisor debe ser válido y coincidir con su confirmación.', 400],
         'invalid-auditor-email': ['El correo del auditor debe ser válido y coincidir con su confirmación.', 400],
