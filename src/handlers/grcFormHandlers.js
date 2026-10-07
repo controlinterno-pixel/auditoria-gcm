@@ -776,7 +776,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
       return true;
     } catch (err) {
       console.error(err);
-      showNotification("Error al procesar el informe.", "error");
+      showNotification(err.message || "Error al procesar el informe.", "error");
       return false;
     } finally {
       setIsSubmitting(false);

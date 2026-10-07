@@ -12,10 +12,8 @@ const CAMPOS_EDITABLES = [
   'fecha_socializacion', 'socializadoCon', 'participantes', 'evidenciaUrl',
   'actaSocializacionUrl', 'anexos', 'anexosMultiples', 'correoEnviadoA',
 ];
-
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const normalizar = valor => String(valor || '').trim().toLowerCase();
-
 const obtenerProceso = registro => normalizar(
   registro?.macroproceso || String(registro?.proceso || '').split('/')[0]
 );
@@ -41,18 +39,14 @@ export default async function handler(req, res) {
 
     const perfilSnap = await adminDb.collection('usuarios').doc(user.uid).get();
     const perfil = perfilSnap.exists ? perfilSnap.data() : {};
-    const esAdmin = ROLES_ADMIN.includes(normalizar(perfil.rol));
+    const admin = ROLES_ADMIN.includes(normalizar(perfil.rol));
     const permisos = Array.isArray(perfil.permisos) ? perfil.permisos : [];
-    if (!esAdmin && !permisos.includes('sub_informes')) {
+    if (!admin && !permisos.includes('sub_informes')) {
       return sendError(res, 'No tiene permiso para editar informes.', 403);
     }
 
     const procesoAsignado = normalizar(perfil.procesoAsignado || user.procesoAsignado);
     const subprocesoAsignado = normalizar(perfil.subprocesoAsignado);
-    if (!esAdmin && !procesoAsignado) {
-      return sendError(res, 'Debe tener un proceso asignado para editar informes.', 403);
-    }
-
     const cambios = Object.fromEntries(
       CAMPOS_EDITABLES.filter(campo => Object.hasOwn(registro, campo))
         .map(campo => [campo, registro[campo]])
@@ -61,10 +55,10 @@ export default async function handler(req, res) {
     if (!normalizar(nuevoRegistro.titulo) || !obtenerProceso(nuevoRegistro)) {
       return sendError(res, 'El título y el proceso son obligatorios.', 400);
     }
-    if (!esAdmin && obtenerProceso(nuevoRegistro) !== procesoAsignado) {
+    if (!admin && procesoAsignado && obtenerProceso(nuevoRegistro) !== procesoAsignado) {
       return sendError(res, 'Solo puede editar informes de su proceso asignado.', 403);
     }
-    if (subprocesoAsignado && normalizar(nuevoRegistro.subproceso) !== subprocesoAsignado) {
+    if (!admin && subprocesoAsignado && normalizar(nuevoRegistro.subproceso) !== subprocesoAsignado) {
       return sendError(res, 'Solo puede editar informes de su subproceso asignado.', 403);
     }
 
@@ -75,28 +69,26 @@ export default async function handler(req, res) {
 
       const data = snapshot.data() || {};
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
-      const informeAnterior = informes.find(item => String(item.id) === String(id));
-      if (!informeAnterior) return { error: 'not-found' };
+      const anterior = informes.find(informe => String(informe.id) === String(id));
+      if (!anterior) return { error: 'not-found' };
 
-      if (!esAdmin && (
-        obtenerProceso(informeAnterior) !== procesoAsignado ||
-        (subprocesoAsignado && normalizar(informeAnterior.subproceso) !== subprocesoAsignado)
-      )) {
-        return { error: 'forbidden' };
-      }
+      if (!admin && (
+        (procesoAsignado && obtenerProceso(anterior) !== procesoAsignado) ||
+        (subprocesoAsignado && normalizar(anterior.subproceso) !== subprocesoAsignado)
+      )) return { error: 'forbidden' };
 
       const camposCambiados = Object.keys(cambios).filter(campo => (
-        JSON.stringify(informeAnterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
+        JSON.stringify(anterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
       ));
-      const historial = Array.isArray(informeAnterior.historialCambios) ? informeAnterior.historialCambios : [];
+      const historial = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
       const ahora = new Date();
       const motivoSeguro = String(motivo || '').trim().slice(0, 500);
-      const informeActualizado = {
-        ...informeAnterior,
+      const actualizado = {
+        ...anterior,
         ...cambios,
-        id: informeAnterior.id,
-        ref: informeAnterior.ref,
-        historialCambios: camposCambiados.length === 0 ? historial : [
+        id: anterior.id,
+        ref: anterior.ref,
+        historialCambios: camposCambiados.length ? [
           ...historial,
           {
             fecha: ahora.toLocaleString('es-CO'),
@@ -106,17 +98,17 @@ export default async function handler(req, res) {
             motivo: motivoSeguro || 'Actualización del registro',
             version: historial.length + 1,
             detalle: Object.fromEntries(camposCambiados.map(campo => [campo, {
-              anterior: informeAnterior[campo] ?? null,
+              anterior: anterior[campo] ?? null,
               actual: cambios[campo] ?? null,
             }])),
           },
-        ],
+        ] : historial,
       };
 
       transaction.set(workspaceRef, {
-        informesAuditoria: informes.map(item => String(item.id) === String(id) ? informeActualizado : item),
+        informesAuditoria: informes.map(informe => String(informe.id) === String(id) ? actualizado : informe),
       }, { merge: true });
-      return { informe: informeActualizado };
+      return { informe: actualizado };
     });
 
     if (resultado.error === 'not-found') return sendError(res, 'No se encontró el informe.', 404);

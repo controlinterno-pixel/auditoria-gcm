@@ -28,6 +28,8 @@ export default async function handler(req, res) {
     if (!admin && !permisos.includes('sub_informes')) {
       return sendError(res, 'No tiene permiso para registrar el envío de informes.', 403);
     }
+    const procesoAsignado = String(perfil.procesoAsignado || '').trim().toLowerCase();
+    const subprocesoAsignado = String(perfil.subprocesoAsignado || '').trim().toLowerCase();
 
     const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
     const informeActualizado = await adminDb.runTransaction(async (transaction) => {
@@ -37,7 +39,12 @@ export default async function handler(req, res) {
       const data = snapshot.data() || {};
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
       const informe = informes.find(item => String(item.id) === String(id));
-      if (!informe || (!admin && String(informe.correoCreador || '').toLowerCase() !== user.email.toLowerCase())) {
+      const procesoInforme = String(informe?.macroproceso || String(informe?.proceso || '').split('/')[0]).trim().toLowerCase();
+      const subprocesoInforme = String(informe?.subproceso || '').trim().toLowerCase();
+      if (!informe || (!admin && (
+        (procesoAsignado && procesoInforme !== procesoAsignado) ||
+        (subprocesoAsignado && subprocesoInforme !== subprocesoAsignado)
+      ))) {
         return null;
       }
 

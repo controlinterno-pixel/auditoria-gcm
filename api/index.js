@@ -53,6 +53,10 @@ export default async function handler(req, res) {
       const module = await import('./_grc/sync.js');
       return await module.default(req, res);
     }
+    if (path === '/api/grc/update') {
+      const module = await import('./_grc/update.js');
+      return await module.default(req, res);
+    }
     if (path === '/api/grc/upload') {
       const module = await import('./_grc/upload.js');
       return await module.default(req, res);
