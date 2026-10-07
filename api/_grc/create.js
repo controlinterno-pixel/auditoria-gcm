@@ -17,6 +17,7 @@ const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
 );
 
 const normalizar = (valor) => String(valor || '').trim().toLowerCase();
+const esCorreoValido = (valor) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim());
 
 export default async function handler(req, res) {
   if (applyCors(req, res)) return;
@@ -104,9 +105,21 @@ export default async function handler(req, res) {
             return { error: 'hallazgo-forbidden' };
           }
           if (!normalizar(item.accion)) return { error: 'invalid-action' };
+          const correoResponsable = String(item.correoResponsable || '').trim();
+          const correoConfirmacion = String(item.correoConfirmacion || '').trim();
+          const correoRevisor = String(item.correoRevisor || '').trim();
+          const correoRevisorConfirmacion = String(item.correoRevisorConfirmacion || '').trim();
+          if (
+            !esCorreoValido(correoResponsable) ||
+            !esCorreoValido(correoRevisor) ||
+            normalizar(correoResponsable) !== normalizar(correoConfirmacion) ||
+            normalizar(correoRevisor) !== normalizar(correoRevisorConfirmacion)
+          ) return { error: 'invalid-email-confirmation' };
+
+          const { correoConfirmacion: _correoConfirmacion, correoRevisorConfirmacion: _correoRevisorConfirmacion, ...datosPlan } = item;
 
           items.push({
-            ...item,
+            ...datosPlan,
             id: siguienteId++,
             idHallazgo: hallazgo.id,
             progreso: 0,
@@ -201,6 +214,9 @@ export default async function handler(req, res) {
     }
     if (registroGuardado.error === 'invalid-action') {
       return sendError(res, 'Cada plan debe tener una acción descrita.', 400);
+    }
+    if (registroGuardado.error === 'invalid-email-confirmation') {
+      return sendError(res, 'Los correos del ejecutor y revisor deben ser válidos y coincidir con sus confirmaciones.', 400);
     }
     logger.info('Registro GRC creado', { coleccion, usuario: user.email, id: registroGuardado.id });
     return sendSuccess(res, registroGuardado.registros ? { registros: registroGuardado.registros } : { registro: registroGuardado });

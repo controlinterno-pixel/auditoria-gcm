@@ -331,12 +331,12 @@ const handleNotificarPlan = (planId) => {
             // Validar Ejecutor
             const corrResp1 = (act.correoResponsable || '').trim().toLowerCase();
             const corrResp2 = (act.correoConfirmacion || '').trim().toLowerCase();
-            if (!corrResp1 || !corrResp2 || corrResp1 !== corrResp2) errorCorreosEjecutor = true;
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrResp1) || !corrResp2 || corrResp1 !== corrResp2) errorCorreosEjecutor = true;
 
             // Validar Revisor
             const corrRev1 = (act.correoRevisor || '').trim().toLowerCase();
             const corrRev2 = (act.correoRevisorConfirmacion || '').trim().toLowerCase();
-            if (!corrRev1 || !corrRev2 || corrRev1 !== corrRev2) errorCorreosRevisor = true;
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(corrRev1) || !corrRev2 || corrRev1 !== corrRev2) errorCorreosRevisor = true;
           }
         });
       }
@@ -363,8 +363,10 @@ const handleNotificarPlan = (planId) => {
               sede: act.sede || 'No especificada',
               responsable: act.responsable || 'Sin Asignar',
               correoResponsable: (act.correoResponsable || '').trim(),
+              correoConfirmacion: (act.correoConfirmacion || '').trim(),
               revisor: act.revisor || 'Sin Asignar',
               correoRevisor: (act.correoRevisor || '').trim(),
+              correoRevisorConfirmacion: (act.correoRevisorConfirmacion || '').trim(),
               auditorAsignado: act.auditorAsignado || '',
               correoAuditor: (act.correoAuditor || '').trim(),
               fechaInicio: act.fechaInicio || null,
@@ -421,6 +423,9 @@ const handleNotificarPlan = (planId) => {
           }
         }
 
+        setFormInformeId('');
+        setMatrixState({});
+        setVistaActiva('historial');
         alert(todasNotificacionesEnviadas
           ? 'Planes creados y notificaciones enviadas.'
           : 'Los planes se crearon, pero no se pudieron enviar todas las notificaciones.');
