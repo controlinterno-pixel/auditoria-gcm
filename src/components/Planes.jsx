@@ -504,19 +504,44 @@ const handleNotificarPlan = (planId) => {
                 matrizAspectos: act.matrizAspectos || 'No aplica',
                 matrizPeligros: act.matrizPeligros || 'No aplica',
                 matrizLegal: act.matrizLegal || 'No aplica',
+                progreso: Math.min(Math.max(Number(act.progreso) || 0, 0), 100),
                 ...cambiosCorreo,
               };
             })
           : []
       ));
 
+      const camposDisenoNotificables = [
+        'accion', 'sede', 'fechaInicio', 'fecha', 'evidenciaUrl', 'tipoAccion',
+        'matrizRiesgos', 'matrizAspectos', 'matrizPeligros', 'matrizLegal',
+        'correoResponsable', 'correoRevisor', 'correoAuditor',
+      ];
+      const requiereNotificacionEdicion = actividadesEditadas.some(actualizacion => {
+        const original = safePlanes.find(plan => String(plan.id) === String(actualizacion.id));
+        if (!original) return false;
+        const cambioDiseno = camposDisenoNotificables.some(campo => (
+          JSON.stringify(original[campo] ?? null) !== JSON.stringify(actualizacion[campo] ?? null)
+        ));
+        const llegaAlCien = Number(actualizacion.progreso) === 100 && Number(original.progreso) < 100;
+        return cambioDiseno || llegaAlCien;
+      });
+
       if (actividadesNuevas.length === 0 && actividadesEditadas.length === 0) {
         alert('No hay actividades nuevas ni cambios en tus propias acciones para guardar.');
         return;
       }
 
-      const requiereNotificacion = actividadesEditadas.length > 0 || (actividadesNuevas.length > 0 && enviarNotificaciones);
-      if (requiereNotificacion && prepararEnvioGmail && !(await prepararEnvioGmail())) return;
+      const requiereCorreoNuevo = actividadesNuevas.length > 0 && enviarNotificaciones;
+      const requierePrepararGmail = requiereCorreoNuevo || requiereNotificacionEdicion;
+      let promesaPreparacionGmail = null;
+      if (requierePrepararGmail && prepararEnvioGmail) {
+        try {
+          promesaPreparacionGmail = Promise.resolve(prepararEnvioGmail());
+        } catch {
+          promesaPreparacionGmail = Promise.resolve(false);
+        }
+      }
+      if (requiereCorreoNuevo && promesaPreparacionGmail && !(await promesaPreparacionGmail)) return;
 
       try {
         const respuesta = await apiService.guardarMatrizPlanes({
@@ -541,7 +566,16 @@ const handleNotificarPlan = (planId) => {
 
         const enlaceRevision = `${window.location.origin}/?reviewReportId=${encodeURIComponent(formInformeId)}`;
         let todasNotificacionesEnviadas = true;
-        if (actividadesNuevas.length > 0 && enviarNotificaciones && ejecutarDespachoGmailApi) {
+        let correoPreparado = !requierePrepararGmail;
+        if (promesaPreparacionGmail) {
+          try {
+            correoPreparado = await promesaPreparacionGmail;
+          } catch {
+            correoPreparado = false;
+          }
+        }
+        if (requiereNotificacionEdicion && !correoPreparado) todasNotificacionesEnviadas = false;
+        if (actividadesNuevas.length > 0 && enviarNotificaciones && ejecutarDespachoGmailApi && correoPreparado) {
           for (const plan of planesCreados) {
             const correoEjecutorEnviado = await ejecutarDespachoGmailApi({
               ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
@@ -560,8 +594,9 @@ const handleNotificarPlan = (planId) => {
             if (!correoEjecutorEnviado || !correoRevisorEnviado) todasNotificacionesEnviadas = false;
           }
         }
-        if (actividadesEditadas.length > 0 && ejecutarDespachoGmailApi) {
-          for (const plan of planesActualizados) {
+        if (actividadesEditadas.length > 0 && ejecutarDespachoGmailApi && correoPreparado) {
+          const planesReenviadosARevision = planesActualizados.filter(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
+          for (const plan of planesReenviadosARevision) {
             if (!plan.correoRevisor) {
               todasNotificacionesEnviadas = false;
               continue;
@@ -575,18 +610,39 @@ const handleNotificarPlan = (planId) => {
             });
             if (!correoRevisorEnviado) todasNotificacionesEnviadas = false;
           }
+
+          const planesAlCien = planesActualizados.filter(plan => plan.estadoWorkflow === 'En Revisión (100%)');
+          for (const plan of planesAlCien) {
+            if (!plan.correoAuditor) {
+              todasNotificacionesEnviadas = false;
+              continue;
+            }
+            const correoAuditorEnviado = await ejecutarDespachoGmailApi({
+              ref_consecutivo: `PLA-${String(plan.id).slice(-4)}`,
+              titulo_informe: 'Plan al 100%: revisión de evidencias requerida',
+              proceso_auditado: `El ejecutor completó al 100% la acción "${plan.accion}". Revise sus evidencias para aprobar el cierre.`,
+              enlace_pdf: plan.evidenciaUrl || window.location.origin,
+              destinatarios: plan.correoAuditor,
+            });
+            if (!correoAuditorEnviado) todasNotificacionesEnviadas = false;
+          }
         }
 
         setFormInformeId('');
         setMatrixState({});
         setVistaActiva('historial');
-        alert(actividadesNuevas.length === 0
-          ? todasNotificacionesEnviadas
-            ? 'Tus cambios se guardaron y se notificó al aprobador para una nueva revisión.'
-            : 'Tus cambios se guardaron, pero no se pudo notificar al aprobador.'
-          : todasNotificacionesEnviadas
-            ? 'Planes creados y notificaciones enviadas.'
-            : 'Los planes se crearon, pero no se pudieron enviar todas las notificaciones.');
+        const hayReenvioDiseno = planesActualizados.some(plan => plan.estadoWorkflow === 'Pendiente Revisión Jefatura');
+        const hayAvanceAlCien = planesActualizados.some(plan => plan.estadoWorkflow === 'En Revisión (100%)');
+        const mensajeGuardado = actividadesNuevas.length > 0
+          ? 'Planes creados y notificaciones enviadas.'
+          : hayReenvioDiseno
+            ? 'Diseño corregido y enviado a revisión de jefatura.'
+            : hayAvanceAlCien
+              ? 'Avance al 100% enviado a revisión del auditor.'
+              : 'Avance guardado correctamente.';
+        alert(todasNotificacionesEnviadas
+          ? mensajeGuardado
+          : 'Los cambios se guardaron, pero no se pudieron enviar todas las notificaciones.');
       } catch (error) {
         alert(error.message || 'No se pudieron crear los planes de acción.');
       }
@@ -1947,6 +2003,9 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const puedeEditarAsignacion = isAdmin || actividadNueva;
   const puedeEditarCorreo = isAdmin || actividadNueva || esResponsableActividad;
   const puedeEditarCorreoAuditor = !actividadNueva && (isAdmin || esResponsableActividad);
+  const puedeEditarAvance = isAdmin || actividadNueva || (
+    esResponsableActividad && ['En Ejecución', 'En Revisión (100%)'].includes(act.estadoWorkflow)
+  );
   return (
                           <fieldset key={`act-row-${index}`} disabled={!puedeEditarActividad} className="contents">
                           {!isAdmin && !actividadNueva && !esResponsableActividad && (
@@ -2197,7 +2256,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                               })()}
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Avance ({act.progreso}%)</label>
-                                <input type="number" min="0" max="100" value={act.progreso} disabled={!isAdmin && !actividadNueva} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value)} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50 disabled:bg-slate-100 disabled:text-slate-500" />
+                                <input type="number" min="0" max="100" step="1" value={act.progreso ?? 0} disabled={!puedeEditarAvance} onChange={(e) => handleUpdateActivityField(h.id, index, 'progreso', e.target.value === '' ? '' : Number(e.target.value))} className="w-full border p-2 rounded-lg font-black text-blue-700 bg-blue-50 disabled:bg-slate-100 disabled:text-slate-500" />
                               </div>
                               <div className="md:col-span-1">
                                 <label className="font-bold text-gray-500 block mb-0.5">Fecha Inicio</label>
