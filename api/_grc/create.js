@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
@@ -7,6 +8,7 @@ import { adminDb } from '../_lib/firebaseAdmin.js';
 const COLECCIONES_PERMITIDAS = {
   informesAuditoria: 'sub_informes',
   fuentesMejora: 'sub_fuentes_mejora',
+  hallazgos: 'sub_hallazgos',
 };
 
 const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
@@ -41,10 +43,21 @@ export default async function handler(req, res) {
       return sendError(res, 'No tiene permiso para crear este tipo de registro.', 403);
     }
 
-    const procesoAsignado = normalizar(perfil.procesoAsignado);
+    const procesoAsignado = normalizar(perfil.procesoAsignado || user.procesoAsignado);
+    const subprocesoAsignado = normalizar(perfil.subprocesoAsignado);
     const procesoRegistro = normalizar(registro.macroproceso || String(registro.proceso || '').split('/')[0]);
+    if (!admin && coleccion === 'hallazgos' && !procesoAsignado) {
+      return sendError(res, 'Debe tener un proceso asignado para crear hallazgos.', 403);
+    }
     if (!admin && procesoAsignado && procesoRegistro !== procesoAsignado) {
       return sendError(res, 'El registro debe pertenecer al proceso asignado.', 403);
+    }
+    if (!admin && subprocesoAsignado && normalizar(registro.subproceso) !== subprocesoAsignado) {
+      return sendError(res, 'El registro debe pertenecer al subproceso asignado.', 403);
+    }
+
+    if (coleccion === 'hallazgos' && (!normalizar(registro.titulo) || !normalizar(registro.idInforme) || !procesoRegistro)) {
+      return sendError(res, 'El hallazgo requiere título, informe y proceso.', 400);
     }
 
     const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
@@ -71,6 +84,35 @@ export default async function handler(req, res) {
           creadoPor: user.email,
           historialCambios: [],
         };
+      } else if (coleccion === 'hallazgos') {
+        const informeOrigen = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
+          .find(informe => String(informe.id) === String(registro.idInforme));
+        if (!informeOrigen) return { error: 'informe-not-found' };
+
+        const procesoInforme = normalizar(informeOrigen.macroproceso || String(informeOrigen.proceso || '').split('/')[0]);
+        if (procesoInforme !== procesoRegistro) return { error: 'informe-process-mismatch' };
+        if (!admin && procesoAsignado && procesoInforme !== procesoAsignado) return { error: 'forbidden' };
+
+        const anio = ahora.getFullYear();
+        const prefijo = `HAL-${anio}-`;
+        const consecutivo = registrosActuales.reduce((mayor, item) => {
+          const coincidencia = String(item?.ref || '').match(new RegExp(`^HAL-${anio}-(\\d+)$`));
+          return coincidencia ? Math.max(mayor, Number(coincidencia[1])) : mayor;
+        }, 0) + 1;
+        nuevoRegistro = {
+          ...registro,
+          id: randomUUID(),
+          ref: `${prefijo}${String(consecutivo).padStart(3, '0')}`,
+          estado: 'Abierto',
+          fecha: registro.fecha || fechaIso.slice(0, 10),
+          anio: Number(registro.anio) || anio,
+          creadoPor: user.email,
+          historialCambios: [{
+            fecha: ahora.toLocaleString('es-CO'),
+            usuario: user.email,
+            accion: 'Desviación documentada',
+          }],
+        };
       } else {
         const consecutivo = registrosActuales.reduce((mayor, item) => {
           const coincidencia = String(item?.codigo || item?.id || '').match(/(\d+)$/);
@@ -94,6 +136,16 @@ export default async function handler(req, res) {
       transaction.set(workspaceRef, { [coleccion]: [nuevoRegistro, ...registrosActuales] }, { merge: true });
       return nuevoRegistro;
     });
+
+    if (registroGuardado.error === 'informe-not-found') {
+      return sendError(res, 'No se encontró el informe de origen.', 404);
+    }
+    if (registroGuardado.error === 'informe-process-mismatch') {
+      return sendError(res, 'El informe de origen pertenece a otro proceso.', 403);
+    }
+    if (registroGuardado.error === 'forbidden') {
+      return sendError(res, 'No tiene permiso para ese proceso.', 403);
+    }
 
     logger.info('Registro GRC creado', { coleccion, usuario: user.email, id: registroGuardado.id });
     return sendSuccess(res, { registro: registroGuardado });

@@ -51,7 +51,11 @@ function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
       const procesoRegistro = String(item.proceso || item.macroproceso || '').toLowerCase();
       const subprocesoRegistro = String(item.subproceso || '').toLowerCase();
       
-      if (procesoRegistro.includes(processSafe) || subprocesoRegistro.includes(processSafe) || processSafe.includes(procesoRegistro)) {
+      if (procesoRegistro && (
+        procesoRegistro.includes(processSafe) ||
+        subprocesoRegistro.includes(processSafe) ||
+        processSafe.includes(procesoRegistro)
+      )) {
         return true;
       }
     }

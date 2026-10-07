@@ -142,6 +142,7 @@ export default function App() {
   } = useGrcData();
   const puedeVerFuentesMejora = isAdmin || perfilUsuario?.permisos?.includes('sub_fuentes_mejora') === true;
   const puedeCrearInformes = isAdmin || perfilUsuario?.permisos?.includes('sub_informes') === true;
+  const puedeCrearHallazgos = isAdmin || perfilUsuario?.permisos?.includes('sub_hallazgos') === true;
 
   const {
     defaultAnios, defaultMeses, selectedAnios, selectedMeses,
@@ -517,6 +518,7 @@ return (
                 {subTabResultados === 'hallazgos' && (
                   <Hallazgos 
                     isAdmin={isAdmin} 
+                    puedeCrearHallazgos={puedeCrearHallazgos}
                     safeRiesgos={safeRiesgos} 
                     informesAuditoria={informesAuditoria} 
                     fuentesMejora={fuentesMejora}

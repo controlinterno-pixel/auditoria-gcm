@@ -112,6 +112,10 @@ export const createFormHandlers = ({
 
  const handleHallazgoSubmit = async (e) => {
     e.preventDefault(); 
+    if (!isAdmin && editHallazgo) {
+      showNotification('Solo un administrador puede editar hallazgos existentes.', 'error');
+      return false;
+    }
     const formData = new FormData(e.target);
     const ts = new Date().toLocaleString();
     const hoy = new Date();
@@ -138,6 +142,7 @@ export const createFormHandlers = ({
     const detalleFuenteVal = formData.get('detalleFuente') || editHallazgo?.detalleFuente || '';
 
     let updated;
+    let nuevoHallazgo = null;
     if (editHallazgo) {
       const mod = { 
         ...editHallazgo, 
@@ -160,9 +165,8 @@ export const createFormHandlers = ({
         historialCambios: [...(editHallazgo.historialCambios || []), { fecha: ts, usuario: user?.email || 'Usuario', accion: 'Hallazgo modificado' }] 
       };
       updated = safeHallazgos.map(h => String(h.id) === String(editHallazgo.id) ? mod : h);
-      setEditHallazgo(null);
     } else {
-      const nuevo = { 
+      nuevoHallazgo = { 
         id: Date.now(), 
         idInforme: formData.get('idInforme') || '', 
         sede: formData.get('sede'), 
@@ -186,12 +190,31 @@ export const createFormHandlers = ({
         claseObservacion: formData.get('claseObservacion') || 'Oportunidad de Mejora', 
         historialCambios: [{ fecha: ts, usuario: user?.email || 'Usuario', accion: 'Desviación documentada' }] 
       };
-      updated = [...safeHallazgos, nuevo];
+      updated = [...safeHallazgos, nuevoHallazgo];
     }
-    setHallazgos(updated); 
-    await saveToCloud({ hallazgos: updated }); 
+
+    if (isAdmin) {
+      const guardado = await saveToCloud({ hallazgos: updated });
+      if (!guardado) {
+        showNotification('No se pudo guardar el hallazgo.', 'error');
+        return false;
+      }
+      setHallazgos(updated);
+    } else {
+      try {
+        const respuesta = await crearRegistroGrc('hallazgos', nuevoHallazgo);
+        if (!respuesta?.registro) return false;
+        setHallazgos(prev => [respuesta.registro, ...(Array.isArray(prev) ? prev : [])]);
+      } catch (error) {
+        showNotification(error.message || 'No se pudo crear el hallazgo.', 'error');
+        return false;
+      }
+    }
+
+    if (editHallazgo) setEditHallazgo(null);
     e.target.reset(); 
-    showNotification("Hallazgo actualizado.");
+    showNotification(editHallazgo ? 'Hallazgo actualizado.' : 'Hallazgo creado.', 'success');
+    return true;
   };
   const handlePlanSubmit = async (e) => {
     e.preventDefault(); 

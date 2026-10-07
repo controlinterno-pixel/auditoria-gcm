@@ -8,6 +8,7 @@ import {
 
 export default function Hallazgos({
   isAdmin,
+  puedeCrearHallazgos = false,
   safeRiesgos = [],
   informesAuditoria = [], 
   fuentesMejora = [],
@@ -329,7 +330,7 @@ export default function Hallazgos({
           <button onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
           <button onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
           
-          {isAdmin && (
+          {(isAdmin || puedeCrearHallazgos) && (
             <button 
               type="button"
               onClick={() => { 
@@ -618,6 +619,7 @@ export default function Hallazgos({
                                      onClick={() => {
                                         // 🚀 NAVEGACIÓN INTELIGENTE: Viaja a gestionar este hallazgo
                                         setEditHallazgo(h);
+                                       setEsSoloLectura(!isAdmin);
                                         setVistaActiva('nuevo');
                                         scrollToForm();
                                      }}
@@ -725,7 +727,7 @@ export default function Hallazgos({
       )}
 
       {/* 🚀 VISTA 2: FORMULARIO EXACTO INTACTO CON JERARQUÍA MACRO-SUB */}
-      {vistaActiva === 'nuevo' && (
+      {vistaActiva === 'nuevo' && (isAdmin || puedeCrearHallazgos || esSoloLectura) && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           <div className="flex justify-between items-center border-b pb-4">
             <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest flex items-center">
@@ -744,7 +746,7 @@ export default function Hallazgos({
             )}
           </div>
 
-          <form onSubmit={(e) => { handleHallazgoSubmit(e); setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
+          <form onSubmit={async (e) => { const guardado = await handleHallazgoSubmit(e); if (guardado) setVistaActiva('dashboard'); }} key={editHallazgo?.id || 'nuevo-hallazgo'} className="grid grid-cols-1 md:grid-cols-4 gap-5 text-xs">
             
             {/* Input Oculto de Compatibilidad (Legacy) */}
             <input type="hidden" name="proceso" value={procesoForm} />
@@ -1318,19 +1320,21 @@ export default function Hallazgos({
                                         👁️ Ver
                                       </button>
                                       <span className="text-slate-200">|</span>
-                                      <button 
-                                        type="button"
-                                        onClick={() => {
-                                          setEditHallazgo(h);
-                                          setEsSoloLectura(false);
-                                          setVistaActiva('nuevo');
-                                          if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
-                                          scrollToForm();
-                                        }} 
-                                        className="text-blue-600 hover:underline font-bold"
-                                      >
-                                        ✏️ Editar
-                                      </button>
+                                      {isAdmin && (
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            setEditHallazgo(h);
+                                            setEsSoloLectura(false);
+                                            setVistaActiva('nuevo');
+                                            if (typeof setFormResetKey === 'function') setFormResetKey(Date.now());
+                                            scrollToForm();
+                                          }} 
+                                          className="text-blue-600 hover:underline font-bold"
+                                        >
+                                          ✏️ Editar
+                                        </button>
+                                      )}
                                       <span className="text-slate-300">|</span>
 {(() => {
                                         const riesgoExistente = safeRiesgos?.find(r => String(r.idHallazgoOrigen) === String(h.id));
