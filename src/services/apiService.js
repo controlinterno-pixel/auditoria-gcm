@@ -244,7 +244,7 @@ export const apiService = {
   }),
 
   // 📊 SINCRONIZACIÓN GRC Y RLS
-  getGrcData: () => request('/api/grc/sync'),
+  getGrcData: () => request('/api/grc/sync', { cache: 'no-store' }),
 
   saveGrcData: (partialData) => request('/api/grc/sync', {
     method: 'POST',

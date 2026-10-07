@@ -84,6 +84,7 @@ export function useGrcData() {
     if (!user) return;
     
     let isMounted = true;
+    let isFetching = false;
     setTimeout(() => {
       if (isMounted) setIsCloudLoaded(false);
     }, 0);
@@ -99,12 +100,15 @@ export function useGrcData() {
     llavesBasura.forEach(key => localStorage.removeItem(key));
     
     const fetchSecureData = async () => {
+      if (isFetching) return;
+      isFetching = true;
       try {
         // 🛡️ HALLAZGO N1 MITIGADO: 
         // Eliminamos onSnapshot directo a Firestore.
         // La solicitud pasa por el backend, quien valida la cookie HttpOnly 
         // y aplica el filtrado RLS estricto antes de devolver el JSON.
 const data = await apiService.getGrcData();
+  if (!isMounted) return;
         
         // Asignación directa: confiamos 100% en el filtro del servidor
         setRiesgos(data.riesgos || defaultRiesgos);
@@ -123,12 +127,25 @@ const data = await apiService.getGrcData();
       } catch (error) {
         console.error("🔥 Error de seguridad/red obteniendo datos:", error);
   } finally {
+        isFetching = false;
         if (isMounted) setIsCloudLoaded(true);
       }
     };
 
     fetchSecureData();
-    return () => { isMounted = false; };
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible') fetchSecureData();
+    }, 15000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchSecureData();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [user]);    
 
   // 3. Motor RLS Delegado al Servidor

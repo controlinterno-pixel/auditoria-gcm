@@ -885,7 +885,7 @@ export default function Hallazgos({
                 </select>
                 <button 
                   type="button" 
-                  onClick={() => { if(sedeTemp && !sedesMultiples.includes(sedeTemp)) setProcesoFormState(prev => ({ ...prev, [`${idEdicion}-sede`]: [...sedesMultiples, sedeTemp].join(', ') })); setSedeTemp(''); }} 
+                  onClick={() => { if (sedeTemp && !sedesMultiples.includes(sedeTemp)) setSedesMultiples([...sedesMultiples, sedeTemp]); setSedeTemp(''); }} 
                   disabled={esSoloLectura}
                   className="bg-red-600 text-white px-4 rounded-lg text-xs font-bold hover:bg-red-700 shrink-0 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
