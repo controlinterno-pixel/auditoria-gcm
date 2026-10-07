@@ -96,6 +96,8 @@ export default async function handler(req, res) {
           const camposCambiados = Object.keys(cambios).filter(campo => (
             JSON.stringify(anterior[campo] ?? null) !== JSON.stringify(cambios[campo] ?? null)
           ));
+          if (camposCambiados.length === 0) continue;
+          const reenviaRevision = !admin && camposCambiados.length > 0;
           const historial = Array.isArray(anterior.historialCambios) ? anterior.historialCambios : [];
           planesActualizados.push({
             ...anterior,
@@ -103,12 +105,18 @@ export default async function handler(req, res) {
             id: anterior.id,
             idHallazgo: anterior.idHallazgo,
             idInforme: idInformeAnterior,
+            ...(reenviaRevision ? {
+              estadoWorkflow: 'Pendiente Revisión Jefatura',
+              estado: 'En Proceso',
+            } : {}),
             historialCambios: camposCambiados.length ? [
               ...historial,
               {
                 fecha: ahora.toLocaleString('es-CO'),
                 usuario: user.email,
-                accion: 'Acción de plan actualizada por su responsable',
+                accion: reenviaRevision
+                  ? 'Diseño corregido y reenviado a revisión por su responsable'
+                  : 'Acción de plan actualizada',
                 detalleCambios: camposCambiados.map(campo => ({
                   campo,
                   antes: anterior[campo] ?? '',

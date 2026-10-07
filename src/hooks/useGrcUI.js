@@ -21,7 +21,12 @@ export function useGrcUI() {
     return () => { isMounted = false; };
   }, []);
 
-  const [activeTab, setActiveTab] = useState('tablero');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('reviewReportId')) {
+      return 'planes_tab';
+    }
+    return 'tablero';
+  });
   const [menuAbierto, setMenuAbierto] = useState('inicio');
   const [subTabPlanificar, setSubTabPlanificar] = useState('plan_anual');
   const [subTabResultados, setSubTabResultados] = useState('hallazgos');

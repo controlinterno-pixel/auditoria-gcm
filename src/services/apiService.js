@@ -266,6 +266,11 @@ export const apiService = {
     body: { coleccion: 'planes', registro }
   }),
 
+  decidirRevisionPlanes: (idInforme, decision, motivo = '') => request('/api/grc/review-plans', {
+    method: 'POST',
+    body: { idInforme, decision, motivo }
+  }),
+
   registrarCorreoInforme: (id, destinatarios, fechaCorreoEnviado) => request('/api/grc/register-email', {
     method: 'POST',
     body: { id, destinatarios, fechaCorreoEnviado }
