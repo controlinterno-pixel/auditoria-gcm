@@ -16,14 +16,22 @@ import ProgramasAuditoria from './components/ProgramasAuditoria';
 import AuditorIA from './components/AuditorIA';
 import InformesAuditoria from './components/InformesAuditoria';
 
-// 🔄 Helper: si un chunk falla (deployment reciente), recarga la página una vez para obtener los assets frescos
+const CHUNK_RELOAD_KEY = 'gcm_chunk_reload_at';
+const CHUNK_RELOAD_COOLDOWN_MS = 30_000;
+
+const reloadForFreshAssets = () => {
+  const lastAttempt = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+  if (Date.now() - lastAttempt < CHUNK_RELOAD_COOLDOWN_MS) return false;
+  sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  window.location.reload();
+  return true;
+};
+
+// 🔄 Si una pestaña conserva un chunk de un deployment anterior, recarga una vez para obtener el HTML vigente.
 const lazyWithReload = (importFn) =>
   lazy(() =>
     importFn().catch((err) => {
-      const reloadKey = `chunk_reload_${Date.now()}`;
-      if (!sessionStorage.getItem('chunk_reload_attempted')) {
-        sessionStorage.setItem('chunk_reload_attempted', reloadKey);
-        window.location.reload();
+      if (reloadForFreshAssets()) {
         return new Promise(() => {}); // Mantiene la promesa pendiente mientras recarga
       }
       throw err; // Si ya se intentó recargar, deja que el ErrorBoundary lo maneje
@@ -82,13 +90,7 @@ export default function App() {
   useEffect(() => {
     const handlePreloadError = (event) => {
       event.preventDefault();
-      const hasReloaded = sessionStorage.getItem('chunk_reload_retry');
-      if (!hasReloaded) {
-        sessionStorage.setItem('chunk_reload_retry', 'true');
-        window.location.reload();
-      } else {
-        sessionStorage.removeItem('chunk_reload_retry');
-      }
+      reloadForFreshAssets();
     };
 
     window.addEventListener('vite:preload-error', handlePreloadError);
