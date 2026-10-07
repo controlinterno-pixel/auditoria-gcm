@@ -46,13 +46,10 @@ export default async function handler(req, res) {
     const procesoAsignado = normalizar(perfil.procesoAsignado || user.procesoAsignado);
     const subprocesoAsignado = normalizar(perfil.subprocesoAsignado);
     const procesoRegistro = normalizar(registro.macroproceso || String(registro.proceso || '').split('/')[0]);
-    if (!admin && coleccion === 'hallazgos' && !procesoAsignado) {
-      return sendError(res, 'Debe tener un proceso asignado para crear hallazgos.', 403);
-    }
-    if (!admin && procesoAsignado && procesoRegistro !== procesoAsignado) {
+    if (!admin && coleccion !== 'hallazgos' && procesoAsignado && procesoRegistro !== procesoAsignado) {
       return sendError(res, 'El registro debe pertenecer al proceso asignado.', 403);
     }
-    if (!admin && subprocesoAsignado && normalizar(registro.subproceso) !== subprocesoAsignado) {
+    if (!admin && coleccion !== 'hallazgos' && subprocesoAsignado && normalizar(registro.subproceso) !== subprocesoAsignado) {
       return sendError(res, 'El registro debe pertenecer al subproceso asignado.', 403);
     }
 
@@ -89,10 +86,6 @@ export default async function handler(req, res) {
           .find(informe => String(informe.id) === String(registro.idInforme));
         if (!informeOrigen) return { error: 'informe-not-found' };
 
-        const procesoInforme = normalizar(informeOrigen.macroproceso || String(informeOrigen.proceso || '').split('/')[0]);
-        if (procesoInforme !== procesoRegistro) return { error: 'informe-process-mismatch' };
-        if (!admin && procesoAsignado && procesoInforme !== procesoAsignado) return { error: 'forbidden' };
-
         const anio = ahora.getFullYear();
         const prefijo = `HAL-${anio}-`;
         const consecutivo = registrosActuales.reduce((mayor, item) => {
@@ -106,6 +99,7 @@ export default async function handler(req, res) {
           estado: 'Abierto',
           fecha: registro.fecha || fechaIso.slice(0, 10),
           anio: Number(registro.anio) || anio,
+          correoCreador: user.email,
           creadoPor: user.email,
           historialCambios: [{
             fecha: ahora.toLocaleString('es-CO'),
@@ -140,13 +134,6 @@ export default async function handler(req, res) {
     if (registroGuardado.error === 'informe-not-found') {
       return sendError(res, 'No se encontró el informe de origen.', 404);
     }
-    if (registroGuardado.error === 'informe-process-mismatch') {
-      return sendError(res, 'El informe de origen pertenece a otro proceso.', 403);
-    }
-    if (registroGuardado.error === 'forbidden') {
-      return sendError(res, 'No tiene permiso para ese proceso.', 403);
-    }
-
     logger.info('Registro GRC creado', { coleccion, usuario: user.email, id: registroGuardado.id });
     return sendSuccess(res, { registro: registroGuardado });
   } catch (error) {
