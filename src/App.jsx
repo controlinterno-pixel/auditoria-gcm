@@ -528,17 +528,30 @@ return (
                     FilterInput={FilterInput}
                   />
                 )}
-              {subTabResultados === 'informes' && isAdmin && (
+             {subTabResultados === 'informes' && (
                   <InformesAuditoria 
                     informesAuditoria={informesAuditoria} 
                     fuentesMejora={fuentesMejora}
                     safeProgramas={safeProgramas}
-                    setInformesAuditoria={setInformesAuditoria} editInformeAuditoria={editInformeAuditoria}
-                    setEditInformeAuditoria={setEditInformeAuditoria} isAdmin={isAdmin} user={user} searchTerm={searchTerm} setSearchTerm={setSearchTerm}
-                    columnFilters={columnFilters} handleColFilterChange={handleColFilterChange}
-                    handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit} isSubmitting={isSubmitting} setFormResetKey={setFormResetKey}
-                    scrollToForm={scrollToForm} handleDeleteItem={handleDeleteItem} applyFilters={applyFilters} FilterInput={FilterInput}
-                    safeHallazgos={safeHallazgos} safePlanes={safePlanes} formatSafeDate={formatSafeDate}
+                    setInformesAuditoria={setInformesAuditoria} 
+                    editInformeAuditoria={editInformeAuditoria}
+                    setEditInformeAuditoria={setEditInformeAuditoria} 
+                    isAdmin={isAdmin} 
+                    user={user} 
+                    searchTerm={searchTerm} 
+                    setSearchTerm={setSearchTerm}
+                    columnFilters={columnFilters} 
+                    handleColFilterChange={handleColFilterChange}
+                    handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit} 
+                    isSubmitting={isSubmitting} 
+                    setFormResetKey={setFormResetKey}
+                    scrollToForm={scrollToForm} 
+                    handleDeleteItem={handleDeleteItem} 
+                    applyFilters={applyFilters} 
+                    FilterInput={FilterInput}
+                    safeHallazgos={safeHallazgos} 
+                    safePlanes={safePlanes} 
+                    formatSafeDate={formatSafeDate}
                   />
                 )}
               {/* ✨ PANTALLA DE FUENTE DE MEJORA */}
