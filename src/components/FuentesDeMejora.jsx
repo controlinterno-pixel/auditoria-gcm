@@ -24,7 +24,7 @@ const obtenerSiguienteCodigo = (fuentes) => {
   return `FA-${String(siguiente).padStart(3, '0')}`;
 };
 
-export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSaveFuentes, user = null }) {
+export default function FuentesDeMejora({ isAdmin = false, fuentes = [], onSaveFuentes, onCreateFuente, user = null }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroNorma, setFiltroNorma] = useState('TODOS');
   const [filtroEstado, setFiltroEstado] = useState('TODOS');
@@ -144,6 +144,8 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
   };
 
   const handleSaveFuente = async (data) => {
+    if (!isAdmin && fuenteSeleccionada) return false;
+
     // Garantizamos el registro de cualquier norma nueva ingresada (ahora manejando arreglos)
     if (data.norma) {
       const normasAProcesar = Array.isArray(data.norma) ? data.norma : [data.norma];
@@ -201,19 +203,28 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
       ...dataLimpia,
       historialCambios: [...(fuenteSeleccionada?.historialCambios || []), logCambio],
     };
-    const identificador = data.codigo || data.id;
+    let identificador = data.codigo || data.id;
     const fuentesActualizadas = fuenteSeleccionada
       ? fuentesActuales.map((fuente) => (
           (fuente.codigo || fuente.id) === identificador ? fuenteGuardada : fuente
         ))
       : [fuenteGuardada, ...fuentesActuales];
 
-    const guardado = await actualizarFuentes(fuentesActualizadas);
-    if (!guardado) return false;
+    let fuentePersistida = fuenteGuardada;
+    if (isAdmin) {
+      const guardado = await actualizarFuentes(fuentesActualizadas);
+      if (!guardado) return false;
+    } else {
+      if (typeof onCreateFuente !== 'function') return false;
+      fuentePersistida = await onCreateFuente(fuenteGuardada);
+      if (!fuentePersistida) return false;
+      identificador = fuentePersistida.codigo || fuentePersistida.id;
+      setFuentesActuales(prev => [fuentePersistida, ...prev]);
+    }
 
     setLogSeleccionado({
       ...logCambio,
-      idObj: `${identificador}-${(fuenteGuardada.historialCambios || []).length - 1}`,
+      idObj: `${identificador}-${(fuentePersistida.historialCambios || []).length - 1}`,
       fuenteRef: identificador,
       fuenteNombre: Array.isArray(data.norma) ? data.norma.join(', ') : (data.norma || data.tipoNorma || data.tipoFuente || 'Fuente sin nombre'),
       fuenteTipo: data.tipoFuente || 'Auditoría Interna',
@@ -222,6 +233,7 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
   };
 
   const handleDeleteFuente = (fuente) => {
+    if (!isAdmin) return;
     if (!window.confirm(`¿Seguro de eliminar la fuente ${fuente.codigo || fuente.id}?`)) return;
 
     actualizarFuentes(fuentesActuales.filter((item) => (
@@ -264,16 +276,18 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
           <button onClick={() => setVistaActiva('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-[#0a1e3f]/60 text-slate-300 border-slate-600 hover:bg-[#0a1e3f] hover:text-white'}`}>📊 Resumen Visual</button>
           <button onClick={() => setVistaActiva('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-[#0a1e3f]/60 text-slate-300 border-slate-600 hover:bg-[#0a1e3f] hover:text-white'}`}>📜 Historial de Cambios</button>
           
-          <button 
-            onClick={() => {
-              setFuenteSeleccionada(null);
-              setIsReadOnly(false);
-              setIsModalOpen(true);
-            }}
-            className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900 shadow-lg flex items-center hover:scale-105"
-          >
-            <span className="mr-2">➕</span> Nueva Fuente
-          </button>
+          {(isAdmin || typeof onCreateFuente === 'function') && (
+            <button 
+              onClick={() => {
+                setFuenteSeleccionada(null);
+                setIsReadOnly(false);
+                setIsModalOpen(true);
+              }}
+              className="px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900 shadow-lg flex items-center hover:scale-105"
+            >
+              <span className="mr-2">➕</span> Nueva Fuente
+            </button>
+          )}
         </div>
       </div>
 
@@ -346,7 +360,7 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
               <tbody className="text-xs font-medium text-slate-700 divide-y divide-slate-100">
                 {fuentesFiltradas.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="p-12 text-center text-slate-400 italic font-bold">{fuentesActuales.length === 0 ? 'No hay fuentes creadas. Presiona "+ Nueva Fuente" para empezar.' : 'No hay fuentes que coincidan con los filtros seleccionados.'}</td>
+                    <td colSpan="8" className="p-12 text-center text-slate-400 italic font-bold">{fuentesActuales.length === 0 ? (isAdmin ? 'No hay fuentes creadas. Presiona "+ Nueva Fuente" para empezar.' : 'No hay fuentes registradas.') : 'No hay fuentes que coincidan con los filtros seleccionados.'}</td>
                   </tr>
                 ) : fuentesFiltradas.map((f, _i) => (
                   <tr key={f.codigo || f.id} className="hover:bg-slate-50/50 transition-colors">
@@ -379,8 +393,8 @@ export default function FuentesDeMejora({ isAdmin: _isAdmin, fuentes = [], onSav
                     </td>
                     <td className="p-4 text-center space-x-2 text-slate-400">
                       <button onClick={() => { setFuenteSeleccionada(f); setIsReadOnly(true); setIsModalOpen(true); }} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Ver información completa">👁️</button>
-                      <button onClick={() => { setFuenteSeleccionada(f); setIsReadOnly(false); setIsModalOpen(true); }} className="text-orange-500 hover:bg-orange-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Editar">✏️</button>
-                      <button onClick={() => handleDeleteFuente(f)} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Eliminar">🗑️</button>
+                      {isAdmin && <button onClick={() => { setFuenteSeleccionada(f); setIsReadOnly(false); setIsModalOpen(true); }} className="text-orange-500 hover:bg-orange-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Editar">✏️</button>}
+                      {isAdmin && <button onClick={() => handleDeleteFuente(f)} className="text-rose-400 hover:bg-rose-50 p-1.5 rounded-lg transition-colors cursor-pointer" title="Eliminar">🗑️</button>}
                     </td>
                   </tr>
                 ))}

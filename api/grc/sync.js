@@ -37,7 +37,7 @@ function aplicarRLS(lista = [], userEmail, userCargo, userProcess) {
         item.correoResponsable, item.correo_responsable,
         item.correoAuditor, item.correo_auditor, item.correoAuditorResponsable,
         item.correoRevisor, item.correo_revisor,
-        item.correoEnviadoA
+        item.correoEnviadoA, item.correoCreador
       ].join(' ').toLowerCase();
 
       if (correosInvolucrados.includes(emailSafe)) return true;

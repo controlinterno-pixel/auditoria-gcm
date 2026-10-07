@@ -251,6 +251,16 @@ export const apiService = {
     body: { partialData }
   }),
 
+  crearRegistroGrc: (coleccion, registro) => request('/api/grc/create', {
+    method: 'POST',
+    body: { coleccion, registro }
+  }),
+
+  registrarCorreoInforme: (id, destinatarios, fechaCorreoEnviado) => request('/api/grc/register-email', {
+    method: 'POST',
+    body: { id, destinatarios, fechaCorreoEnviado }
+  }),
+
   // 🗄️ HISTÓRICOS DE NÓMINA Y MARCACIONES
   getHistorico: (params = {}) => {
     const query = new URLSearchParams(params).toString();

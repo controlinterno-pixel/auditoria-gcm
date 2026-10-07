@@ -130,6 +130,7 @@ export default function App() {
 
   const {
     user, setUser, isAdmin, setIsAdmin,
+    perfilUsuario,
     isCloudLoaded, setIsCloudLoaded, showWelcome, setShowWelcome,
     riesgos, setRiesgos, hallazgos, setHallazgos, planes, setPlanes,
     setIncidentes, setEvaluaciones,
@@ -139,6 +140,8 @@ export default function App() {
     safePlanes, safeHallazgos, safeRiesgos, safeEvaluaciones,
     safeProgramas, safeIncidentes, safeCronograma, safeMonitoreo, safeComites
   } = useGrcData();
+  const puedeVerFuentesMejora = isAdmin || perfilUsuario?.permisos?.includes('sub_fuentes_mejora') === true;
+  const puedeCrearInformes = isAdmin || perfilUsuario?.permisos?.includes('sub_informes') === true;
 
   const {
     defaultAnios, defaultMeses, selectedAnios, selectedMeses,
@@ -233,7 +236,9 @@ const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.ema
     editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
     setRiesgos, setHallazgos, setPlanes, setEvaluaciones, setComites, setIncidentes, setCronograma, setMonitoreo, setInformesAuditoria,
     setEditRiesgo, setEditHallazgo, setEditPlan, setEditEvaluacion, setEditComite, setEditIncidente, setEditCronograma, setEditApetito, setEditMonitoreo, setEditInformeAuditoria,
-    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses
+    saveToCloud, showNotification, setIsSubmitting, setFormResetKey, prepararEnvioGmail, ejecutarDespachoGmailApi, defaultMeses,
+    crearRegistroGrc: apiService.crearRegistroGrc,
+    registrarCorreoInforme: apiService.registrarCorreoInforme
   }), [
     user, isAdmin, safeRiesgos, safeHallazgos, safePlanes, safeEvaluaciones, safeComites, safeIncidentes, safeCronograma, safeMonitoreo, informesAuditoria,
     editRiesgo, editHallazgo, editPlan, editEvaluacion, editComite, editIncidente, editCronograma, editApetito, editMonitoreo, editInformeAuditoria,
@@ -348,6 +353,7 @@ return (
         misTareasRevision={misTareasRevision}   // Nueva prop
         misTareasAprobacion={misTareasAprobacion} // Nueva prop
         isAdmin={isAdmin}
+        puedeVerFuentesMejora={puedeVerFuentesMejora}
         user={user}
         handleLogout={handleLogout}
       />
@@ -543,6 +549,7 @@ return (
                     columnFilters={columnFilters} 
                     handleColFilterChange={handleColFilterChange}
                     handleInformeAuditoriaSubmit={handleInformeAuditoriaSubmit} 
+                    puedeCrearInformes={puedeCrearInformes}
                     isSubmitting={isSubmitting} 
                     setFormResetKey={setFormResetKey}
                     scrollToForm={scrollToForm} 
@@ -555,7 +562,7 @@ return (
                   />
                 )}
               {/* ✨ PANTALLA DE FUENTE DE MEJORA */}
-              {subTabResultados === 'fuentes_mejora' && isAdmin && (
+              {subTabResultados === 'fuentes_mejora' && puedeVerFuentesMejora && (
                   <FuentesDeMejora
                     isAdmin={isAdmin}
                     fuentes={fuentesMejora}
@@ -568,6 +575,18 @@ return (
                       }
                       setFuentesMejora(fuentesActualizadas);
                       return true;
+                    }}
+                    onCreateFuente={async (fuente) => {
+                      try {
+                        const respuesta = await apiService.crearRegistroGrc('fuentesMejora', fuente);
+                        if (!respuesta?.registro) return false;
+                        setFuentesMejora(prev => [respuesta.registro, ...(Array.isArray(prev) ? prev : [])]);
+                        showNotification('Fuente de mejora creada.', 'success');
+                        return respuesta.registro;
+                      } catch {
+                        showNotification('No se pudo crear la fuente de mejora.', 'error');
+                        return false;
+                      }
                     }}
                   />
               )}

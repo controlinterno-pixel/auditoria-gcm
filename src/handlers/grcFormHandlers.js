@@ -48,6 +48,8 @@ export const createFormHandlers = ({
   setFormResetKey,
   prepararEnvioGmail,
   ejecutarDespachoGmailApi,
+  crearRegistroGrc,
+  registrarCorreoInforme,
   defaultMeses
 }) => {
 
@@ -561,6 +563,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
       const horaActual = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
       let updated; let refConsecutivoFinal = '';
       let idInformeGuardado = editInformeAuditoria?.id || null;
+      let registroNuevo = null;
 
       if (editInformeAuditoria) {
         refConsecutivoFinal = editInformeAuditoria.ref;
@@ -662,7 +665,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
         const ultimo = Math.max(...safeInformes.map(i => parseInt(i.ref?.split('-')[2] || 0)), 0);
         refConsecutivoFinal = `INF-2026-${String(ultimo + 1).padStart(3, '0')}`;
         const nuevoId = crypto.randomUUID();
-        const nuevo = { 
+        registroNuevo = { 
           id: nuevoId,
           ref: refConsecutivoFinal, 
           titulo: tituloVal, 
@@ -696,12 +699,29 @@ const handleInformeAuditoriaSubmit = async (e) => {
           historialCambios: [],
         };
         idInformeGuardado = nuevoId;
-        updated = [nuevo, ...safeInformes];
+        updated = [registroNuevo, ...safeInformes];
       }
 
       if (correosNotificacionOut && prepararEnvioGmail && !(await prepararEnvioGmail())) return false;
 
-      const guardado = await saveToCloud({ informesAuditoria: updated });
+      if (!isAdmin && editInformeAuditoria) {
+        showNotification('Solo se permite crear informes con este permiso.', 'error');
+        return false;
+      }
+
+      let guardado;
+      if (!isAdmin) {
+        if (!registroNuevo || typeof crearRegistroGrc !== 'function') return false;
+        const respuesta = await crearRegistroGrc('informesAuditoria', registroNuevo);
+        if (!respuesta?.registro) return false;
+        registroNuevo = respuesta.registro;
+        refConsecutivoFinal = registroNuevo.ref;
+        idInformeGuardado = registroNuevo.id;
+        updated = [registroNuevo, ...safeInformes];
+        guardado = true;
+      } else {
+        guardado = await saveToCloud({ informesAuditoria: updated });
+      }
       if (!guardado) return false;
 
       setInformesAuditoria(updated);
@@ -730,10 +750,20 @@ const handleInformeAuditoriaSubmit = async (e) => {
             correoEnviadoA: correosNotificacionOut,
             fechaCorreoEnviado: tsActual
           } : informe);
-          const correoRegistrado = await saveToCloud({ informesAuditoria: informesConCorreo });
-          if (correoRegistrado) {
-            setInformesAuditoria(informesConCorreo);
-          } else {
+          try {
+            if (isAdmin) {
+              const correoRegistrado = await saveToCloud({ informesAuditoria: informesConCorreo });
+              if (correoRegistrado) setInformesAuditoria(informesConCorreo);
+              else showNotification("El informe y el correo se enviaron, pero no se pudo registrar el envío.", "error");
+            } else if (typeof registrarCorreoInforme === 'function') {
+              const respuesta = await registrarCorreoInforme(idInformeGuardado, correosNotificacionOut, tsActual);
+              if (respuesta?.informe) {
+                setInformesAuditoria(prev => prev.map(informe => String(informe.id) === String(idInformeGuardado) ? respuesta.informe : informe));
+              } else {
+                showNotification("El informe y el correo se enviaron, pero no se pudo registrar el envío.", "error");
+              }
+            }
+          } catch {
             showNotification("El informe y el correo se enviaron, pero no se pudo registrar el envío.", "error");
           }
         }

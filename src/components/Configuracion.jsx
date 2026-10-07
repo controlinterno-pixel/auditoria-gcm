@@ -283,6 +283,7 @@ export default function Configuracion({
                                 subs: [
                                   { id: 'sub_informes', label: 'Informes Emitidos' },
                                   { id: 'sub_hallazgos', label: 'Hallazgos Registrados' },
+                                  { id: 'sub_fuentes_mejora', label: 'Fuentes de Mejora' },
                                   { id: 'sub_incidentes', label: 'Eventos de Pérdida' }
                                 ]
                               },
