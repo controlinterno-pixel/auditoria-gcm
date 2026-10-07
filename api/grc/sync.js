@@ -113,18 +113,45 @@ export default async function handler(req, res) {
       const userCargo = String(user.cargo || user.rol || '').toLowerCase().trim();
       const userProcess = String(user.procesoAsignado || user.proceso || user.area || '').toLowerCase().trim();
 
-      // Aplicación estricta de Row-Level Security (RLS) a las colecciones sensibles
+      // ============================================================================
+      // 🛡️ HERENCIA DE PERMISOS RLS RELACIONAL (Bottom-Up)
+      // Si el usuario tiene acceso a un Plan, DEBE tener acceso a su Hallazgo e Informe Padre
+      // ============================================================================
+      
+      // 1. Filtramos los Planes de Acción (Nivel más bajo)
+      const planesPermitidos = aplicarRLS(data.planes, userEmail, userCargo, userProcess);
+      const idsHallazgosDesdePlanes = new Set(planesPermitidos.map(p => String(p.idHallazgo)));
+
+      // 2. Filtramos Hallazgos (Pasan si cumplen RLS directo O si tienen un Plan permitido)
+      const hallazgosPermitidos = (data.hallazgos || []).filter(h => {
+        if (idsHallazgosDesdePlanes.has(String(h.id))) return true; // Herencia del Plan
+        return aplicarRLS([h], userEmail, userCargo, userProcess).length > 0; // Acceso Directo
+      });
+      const idsInformesDesdeHallazgos = new Set(hallazgosPermitidos.map(h => String(h.idInforme)));
+
+      // 3. Filtramos Informes (Pasan si cumplen RLS directo O si tienen un Hallazgo permitido)
+      const informesPermitidos = (data.informesAuditoria || []).filter(inf => {
+        if (idsInformesDesdeHallazgos.has(String(inf.id))) return true; // Herencia del Hallazgo
+        return aplicarRLS([inf], userEmail, userCargo, userProcess).length > 0; // Acceso Directo
+      });
+
+      // ============================================================================
+      // EMPAQUETADO FINAL SEGURO
+      // ============================================================================
       const filteredData = {
         ...data,
-        // Colecciones Segurizadas
-        informesAuditoria: aplicarRLS(data.informesAuditoria, userEmail, userCargo, userProcess),
-        hallazgos: aplicarRLS(data.hallazgos, userEmail, userCargo, userProcess),
-        planes: aplicarRLS(data.planes, userEmail, userCargo, userProcess),
+        
+        // Colecciones con Herencia Relacional
+        informesAuditoria: informesPermitidos,
+        hallazgos: hallazgosPermitidos,
+        planes: planesPermitidos,
+        
+        // Colecciones con RLS Estándar
         riesgos: aplicarRLS(data.riesgos, userEmail, userCargo, userProcess),
         evaluaciones: aplicarRLS(data.evaluaciones, userEmail, userCargo, userProcess),
         incidentes: aplicarRLS(data.incidentes, userEmail, userCargo, userProcess),
         
-        // Colecciones Públicas o de Configuración (Accesibles en modo lectura para todos)
+        // Colecciones Públicas o de Configuración
         fuentesMejora: data.fuentesMejora || [],
         programas: data.programas || [],
         cronograma: data.cronograma || [],
@@ -132,7 +159,7 @@ export default async function handler(req, res) {
         monitoreo: data.monitoreo || []
       };
 
-      logger.info('Datos entregados con políticas RLS/ABAC aplicadas.', { usuario: userEmail });
+      logger.info('Datos entregados con políticas RLS RELACIONAL aplicadas.', { usuario: userEmail });
       return sendSuccess(res, filteredData);
     }
 
