@@ -29,7 +29,6 @@ export default function InformesAuditoria({
   handleColFilterChange, 
   exportToExcel, 
   handleInformeAuditoriaSubmit, 
-  puedeCrearInformes = false,
   isSubmitting, 
   setFormResetKey, 
   scrollToForm, 
@@ -822,7 +821,7 @@ const handleFileUpload = async (e, type) => {
           <button onClick={() => cambiarVistaSegura('dashboard')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'dashboard' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📊 Resumen Visual</button>
           <button onClick={() => cambiarVistaSegura('historial')} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all backdrop-blur-sm border ${vistaActiva === 'historial' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white shadow-[0_4px_15px_rgba(0,85,255,0.3)] border-transparent' : 'bg-slate-900/60 text-slate-300 border-slate-700 hover:bg-slate-800/80 hover:text-white'}`}>📜 Historial Completo</button>
           
-          {puedeCrearInformes && (
+          {isAdmin && (
             <button onClick={handleCrearNuevoInforme} className={`px-5 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center shadow-lg border backdrop-blur-sm ${vistaActiva === 'nuevo' ? 'bg-gradient-to-r from-[#0055ff] to-[#0077ff] text-white border-transparent' : 'bg-[#0A3B32] text-white hover:bg-[#062620] border-emerald-900'}`}>
               <span className="mr-2">➕</span> Nuevo Informe
             </button>
@@ -850,8 +849,10 @@ const handleFileUpload = async (e, type) => {
         const conteoFuentes = informesDashboard.reduce((acc, inf) => {
           const referencia = String(inf.tipoFuente || 'Auditoría Interna').trim();
           const fuenteReal = fuentesPorReferencia.get(normalizarReferencia(referencia)) || null;
-          const norma = fuenteReal?.norma || fuenteReal?.tipoNorma;
-          const nombreGrupo = fuenteReal ? norma || fuenteReal.tipoFuente || 'Fuente sin norma' : referencia;
+          // Convertimos el arreglo de normas a un texto seguro separado por comas
+          const normaCruda = fuenteReal?.norma || fuenteReal?.tipoNorma;
+          const normaLimpia = Array.isArray(normaCruda) ? normaCruda.join(', ') : normaCruda;
+          const nombreGrupo = fuenteReal ? (normaLimpia || fuenteReal.tipoFuente || 'Fuente sin norma') : referencia;
           const clave = fuenteReal
             ? `norma:${normalizarReferencia(nombreGrupo)}`
             : `legacy:${normalizarReferencia(referencia)}`;
@@ -877,8 +878,9 @@ const handleFileUpload = async (e, type) => {
           acc.set(clave, fuenteAgrupada);
           return acc;
         }, new Map());
+        // Aseguramos que 'nombre' se procese estrictamente como texto antes de comparar
         const fuentesArray = [...conteoFuentes.values()].sort((a, b) =>
-          b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre)
+          b.cantidad - a.cantidad || String(a.nombre || '').localeCompare(String(b.nombre || ''))
         );
         
         // Paleta de colores para la dona y pastillas
@@ -1331,7 +1333,7 @@ const handleFileUpload = async (e, type) => {
       )}
     
       {/* 🚀 VISTA 2: FORMULARIO NUEVO / EDICIÓN (O SOLO LECTURA PARA LÍDERES) */}
-      {vistaActiva === 'nuevo' && (puedeCrearInformes || modoVistaCompleta) && (
+      {vistaActiva === 'nuevo' && (isAdmin || modoVistaCompleta) && (
         <div id="edit-form" className="bg-white p-6 sm:p-8 rounded-3xl shadow-lg border border-slate-200 space-y-4 relative animate-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
           <div className="flex justify-between items-center border-b pb-4 gap-3">
             <h3 className="text-sm font-black text-[#0A3B32] uppercase tracking-widest flex items-center">
@@ -1522,7 +1524,7 @@ const handleFileUpload = async (e, type) => {
                      }
                    }}
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 cursor-pointer shadow-sm disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
-                   disabled={draftInforme.tipoFuente === 'Programa de Auditoría' || modoVistaCompleta}
+                   disabled={draftInforme.tipoFuente !== '' || modoVistaCompleta}
                  >
                    <option value="">-- Seleccionar --</option>
                    {Object.keys(MAPA_PROCESOS).map(p => <option key={p} value={p}>{p}</option>)}
@@ -1547,7 +1549,7 @@ const handleFileUpload = async (e, type) => {
                    className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                    disabled={
                      !macroprocesoForm || 
-                     draftInforme.tipoFuente === 'Programa de Auditoría' || 
+                     draftInforme.tipoFuente !== '' || 
                      (MAPA_PROCESOS[macroprocesoForm]?.length <= 1) ||
                      modoVistaCompleta
                    }
@@ -1557,7 +1559,7 @@ const handleFileUpload = async (e, type) => {
                  </select>
                  {/* 👇 ESTE INPUT OCULTO GARANTIZA QUE SE GUARDE EL SUBPROCESO AUNQUE ESTÉ BLOQUEADO */}
                  <input type="hidden" name="subproceso" value={draftInforme.subproceso || subprocesoForm || 'General'} />
-              </div> 
+              </div>
 
                 <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>
