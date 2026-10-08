@@ -183,16 +183,20 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
     if (nuevaVista === vistaActiva) return; // Si ya está ahí, no hace nada
 
     // Si está en el formulario ('nuevo') y hay un informe cargado
-    if (vistaActiva === 'nuevo' && formInformeId) {
+    if (vistaActiva === 'nuevo' && formInformeId && !modoRevisionMatriz) {
       if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
         setEditPlan(null);
         setFormInformeId(''); // Limpiamos la matriz
         setMatrixState({});
+        setModoRevisionMatriz(false);
         setVistaActiva(nuevaVista); // Permitimos la salida
       }
     } else {
-      // Si no está en el formulario, cambia de vista libremente
+      // Si no está en el formulario, o está en modo lectura, cambia de vista libremente
       setEditPlan(null);
+      setFormInformeId('');
+      setMatrixState({});
+      setModoRevisionMatriz(false);
       setVistaActiva(nuevaVista);
     }
   };
@@ -206,11 +210,13 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [dashFiltroPrioridad, setDashFiltroPrioridad] = useState('Todos');
   const [dashFiltroResponsable, setDashFiltroResponsable] = useState('Todos');
 
-  // 🔌 MOTOR DE FORMULARIO MATRICIAL ORIGINAL
+ // 🔌 MOTOR DE FORMULARIO MATRICIAL ORIGINAL
   const [formInformeId, setFormInformeId] = useState('');
   const [matrixState, setMatrixState] = useState({});
   const [uploadingCell, setUploadingCell] = useState(null);
-const [, setUploadProgress] = useState(0);
+  const [, setUploadProgress] = useState(0);
+  const [modoRevisionMatriz, setModoRevisionMatriz] = useState(false); // ✨ NUEVO ESTADO
+  
   // ⚖️ ESTADOS PARA EVALUACIÓN HOLÍSTICA DEL PLAN (METODOLOGÍA EXCEL)
   const [modalEval, setModalEval] = useState({ activo: false, idInforme: null, planes: [], totalActividades: 0, isReadOnly: false });
   const dictamenRef = useRef(null);
@@ -1959,16 +1965,33 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
       {/* 🚀 VISTA 2: FORMULARIO MATRICIAL ORIGINAL COMPLETO (PRESERVADO Y RE-POTENCIADO) */}
       {vistaActiva === 'nuevo' && (
         <div id="edit-form" className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 space-y-6 animate-in fade-in duration-500 relative">
+          
+          {modoRevisionMatriz && (
+            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm mb-4">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <span className="text-amber-500 text-lg">👁️</span>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-black text-amber-800 uppercase tracking-widest">Modo Revisión de Diseño (Solo Lectura)</h3>
+                  <div className="mt-1 text-xs text-amber-700 font-medium">
+                    Estás visualizando el plan de acción en modo de solo lectura. Puedes revisar las evidencias descargando los adjuntos. Utiliza los botones al final del formulario para registrar tu decisión.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="w-full">
             <div className="flex justify-between items-center mb-1.5">
               <label className="font-black text-gray-700 text-xs">1. Seleccione el Informe Emitido Evaluado</label>
-              {formInformeId && (
+              {formInformeId && !modoRevisionMatriz && (
                 <button type="button" onClick={() => handleInformeChange('')} className="text-[10px] text-red-500 hover:text-red-700 font-bold uppercase transition-colors px-2 py-0.5 border border-red-200 rounded-md bg-red-50 cursor-pointer">
                   ✖️ Limpiar Matriz
                 </button>
               )}
             </div>
-            <select value={formInformeId} onChange={(e) => handleInformeChange(e.target.value)} className="w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm cursor-pointer">
+            <select disabled={modoRevisionMatriz} value={formInformeId} onChange={(e) => handleInformeChange(e.target.value)} className={`w-full border-2 border-slate-300 rounded-xl p-3 bg-white font-black text-slate-800 focus:ring-2 focus:ring-blue-600 outline-none text-xs shadow-sm ${modoRevisionMatriz ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'}`}>
               <option value="">-- Seleccione el Informe de Auditoría Radicado --</option>
               {informesAuditoria.map((inf) => <option key={inf.id} value={inf.id}>[{inf.ref}] {inf.titulo} — ({inf.proceso})</option>)}
             </select>
@@ -2001,7 +2024,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
     </div>
     <h4 className="text-xs font-black text-slate-900 mt-2">{h.titulo}</h4>
   </div>
-                      {isAdmin && (
+                      {(isAdmin && !modoRevisionMatriz) && (
                         <div className="flex items-center space-x-1 shrink-0 bg-white p-1 rounded-lg border shadow-sm">
                           <button type="button" onClick={() => handleToggleAplica(h.id, true)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${node.aplica ? 'bg-blue-600 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>Sí Aplica</button>
                           <button type="button" onClick={() => handleToggleAplica(h.id, false)} className={`px-3 py-1.5 rounded-md font-bold text-[10px] uppercase ${!node.aplica ? 'bg-slate-400 text-white shadow-sm':'text-slate-500 hover:bg-slate-100'}`}>No Aplica</button>
@@ -2015,13 +2038,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
   const actividadNueva = String(act.id).startsWith('new-');
   const correoActual = String(user?.email || '').trim().toLowerCase();
   const esResponsableActividad = !actividadNueva && correoActual && String(act.correoResponsable || '').trim().toLowerCase() === correoActual;
-  const puedeEditarActividad = isAdmin || actividadNueva || esResponsableActividad;
-  const puedeEditarAsignacion = isAdmin || actividadNueva;
-  const puedeEditarCorreo = isAdmin || actividadNueva || esResponsableActividad;
-  const puedeEditarCorreoAuditor = !actividadNueva && (isAdmin || esResponsableActividad);
-  const puedeEditarAvance = isAdmin || actividadNueva || (
+  const puedeEditarActividad = !modoRevisionMatriz && (isAdmin || actividadNueva || esResponsableActividad);
+  const puedeEditarAsignacion = !modoRevisionMatriz && (isAdmin || actividadNueva);
+  const puedeEditarCorreo = !modoRevisionMatriz && (isAdmin || actividadNueva || esResponsableActividad);
+  const puedeEditarCorreoAuditor = !modoRevisionMatriz && (!actividadNueva && (isAdmin || esResponsableActividad));
+  const puedeEditarAvance = !modoRevisionMatriz && (isAdmin || actividadNueva || (
     esResponsableActividad && ['En Ejecución', 'En Revisión (100%)'].includes(act.estadoWorkflow)
-  );
+  ));
   return (
                           <fieldset key={`act-row-${index}`} disabled={!puedeEditarActividad} className="contents">
                           {!isAdmin && !actividadNueva && !esResponsableActividad && (
@@ -2044,17 +2067,21 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                 </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <button 
-                                  type="submit" 
-                                  className="bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                                  title="Guarda los cambios de esta actividad de inmediato"
-                                >
-                                  <span>💾</span> Guardar
-                                </button>
-                                {node.actividades.length > 1 && (isAdmin || actividadNueva) && (
-                                  <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-400 hover:text-red-600 hover:bg-red-50 font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors">
-                                    🗑️ Quitar
-                                  </button>
+                                {!modoRevisionMatriz && (
+                                  <>
+                                    <button 
+                                      type="submit" 
+                                      className="bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300 font-black text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                                      title="Guarda los cambios de esta actividad de inmediato"
+                                    >
+                                      <span>💾</span> Guardar
+                                    </button>
+                                    {node.actividades.length > 1 && (isAdmin || actividadNueva) && (
+                                      <button type="button" onClick={() => handleRemoveActivity(h.id, index)} className="text-red-400 hover:text-red-600 hover:bg-red-50 font-bold text-[10px] uppercase px-3 py-1.5 rounded-lg transition-colors">
+                                        🗑️ Quitar
+                                      </button>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </div>
@@ -2282,10 +2309,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                         <a href={url} target="_blank" rel="noreferrer" className="text-[10px] text-emerald-700 font-black truncate hover:underline max-w-[80%]" title={url}>
                                           ✅ Soporte #{i + 1}
                                         </a>
-                                        <button type="button" onClick={() => {
-                                          const nuevas = evidencias.filter((_, idx) => idx !== i);
-                                          handleUpdateActivityField(h.id, index, 'evidenciaUrl', nuevas);
-                                        }} className="text-red-500 hover:bg-red-50 font-bold text-[10px] px-2 rounded transition-colors" title="Borrar este soporte">✕</button>
+                                        {!modoRevisionMatriz && (
+                                          <button type="button" onClick={() => {
+                                            const nuevas = evidencias.filter((_, idx) => idx !== i);
+                                            handleUpdateActivityField(h.id, index, 'evidenciaUrl', nuevas);
+                                          }} className="text-red-500 hover:bg-red-50 font-bold text-[10px] px-2 rounded transition-colors" title="Borrar este soporte">✕</button>
+                                        )}
                                       </div>
                                     ));
                                   })()}
@@ -2296,12 +2325,13 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                   )}
                                 </div>
 
-                                {/* Botón que siempre queda visible para agregar más */}
-                                <label className="cursor-pointer flex items-center justify-center w-full border-2 border-dashed border-slate-300 py-2 rounded-lg bg-white hover:bg-slate-100 transition-all mt-auto shadow-sm">
-                                  <span className="text-[10px] font-bold text-slate-600">➕ Agregar Soporte Adicional</span>
-                                  {/* Pasamos act.evidenciaUrl al final para que la función sepa qué archivos ya existen */}
-                                  <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx, .xlsx, .zip" onChange={(e) => handleFileUpload(e, h.id, index, act.evidenciaUrl)} />
-                                </label>
+                               {/* Botón que siempre queda visible para agregar más */}
+                                {!modoRevisionMatriz && (
+                                  <label className="cursor-pointer flex items-center justify-center w-full border-2 border-dashed border-slate-300 py-2 rounded-lg bg-white hover:bg-slate-100 transition-all mt-auto shadow-sm">
+                                    <span className="text-[10px] font-bold text-slate-600">➕ Agregar Soporte Adicional</span>
+                                    <input type="file" className="hidden" accept=".pdf, .jpg, .png, .docx, .xlsx, .zip" onChange={(e) => handleFileUpload(e, h.id, index, act.evidenciaUrl)} />
+                                  </label>
+                                )}
                               </div>
 
                               {/* ✨ NUEVO: SECCIÓN DE IMPACTO EN MATRICES */}
@@ -2345,20 +2375,24 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                           </fieldset>
   );
 })}
-                <button type="button" onClick={() => handleAddActivity(h.id)} className="bg-white border-2 border-dashed border-slate-300 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase">➕ Agregar Otra Actividad</button>
+                {!modoRevisionMatriz && (
+                  <button type="button" onClick={() => handleAddActivity(h.id)} className="bg-white border-2 border-dashed border-slate-300 text-blue-600 font-bold py-2 px-4 rounded-xl text-[10px] uppercase">➕ Agregar Otra Actividad</button>
+                )}
                       </div>
                     )}
 
                     {/* Si está marcado como "No Aplica", mostramos el recuadro con la justificación */}
                     {!node.aplica && (
                       <div className="bg-slate-100 p-4 rounded-xl border border-slate-300 shadow-inner flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mt-2">
-                        <div>
+                       <div>
                           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Motivo de rechazo (No Aplica)</span>
                           <p className="text-xs text-slate-700 font-medium italic whitespace-pre-wrap">"{node.justificacionNoAplica}"</p>
                         </div>
-                        <button type="button" onClick={() => handleToggleAplica(h.id, false)} className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase transition-colors shrink-0 shadow-sm flex items-center gap-1">
-                          <span>✏️</span> Editar Observación
-                        </button>
+                        {!modoRevisionMatriz && (
+                          <button type="button" onClick={() => handleToggleAplica(h.id, false)} className="bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase transition-colors shrink-0 shadow-sm flex items-center gap-1">
+                            <span>✏️</span> Editar Observación
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2366,43 +2400,75 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
               })}
              
 
-             {/* 👉 PÉGALO EXACTAMENTE AQUÍ REEMPLAZANDO EL ANTERIOR */}
-             <div className="pt-4 border-t flex flex-col md:flex-row justify-end items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer text-[10px] font-bold text-slate-600 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 transition-all hover:bg-slate-100 shadow-sm">
-                  <input 
-                    type="checkbox" 
-                    checked={enviarNotificaciones} 
-                    onChange={(e) => setEnviarNotificaciones(e.target.checked)}
-                    className="w-4 h-4 text-[#004d40] rounded border-slate-300 focus:ring-[#004d40]"
-                  />
-                  <span>📧 Enviar correos de notificación</span>
-                </label>
-                
-                {/* Nuevo contenedor para agrupar los botones de acción */}
-                <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-                  
-                  {/* Botón de Salir sin Guardar */}
-                  <button 
-                    type="button" 
-                    onClick={() => {
-                      if(window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
-                        setEditPlan(null);
-                        setFormInformeId(''); // Limpia la selección del informe
-                        setMatrixState({}); // Limpia los datos digitados
-                        setVistaActiva('dashboard'); // Regresa al inicio
-                      }
-                    }}
-                    className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all w-full md:w-auto"
-                  >
-                    ❌ Salir sin guardar
-                  </button>
-                  
-                  {/* Botón Original de Guardar */}
-                  <button type="submit" className="bg-[#004d40] hover:bg-[#003d33] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all w-full md:w-auto">
-                    💾 Guardar Matriz y Sincronizar
-                  </button>
-
-                </div>
+{/* BOTONES INFERIORES: DINÁMICOS SEGÚN MODO REVISIÓN O EDICIÓN */}
+             <div className="pt-4 border-t flex flex-col items-end gap-4 w-full">
+               
+               {/* ----------------- MODO REVISIÓN DE DISEÑO ----------------- */}
+               {modoRevisionMatriz ? (
+                 <div className="w-full flex flex-col items-end gap-3">
+                   {/* CAJA MOTIVO DE CORRECCIÓN */}
+                   {mostrarMotivoCorreccion && (
+                     <div className="w-full bg-white border border-orange-200 rounded-xl p-4 mb-2 animate-in slide-in-from-top-2">
+                       <label htmlFor="motivo-correccion-diseno" className="text-[10px] uppercase tracking-widest font-black text-orange-800 block mb-2">Motivo de corrección · Obligatorio</label>
+                       <textarea id="motivo-correccion-diseno" autoFocus rows="3" maxLength={2000} value={motivoCorreccion} onChange={event => setMotivoCorreccion(event.target.value)} className="w-full border border-slate-300 rounded p-3 text-sm text-slate-800 focus:ring-2 focus:ring-orange-500 outline-none" placeholder="Indique qué debe corregirse en el diseño de las acciones para que el gestor pueda ajustar." />
+                     </div>
+                   )}
+                   
+                   {/* BOTONES DE DECISIÓN */}
+                   <div className="flex flex-wrap justify-end gap-3 w-full">
+                     {!mostrarMotivoCorreccion ? (
+                       <>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => {
+                            setEditPlan(null);
+                            setFormInformeId('');
+                            setMatrixState({});
+                            setModoRevisionMatriz(false);
+                            setVistaActiva('historial');
+                         }} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Cerrar Vista</button>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => setMostrarMotivoCorreccion(true)} className="px-5 py-2.5 bg-orange-100 border border-orange-200 hover:bg-orange-200 text-orange-900 rounded-xl text-xs font-black uppercase tracking-widest shadow-sm transition-colors disabled:opacity-50">Solicitar corrección</button>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => resolverDecisionRevision('aprobar')} className="px-6 py-2.5 bg-[#69b193] hover:bg-[#549c7f] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50">{guardandoDecisionRevision ? 'Guardando…' : 'Aprobar diseño'}</button>
+                       </>
+                     ) : (
+                       <>
+                         <button type="button" disabled={guardandoDecisionRevision} onClick={() => setMostrarMotivoCorreccion(false)} className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">Volver</button>
+                         <button type="button" disabled={guardandoDecisionRevision || !motivoCorreccion.trim()} onClick={() => resolverDecisionRevision('corregir')} className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-md transition-colors disabled:opacity-50 flex items-center gap-2">{guardandoDecisionRevision ? 'Enviando…' : 'Enviar corrección al Gestor'}</button>
+                       </>
+                     )}
+                   </div>
+                 </div>
+               ) : (
+                 /* ----------------- MODO EDICIÓN NORMAL ----------------- */
+                 <div className="flex flex-col md:flex-row justify-end items-center gap-4 w-full">
+                    <label className="flex items-center gap-2 cursor-pointer text-[10px] font-bold text-slate-600 bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200 transition-all hover:bg-slate-100 shadow-sm mr-auto">
+                      <input 
+                        type="checkbox" 
+                        checked={enviarNotificaciones} 
+                        onChange={(e) => setEnviarNotificaciones(e.target.checked)}
+                        className="w-4 h-4 text-[#004d40] rounded border-slate-300 focus:ring-[#004d40]"
+                      />
+                      <span>📧 Enviar correos de notificación</span>
+                    </label>
+                    
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        if(window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
+                          setEditPlan(null);
+                          setFormInformeId(''); // Limpia la selección del informe
+                          setMatrixState({}); // Limpia los datos digitados
+                          setVistaActiva('dashboard'); // Regresa al inicio
+                        }
+                      }}
+                      className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-sm transition-all w-full md:w-auto"
+                    >
+                      ❌ Salir sin guardar
+                    </button>
+                    
+                    <button type="submit" className="bg-[#0A3B32] hover:bg-[#062620] text-white px-8 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-md transition-all w-full md:w-auto flex items-center gap-2">
+                      <span>💾</span> Guardar Matriz y Sincronizar
+                    </button>
+                 </div>
+               )}
               </div>
             </form>
           )}
@@ -2638,8 +2704,12 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                                               {(esRevisor || esAuditor || isAdmin) && (
                                                 <button 
                                                   onClick={() => {
-                                                    // Usamos tu modal de revisión de diseño existente
+                                                    setEditPlan(null);
+                                                    setModoRevisionMatriz(true);
                                                     setRevisionInformeId(p.idInforme);
+                                                    handleInformeChange(String(p.idInforme));
+                                                    setVistaActiva('nuevo');
+                                                    scrollToForm();
                                                   }} 
                                                   className="bg-sky-50 text-sky-700 border border-sky-200 font-bold px-3 py-1.5 rounded-lg text-[10px] w-full hover:bg-sky-100 transition-colors shadow-sm flex items-center justify-center gap-1"
                                                   title="Abrir en Modo Lectura para evaluar soportes"
