@@ -3,7 +3,7 @@ import { applyCors } from '../_lib/cors.js';
 import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
-import { adminDb } from '../_lib/firebaseAdmin.js';
+import { guardarWorkspaceParcial, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
 /**
  * Valida de forma estricta si el usuario posee rol administrativo o de auditoría.
@@ -107,13 +107,7 @@ export default async function handler(req, res) {
     // 🛡️ LÓGICA GET: LECTURA CON ROW-LEVEL SECURITY (RLS) SERVER-SIDE
     // =========================================================================
     if (req.method === 'GET') {
-      const dbDoc = await adminDb.collection('workspace_compartido').doc('base_de_datos_grc').get();
-      
-      if (!dbDoc.exists) {
-        return sendSuccess(res, {});
-      }
-
-      const data = dbDoc.data() || {};
+      const { data } = await leerWorkspaceGrc();
 
       // Administradores y Auditores acceden a la totalidad de la base de datos
       if (isAdmin) {
@@ -199,7 +193,7 @@ export default async function handler(req, res) {
         return sendError(res, 'Estructura de datos (partialData) inválida o ausente.', 400);
       }
 
-      await adminDb.collection('workspace_compartido').doc('base_de_datos_grc').set(partialData, { merge: true });
+      await guardarWorkspaceParcial(partialData);
       logger.info('Estructura GRC actualizada por administrador', { usuario: user.email });
       return sendSuccess(res, { message: 'Guardado exitoso.' });
     }

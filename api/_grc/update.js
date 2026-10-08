@@ -3,6 +3,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
+import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
 const CAMPOS_EDITABLES = [
   'titulo', 'proceso', 'macroproceso', 'subproceso', 'programaId',
@@ -59,11 +60,10 @@ export default async function handler(req, res) {
         return sendError(res, 'Cada actividad debe estar vinculada a un hallazgo.', 400);
       }
 
-      const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
       const resultado = await adminDb.runTransaction(async transaction => {
-        const snapshot = await transaction.get(workspaceRef);
-        if (!snapshot.exists) return { error: 'not-found' };
-        const data = snapshot.data() || {};
+        const workspace = await leerWorkspaceGrc(transaction);
+        if (!workspace.workspaceExists) return { error: 'not-found' };
+        const { data, workspaceRef } = workspace;
         const planes = Array.isArray(data.planes) ? data.planes : [];
         const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
         const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
@@ -222,6 +222,7 @@ export default async function handler(req, res) {
           ...planesNuevos,
           ...planes.map(plan => actualizadosPorId.get(String(plan.id)) || plan),
         ];
+        if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
         transaction.set(workspaceRef, { planes: listaActualizada }, { merge: true });
         return { planesActualizados, planesNuevos };
       });
@@ -285,12 +286,10 @@ export default async function handler(req, res) {
       return sendError(res, 'Solo puede editar informes de su subproceso asignado.', 403);
     }
 
-    const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
     const resultado = await adminDb.runTransaction(async transaction => {
-      const snapshot = await transaction.get(workspaceRef);
-      if (!snapshot.exists) return { error: 'not-found' };
-
-      const data = snapshot.data() || {};
+      const workspace = await leerWorkspaceGrc(transaction);
+      if (!workspace.workspaceExists) return { error: 'not-found' };
+      const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
       const anterior = informes.find(informe => String(informe.id) === String(id));
       if (!anterior) return { error: 'not-found' };
@@ -328,9 +327,11 @@ export default async function handler(req, res) {
         ] : historial,
       };
 
-      transaction.set(workspaceRef, {
-        informesAuditoria: informes.map(informe => String(informe.id) === String(id) ? actualizado : informe),
-      }, { merge: true });
+      guardarInformesGrc(
+        transaction,
+        workspace,
+        informes.map(informe => String(informe.id) === String(id) ? actualizado : informe)
+      );
       return { informe: actualizado };
     });
 

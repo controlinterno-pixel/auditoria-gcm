@@ -4,6 +4,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
+import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
 const COLECCIONES_PERMITIDAS = {
   informesAuditoria: 'sub_informes',
@@ -67,10 +68,9 @@ export default async function handler(req, res) {
       return sendError(res, 'La matriz debe incluir entre 1 y 100 actividades nuevas y un informe.', 400);
     }
 
-    const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
     const registroGuardado = await adminDb.runTransaction(async (transaction) => {
-      const snapshot = await transaction.get(workspaceRef);
-      const data = snapshot.exists ? snapshot.data() || {} : {};
+      const workspace = await leerWorkspaceGrc(transaction);
+      const { data, workspaceRef } = workspace;
       const registrosActuales = Array.isArray(data[coleccion]) ? data[coleccion] : [];
       const ahora = new Date();
       const fechaIso = ahora.toISOString();
@@ -134,6 +134,7 @@ export default async function handler(req, res) {
           });
         }
 
+        if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
         transaction.set(workspaceRef, { planes: [...items, ...registrosActuales] }, { merge: true });
         return { registros: items };
       }
@@ -199,7 +200,12 @@ export default async function handler(req, res) {
         };
       }
 
-      transaction.set(workspaceRef, { [coleccion]: [nuevoRegistro, ...registrosActuales] }, { merge: true });
+      if (coleccion === 'informesAuditoria') {
+        guardarInformesGrc(transaction, workspace, [nuevoRegistro, ...registrosActuales]);
+      } else {
+        if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
+        transaction.set(workspaceRef, { [coleccion]: [nuevoRegistro, ...registrosActuales] }, { merge: true });
+      }
       return nuevoRegistro;
     });
 

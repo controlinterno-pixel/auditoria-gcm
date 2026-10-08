@@ -3,6 +3,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
+import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const normalizar = valor => String(valor || '').trim().toLowerCase();
@@ -32,11 +33,9 @@ export default async function handler(req, res) {
       return sendError(res, 'No tiene permiso para revisar planes de acción.', 403);
     }
 
-    const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
     const resultado = await adminDb.runTransaction(async transaction => {
-      const snapshot = await transaction.get(workspaceRef);
-      if (!snapshot.exists) return { error: 'not-found' };
-      const data = snapshot.data() || {};
+      const workspace = await leerWorkspaceGrc(transaction);
+      const { data, workspaceRef } = workspace;
       const planes = Array.isArray(data.planes) ? data.planes : [];
       const hallazgos = Array.isArray(data.hallazgos) ? data.hallazgos : [];
       const informeExiste = (Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [])
@@ -73,6 +72,7 @@ export default async function handler(req, res) {
         };
       });
       const porId = new Map(actualizados.map(plan => [String(plan.id), plan]));
+      if (workspace.tieneInformesLegados) guardarInformesGrc(transaction, workspace, data.informesAuditoria);
       transaction.set(workspaceRef, {
         planes: planes.map(plan => porId.get(String(plan.id)) || plan),
       }, { merge: true });

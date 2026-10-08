@@ -3,6 +3,7 @@ import { requireAuth } from '../_lib/authMiddleware.js';
 import { sendSuccess, sendError } from '../_lib/responseHelper.js';
 import { logger } from '../_lib/logger.js';
 import { adminDb } from '../_lib/firebaseAdmin.js';
+import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
 const esAdministrador = (rol) => ['admin', 'administrador', 'auditor'].includes(
   String(rol || '').toLowerCase().trim()
@@ -31,12 +32,9 @@ export default async function handler(req, res) {
     const procesoAsignado = String(perfil.procesoAsignado || '').trim().toLowerCase();
     const subprocesoAsignado = String(perfil.subprocesoAsignado || '').trim().toLowerCase();
 
-    const workspaceRef = adminDb.collection('workspace_compartido').doc('base_de_datos_grc');
     const informeActualizado = await adminDb.runTransaction(async (transaction) => {
-      const snapshot = await transaction.get(workspaceRef);
-      if (!snapshot.exists) return null;
-
-      const data = snapshot.data() || {};
+      const workspace = await leerWorkspaceGrc(transaction);
+      const { data } = workspace;
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
       const informe = informes.find(item => String(item.id) === String(id));
       const procesoInforme = String(informe?.macroproceso || String(informe?.proceso || '').split('/')[0]).trim().toLowerCase();
@@ -49,9 +47,11 @@ export default async function handler(req, res) {
       }
 
       const actualizado = { ...informe, correoEnviadoA: destinatarios.trim(), fechaCorreoEnviado };
-      transaction.set(workspaceRef, {
-        informesAuditoria: informes.map(item => String(item.id) === String(id) ? actualizado : item),
-      }, { merge: true });
+      guardarInformesGrc(
+        transaction,
+        workspace,
+        informes.map(item => String(item.id) === String(id) ? actualizado : item)
+      );
       return actualizado;
     });
 
