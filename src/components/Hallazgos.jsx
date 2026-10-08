@@ -130,7 +130,7 @@ export default function Hallazgos({
 
   // ✨ NUEVO: Extracción de la Fuente de Mejora y su Detalle desde el Informe Origen
   const tipoFuenteHallazgo = informeOrigen?.tipoFuente || editHallazgo?.tipoFuente || autoFillData?.tipoFuente || '';
-  const metodologiaCausaDeshabilitada = esSoloLectura || tipoFuenteHallazgo === 'Programa de Auditoría';
+  const metodologiaCausaDeshabilitada = esSoloLectura;
   const detalleFuenteHallazgo = informeOrigen?.detalleFuente || editHallazgo?.detalleFuente || '';
 
   // 🧠 GENERADOR DE ID AUTOMÁTICO

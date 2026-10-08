@@ -136,6 +136,8 @@ export const createFormHandlers = ({
     const normaReferenciaOut = formData.get('normaReferencia') || editHallazgo?.normaReferencia || '';
     const procesoVal = formData.get('proceso') || formData.get('Proceso') || 'Sin proceso';
     const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || 'General';
+    const metodologiaCausaVal = formData.get('metodologiaCausa') || editHallazgo?.metodologiaCausa || '5 Porqués';
+    const analisisCausaVal = formData.get('analisisCausa') ?? editHallazgo?.analisisCausa ?? '';
     
     // ✨ Capturamos los nuevos campos
     const tipoFuenteVal = formData.get('tipoFuente') || editHallazgo?.tipoFuente || '';
@@ -156,6 +158,8 @@ export const createFormHandlers = ({
         normaReferencia: normaReferenciaOut,
         tipoFuente: tipoFuenteVal,        // ✨ Nuevo
         detalleFuente: detalleFuenteVal,  // ✨ Nuevo
+        metodologiaCausa: metodologiaCausaVal,
+        analisisCausa: analisisCausaVal,
         titulo: formData.get('titulo'), 
         severidad: formData.get('severidad'), 
         evidenciaUrl: evidenciaUrlOut, 
@@ -178,6 +182,8 @@ export const createFormHandlers = ({
         normaReferencia: normaReferenciaOut,
         tipoFuente: tipoFuenteVal,        // ✨ Nuevo
         detalleFuente: detalleFuenteVal,  // ✨ Nuevo
+        metodologiaCausa: metodologiaCausaVal,
+        analisisCausa: analisisCausaVal,
         titulo: formData.get('titulo'), 
         severidad: formData.get('severidad'), 
         estado: 'Abierto', 
