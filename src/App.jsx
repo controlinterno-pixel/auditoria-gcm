@@ -288,19 +288,19 @@ const prepararEnvioGmail = useCallback(() => prepararAutorizacionGmail(user?.ema
   const misTareasEjecucion = misPlanesEjecucion.length;
 
   // 2. Tareas que el usuario debe REVISAR (Dar Visto Bueno como Jefatura)
-  const misTareasRevision = safePlanes.filter(p => {
-    const correoRevisor = (p.correoRevisor || '').toLowerCase();
-    // Consideramos que debe revisar tanto los nuevos (Pendiente Revisión Jefatura) 
-    // como los que ya están al 100% (En Revisión (100%)) antes de que pasen al auditor.
-    return correoRevisor === userEmailLower && 
+  const misPlanesRevision = safePlanes.filter(p => {
+    const correoRevisor = (p.correoRevisor || '').trim().toLowerCase();
+    return correoRevisor === userEmailLower.trim() && 
            (p.estadoWorkflow === 'Pendiente Revisión Jefatura' || p.estadoWorkflow === 'En Revisión (100%)');
-  }).length;
+  });
+  const misTareasRevision = misPlanesRevision.length;
 
   // 3. Tareas que el usuario debe APROBAR (Como Auditor)
-  const misTareasAprobacion = safePlanes.filter(p => {
-    const correoAuditor = (p.correoAuditor || '').toLowerCase();
-    return correoAuditor === userEmailLower && p.estadoWorkflow === 'Pendiente Aprobación Auditor';
-  }).length;
+  const misPlanesAprobacion = safePlanes.filter(p => {
+    const correoAuditor = (p.correoAuditor || '').trim().toLowerCase();
+    return correoAuditor === userEmailLower.trim() && p.estadoWorkflow === 'Pendiente Aprobación Auditor';
+  });
+  const misTareasAprobacion = misPlanesAprobacion.length;
 
   // El total de notificaciones para el usuario actual
   // 📜 Restablecer el scroll arriba del todo al cambiar de módulo o subpestaña (Garantizado)

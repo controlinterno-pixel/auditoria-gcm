@@ -179,19 +179,21 @@ const [enviarNotificaciones, setEnviarNotificaciones] = useState(true);
   const [grupoExpandido, setGrupoExpandido] = useState(new Date().getFullYear().toString());
   const [informePlanesExpandido, setInformePlanesExpandido] = useState(null);
 
-  // ✨ NUEVA FUNCIÓN: Protege contra salidas accidentales al cambiar de pestaña
+ // ✨ NUEVA FUNCIÓN: Protege contra salidas accidentales al cambiar de pestaña
   const cambiarVistaSegura = (nuevaVista) => {
     if (nuevaVista === vistaActiva) return; // Si ya está ahí, no hace nada
 
     // Si está en el formulario ('nuevo') y hay un informe cargado
     if (vistaActiva === 'nuevo' && formInformeId) {
       if (window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
+        setEditPlan(null);
         setFormInformeId(''); // Limpiamos la matriz
         setMatrixState({});
         setVistaActiva(nuevaVista); // Permitimos la salida
       }
     } else {
       // Si no está en el formulario, cambia de vista libremente
+      setEditPlan(null);
       setVistaActiva(nuevaVista);
     }
   };
@@ -630,6 +632,7 @@ const handleNotificarPlan = (planId) => {
           }
         }
 
+       setEditPlan(null);
         setFormInformeId('');
         setMatrixState({});
         setVistaActiva('historial');
@@ -1102,6 +1105,14 @@ if (existingActivities.length > 0) {
     });
     setMatrixState(newState);
   }, [safePlanes, safeHallazgos, informesAuditoria]);
+  // ⚡ Auto-abrir la vista de formulario cuando se selecciona un plan desde el menú lateral
+  useEffect(() => {
+    if (editPlan && vistaActiva !== 'nuevo') {
+      setVistaActiva('nuevo');
+      if (typeof scrollToForm === 'function') scrollToForm();
+    }
+  }, [editPlan, vistaActiva, scrollToForm]);
+
   // ⚡ MEJORA UX: Carga automáticamente la matriz del informe al dar clic en "Gestionar" desde el historial
   useEffect(() => {
     if (!editPlan || vistaActiva !== 'nuevo') return;
@@ -2413,6 +2424,7 @@ const aniosDisponibles = [...new Set(planesEnriquecidos.map(p => p.anioTexto).fi
                     type="button" 
                     onClick={() => {
                       if(window.confirm("¿Estás seguro de que deseas salir sin guardar? Se perderán los cambios no guardados en esta matriz.")) {
+                        setEditPlan(null);
                         setFormInformeId(''); // Limpia la selección del informe
                         setMatrixState({}); // Limpia los datos digitados
                         setVistaActiva('dashboard'); // Regresa al inicio
