@@ -6,7 +6,7 @@ import { adminDb } from '../_lib/firebaseAdmin.js';
 import { guardarInformesGrc, leerWorkspaceGrc } from '../_lib/grcWorkspace.js';
 
 const CAMPOS_EDITABLES = [
-  'titulo', 'proceso', 'macroproceso', 'subproceso', 'programaId',
+  'titulo', 'proceso', 'macroproceso', 'subproceso', 'subprocesos', 'programaId',
   'tipoFuente', 'detalleFuente', 'fecha', 'elaboradoPor', 'revisadoPor',
   'aprobadoPor', 'auditorResponsable', 'auditor', 'correoAuditor',
   'correoAuditorResponsable', 'socializado', 'fechaSocializacion',
@@ -20,6 +20,9 @@ const CAMPOS_EDITABLES_PLAN = [
 ];
 const ROLES_ADMIN = ['admin', 'administrador', 'auditor'];
 const normalizar = valor => String(valor || '').trim().toLowerCase();
+const subprocesosDe = registro => (
+  Array.isArray(registro?.subprocesos) ? registro.subprocesos : [registro?.subproceso]
+).map(normalizar);
 const correoValido = valor => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(valor || '').trim());
 const obtenerProceso = registro => normalizar(
   registro?.macroproceso || String(registro?.proceso || '').split('/')[0]
@@ -283,7 +286,7 @@ export default async function handler(req, res) {
     if (!admin && procesoAsignado && obtenerProceso(nuevoRegistro) !== procesoAsignado) {
       return sendError(res, 'Solo puede editar informes de su proceso asignado.', 403);
     }
-    if (!admin && subprocesoAsignado && normalizar(nuevoRegistro.subproceso) !== subprocesoAsignado) {
+    if (!admin && subprocesoAsignado && !subprocesosDe(nuevoRegistro).includes(subprocesoAsignado)) {
       return sendError(res, 'Solo puede editar informes de su subproceso asignado.', 403);
     }
 
@@ -297,7 +300,7 @@ export default async function handler(req, res) {
 
       if (!admin && (
         (procesoAsignado && obtenerProceso(anterior) !== procesoAsignado) ||
-        (subprocesoAsignado && normalizar(anterior.subproceso) !== subprocesoAsignado)
+        (subprocesoAsignado && !subprocesosDe(anterior).includes(subprocesoAsignado))
       )) return { error: 'forbidden' };
 
       const camposCambiados = Object.keys(cambios).filter(campo => (

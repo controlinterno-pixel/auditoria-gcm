@@ -15,10 +15,15 @@ const fusionarAdjuntosUnicos = (listaActual = [], nuevos = []) => {
 };
 
 const normalizarCatalogo = valor => String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const convertirSubprocesosLista = valores => (
+  Array.isArray(valores)
+    ? valores.map(valor => String(valor || '').trim()).filter(Boolean)
+    : String(valores || '').split(',').map(valor => valor.trim()).filter(Boolean)
+);
 const obtenerCorreoCargoCatalogo = (catalogoCargos, cargo, macroproceso, subproceso) => {
   const cargoNormalizado = normalizarCatalogo(cargo);
   const macroNormalizado = normalizarCatalogo(macroproceso);
-  const subprocesoNormalizado = normalizarCatalogo(subproceso);
+  const subprocesosNormalizados = convertirSubprocesosLista(subproceso).map(normalizarCatalogo);
   const candidatos = catalogoCargos.filter(registro => (
     registro?.activo !== false && normalizarCatalogo(registro?.cargo) === cargoNormalizado
   ));
@@ -27,7 +32,7 @@ const obtenerCorreoCargoCatalogo = (catalogoCargos, cargo, macroproceso, subproc
     const subprocesos = Array.isArray(registro.subprocesos)
       ? registro.subprocesos
       : registro.subproceso ? [registro.subproceso] : [];
-    return subprocesos.some(valor => normalizarCatalogo(valor) === subprocesoNormalizado);
+    return subprocesos.some(valor => subprocesosNormalizados.includes(normalizarCatalogo(valor)));
   }) || delMacroproceso[0] || candidatos[0];
   return String(asignacion?.correoCorporativo || '').trim();
 };
@@ -128,7 +133,7 @@ export default function InformesAuditoria({
   // 🧠 LÓGICA DE FILTRADO (Historial Completo)
   const informesFiltradosPorFecha = informesEnriquecidos.filter(inf => {
     if (filtroProceso && inf.procesoLimpio !== filtroProceso) return false;
-    if (filtroSubproceso && inf.subproceso !== filtroSubproceso) return false;
+    if (filtroSubproceso && !convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).includes(filtroSubproceso)) return false;
     
     if (!filtroAnio && !filtroMes) return true;
     if (!inf.fecha) return false;
@@ -143,7 +148,7 @@ export default function InformesAuditoria({
   const informesDashboard = informesEnriquecidos.filter(inf => {
     if (dashFiltroAnio !== 'Todos' && inf.fecha?.split('-')[0] !== dashFiltroAnio) return false;
     if (dashFiltroProceso !== 'Todos' && inf.procesoLimpio !== dashFiltroProceso) return false;
-    if (dashFiltroSubproceso !== 'Todos' && inf.subproceso !== dashFiltroSubproceso) return false; 
+    if (dashFiltroSubproceso !== 'Todos' && !convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).includes(dashFiltroSubproceso)) return false; 
     if (dashFiltroEstado !== 'Todos' && (dashFiltroEstado === 'Socializado' ? inf.socializado === 'Sí' : inf.socializado !== 'Sí')) return false;
     
     // ✨ NUEVA CONDICIÓN: Filtrar por Fuente de Mejora (usando el nombre normalizado o el texto original)
@@ -188,7 +193,7 @@ export default function InformesAuditoria({
     let key = 'Sin clasificar';
     if (agruparPor === 'Año') key = inf.fecha ? inf.fecha.split('-')[0] : 'Sin Fecha';
     if (agruparPor === 'Proceso') key = inf.procesoLimpio;
-    if (agruparPor === 'Subproceso') key = inf.subproceso || 'General'; 
+    if (agruparPor === 'Subproceso') key = convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).join(', ') || 'General';
     if (agruparPor === 'Estado') key = inf.socializado === 'Sí' ? 'Socializados' : 'Pendientes';
     if (agruparPor === 'Responsable') key = inf.elaboradoPor || 'Sin Asignar';
 
@@ -223,6 +228,7 @@ export default function InformesAuditoria({
     titulo: '',
     proceso: '',
     subproceso: 'General',
+    subprocesos: ['General'],
     tipoFuente: '',
     detalleFuente: '',
     fecha: '',
@@ -324,6 +330,7 @@ export default function InformesAuditoria({
           titulo: editInformeAuditoria.titulo || '',
           proceso: editInformeAuditoria.proceso || editInformeAuditoria.macroproceso || '',
           subproceso: editInformeAuditoria.subproceso || 'General',
+          subprocesos: convertirSubprocesosLista(editInformeAuditoria.subprocesos ?? editInformeAuditoria.subproceso ?? 'General'),
           tipoFuente: editInformeAuditoria.tipoFuente || '',
           detalleFuente: editInformeAuditoria.detalleFuente || '',
           fecha: editInformeAuditoria.fecha || '',
@@ -365,6 +372,7 @@ export default function InformesAuditoria({
         titulo: '',
         proceso: '',
         subproceso: 'General',
+        subprocesos: [],
         tipoFuente: '',
         detalleFuente: '',
         fecha: '',
@@ -617,6 +625,7 @@ const handleFileUpload = async (e, type) => {
       titulo: editInformeAuditoria.titulo || '',
       proceso: editInformeAuditoria.proceso || editInformeAuditoria.macroproceso || '',
       subproceso: editInformeAuditoria.subproceso || 'General',
+      subprocesos: convertirSubprocesosLista(editInformeAuditoria.subprocesos ?? editInformeAuditoria.subproceso ?? 'General'),
       tipoFuente: editInformeAuditoria.tipoFuente || '',
       detalleFuente: editInformeAuditoria.detalleFuente || '',
       fecha: editInformeAuditoria.fecha || '',
@@ -659,6 +668,7 @@ const handleFileUpload = async (e, type) => {
       titulo: snapshot.titulo || draftInforme.titulo || '',
       proceso: snapshot.proceso || draftInforme.proceso || '',
       subproceso: snapshot.subproceso || draftInforme.subproceso || 'General',
+      subprocesos: convertirSubprocesosLista(snapshot.subprocesos ?? snapshot.subproceso ?? draftInforme.subprocesos ?? draftInforme.subproceso ?? 'General'),
       tipoFuente: snapshot.tipoFuente || draftInforme.tipoFuente || '',
       detalleFuente: snapshot.detalleFuente || draftInforme.detalleFuente || '',
       fecha: snapshot.fecha || draftInforme.fecha || '',
@@ -701,13 +711,15 @@ const handleFileUpload = async (e, type) => {
     );
     const nuevoMacro = fuenteDB?.macroproceso || fuenteDB?.proceso || '';
     const nuevoSub = fuenteDB?.subproceso || 'General';
+    const nuevosSubprocesos = convertirSubprocesosLista(fuenteDB?.subprocesos ?? nuevoSub);
     const siguienteDraft = {
       ...draftInforme,
       tipoFuente: seleccion,
       detalleFuente: fuenteDB?.alcance || fuenteDB?.descripcion || '',
       proceso: nuevoMacro,
       macroproceso: nuevoMacro,
-      subproceso: nuevoSub,
+      subproceso: nuevosSubprocesos[0] || nuevoSub,
+      subprocesos: nuevosSubprocesos,
     };
 
     setDraftInforme(siguienteDraft);
@@ -716,7 +728,7 @@ const handleFileUpload = async (e, type) => {
 
     if (fuenteDB) {
       setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
-      setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoSub }));
+      setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevosSubprocesos[0] || nuevoSub }));
     } else if (seleccion === 'Programa de Auditoría') {
       setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
       setSubprocesoForm(prev => ({ ...prev, [idEdicion]: '' }));
@@ -1302,7 +1314,7 @@ const handleFileUpload = async (e, type) => {
               {[
                 ['Fuente de mejora', informeDetalleModal.tipoFuente || 'No definida'],
                 ['Proceso', informeDetalleModal.procesoLimpio || informeDetalleModal.macroproceso || informeDetalleModal.proceso || 'Sin proceso'],
-                ['Subproceso', informeDetalleModal.subproceso || 'General'],
+                ['Subproceso', convertirSubprocesosLista(informeDetalleModal.subprocesos ?? informeDetalleModal.subproceso).join(', ') || 'General'],
                 ['Fecha de emisión', informeDetalleModal.fecha || 'Sin fecha'],
                 ['Elaborado por', informeDetalleModal.elaboradoPor || 'Sin asignar'],
                 ['Revisado por', informeDetalleModal.revisadoPor || 'Sin asignar'],
@@ -1377,6 +1389,11 @@ const handleFileUpload = async (e, type) => {
 <form 
             key={editInformeAuditoria?.ref || 'form-nuevo'} 
             onSubmit={async (e) => { 
+              if (!modoVistaCompleta && (!Array.isArray(draftInforme.subprocesos) || draftInforme.subprocesos.length === 0)) {
+                e.preventDefault();
+                window.alert('Selecciona al menos un subproceso para el informe.');
+                return;
+              }
               const guardado = await handleInformeAuditoriaSubmit(e);
               if (!guardado) return;
               
@@ -1448,14 +1465,17 @@ const handleFileUpload = async (e, type) => {
                         setIsDirty(true);
                         
                         const nuevoMacro = prog ? prog.proceso : '';
-                        const nuevoSub = prog ? (prog.subproceso || 'General') : 'General';
+                        const nuevosSubprocesos = prog
+                          ? convertirSubprocesosLista(prog.subprocesos ?? prog.subproceso ?? 'General')
+                          : [];
+                        const nuevoSub = nuevosSubprocesos[0] || 'General';
                         
                         if (prog) {
                            setMacroprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoMacro }));
                            setSubprocesoForm(prev => ({ ...prev, [idEdicion]: nuevoSub }));
                         }
                         
-                        const siguiente = { ...draftInforme, programaId: val, proceso: nuevoMacro, subproceso: nuevoSub };
+                        const siguiente = { ...draftInforme, programaId: val, proceso: nuevoMacro, subproceso: nuevoSub, subprocesos: nuevosSubprocesos };
                         setDraftInforme(siguiente);
                         registrarCambioBorrador(siguiente);
                       }}
@@ -1523,12 +1543,14 @@ const handleFileUpload = async (e, type) => {
                    onChange={(e) => {
                      const nuevoMacro = e.target.value;
                      const subprocesosAsociados = MAPA_PROCESOS[nuevoMacro] || [];
-                     const nuevoSubproceso = subprocesosAsociados.length === 1 ? subprocesosAsociados[0] : '';
+                     const nuevosSubprocesos = subprocesosAsociados.length === 1 ? [subprocesosAsociados[0]] : [];
+                     const nuevoSubproceso = nuevosSubprocesos[0] || '';
                      const siguiente = {
                        ...draftInforme,
                        proceso: nuevoMacro,
                        subproceso: nuevoSubproceso,
-                       correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, nuevoSubproceso),
+                       subprocesos: nuevosSubprocesos,
+                       correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, nuevoMacro, nuevosSubprocesos),
                      };
                      setDraftInforme(siguiente);
                      registrarCambioBorrador(siguiente);
@@ -1546,38 +1568,41 @@ const handleFileUpload = async (e, type) => {
                  <input type="hidden" name="proceso" value={draftInforme.proceso || macroprocesoForm || ''} />
               </div>
 
-              <div className="md:col-span-1">
-                 <label className="font-bold text-gray-600 block mb-1.5">↳ Subproceso</label>
-                 <select 
-                   name="subproceso_select" 
-                   value={draftInforme.subproceso || subprocesoForm || 'General'} 
-                   onChange={(e) => {
-                     const nuevoSubproceso = e.target.value;
-                     const siguiente = {
-                       ...draftInforme,
-                       subproceso: nuevoSubproceso,
-                       correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, draftInforme.proceso || macroprocesoForm, nuevoSubproceso),
-                     };
-                     setDraftInforme(siguiente);
-                     registrarCambioBorrador(siguiente);
-                     setIsDirty(true);
-                     setSubprocesoForm(prev => ({ ...prev, [idEdicion]: e.target.value }));
-                   }}
-                   required 
-                   className="w-full border rounded-xl p-2.5 focus:ring-2 focus:ring-[#0A3B32] bg-white outline-none font-bold text-slate-800 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                   disabled={
-                     !macroprocesoForm || 
-                     draftInforme.tipoFuente !== '' || 
-                     (MAPA_PROCESOS[macroprocesoForm]?.length <= 1) ||
-                     modoVistaCompleta
-                   }
-                 >
-                   <option value="">-- Seleccionar --</option>
-                   {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(s => <option key={s} value={s}>{s}</option>)}
-                 </select>
-                 {/* 👇 ESTE INPUT OCULTO GARANTIZA QUE SE GUARDE EL SUBPROCESO AUNQUE ESTÉ BLOQUEADO */}
-                 <input type="hidden" name="subproceso" value={draftInforme.subproceso || subprocesoForm || 'General'} />
-              </div>
+              <fieldset disabled={!macroprocesoForm || modoVistaCompleta} className="rounded-xl border border-slate-200 bg-white p-3 disabled:bg-slate-100">
+                <legend className="px-1 font-bold text-gray-600">↳ Subprocesos</legend>
+                <p className="mb-2 text-[10px] text-slate-500">{draftInforme.subprocesos?.length || 0} seleccionados</p>
+                <div className="max-h-32 space-y-1 overflow-y-auto">
+                  {[...new Set(MAPA_PROCESOS[macroprocesoForm] || [])].sort().map(subproceso => (
+                    <label key={subproceso} className="flex cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-emerald-50">
+                      <input
+                        type="checkbox"
+                        checked={(draftInforme.subprocesos || []).includes(subproceso)}
+                        onChange={event => {
+                          const subprocesos = event.target.checked
+                            ? [...new Set([...(draftInforme.subprocesos || []), subproceso])]
+                            : (draftInforme.subprocesos || []).filter(valor => valor !== subproceso);
+                          const subprocesoPrincipal = subprocesos[0] || '';
+                          const siguiente = {
+                            ...draftInforme,
+                            subprocesos,
+                            subproceso: subprocesoPrincipal,
+                            correoAuditor: obtenerCorreoCargoCatalogo(catalogoCargos, draftInforme.auditorResponsable, draftInforme.proceso || macroprocesoForm, subprocesos),
+                          };
+                          setDraftInforme(siguiente);
+                          registrarCambioBorrador(siguiente);
+                          setSubprocesoForm(prev => ({ ...prev, [idEdicion]: subprocesoPrincipal }));
+                          setIsDirty(true);
+                        }}
+                        className="mt-0.5 accent-emerald-700"
+                      />
+                      <span>{subproceso}</span>
+                    </label>
+                  ))}
+                  {macroprocesoForm && (MAPA_PROCESOS[macroprocesoForm] || []).length === 0 && <p className="text-[10px] text-amber-700">Este macroproceso no tiene subprocesos configurados.</p>}
+                </div>
+                <input type="hidden" name="subproceso" value={draftInforme.subprocesos?.[0] || draftInforme.subproceso || 'General'} />
+                <input type="hidden" name="subprocesos" value={JSON.stringify(draftInforme.subprocesos || [])} />
+              </fieldset>
 
                 <div className="md:col-span-1">
                 <label className="font-bold text-gray-600 block mb-1.5">📅 Fecha de Emisión</label>
@@ -2243,8 +2268,8 @@ const handleFileUpload = async (e, type) => {
                           <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-100 font-black rounded uppercase text-[9px] tracking-wider mb-1 inline-block">
                             {inf.macroproceso || inf.proceso}
                           </span>
-                          {inf.subproceso && inf.subproceso !== 'General' && (
-                            <div className="text-[10px] text-slate-500 font-bold mt-0.5 mb-1.5">↳ {inf.subproceso}</div>
+                          {convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).some(subproceso => subproceso !== 'General') && (
+                            <div className="text-[10px] text-slate-500 font-bold mt-0.5 mb-1.5">↳ {convertirSubprocesosLista(inf.subprocesos ?? inf.subproceso).filter(subproceso => subproceso !== 'General').join(', ')}</div>
                           )}
                           <div className="font-bold text-slate-900 text-sm leading-tight mt-1">{inf.titulo}</div>
                           <div className="text-[9px] text-slate-400 font-medium mt-1">

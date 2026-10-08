@@ -38,10 +38,12 @@ export default async function handler(req, res) {
       const informes = Array.isArray(data.informesAuditoria) ? data.informesAuditoria : [];
       const informe = informes.find(item => String(item.id) === String(id));
       const procesoInforme = String(informe?.macroproceso || String(informe?.proceso || '').split('/')[0]).trim().toLowerCase();
-      const subprocesoInforme = String(informe?.subproceso || '').trim().toLowerCase();
+      const subprocesosInforme = (
+        Array.isArray(informe?.subprocesos) ? informe.subprocesos : [informe?.subproceso]
+      ).map(subproceso => String(subproceso || '').trim().toLowerCase());
       if (!informe || (!admin && (
         (procesoAsignado && procesoInforme !== procesoAsignado) ||
-        (subprocesoAsignado && subprocesoInforme !== subprocesoAsignado)
+        (subprocesoAsignado && !subprocesosInforme.includes(subprocesoAsignado))
       ))) {
         return null;
       }

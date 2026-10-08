@@ -49,10 +49,11 @@ export default async function handler(req, res) {
     const procesoAsignado = normalizar(perfil.procesoAsignado || user.procesoAsignado);
     const subprocesoAsignado = normalizar(perfil.subprocesoAsignado);
     const procesoRegistro = normalizar(registro.macroproceso || String(registro.proceso || '').split('/')[0]);
+    const subprocesosRegistro = (Array.isArray(registro.subprocesos) ? registro.subprocesos : [registro.subproceso]).map(normalizar);
     if (!admin && coleccion !== 'hallazgos' && coleccion !== 'planes' && procesoAsignado && procesoRegistro !== procesoAsignado) {
       return sendError(res, 'El registro debe pertenecer al proceso asignado.', 403);
     }
-    if (!admin && coleccion !== 'hallazgos' && coleccion !== 'planes' && subprocesoAsignado && normalizar(registro.subproceso) !== subprocesoAsignado) {
+    if (!admin && coleccion !== 'hallazgos' && coleccion !== 'planes' && subprocesoAsignado && !subprocesosRegistro.includes(subprocesoAsignado)) {
       return sendError(res, 'El registro debe pertenecer al subproceso asignado.', 403);
     }
 

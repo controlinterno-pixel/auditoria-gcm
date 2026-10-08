@@ -574,7 +574,18 @@ const handleInformeAuditoriaSubmit = async (e) => {
       
       const tituloVal = formData.get('titulo') || editInformeAuditoria?.titulo || 'Sin título';
       const procesoVal = formData.get('proceso') || formData.get('Proceso') || editInformeAuditoria?.proceso || editInformeAuditoria?.macroproceso || 'Sin proceso';
-      const subprocesoVal = formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || editInformeAuditoria?.subproceso || 'General';
+      let subprocesosVal = [];
+      try {
+        const subprocesosRaw = JSON.parse(String(formData.get('subprocesos') || '[]'));
+        if (Array.isArray(subprocesosRaw)) subprocesosVal = subprocesosRaw.map(valor => String(valor || '').trim()).filter(Boolean);
+      } catch {
+        subprocesosVal = [];
+      }
+      if (subprocesosVal.length === 0) {
+        const legado = String(formData.get('subproceso') || formData.get('Subproceso') || formData.get('subProceso') || editInformeAuditoria?.subproceso || 'General');
+        subprocesosVal = legado.split(',').map(valor => valor.trim()).filter(Boolean);
+      }
+      const subprocesoVal = subprocesosVal[0] || 'General';
       const programaIdVal = String(formData.get('programaId') || editInformeAuditoria?.programaId || '').trim();
       const fechaVal = formData.get('fecha') || editInformeAuditoria?.fecha || new Date().toISOString().split('T')[0];
       
@@ -625,6 +636,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
             titulo: tituloVal,
             proceso: procesoVal,
             subproceso: subprocesoVal,
+            subprocesos: subprocesosVal,
             programaId: programaIdVal,
             tipoFuente: tipoFuenteOut,
             detalleFuente: detalleFuenteOut,
@@ -647,6 +659,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
           proceso: procesoVal, 
           macroproceso: procesoVal, 
           subproceso: subprocesoVal, 
+          subprocesos: subprocesosVal,
           programaId: programaIdVal,
           tipoFuente: tipoFuenteOut,
           detalleFuente: detalleFuenteOut,
@@ -680,6 +693,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
                 ...detalleCambio,
                 proceso: procesoVal,
                 subproceso: subprocesoVal,
+                subprocesos: subprocesosVal,
                 socializado: socializadoVal,
                 correoEnviadoA: correosNotificacionOut,
                 archivos: detalleCambio.archivos,
@@ -687,6 +701,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
                   titulo: tituloVal,
                   proceso: procesoVal,
                   subproceso: subprocesoVal,
+                  subprocesos: subprocesosVal,
                   programaId: programaIdVal,
                   tipoFuente: tipoFuenteOut,
                   detalleFuente: detalleFuenteOut,
@@ -720,6 +735,7 @@ const handleInformeAuditoriaSubmit = async (e) => {
           proceso: procesoVal, 
           macroproceso: procesoVal,
           subproceso: subprocesoVal, 
+          subprocesos: subprocesosVal,
           programaId: programaIdVal,
           tipoFuente: tipoFuenteOut,
           detalleFuente: detalleFuenteOut,
